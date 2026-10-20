@@ -1,0 +1,19 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: royalclub
+      POSTGRES_USER: royalclub
+      POSTGRES_PASSWORD: local_dev_only
+    ports:
+      - "5432:5432"
+    volumes:
+      - royalclub_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U royalclub -d royalclub"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+volumes:
+  royalclub_pgdata:
