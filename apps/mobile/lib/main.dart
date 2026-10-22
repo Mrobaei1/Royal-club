@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'backgammon_engine.dart';
+import 'engine_backgammon_screen.dart';
 
 void main() => runApp(const RoyalClubApp());
 
@@ -77,7 +78,7 @@ class HomeScreen extends StatelessWidget {
                 featured: true,
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute<void>(
-                    builder: (_) => const BackgammonScreen(),
+                    builder: (_) => const EngineBackgammonScreen(),
                   ),
                 ),
               ),
