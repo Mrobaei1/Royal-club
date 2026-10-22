@@ -225,7 +225,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
   Widget _landscapeLayout(Set<int> legalTargets, double availableHeight) {
     // Keep the board within the visible landscape viewport, including the dice strip.
     final rowHeight =
-        ((availableHeight - 82) / 2).clamp(36.0, 115.0).toDouble();
+        ((availableHeight - 100) / 2).clamp(32.0, 108.0).toDouble();
     return Padding(
       padding: const EdgeInsets.fromLTRB(8, 4, 8, 6),
       child: Row(
@@ -558,7 +558,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
     }
     final shown = count > 5 ? 5 : count;
     final chips =
-        List.generate(shown, (_) => _checker(player, size: compact ? 11 : 17));
+        List.generate(shown, (_) => _checker(player, size: compact ? 10 : 17));
     return Expanded(
       child: Align(
         alignment: top ? Alignment.topCenter : Alignment.bottomCenter,
@@ -573,7 +573,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
   Widget _checker(int player, {double size = 20}) => Container(
         width: size,
         height: size,
-        margin: const EdgeInsets.symmetric(vertical: 1),
+        margin: const EdgeInsets.symmetric(vertical: 0.5),
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           gradient: LinearGradient(
