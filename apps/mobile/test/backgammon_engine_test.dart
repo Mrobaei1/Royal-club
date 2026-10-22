@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:royal_club/backgammon_engine.dart';
 
@@ -133,5 +135,51 @@ void main() {
       expect(game.bar, [0, 0]);
       expect(game.borneOff, [0, 0]);
     });
+
+    test('rejects an illegal move without changing the position or dice', () {
+      game.points.fillRange(0, 24, 0);
+      game.dice = [1, 2];
+      game.currentPlayer = 1;
+      game.points[0] = 1;
+      final beforePoints = List<int>.from(game.points);
+      final beforeDice = List<int>.from(game.dice);
+
+      expect(
+        game.playMove(const BackgammonMove(from: 0, to: 20, die: 1)),
+        isFalse,
+      );
+      expect(game.points, beforePoints);
+      expect(game.dice, beforeDice);
+      expect(game.currentPlayer, 1);
+    });
+
+    test('a blocked bar entry automatically passes the turn', () {
+      final blockedGame = BackgammonEngine(random: _FixedRandom([0, 0]));
+      blockedGame.points.fillRange(0, 24, 0);
+      blockedGame.bar[1] = 1;
+      for (var point = 0; point < 6; point++) {
+        blockedGame.points[point] = -2;
+      }
+
+      blockedGame.rollDice();
+      expect(blockedGame.dice, isEmpty);
+      expect(blockedGame.currentPlayer, -1);
+      expect(blockedGame.bar[1], 1);
+    });
   });
+}
+
+class _FixedRandom implements Random {
+  _FixedRandom(this.values);
+  final List<int> values;
+  int index = 0;
+
+  @override
+  bool nextBool() => nextInt(2) == 1;
+
+  @override
+  double nextDouble() => nextInt(1000000) / 1000000;
+
+  @override
+  int nextInt(int max) => values[index++ % values.length] % max;
 }
