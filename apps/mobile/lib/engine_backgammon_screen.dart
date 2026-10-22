@@ -480,53 +480,74 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
       {required bool top, bool compact = false}) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: indexes.map((index) {
-        final count = _engine.points[index];
-        final player = count == 0 ? 0 : count.sign;
-        final selected = _selectedPoint == index;
-        final target = legalTargets.contains(index);
-        return Expanded(
-          child: GestureDetector(
-            onTap: () => _tapPoint(index),
-            child: Container(
+      children: [
+        for (var position = 0; position < indexes.length; position++) ...[
+          if (position == 6)
+            Container(
+              width: 3,
               margin: const EdgeInsets.symmetric(horizontal: 1),
               decoration: BoxDecoration(
-                color: selected
-                    ? _boardGold.withValues(alpha: .28)
-                    : target
-                        ? Colors.green.withValues(alpha: .20)
-                        : Colors.transparent,
-                borderRadius: BorderRadius.circular(4),
-                border: Border.all(
-                    color: selected
-                        ? _boardGold
-                        : target
-                            ? Colors.greenAccent
-                            : Colors.transparent,
-                    width: 1.2),
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  if (top) ...[
-                    Text('${index + 1}',
-                        style: const TextStyle(
-                            fontSize: 9, color: Colors.white70)),
-                    _checkerStack(player, count.abs(),
-                        top: true, compact: compact),
-                  ] else ...[
-                    _checkerStack(player, count.abs(),
-                        top: false, compact: compact),
-                    Text('${index + 1}',
-                        style: const TextStyle(
-                            fontSize: 9, color: Colors.white70)),
-                  ],
+                color: _boardGold,
+                boxShadow: [
+                  BoxShadow(
+                    color: _boardGold.withValues(alpha: 0.5),
+                    blurRadius: 4,
+                    spreadRadius: 0.5,
+                  ),
                 ],
               ),
             ),
+          Expanded(
+            child: Builder(builder: (context) {
+              final index = indexes[position];
+              final count = _engine.points[index];
+              final player = count == 0 ? 0 : count.sign;
+              final selected = _selectedPoint == index;
+              final target = legalTargets.contains(index);
+              return GestureDetector(
+                onTap: () => _tapPoint(index),
+                child: Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 1),
+                  decoration: BoxDecoration(
+                    color: selected
+                        ? _boardGold.withValues(alpha: .28)
+                        : target
+                            ? Colors.green.withValues(alpha: .20)
+                            : Colors.transparent,
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(
+                      color: selected
+                          ? _boardGold
+                          : target
+                              ? Colors.greenAccent
+                              : Colors.transparent,
+                      width: 1.2,
+                    ),
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      if (top) ...[
+                        Text('$index',
+                            style: const TextStyle(
+                                fontSize: 9, color: Colors.white70)),
+                        _checkerStack(player, count.abs(),
+                            top: true, compact: compact),
+                      ] else ...[
+                        _checkerStack(player, count.abs(),
+                            top: false, compact: compact),
+                        Text('$index',
+                            style: const TextStyle(
+                                fontSize: 9, color: Colors.white70)),
+                      ],
+                    ],
+                  ),
+                ),
+              );
+            }),
           ),
-        );
-      }).toList(),
+        ],
+      ],
     );
   }
 
