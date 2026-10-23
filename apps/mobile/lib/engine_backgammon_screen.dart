@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'backgammon_engine.dart';
+import 'backgammon_ai.dart';
 
 const _boardNavy = Color(0xFF10182B);
 const _boardGold = Color(0xFFD8B45A);
@@ -19,6 +20,10 @@ class EngineBackgammonScreen extends StatefulWidget {
 
 class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
   final BackgammonEngine _engine = BackgammonEngine();
+  final BackgammonAI _ai = BackgammonAI();
+  bool _vsComputer = true;
+  BackgammonDifficulty _difficulty = BackgammonDifficulty.medium;
+  bool _computerThinking = false;
 
   @override
   void initState() {
@@ -50,10 +55,13 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
   int? _selectedPoint;
   bool _selectedBar = false;
   String _message = 'برای شروع، تاس بریزید.';
+  bool _gameOverDialogShown = false;
 
   List<BackgammonMove> get _moves => _engine.legalMoves();
 
   void _roll() {
+    if (_computerThinking || (_vsComputer && _engine.currentPlayer == -1))
+      return;
     setState(() {
       _selectedPoint = null;
       _selectedBar = false;
@@ -72,11 +80,13 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
             'حرکتی نبود؛ نوبت ${_playerName(_engine.currentPlayer)} است.';
       }
     });
+    _scheduleComputerTurn();
   }
 
   void _reset() {
     setState(() {
       _engine.reset();
+      _computerThinking = false;
       _selectedPoint = null;
       _selectedBar = false;
       _message = 'بازی از ابتدا شروع شد. تاس بریزید.';
@@ -86,6 +96,8 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
   String _playerName(int player) => player == 1 ? 'طلایی' : 'روشن';
 
   void _tapPoint(int point) {
+    if (_computerThinking || (_vsComputer && _engine.currentPlayer == -1))
+      return;
     if (_engine.finished || _engine.dice.isEmpty) return;
     setState(() {
       final moves = _moves;
@@ -113,7 +125,27 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
     });
   }
 
+  void _tapBearOff() {
+    if (_engine.finished || _engine.dice.isEmpty) return;
+    setState(() {
+      if (_selectedPoint == null || _selectedBar) {
+        _message = 'ابتدا مهره‌ای را که می‌خواهید خارج کنید انتخاب کنید.';
+        return;
+      }
+      final candidates = _moves
+          .where((m) => !m.fromBar && m.from == _selectedPoint && m.to == -1)
+          .toList();
+      if (candidates.isEmpty) {
+        _message = 'با تاس فعلی، خارج کردن این مهره مجاز نیست.';
+        return;
+      }
+      _play(candidates.first);
+    });
+  }
+
   void _tapBar() {
+    if (_computerThinking || (_vsComputer && _engine.currentPlayer == -1))
+      return;
     if (_engine.finished || _engine.dice.isEmpty) return;
     setState(() {
       final moves = _moves.where((m) => m.fromBar).toList();
@@ -137,11 +169,123 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
     }
     if (_engine.finished) {
       _message = 'تبریک! بازیکن ${_playerName(_engine.winner!)} برنده شد.';
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _showGameOverDialog();
+      });
     } else if (_engine.dice.isEmpty) {
       _message = 'نوبت ${_playerName(_engine.currentPlayer)} است؛ تاس بریزید.';
     } else {
       _message = 'حرکت انجام شد؛ تاس باقی‌مانده: ${_engine.dice.join('، ')}';
     }
+    _scheduleComputerTurn();
+  }
+
+  void _scheduleComputerTurn() {
+    if (!_vsComputer ||
+        _engine.finished ||
+        _engine.currentPlayer != -1 ||
+        _computerThinking) return;
+    _computerThinking = true;
+    Future<void>.delayed(const Duration(milliseconds: 350), () {
+      if (!mounted) return;
+      setState(() {
+        if (!_vsComputer || _engine.finished || _engine.currentPlayer != -1) {
+          _computerThinking = false;
+          return;
+        }
+        if (_engine.dice.isEmpty) {
+          final rolled = _engine.rollDice();
+          if (rolled.isEmpty) {
+            _message = 'نوبت کامپیوتر بدون حرکت تمام شد.';
+            _computerThinking = false;
+            return;
+          }
+        }
+        var safety = 0;
+        while (!_engine.finished &&
+            _engine.currentPlayer == -1 &&
+            _engine.dice.isNotEmpty &&
+            safety++ < 4) {
+          final move = _ai.chooseMove(_engine, difficulty: _difficulty);
+          if (move == null || !_engine.playMove(move)) break;
+        }
+        _computerThinking = false;
+        if (_engine.finished) {
+          _message = 'کامپیوتر برنده شد.';
+        } else if (_engine.currentPlayer == 1) {
+          _message = 'نوبت شماست؛ تاس بریزید.';
+        } else {
+          _message =
+              'نوبت کامپیوتر است؛ تاس باقی‌مانده: ${_engine.dice.join('، ')}';
+        }
+      });
+      if (_vsComputer &&
+          !_engine.finished &&
+          _engine.currentPlayer == -1 &&
+          _engine.dice.isNotEmpty) {
+        _scheduleComputerTurn();
+      }
+    });
+  }
+
+  void _changeMode(bool vsComputer) {
+    setState(() {
+      _vsComputer = vsComputer;
+      _engine.reset();
+      _computerThinking = false;
+      _selectedPoint = null;
+      _selectedBar = false;
+      _message = vsComputer
+          ? 'بازی با هوش مصنوعی؛ تاس بریزید.'
+          : 'بازی دونفره محلی؛ تاس بریزید.';
+    });
+  }
+
+  void _showGameOverDialog() {
+    if (_gameOverDialogShown || !mounted || !_engine.finished) return;
+    _gameOverDialogShown = true;
+    final navigator = Navigator.of(context);
+    final winner = _playerName(_engine.winner!);
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: AlertDialog(
+          backgroundColor: const Color(0xFF1A2540),
+          icon: const Icon(Icons.emoji_events, color: _boardGold, size: 42),
+          title: const Text('پایان بازی',
+              style: TextStyle(color: _boardGold, fontWeight: FontWeight.bold)),
+          content: Text('تبریک! بازیکن $winner برنده شد 🎉',
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.white, fontSize: 17)),
+          actionsAlignment: MainAxisAlignment.center,
+          actions: [
+            FilledButton.icon(
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+                _reset();
+              },
+              icon: const Icon(Icons.refresh),
+              label: const Text('بازی مجدد'),
+              style: FilledButton.styleFrom(
+                  backgroundColor: _boardGold, foregroundColor: _boardNavy),
+            ),
+            OutlinedButton.icon(
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+                navigator.maybePop();
+              },
+              icon: const Icon(Icons.exit_to_app),
+              label: const Text('خروج از بازی'),
+              style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.white,
+                  side: const BorderSide(color: _boardGold)),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -184,6 +328,8 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
               return ListView(
                 padding: const EdgeInsets.all(14),
                 children: [
+                  _modeControls(),
+                  const SizedBox(height: 10),
                   _statusPanel(),
                   const SizedBox(height: 12),
                   AspectRatio(
@@ -222,6 +368,77 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
     );
   }
 
+  Widget _modeControls({bool compact = false}) => Container(
+        padding: EdgeInsets.symmetric(
+            horizontal: compact ? 6 : 10, vertical: compact ? 4 : 8),
+        decoration: BoxDecoration(
+          color: const Color(0xFF1A2540),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: _boardGold.withValues(alpha: .4)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Wrap(alignment: WrapAlignment.center, spacing: 6, children: [
+              ChoiceChip(
+                label: Text(compact ? 'با هوش مصنوعی' : 'بازی با هوش مصنوعی',
+                    style: TextStyle(fontSize: compact ? 10 : 12)),
+                selected: _vsComputer,
+                onSelected: _computerThinking ? null : (_) => _changeMode(true),
+                selectedColor: _boardGold,
+                labelStyle:
+                    TextStyle(color: _vsComputer ? _boardNavy : Colors.white),
+                visualDensity: VisualDensity.compact,
+              ),
+              ChoiceChip(
+                label: Text(compact ? 'دونفره' : 'بازی دونفره',
+                    style: TextStyle(fontSize: compact ? 10 : 12)),
+                selected: !_vsComputer,
+                onSelected:
+                    _computerThinking ? null : (_) => _changeMode(false),
+                selectedColor: _boardGold,
+                labelStyle:
+                    TextStyle(color: !_vsComputer ? _boardNavy : Colors.white),
+                visualDensity: VisualDensity.compact,
+              ),
+            ]),
+            if (_vsComputer)
+              Row(children: [
+                Text('سختی:',
+                    style: TextStyle(
+                        color: Colors.white70, fontSize: compact ? 10 : 12)),
+                const SizedBox(width: 8),
+                Expanded(
+                    child: DropdownButtonHideUnderline(
+                  child: DropdownButton<BackgammonDifficulty>(
+                    value: _difficulty,
+                    isExpanded: true,
+                    dropdownColor: _boardNavy,
+                    style: TextStyle(
+                        color: _boardGold, fontSize: compact ? 11 : 13),
+                    items: const [
+                      DropdownMenuItem(
+                          value: BackgammonDifficulty.easy,
+                          child: Text('آسان')),
+                      DropdownMenuItem(
+                          value: BackgammonDifficulty.medium,
+                          child: Text('متوسط')),
+                      DropdownMenuItem(
+                          value: BackgammonDifficulty.hard, child: Text('سخت')),
+                    ],
+                    onChanged: _computerThinking
+                        ? null
+                        : (value) {
+                            if (value != null)
+                              setState(() => _difficulty = value);
+                          },
+                  ),
+                )),
+              ]),
+          ],
+        ),
+      );
+
   Widget _landscapeLayout(Set<int> legalTargets, double availableHeight) {
     // Keep the board within the visible landscape viewport, including the dice strip.
     final rowHeight =
@@ -238,6 +455,8 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
             width: 190,
             child: Column(
               children: [
+                _modeControls(compact: true),
+                const SizedBox(height: 6),
                 Expanded(flex: 3, child: _statusPanel(compact: true)),
                 const SizedBox(height: 8),
                 Expanded(flex: 2, child: _scoreRow(compact: true)),
@@ -315,7 +534,10 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
                 children: [
                   Expanded(
                     child: FilledButton.icon(
-                      onPressed: _engine.dice.isEmpty && !_engine.finished
+                      onPressed: _engine.dice.isEmpty &&
+                              !_engine.finished &&
+                              !_computerThinking &&
+                              !(_vsComputer && _engine.currentPlayer == -1)
                           ? _roll
                           : null,
                       icon: const Icon(Icons.casino, size: 18),
@@ -338,6 +560,43 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
                       child: Align(
                           alignment: Alignment.centerLeft,
                           child: _diceTray(compact: true))),
+                  const SizedBox(width: 6),
+                  InkWell(
+                    onTap: _tapBearOff,
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      width: 54,
+                      padding: const EdgeInsets.symmetric(
+                          vertical: 3, horizontal: 2),
+                      decoration: BoxDecoration(
+                        color: _selectedPoint != null
+                            ? _boardGold.withValues(alpha: .22)
+                            : Colors.white.withValues(alpha: .06),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: _selectedPoint != null
+                              ? _boardGold
+                              : Colors.white24,
+                        ),
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.exit_to_app, color: _boardGold, size: 17),
+                          const Text('خارج',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              )),
+                          Text(
+                              '${_engine.borneOff[_engine.currentPlayer == 1 ? 1 : 0]}/15',
+                              style: const TextStyle(
+                                  color: Colors.white70, fontSize: 9)),
+                        ],
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
