@@ -24,8 +24,75 @@ class RoyalClubApp extends StatelessWidget {
             surface: panel,
           ),
         ),
-        home: const HomeScreen(),
+        home: const AuthGate(),
       );
+}
+
+class AuthGate extends StatefulWidget {
+  const AuthGate({super.key});
+
+  @override
+  State<AuthGate> createState() => _AuthGateState();
+}
+
+class _AuthGateState extends State<AuthGate> {
+  bool _checking = true;
+  bool _authenticated = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkSession();
+  }
+
+  Future<void> _checkSession() async {
+    var valid = false;
+    try {
+      await AuthService.me();
+      valid = true;
+    } catch (_) {
+      // توکن وجود ندارد یا نشست دیگر معتبر نیست.
+    }
+    if (!mounted) return;
+    setState(() {
+      _authenticated = valid;
+      _checking = false;
+    });
+  }
+
+  void _onAuthenticated() {
+    if (!mounted) return;
+    setState(() => _authenticated = true);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_checking) {
+      return const Scaffold(
+        backgroundColor: navy,
+        body: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.workspace_premium_rounded, color: gold, size: 64),
+              SizedBox(height: 18),
+              Text('ROYAL CLUB',
+                  style: TextStyle(
+                      color: gold, fontSize: 22, fontWeight: FontWeight.w900)),
+              SizedBox(height: 20),
+              CircularProgressIndicator(color: gold),
+              SizedBox(height: 12),
+              Text('در حال بررسی نشست قبلی...',
+                  style: TextStyle(color: Colors.white70)),
+            ],
+          ),
+        ),
+      );
+    }
+    return _authenticated
+        ? const HomeScreen()
+        : AuthScreen(onAuthenticated: _onAuthenticated, initialRegister: true);
+  }
 }
 
 class HomeScreen extends StatelessWidget {
@@ -99,20 +166,7 @@ class HomeScreen extends StatelessWidget {
                   ),
                 ]),
                 const SizedBox(height: 18),
-                OutlinedButton.icon(
-                  onPressed: () => Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const AuthScreen()),
-                  ),
-                  icon: const Icon(Icons.login_rounded),
-                  label: const Text('ورود / ثبت‌نام'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: gold,
-                    side: const BorderSide(color: gold),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                  ),
-                ),
-                const SizedBox(height: 27),
-                Container(
+                const SizedBox(height: 27),                Container(
                   padding: const EdgeInsets.all(23),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(27),
@@ -294,7 +348,14 @@ class GameTile extends StatelessWidget {
 }
 
 class AuthScreen extends StatefulWidget {
-  const AuthScreen({super.key});
+  final VoidCallback onAuthenticated;
+  final bool initialRegister;
+
+  const AuthScreen({
+    super.key,
+    required this.onAuthenticated,
+    this.initialRegister = false,
+  });
 
   @override
   State<AuthScreen> createState() => _AuthScreenState();
@@ -303,7 +364,7 @@ class AuthScreen extends StatefulWidget {
 class _AuthScreenState extends State<AuthScreen> {
   final _email = TextEditingController();
   final _password = TextEditingController();
-  bool _register = false;
+  late bool _register = widget.initialRegister;
   bool _busy = false;
   bool _rememberMe = true;
   bool _checkingSession = true;
@@ -312,23 +373,16 @@ class _AuthScreenState extends State<AuthScreen> {
   @override
   void initState() {
     super.initState();
-    _restoreLogin();
+    _loadRememberedEmail();
   }
 
-  Future<void> _restoreLogin() async {
+  Future<void> _loadRememberedEmail() async {
     try {
       final email = await AuthService.rememberedEmail();
       if (!mounted) return;
       if (email != null && email.isNotEmpty) {
         _email.text = email;
         _rememberMe = true;
-      }
-      try {
-        // نشست ذخیره‌شده را بررسی می‌کنیم، اما صفحه ورود/ثبت‌نام را
-        // خودکار نمی‌بندیم؛ وگرنه کاربر هنگام انتخاب «ثبت‌نام» به خانه برمی‌گردد.
-        await AuthService.me();
-      } catch (_) {
-        // نشست معتبر نیست یا کاربر هنوز وارد نشده است.
       }
     } finally {
       if (mounted) setState(() => _checkingSession = false);
@@ -365,19 +419,16 @@ class _AuthScreenState extends State<AuthScreen> {
 
       if (!mounted) return;
 
-      if (wasRegister) {
-        setState(() {
-          _message = 'ثبت‌نام انجام شد. اکنون وارد شوید.';
-          if (result['token'] == null) _register = false;
-        });
-      } else if (result['token'] is String &&
+      if (result['token'] is String &&
           (result['token'] as String).isNotEmpty) {
         await AuthService.setRememberedEmail(_email.text, _rememberMe);
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('ورود با موفقیت انجام شد.')),
-        );
-        Navigator.of(context).pop();
+        widget.onAuthenticated();
+      } else if (wasRegister) {
+        setState(() {
+          _register = false;
+          _message = 'ثبت‌نام انجام شد. برای ورود، رمز عبور را دوباره وارد کنید.';
+        });
       } else {
         setState(() => _message = 'ورود انجام شد، اما توکن دریافت نشد.');
       }
