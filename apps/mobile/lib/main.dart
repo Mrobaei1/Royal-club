@@ -496,7 +496,7 @@ class _AuthScreenState extends State<AuthScreen> {
                       autofillHints: const [AutofillHints.telephoneNumber],
                       decoration: const InputDecoration(labelText: 'شماره تلفن', hintText: '+49 123 456789', border: OutlineInputBorder(), prefixIcon: Icon(Icons.phone_outlined))),
                     const SizedBox(height: 14),
-                    DropdownButtonFormField<String>(value: _country,
+                    DropdownButtonFormField<String>(initialValue: _country,
                       decoration: const InputDecoration(labelText: 'کشور', border: OutlineInputBorder(), prefixIcon: Icon(Icons.public_outlined)),
                       items: const [
                         DropdownMenuItem(value: 'Germany', child: Text('آلمان')),
