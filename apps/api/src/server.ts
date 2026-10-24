@@ -60,10 +60,10 @@ app.post<{ Body: { email?: string; password?: string } }>(
 
     if (!email || email.length > 254 ||
         !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ||
-        typeof password !== 'string' || password.length < 10 ||
+        typeof password !== 'string' || password.length < 6 ||
         Buffer.byteLength(password, 'utf8') > 128) {
       return reply.code(400).send({
-        error: 'Enter a valid email and a password of 10–128 bytes.'
+        error: 'Enter a valid email and a password of 6–128 bytes.'
       });
     }
 
