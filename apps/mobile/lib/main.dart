@@ -488,7 +488,7 @@ class _AuthScreenState extends State<AuthScreen> {
                     controller: _password,
                     obscureText: true,
                     autofillHints: const [AutofillHints.password],
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       labelText: _register ? 'رمز عبور (حداقل ۶ نویسه)' : 'رمز عبور',
                       border: OutlineInputBorder(),
                       prefixIcon: Icon(Icons.lock_outline),
