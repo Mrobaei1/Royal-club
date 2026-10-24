@@ -34,8 +34,14 @@ await pool.query(`
     id BIGSERIAL PRIMARY KEY,
     email TEXT NOT NULL UNIQUE,
     password_hash TEXT NOT NULL,
+    full_name TEXT NOT NULL DEFAULT '',
+    phone TEXT NOT NULL DEFAULT '',
+    country TEXT NOT NULL DEFAULT '',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-  )
+  );
+  ALTER TABLE users ADD COLUMN IF NOT EXISTS full_name TEXT NOT NULL DEFAULT '';
+  ALTER TABLE users ADD COLUMN IF NOT EXISTS phone TEXT NOT NULL DEFAULT '';
+  ALTER TABLE users ADD COLUMN IF NOT EXISTS country TEXT NOT NULL DEFAULT '';
 `);
 
 app.get('/api/v1/health', async () => ({
@@ -54,19 +60,24 @@ app.get('/api/v1/health/db', async (_request, reply) => {
   }
 });
 
-app.post<{ Body: { email?: string; password?: string } }>(
+app.post<{ Body: { email?: string; password?: string; fullName?: string; phone?: string; country?: string } }>(
   '/api/v1/auth/register',
   { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } },
   async (request, reply) => {
     const email = request.body?.email?.trim().toLowerCase();
     const password = request.body?.password;
+    const fullName = request.body?.fullName?.trim();
+    const phone = request.body?.phone?.trim();
+    const country = request.body?.country?.trim();
 
-    if (!email || email.length > 254 ||
+    if (!fullName || fullName.length > 120 || !phone || phone.length > 32 ||
+        !/^[+0-9() .-]{6,32}$/.test(phone) || !country || country.length > 80 ||
+        !email || email.length > 254 ||
         !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ||
         typeof password !== 'string' || password.length < 6 ||
         Buffer.byteLength(password, 'utf8') > 128) {
       return reply.code(400).send({
-        error: 'Enter a valid email and a password of 6–128 bytes.'
+        error: 'Enter a name, valid phone, country, valid email, and a password of 6–128 bytes.'
       });
     }
 
@@ -76,16 +87,16 @@ app.post<{ Body: { email?: string; password?: string } }>(
 
     try {
       const result = await pool.query(
-        'INSERT INTO users (email, password_hash) VALUES ($1, $2) RETURNING id, email, created_at',
-        [email, passwordHash]
+        'INSERT INTO users (email, password_hash, full_name, phone, country) VALUES ($1, $2, $3, $4, $5) RETURNING id, email, full_name, phone, country, created_at',
+        [email, passwordHash, fullName, phone, country]
       );
-      const user = result.rows[0] as { id: string; email: string; created_at: Date };
+      const user = result.rows[0] as { id: string; email: string; full_name: string; phone: string; country: string; created_at: Date };
       const accessToken = app.jwt.sign(
         { sub: user.id, email: user.email },
         { expiresIn: '1h' }
       );
       return reply.code(201).send({
-        user: { id: user.id, email: user.email, createdAt: user.created_at },
+        user: { id: user.id, email: user.email, fullName: user.full_name, phone: user.phone, country: user.country, createdAt: user.created_at },
         accessToken,
         tokenType: 'Bearer',
         expiresIn: 3600
@@ -158,12 +169,12 @@ app.get('/api/v1/me', {
   if (!claims.sub) return reply.code(401).send({ error: 'Invalid token.' });
 
   const result = await pool.query(
-    'SELECT id, email, created_at FROM users WHERE id = $1',
+    'SELECT id, email, full_name, phone, country, created_at FROM users WHERE id = $1',
     [claims.sub]
   );
   if (!result.rowCount) return reply.code(401).send({ error: 'Account not found.' });
   const user = result.rows[0] as { id: string; email: string; created_at: Date };
-  return { user: { id: user.id, email: user.email, createdAt: user.created_at } };
+  return { user: { id: user.id, email: user.email, fullName: user.full_name, phone: user.phone, country: user.country, createdAt: user.created_at } };
 });
 
 app.addHook('onClose', async () => { await pool.end(); });
