@@ -1,305 +1,280 @@
 import 'package:flutter/material.dart';
+import 'engine_backgammon_screen.dart';
 
 void main() => runApp(const RoyalClubApp());
 
-const navy = Color(0xFF10182B);
-const gold = Color(0xFFD8B45A);
+const Color navy = Color(0xFF10182B);
+const Color panel = Color(0xFF17243A);
+const Color gold = Color(0xFFD8B45A);
 
 class RoyalClubApp extends StatelessWidget {
   const RoyalClubApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Royal Club',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        brightness: Brightness.dark,
-        scaffoldBackgroundColor: navy,
-        colorScheme:
-            ColorScheme.fromSeed(seedColor: gold, brightness: Brightness.dark),
-        useMaterial3: true,
-        appBarTheme:
-            const AppBarTheme(backgroundColor: navy, foregroundColor: gold),
-      ),
-      home: const HomeScreen(),
-    );
-  }
+  Widget build(BuildContext context) => MaterialApp(
+        debugShowCheckedModeBanner: false,
+        title: 'Royal Club',
+        theme: ThemeData(
+          useMaterial3: true,
+          scaffoldBackgroundColor: navy,
+          colorScheme: ColorScheme.fromSeed(
+            seedColor: gold,
+            brightness: Brightness.dark,
+            surface: panel,
+          ),
+        ),
+        home: const HomeScreen(),
+      );
 }
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return Directionality(
-      textDirection: TextDirection.rtl,
-      child: Scaffold(
-        appBar: AppBar(
-            title: const Text('ROYAL CLUB',
-                style:
-                    TextStyle(letterSpacing: 2, fontWeight: FontWeight.w800))),
-        body: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const SizedBox(height: 24),
-                const Icon(Icons.workspace_premium, size: 64, color: gold),
-                const SizedBox(height: 12),
-                const Text('به باشگاه سلطنتی خوش آمدید',
-                    textAlign: TextAlign.center,
-                    style:
-                        TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 8),
-                Text('دنیایی از بازی‌های آنلاین، در یک تجربه ممتاز',
-                    textAlign: TextAlign.center,
-                    style:
-                        TextStyle(color: Colors.white.withValues(alpha: 0.72))),
-                const SizedBox(height: 24),
-                SizedBox(
-                    height: 54,
-                    child: FilledButton.icon(
-                        onPressed: () {
-                          Navigator.of(context).push(MaterialPageRoute(
-                              builder: (_) => const BackgammonScreen()));
-                        },
-                        icon: const Icon(Icons.casino),
-                        label: const Text('شروع بازی تخته‌نرد',
-                            style: TextStyle(
-                                fontSize: 17, fontWeight: FontWeight.bold)),
-                        style: FilledButton.styleFrom(
-                            backgroundColor: gold,
-                            foregroundColor: navy,
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16))))),
-                const SizedBox(height: 24),
-                const GameTile(
-                    title: 'تخته‌نرد',
-                    subtitle: 'به‌زودی · بازی آنلاین دونفره',
-                    icon: Icons.casino),
-                const GameTile(
-                    title: 'شطرنج',
-                    subtitle: 'در برنامه توسعه',
-                    icon: Icons.grid_4x4),
-                const GameTile(
-                    title: 'بازی‌های کارتی',
-                    subtitle: 'حکم، چهاربرگ و موارد بیشتر',
-                    icon: Icons.style),
-                const SizedBox(height: 16),
-                Text('نسخه آغازین رابط کاربری · 0.1.0',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.white.withValues(alpha: 0.5))),
-              ],
+  Widget build(BuildContext context) => Scaffold(
+        body: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Color(0xFF17243A), Color(0xFF0B1020)],
             ),
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class BackgammonScreen extends StatelessWidget {
-  const BackgammonScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Directionality(
-      textDirection: TextDirection.rtl,
-      child: Scaffold(
-        appBar: AppBar(title: const Text("تخته‌نرد سلطنتی")),
-        body: SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+          child: SafeArea(
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
               children: [
-                const Text("میز بازی",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: gold)),
-                const SizedBox(height: 8),
-                const Text("آماده‌ای برای بازی؟", textAlign: TextAlign.center),
-                const SizedBox(height: 24),
-                Container(
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF6D4026),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: gold, width: 3),
+                Row(children: [
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(15),
+                      gradient: const LinearGradient(
+                        colors: [gold, Color(0xFFB89543)],
+                      ),
+                    ),
+                    child: const Icon(Icons.workspace_premium_rounded,
+                        color: navy, size: 29),
                   ),
-                  child: Stack(
+                  const SizedBox(width: 13),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('ROYAL CLUB',
+                            style: TextStyle(
+                                color: gold,
+                                fontSize: 19,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 2.2)),
+                        SizedBox(height: 3),
+                        Text('THE ART OF STRATEGY',
+                            style: TextStyle(
+                                color: Color(0xFFB9C2D3),
+                                fontSize: 9,
+                                letterSpacing: 2,
+                                fontWeight: FontWeight.w600)),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: gold.withValues(alpha: .4)),
+                      borderRadius: BorderRadius.circular(30),
+                    ),
+                    child: const Row(children: [
+                      Icon(Icons.circle, color: gold, size: 7),
+                      SizedBox(width: 6),
+                      Text('ONLINE',
+                          style: TextStyle(
+                              color: gold,
+                              fontSize: 9,
+                              letterSpacing: 1.1,
+                              fontWeight: FontWeight.bold)),
+                    ]),
+                  ),
+                ]),
+                const SizedBox(height: 27),
+                Container(
+                  padding: const EdgeInsets.all(23),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(27),
+                    border: Border.all(color: gold.withValues(alpha: .55)),
+                    gradient: const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [Color(0xFF253650), Color(0xFF121C30)],
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                          color: Colors.black.withValues(alpha: .22),
+                          blurRadius: 24,
+                          offset: const Offset(0, 12))
+                    ],
+                  ),
+                  child: const Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Positioned.fill(
-                        child: Center(
-                          child: Container(width: 3, color: gold),
-                        ),
-                      ),
-                      Column(
-                        children: [
-                          Row(
-                              children: List.generate(
-                                  12,
-                                  (i) => Expanded(
-                                        child: SizedBox(
-                                          height: 105,
-                                          child: Align(
-                                            alignment: Alignment.topCenter,
-                                            child: CustomPaint(
-                                              size: const Size(24, 100),
-                                              painter: _PointPainter(
-                                                color: i.isEven
-                                                    ? gold
-                                                    : const Color(0xFF18233B),
-                                                upsideDown: false,
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      ))),
-                          Row(children: [
-                            Expanded(child: Container(height: 3, color: gold)),
-                          ]),
-                          Row(
-                              children: List.generate(
-                                  12,
-                                  (i) => Expanded(
-                                        child: SizedBox(
-                                          height: 105,
-                                          child: Align(
-                                            alignment: Alignment.bottomCenter,
-                                            child: Transform.rotate(
-                                              angle: 3.14159,
-                                              child: CustomPaint(
-                                                size: const Size(24, 100),
-                                                painter: _PointPainter(
-                                                  color: i.isEven
-                                                      ? gold
-                                                      : const Color(0xFF18233B),
-                                                  upsideDown: true,
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      ))),
-                        ],
-                      ),
+                      Text('WELCOME TO THE CLUB',
+                          style: TextStyle(
+                              color: gold,
+                              fontSize: 9,
+                              letterSpacing: 1.4,
+                              fontWeight: FontWeight.bold)),
+                      SizedBox(height: 17),
+                      Text('بازی، رقابت، افتخار',
+                          textDirection: TextDirection.rtl,
+                          style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 28,
+                              height: 1.35,
+                              fontWeight: FontWeight.w900)),
+                      SizedBox(height: 8),
+                      Text(
+                          'به رویال کلاب خوش آمدید؛ جایی برای ذهن‌های استراتژیک.',
+                          textDirection: TextDirection.rtl,
+                          style: TextStyle(
+                              color: Color(0xFFD1D8E4),
+                              fontSize: 13,
+                              height: 1.8)),
+                      SizedBox(height: 20),
+                      Row(children: [
+                        Icon(Icons.shield_moon_rounded, color: gold, size: 18),
+                        SizedBox(width: 8),
+                        Expanded(
+                            child: Text('یک تجربه متفاوت از بازی‌های کلاسیک',
+                                textDirection: TextDirection.rtl,
+                                style: TextStyle(
+                                    color: Color(0xFFE7D7AA),
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600))),
+                      ]),
                     ],
                   ),
                 ),
+                const SizedBox(height: 30),
+                const Row(children: [
+                  Expanded(
+                      child: Text('بازی‌ها',
+                          textDirection: TextDirection.rtl,
+                          style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 21,
+                              fontWeight: FontWeight.w800))),
+                  Text('GAMES',
+                      style: TextStyle(
+                          color: gold,
+                          fontSize: 10,
+                          letterSpacing: 2,
+                          fontWeight: FontWeight.bold)),
+                ]),
+                const SizedBox(height: 14),
+                GameTile(
+                    title: 'تخته‌نرد',
+                    subtitle: 'بازی کلاسیک و رقابتی',
+                    icon: Icons.casino_rounded,
+                    onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                            builder: (_) => const EngineBackgammonScreen()))),
+                const SizedBox(height: 12),
+                const GameTile(
+                    title: 'شطرنج',
+                    subtitle: 'به‌زودی',
+                    icon: Icons.grid_4x4_rounded,
+                    comingSoon: true),
+                const SizedBox(height: 12),
+                const GameTile(
+                    title: 'بازی‌های کارتی',
+                    subtitle: 'به‌زودی',
+                    icon: Icons.style_rounded,
+                    comingSoon: true),
                 const SizedBox(height: 24),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    _DieFace(number: 3),
-                    const SizedBox(width: 16),
-                    _DieFace(number: 5),
-                  ],
-                ),
-                const SizedBox(height: 24),
-                const Text(
-                    "نمای اولیه تخته؛ قوانین و حرکت مهره‌ها در مرحله بعد اضافه می‌شوند.",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.white70)),
+                const Center(
+                    child: Text('ROYAL CLUB  •  PLAY WITH HONOUR',
+                        style: TextStyle(
+                            color: Color(0xFF77839A),
+                            fontSize: 9,
+                            letterSpacing: 1.5,
+                            fontWeight: FontWeight.w600))),
               ],
             ),
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _PointPainter extends CustomPainter {
-  const _PointPainter({
-    required this.color,
-    required this.upsideDown,
-  });
-
-  final Color color;
-  final bool upsideDown;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.fill;
-
-    final path = Path();
-
-    if (upsideDown) {
-      path
-        ..moveTo(0, size.height)
-        ..lineTo(size.width, size.height)
-        ..lineTo(size.width / 2, 0);
-    } else {
-      path
-        ..moveTo(0, 0)
-        ..lineTo(size.width, 0)
-        ..lineTo(size.width / 2, size.height);
-    }
-
-    path.close();
-    canvas.drawPath(path, paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant _PointPainter oldDelegate) {
-    return color != oldDelegate.color || upsideDown != oldDelegate.upsideDown;
-  }
-}
-
-class _DieFace extends StatelessWidget {
-  const _DieFace({required this.number});
-  final int number;
-
-  @override
-  Widget build(BuildContext context) => Container(
-        width: 58,
-        height: 58,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: const Color(0xFFF3E8D0),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: gold, width: 2),
-        ),
-        child: Text("$number",
-            style: const TextStyle(
-                color: Color(0xFF10182B),
-                fontSize: 28,
-                fontWeight: FontWeight.bold)),
       );
 }
 
 class GameTile extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final VoidCallback? onTap;
+  final bool comingSoon;
+
   const GameTile(
       {super.key,
       required this.title,
       required this.subtitle,
-      required this.icon});
-  final String title;
-  final String subtitle;
-  final IconData icon;
+      required this.icon,
+      this.onTap,
+      this.comingSoon = false});
 
   @override
-  Widget build(BuildContext context) => Card(
-        color: const Color(0xFF1A2540),
-        margin: const EdgeInsets.only(bottom: 16),
-        elevation: 4,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        child: ListTile(
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-          leading: Icon(icon, color: gold, size: 34),
-          title:
-              Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
-          subtitle: Text(subtitle),
-          trailing: const Icon(Icons.chevron_left, color: gold),
+  Widget build(BuildContext context) => Material(
+        color: panel,
+        borderRadius: BorderRadius.circular(22),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(22),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 17),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(22),
+              border: Border.all(color: gold.withValues(alpha: .22)),
+            ),
+            child: Row(children: [
+              Container(
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  color: gold.withValues(alpha: .10),
+                  borderRadius: BorderRadius.circular(17),
+                  border: Border.all(color: gold.withValues(alpha: .25)),
+                ),
+                child: Icon(icon, color: gold, size: 27),
+              ),
+              const SizedBox(width: 15),
+              Expanded(
+                  child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title,
+                      textDirection: TextDirection.rtl,
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800)),
+                  const SizedBox(height: 5),
+                  Text(subtitle,
+                      textDirection: TextDirection.rtl,
+                      style: const TextStyle(
+                          color: Color(0xFFAEB9CB), fontSize: 12)),
+                ],
+              )),
+              if (comingSoon)
+                const Text('SOON',
+                    style: TextStyle(
+                        color: gold,
+                        fontSize: 9,
+                        letterSpacing: 1,
+                        fontWeight: FontWeight.bold))
+              else
+                const Icon(Icons.arrow_forward_ios_rounded,
+                    color: gold, size: 15),
+            ]),
+          ),
         ),
       );
 }

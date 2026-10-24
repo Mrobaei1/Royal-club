@@ -166,6 +166,65 @@ void main() {
       expect(blockedGame.currentPlayer, -1);
       expect(blockedGame.bar[1], 1);
     });
+
+    test('doubles allow up to four legal checker moves', () {
+      clearPosition(rolledDice: [2, 2, 2, 2]);
+      game.points[0] = 1;
+
+      for (var i = 0; i < 4; i++) {
+        final moves = game.legalMoves();
+        expect(moves, isNotEmpty);
+        expect(moves.every((move) => move.die == 2), isTrue);
+        expect(game.playMove(moves.first), isTrue);
+      }
+
+      expect(game.dice, isEmpty);
+      expect(game.currentPlayer, -1);
+    });
+
+    test('oversized bear-off die cannot skip a farther checker', () {
+      clearPosition(rolledDice: [6]);
+      game.points[23] = 1;
+      game.points[20] = 1;
+
+      final moves = game.legalMoves();
+      expect(moves.any((move) => move.from == 23 && move.to == -1), isFalse);
+    });
+
+    test(
+        'illegal move leaves board, bar, borne-off counters and dice unchanged',
+        () {
+      clearPosition(rolledDice: [1, 2]);
+      game.points[0] = 1;
+      game.points[1] = -2;
+      final beforePoints = List<int>.from(game.points);
+      final beforeBar = List<int>.from(game.bar);
+      final beforeOff = List<int>.from(game.borneOff);
+      final beforeDice = List<int>.from(game.dice);
+
+      expect(
+        game.playMove(const BackgammonMove(from: 0, to: 1, die: 1)),
+        isFalse,
+      );
+      expect(game.points, beforePoints);
+      expect(game.bar, beforeBar);
+      expect(game.borneOff, beforeOff);
+      expect(game.dice, beforeDice);
+    });
+
+    test('turn ends when no remaining die can be played', () {
+      clearPosition(rolledDice: [1, 2]);
+      game.points[0] = 1;
+      game.points[1] = -2; // Die 1 is blocked initially.
+      game.points[3] = -2; // After playing die 2, die 1 is still blocked.
+
+      final moves = game.legalMoves();
+      expect(moves, hasLength(1));
+      expect(moves.single.die, 2);
+      expect(game.playMove(moves.single), isTrue);
+      expect(game.dice, isEmpty);
+      expect(game.currentPlayer, -1);
+    });
   });
 }
 

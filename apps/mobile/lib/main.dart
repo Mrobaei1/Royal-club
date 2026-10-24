@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'engine_backgammon_screen.dart';
+import 'services/auth_service.dart';
 
 void main() => runApp(const RoyalClubApp());
 
@@ -97,6 +98,19 @@ class HomeScreen extends StatelessWidget {
                     ]),
                   ),
                 ]),
+                const SizedBox(height: 18),
+                OutlinedButton.icon(
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const AuthScreen()),
+                  ),
+                  icon: const Icon(Icons.login_rounded),
+                  label: const Text('ورود / ثبت‌نام'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: gold,
+                    side: const BorderSide(color: gold),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                ),
                 const SizedBox(height: 27),
                 Container(
                   padding: const EdgeInsets.all(23),
@@ -274,6 +288,200 @@ class GameTile extends StatelessWidget {
                 const Icon(Icons.arrow_forward_ios_rounded,
                     color: gold, size: 15),
             ]),
+          ),
+        ),
+      );
+}
+
+class AuthScreen extends StatefulWidget {
+  const AuthScreen({super.key});
+
+  @override
+  State<AuthScreen> createState() => _AuthScreenState();
+}
+
+class _AuthScreenState extends State<AuthScreen> {
+  final _email = TextEditingController();
+  final _password = TextEditingController();
+  bool _register = false;
+  bool _busy = false;
+  bool _rememberMe = true;
+  bool _checkingSession = true;
+  String? _message;
+
+  @override
+  void initState() {
+    super.initState();
+    _restoreLogin();
+  }
+
+  Future<void> _restoreLogin() async {
+    try {
+      final email = await AuthService.rememberedEmail();
+      if (!mounted) return;
+      if (email != null && email.isNotEmpty) {
+        _email.text = email;
+        _rememberMe = true;
+      }
+      try {
+        await AuthService.me();
+        if (mounted) Navigator.of(context).pop();
+      } catch (_) {
+        // نشست معتبر نیست یا کاربر هنوز وارد نشده است.
+      }
+    } finally {
+      if (mounted) setState(() => _checkingSession = false);
+    }
+  }
+
+  @override
+  void dispose() {
+    _email.dispose();
+    _password.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (_email.text.trim().isEmpty || _password.text.isEmpty) {
+      setState(() => _message = 'ایمیل و رمز عبور را وارد کن.');
+      return;
+    }
+    if (_password.text.length < 8) {
+      setState(() => _message = 'رمز عبور باید حداقل ۸ نویسه باشد.');
+      return;
+    }
+
+    setState(() {
+      _busy = true;
+      _message = null;
+    });
+
+    final wasRegister = _register;
+    try {
+      final result = wasRegister
+          ? await AuthService.register(_email.text, _password.text)
+          : await AuthService.login(_email.text, _password.text);
+
+      if (!mounted) return;
+
+      if (wasRegister) {
+        setState(() {
+          _message = 'ثبت‌نام انجام شد. اکنون وارد شوید.';
+          if (result['token'] == null) _register = false;
+        });
+      } else if (result['token'] is String &&
+          (result['token'] as String).isNotEmpty) {
+        await AuthService.setRememberedEmail(_email.text, _rememberMe);
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('ورود با موفقیت انجام شد.')),
+        );
+        Navigator.of(context).pop();
+      } else {
+        setState(() => _message = 'ورود انجام شد، اما توکن دریافت نشد.');
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _message = e.toString().replaceFirst('Exception: ', ''));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+        appBar: AppBar(title: const Text('حساب کاربری')),
+        body: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 420),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Icon(Icons.workspace_premium_rounded,
+                      color: gold, size: 64),
+                  const SizedBox(height: 12),
+                  const Text('ROYAL CLUB',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                          color: gold,
+                          fontSize: 24,
+                          fontWeight: FontWeight.w900)),
+                  const SizedBox(height: 28),
+                  SegmentedButton<bool>(
+                    segments: const [
+                      ButtonSegment(value: false, label: Text('ورود')),
+                      ButtonSegment(value: true, label: Text('ثبت‌نام')),
+                    ],
+                    selected: {_register},
+                    onSelectionChanged: (v) => setState(() {
+                      _register = v.first;
+                      _message = null;
+                    }),
+                  ),
+                  const SizedBox(height: 20),
+                  TextField(
+                    controller: _email,
+                    keyboardType: TextInputType.emailAddress,
+                    autofillHints: const [AutofillHints.email],
+                    decoration: const InputDecoration(
+                      labelText: 'ایمیل',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.email_outlined),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: _password,
+                    obscureText: true,
+                    autofillHints: const [AutofillHints.password],
+                    decoration: const InputDecoration(
+                      labelText: 'رمز عبور (حداقل ۸ نویسه)',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.lock_outline),
+                    ),
+                  ),
+                  if (!_register) ...[
+                    CheckboxListTile(
+                      contentPadding: EdgeInsets.zero,
+                      value: _rememberMe,
+                      controlAffinity: ListTileControlAffinity.leading,
+                      title: const Text('مرا به خاطر بسپار'),
+                      subtitle: const Text(
+                          'ایمیل ذخیره می‌شود و نشست معتبر حفظ خواهد شد.'),
+                      onChanged: _busy
+                          ? null
+                          : (value) =>
+                              setState(() => _rememberMe = value ?? false),
+                    ),
+                    const SizedBox(height: 8),
+                  ],
+                  if (_checkingSession)
+                    const Padding(
+                      padding: EdgeInsets.all(8),
+                      child: Center(child: CircularProgressIndicator()),
+                    ),
+                  const SizedBox(height: 12),
+                  FilledButton(
+                    onPressed: _busy || _checkingSession ? null : _submit,
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: _busy
+                          ? const SizedBox(
+                              height: 22,
+                              width: 22,
+                              child: CircularProgressIndicator(strokeWidth: 2))
+                          : Text(_register ? 'ایجاد حساب' : 'ورود به حساب'),
+                    ),
+                  ),
+                  if (_message != null) ...[
+                    const SizedBox(height: 16),
+                    Text(_message!, textAlign: TextAlign.center),
+                  ],
+                ],
+              ),
+            ),
           ),
         ),
       );

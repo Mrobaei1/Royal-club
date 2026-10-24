@@ -1,14 +1,39 @@
 import 'dotenv/config';
 import Fastify from 'fastify';
 import helmet from '@fastify/helmet';
+import cors from '@fastify/cors';
 import rateLimit from '@fastify/rate-limit';
+import jwt from '@fastify/jwt';
 import { Pool } from 'pg';
+import { randomBytes, scrypt as scryptCallback, timingSafeEqual } from 'node:crypto';
+import { promisify } from 'node:util';
+
+const scrypt = promisify(scryptCallback);
+const secret = process.env.JWT_SECRET;
+if (!secret || secret.length < 32) {
+  throw new Error('JWT_SECRET must contain at least 32 characters.');
+}
 
 const app = Fastify({ logger: true, trustProxy: false });
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
 await app.register(helmet);
+await app.register(cors, {
+  origin: ['https://super-duper-palm-tree-4r9v56pv6gcj7rw-8080.app.github.dev'],
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+});
 await app.register(rateLimit, { max: 120, timeWindow: '1 minute' });
+await app.register(jwt, { secret });
+
+await pool.query(`
+  CREATE TABLE IF NOT EXISTS users (
+    id BIGSERIAL PRIMARY KEY,
+    email TEXT NOT NULL UNIQUE,
+    password_hash TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )
+`);
 
 app.get('/api/v1/health', async () => ({
   status: 'ok',
@@ -18,12 +43,124 @@ app.get('/api/v1/health', async () => ({
 
 app.get('/api/v1/health/db', async (_request, reply) => {
   try {
-    const result = await pool.query('SELECT 1 AS ok');
-    return { status: 'ok', database: result.rows[0]?.ok === 1 ? 'connected' : 'unknown' };
+    await pool.query('SELECT 1');
+    return { status: 'ok', database: 'connected' };
   } catch (error) {
     app.log.error({ err: error }, 'Database health check failed');
     return reply.code(503).send({ status: 'error', database: 'unavailable' });
   }
+});
+
+app.post<{ Body: { email?: string; password?: string } }>(
+  '/api/v1/auth/register',
+  { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } },
+  async (request, reply) => {
+    const email = request.body?.email?.trim().toLowerCase();
+    const password = request.body?.password;
+
+    if (!email || email.length > 254 ||
+        !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ||
+        typeof password !== 'string' || password.length < 10 ||
+        Buffer.byteLength(password, 'utf8') > 128) {
+      return reply.code(400).send({
+        error: 'Enter a valid email and a password of 10–128 bytes.'
+      });
+    }
+
+    const salt = randomBytes(16);
+    const derived = await scrypt(password, salt, 64) as Buffer;
+    const passwordHash = `${salt.toString('hex')}:${derived.toString('hex')}`;
+
+    try {
+      const result = await pool.query(
+        'INSERT INTO users (email, password_hash) VALUES ($1, $2) RETURNING id, email, created_at',
+        [email, passwordHash]
+      );
+      const user = result.rows[0] as { id: string; email: string; created_at: Date };
+      const accessToken = app.jwt.sign(
+        { sub: user.id, email: user.email },
+        { expiresIn: '1h' }
+      );
+      return reply.code(201).send({
+        user: { id: user.id, email: user.email, createdAt: user.created_at },
+        accessToken,
+        tokenType: 'Bearer',
+        expiresIn: 3600
+      });
+    } catch (error: unknown) {
+      if (typeof error === 'object' && error !== null &&
+          'code' in error && error.code === '23505') {
+        return reply.code(409).send({ error: 'An account with this email already exists.' });
+      }
+      request.log.error({ err: error }, 'Registration failed');
+      return reply.code(500).send({ error: 'Could not create account.' });
+    }
+  }
+);
+
+app.post<{ Body: { email?: string; password?: string } }>(
+  '/api/v1/auth/login',
+  { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } },
+  async (request, reply) => {
+    const email = request.body?.email?.trim().toLowerCase();
+    const password = request.body?.password;
+    if (!email || typeof password !== 'string' || password.length > 128) {
+      return reply.code(401).send({ error: 'Invalid email or password.' });
+    }
+
+    const result = await pool.query(
+      'SELECT id, email, password_hash FROM users WHERE email = $1',
+      [email]
+    );
+    const user = result.rows[0] as
+      | { id: string; email: string; password_hash: string }
+      | undefined;
+
+    let matches = false;
+    if (user) {
+      const [saltHex, hashHex] = user.password_hash.split(':');
+      if (/^[0-9a-f]{32}$/.test(saltHex ?? '') &&
+          /^[0-9a-f]{128}$/.test(hashHex ?? '')) {
+        const candidate = await scrypt(password, Buffer.from(saltHex, 'hex'), 64) as Buffer;
+        matches = timingSafeEqual(candidate, Buffer.from(hashHex, 'hex'));
+      }
+    }
+    if (!matches || !user) {
+      return reply.code(401).send({ error: 'Invalid email or password.' });
+    }
+
+    const accessToken = app.jwt.sign(
+      { sub: user.id, email: user.email },
+      { expiresIn: '1h' }
+    );
+    return {
+      user: { id: user.id, email: user.email },
+      accessToken,
+      tokenType: 'Bearer',
+      expiresIn: 3600
+    };
+  }
+);
+
+app.get('/api/v1/me', {
+  onRequest: [async (request, reply) => {
+    try {
+      await request.jwtVerify();
+    } catch {
+      return reply.code(401).send({ error: 'Authentication required.' });
+    }
+  }]
+}, async (request, reply) => {
+  const claims = request.user as { sub?: string };
+  if (!claims.sub) return reply.code(401).send({ error: 'Invalid token.' });
+
+  const result = await pool.query(
+    'SELECT id, email, created_at FROM users WHERE id = $1',
+    [claims.sub]
+  );
+  if (!result.rowCount) return reply.code(401).send({ error: 'Account not found.' });
+  const user = result.rows[0] as { id: string; email: string; created_at: Date };
+  return { user: { id: user.id, email: user.email, createdAt: user.created_at } };
 });
 
 app.addHook('onClose', async () => { await pool.end(); });
