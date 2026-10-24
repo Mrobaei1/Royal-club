@@ -364,6 +364,9 @@ class AuthScreen extends StatefulWidget {
 class _AuthScreenState extends State<AuthScreen> {
   final _email = TextEditingController();
   final _password = TextEditingController();
+  final _fullName = TextEditingController();
+  final _phone = TextEditingController();
+  String _country = 'Germany';
   late bool _register = widget.initialRegister;
   bool _busy = false;
   bool _rememberMe = true;
@@ -393,12 +396,22 @@ class _AuthScreenState extends State<AuthScreen> {
   void dispose() {
     _email.dispose();
     _password.dispose();
+    _fullName.dispose();
+    _phone.dispose();
     super.dispose();
   }
 
   Future<void> _submit() async {
     if (_email.text.trim().isEmpty || _password.text.isEmpty) {
       setState(() => _message = 'ایمیل و رمز عبور را وارد کن.');
+      return;
+    }
+    if (_register && _fullName.text.trim().isEmpty) {
+      setState(() => _message = 'نام کاربر را وارد کن.');
+      return;
+    }
+    if (_register && _phone.text.trim().isEmpty) {
+      setState(() => _message = 'شماره تلفن را وارد کن.');
       return;
     }
     if (_register && _password.text.length < 6) {
@@ -414,7 +427,8 @@ class _AuthScreenState extends State<AuthScreen> {
     final wasRegister = _register;
     try {
       final result = wasRegister
-          ? await AuthService.register(_email.text, _password.text)
+          ? await AuthService.register(_email.text, _password.text,
+              fullName: _fullName.text, phone: _phone.text, country: _country)
           : await AuthService.login(_email.text, _password.text);
 
       if (!mounted) return;
@@ -473,6 +487,28 @@ class _AuthScreenState extends State<AuthScreen> {
                     }),
                   ),
                   const SizedBox(height: 20),
+                  if (_register) ...[
+                    TextField(controller: _fullName, textCapitalization: TextCapitalization.words,
+                      autofillHints: const [AutofillHints.name],
+                      decoration: const InputDecoration(labelText: 'نام و نام خانوادگی', border: OutlineInputBorder(), prefixIcon: Icon(Icons.person_outline))),
+                    const SizedBox(height: 14),
+                    TextField(controller: _phone, keyboardType: TextInputType.phone,
+                      autofillHints: const [AutofillHints.telephoneNumber],
+                      decoration: const InputDecoration(labelText: 'شماره تلفن', hintText: '+49 123 456789', border: OutlineInputBorder(), prefixIcon: Icon(Icons.phone_outlined))),
+                    const SizedBox(height: 14),
+                    DropdownButtonFormField<String>(value: _country,
+                      decoration: const InputDecoration(labelText: 'کشور', border: OutlineInputBorder(), prefixIcon: Icon(Icons.public_outlined)),
+                      items: const [
+                        DropdownMenuItem(value: 'Germany', child: Text('آلمان')),
+                        DropdownMenuItem(value: 'Iran', child: Text('ایران')),
+                        DropdownMenuItem(value: 'United States', child: Text('ایالات متحده')),
+                        DropdownMenuItem(value: 'United Kingdom', child: Text('بریتانیا')),
+                        DropdownMenuItem(value: 'Turkey', child: Text('ترکیه')),
+                        DropdownMenuItem(value: 'United Arab Emirates', child: Text('امارات متحده عربی')),
+                        DropdownMenuItem(value: 'Other', child: Text('سایر کشورها')),
+                      ], onChanged: _busy ? null : (value) { if (value != null) setState(() => _country = value); }),
+                    const SizedBox(height: 14),
+                  ],
                   TextField(
                     controller: _email,
                     keyboardType: TextInputType.emailAddress,
