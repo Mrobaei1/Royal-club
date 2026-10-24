@@ -39,11 +39,17 @@ class AuthService {
 
   static Future<Map<String, dynamic>> register(
     String email,
-    String password,
-  ) =>
+    String password, {
+    required String fullName,
+    required String phone,
+    required String country,
+  }) =>
       _post('/api/v1/auth/register', {
         'email': email.trim(),
         'password': password,
+        'fullName': fullName.trim(),
+        'phone': phone.trim(),
+        'country': country,
       });
 
   static Future<Map<String, dynamic>> login(
