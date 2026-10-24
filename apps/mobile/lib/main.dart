@@ -324,8 +324,9 @@ class _AuthScreenState extends State<AuthScreen> {
         _rememberMe = true;
       }
       try {
+        // نشست ذخیره‌شده را بررسی می‌کنیم، اما صفحه ورود/ثبت‌نام را
+        // خودکار نمی‌بندیم؛ وگرنه کاربر هنگام انتخاب «ثبت‌نام» به خانه برمی‌گردد.
         await AuthService.me();
-        if (mounted) Navigator.of(context).pop();
       } catch (_) {
         // نشست معتبر نیست یا کاربر هنوز وارد نشده است.
       }
