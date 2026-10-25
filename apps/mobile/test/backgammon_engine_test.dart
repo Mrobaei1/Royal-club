@@ -171,7 +171,7 @@ void main() {
     test('player -1 enters from the bar only onto an open point', () {
       clearPosition(player: -1, rolledDice: [1, 2]);
       game.bar[0] = 1;
-      game.points[0] = -2; // Blocks entry for die 1.
+      game.points[0] = 2; // Blocks entry for die 1.
       game.points[1] = 0; // Entry for die 2 is open.
 
       final moves = game.legalMoves();
@@ -214,7 +214,7 @@ void main() {
       final blockedGame = BackgammonEngine(random: _FixedRandom([0, 0]));
       blockedGame.points.fillRange(0, 24, 0);
       blockedGame.bar[1] = 1;
-      for (var point = 0; point < 6; point++) {
+      for (var point = 18; point < 24; point++) {
         blockedGame.points[point] = -2;
       }
 
