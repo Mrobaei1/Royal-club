@@ -10,8 +10,8 @@ class AuthService {
   );
   static const FlutterSecureStorage _storage = FlutterSecureStorage();
 
-  static void ensureConfigured() {
-    final value = baseUrl.trim();
+  static void ensureConfigured({String? configuredBaseUrl}) {
+    final value = (configuredBaseUrl ?? baseUrl).trim();
     final uri = Uri.tryParse(value);
     if (value.isEmpty ||
         uri == null ||
