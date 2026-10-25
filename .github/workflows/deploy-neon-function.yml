@@ -141,6 +141,32 @@ jobs:
           echo "url=$FUNCTION_URL" >> "$GITHUB_OUTPUT"
           echo "Function URL discovered."
 
+      - name: Wait for Neon deployment to become ready
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+        run: |
+          ready=0
+          for attempt in $(seq 1 20); do
+            curl --fail-with-body --silent --show-error \
+              "https://console.neon.tech/api/v2/projects/$NEON_PROJECT_ID/branches/$NEON_BRANCH_ID/functions/$NEON_FUNCTION_SLUG" \
+              --header "Authorization: Bearer $NEON_API_KEY" \
+              --header "Accept: application/json" --output function-details.json
+            STATUS="$(node -e 'const x=JSON.parse(require("node:fs").readFileSync("function-details.json","utf8")); const d=x.current_deployment||x.currentDeployment||x.deployment||{}; process.stdout.write(String(d.status||x.status||"unknown").toLowerCase())')"
+            echo "Neon function deployment status: $STATUS (check $attempt/20)"
+            if [ "$STATUS" = "completed" ] || [ "$STATUS" = "ready" ]; then ready=1; break; fi
+            if [ "$STATUS" = "failed" ] || [ "$STATUS" = "error" ]; then
+              echo "::error::Neon reports that the function deployment failed."
+              cat function-details.json
+              exit 1
+            fi
+            sleep 6
+          done
+          if [ "$ready" -ne 1 ]; then
+            echo "::error::Neon function deployment did not become ready in 120 seconds."
+            cat function-details.json
+            exit 1
+          fi
+
       - name: Wait for API health check
         env:
           FUNCTION_URL: ${{ steps.endpoint.outputs.url }}
