@@ -51,6 +51,30 @@ void main() {
       }
     });
 
+    test('rolling again during an active turn does not replace the dice', () {
+      game.dice = [2, 5];
+      final firstRoll = List<int>.from(game.rollDice());
+
+      expect(firstRoll, [2, 5]);
+      expect(game.dice, [2, 5]);
+    });
+
+    test('a finished game rejects further rolls and moves', () {
+      clearPosition(rolledDice: [1]);
+      game.points[23] = 1;
+      game.borneOff[1] = 14;
+      final finalMove = game.legalMoves().single;
+      expect(game.playMove(finalMove), isTrue);
+      expect(game.finished, isTrue);
+
+      final winner = game.winner;
+      final pointsAfterWin = List<int>.from(game.points);
+      expect(game.rollDice(), isEmpty);
+      expect(game.playMove(finalMove), isFalse);
+      expect(game.winner, winner);
+      expect(game.points, pointsAfterWin);
+    });
+
     test('a checker on the bar must enter before any other checker moves', () {
       clearPosition(rolledDice: [1, 2]);
       game.bar[1] = 1;
