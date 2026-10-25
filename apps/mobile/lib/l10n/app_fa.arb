@@ -15,5 +15,7 @@
   "theme": "پوسته برنامه",
   "backgammon": "تخته‌نرد",
   "chess": "شطرنج",
-  "cardGames": "بازی‌های کارتی"
+  "cardGames": "بازی‌های کارتی",
+  "enterEmailPassword": "ایمیل و رمز عبور را وارد کن.",
+  "enterName": "نام کاربر را وارد کن."
 }
