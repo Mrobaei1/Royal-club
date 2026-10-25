@@ -115,6 +115,19 @@ await pool.query(`
   );
   CREATE INDEX IF NOT EXISTS user_subscriptions_current_idx
     ON user_subscriptions (user_id, status, ends_at DESC);
+  CREATE TABLE IF NOT EXISTS private_messages (
+    id BIGSERIAL PRIMARY KEY,
+    sender_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    recipient_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    body TEXT NOT NULL CHECK (char_length(body) BETWEEN 1 AND 2000),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    read_at TIMESTAMPTZ,
+    CHECK (sender_id <> recipient_id)
+  );
+  CREATE INDEX IF NOT EXISTS private_messages_thread_idx
+    ON private_messages (sender_id, recipient_id, created_at DESC);
+  CREATE INDEX IF NOT EXISTS private_messages_inbox_idx
+    ON private_messages (recipient_id, read_at, created_at DESC);
 
   CREATE TABLE IF NOT EXISTS backgammon_matches (
     id BIGSERIAL PRIMARY KEY,
@@ -463,6 +476,84 @@ app.patch<{ Params: { code: string }; Body: { name?: string; durationDays?: numb
   );
   if (!result.rowCount) return reply.code(404).send({ error: 'Subscription plan not found.' });
   return { plan: result.rows[0] };
+});
+
+const requireChatEntitlement = async (client: { query: (sql: string, params?: unknown[]) => Promise<{ rows: any[] }> }, userA: string, userB: string) => {
+  const result = await client.query(
+    `SELECT COUNT(DISTINCT user_id)::int AS entitled
+       FROM user_subscriptions
+      WHERE user_id = ANY($1::bigint[]) AND status = 'active' AND ends_at > NOW()`,
+    [[userA, userB]],
+  );
+  return Number(result.rows[0]?.entitled ?? 0) === 2;
+};
+
+app.get('/api/v1/chat/conversations', { onRequest: [requireMatchAuth] }, async (request) => {
+  const claims = request.user as { sub: string };
+  const result = await pool.query(
+    `SELECT u.id AS "userId", u.full_name AS "fullName", u.email,
+            latest.body AS "lastMessage", latest.created_at AS "lastMessageAt",
+            COALESCE(unread.count, 0)::int AS "unreadCount"
+       FROM friendships f
+       JOIN users u ON u.id = CASE WHEN f.requester_id = $1 THEN f.addressee_id ELSE f.requester_id END
+       LEFT JOIN LATERAL (
+         SELECT body, created_at FROM private_messages
+          WHERE (sender_id = $1 AND recipient_id = u.id) OR (sender_id = u.id AND recipient_id = $1)
+          ORDER BY created_at DESC LIMIT 1
+       ) latest ON TRUE
+       LEFT JOIN LATERAL (
+         SELECT COUNT(*) AS count FROM private_messages
+          WHERE sender_id = u.id AND recipient_id = $1 AND read_at IS NULL
+       ) unread ON TRUE
+      WHERE (f.requester_id = $1 OR f.addressee_id = $1) AND f.status = 'accepted'
+      ORDER BY latest.created_at DESC NULLS LAST, u.full_name ASC`,
+    [claims.sub],
+  );
+  return { conversations: result.rows };
+});
+
+app.get<{ Params: { userId: string } }>('/api/v1/chat/:userId/messages', { onRequest: [requireMatchAuth] }, async (request, reply) => {
+  const claims = request.user as { sub: string };
+  const { userId } = request.params;
+  if (!isNumericId(userId) || userId === claims.sub) return reply.code(400).send({ error: 'Invalid conversation.' });
+  const friendship = await pool.query(
+    'SELECT 1 FROM friendships WHERE status = $1 AND ((requester_id = $2 AND addressee_id = $3) OR (requester_id = $3 AND addressee_id = $2)) LIMIT 1',
+    ['accepted', claims.sub, userId],
+  );
+  if (!friendship.rowCount) return reply.code(403).send({ error: 'Chat is available only between accepted friends.' });
+  if (!await requireChatEntitlement(pool, claims.sub, userId)) return reply.code(403).send({ error: 'An active subscription is required for both users to use private chat.' });
+  const messages = await pool.query(
+    `SELECT id, sender_id AS "senderId", recipient_id AS "recipientId", body,
+            created_at AS "createdAt", read_at AS "readAt"
+       FROM private_messages
+      WHERE (sender_id = $1 AND recipient_id = $2) OR (sender_id = $2 AND recipient_id = $1)
+      ORDER BY created_at DESC LIMIT 100`,
+    [claims.sub, userId],
+  );
+  await pool.query('UPDATE private_messages SET read_at = NOW() WHERE sender_id = $1 AND recipient_id = $2 AND read_at IS NULL', [userId, claims.sub]);
+  return { messages: messages.rows.reverse() };
+});
+
+app.post<{ Params: { userId: string }; Body: { body?: string } }>('/api/v1/chat/:userId/messages', { onRequest: [requireMatchAuth] }, async (request, reply) => {
+  const claims = request.user as { sub: string };
+  const { userId } = request.params;
+  const body = typeof request.body?.body === 'string' ? request.body.body.trim() : '';
+  if (!isNumericId(userId) || userId === claims.sub || !body || body.length > 2000) {
+    return reply.code(400).send({ error: 'Message must contain 1 to 2000 characters and a valid recipient.' });
+  }
+  const friendship = await pool.query(
+    'SELECT 1 FROM friendships WHERE status = $1 AND ((requester_id = $2 AND addressee_id = $3) OR (requester_id = $3 AND addressee_id = $2)) LIMIT 1',
+    ['accepted', claims.sub, userId],
+  );
+  if (!friendship.rowCount) return reply.code(403).send({ error: 'Chat is available only between accepted friends.' });
+  if (!await requireChatEntitlement(pool, claims.sub, userId)) return reply.code(403).send({ error: 'An active subscription is required for both users to use private chat.' });
+  const inserted = await pool.query(
+    `INSERT INTO private_messages (sender_id, recipient_id, body)
+     VALUES ($1, $2, $3)
+     RETURNING id, sender_id AS "senderId", recipient_id AS "recipientId", body, created_at AS "createdAt", read_at AS "readAt"`,
+    [claims.sub, userId, body],
+  );
+  return reply.code(201).send({ message: inserted.rows[0] });
 });
 
 app.get('/api/v1/notifications', { onRequest: [requireMatchAuth] }, async (request) => {
