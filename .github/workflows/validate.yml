@@ -31,6 +31,11 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: npm test
+      - name: Verify Neon Function bundle
+        run: |
+          npx --yes esbuild@0.25.12 src/neon-function.ts --bundle --platform=node --target=node24 --format=esm --outfile=/tmp/royal-club-neon-function.mjs
+          test -s /tmp/royal-club-neon-function.mjs
+          test "$(stat -c%s /tmp/royal-club-neon-function.mjs)" -lt 134217728
 
   flutter:
     name: Flutter analyze and tests
