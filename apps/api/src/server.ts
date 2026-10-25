@@ -385,9 +385,8 @@ app.post<{ Params: { id: string }; Body: { from: number | null; to: number | nul
         const overshootClear = hostTurn
           ? !board.some((count, point) => point > body.from! && point <= 5 && count > 0)
           : !board.some((count, point) => point < body.from! && point >= 18 && count < 0);
-        if (!inHome || !allHome || rawTarget >= 0 && rawTarget <= 23 ||
-            (hostTurn ? body.from - body.die < 0 : body.from + body.die > 23) === false ||
-            (hostTurn ? body.from - body.die < -0 && overshootClear : body.from + body.die > 23 && overshootClear) === false) {
+        const overshootsBoard = hostTurn ? rawTarget < 0 : rawTarget > 23;
+        if (!inHome || !allHome || !overshootsBoard || !overshootClear) {
           await client.query('ROLLBACK');
           return reply.code(409).send({ error: 'That checker cannot bear off with this die.' });
         }
