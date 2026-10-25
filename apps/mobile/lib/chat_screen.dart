@@ -131,9 +131,11 @@ class _ChatThreadScreenState extends State<ChatThreadScreen> {
           : '';
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('گزارش ثبت شد.$review')));
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+        );
+      }
     }
   }
 
