@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'friends_screen.dart';
 import 'engine_backgammon_screen.dart';
 import 'services/auth_service.dart';
 import 'online_lobby_screen.dart';
@@ -256,6 +257,14 @@ class HomeScreen extends StatelessWidget {
                     onTap: () => Navigator.of(context).push(
                         MaterialPageRoute<void>(
                             builder: (_) => const OnlineLobbyScreen()))),
+                const SizedBox(height: 12),
+                GameTile(
+                    title: 'دوستان',
+                    subtitle: 'درخواست دوستی و مدیریت فهرست دوستان',
+                    icon: Icons.people_alt_rounded,
+                    onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                            builder: (_) => const FriendsScreen()))),
                 const SizedBox(height: 12),
                 const GameTile(
                     title: 'شطرنج',
