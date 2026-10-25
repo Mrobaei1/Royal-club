@@ -50,3 +50,10 @@ The latest validated web build is published at: https://mrobaei1.github.io/Royal
 ## Current validation
 
 The main-branch web-preview workflow completed successfully on 2026-10-25, including API build, Flutter analysis, Flutter tests, web release build, and GitHub Pages deployment. This confirms the build pipeline, not a full end-to-end test against a permanently hosted API.
+
+## First hands-on test
+
+- Web preview: https://mrobaei1.github.io/Royal-club/
+- The web preview is a test build, not a production service. Registration, login, and online play require the configured API host and database to be reachable.
+- An Android release APK is built by the `Royal Club Android APK` workflow. Open the repository's **Actions** tab, select the latest successful **Royal Club Android APK** run, and download the `royal-club-android-apk` artifact. Extract the ZIP and install `app-release.apk` on an Android phone. GitHub keeps this artifact for 7 days.
+- During testing, try registration/login, local backgammon against AI, and the home screen. Chess and card-game tiles should remain visible. Send any error text or a screenshot with the action you were performing.
