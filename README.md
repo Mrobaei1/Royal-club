@@ -1,12 +1,21 @@
 # Royal Club — starter scaffold
 
-Status: source scaffold created in this workspace. It has **not** been deployed, and the Flutter app has not been built or run here because Flutter/Dart are not installed in this environment.
+Status: actively developed in `feature/password-min-6`. This branch is not a production deployment; validate the current CI run before merging.
 
 ## Contents
 - `apps/mobile`: Flutter/Dart starter source (Android-first UI entry point)
 - `apps/api`: TypeScript + Fastify API with health endpoint and PostgreSQL connectivity check
 - `infra/docker-compose.yml`: local PostgreSQL service
 - `docs/DEVELOPMENT-ANDROID.md`: phone-first cloud development workflow
+
+## Current implemented modules
+- Authentication and profile endpoints
+- Friends, notifications, online-match APIs, and backgammon rules
+- Non-transferable wallet-credit ledger and subscription activation
+- Owner-only mobile admin screen for crediting a user and editing/enabling subscription plans
+
+## Owner admin configuration
+Set `OWNER_USER_ID` in the API environment to the numeric `users.id` of the owner. Leave it unset to keep owner-only operations disabled. The admin screen checks `/api/v1/admin/status`, and the server independently enforces owner authorization on every administrative write. Do not use an email address or expose this setting in the client app.
 
 ## Quick start (cloud IDE or computer)
 1. Import this folder/repository into a cloud IDE with a terminal (see `docs/DEVELOPMENT-ANDROID.md`).
