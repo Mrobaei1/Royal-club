@@ -25,8 +25,14 @@ export function getAllowedCorsOrigins(config: CorsConfig): string[] {
     .map((origin) => origin.trim())
     .filter(Boolean);
 
-  if (origins.some((origin) => origin === '*' || !/^https:\/\//i.test(origin))) {
-    throw new Error('CORS_ORIGINS must contain only explicit HTTPS origins.');
+  if (origins.some((origin) => origin === '*')) {
+    throw new Error('CORS_ORIGINS must contain explicit origins; wildcard origins are not allowed.');
+  }
+  if (
+    config.nodeEnv === 'production' &&
+    origins.some((origin) => !/^https:\/\//i.test(origin))
+  ) {
+    throw new Error('Production CORS_ORIGINS must contain only HTTPS origins.');
   }
   return [...new Set(origins)];
 }
