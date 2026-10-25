@@ -60,8 +60,9 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
   List<BackgammonMove> get _moves => _engine.legalMoves();
 
   void _roll() {
-    if (_computerThinking || (_vsComputer && _engine.currentPlayer == -1))
+    if (_computerThinking || (_vsComputer && _engine.currentPlayer == -1)) {
       return;
+    }
     setState(() {
       _selectedPoint = null;
       _selectedBar = false;
@@ -86,6 +87,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
   void _reset() {
     setState(() {
       _engine.reset();
+      _gameOverDialogShown = false;
       _computerThinking = false;
       _selectedPoint = null;
       _selectedBar = false;
@@ -96,8 +98,9 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
   String _playerName(int player) => player == 1 ? 'طلایی' : 'روشن';
 
   void _tapPoint(int point) {
-    if (_computerThinking || (_vsComputer && _engine.currentPlayer == -1))
+    if (_computerThinking || (_vsComputer && _engine.currentPlayer == -1)) {
       return;
+    }
     if (_engine.finished || _engine.dice.isEmpty) return;
     setState(() {
       final moves = _moves;
@@ -126,6 +129,9 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
   }
 
   void _tapBearOff() {
+    if (_computerThinking || (_vsComputer && _engine.currentPlayer == -1)) {
+      return;
+    }
     if (_engine.finished || _engine.dice.isEmpty) return;
     setState(() {
       if (_selectedPoint == null || _selectedBar) {
@@ -144,8 +150,9 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
   }
 
   void _tapBar() {
-    if (_computerThinking || (_vsComputer && _engine.currentPlayer == -1))
+    if (_computerThinking || (_vsComputer && _engine.currentPlayer == -1)) {
       return;
+    }
     if (_engine.finished || _engine.dice.isEmpty) return;
     setState(() {
       final moves = _moves.where((m) => m.fromBar).toList();
@@ -184,7 +191,9 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
     if (!_vsComputer ||
         _engine.finished ||
         _engine.currentPlayer != -1 ||
-        _computerThinking) return;
+        _computerThinking) {
+      return;
+    }
     _computerThinking = true;
     Future<void>.delayed(const Duration(milliseconds: 350), () {
       if (!mounted) return;
@@ -232,6 +241,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
     setState(() {
       _vsComputer = vsComputer;
       _engine.reset();
+      _gameOverDialogShown = false;
       _computerThinking = false;
       _selectedPoint = null;
       _selectedBar = false;
@@ -332,9 +342,18 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
                   const SizedBox(height: 10),
                   _statusPanel(),
                   const SizedBox(height: 12),
-                  AspectRatio(
-                    aspectRatio: 0.92,
-                    child: _board(legalTargets, rowHeight: 150),
+                  LayoutBuilder(
+                    builder: (context, boardConstraints) {
+                      final boardHeight = (boardConstraints.maxWidth * 0.92)
+                          .clamp(260.0, 420.0);
+                      final rowHeight = ((boardHeight - 64) / 2)
+                          .clamp(80.0, 178.0)
+                          .toDouble();
+                      return SizedBox(
+                        height: boardHeight,
+                        child: _board(legalTargets, rowHeight: rowHeight),
+                      );
+                    },
                   ),
                   const SizedBox(height: 12),
                   _scoreRow(),
@@ -429,8 +448,9 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
                     onChanged: _computerThinking
                         ? null
                         : (value) {
-                            if (value != null)
+                            if (value != null) {
                               setState(() => _difficulty = value);
+                            }
                           },
                   ),
                 )),
@@ -661,32 +681,48 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
       spacing: 5,
       runSpacing: 3,
       children: _engine.dice
-          .map((die) => Container(
-                width: 30,
-                height: 30,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [Color(0xFFFFFFFF), _boardLight, Color(0xFFC8B18A)],
-                  ),
-                  borderRadius: BorderRadius.circular(7),
-                  border: Border.all(color: const Color(0xFFFFE7A0), width: 1),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Colors.black38,
-                      blurRadius: 3,
-                      offset: Offset(0, 2),
-                    ),
-                  ],
+          .map((die) => AnimatedSwitcher(
+                duration: const Duration(milliseconds: 260),
+                switchInCurve: Curves.easeOutBack,
+                switchOutCurve: Curves.easeIn,
+                transitionBuilder: (child, animation) => ScaleTransition(
+                  scale: animation,
+                  child: FadeTransition(opacity: animation, child: child),
                 ),
-                child: Text(
-                  '$die',
-                  style: TextStyle(
-                    color: _boardNavy,
-                    fontSize: compact ? 14 : 16,
-                    fontWeight: FontWeight.w900,
+                child: Container(
+                  key: ValueKey(
+                      '${_engine.currentPlayer}-${_engine.dice.join('-')}-$die'),
+                  width: 30,
+                  height: 30,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        Color(0xFFFFFFFF),
+                        _boardLight,
+                        Color(0xFFC8B18A)
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(7),
+                    border:
+                        Border.all(color: const Color(0xFFFFE7A0), width: 1),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Colors.black38,
+                        blurRadius: 3,
+                        offset: Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Text(
+                    '$die',
+                    style: TextStyle(
+                      color: _boardNavy,
+                      fontSize: compact ? 14 : 16,
+                      fontWeight: FontWeight.w900,
+                    ),
                   ),
                 ),
               ))
@@ -819,11 +855,23 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
     final chips =
         List.generate(shown, (_) => _checker(player, size: compact ? 10 : 17));
     return Expanded(
-      child: Align(
+      child: AnimatedAlign(
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
         alignment: top ? Alignment.topCenter : Alignment.bottomCenter,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: top ? chips : chips.reversed.toList(),
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 220),
+          switchInCurve: Curves.easeOutBack,
+          switchOutCurve: Curves.easeIn,
+          transitionBuilder: (child, animation) => FadeTransition(
+            opacity: animation,
+            child: ScaleTransition(scale: animation, child: child),
+          ),
+          child: Column(
+            key: ValueKey('$player-$count-$top'),
+            mainAxisSize: MainAxisSize.min,
+            children: top ? chips : chips.reversed.toList(),
+          ),
         ),
       ),
     );

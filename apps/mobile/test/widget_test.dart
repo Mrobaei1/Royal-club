@@ -1,10 +1,46 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:royal_club/main.dart';
 
 void main() {
-  testWidgets('home screen shows Royal Club branding', (tester) async {
+  testWidgets('app starts through the authentication gate', (tester) async {
     await tester.pumpWidget(const RoyalClubApp());
-    expect(find.text('ROYAL CLUB'), findsOneWidget);
+
+    expect(find.byType(AuthGate), findsOneWidget);
+    expect(find.text('ROYAL CLUB'), findsWidgets);
+  });
+
+  testWidgets('home exposes account, friends, and notifications', (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(home: HomeScreen()),
+    );
+
+    for (final label in ['دوستان', 'اعلان‌ها', 'حساب کاربری', 'گفت‌وگوهای خصوصی', 'پنل مدیریت', 'کیف پول و اشتراک']) {
+      for (var attempt = 0; attempt < 12 && find.text(label).evaluate().isEmpty; attempt++) {
+        await tester.drag(find.byType(ListView).first, const Offset(0, -400));
+        await tester.pumpAndSettle();
+      }
+      expect(find.text(label), findsOneWidget);
+    }
+  });
+
+  testWidgets('home screen keeps all game cards', (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(home: HomeScreen()),
+    );
+
     expect(find.text('تخته‌نرد'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('شطرنج'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('شطرنج'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('بازی‌های کارتی'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('بازی‌های کارتی'), findsOneWidget);
   });
 }

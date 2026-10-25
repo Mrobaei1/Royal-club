@@ -1,5 +1,13 @@
 import 'package:flutter/material.dart';
+import 'friends_screen.dart';
+import 'account_screen.dart';
+import 'notifications_screen.dart';
 import 'engine_backgammon_screen.dart';
+import 'services/auth_service.dart';
+import 'online_lobby_screen.dart';
+import 'wallet_screen.dart';
+import 'admin_screen.dart';
+import 'chat_screen.dart';
 
 void main() => runApp(const RoyalClubApp());
 
@@ -23,12 +31,86 @@ class RoyalClubApp extends StatelessWidget {
             surface: panel,
           ),
         ),
-        home: const HomeScreen(),
+        home: const AuthGate(),
       );
 }
 
+class AuthGate extends StatefulWidget {
+  const AuthGate({super.key});
+
+  @override
+  State<AuthGate> createState() => _AuthGateState();
+}
+
+class _AuthGateState extends State<AuthGate> {
+  bool _checking = true;
+  bool _authenticated = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkSession();
+  }
+
+  Future<void> _checkSession() async {
+    var valid = false;
+    try {
+      await AuthService.me();
+      valid = true;
+    } catch (_) {
+      // توکن وجود ندارد یا نشست دیگر معتبر نیست.
+    }
+    if (!mounted) return;
+    setState(() {
+      _authenticated = valid;
+      _checking = false;
+    });
+  }
+
+  void _onAuthenticated() {
+    if (!mounted) return;
+    setState(() => _authenticated = true);
+  }
+
+  void _onLogout() {
+    AuthService.logout().then((_) {
+      if (mounted) setState(() => _authenticated = false);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_checking) {
+      return const Scaffold(
+        backgroundColor: navy,
+        body: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.workspace_premium_rounded, color: gold, size: 64),
+              SizedBox(height: 18),
+              Text('ROYAL CLUB',
+                  style: TextStyle(
+                      color: gold, fontSize: 22, fontWeight: FontWeight.w900)),
+              SizedBox(height: 20),
+              CircularProgressIndicator(color: gold),
+              SizedBox(height: 12),
+              Text('در حال بررسی نشست قبلی...',
+                  style: TextStyle(color: Colors.white70)),
+            ],
+          ),
+        ),
+      );
+    }
+    return _authenticated
+        ? HomeScreen(onLogout: _onLogout)
+        : AuthScreen(onAuthenticated: _onAuthenticated, initialRegister: true);
+  }
+}
+
 class HomeScreen extends StatelessWidget {
-  const HomeScreen({super.key});
+  final VoidCallback? onLogout;
+  const HomeScreen({super.key, this.onLogout});
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -97,8 +179,8 @@ class HomeScreen extends StatelessWidget {
                     ]),
                   ),
                 ]),
-                const SizedBox(height: 27),
-                Container(
+                const SizedBox(height: 18),
+                const SizedBox(height: 27),                Container(
                   padding: const EdgeInsets.all(23),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(27),
@@ -179,6 +261,63 @@ class HomeScreen extends StatelessWidget {
                     onTap: () => Navigator.of(context).push(
                         MaterialPageRoute<void>(
                             builder: (_) => const EngineBackgammonScreen()))),
+                const SizedBox(height: 12),
+                GameTile(
+                    title: 'بازی آنلاین',
+                    subtitle: 'ساخت اتاق و پیوستن به حریف',
+                    icon: Icons.public_rounded,
+                    onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                            builder: (_) => const OnlineLobbyScreen()))),
+                const SizedBox(height: 12),
+                GameTile(
+                    title: 'دوستان',
+                    subtitle: 'درخواست دوستی و مدیریت فهرست دوستان',
+                    icon: Icons.people_alt_rounded,
+                    onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                            builder: (_) => const FriendsScreen()))),
+                const SizedBox(height: 12),
+                GameTile(
+                    title: 'گفت‌وگوهای خصوصی',
+                    subtitle: 'پیام‌رسانی برای دوستان دارای اشتراک فعال',
+                    icon: Icons.chat_bubble_outline_rounded,
+                    onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                            builder: (_) => const ChatScreen()))),
+                const SizedBox(height: 12),
+                GameTile(
+                    title: 'اعلان‌ها',
+                    subtitle: 'درخواست‌های دوستی و پیام‌های سیستم',
+                    icon: Icons.notifications_active_outlined,
+                    onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                            builder: (_) => const NotificationsScreen()))),
+                const SizedBox(height: 12),
+                GameTile(
+                    title: 'حساب کاربری',
+                    subtitle: 'مشاهده مشخصات و خروج امن',
+                    icon: Icons.account_circle_outlined,
+                    onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                            builder: (_) => AccountScreen(
+                                onLogout: onLogout ?? () {})))),
+                const SizedBox(height: 12),
+                GameTile(
+                    title: 'پنل مدیریت',
+                    subtitle: 'اعتبار کاربران و قیمت اشتراک‌ها',
+                    icon: Icons.admin_panel_settings_outlined,
+                    onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                            builder: (_) => const AdminScreen()))),
+                const SizedBox(height: 12),
+                GameTile(
+                    title: 'کیف پول و اشتراک',
+                    subtitle: 'موجودی اعتبار و مدیریت اشتراک ویژه',
+                    icon: Icons.account_balance_wallet_outlined,
+                    onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                            builder: (_) => const WalletScreen()))),
                 const SizedBox(height: 12),
                 const GameTile(
                     title: 'شطرنج',
@@ -274,6 +413,234 @@ class GameTile extends StatelessWidget {
                 const Icon(Icons.arrow_forward_ios_rounded,
                     color: gold, size: 15),
             ]),
+          ),
+        ),
+      );
+}
+
+class AuthScreen extends StatefulWidget {
+  final VoidCallback onAuthenticated;
+  final bool initialRegister;
+
+  const AuthScreen({
+    super.key,
+    required this.onAuthenticated,
+    this.initialRegister = false,
+  });
+
+  @override
+  State<AuthScreen> createState() => _AuthScreenState();
+}
+
+class _AuthScreenState extends State<AuthScreen> {
+  final _email = TextEditingController();
+  final _password = TextEditingController();
+  final _fullName = TextEditingController();
+  final _phone = TextEditingController();
+  String _country = 'Germany';
+  late bool _register = widget.initialRegister;
+  bool _busy = false;
+  bool _rememberMe = true;
+  bool _checkingSession = true;
+  String? _message;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRememberedEmail();
+  }
+
+  Future<void> _loadRememberedEmail() async {
+    try {
+      final email = await AuthService.rememberedEmail();
+      if (!mounted) return;
+      if (email != null && email.isNotEmpty) {
+        _email.text = email;
+        _rememberMe = true;
+      }
+    } finally {
+      if (mounted) setState(() => _checkingSession = false);
+    }
+  }
+
+  @override
+  void dispose() {
+    _email.dispose();
+    _password.dispose();
+    _fullName.dispose();
+    _phone.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (_email.text.trim().isEmpty || _password.text.isEmpty) {
+      setState(() => _message = 'ایمیل و رمز عبور را وارد کن.');
+      return;
+    }
+    if (_register && _fullName.text.trim().isEmpty) {
+      setState(() => _message = 'نام کاربر را وارد کن.');
+      return;
+    }
+    if (_register && _phone.text.trim().isEmpty) {
+      setState(() => _message = 'شماره تلفن را وارد کن.');
+      return;
+    }
+    if (_register && _password.text.length < 6) {
+      setState(() => _message = 'رمز عبور باید حداقل ۶ نویسه باشد.');
+      return;
+    }
+
+    setState(() {
+      _busy = true;
+      _message = null;
+    });
+
+    final wasRegister = _register;
+    try {
+      final result = wasRegister
+          ? await AuthService.register(_email.text, _password.text,
+              fullName: _fullName.text, phone: _phone.text, country: _country)
+          : await AuthService.login(_email.text, _password.text);
+
+      if (!mounted) return;
+
+      if (result['token'] is String &&
+          (result['token'] as String).isNotEmpty) {
+        await AuthService.setRememberedEmail(_email.text, _rememberMe);
+        if (!mounted) return;
+        widget.onAuthenticated();
+      } else if (wasRegister) {
+        setState(() {
+          _register = false;
+          _message = 'ثبت‌نام انجام شد. برای ورود، رمز عبور را دوباره وارد کنید.';
+        });
+      } else {
+        setState(() => _message = 'ورود انجام شد، اما توکن دریافت نشد.');
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _message = e.toString().replaceFirst('Exception: ', ''));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+        appBar: AppBar(title: const Text('حساب کاربری')),
+        body: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 420),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Icon(Icons.workspace_premium_rounded,
+                      color: gold, size: 64),
+                  const SizedBox(height: 12),
+                  const Text('ROYAL CLUB',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                          color: gold,
+                          fontSize: 24,
+                          fontWeight: FontWeight.w900)),
+                  const SizedBox(height: 28),
+                  SegmentedButton<bool>(
+                    segments: const [
+                      ButtonSegment(value: false, label: Text('ورود')),
+                      ButtonSegment(value: true, label: Text('ثبت‌نام')),
+                    ],
+                    selected: {_register},
+                    onSelectionChanged: (v) => setState(() {
+                      _register = v.first;
+                      _message = null;
+                    }),
+                  ),
+                  const SizedBox(height: 20),
+                  if (_register) ...[
+                    TextField(controller: _fullName, textCapitalization: TextCapitalization.words,
+                      autofillHints: const [AutofillHints.name],
+                      decoration: const InputDecoration(labelText: 'نام و نام خانوادگی', border: OutlineInputBorder(), prefixIcon: Icon(Icons.person_outline))),
+                    const SizedBox(height: 14),
+                    TextField(controller: _phone, keyboardType: TextInputType.phone,
+                      autofillHints: const [AutofillHints.telephoneNumber],
+                      decoration: const InputDecoration(labelText: 'شماره تلفن', hintText: '+49 123 456789', border: OutlineInputBorder(), prefixIcon: Icon(Icons.phone_outlined))),
+                    const SizedBox(height: 14),
+                    DropdownButtonFormField<String>(initialValue: _country,
+                      decoration: const InputDecoration(labelText: 'کشور', border: OutlineInputBorder(), prefixIcon: Icon(Icons.public_outlined)),
+                      items: const [
+                        DropdownMenuItem(value: 'Germany', child: Text('آلمان')),
+                        DropdownMenuItem(value: 'Iran', child: Text('ایران')),
+                        DropdownMenuItem(value: 'United States', child: Text('ایالات متحده')),
+                        DropdownMenuItem(value: 'United Kingdom', child: Text('بریتانیا')),
+                        DropdownMenuItem(value: 'Turkey', child: Text('ترکیه')),
+                        DropdownMenuItem(value: 'United Arab Emirates', child: Text('امارات متحده عربی')),
+                        DropdownMenuItem(value: 'Other', child: Text('سایر کشورها')),
+                      ], onChanged: _busy ? null : (value) { if (value != null) setState(() => _country = value); }),
+                    const SizedBox(height: 14),
+                  ],
+                  TextField(
+                    controller: _email,
+                    keyboardType: TextInputType.emailAddress,
+                    autofillHints: const [AutofillHints.email],
+                    decoration: const InputDecoration(
+                      labelText: 'ایمیل',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.email_outlined),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: _password,
+                    obscureText: true,
+                    autofillHints: const [AutofillHints.password],
+                    decoration: InputDecoration(
+                      labelText: _register ? 'رمز عبور (حداقل ۶ نویسه)' : 'رمز عبور',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.lock_outline),
+                    ),
+                  ),
+                  if (!_register) ...[
+                    CheckboxListTile(
+                      contentPadding: EdgeInsets.zero,
+                      value: _rememberMe,
+                      controlAffinity: ListTileControlAffinity.leading,
+                      title: const Text('مرا به خاطر بسپار'),
+                      subtitle: const Text(
+                          'ایمیل ذخیره می‌شود و نشست معتبر حفظ خواهد شد.'),
+                      onChanged: _busy
+                          ? null
+                          : (value) =>
+                              setState(() => _rememberMe = value ?? false),
+                    ),
+                    const SizedBox(height: 8),
+                  ],
+                  if (_checkingSession)
+                    const Padding(
+                      padding: EdgeInsets.all(8),
+                      child: Center(child: CircularProgressIndicator()),
+                    ),
+                  const SizedBox(height: 12),
+                  FilledButton(
+                    onPressed: _busy || _checkingSession ? null : _submit,
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: _busy
+                          ? const SizedBox(
+                              height: 22,
+                              width: 22,
+                              child: CircularProgressIndicator(strokeWidth: 2))
+                          : Text(_register ? 'ایجاد حساب' : 'ورود به حساب'),
+                    ),
+                  ),
+                  if (_message != null) ...[
+                    const SizedBox(height: 16),
+                    Text(_message!, textAlign: TextAlign.center),
+                  ],
+                ],
+              ),
+            ),
           ),
         ),
       );

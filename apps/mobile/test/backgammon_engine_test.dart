@@ -51,11 +51,47 @@ void main() {
       }
     });
 
+    test('rolling again during an active turn does not replace the dice', () {
+      game.dice = [2, 5];
+      final firstRoll = List<int>.from(game.rollDice());
+
+      expect(firstRoll, [2, 5]);
+      expect(game.dice, [2, 5]);
+    });
+
+    test('a finished game rejects further rolls and moves', () {
+      clearPosition(rolledDice: [1]);
+      game.points[23] = 1;
+      game.borneOff[1] = 14;
+      final finalMove = game.legalMoves().single;
+      expect(game.playMove(finalMove), isTrue);
+      expect(game.finished, isTrue);
+
+      final winner = game.winner;
+      final pointsAfterWin = List<int>.from(game.points);
+      expect(game.rollDice(), isEmpty);
+      expect(game.playMove(finalMove), isFalse);
+      expect(game.winner, winner);
+      expect(game.points, pointsAfterWin);
+    });
+
     test('a checker on the bar must enter before any other checker moves', () {
       clearPosition(rolledDice: [1, 2]);
       game.bar[1] = 1;
-      game.points[0] = -2; // Entry for die 1 is blocked.
+      game.points[23] = -2; // Entry for die 1 is blocked.
       game.points[10] = 1; // Must not move this checker instead.
+
+      final moves = game.legalMoves();
+      expect(moves, isNotEmpty);
+      expect(moves.every((move) => move.fromBar), isTrue);
+      expect(moves.every((move) => move.to == 22 && move.die == 2), isTrue);
+    });
+
+    test('negative player enters from the correct side of the bar', () {
+      clearPosition(player: -1, rolledDice: [1, 2]);
+      game.bar[0] = 1;
+      game.points[0] = 2; // Two opposing checkers block die 1.
+      game.points[12] = -1;
 
       final moves = game.legalMoves();
       expect(moves, isNotEmpty);
@@ -123,6 +159,53 @@ void main() {
       expect(game.dice, isEmpty);
     });
 
+    test('player -1 moves in the mirrored direction', () {
+      clearPosition(player: -1, rolledDice: [3]);
+      game.points[10] = -1;
+
+      final moves = game.legalMoves();
+      expect(moves, hasLength(1));
+      expect(moves.single.from, 10);
+      expect(moves.single.to, 7);
+      expect(moves.single.die, 3);
+    });
+
+    test('player -1 must use the farther checker before oversized bear-off', () {
+      clearPosition(player: -1, rolledDice: [6]);
+      game.points[0] = -1;
+      game.points[3] = -1;
+
+      final moves = game.legalMoves();
+      expect(moves.any((move) => move.from == 0 && move.to == -1), isFalse);
+      expect(moves.any((move) => move.from == 3 && move.to == -1), isTrue);
+    });
+
+    test('player -1 enters from the bar only onto an open point', () {
+      clearPosition(player: -1, rolledDice: [1, 2]);
+      game.bar[0] = 1;
+      game.points[0] = 2; // Blocks entry for die 1.
+      game.points[1] = 0; // Entry for die 2 is open.
+
+      final moves = game.legalMoves();
+      expect(moves, isNotEmpty);
+      expect(moves.every((move) => move.fromBar), isTrue);
+      expect(moves.every((move) => move.to == 1 && move.die == 2), isTrue);
+    });
+
+    test('negative player can bear off and wins with the fifteenth checker', () {
+      clearPosition(player: -1, rolledDice: [1]);
+      game.points[0] = -1;
+      game.borneOff[0] = 14;
+
+      final move = game.legalMoves().singleWhere(
+            (candidate) => candidate.from == 0 && candidate.to == -1,
+          );
+      expect(game.playMove(move), isTrue);
+      expect(game.finished, isTrue);
+      expect(game.winner, -1);
+      expect(game.borneOff[0], 15);
+    });
+
     test('reset clears dice, bars, borne-off counters and winner after a roll',
         () {
       game.rollDice();
@@ -157,7 +240,7 @@ void main() {
       final blockedGame = BackgammonEngine(random: _FixedRandom([0, 0]));
       blockedGame.points.fillRange(0, 24, 0);
       blockedGame.bar[1] = 1;
-      for (var point = 0; point < 6; point++) {
+      for (var point = 18; point < 24; point++) {
         blockedGame.points[point] = -2;
       }
 
@@ -165,6 +248,65 @@ void main() {
       expect(blockedGame.dice, isEmpty);
       expect(blockedGame.currentPlayer, -1);
       expect(blockedGame.bar[1], 1);
+    });
+
+    test('doubles allow up to four legal checker moves', () {
+      clearPosition(rolledDice: [2, 2, 2, 2]);
+      game.points[0] = 1;
+
+      for (var i = 0; i < 4; i++) {
+        final moves = game.legalMoves();
+        expect(moves, isNotEmpty);
+        expect(moves.every((move) => move.die == 2), isTrue);
+        expect(game.playMove(moves.first), isTrue);
+      }
+
+      expect(game.dice, isEmpty);
+      expect(game.currentPlayer, -1);
+    });
+
+    test('oversized bear-off die cannot skip a farther checker', () {
+      clearPosition(rolledDice: [6]);
+      game.points[23] = 1;
+      game.points[20] = 1;
+
+      final moves = game.legalMoves();
+      expect(moves.any((move) => move.from == 23 && move.to == -1), isFalse);
+    });
+
+    test(
+        'illegal move leaves board, bar, borne-off counters and dice unchanged',
+        () {
+      clearPosition(rolledDice: [1, 2]);
+      game.points[0] = 1;
+      game.points[1] = -2;
+      final beforePoints = List<int>.from(game.points);
+      final beforeBar = List<int>.from(game.bar);
+      final beforeOff = List<int>.from(game.borneOff);
+      final beforeDice = List<int>.from(game.dice);
+
+      expect(
+        game.playMove(const BackgammonMove(from: 0, to: 1, die: 1)),
+        isFalse,
+      );
+      expect(game.points, beforePoints);
+      expect(game.bar, beforeBar);
+      expect(game.borneOff, beforeOff);
+      expect(game.dice, beforeDice);
+    });
+
+    test('turn ends when no remaining die can be played', () {
+      clearPosition(rolledDice: [1, 2]);
+      game.points[0] = 1;
+      game.points[1] = -2; // Die 1 is blocked initially.
+      game.points[3] = -2; // After playing die 2, die 1 is still blocked.
+
+      final moves = game.legalMoves();
+      expect(moves, hasLength(1));
+      expect(moves.single.die, 2);
+      expect(game.playMove(moves.single), isTrue);
+      expect(game.dice, isEmpty);
+      expect(game.currentPlayer, -1);
     });
   });
 }
