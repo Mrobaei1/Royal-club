@@ -31,6 +31,9 @@ class MatchService {
   static Future<List<Map<String, dynamic>>> listOpen() async =>
       ((await _request('GET', '/open'))['matches'] as List? ?? const [])
           .whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
+  static Future<List<Map<String, dynamic>>> history() async =>
+      ((await _request('GET', '/history'))['matches'] as List? ?? const [])
+          .whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
   static Future<Map<String, dynamic>> create() async =>
       Map<String, dynamic>.from((await _request('POST', ''))['match'] as Map);
   static Future<Map<String, dynamic>> join(String id) async =>
