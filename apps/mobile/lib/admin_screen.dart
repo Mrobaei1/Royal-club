@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';\nimport 'package:flutter/services.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'services/admin_service.dart';
 
 class AdminScreen extends StatefulWidget {
@@ -238,7 +239,8 @@ class _AdminScreenState extends State<AdminScreen> {
                 TextField(controller: _description, decoration: const InputDecoration(labelText: 'توضیح تراکنش')),
                 const SizedBox(height: 8),
                 FilledButton(onPressed: _busy ? null : () => _credit(user), child: const Text('ثبت اعتبار')),
-                OutlinedButton(onPressed: _busy ? null : () => _notify(userId: user['id'].toString()), child: const Text('ارسال اعلان به این کاربر')),\n                OutlinedButton.icon(onPressed: _busy ? null : () => _exportUser(user), icon: const Icon(Icons.person_search_outlined), label: const Text('استخراج مشخصات کاربر')),
+                OutlinedButton(onPressed: _busy ? null : () => _notify(userId: user['id'].toString()), child: const Text('ارسال اعلان به این کاربر')),
+                OutlinedButton.icon(onPressed: _busy ? null : () => _exportUser(user), icon: const Icon(Icons.person_search_outlined), label: const Text('استخراج مشخصات کاربر')),
               ]))),
               const SizedBox(height: 22),
               const Text('ارسال اعلان', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
