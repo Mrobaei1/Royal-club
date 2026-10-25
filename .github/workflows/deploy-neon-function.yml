@@ -56,7 +56,7 @@ jobs:
       - name: Bundle Fetch-compatible Neon Function
         working-directory: apps/api
         run: |
-          npx --yes esbuild@0.25.12 src/neon-function.ts --bundle --platform=node --target=node24 --format=esm --outfile=dist/index.mjs
+          npx --yes esbuild@0.25.12 src/neon-function.ts --bundle --platform=node --target=node24 --format=esm --banner:js='import { createRequire as __createRequire } from "node:module"; const require = __createRequire(import.meta.url);' --outfile=dist/index.mjs
           mkdir -p dist/neon-package
           cp dist/index.mjs dist/neon-package/index.mjs
           cd dist/neon-package
