@@ -39,6 +39,18 @@ jobs:
             flutter create . --platforms=android
           fi
 
+      - name: Ensure release APK has Internet permission
+        working-directory: apps/mobile
+        run: |
+          MANIFEST="android/app/src/main/AndroidManifest.xml"
+          test -f "$MANIFEST"
+          if ! grep -q 'android.permission.INTERNET' "$MANIFEST"; then
+            sed -i '/<manifest[^>]*>/a\    <uses-permission android:name="android.permission.INTERNET"/>' "$MANIFEST"
+          fi
+          grep -q 'android.permission.INTERNET' "$MANIFEST"
+          echo "Verified Android INTERNET permission in the main release manifest."
+          grep -n 'android.permission.INTERNET' "$MANIFEST"
+
       - name: Install dependencies
         working-directory: apps/mobile
         run: flutter pub get
@@ -60,8 +72,8 @@ jobs:
             echo "Building APK with the Royal Club API endpoint."
             flutter build apk --release --dart-define="API_BASE_URL=$API_BASE_URL"
           else
-            echo "::warning::API_BASE_URL is not configured. Registration and online services will show a setup message."
-            flutter build apk --release
+            echo "::error::API_BASE_URL is not configured; refusing to build a release APK without an API endpoint."
+            exit 1
           fi
 
       - name: Upload installable APK
