@@ -134,3 +134,49 @@ export function mustPlayHigherDie(
   if ('error' in afterLower) return false;
   return !hasLegalMove(afterLower.state.board, afterLower.state.bar, [higher], hostTurn);
 }
+
+
+/** Returns the greatest number of remaining dice that can legally be played. */
+export function maxPlayableDiceCount(
+  state: MutableGameState,
+  remainingDice: number[],
+  hostTurn: boolean,
+): number {
+  if (remainingDice.length === 0) return 0;
+  const sign = hostTurn ? 1 : -1;
+  const ownBar = hostTurn ? 'host' : 'guest';
+  const candidates: BackgammonMove[] = [];
+
+  for (let dieIndex = 0; dieIndex < remainingDice.length; dieIndex++) {
+    const die = remainingDice[dieIndex];
+    if (!Number.isInteger(die) || die < 1 || die > 6) continue;
+    if (state.bar[ownBar] > 0) {
+      const to = hostTurn ? 24 - die : die - 1;
+      if (state.board[to] * sign > -2) candidates.push({ from: null, to, die });
+      continue;
+    }
+
+    for (let from = 0; from < 24; from++) {
+      if (state.board[from] * sign <= 0) continue;
+      const rawTo = hostTurn ? from - die : from + die;
+      if (rawTo >= 0 && rawTo < 24 && state.board[rawTo] * sign > -2) {
+        candidates.push({ from, to: rawTo, die });
+      } else if (rawTo < 0 || rawTo >= 24) {
+        candidates.push({ from, to: null, die });
+      }
+    }
+  }
+
+  let best = 0;
+  for (const move of candidates) {
+    const applied = applyBackgammonMove(state, move, hostTurn);
+    if ('error' in applied) continue;
+    const remaining = [...remainingDice];
+    const usedIndex = remaining.indexOf(move.die);
+    if (usedIndex < 0) continue;
+    remaining.splice(usedIndex, 1);
+    best = Math.max(best, 1 + maxPlayableDiceCount(applied.state, remaining, hostTurn));
+    if (best === remainingDice.length) return best;
+  }
+  return best;
+}
