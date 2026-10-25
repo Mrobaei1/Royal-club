@@ -33,13 +33,17 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     });
     try {
       final items = await NotificationsService.list();
-      if (mounted) setState(() => _items = items);
+      if (mounted) {
+        setState(() => _items = items);
+      }
     } catch (error) {
       if (mounted) {
         setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
       }
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted) {
+        setState(() => _loading = false);
+      }
     }
   }
 
@@ -60,7 +64,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
       }
     } finally {
-      if (mounted) setState(() => _busy = false);
+      if (mounted) {
+        setState(() => _busy = false);
+      }
     }
   }
 
