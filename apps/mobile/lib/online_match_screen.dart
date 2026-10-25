@@ -18,6 +18,9 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
   Timer? _poller;
   Map<String, dynamic>? _state;
   bool _busy = false;
+  int? _selectedFrom;
+  int? _selectedDie;
+  bool _fromBar = false;
   String? _error;
 
   String get _id => widget.match['id'].toString();
@@ -65,12 +68,63 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
     }
   }
 
+  Future<void> _tapPoint(int point, List<num> board, List<num> remaining, bool isMyTurn) async {
+    if (!isMyTurn || _busy) return;
+    if (_selectedDie == null || !remaining.contains(_selectedDie)) {
+      setState(() => _error = 'ابتدا یکی از تاس‌های باقی‌مانده را انتخاب کنید.');
+      return;
+    }
+    if (_fromBar) {
+      await _submitMove(from: null, to: point, die: _selectedDie!);
+      return;
+    }
+    if (_selectedFrom == null) {
+      final sign = _state?['isHost'] == true ? 1 : -1;
+      if (board[point].toInt() * sign <= 0) {
+        setState(() => _error = 'مهره‌ای از خودتان را انتخاب کنید.');
+        return;
+      }
+      setState(() { _selectedFrom = point; _error = null; });
+      return;
+    }
+    if (_selectedFrom == point) {
+      setState(() { _selectedFrom = null; _error = null; });
+      return;
+    }
+    await _submitMove(from: _selectedFrom, to: point, die: _selectedDie!);
+  }
+
+  Future<void> _submitMove({required int? from, required int? to, required int die}) async {
+    if (_busy || _state == null) return;
+    setState(() { _busy = true; _error = null; });
+    try {
+      final next = await MatchService.move(
+        _id, from: from, to: to, die: die,
+        expectedVersion: (_state!['version'] as num).toInt(),
+      );
+      if (mounted) setState(() {
+        _state = {...?_state, ...next};
+        _selectedFrom = null;
+        _selectedDie = null;
+        _fromBar = false;
+      });
+      await _refresh(silent: true);
+    } catch (e) {
+      if (mounted) setState(() => _error = e.toString().replaceFirst('Exception: ', ''));
+      await _refresh(silent: true);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final dice = (_state?['dice'] as List?)?.cast<num>() ?? const <num>[];
     final remaining = (_state?['remainingDice'] as List?)?.cast<num>() ?? const <num>[];
     final board = (_state?['board'] as List?)?.cast<num>() ?? const <num>[];
     final isMyTurn = _state?['isMyTurn'] == true;
+    final bar = (_state?['bar'] as Map?)?.cast<String, dynamic>() ?? const <String, dynamic>{};
+    final ownBar = (_state?['isHost'] == true ? bar['host'] : bar['guest']) as num? ?? 0;
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
@@ -110,14 +164,19 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
                     gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 6, childAspectRatio: .9, crossAxisSpacing: 5, mainAxisSpacing: 5),
                     itemBuilder: (context, index) {
                       final count = board[index].toInt();
-                      return Container(
-                        decoration: BoxDecoration(color: const Color(0xFF35271F), borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.white24)),
-                        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                          Text('${index + 1}', style: const TextStyle(color: Colors.white54, fontSize: 10)),
-                          const SizedBox(height: 3),
-                          Icon(Icons.circle, size: 15, color: count > 0 ? const Color(0xFFF0D7A1) : count < 0 ? const Color(0xFF20202A) : Colors.white12),
-                          Text(count == 0 ? '—' : count.abs().toString(), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                        ]),
+                      final selected = _selectedFrom == index;
+                      return InkWell(
+                        onTap: () => _tapPoint(index, board, remaining, isMyTurn),
+                        borderRadius: BorderRadius.circular(8),
+                        child: Container(
+                          decoration: BoxDecoration(color: selected ? _matchGold.withValues(alpha: .35) : const Color(0xFF35271F), borderRadius: BorderRadius.circular(8), border: Border.all(color: selected ? _matchGold : Colors.white24, width: selected ? 2 : 1)),
+                          child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                            Text('${index + 1}', style: const TextStyle(color: Colors.white54, fontSize: 10)),
+                            const SizedBox(height: 3),
+                            Icon(Icons.circle, size: 15, color: count > 0 ? const Color(0xFFF0D7A1) : count < 0 ? const Color(0xFF20202A) : Colors.white12),
+                            Text(count == 0 ? '—' : count.abs().toString(), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                          ]),
+                        ),
                       );
                     },
                   ),
@@ -136,8 +195,27 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
                     _Die(value: dice.length > 1 ? dice[1].toInt() : null),
                   ]),
                   const SizedBox(height: 8),
-                  Text(dice.isEmpty ? 'هنوز تاسی ریخته نشده است.' : 'تاس‌های باقی‌مانده برای حرکت: ${remaining.join('، ')}',
+                  Text(dice.isEmpty ? 'هنوز تاسی ریخته نشده است.' : 'تاس‌های باقی‌مانده را انتخاب کنید:',
                     textAlign: TextAlign.center, style: const TextStyle(color: Colors.white70)),
+                  if (remaining.isNotEmpty) Wrap(
+                    alignment: WrapAlignment.center,
+                    spacing: 8,
+                    children: remaining.map((die) => ChoiceChip(
+                      label: Text(die.toString()),
+                      selected: _selectedDie == die,
+                      onSelected: isMyTurn && !_busy ? (_) => setState(() { _selectedDie = die.toInt(); _error = null; }) : null,
+                    )).toList(),
+                  ),
+                  if (ownBar > 0 && isMyTurn) OutlinedButton.icon(
+                    onPressed: _busy ? null : () => setState(() { _fromBar = true; _selectedFrom = null; _error = null; }),
+                    icon: const Icon(Icons.login),
+                    label: Text('ورود مهره از بار (${ownBar.toInt()})'),
+                  ),
+                  if (_selectedFrom != null && isMyTurn) OutlinedButton.icon(
+                    onPressed: _busy || _selectedDie == null ? null : () => _submitMove(from: _selectedFrom, to: null, die: _selectedDie!),
+                    icon: const Icon(Icons.outbound),
+                    label: const Text('خارج کردن مهره'),
+                  ),
                   const SizedBox(height: 12),
                   FilledButton.icon(
                     onPressed: _busy || !isMyTurn || dice.isNotEmpty ? null : _roll,
@@ -150,7 +228,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
             ],
             if (_error != null) Padding(padding: const EdgeInsets.only(top: 12), child: Text(_error!, style: const TextStyle(color: Colors.redAccent))),
             const SizedBox(height: 10),
-            const Text('در این مرحله، وضعیت اتاق و تاس‌ها از سرور همگام می‌شوند؛ ثبت و اعتبارسنجی حرکت مهره‌ها در مرحله بعدی تکمیل می‌شود.',
+            const Text('حرکت‌ها با شماره نسخه به سرور ارسال می‌شوند و سرور نوبت، تاس مصرفی، مسیر حرکت، خانه مسدود و خارج‌کردن مهره را بررسی می‌کند.',
               style: TextStyle(color: Colors.white54, height: 1.6)),
           ],
         )),
