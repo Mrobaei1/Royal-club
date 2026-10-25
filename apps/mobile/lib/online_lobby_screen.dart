@@ -13,6 +13,7 @@ class OnlineLobbyScreen extends StatefulWidget {
 
 class _OnlineLobbyScreenState extends State<OnlineLobbyScreen> {
   List<Map<String, dynamic>> _matches = [];
+  List<Map<String, dynamic>> _history = [];
   Map<String, dynamic>? _created;
   bool _loading = false;
   String? _error;
@@ -29,8 +30,8 @@ class _OnlineLobbyScreenState extends State<OnlineLobbyScreen> {
   }
 
   Future<void> _refresh() => _run(() async {
-    final rows = await MatchService.listOpen();
-    if (mounted) setState(() => _matches = rows);
+    final results = await Future.wait([MatchService.listOpen(), MatchService.history()]);
+    if (mounted) setState(() { _matches = results[0]; _history = results[1]; });
   });
 
   Future<void> _create() => _run(() async {
@@ -94,6 +95,27 @@ class _OnlineLobbyScreenState extends State<OnlineLobbyScreen> {
           subtitle: Text('میزبان: ${room['hostName'] ?? 'بازیکن'}', style: const TextStyle(color: Colors.white70)),
           trailing: FilledButton(onPressed: _loading ? null : () => _join(room), style: FilledButton.styleFrom(backgroundColor: _gold, foregroundColor: _navy), child: const Text('پیوستن')),
         ))),
+        const SizedBox(height: 24),
+        const Text('نتایج بازی‌های اخیر', style: TextStyle(color: _gold, fontSize: 18, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        if (!_loading && _history.isEmpty)
+          const Padding(padding: EdgeInsets.all(12), child: Text('هنوز بازی پایان‌یافته‌ای ثبت نشده است.', style: TextStyle(color: Colors.white60))),
+        ..._history.map((game) {
+          final result = game['result']?.toString() ?? 'unknown';
+          final won = result == 'win';
+          final resultLabel = won ? 'پیروزی' : result == 'loss' ? 'شکست' : 'نتیجه نامشخص';
+          return Card(
+            color: const Color(0xFF17243A),
+            child: ListTile(
+              leading: Icon(won ? Icons.emoji_events_outlined : Icons.sports_esports_outlined,
+                color: won ? _gold : Colors.white60),
+              title: Text(resultLabel, style: TextStyle(color: won ? _gold : Colors.white)),
+              subtitle: Text('حریف: ${game['opponentEmail'] ?? 'بازیکن'} • اتاق ${game['roomCode'] ?? game['id']}',
+                style: const TextStyle(color: Colors.white70)),
+              trailing: const Icon(Icons.history, color: Colors.white38),
+            ),
+          );
+        }),
       ])),
     ),
   );
