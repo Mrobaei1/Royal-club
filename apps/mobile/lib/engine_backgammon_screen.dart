@@ -6,7 +6,6 @@ import 'backgammon_ai.dart';
 
 const _boardNavy = Color(0xFF10182B);
 const _boardGold = Color(0xFFD8B45A);
-const _boardWood = Color(0xFF76502E);
 const _boardLight = Color(0xFFE7D4B2);
 const _boardDark = Color(0xFF352B2A);
 
