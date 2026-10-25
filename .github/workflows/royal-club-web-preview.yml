@@ -3,6 +3,7 @@ name: Royal Club Web Preview
 on:
   push:
     branches:
+      - main
       - feature/password-min-6
   workflow_dispatch:
 
