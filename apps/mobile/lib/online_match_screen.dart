@@ -47,7 +47,9 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
     final sequence = ++_refreshSequence;
     try {
       final match = await MatchService.get(_id);
-      if (sequence != _refreshSequence) return;
+      if (sequence != _refreshSequence) {
+        return;
+      }
       if (match['status'] == 'active' || match['status'] == 'finished') {
         final state = await MatchService.getState(_id);
         if (sequence != _refreshSequence) return;
