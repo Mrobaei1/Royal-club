@@ -114,3 +114,23 @@ export function hasLegalMove(
     return false;
   });
 }
+
+/**
+ * If a lower die would consume the only route that lets the higher die be played,
+ * the higher die must be played first under the standard two-dice rule.
+ */
+export function mustPlayHigherDie(
+  state: MutableGameState,
+  remainingDice: number[],
+  selectedMove: BackgammonMove,
+  hostTurn: boolean,
+): boolean {
+  if (remainingDice.length !== 2 || remainingDice[0] === remainingDice[1]) return false;
+  const higher = Math.max(...remainingDice);
+  const lower = Math.min(...remainingDice);
+  if (selectedMove.die !== lower) return false;
+  if (!hasLegalMove(state.board, state.bar, [higher], hostTurn)) return false;
+  const afterLower = applyBackgammonMove(state, selectedMove, hostTurn);
+  if ('error' in afterLower) return false;
+  return !hasLegalMove(afterLower.state.board, afterLower.state.bar, [higher], hostTurn);
+}
