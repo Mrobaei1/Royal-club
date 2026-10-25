@@ -21,6 +21,8 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
   int? _selectedFrom;
   int? _selectedDie;
   bool _fromBar = false;
+  bool _batchMode = false;
+  final List<Map<String, int?>> _pendingMoves = [];
   String _matchStatus = 'waiting';
   String? _error;
 
@@ -91,6 +93,116 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
     }
   }
 
+  Map<String, dynamic> _previewGameState() {
+    final board = ((_state?['board'] as List?)?.cast<num>() ?? const <num>[]).map((v) => v.toInt()).toList();
+    final originalBar = (_state?['bar'] as Map?)?.cast<String, dynamic>() ?? const <String, dynamic>{};
+    final bar = <String, int>{'host': (originalBar['host'] as num? ?? 0).toInt(), 'guest': (originalBar['guest'] as num? ?? 0).toInt()};
+    final originalOff = (_state?['off'] as Map?)?.cast<String, dynamic>() ?? const <String, dynamic>{};
+    final off = <String, int>{'host': (originalOff['host'] as num? ?? 0).toInt(), 'guest': (originalOff['guest'] as num? ?? 0).toInt()};
+    final hostTurn = _state?['isHost'] == true;
+    final sign = hostTurn ? 1 : -1;
+    final own = hostTurn ? 'host' : 'guest';
+    final other = hostTurn ? 'guest' : 'host';
+    for (final move in _pendingMoves) {
+      final from = move['from'];
+      final to = move['to'];
+      final die = move['die'] ?? 0;
+      if (from == null && to != null) {
+        final target = hostTurn ? 24 - die : die - 1;
+        if (target >= 0 && target < 24) {
+          bar[own] = (bar[own] ?? 0) - 1;
+          if (board[target] * sign < 0) { board[target] = 0; bar[other] = (bar[other] ?? 0) + 1; }
+          board[target] += sign;
+        }
+      } else if (from != null && to == null && from >= 0 && from < 24) {
+        board[from] -= sign;
+        off[own] = (off[own] ?? 0) + 1;
+      } else if (from != null && to != null && from >= 0 && from < 24 && to >= 0 && to < 24) {
+        board[from] -= sign;
+        if (board[to] * sign < 0) { board[to] = 0; bar[other] = (bar[other] ?? 0) + 1; }
+        board[to] += sign;
+      }
+    }
+    return {'board': board, 'bar': bar, 'off': off};
+  }
+
+  Future<void> _stageMove({required int? from, required int? to, required int die}) async {
+    if (_state == null) return;
+    final preview = _previewGameState();
+    final board = (preview['board'] as List<int>);
+    final bar = (preview['bar'] as Map<String, int>);
+    final hostTurn = _state?['isHost'] == true;
+    final sign = hostTurn ? 1 : -1;
+    final ownBar = bar[hostTurn ? 'host' : 'guest'] ?? 0;
+    if (ownBar > 0) {
+      final expected = hostTurn ? 24 - die : die - 1;
+      if (from != null || to != expected) { setState(() => _error = 'ابتدا باید مهره را با تاس انتخاب‌شده از بار وارد کنید.'); return; }
+      if (board[expected] * sign <= -2) { setState(() => _error = 'خانهٔ ورود با دو مهرهٔ حریف بسته است.'); return; }
+    } else if (from == null) {
+      setState(() => _error = 'مهره‌ای روی بار ندارید.'); return;
+    } else if (to == null) {
+      final inHome = hostTurn ? from <= 5 : from >= 18;
+      final allHome = board.asMap().entries.every((e) => hostTurn ? e.key > 5 || e.value <= 0 : e.key < 18 || e.value >= 0);
+      final distance = hostTurn ? from + 1 : 24 - from;
+      final clear = hostTurn
+          ? !board.asMap().entries.any((e) => e.key > from && e.key <= 5 && e.value > 0)
+          : !board.asMap().entries.any((e) => e.key < from && e.key >= 18 && e.value < 0);
+      if (board[from] * sign <= 0 || !inHome || !allHome || die < distance || (die > distance && !clear)) {
+        setState(() => _error = 'این مهره با این تاس قابل خارج‌کردن نیست.'); return;
+      }
+    } else {
+      final expected = hostTurn ? from - die : from + die;
+      if (board[from] * sign <= 0 || expected != to || to < 0 || to > 23 || board[to] * sign <= -2) {
+        setState(() => _error = 'این حرکت با تاس انتخاب‌شده قانونی نیست.'); return;
+      }
+    }
+    setState(() {
+      _pendingMoves.add({'from': from, 'to': to, 'die': die});
+      _selectedFrom = null;
+      _selectedDie = null;
+      _fromBar = false;
+      _error = null;
+    });
+  }
+
+  Future<void> _submitBatch() async {
+    if (_busy || _state == null || _pendingMoves.isEmpty) return;
+    setState(() { _busy = true; _error = null; });
+    try {
+      final next = await MatchService.batchMove(
+        _id,
+        moves: List<Map<String, int?>>.from(_pendingMoves),
+        expectedVersion: (_state!['version'] as num).toInt(),
+      );
+      if (mounted) setState(() {
+        _state = {...?_state, ...next};
+        _pendingMoves.clear();
+        _batchMode = false;
+        _selectedFrom = null;
+        _selectedDie = null;
+        _fromBar = false;
+      });
+      await _refresh(silent: true);
+    } catch (e) {
+      final message = e.toString().replaceFirst('Exception: ', '');
+      await _refresh(silent: true);
+      if (mounted) setState(() => _error = message);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  void _cancelBatch() {
+    setState(() {
+      _pendingMoves.clear();
+      _batchMode = false;
+      _selectedFrom = null;
+      _selectedDie = null;
+      _fromBar = false;
+      _error = null;
+    });
+  }
+
   Future<void> _tapPoint(int point, List<num> board, List<num> remaining, bool isMyTurn) async {
     if (!isMyTurn || _busy) return;
     if (_selectedDie == null || !remaining.contains(_selectedDie)) {
@@ -98,7 +210,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
       return;
     }
     if (_fromBar) {
-      await _submitMove(from: null, to: point, die: _selectedDie!);
+      if (_batchMode) { await _stageMove(from: null, to: point, die: _selectedDie!); } else { await _submitMove(from: null, to: point, die: _selectedDie!); }
       return;
     }
     if (_selectedFrom == null) {
@@ -114,7 +226,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
       setState(() { _selectedFrom = null; _error = null; });
       return;
     }
-    await _submitMove(from: _selectedFrom, to: point, die: _selectedDie!);
+    if (_batchMode) { await _stageMove(from: _selectedFrom, to: point, die: _selectedDie!); } else { await _submitMove(from: _selectedFrom, to: point, die: _selectedDie!); }
   }
 
   Future<void> _submitMove({required int? from, required int? to, required int die}) async {
@@ -144,11 +256,17 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
   @override
   Widget build(BuildContext context) {
     final dice = (_state?['dice'] as List?)?.cast<num>() ?? const <num>[];
-    final remaining = (_state?['remainingDice'] as List?)?.cast<num>() ?? const <num>[];
-    final board = (_state?['board'] as List?)?.cast<num>() ?? const <num>[];
+    final rawRemaining = (_state?['remainingDice'] as List?)?.cast<num>() ?? const <num>[];
+    final preview = _previewGameState();
+    final board = (preview['board'] as List<int>).map<num>((v) => v).toList();
+    final remaining = [...rawRemaining];
+    for (final move in _pendingMoves) {
+      final die = move['die'];
+      if (die != null) remaining.remove(die);
+    }
     final isMyTurn = _state?['isMyTurn'] == true;
-    final bar = (_state?['bar'] as Map?)?.cast<String, dynamic>() ?? const <String, dynamic>{};
-    final ownBar = (_state?['isHost'] == true ? bar['host'] : bar['guest']) as num? ?? 0;
+    final bar = preview['bar'] as Map<String, int>;
+    final ownBar = (bar[_state?['isHost'] == true ? 'host' : 'guest'] ?? 0);
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
@@ -246,7 +364,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
                     label: Text('ورود مهره از بار (${ownBar.toInt()})'),
                   ),
                   if (_selectedFrom != null && isMyTurn) OutlinedButton.icon(
-                    onPressed: _busy || _selectedDie == null ? null : () => _submitMove(from: _selectedFrom, to: null, die: _selectedDie!),
+                    onPressed: _busy || _selectedDie == null ? null : () => _batchMode ? _stageMove(from: _selectedFrom, to: null, die: _selectedDie!) : _submitMove(from: _selectedFrom, to: null, die: _selectedDie!),
                     icon: const Icon(Icons.outbound),
                     label: const Text('خارج کردن مهره'),
                   ),
