@@ -555,7 +555,7 @@ app.get<{ Params: { id: string } }>('/api/v1/matches/:id/state', { onRequest: [r
       WHERE id = $1 AND (host_user_id = $2 OR guest_user_id = $2) AND expires_at > NOW()`,
     [request.params.id, claims.sub]);
   if (!result.rowCount) return reply.code(404).send({ error: 'Match not found.' });
-  if (result.rows[0].status !== 'active') return reply.code(409).send({ error: 'The match is not active yet.' });
+  if (!['active', 'finished'].includes(result.rows[0].status)) return reply.code(409).send({ error: 'The match is not active yet.' });
   return { state: result.rows[0] };
 });
 
