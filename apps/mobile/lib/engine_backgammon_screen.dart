@@ -87,6 +87,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
   void _reset() {
     setState(() {
       _engine.reset();
+      _gameOverDialogShown = false;
       _computerThinking = false;
       _selectedPoint = null;
       _selectedBar = false;
@@ -237,6 +238,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
     setState(() {
       _vsComputer = vsComputer;
       _engine.reset();
+      _gameOverDialogShown = false;
       _computerThinking = false;
       _selectedPoint = null;
       _selectedBar = false;
