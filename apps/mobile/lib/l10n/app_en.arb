@@ -1,0 +1,19 @@
+{
+  "@@locale": "en",
+  "appTitle": "Royal Club",
+  "games": "Games",
+  "welcome": "Welcome to Royal Club",
+  "login": "Log in",
+  "register": "Register",
+  "account": "Account",
+  "friends": "Friends",
+  "privateChat": "Private chats",
+  "notifications": "Notifications",
+  "wallet": "Wallet",
+  "settings": "Settings",
+  "language": "Language",
+  "theme": "App theme",
+  "backgammon": "Backgammon",
+  "chess": "Chess",
+  "cardGames": "Card games"
+}
