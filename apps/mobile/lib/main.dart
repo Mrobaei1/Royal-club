@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'friends_screen.dart';
 import 'account_screen.dart';
@@ -485,8 +486,12 @@ class _AuthScreenState extends State<AuthScreen> {
       setState(() => _message = 'شماره تلفن را وارد کن.');
       return;
     }
-    if (_register && _password.text.length < 6) {
-      setState(() => _message = 'رمز عبور باید حداقل ۶ نویسه باشد.');
+    if (_register && _password.text.runes.length < 6) {
+      setState(() => _message = 'رمز عبور باید حداقل ۶ کاراکتر باشد.');
+      return;
+    }
+    if (_register && utf8.encode(_password.text).length > 128) {
+      setState(() => _message = 'رمز عبور نباید بیشتر از ۱۲۸ بایت باشد.');
       return;
     }
 
@@ -596,7 +601,7 @@ class _AuthScreenState extends State<AuthScreen> {
                     obscureText: true,
                     autofillHints: const [AutofillHints.password],
                     decoration: InputDecoration(
-                      labelText: _register ? 'رمز عبور (حداقل ۶ نویسه)' : 'رمز عبور',
+                      labelText: _register ? 'رمز عبور (حداقل ۶ کاراکتر)' : 'رمز عبور',
                       border: OutlineInputBorder(),
                       prefixIcon: Icon(Icons.lock_outline),
                     ),
