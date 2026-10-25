@@ -33,7 +33,10 @@ class AdminService {
   static Future<List<dynamic>> plans() async => (await _request('GET', '/api/v1/admin/subscription-plans'))['plans'] as List<dynamic>? ?? [];
   static Future<List<dynamic>> findUser(String email) async =>
       (await _request('GET', '/api/v1/users/search?email=${Uri.encodeQueryComponent(email.trim())}'))['users'] as List<dynamic>? ?? [];
-  static Future<Map<String, dynamic>> exportUserProfile(String userId) async =>\n      (await _request('GET', '/api/v1/admin/users/$userId/profile'))['user'] as Map<String, dynamic>;\n\n  static Future<void> credit(String userId, int amount, String description) async {
+  static Future<Map<String, dynamic>> exportUserProfile(String userId) async =>
+      (await _request('GET', '/api/v1/admin/users/$userId/profile'))['user'] as Map<String, dynamic>;
+
+  static Future<void> credit(String userId, int amount, String description) async {
     await _request('POST', '/api/v1/admin/wallet/credit', body: {'userId': userId, 'amount': amount, 'description': description});
   }
   static Future<int> sendNotification({String? userId, required String title, required String body}) async {
