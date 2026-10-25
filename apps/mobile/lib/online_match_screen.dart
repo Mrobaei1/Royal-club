@@ -16,6 +16,7 @@ class OnlineMatchScreen extends StatefulWidget {
 
 class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
   Timer? _poller;
+  int _refreshSequence = 0;
   Map<String, dynamic>? _state;
   bool _busy = false;
   int? _selectedFrom;
@@ -43,16 +44,29 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
 
   Future<void> _refresh({bool silent = false}) async {
     if (_busy && !silent) return;
+    final sequence = ++_refreshSequence;
     try {
       final match = await MatchService.get(_id);
+      if (sequence != _refreshSequence) return;
       if (match['status'] == 'active' || match['status'] == 'finished') {
         final state = await MatchService.getState(_id);
-        if (mounted) setState(() { _state = state; _matchStatus = match['status'].toString(); _error = null; });
+        if (sequence != _refreshSequence) return;
+        if (mounted) setState(() {
+          _state = state;
+          _matchStatus = match['status'].toString();
+          _error = null;
+        });
       } else if (mounted) {
-        setState(() { _state = null; _matchStatus = match['status']?.toString() ?? 'waiting'; _error = null; });
+        setState(() {
+          _state = null;
+          _matchStatus = match['status']?.toString() ?? 'waiting';
+          _error = null;
+        });
       }
     } catch (e) {
-      if (mounted && !silent) setState(() => _error = e.toString().replaceFirst('Exception: ', ''));
+      if (sequence == _refreshSequence && mounted && !silent) {
+        setState(() => _error = e.toString().replaceFirst('Exception: ', ''));
+      }
     }
   }
 
