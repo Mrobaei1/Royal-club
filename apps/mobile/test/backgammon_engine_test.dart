@@ -123,6 +123,39 @@ void main() {
       expect(game.dice, isEmpty);
     });
 
+    test('player -1 moves in the mirrored direction', () {
+      clearPosition(player: -1, rolledDice: [3]);
+      game.points[10] = -1;
+
+      final moves = game.legalMoves();
+      expect(moves, hasLength(1));
+      expect(moves.single.from, 10);
+      expect(moves.single.to, 7);
+      expect(moves.single.die, 3);
+    });
+
+    test('player -1 must use the farther checker before oversized bear-off', () {
+      clearPosition(player: -1, rolledDice: [6]);
+      game.points[0] = -1;
+      game.points[3] = -1;
+
+      final moves = game.legalMoves();
+      expect(moves.any((move) => move.from == 0 && move.to == -1), isFalse);
+      expect(moves.any((move) => move.from == 3 && move.to == -1), isTrue);
+    });
+
+    test('player -1 enters from the bar only onto an open point', () {
+      clearPosition(player: -1, rolledDice: [1, 2]);
+      game.bar[0] = 1;
+      game.points[23] = 2; // Blocks entry for die 1.
+      game.points[22] = 0; // Entry for die 2 is open.
+
+      final moves = game.legalMoves();
+      expect(moves, isNotEmpty);
+      expect(moves.every((move) => move.fromBar), isTrue);
+      expect(moves.every((move) => move.to == 22 && move.die == 2), isTrue);
+    });
+
     test('reset clears dice, bars, borne-off counters and winner after a roll',
         () {
       game.rollDice();
