@@ -45,6 +45,23 @@ await pool.query(`
   ALTER TABLE users ADD COLUMN IF NOT EXISTS phone TEXT NOT NULL DEFAULT '';
   ALTER TABLE users ADD COLUMN IF NOT EXISTS country TEXT NOT NULL DEFAULT '';
 
+  CREATE TABLE IF NOT EXISTS friendships (
+    id BIGSERIAL PRIMARY KEY,
+    requester_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    addressee_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'accepted')),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CHECK (requester_id <> addressee_id),
+    UNIQUE (requester_id, addressee_id)
+  );
+  CREATE UNIQUE INDEX IF NOT EXISTS friendships_unique_pair_idx
+    ON friendships (LEAST(requester_id, addressee_id), GREATEST(requester_id, addressee_id));
+  CREATE INDEX IF NOT EXISTS friendships_inbox_idx
+    ON friendships (addressee_id, status, created_at DESC);
+  CREATE INDEX IF NOT EXISTS friendships_outbox_idx
+    ON friendships (requester_id, status, created_at DESC);
+
   CREATE TABLE IF NOT EXISTS backgammon_matches (
     id BIGSERIAL PRIMARY KEY,
     room_code TEXT NOT NULL UNIQUE,
@@ -205,6 +222,187 @@ app.get('/api/v1/me', {
   if (!result.rowCount) return reply.code(401).send({ error: 'Account not found.' });
   const user = result.rows[0] as { id: string; email: string; full_name: string; phone: string; country: string; created_at: Date };
   return { user: { id: user.id, email: user.email, fullName: user.full_name, phone: user.phone, country: user.country, createdAt: user.created_at } };
+});
+
+// Friend requests are server-owned and capped at 100 accepted friends per account.
+app.get('/api/v1/friends', { onRequest: [requireMatchAuth] }, async (request) => {
+  const claims = request.user as { sub: string };
+  const result = await pool.query(
+    `SELECT f.id, f.status, f.requester_id AS "requesterId",
+            f.addressee_id AS "addresseeId", f.created_at AS "createdAt",
+            requester.full_name AS "requesterName", requester.email AS "requesterEmail",
+            addressee.full_name AS "addresseeName", addressee.email AS "addresseeEmail"
+       FROM friendships f
+       JOIN users requester ON requester.id = f.requester_id
+       JOIN users addressee ON addressee.id = f.addressee_id
+      WHERE (f.requester_id = $1 OR f.addressee_id = $1)
+      ORDER BY f.created_at DESC
+      LIMIT 300`,
+    [claims.sub],
+  );
+  const rows = result.rows.map((row) => ({
+    id: row.id,
+    status: row.status,
+    direction: row.status === 'accepted' ? 'friend'
+      : String(row.addresseeId) === claims.sub ? 'incoming' : 'outgoing',
+    userId: String(row.requesterId) === claims.sub ? row.addresseeId : row.requesterId,
+    name: String(row.requesterId) === claims.sub ? row.addresseeName : row.requesterName,
+    email: String(row.requesterId) === claims.sub ? row.addresseeEmail : row.requesterEmail,
+    createdAt: row.createdAt,
+  }));
+  return {
+    friends: rows.filter((row) => row.status === 'accepted'),
+    incomingRequests: rows.filter((row) => row.direction === 'incoming'),
+    outgoingRequests: rows.filter((row) => row.direction === 'outgoing'),
+  };
+});
+
+app.post<{ Params: { id: string } }>('/api/v1/friends/:id/request', { onRequest: [requireMatchAuth] }, async (request, reply) => {
+  const claims = request.user as { sub: string };
+  const targetId = request.params.id;
+  if (!isNumericId(targetId)) return reply.code(400).send({ error: 'Invalid user id.' });
+  if (targetId === claims.sub) return reply.code(400).send({ error: 'You cannot add yourself as a friend.' });
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const users = await client.query(
+      'SELECT id FROM users WHERE id = ANY($1::bigint[]) ORDER BY id FOR UPDATE',
+      [[claims.sub, targetId]],
+    );
+    if (users.rowCount !== 2) {
+      await client.query('ROLLBACK');
+      return reply.code(404).send({ error: 'User not found.' });
+    }
+
+    const existing = await client.query(
+      `SELECT id, requester_id, addressee_id, status FROM friendships
+        WHERE (requester_id = $1 AND addressee_id = $2)
+           OR (requester_id = $2 AND addressee_id = $1)
+        FOR UPDATE`,
+      [claims.sub, targetId],
+    );
+    const relation = existing.rows[0] as { id: string; requester_id: string; addressee_id: string; status: string } | undefined;
+    if (relation?.status === 'accepted') {
+      await client.query('ROLLBACK');
+      return reply.code(409).send({ error: 'You are already friends.' });
+    }
+    if (relation && relation.requester_id === targetId && relation.addressee_id === claims.sub) {
+      const count = await client.query(
+        `SELECT user_id, COUNT(*)::int AS total FROM (
+           SELECT requester_id AS user_id FROM friendships WHERE status = 'accepted' AND (requester_id = $1 OR addressee_id = $1)
+           UNION ALL
+           SELECT addressee_id AS user_id FROM friendships WHERE status = 'accepted' AND (requester_id = $1 OR addressee_id = $1)
+         ) accepted WHERE user_id = $1 GROUP BY user_id`,
+        [claims.sub],
+      );
+      const targetCount = await client.query(
+        `SELECT COUNT(*)::int AS total FROM friendships
+          WHERE status = 'accepted' AND (requester_id = $1 OR addressee_id = $1)`,
+        [targetId],
+      );
+      const ownCount = await client.query(
+        `SELECT COUNT(*)::int AS total FROM friendships
+          WHERE status = 'accepted' AND (requester_id = $1 OR addressee_id = $1)`,
+        [claims.sub],
+      );
+      void count;
+      if (Number(ownCount.rows[0]?.total ?? 0) >= 100 || Number(targetCount.rows[0]?.total ?? 0) >= 100) {
+        await client.query('ROLLBACK');
+        return reply.code(409).send({ error: 'One account has reached the 100-friend limit.' });
+      }
+      await client.query(
+        "UPDATE friendships SET status = 'accepted', updated_at = NOW() WHERE id = $1",
+        [relation.id],
+      );
+      await client.query('COMMIT');
+      return { status: 'accepted', message: 'Friend request accepted.' };
+    }
+    if (relation) {
+      await client.query('ROLLBACK');
+      return reply.code(409).send({ error: 'A friend request is already pending.' });
+    }
+
+    const counts = await client.query(
+      `SELECT id, (SELECT COUNT(*)::int FROM friendships f WHERE f.status = 'accepted' AND (f.requester_id = users.id OR f.addressee_id = users.id)) AS friend_count
+         FROM users WHERE id = ANY($1::bigint[])`,
+      [[claims.sub, targetId]],
+    );
+    if (counts.rows.some((row) => Number(row.friend_count) >= 100)) {
+      await client.query('ROLLBACK');
+      return reply.code(409).send({ error: 'One account has reached the 100-friend limit.' });
+    }
+    await client.query(
+      'INSERT INTO friendships (requester_id, addressee_id) VALUES ($1, $2)',
+      [claims.sub, targetId],
+    );
+    await client.query('COMMIT');
+    return reply.code(201).send({ status: 'pending', message: 'Friend request sent.' });
+  } catch (error: any) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    if (error?.code === '23505') return reply.code(409).send({ error: 'A friend request already exists.' });
+    request.log.error({ err: error }, 'Could not create friend request');
+    return reply.code(500).send({ error: 'Could not send friend request.' });
+  } finally {
+    client.release();
+  }
+});
+
+app.post<{ Params: { id: string } }>('/api/v1/friends/:id/accept', { onRequest: [requireMatchAuth] }, async (request, reply) => {
+  const claims = request.user as { sub: string };
+  const requesterId = request.params.id;
+  if (!isNumericId(requesterId)) return reply.code(400).send({ error: 'Invalid user id.' });
+  if (requesterId === claims.sub) return reply.code(400).send({ error: 'Invalid friend request.' });
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query('SELECT id FROM users WHERE id = ANY($1::bigint[]) ORDER BY id FOR UPDATE', [[claims.sub, requesterId]]);
+    const result = await client.query(
+      `SELECT id FROM friendships
+        WHERE requester_id = $1 AND addressee_id = $2 AND status = 'pending'
+        FOR UPDATE`,
+      [requesterId, claims.sub],
+    );
+    if (!result.rowCount) {
+      await client.query('ROLLBACK');
+      return reply.code(404).send({ error: 'Incoming friend request not found.' });
+    }
+    const counts = await client.query(
+      `SELECT id, (SELECT COUNT(*)::int FROM friendships f WHERE f.status = 'accepted' AND (f.requester_id = users.id OR f.addressee_id = users.id)) AS friend_count
+         FROM users WHERE id = ANY($1::bigint[])`,
+      [[claims.sub, requesterId]],
+    );
+    if (counts.rows.length !== 2) {
+      await client.query('ROLLBACK');
+      return reply.code(404).send({ error: 'User not found.' });
+    }
+    if (counts.rows.some((row) => Number(row.friend_count) >= 100)) {
+      await client.query('ROLLBACK');
+      return reply.code(409).send({ error: 'One account has reached the 100-friend limit.' });
+    }
+    await client.query("UPDATE friendships SET status = 'accepted', updated_at = NOW() WHERE id = $1", [result.rows[0].id]);
+    await client.query('COMMIT');
+    return { status: 'accepted', message: 'Friend request accepted.' };
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    request.log.error({ err: error }, 'Could not accept friend request');
+    return reply.code(500).send({ error: 'Could not accept friend request.' });
+  } finally {
+    client.release();
+  }
+});
+
+app.delete<{ Params: { id: string } }>('/api/v1/friends/:id', { onRequest: [requireMatchAuth] }, async (request, reply) => {
+  const claims = request.user as { sub: string };
+  const targetId = request.params.id;
+  if (!isNumericId(targetId)) return reply.code(400).send({ error: 'Invalid user id.' });
+  const result = await pool.query(
+    'DELETE FROM friendships WHERE ((requester_id = $1 AND addressee_id = $2) OR (requester_id = $2 AND addressee_id = $1)) RETURNING id',
+    [claims.sub, targetId],
+  );
+  if (!result.rowCount) return reply.code(404).send({ error: 'Friendship or request not found.' });
+  return { status: 'removed' };
 });
 
 // Lobby API pairs two authenticated players. It does not accept client-supplied board state.
