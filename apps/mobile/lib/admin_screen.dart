@@ -81,6 +81,23 @@ class _AdminScreenState extends State<AdminScreen> {
     }
   }
 
+  Future<void> _togglePlan(dynamic plan, bool active) async {
+    setState(() => _busy = true);
+    try {
+      await AdminService.updatePlan(plan['code'].toString(), active: active);
+      await _load();
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(active ? 'اشتراک فعال شد.' : 'اشتراک غیرفعال شد.')),
+      );
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+      );
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   Future<void> _editPlan(dynamic plan) async {
     final name = TextEditingController(text: plan['name']?.toString() ?? '');
     final days = TextEditingController(text: plan['durationDays']?.toString() ?? '30');
@@ -144,7 +161,13 @@ class _AdminScreenState extends State<AdminScreen> {
                 leading: const Icon(Icons.workspace_premium),
                 title: Text(plan['name']?.toString() ?? ''),
                 subtitle: Text('${plan['durationDays']} روز • ${plan['priceCredits']} اعتبار'),
-                trailing: IconButton(onPressed: _busy ? null : () => _editPlan(plan), icon: const Icon(Icons.edit)),
+                trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Switch(
+                    value: plan['active'] == true,
+                    onChanged: _busy ? null : (value) => _togglePlan(plan, value),
+                  ),
+                  IconButton(onPressed: _busy ? null : () => _editPlan(plan), icon: const Icon(Icons.edit)),
+                ]),
               )),
             ]),
     ),
