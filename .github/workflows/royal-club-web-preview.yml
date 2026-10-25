@@ -51,16 +51,6 @@ jobs:
       - name: Build web preview
         working-directory: apps/mobile
         run: flutter build web --release --base-href /Royal-club/
-      - name: Build Android APK
-        working-directory: apps/mobile
-        run: flutter build apk --release
-      - name: Upload Android APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: royal-club-android-apk
-          path: apps/mobile/build/app/outputs/flutter-apk/app-release.apk
-          if-no-files-found: error
-          retention-days: 7
       - name: Configure Pages
         uses: actions/configure-pages@v5
         with:
