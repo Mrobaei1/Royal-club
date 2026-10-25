@@ -43,6 +43,30 @@ class _AccountScreenState extends State<AccountScreen> {
     }
   }
 
+  Future<void> _editUsername() async {
+    final controller = TextEditingController(text: _user?['username']?.toString() ?? '');
+    final picked = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: _accountPanel,
+        title: const Text('تغییر نام کاربری'),
+        content: TextField(controller: controller, textDirection: TextDirection.ltr, decoration: const InputDecoration(labelText: 'نام کاربری', hintText: 'royal_player7', prefixText: '@', helperText: '۳ تا ۲۴ حرف؛ حروف انگلیسی، عدد، نقطه یا زیرخط')),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('انصراف')),
+          FilledButton(onPressed: () => Navigator.pop(dialogContext, controller.text.trim()), child: const Text('ذخیره')),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (picked == null || picked.trim().isEmpty || !mounted) return;
+    setState(() { _loading = true; _error = null; });
+    try {
+      final updated = await AuthService.updateUsername(picked);
+      if (mounted) setState(() { _user?['username'] = updated['username']; _loading = false; });
+    } catch (error) {
+      if (mounted) setState(() { _error = error.toString().replaceFirst('Exception: ', ''); _loading = false; });
+    }
+  }
   Widget _detail(IconData icon, String label, String value) => Card(
         color: _accountPanel,
         child: ListTile(
@@ -86,6 +110,15 @@ class _AccountScreenState extends State<AccountScreen> {
                             textAlign: TextAlign.center,
                             style: const TextStyle(color: Colors.redAccent)),
                       if (_user != null) ...[
+                        Card(
+                          color: _accountPanel,
+                          child: ListTile(
+                            leading: const Icon(Icons.alternate_email, color: _accountGold),
+                            title: const Text('نام کاربری', style: TextStyle(color: Colors.white60, fontSize: 12)),
+                            subtitle: Text('@' + (_user!['username']?.toString() ?? 'تنظیم نشده'), style: const TextStyle(color: Colors.white, fontSize: 16)),
+                            trailing: IconButton(onPressed: _editUsername, icon: const Icon(Icons.edit_outlined, color: _accountGold), tooltip: 'ویرایش نام کاربری'),
+                          ),
+                        ),
                         _detail(Icons.badge_outlined, 'نام کامل',
                             _user!['fullName']?.toString() ?? ''),
                         _detail(Icons.email_outlined, 'ایمیل',
