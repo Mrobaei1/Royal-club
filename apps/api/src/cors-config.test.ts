@@ -42,8 +42,12 @@ test('rejects wildcard and non-HTTPS origins', () => {
     () => getAllowedCorsOrigins({ nodeEnv: 'development', corsOrigins: '*' }),
     /only explicit HTTPS origins/,
   );
+  assert.deepEqual(
+    getAllowedCorsOrigins({ nodeEnv: 'development', corsOrigins: 'http://localhost:3000' }),
+    ['http://localhost:3000'],
+  );
   assert.throws(
-    () => getAllowedCorsOrigins({ nodeEnv: 'development', corsOrigins: 'http://localhost:3000' }),
-    /only explicit HTTPS origins/,
+    () => getAllowedCorsOrigins({ nodeEnv: 'production', corsOrigins: 'http://royal.example' }),
+    /only HTTPS origins/,
   );
 });
