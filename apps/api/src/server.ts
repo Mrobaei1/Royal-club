@@ -455,6 +455,89 @@ app.post<{ Params: { id: string }; Body: { from: number | null; to: number | nul
   }
 });
 
+// A player may end early only when no remaining die has any legal move.
+app.post<{ Params: { id: string }; Body: { expectedVersion: number } }>('/api/v1/matches/:id/end-turn', { onRequest: [requireMatchAuth] }, async (request, reply) => {
+  const claims = request.user as { sub: string };
+  if (!/^\\d+$/.test(request.params.id) || !Number.isInteger(request.body?.expectedVersion)) {
+    return reply.code(400).send({ error: 'Invalid end-turn request.' });
+  }
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const result = await client.query(
+      `SELECT id, status, host_user_id, guest_user_id, current_turn_user_id,
+              board_state, bar_state, remaining_dice, state_version
+         FROM backgammon_matches WHERE id = $1 AND expires_at > NOW() FOR UPDATE`,
+      [request.params.id]);
+    const game = result.rows[0] as {
+      id: string; status: string; host_user_id: string; guest_user_id: string | null;
+      current_turn_user_id: string | null; board_state: number[];
+      bar_state: { host: number; guest: number }; remaining_dice: number[]; state_version: number;
+    } | undefined;
+    if (!game || ![game.host_user_id, game.guest_user_id].includes(claims.sub)) {
+      await client.query('ROLLBACK');
+      return reply.code(404).send({ error: 'Match not found.' });
+    }
+    if (game.status !== 'active' || game.current_turn_user_id !== claims.sub) {
+      await client.query('ROLLBACK');
+      return reply.code(409).send({ error: 'It is not your active turn.' });
+    }
+    if (game.state_version !== request.body.expectedVersion) {
+      await client.query('ROLLBACK');
+      return reply.code(409).send({ error: 'Game state changed. Refresh the board and try again.' });
+    }
+    const remaining = Array.isArray(game.remaining_dice) ? game.remaining_dice : [];
+    if (remaining.length === 0) {
+      await client.query('ROLLBACK');
+      return reply.code(409).send({ error: 'There are no remaining dice to end.' });
+    }
+    const hostTurn = game.current_turn_user_id === game.host_user_id;
+    const sign = hostTurn ? 1 : -1;
+    const ownBar = hostTurn ? Number(game.bar_state?.host ?? 0) : Number(game.bar_state?.guest ?? 0);
+    const board = game.board_state;
+    const allHome = board.every((count, point) => hostTurn
+      ? point > 5 || count <= 0
+      : point < 18 || count >= 0);
+    const canMove = remaining.some((die) => {
+      if (ownBar > 0) {
+        const target = hostTurn ? 24 - die : die - 1;
+        return board[target] * sign > -2;
+      }
+      for (let from = 0; from < 24; from++) {
+        if (board[from] * sign <= 0) continue;
+        const target = hostTurn ? from - die : from + die;
+        if (target >= 0 && target <= 23 && board[target] * sign > -2) return true;
+        const overshoots = hostTurn ? target < 0 : target > 23;
+        const inHome = hostTurn ? from <= 5 : from >= 18;
+        const overshootClear = hostTurn
+          ? !board.some((count, point) => point > from && point <= 5 && count > 0)
+          : !board.some((count, point) => point < from && point >= 18 && count < 0);
+        if (overshoots && inHome && allHome && overshootClear) return true;
+      }
+      return false;
+    });
+    if (canMove) {
+      await client.query('ROLLBACK');
+      return reply.code(409).send({ error: 'A legal move remains; play it before ending the turn.' });
+    }
+    const nextTurn = hostTurn ? game.guest_user_id : game.host_user_id;
+    const updated = await client.query(
+      `UPDATE backgammon_matches SET current_turn_user_id = $1, dice = '[]'::jsonb,
+              remaining_dice = '[]'::jsonb, state_version = state_version + 1, updated_at = NOW()
+         WHERE id = $2
+         RETURNING id, status, state_version AS version, current_turn_user_id AS "currentTurnUserId"`,
+      [nextTurn, game.id]);
+    await client.query('COMMIT');
+    return { state: updated.rows[0] };
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    request.log.error({ err: error }, 'Could not end turn');
+    return reply.code(500).send({ error: 'Could not end turn.' });
+  } finally {
+    client.release();
+  }
+});
+
 // Server-owned game snapshot. Clients can read state but cannot submit a replacement board.
 app.get<{ Params: { id: string } }>('/api/v1/matches/:id/state', { onRequest: [requireMatchAuth] }, async (request, reply) => {
   const claims = request.user as { sub: string };
