@@ -499,7 +499,7 @@ class _AuthScreenState extends State<AuthScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: const Text('حساب کاربری')),
+        appBar: AppBar(title: Text(AppLocalizations.of(context)!.account)),
         body: Center(
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(24),
@@ -519,9 +519,9 @@ class _AuthScreenState extends State<AuthScreen> {
                           fontWeight: FontWeight.w900)),
                   const SizedBox(height: 28),
                   SegmentedButton<bool>(
-                    segments: const [
-                      ButtonSegment(value: false, label: Text('ورود')),
-                      ButtonSegment(value: true, label: Text('ثبت‌نام')),
+                    segments: [
+                      ButtonSegment(value: false, label: Text(AppLocalizations.of(context)!.login)),
+                      ButtonSegment(value: true, label: Text(AppLocalizations.of(context)!.register)),
                     ],
                     selected: {_register},
                     onSelectionChanged: (v) => setState(() {
@@ -533,14 +533,14 @@ class _AuthScreenState extends State<AuthScreen> {
                   if (_register) ...[
                     TextField(controller: _fullName, textCapitalization: TextCapitalization.words,
                       autofillHints: const [AutofillHints.name],
-                      decoration: const InputDecoration(labelText: 'نام و نام خانوادگی', border: OutlineInputBorder(), prefixIcon: Icon(Icons.person_outline))),
+                      decoration: InputDecoration(labelText: AppLocalizations.of(context)!.fullName, border: const OutlineInputBorder(), prefixIcon: const Icon(Icons.person_outline))),
                     const SizedBox(height: 14),
                     TextField(controller: _phone, keyboardType: TextInputType.phone,
                       autofillHints: const [AutofillHints.telephoneNumber],
-                      decoration: const InputDecoration(labelText: 'شماره تلفن', hintText: '+49 123 456789', border: OutlineInputBorder(), prefixIcon: Icon(Icons.phone_outlined))),
+                      decoration: InputDecoration(labelText: AppLocalizations.of(context)!.phone, hintText: '+49 123 456789', border: const OutlineInputBorder(), prefixIcon: const Icon(Icons.phone_outlined))),
                     const SizedBox(height: 14),
                     DropdownButtonFormField<String>(initialValue: _country,
-                      decoration: const InputDecoration(labelText: 'کشور', border: OutlineInputBorder(), prefixIcon: Icon(Icons.public_outlined)),
+                      decoration: InputDecoration(labelText: AppLocalizations.of(context)!.country, border: const OutlineInputBorder(), prefixIcon: const Icon(Icons.public_outlined)),
                       items: const [
                         DropdownMenuItem(value: 'Germany', child: Text('آلمان')),
                         DropdownMenuItem(value: 'Iran', child: Text('ایران')),
@@ -557,7 +557,7 @@ class _AuthScreenState extends State<AuthScreen> {
                     keyboardType: TextInputType.emailAddress,
                     autofillHints: const [AutofillHints.email],
                     decoration: const InputDecoration(
-                      labelText: 'ایمیل',
+                      labelText: AppLocalizations.of(context)!.email,
                       border: OutlineInputBorder(),
                       prefixIcon: Icon(Icons.email_outlined),
                     ),
@@ -568,7 +568,7 @@ class _AuthScreenState extends State<AuthScreen> {
                     obscureText: true,
                     autofillHints: const [AutofillHints.password],
                     decoration: InputDecoration(
-                      labelText: _register ? 'رمز عبور (حداقل ۶ کاراکتر)' : 'رمز عبور',
+                      labelText: AppLocalizations.of(context)!.password,
                       border: OutlineInputBorder(),
                       prefixIcon: Icon(Icons.lock_outline),
                     ),
@@ -578,7 +578,7 @@ class _AuthScreenState extends State<AuthScreen> {
                       contentPadding: EdgeInsets.zero,
                       value: _rememberMe,
                       controlAffinity: ListTileControlAffinity.leading,
-                      title: const Text('مرا به خاطر بسپار'),
+                      title: Text(AppLocalizations.of(context)!.rememberMe),
                       subtitle: const Text(
                           'ایمیل ذخیره می‌شود و نشست معتبر حفظ خواهد شد.'),
                       onChanged: _busy
