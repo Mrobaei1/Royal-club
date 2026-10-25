@@ -16,7 +16,17 @@ void main() {
     );
 
     expect(find.text('تخته‌نرد'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('شطرنج'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(find.text('شطرنج'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('بازی‌های کارتی'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(find.text('بازی‌های کارتی'), findsOneWidget);
   });
 }
