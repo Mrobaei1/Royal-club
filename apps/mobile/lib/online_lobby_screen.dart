@@ -49,7 +49,8 @@ class _OnlineLobbyScreenState extends State<OnlineLobbyScreen> {
         style: const TextStyle(color: Colors.white, height: 1.6)),
       actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('متوجه شدم'))],
     ));
-    await _refresh();
+    final rows = await MatchService.listOpen();
+    if (mounted) setState(() => _matches = rows);
   });
 
   Future<void> _cancelCreated() => _run(() async {
