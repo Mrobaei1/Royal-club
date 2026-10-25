@@ -187,7 +187,7 @@ app.get('/api/v1/me', {
     [claims.sub]
   );
   if (!result.rowCount) return reply.code(401).send({ error: 'Account not found.' });
-  const user = result.rows[0] as { id: string; email: string; created_at: Date };
+  const user = result.rows[0] as { id: string; email: string; full_name: string; phone: string; country: string; created_at: Date };
   return { user: { id: user.id, email: user.email, fullName: user.full_name, phone: user.phone, country: user.country, createdAt: user.created_at } };
 });
 
