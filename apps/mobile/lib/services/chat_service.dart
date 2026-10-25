@@ -29,6 +29,9 @@ class ChatService {
       (await _request('/api/v1/chat/conversations'))['conversations'] as List<dynamic>? ?? [];
   static Future<List<dynamic>> messages(String userId) async =>
       (await _request('/api/v1/chat/$userId/messages'))['messages'] as List<dynamic>? ?? [];
+  static Future<Map<String, dynamic>> report(String userId, String reason) async =>
+      await _request('/api/v1/users/$userId/report', body: {'reason': reason});
+
   static Future<void> send(String userId, String body) async {
     await _request('/api/v1/chat/$userId/messages', body: {'body': body});
   }
