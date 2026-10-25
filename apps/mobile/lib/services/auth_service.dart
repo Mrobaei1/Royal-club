@@ -101,6 +101,69 @@ class AuthService {
         'password': password,
       });
 
+  static Future<Map<String, dynamic>> updateUsername(String username) async {
+    ensureConfigured();
+    final token = await _storage.read(key: 'royal_club_token');
+    if (token == null || token.isEmpty) throw Exception('ابتدا وارد حساب شوید.');
+    final normalized = baseUrl.trim().replaceFirst(RegExp(r'/+
+    final token = await _storage.read(key: 'royal_club_token');
+    if (token == null || token.isEmpty) {
+      throw Exception('ابتدا وارد حساب شوید.');
+    }
+
+    final normalizedBaseUrl =
+        baseUrl.trim().replaceFirst(RegExp(r'/+$'), '');
+    final response = await _send(
+      () => http.get(
+        Uri.parse('$normalizedBaseUrl/api/v1/me'),
+        headers: {'Authorization': 'Bearer $token'},
+      ),
+    );
+
+    dynamic decoded;
+    try {
+      decoded = jsonDecode(response.body);
+    } catch (_) {
+      throw Exception('پاسخ سرور قابل‌خواندن نیست. وضعیت سرویس API را بررسی کنید.');
+    }
+    if (response.statusCode != 200 || decoded is! Map<String, dynamic>) {
+      throw Exception('دریافت اطلاعات حساب ناموفق بود.');
+    }
+
+    return decoded;
+  }
+
+  static Future<String?> rememberedEmail() =>
+      _storage.read(key: 'royal_club_remembered_email');
+
+  static Future<void> setRememberedEmail(String email, bool remember) async {
+    if (remember) {
+      await _storage.write(
+        key: 'royal_club_remembered_email',
+        value: email.trim(),
+      );
+    } else {
+      await _storage.delete(key: 'royal_club_remembered_email');
+    }
+  }
+
+  static Future<void> logout() => _storage.delete(key: 'royal_club_token');
+}
+), '');
+    final response = await _send(() => http.patch(
+      Uri.parse('${normalized}/api/v1/me/username'),
+      headers: {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'},
+      body: jsonEncode({'username': username.trim().replaceFirst(RegExp(r'^@'), '')}),
+    ));
+    dynamic decoded;
+    try { decoded = jsonDecode(response.body); } catch (_) { throw Exception('پاسخ سرور قابل‌خواندن نیست.'); }
+    if (decoded is! Map<String, dynamic>) throw Exception('پاسخ سرور نامعتبر است.');
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(decoded['error']?.toString() ?? 'تغییر نام کاربری ناموفق بود.');
+    }
+    return Map<String, dynamic>.from(decoded['user'] as Map? ?? {});
+  }
+
   static Future<Map<String, dynamic>> me() async {
     final token = await _storage.read(key: 'royal_club_token');
     if (token == null || token.isEmpty) {
