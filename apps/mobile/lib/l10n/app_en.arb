@@ -17,5 +17,11 @@
   "chess": "Chess",
   "cardGames": "Card games",
   "enterEmailPassword": "Enter your email and password.",
-  "enterName": "Enter your name."
+  "enterName": "Enter your name.",
+  "fullName": "Full name",
+  "phone": "Phone number",
+  "country": "Country",
+  "email": "Email",
+  "rememberMe": "Remember me",
+  "password": "Password"
 }
