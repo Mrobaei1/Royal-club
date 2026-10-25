@@ -285,7 +285,7 @@ app.get<{ Params: { id: string } }>('/api/v1/matches/:id', { onRequest: [require
 });
 app.delete<{ Params: { id: string } }>('/api/v1/matches/:id', { onRequest: [requireMatchAuth] }, async (request, reply) => {
   const claims = request.user as { sub: string };
-  if (!/^\\d+$/.test(request.params.id)) return reply.code(400).send({ error: 'Invalid match id.' });
+  if (!/^\d+$/.test(request.params.id)) return reply.code(400).send({ error: 'Invalid match id.' });
   const result = await pool.query(
     `UPDATE backgammon_matches SET status = 'cancelled', updated_at = NOW()
       WHERE id = $1 AND host_user_id = $2 AND status = 'waiting'
