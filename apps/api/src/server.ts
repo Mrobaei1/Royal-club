@@ -5,7 +5,7 @@ import cors from '@fastify/cors';
 import rateLimit from '@fastify/rate-limit';
 import jwt from '@fastify/jwt';
 import { Pool } from 'pg';
-import { randomBytes, scrypt as scryptCallback, timingSafeEqual } from 'node:crypto';
+import { randomBytes, randomInt, scrypt as scryptCallback, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
 
 const scrypt = promisify(scryptCallback);
@@ -345,8 +345,8 @@ app.post<{ Params: { id: string }; Body: { expectedVersion?: number } }>('/api/v
       await client.query('ROLLBACK');
       return reply.code(409).send({ error: 'Game state changed. Refresh the board and try again.' });
     }
-    const first = randomBytes(4).readUInt32BE(0) % 6 + 1;
-    const second = randomBytes(4).readUInt32BE(0) % 6 + 1;
+    const first = randomInt(1, 7);
+    const second = randomInt(1, 7);
     const dice = [first, second];
     const remainingDice = first === second ? [first, first, first, first] : dice;
     const updated = await client.query(
