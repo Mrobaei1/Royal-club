@@ -164,175 +164,117 @@ class HomeScreen extends StatelessWidget {
   final VoidCallback? onLogout;
   const HomeScreen({super.key, this.onLogout});
 
+  void _openMenu(BuildContext context, String value) {
+    if (value.startsWith('theme:')) {
+      final index = int.tryParse(value.substring(6));
+      if (index != null) royalThemeState.select(index);
+      return;
+    }
+    final Widget? page;
+    switch (value) {
+      case 'friends': page = const FriendsScreen(); break;
+      case 'chat': page = const ChatScreen(); break;
+      case 'notifications': page = const NotificationsScreen(); break;
+      case 'account': page = AccountScreen(onLogout: onLogout ?? () {}); break;
+      case 'admin': page = const AdminScreen(); break;
+      case 'wallet': page = const WalletScreen(); break;
+      default: page = null;
+    }
+    if (page != null) {
+      Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => page!));
+    }
+  }
+
   @override
-  Widget build(BuildContext context) => Scaffold(
-        body: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [Color(0xFF17243A), Color(0xFF0B1020)],
-            ),
-          ),
-          child: SafeArea(
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
-              children: [
-                Row(children: [
-                  Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(15),
-                      gradient: const LinearGradient(
-                        colors: [gold, Color(0xFFB89543)],
-                      ),
-                    ),
-                    child: const Icon(Icons.workspace_premium_rounded,
-                        color: navy, size: 29),
-                  ),
-                  const SizedBox(width: 13),
-                  const Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('ROYAL CLUB',
-                            style: TextStyle(
-                                color: gold,
-                                fontSize: 19,
-                                fontWeight: FontWeight.w900,
-                                letterSpacing: 2.2)),
-                        SizedBox(height: 3),
-                        Text('THE ART OF STRATEGY',
-                            style: TextStyle(
-                                color: Color(0xFFB9C2D3),
-                                fontSize: 9,
-                                letterSpacing: 2,
-                                fontWeight: FontWeight.w600)),
-                      ],
-                    ),
-                  ),
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: gold.withValues(alpha: .4)),
-                      borderRadius: BorderRadius.circular(30),
-                    ),
-                    child: const Row(children: [
-                      Icon(Icons.circle, color: gold, size: 7),
-                      SizedBox(width: 6),
-                      Text('ONLINE',
-                          style: TextStyle(
-                              color: gold,
-                              fontSize: 9,
-                              letterSpacing: 1.1,
-                              fontWeight: FontWeight.bold)),
-                    ]),
-                  ),
-                ]),
-                const SizedBox(height: 18),
-                const SizedBox(height: 27),                const Row(children: [
-                  Expanded(
-                      child: Text('بازی‌ها',
-                          textDirection: TextDirection.rtl,
-                          style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 21,
-                              fontWeight: FontWeight.w800))),
-                ]),
-                const SizedBox(height: 14),
-                GameTile(
-                    title: 'تخته‌نرد',
-                    subtitle: 'بازی کلاسیک و رقابتی',
-                    icon: Icons.casino_rounded,
-                    onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                            builder: (_) => const EngineBackgammonScreen()))),
-                const SizedBox(height: 12),
-                GameTile(
-                    title: 'بازی آنلاین',
-                    subtitle: 'ساخت اتاق و پیوستن به حریف',
-                    icon: Icons.public_rounded,
-                    onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                            builder: (_) => const OnlineLobbyScreen()))),
-                const SizedBox(height: 12),
-                GameTile(
-                    title: 'دوستان',
-                    subtitle: 'درخواست دوستی و مدیریت فهرست دوستان',
-                    icon: Icons.people_alt_rounded,
-                    onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                            builder: (_) => const FriendsScreen()))),
-                const SizedBox(height: 12),
-                GameTile(
-                    title: 'گفت‌وگوهای خصوصی',
-                    subtitle: 'پیام‌رسانی برای دوستان دارای اشتراک فعال',
-                    icon: Icons.chat_bubble_outline_rounded,
-                    onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                            builder: (_) => const ChatScreen()))),
-                const SizedBox(height: 12),
-                GameTile(
-                    title: 'اعلان‌ها',
-                    subtitle: 'درخواست‌های دوستی و پیام‌های سیستم',
-                    icon: Icons.notifications_active_outlined,
-                    onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                            builder: (_) => const NotificationsScreen()))),
-                const SizedBox(height: 12),
-                GameTile(
-                    title: 'حساب کاربری',
-                    subtitle: 'مشاهده مشخصات و خروج امن',
-                    icon: Icons.account_circle_outlined,
-                    onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                            builder: (_) => AccountScreen(
-                                onLogout: onLogout ?? () {})))),
-                const SizedBox(height: 12),
-                GameTile(
-                    title: 'پنل مدیریت',
-                    subtitle: 'اعتبار کاربران و قیمت اشتراک‌ها',
-                    icon: Icons.admin_panel_settings_outlined,
-                    onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                            builder: (_) => const AdminScreen()))),
-                const SizedBox(height: 12),
-                GameTile(
-                    title: 'کیف پول و اشتراک',
-                    subtitle: 'موجودی اعتبار و مدیریت اشتراک ویژه',
-                    icon: Icons.account_balance_wallet_outlined,
-                    onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                            builder: (_) => const WalletScreen()))),
-                const SizedBox(height: 12),
-                const GameTile(
-                    title: 'شطرنج',
-                    subtitle: 'به‌زودی',
-                    icon: Icons.grid_4x4_rounded,
-                    comingSoon: true),
-                const SizedBox(height: 12),
-                const GameTile(
-                    title: 'بازی‌های کارتی',
-                    subtitle: 'به‌زودی',
-                    icon: Icons.style_rounded,
-                    comingSoon: true),
-                const SizedBox(height: 26),
-                const SizedBox(height: 30),
-                const SizedBox(height: 24),
-                const Center(
-                    child: Text('ROYAL CLUB  •  PLAY WITH HONOUR',
-                        style: TextStyle(
-                            color: Color(0xFF77839A),
-                            fontSize: 9,
-                            letterSpacing: 1.5,
-                            fontWeight: FontWeight.w600))),
-              ],
-            ),
+  Widget build(BuildContext context) {
+    final theme = royalThemeState.current;
+    return Scaffold(
+      backgroundColor: theme.background,
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [theme.panel, theme.background],
           ),
         ),
-      );
+        child: SafeArea(
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
+            children: [
+              Row(children: [
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(15),
+                    gradient: LinearGradient(colors: [theme.accent, const Color(0xFFB89543)]),
+                  ),
+                  child: Icon(Icons.workspace_premium_rounded, color: theme.background, size: 29),
+                ),
+                const SizedBox(width: 13),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('ROYAL CLUB', style: TextStyle(color: theme.accent, fontSize: 19, fontWeight: FontWeight.w900, letterSpacing: 2.2)),
+                      const SizedBox(height: 3),
+                      Text('THE ART OF STRATEGY', style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: .65), fontSize: 9, letterSpacing: 2, fontWeight: FontWeight.w600)),
+                    ],
+                  ),
+                ),
+                PopupMenuButton<String>(
+                  tooltip: 'منو و تنظیمات',
+                  icon: Icon(Icons.menu_rounded, color: theme.accent, size: 30),
+                  onSelected: (value) => _openMenu(context, value),
+                  itemBuilder: (context) => [
+                    const PopupMenuItem(value: 'account', child: ListTile(dense: true, leading: Icon(Icons.account_circle_outlined), title: Text('حساب کاربری'))),
+                    const PopupMenuItem(value: 'friends', child: ListTile(dense: true, leading: Icon(Icons.people_outline), title: Text('دوستان'))),
+                    const PopupMenuItem(value: 'chat', child: ListTile(dense: true, leading: Icon(Icons.chat_bubble_outline), title: Text('گفت‌وگوهای خصوصی'))),
+                    const PopupMenuItem(value: 'notifications', child: ListTile(dense: true, leading: Icon(Icons.notifications_outlined), title: Text('اعلان‌ها'))),
+                    const PopupMenuItem(value: 'wallet', child: ListTile(dense: true, leading: Icon(Icons.account_balance_wallet_outlined), title: Text('کیف پول و اشتراک'))),
+                    const PopupMenuItem(value: 'admin', child: ListTile(dense: true, leading: Icon(Icons.admin_panel_settings_outlined), title: Text('پنل مدیریت'))),
+                    const PopupMenuDivider(),
+                    const PopupMenuItem(enabled: false, child: Text('پوسته برنامه')),
+                    for (var i = 0; i < royalThemes.length; i++)
+                      PopupMenuItem(value: 'theme:$i', child: Row(children: [
+                        Icon(i == royalThemeState.index ? Icons.radio_button_checked : Icons.radio_button_off, color: royalThemes[i].accent, size: 18),
+                        const SizedBox(width: 10),
+                        Text(royalThemes[i].name),
+                      ])),
+                  ],
+                ),
+              ]),
+              const SizedBox(height: 28),
+              Text('بازی‌ها', textDirection: TextDirection.rtl,
+                style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 21, fontWeight: FontWeight.w800)),
+              const SizedBox(height: 14),
+              GameTile(
+                title: 'تخته‌نرد',
+                subtitle: 'بازی کلاسیک و رقابتی',
+                icon: Icons.casino_rounded,
+                onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const EngineBackgammonScreen())),
+              ),
+              const SizedBox(height: 12),
+              GameTile(
+                title: 'بازی آنلاین',
+                subtitle: 'ساخت اتاق و پیوستن به حریف',
+                icon: Icons.public_rounded,
+                onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const OnlineLobbyScreen())),
+              ),
+              const SizedBox(height: 12),
+              const GameTile(title: 'شطرنج', subtitle: 'به‌زودی', icon: Icons.grid_4x4_rounded, comingSoon: true),
+              const SizedBox(height: 12),
+              const GameTile(title: 'بازی‌های کارتی', subtitle: 'به‌زودی', icon: Icons.style_rounded, comingSoon: true),
+              const SizedBox(height: 26),
+              const Center(child: Text('ROYAL CLUB  •  PLAY WITH HONOUR',
+                style: TextStyle(color: Color(0xFF77839A), fontSize: 9, letterSpacing: 1.5, fontWeight: FontWeight.w600))),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class GameTile extends StatelessWidget {
