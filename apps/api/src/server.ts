@@ -381,6 +381,12 @@ app.post<{ Body: { planCode?: string } }>('/api/v1/subscriptions/activate', { on
   }
 });
 
+app.get('/api/v1/admin/status', { onRequest: [requireMatchAuth] }, async (request) => {
+  const ownerUserId = process.env.OWNER_USER_ID?.trim();
+  const claims = request.user as { sub?: string };
+  return { isOwner: Boolean(ownerUserId && isNumericId(ownerUserId) && claims.sub === ownerUserId) };
+});
+
 // Only the explicitly configured owner user ID may administer credits and subscription pricing.
 const requireOwnerAuth = async (request: any, reply: any) => {
   await requireMatchAuth(request, reply);
