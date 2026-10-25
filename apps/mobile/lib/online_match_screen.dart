@@ -303,6 +303,32 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
             ),
             if (_state != null) ...[
               const SizedBox(height: 16),
+              if (isMyTurn && remaining.isNotEmpty) OutlinedButton.icon(
+                onPressed: _busy ? null : () => setState(() {
+                  _batchMode = !_batchMode;
+                  _pendingMoves.clear();
+                  _selectedFrom = null;
+                  _selectedDie = null;
+                  _fromBar = false;
+                  _error = null;
+                }),
+                icon: Icon(_batchMode ? Icons.playlist_remove : Icons.playlist_add),
+                label: Text(_batchMode ? 'لغو حالت حرکت ترکیبی' : 'ثبت چند حرکت با یک تأیید'),
+              ),
+              if (_batchMode) Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(color: _matchPanel, borderRadius: BorderRadius.circular(12), border: Border.all(color: _matchGold)),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                  Text('حرکت‌های آماده: ${_pendingMoves.length} — تخته پیش‌نمایش است؛ هنوز روی سرور ثبت نشده.', style: const TextStyle(color: Colors.white70)),
+                  const SizedBox(height: 8),
+                  Row(children: [
+                    Expanded(child: OutlinedButton(onPressed: _busy ? null : _cancelBatch, child: const Text('لغو همه'))),
+                    const SizedBox(width: 8),
+                    Expanded(child: FilledButton(onPressed: _busy || _pendingMoves.isEmpty ? null : _submitBatch, child: const Text('ثبت همه حرکت‌ها'))),
+                  ]),
+                ]),
+              ),
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(color: const Color(0xFF6E4A2B), borderRadius: BorderRadius.circular(16), border: Border.all(color: _matchGold)),
