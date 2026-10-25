@@ -445,6 +445,28 @@ app.post<{ Body: { userId?: string; amount?: number; description?: string } }>('
   }
 });
 
+app.post<{ Body: { userId?: string; title?: string; body?: string } }>('/api/v1/admin/notifications', { onRequest: [requireOwnerAuth] }, async (request, reply) => {
+  const claims = request.user as { sub: string };
+  const { userId, title, body } = request.body ?? {};
+  const cleanTitle = typeof title === 'string' ? title.trim() : '';
+  const cleanBody = typeof body === 'string' ? body.trim() : '';
+  if (cleanTitle.length < 1 || cleanTitle.length > 120 || cleanBody.length > 1000 ||
+      (userId !== undefined && !isNumericId(userId))) {
+    return reply.code(400).send({ error: 'Provide a title (1-120 characters), body up to 1000 characters, and optional valid user ID.' });
+  }
+  if (userId !== undefined) {
+    const recipient = await pool.query('SELECT id FROM users WHERE id = $1', [userId]);
+    if (!recipient.rowCount) return reply.code(404).send({ error: 'Notification recipient not found.' });
+  }
+  const result = await pool.query(
+    `INSERT INTO notifications (user_id, actor_user_id, type, title, body)
+     SELECT id, $1, 'system', $2, $3 FROM users
+      WHERE ($4::bigint IS NULL OR id = $4::bigint)`,
+    [claims.sub, cleanTitle, cleanBody, userId ?? null],
+  );
+  return { sent: result.rowCount ?? 0, scope: userId ? 'user' : 'all' };
+});
+
 app.get('/api/v1/admin/subscription-plans', { onRequest: [requireOwnerAuth] }, async () => {
   const result = await pool.query(
     'SELECT code, name, duration_days AS "durationDays", price_credits AS "priceCredits", active FROM subscription_plans ORDER BY price_credits ASC',
