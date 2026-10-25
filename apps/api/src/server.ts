@@ -219,8 +219,7 @@ app.post('/api/v1/matches', { onRequest: [requireMatchAuth] }, async (request, r
     try {
       const result = await pool.query(
         `INSERT INTO backgammon_matches (room_code, host_user_id) VALUES ($1, $2)
-         RETURNING id, room_code AS "roomCode", status, created_at AS "createdAt", expires_at AS "expiresAt"
-        , [roomCode, claims.sub]);
+         RETURNING id, room_code AS "roomCode", status, created_at AS "createdAt", expires_at AS "expiresAt"`, [roomCode, claims.sub]);
       return reply.code(201).send({ match: result.rows[0] });
     } catch (error: any) {
       if (error?.code !== '23505') {
