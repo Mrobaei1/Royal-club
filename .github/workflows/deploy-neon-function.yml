@@ -168,20 +168,6 @@ jobs:
           fi
           cat health.json
 
-      - name: Collect Neon function error logs
-        if: failure()
-        env:
-          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
-        run: |
-          curl --fail-with-body --silent --show-error --request POST \\
-            "https://console.neon.tech/api/v2/projects/$NEON_PROJECT_ID/branches/$NEON_BRANCH_ID/logs/query" \\
-            --header "Authorization: Bearer $NEON_API_KEY" \\
-            --header "Accept: application/json" \\
-            --header "Content-Type: application/json" \\
-            --data '{"since":"1h","source":"function","minimum_severity":"error","limit":100}' \\
-            --output neon-function-errors.json || { echo "Could not retrieve Neon function logs through the Logs API."; exit 0; }
-          node -e 'const x=JSON.parse(require("node:fs").readFileSync("neon-function-errors.json","utf8")); const rows=x.logs||x.records||x.data||[]; if (!rows.length) { console.log("No error-level function log records were returned."); console.log(JSON.stringify(x).slice(0,12000)); } else for (const r of rows) console.log(JSON.stringify({timestamp:r.timestamp,severity:r.severity_text||r.severity,service:r.service_name,message:r.message||r.body||r}));'
-
       - name: Configure GitHub Pages API endpoint
         env:
           GH_TOKEN: ${{ github.token }}
