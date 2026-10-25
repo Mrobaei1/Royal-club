@@ -109,5 +109,5 @@ class AuthService {
     }
   }
 
-  static Future<void> logout() => _storage.delete(key: 'royal_club_token');
+  static Future<int?> readThemePreference() async {\n    final value = await _storage.read(key: 'royal_club_theme');\n    return value == null ? null : int.tryParse(value);\n  }\n\n  static Future<void> saveThemePreference(int index) =>\n      _storage.write(key: 'royal_club_theme', value: index.toString());\n\n  static Future<void> logout() => _storage.delete(key: 'royal_club_token');
 }
