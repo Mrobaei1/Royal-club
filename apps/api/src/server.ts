@@ -381,13 +381,13 @@ app.post<{ Body: { planCode?: string } }>('/api/v1/subscriptions/activate', { on
   }
 });
 
-// Only the configured owner email may administer credits and subscription pricing.
+// Only the explicitly configured owner user ID may administer credits and subscription pricing.
 const requireOwnerAuth = async (request: any, reply: any) => {
   await requireMatchAuth(request, reply);
   if (reply.sent) return;
-  const ownerEmail = process.env.OWNER_EMAIL?.trim().toLowerCase();
-  const claims = request.user as { sub?: string; email?: string };
-  if (!ownerEmail || claims.email?.trim().toLowerCase() !== ownerEmail) {
+  const ownerUserId = process.env.OWNER_USER_ID?.trim();
+  const claims = request.user as { sub?: string };
+  if (!ownerUserId || !isNumericId(ownerUserId) || claims.sub !== ownerUserId) {
     return reply.code(403).send({ error: 'Owner access is not configured or is not permitted.' });
   }
 };
