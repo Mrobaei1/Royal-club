@@ -1,0 +1,19 @@
+{
+  "@@locale": "fa",
+  "appTitle": "باشگاه سلطنتی",
+  "games": "بازی‌ها",
+  "welcome": "به باشگاه سلطنتی خوش آمدید",
+  "login": "ورود",
+  "register": "ثبت‌نام",
+  "account": "حساب کاربری",
+  "friends": "دوستان",
+  "privateChat": "گفت‌وگوهای خصوصی",
+  "notifications": "اعلان‌ها",
+  "wallet": "کیف پول",
+  "settings": "تنظیمات",
+  "language": "زبان",
+  "theme": "پوسته برنامه",
+  "backgammon": "تخته‌نرد",
+  "chess": "شطرنج",
+  "cardGames": "بازی‌های کارتی"
+}
