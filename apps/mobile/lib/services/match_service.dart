@@ -38,4 +38,27 @@ class MatchService {
   static Future<void> cancel(String id) async { await _request('DELETE', '/$id'); }
   static Future<Map<String, dynamic>> get(String id) async =>
       Map<String, dynamic>.from((await _request('GET', '/$id'))['match'] as Map);
+
+  static Future<Map<String, dynamic>> getState(String id) async =>
+      Map<String, dynamic>.from((await _request('GET', '/$id/state'))['state'] as Map);
+
+  static Future<Map<String, dynamic>> roll(String id, int expectedVersion) async {
+    final headers = await _headers();
+    final response = await http.post(
+      Uri.parse('$_baseUrl/api/v1/matches/$id/roll'),
+      headers: headers,
+      body: jsonEncode({'expectedVersion': expectedVersion}),
+    );
+    dynamic decoded;
+    try {
+      decoded = jsonDecode(response.body);
+    } catch (_) {
+      throw Exception('پاسخ سرور قابل‌خواندن نیست.');
+    }
+    if (decoded is! Map<String, dynamic>) throw Exception('پاسخ سرور نامعتبر است.');
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(decoded['error']?.toString() ?? 'خطای سرور (${response.statusCode})');
+    }
+    return Map<String, dynamic>.from(decoded['state'] as Map);
+  }
 }
