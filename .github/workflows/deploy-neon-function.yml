@@ -1,6 +1,9 @@
 name: Deploy Royal Club API to Neon Functions
 
 on:
+  push:
+    paths:
+      - ".github/workflows/deploy-neon-function.yml"
   workflow_dispatch:
     inputs:
       neon_project_id:
@@ -25,8 +28,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
-      NEON_PROJECT_ID: ${{ inputs.neon_project_id }}
-      NEON_BRANCH_ID: ${{ inputs.neon_branch_id }}
+      NEON_PROJECT_ID: ${{ inputs.neon_project_id || 'crimson-moon-58282245' }}
+      NEON_BRANCH_ID: ${{ inputs.neon_branch_id || 'br-misty-flower-bavs47dm' }}
       NEON_FUNCTION_SLUG: royalclubapi
       CORS_ORIGINS: https://mrobaei1.github.io
     steps:
