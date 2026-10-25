@@ -432,6 +432,13 @@ app.post<{ Body: { userId?: string; amount?: number; description?: string } }>('
   }
 });
 
+app.get('/api/v1/admin/subscription-plans', { onRequest: [requireOwnerAuth] }, async () => {
+  const result = await pool.query(
+    'SELECT code, name, duration_days AS "durationDays", price_credits AS "priceCredits", active FROM subscription_plans ORDER BY price_credits ASC',
+  );
+  return { plans: result.rows };
+});
+
 app.patch<{ Params: { code: string }; Body: { name?: string; durationDays?: number; priceCredits?: number; active?: boolean } }>('/api/v1/admin/subscription-plans/:code', { onRequest: [requireOwnerAuth] }, async (request, reply) => {
   const { code } = request.params;
   const { name, durationDays, priceCredits, active } = request.body ?? {};
