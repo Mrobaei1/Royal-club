@@ -85,12 +85,14 @@ class _ChatThreadScreenState extends State<ChatThreadScreen> {
       final results = await Future.wait([ChatService.messages(widget.userId), AuthService.me()]);
       final profile = results[1] as Map<String, dynamic>;
       final user = profile['user'] as Map<String, dynamic>?;
-      if (mounted) setState(() {
-        _messages = results[0] as List<dynamic>;
-        _myId = user?['id']?.toString();
-        _loading = false;
-        _error = null;
-      });
+      if (mounted) {
+        setState(() {
+          _messages = results[0] as List<dynamic>;
+          _myId = user?['id']?.toString();
+          _loading = false;
+          _error = null;
+        });
+      }
     } catch (e) {
       if (mounted) setState(() { _error = e.toString().replaceFirst('Exception: ', ''); _loading = false; });
     }
