@@ -59,6 +59,27 @@ class MatchService {
     return Map<String, dynamic>.from(decoded['state'] as Map);
   }
 
+  static Future<Map<String, dynamic>> batchMove(
+    String id, {required List<Map<String, int?>> moves, required int expectedVersion}
+  ) async {
+    final headers = await _headers();
+    final response = await http.post(
+      Uri.parse('$_baseUrl/api/v1/matches/$id/moves/batch'),
+      headers: headers,
+      body: jsonEncode({'moves': moves, 'expectedVersion': expectedVersion}),
+    );
+    dynamic decoded;
+    try { decoded = jsonDecode(response.body); }
+    catch (_) { throw Exception('پاسخ سرور قابل‌خواندن نیست.'); }
+    if (decoded is! Map<String, dynamic>) throw Exception('پاسخ سرور نامعتبر است.');
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      final rejected = decoded['rejectedMove'];
+      final detail = rejected == null ? '' : ' (حرکت شماره $rejected)';
+      throw Exception('${decoded['error']?.toString() ?? 'خطای سرور (${response.statusCode})'}$detail');
+    }
+    return Map<String, dynamic>.from(decoded['state'] as Map);
+  }
+
   static Future<Map<String, dynamic>> move(
     String id, {required int? from, required int? to, required int die, required int expectedVersion}
   ) async {
