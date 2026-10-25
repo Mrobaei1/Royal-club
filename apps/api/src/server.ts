@@ -463,6 +463,7 @@ app.get<{ Params: { id: string } }>('/api/v1/matches/:id/state', { onRequest: [r
     `SELECT id, status, board_state AS board, bar_state AS bar, off_state AS off,
             current_turn_user_id AS "currentTurnUserId",
             current_turn_user_id = $2::bigint AS "isMyTurn",
+            host_user_id = $2::bigint AS "isHost",
             dice, remaining_dice AS "remainingDice", state_version AS version, updated_at AS "updatedAt"
        FROM backgammon_matches
       WHERE id = $1 AND (host_user_id = $2 OR guest_user_id = $2) AND expires_at > NOW()`,
