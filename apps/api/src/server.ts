@@ -224,6 +224,16 @@ app.get('/api/v1/me', {
   return { user: { id: user.id, email: user.email, fullName: user.full_name, phone: user.phone, country: user.country, createdAt: user.created_at } };
 });
 
+const requireMatchAuth = async (request: any, reply: any) => {
+  try {
+    await request.jwtVerify();
+    const claims = request.user as { sub?: string };
+    if (!claims.sub || !isNumericId(claims.sub)) return reply.code(401).send({ error: 'Invalid token.' });
+  } catch {
+    return reply.code(401).send({ error: 'Authentication required.' });
+  }
+};
+
 // Friend requests are server-owned and capped at 100 accepted friends per account.
 app.get('/api/v1/friends', { onRequest: [requireMatchAuth] }, async (request) => {
   const claims = request.user as { sub: string };
@@ -397,15 +407,7 @@ app.delete<{ Params: { id: string } }>('/api/v1/friends/:id', { onRequest: [requ
 });
 
 // Lobby API pairs two authenticated players. It does not accept client-supplied board state.
-const requireMatchAuth = async (request: any, reply: any) => {
-  try {
-    await request.jwtVerify();
-    const claims = request.user as { sub?: string };
-    if (!claims.sub || !isNumericId(claims.sub)) return reply.code(401).send({ error: 'Invalid token.' });
-  } catch {
-    return reply.code(401).send({ error: 'Authentication required.' });
-  }
-};
+
 
 app.get('/api/v1/matches/open', { onRequest: [requireMatchAuth] }, async (request, reply) => {
   const claims = request.user as { sub: string };
