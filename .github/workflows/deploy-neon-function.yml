@@ -147,12 +147,12 @@ jobs:
           NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
         run: |
           healthy=0
-          for attempt in $(seq 1 12); do
-            if curl --fail --silent --show-error --max-time 12 "$FUNCTION_URL/api/v1/health" --output health.json; then
+          for attempt in $(seq 1 4); do
+            if curl --fail --silent --show-error --max-time 8 "$FUNCTION_URL/api/v1/health" --output health.json; then
               if grep -q '"status":"ok"' health.json; then healthy=1; break; fi
             fi
-            echo "Health check attempt $attempt/12; waiting for Neon to finish activating the function."
-            sleep 10
+            echo "Health check attempt $attempt/4; waiting briefly for Neon to finish activating the function."
+            sleep 3
           done
           if [ "$healthy" -ne 1 ]; then
             echo "::error::The deployed function did not pass /api/v1/health."
