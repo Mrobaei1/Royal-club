@@ -460,7 +460,7 @@ app.post<{ Body: { userId?: string; amount?: number; description?: string } }>('
   }
 });
 
-app.post<{ Params: { userId: string }; Body: { reason?: string } }>('/api/v1/users/:userId/report', { onRequest: [requireMatchAuth] }, async (request, reply) => {
+app.post<{ Params: { userId: string }; Body: { reason?: string } }>('/api/v1/users/:userId/report', { onRequest: [requireMatchAuth], config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request, reply) => {
   const claims = request.user as { sub: string };
   const { userId } = request.params;
   const reason = typeof request.body?.reason === 'string' ? request.body.reason.trim() : '';
@@ -636,7 +636,7 @@ app.get<{ Params: { userId: string } }>('/api/v1/chat/:userId/messages', { onReq
   return { messages: messages.rows.reverse() };
 });
 
-app.post<{ Params: { userId: string }; Body: { body?: string } }>('/api/v1/chat/:userId/messages', { onRequest: [requireMatchAuth] }, async (request, reply) => {
+app.post<{ Params: { userId: string }; Body: { body?: string } }>('/api/v1/chat/:userId/messages', { onRequest: [requireMatchAuth], config: { rateLimit: { max: 30, timeWindow: '1 minute' } } }, async (request, reply) => {
   const claims = request.user as { sub: string };
   const { userId } = request.params;
   const body = typeof request.body?.body === 'string' ? request.body.body.trim() : '';
