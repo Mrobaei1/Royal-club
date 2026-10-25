@@ -24,6 +24,16 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
   bool _vsComputer = true;
   BackgammonDifficulty _difficulty = BackgammonDifficulty.medium;
   bool _computerThinking = false;
+  int _boardThemeIndex = 0;
+
+  static const List<List<Color>> _boardThemes = [
+    [Color(0xFF98683B), Color(0xFF76502E), Color(0xFF4D301D)],
+    [Color(0xFF176B55), Color(0xFF0D4B3D), Color(0xFF08352D)],
+    [Color(0xFF315A8C), Color(0xFF203F6B), Color(0xFF152B4B)],
+    [Color(0xFF7A3151), Color(0xFF54213A), Color(0xFF351529)],
+    [Color(0xFF777B85), Color(0xFF4C515D), Color(0xFF30343D)],
+  ];
+  static const List<String> _boardThemeNames = ['چوب سلطنتی', 'زمردی', 'آبی یاقوتی', 'زرشکی', 'نقره‌ای'];
 
   @override
   void initState() {
@@ -421,6 +431,18 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
                 visualDensity: VisualDensity.compact,
               ),
             ]),
+            Row(children: [
+              Text('تم صفحه بازی:', style: TextStyle(color: Colors.white70, fontSize: compact ? 10 : 12)),
+              const SizedBox(width: 8),
+              Expanded(child: DropdownButtonHideUnderline(child: DropdownButton<int>(
+                value: _boardThemeIndex,
+                isExpanded: true,
+                dropdownColor: _boardNavy,
+                style: TextStyle(color: _boardGold, fontSize: compact ? 11 : 13),
+                items: List.generate(_boardThemeNames.length, (i) => DropdownMenuItem(value: i, child: Text(_boardThemeNames[i]))),
+                onChanged: (value) { if (value != null) setState(() => _boardThemeIndex = value); },
+              ))),
+            ]),
             if (_vsComputer)
               Row(children: [
                 Text('سختی:',
@@ -512,7 +534,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
           gradient: const LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [Color(0xFF98683B), _boardWood, Color(0xFF4D301D)],
+            colors: _boardThemes[_boardThemeIndex],
           ),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: _boardGold, width: 2),
