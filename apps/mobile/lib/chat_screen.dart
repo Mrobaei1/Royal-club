@@ -83,7 +83,8 @@ class _ChatThreadScreenState extends State<ChatThreadScreen> {
   Future<void> _load() async {
     try {
       final results = await Future.wait([ChatService.messages(widget.userId), AuthService.me()]);
-      final user = results[1]['user'] as Map<String, dynamic>?;
+      final profile = results[1] as Map<String, dynamic>;
+      final user = profile['user'] as Map<String, dynamic>?;
       if (mounted) setState(() {
         _messages = results[0] as List<dynamic>;
         _myId = user?['id']?.toString();
