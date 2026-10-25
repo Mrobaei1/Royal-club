@@ -16,11 +16,8 @@ void main() {
     );
 
     for (final label in ['دوستان', 'اعلان‌ها', 'حساب کاربری', 'گفت‌وگوهای خصوصی', 'پنل مدیریت', 'کیف پول و اشتراک']) {
-      await tester.scrollUntilVisible(
-        find.text(label),
-        250,
-        scrollable: find.byType(Scrollable).first,
-      );
+      await tester.ensureVisible(find.text(label));
+      await tester.pumpAndSettle();
       expect(find.text(label), findsOneWidget);
     }
   });
