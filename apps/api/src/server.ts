@@ -62,6 +62,20 @@ await pool.query(`
   CREATE INDEX IF NOT EXISTS friendships_outbox_idx
     ON friendships (requester_id, status, created_at DESC);
 
+  CREATE TABLE IF NOT EXISTS notifications (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    actor_user_id BIGINT REFERENCES users(id) ON DELETE SET NULL,
+    type TEXT NOT NULL CHECK (type IN ('friend_request', 'friend_accepted', 'system')),
+    title TEXT NOT NULL,
+    body TEXT NOT NULL DEFAULT '',
+    data JSONB NOT NULL DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    read_at TIMESTAMPTZ
+  );
+  CREATE INDEX IF NOT EXISTS notifications_inbox_idx
+    ON notifications (user_id, read_at, created_at DESC);
+
   CREATE TABLE IF NOT EXISTS backgammon_matches (
     id BIGSERIAL PRIMARY KEY,
     room_code TEXT NOT NULL UNIQUE,
@@ -234,6 +248,41 @@ const requireMatchAuth = async (request: any, reply: any) => {
   }
 };
 
+app.get('/api/v1/notifications', { onRequest: [requireMatchAuth] }, async (request) => {
+  const claims = request.user as { sub: string };
+  const result = await pool.query(
+    `SELECT id, type, title, body, data, created_at AS "createdAt",
+            read_at AS "readAt", actor_user_id AS "actorUserId"
+       FROM notifications
+      WHERE user_id = $1
+      ORDER BY created_at DESC
+      LIMIT 100`,
+    [claims.sub],
+  );
+  return { notifications: result.rows };
+});
+
+app.post<{ Params: { id: string } }>('/api/v1/notifications/:id/read', { onRequest: [requireMatchAuth] }, async (request, reply) => {
+  const claims = request.user as { sub: string };
+  const id = request.params.id;
+  if (!isNumericId(id)) return reply.code(400).send({ error: 'Invalid notification id.' });
+  const result = await pool.query(
+    'UPDATE notifications SET read_at = COALESCE(read_at, NOW()) WHERE id = $1 AND user_id = $2 RETURNING id, read_at AS "readAt"',
+    [id, claims.sub],
+  );
+  if (!result.rowCount) return reply.code(404).send({ error: 'Notification not found.' });
+  return { notification: result.rows[0] };
+});
+
+app.post('/api/v1/notifications/read-all', { onRequest: [requireMatchAuth] }, async (request) => {
+  const claims = request.user as { sub: string };
+  const result = await pool.query(
+    'UPDATE notifications SET read_at = NOW() WHERE user_id = $1 AND read_at IS NULL',
+    [claims.sub],
+  );
+  return { status: 'ok', updated: result.rowCount ?? 0 };
+});
+
 // Friend requests are server-owned and capped at 100 accepted friends per account.
 app.get<{ Querystring: { email?: string } }>('/api/v1/users/search', { onRequest: [requireMatchAuth], config: { rateLimit: { max: 20, timeWindow: '1 minute' } } }, async (request) => {
   const claims = request.user as { sub: string };
@@ -327,6 +376,16 @@ app.post<{ Params: { id: string } }>('/api/v1/friends/:id/request', { onRequest:
         "UPDATE friendships SET status = 'accepted', updated_at = NOW() WHERE id = $1",
         [relation.id],
       );
+      await client.query(
+        `INSERT INTO notifications (user_id, actor_user_id, type, title, body, data)
+         VALUES ($1, $2, 'friend_accepted', 'درخواست دوستی پذیرفته شد', 'درخواست دوستی شما پذیرفته شد.', jsonb_build_object('userId', $2))`,
+        [targetId, claims.sub],
+      );
+      await client.query(
+        `INSERT INTO notifications (user_id, actor_user_id, type, title, body, data)
+         VALUES ($1, $2, 'friend_accepted', 'دوستی برقرار شد', 'درخواست دوستی شما پذیرفته شد.', jsonb_build_object('userId', $2))`,
+        [claims.sub, targetId],
+      );
       await client.query('COMMIT');
       return { status: 'accepted', message: 'Friend request accepted.' };
     }
@@ -347,6 +406,11 @@ app.post<{ Params: { id: string } }>('/api/v1/friends/:id/request', { onRequest:
     await client.query(
       'INSERT INTO friendships (requester_id, addressee_id) VALUES ($1, $2)',
       [claims.sub, targetId],
+    );
+    await client.query(
+      `INSERT INTO notifications (user_id, actor_user_id, type, title, body, data)
+       VALUES ($1, $2, 'friend_request', 'درخواست دوستی جدید', 'یک کاربر برای شما درخواست دوستی فرستاده است.', jsonb_build_object('userId', $2))`,
+      [targetId, claims.sub],
     );
     await client.query('COMMIT');
     return reply.code(201).send({ status: 'pending', message: 'Friend request sent.' });
@@ -394,6 +458,11 @@ app.post<{ Params: { id: string } }>('/api/v1/friends/:id/accept', { onRequest: 
       return reply.code(409).send({ error: 'One account has reached the 100-friend limit.' });
     }
     await client.query("UPDATE friendships SET status = 'accepted', updated_at = NOW() WHERE id = $1", [result.rows[0].id]);
+    await client.query(
+      `INSERT INTO notifications (user_id, actor_user_id, type, title, body, data)
+       VALUES ($1, $2, 'friend_accepted', 'درخواست دوستی پذیرفته شد', 'درخواست دوستی شما پذیرفته شد.', jsonb_build_object('userId', $2))`,
+      [requesterId, claims.sub],
+    );
     await client.query('COMMIT');
     return { status: 'accepted', message: 'Friend request accepted.' };
   } catch (error) {
