@@ -15,5 +15,7 @@
   "theme": "App theme",
   "backgammon": "Backgammon",
   "chess": "Chess",
-  "cardGames": "Card games"
+  "cardGames": "Card games",
+  "enterEmailPassword": "Enter your email and password.",
+  "enterName": "Enter your name."
 }
