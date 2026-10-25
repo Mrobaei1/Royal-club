@@ -385,8 +385,9 @@ app.post<{ Params: { id: string }; Body: { from: number | null; to: number | nul
         const overshootClear = hostTurn
           ? !board.some((count, point) => point > body.from! && point <= 5 && count > 0)
           : !board.some((count, point) => point < body.from! && point >= 18 && count < 0);
-        const overshootsBoard = hostTurn ? rawTarget < 0 : rawTarget > 23;
-        if (!inHome || !allHome || !overshootsBoard || !overshootClear) {
+        const distanceToOff = hostTurn ? body.from + 1 : 24 - body.from;
+        const overshootsDie = body.die > distanceToOff;
+        if (!inHome || !allHome || body.die < distanceToOff || (overshootsDie && !overshootClear)) {
           await client.query('ROLLBACK');
           return reply.code(409).send({ error: 'That checker cannot bear off with this die.' });
         }
@@ -509,10 +510,12 @@ app.post<{ Params: { id: string }; Body: { expectedVersion: number } }>('/api/v1
         if (target >= 0 && target <= 23 && board[target] * sign > -2) return true;
         const overshoots = hostTurn ? target < 0 : target > 23;
         const inHome = hostTurn ? from <= 5 : from >= 18;
+        const distanceToOff = hostTurn ? from + 1 : 24 - from;
+        const overshootsDie = die > distanceToOff;
         const overshootClear = hostTurn
           ? !board.some((count, point) => point > from && point <= 5 && count > 0)
           : !board.some((count, point) => point < from && point >= 18 && count < 0);
-        if (overshoots && inHome && allHome && overshootClear) return true;
+        if (overshoots && inHome && allHome && die >= distanceToOff && (!overshootsDie || overshootClear)) return true;
       }
       return false;
     });
