@@ -241,12 +241,14 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
         _id, from: from, to: to, die: die,
         expectedVersion: (_state!['version'] as num).toInt(),
       );
-      if (mounted) setState(() {
-        _state = {...?_state, ...next};
-        _selectedFrom = null;
-        _selectedDie = null;
-        _fromBar = false;
-      });
+      if (mounted) {
+        setState(() {
+          _state = {...?_state, ...next};
+          _selectedFrom = null;
+          _selectedDie = null;
+          _fromBar = false;
+        });
+      }
       await _refresh(silent: true);
     } catch (e) {
       final message = e.toString().replaceFirst('Exception: ', '');
