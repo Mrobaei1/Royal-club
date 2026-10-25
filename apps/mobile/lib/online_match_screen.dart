@@ -77,12 +77,14 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
     setState(() { _busy = true; _error = null; });
     try {
       final next = await MatchService.endTurn(_id, (_state!['version'] as num).toInt());
-      if (mounted) setState(() {
-        _state = {...?_state, ...next};
-        _selectedFrom = null;
-        _selectedDie = null;
-        _fromBar = false;
-      });
+      if (mounted) {
+        setState(() {
+          _state = {...?_state, ...next};
+          _selectedFrom = null;
+          _selectedDie = null;
+          _fromBar = false;
+        });
+      }
       await _refresh(silent: true);
     } catch (e) {
       final message = e.toString().replaceFirst('Exception: ', '');
@@ -174,14 +176,16 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
         moves: List<Map<String, int?>>.from(_pendingMoves),
         expectedVersion: (_state!['version'] as num).toInt(),
       );
-      if (mounted) setState(() {
-        _state = {...?_state, ...next};
-        _pendingMoves.clear();
-        _batchMode = false;
-        _selectedFrom = null;
-        _selectedDie = null;
-        _fromBar = false;
-      });
+      if (mounted) {
+        setState(() {
+          _state = {...?_state, ...next};
+          _pendingMoves.clear();
+          _batchMode = false;
+          _selectedFrom = null;
+          _selectedDie = null;
+          _fromBar = false;
+        });
+      }
       await _refresh(silent: true);
     } catch (e) {
       final message = e.toString().replaceFirst('Exception: ', '');
