@@ -346,8 +346,8 @@ class _AuthScreenState extends State<AuthScreen> {
       setState(() => _message = 'ایمیل و رمز عبور را وارد کن.');
       return;
     }
-    if (_password.text.length < 10) {
-      setState(() => _message = 'رمز عبور باید حداقل ۱۰ نویسه باشد.');
+    if (_password.text.length < 6) {
+      setState(() => _message = 'رمز عبور باید حداقل ۶ نویسه باشد.');
       return;
     }
 
@@ -437,7 +437,7 @@ class _AuthScreenState extends State<AuthScreen> {
                     obscureText: true,
                     autofillHints: const [AutofillHints.password],
                     decoration: const InputDecoration(
-                      labelText: 'رمز عبور (حداقل ۱۰ نویسه)',
+                      labelText: 'رمز عبور (حداقل ۶ نویسه)',
                       border: OutlineInputBorder(),
                       prefixIcon: Icon(Icons.lock_outline),
                     ),
