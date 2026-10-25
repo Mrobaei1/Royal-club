@@ -30,7 +30,7 @@ class AdminService {
   }
 
   static Future<bool> isOwner() async => (await _request('GET', '/api/v1/admin/status'))['isOwner'] == true;
-  static Future<List<dynamic>> plans() async => (await _request('GET', '/api/v1/subscriptions/plans'))['plans'] as List<dynamic>? ?? [];
+  static Future<List<dynamic>> plans() async => (await _request('GET', '/api/v1/admin/subscription-plans'))['plans'] as List<dynamic>? ?? [];
   static Future<List<dynamic>> findUser(String email) async =>
       (await _request('GET', '/api/v1/users/search?email=${Uri.encodeQueryComponent(email.trim())}'))['users'] as List<dynamic>? ?? [];
   static Future<void> credit(String userId, int amount, String description) async {
