@@ -7,6 +7,7 @@ import 'services/auth_service.dart';
 import 'online_lobby_screen.dart';
 import 'wallet_screen.dart';
 import 'admin_screen.dart';
+import 'chat_screen.dart';
 
 void main() => runApp(const RoyalClubApp());
 
@@ -276,6 +277,14 @@ class HomeScreen extends StatelessWidget {
                     onTap: () => Navigator.of(context).push(
                         MaterialPageRoute<void>(
                             builder: (_) => const FriendsScreen()))),
+                const SizedBox(height: 12),
+                GameTile(
+                    title: 'گفت‌وگوهای خصوصی',
+                    subtitle: 'پیام‌رسانی برای دوستان دارای اشتراک فعال',
+                    icon: Icons.chat_bubble_outline_rounded,
+                    onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                            builder: (_) => const ChatScreen()))),
                 const SizedBox(height: 12),
                 GameTile(
                     title: 'اعلان‌ها',
