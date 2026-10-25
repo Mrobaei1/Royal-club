@@ -899,6 +899,27 @@ app.delete<{ Params: { id: string } }>('/api/v1/friends/:id', { onRequest: [requ
 // Lobby API pairs two authenticated players. It does not accept client-supplied board state.
 
 
+app.get('/api/v1/matches/history', { onRequest: [requireMatchAuth] }, async (request) => {
+  const claims = request.user as { sub: string };
+  const result = await pool.query(
+    `SELECT m.id, m.room_code AS "roomCode", m.host_user_id AS "hostUserId",
+            m.guest_user_id AS "guestUserId", m.status,
+            m.off_state AS "offState", m.created_at AS "createdAt", m.updated_at AS "finishedAt",
+            CASE WHEN m.host_user_id = $1 THEN guest.email ELSE host.email END AS "opponentEmail",
+            CASE WHEN COALESCE((m.off_state->>'host')::int, 0) >= 15 THEN m.host_user_id
+                 WHEN COALESCE((m.off_state->>'guest')::int, 0) >= 15 THEN m.guest_user_id
+                 ELSE NULL END AS "winnerUserId"
+       FROM backgammon_matches m
+       JOIN users host ON host.id = m.host_user_id
+       LEFT JOIN users guest ON guest.id = m.guest_user_id
+      WHERE m.status = 'finished' AND ($1 = m.host_user_id OR $1 = m.guest_user_id)
+      ORDER BY m.updated_at DESC
+      LIMIT 30`,
+    [claims.sub],
+  );
+  return { matches: result.rows };
+});
+
 app.get('/api/v1/matches/open', { onRequest: [requireMatchAuth] }, async (request, reply) => {
   const claims = request.user as { sub: string };
   const result = await pool.query(
