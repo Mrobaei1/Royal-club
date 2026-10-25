@@ -18,7 +18,7 @@ class AdminService {
     final response = switch (method) {
       'GET' => await http.get(uri, headers: headers),
       'POST' => await http.post(uri, headers: headers, body: jsonEncode(body ?? {})),
-      'PATCH' => await http.patch(uri, headers: headers, body: jsonEncode(body ?? {}),
+      'PATCH' => await http.patch(uri, headers: headers, body: jsonEncode(body ?? {})),
       _ => throw ArgumentError('Unsupported request method'),
     };
     final decoded = jsonDecode(response.body);
