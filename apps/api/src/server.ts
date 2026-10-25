@@ -191,6 +191,99 @@ app.get('/api/v1/me', {
   return { user: { id: user.id, email: user.email, fullName: user.full_name, phone: user.phone, country: user.country, createdAt: user.created_at } };
 });
 
+// Lobby API pairs two authenticated players. It does not accept client-supplied board state.
+const requireMatchAuth = async (request: any, reply: any) => {
+  try {
+    await request.jwtVerify();
+    const claims = request.user as { sub?: string };
+    if (!claims.sub || !/^\\d+$/.test(claims.sub)) return reply.code(401).send({ error: 'Invalid token.' });
+  } catch {
+    return reply.code(401).send({ error: 'Authentication required.' });
+  }
+};
+
+app.get('/api/v1/matches/open', { onRequest: [requireMatchAuth] }, async (request, reply) => {
+  const claims = request.user as { sub: string };
+  const result = await pool.query(
+    `SELECT m.id, m.room_code AS \"roomCode\", m.status, m.created_at AS \"createdAt\", u.full_name AS \"hostName\`
+       FROM backgammon_matches m JOIN users u ON u.id = m.host_user_id
+      WHERE m.status = 'waiting' AND m.expires_at > NOW() AND m.host_user_id <> $1
+      ORDER BY m.created_at ASC LIMIT 30`, [claims.sub]);
+  return { matches: result.rows };
+});
+
+app.post('/api/v1/matches', { onRequest: [requireMatchAuth] }, async (request, reply) => {
+  const claims = request.user as { sub: string };
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const roomCode = randomBytes(3).toString('hex').toUpperCase();
+    try {
+      const result = await pool.query(
+        `INSERT INTO backgammon_matches (room_code, host_user_id) VALUES ($1, $2)
+         RETURNING id, room_code AS \"roomCode\", status, created_at AS \"createdAt\", expires_at AS \"expiresAt\`
+        , [roomCode, claims.sub]);
+      return reply.code(201).send({ match: result.rows[0] });
+    } catch (error: any) {
+      if (error?.code !== '23505') {
+        request.log.error({ err: error }, 'Could not create match');
+        return reply.code(500).send({ error: 'Could not create match.' });
+      }
+    }
+  }
+  return reply.code(503).send({ error: 'Could not allocate a room code. Try again.' });
+});
+
+app.post<{ Params: { id: string } }>('/api/v1/matches/:id/join', { onRequest: [requireMatchAuth] }, async (request, reply) => {
+  const claims = request.user as { sub: string };
+  if (!/^\\d+$/.test(request.params.id)) return reply.code(400).send({ error: 'Invalid match id.' });
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const result = await client.query(
+      `SELECT id, room_code AS \"roomCode\", host_user_id, guest_user_id, status, expires_at AS \"expiresAt\`
+         FROM backgammon_matches WHERE id = $1 FOR UPDATE`, [request.params.id]);
+    const match = result.rows[0] as { id: string; host_user_id: string; guest_user_id: string | null; status: string; expiresAt: Date } | undefined;
+    if (!match || new Date(match.expiresAt).getTime() <= Date.now() || !['waiting', 'active'].includes(match.status)) {
+      await client.query('ROLLBACK');
+      return reply.code(404).send({ error: 'Match not found or expired.' });
+    }
+    if (match.host_user_id === claims.sub) {
+      await client.query('ROLLBACK');
+      return reply.code(409).send({ error: 'You cannot join your own match.' });
+    }
+    if (match.guest_user_id && match.guest_user_id !== claims.sub) {
+      await client.query('ROLLBACK');
+      return reply.code(409).send({ error: 'This match is already full.' });
+    }
+    if (match.status === 'waiting') await client.query(
+      `UPDATE backgammon_matches SET guest_user_id = $1, status = 'active', updated_at = NOW() WHERE id = $2`,
+      [claims.sub, match.id]);
+    await client.query('COMMIT');
+    const joined = await pool.query(
+      `SELECT m.id, m.room_code AS \"roomCode\", m.status, host.full_name AS \"hostName\`,
+              guest.full_name AS \"guestName\`, m.created_at AS \"createdAt\`
+         FROM backgammon_matches m JOIN users host ON host.id = m.host_user_id
+         LEFT JOIN users guest ON guest.id = m.guest_user_id WHERE m.id = $1`, [match.id]);
+    return { match: joined.rows[0] };
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    request.log.error({ err: error }, 'Could not join match');
+    return reply.code(500).send({ error: 'Could not join match.' });
+  } finally { client.release(); }
+});
+
+app.get<{ Params: { id: string } }>('/api/v1/matches/:id', { onRequest: [requireMatchAuth] }, async (request, reply) => {
+  const claims = request.user as { sub: string };
+  if (!/^\\d+$/.test(request.params.id)) return reply.code(400).send({ error: 'Invalid match id.' });
+  const result = await pool.query(
+    `SELECT m.id, m.room_code AS \"roomCode\", m.status, host.full_name AS \"hostName\`,
+            guest.full_name AS \"guestName\`, m.created_at AS \"createdAt\`, m.updated_at AS \"updatedAt\`
+       FROM backgammon_matches m JOIN users host ON host.id = m.host_user_id
+       LEFT JOIN users guest ON guest.id = m.guest_user_id
+      WHERE m.id = $1 AND (m.host_user_id = $2 OR m.guest_user_id = $2) AND m.expires_at > NOW()`,
+    [request.params.id, claims.sub]);
+  if (!result.rowCount) return reply.code(404).send({ error: 'Match not found.' });
+  return { match: result.rows[0] };
+});
 app.addHook('onClose', async () => { await pool.end(); });
 
 const port = Number(process.env.PORT ?? 3000);
