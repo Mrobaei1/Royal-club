@@ -20,7 +20,14 @@ const app = Fastify({ logger: true, trustProxy: false });
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
 await app.register(helmet);
-const allowedOrigins = (process.env.CORS_ORIGINS ??
+const configuredCorsOrigins = process.env.CORS_ORIGINS;
+if (
+  process.env.NODE_ENV === 'production' &&
+  (!configuredCorsOrigins?.trim() || configuredCorsOrigins.split(',').some((origin) => origin.trim() === '*'))
+) {
+  throw new Error('Production requires explicit CORS_ORIGINS; wildcard origins are not allowed.');
+}
+const allowedOrigins = (configuredCorsOrigins ??
   'https://super-duper-palm-tree-4r9v56pv6gcj7rw-8080.app.github.dev,https://mrobaei1.github.io')
   .split(',')
   .map((origin) => origin.trim())
