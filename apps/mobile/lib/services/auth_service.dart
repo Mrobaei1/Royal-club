@@ -46,7 +46,7 @@ class AuthService {
         baseUrl.trim().replaceFirst(RegExp(r'/+$'), '');
     final response = await _send(
       () => http.post(
-        Uri.parse(normalizedBaseUrl + path),
+        Uri.parse('$normalizedBaseUrl$path'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode(data),
       ),
@@ -111,8 +111,8 @@ class AuthService {
         baseUrl.trim().replaceFirst(RegExp(r'/+$'), '');
     final response = await _send(
       () => http.get(
-        Uri.parse(normalizedBaseUrl + '/api/v1/me'),
-        headers: {'Authorization': 'Bearer ' + token},
+        Uri.parse('$normalizedBaseUrl/api/v1/me'),
+        headers: {'Authorization': 'Bearer $token'},
       ),
     );
 
