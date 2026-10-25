@@ -546,7 +546,7 @@ app.post<{ Params: { userId: string }; Body: { body?: string } }>('/api/v1/chat/
     ['accepted', claims.sub, userId],
   );
   if (!friendship.rowCount) return reply.code(403).send({ error: 'Chat is available only between accepted friends.' });
-  if (!await requireChatEntitlement(pool, claims.sub, userId)) return reply.code(403).send({ error: 'An active subscription is required for both users to use private chat.' });
+  if (!await requireChatEntitlement(claims.sub, userId)) return reply.code(403).send({ error: 'An active subscription is required for both users to use private chat.' });
   const inserted = await pool.query(
     `INSERT INTO private_messages (sender_id, recipient_id, body)
      VALUES ($1, $2, $3)
