@@ -7,7 +7,7 @@ import jwt from '@fastify/jwt';
 import { Pool } from 'pg';
 import { randomBytes, randomInt, scrypt as scryptCallback, timingSafeEqual } from 'node:crypto';
 import { isNumericId } from './validation.js';
-import { hasLegalMove } from './backgammon-rules.js';
+import { applyBackgammonMove, hasLegalMove } from './backgammon-rules.js';
 import { promisify } from 'node:util';
 
 const scrypt = promisify(scryptCallback);
@@ -301,6 +301,101 @@ app.get<{ Params: { id: string } }>('/api/v1/matches/:id', { onRequest: [require
     [request.params.id, claims.sub]);
   if (!result.rowCount) return reply.code(404).send({ error: 'Match not found.' });
   return { match: result.rows[0] };
+});
+
+// Apply a sequence of die-sized moves atomically. Any invalid step rolls back the entire sequence.
+app.post<{ Params: { id: string }; Body: { moves: Array<{ from: number | null; to: number | null; die: number }>; expectedVersion: number } }>('/api/v1/matches/:id/moves/batch', { onRequest: [requireMatchAuth] }, async (request, reply) => {
+  const claims = request.user as { sub: string };
+  const body = request.body;
+  if (!isNumericId(request.params.id)) return reply.code(400).send({ error: 'Invalid match id.' });
+  if (!body || !Array.isArray(body.moves) || body.moves.length < 1 || body.moves.length > 4 ||
+      !Number.isInteger(body.expectedVersion)) {
+    return reply.code(400).send({ error: 'Provide 1–4 moves and a valid expectedVersion.' });
+  }
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const result = await client.query(
+      `SELECT id, status, host_user_id, guest_user_id, current_turn_user_id,
+              board_state, bar_state, off_state, dice, remaining_dice, state_version
+         FROM backgammon_matches WHERE id = $1 AND expires_at > NOW() FOR UPDATE`,
+      [request.params.id]);
+    const game = result.rows[0] as {
+      id: string; status: string; host_user_id: string; guest_user_id: string | null;
+      current_turn_user_id: string | null; board_state: number[];
+      bar_state: { host: number; guest: number }; off_state: { host: number; guest: number };
+      dice: number[]; remaining_dice: number[]; state_version: number;
+    } | undefined;
+    if (!game || ![game.host_user_id, game.guest_user_id].includes(claims.sub)) {
+      await client.query('ROLLBACK');
+      return reply.code(404).send({ error: 'Match not found.' });
+    }
+    if (game.status !== 'active' || !game.guest_user_id) {
+      await client.query('ROLLBACK');
+      return reply.code(409).send({ error: 'The match is not active.' });
+    }
+    if (game.current_turn_user_id !== claims.sub) {
+      await client.query('ROLLBACK');
+      return reply.code(409).send({ error: 'It is not your turn.' });
+    }
+    if (game.state_version !== body.expectedVersion) {
+      await client.query('ROLLBACK');
+      return reply.code(409).send({ error: 'Game state changed. Refresh the board and try again.' });
+    }
+    if (!Array.isArray(game.remaining_dice)) {
+      await client.query('ROLLBACK');
+      return reply.code(409).send({ error: 'No usable dice are available.' });
+    }
+
+    const hostTurn = game.current_turn_user_id === game.host_user_id;
+    let simulated = {
+      board: [...game.board_state],
+      bar: { host: Number(game.bar_state?.host ?? 0), guest: Number(game.bar_state?.guest ?? 0) },
+      off: { host: Number(game.off_state?.host ?? 0), guest: Number(game.off_state?.guest ?? 0) },
+    };
+    const remaining = [...game.remaining_dice];
+    for (const move of body.moves) {
+      if (!move || !Number.isInteger(move.die) || !remaining.includes(move.die)) {
+        await client.query('ROLLBACK');
+        return reply.code(409).send({ error: 'A selected die is invalid or has already been used in this sequence.' });
+      }
+      const applied = applyBackgammonMove(simulated, move, hostTurn);
+      if ('error' in applied) {
+        await client.query('ROLLBACK');
+        return reply.code(409).send({ error: applied.error, rejectedMove: body.moves.indexOf(move) + 1 });
+      }
+      simulated = applied.state;
+      remaining.splice(remaining.indexOf(move.die), 1);
+    }
+
+    const turnComplete = remaining.length === 0;
+    const nextTurn = turnComplete
+      ? (hostTurn ? game.guest_user_id : game.host_user_id)
+      : game.current_turn_user_id;
+    const nextDice = turnComplete ? [] : game.dice;
+    const nextRemaining = turnComplete ? [] : remaining;
+    const finished = simulated.off.host >= 15 || simulated.off.guest >= 15;
+    const updated = await client.query(
+      `UPDATE backgammon_matches SET board_state = $1::jsonb, bar_state = $2::jsonb,
+              off_state = $3::jsonb, current_turn_user_id = $4, dice = $5::jsonb,
+              remaining_dice = $6::jsonb, status = $7,
+              state_version = state_version + 1, updated_at = NOW()
+         WHERE id = $8
+         RETURNING id, status, board_state AS board, bar_state AS bar, off_state AS off,
+                   current_turn_user_id AS "currentTurnUserId", dice,
+                   remaining_dice AS "remainingDice", state_version AS version`,
+      [JSON.stringify(simulated.board), JSON.stringify(simulated.bar), JSON.stringify(simulated.off),
+       nextTurn, JSON.stringify(nextDice), JSON.stringify(nextRemaining),
+       finished ? 'finished' : 'active', game.id]);
+    await client.query('COMMIT');
+    return { state: updated.rows[0], appliedMoves: body.moves.length };
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    request.log.error({ err: error }, 'Could not apply move sequence');
+    return reply.code(500).send({ error: 'Could not apply move sequence.' });
+  } finally {
+    client.release();
+  }
 });
 
 // Apply one die-sized move under a row lock; the client never submits a replacement board.
