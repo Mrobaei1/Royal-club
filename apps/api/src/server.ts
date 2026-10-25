@@ -76,6 +76,46 @@ await pool.query(`
   CREATE INDEX IF NOT EXISTS notifications_inbox_idx
     ON notifications (user_id, read_at, created_at DESC);
 
+  CREATE TABLE IF NOT EXISTS wallet_accounts (
+    user_id BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    balance BIGINT NOT NULL DEFAULT 0 CHECK (balance >= 0),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+  CREATE TABLE IF NOT EXISTS wallet_transactions (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    amount BIGINT NOT NULL CHECK (amount <> 0),
+    balance_after BIGINT NOT NULL CHECK (balance_after >= 0),
+    type TEXT NOT NULL CHECK (type IN ('admin_credit', 'subscription_purchase', 'adjustment')),
+    description TEXT NOT NULL DEFAULT '',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+  CREATE INDEX IF NOT EXISTS wallet_transactions_user_idx
+    ON wallet_transactions (user_id, created_at DESC);
+  CREATE TABLE IF NOT EXISTS subscription_plans (
+    id BIGSERIAL PRIMARY KEY,
+    code TEXT NOT NULL UNIQUE,
+    name TEXT NOT NULL,
+    duration_days INTEGER NOT NULL CHECK (duration_days > 0),
+    price_credits BIGINT NOT NULL CHECK (price_credits >= 0),
+    active BOOLEAN NOT NULL DEFAULT TRUE,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+  INSERT INTO subscription_plans (code, name, duration_days, price_credits)
+  VALUES ('vip_monthly', 'اشتراک ویژه یک‌ماهه', 30, 300)
+  ON CONFLICT (code) DO NOTHING;
+  CREATE TABLE IF NOT EXISTS user_subscriptions (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    plan_id BIGINT NOT NULL REFERENCES subscription_plans(id),
+    starts_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    ends_at TIMESTAMPTZ NOT NULL,
+    status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'expired', 'cancelled')),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+  CREATE INDEX IF NOT EXISTS user_subscriptions_current_idx
+    ON user_subscriptions (user_id, status, ends_at DESC);
+
   CREATE TABLE IF NOT EXISTS backgammon_matches (
     id BIGSERIAL PRIMARY KEY,
     room_code TEXT NOT NULL UNIQUE,
@@ -247,6 +287,170 @@ const requireMatchAuth = async (request: any, reply: any) => {
     return reply.code(401).send({ error: 'Authentication required.' });
   }
 };
+
+// Wallet balances are server-owned; credits are non-transferable and every change is ledgered.
+app.get('/api/v1/wallet', { onRequest: [requireMatchAuth] }, async (request) => {
+  const claims = request.user as { sub: string };
+  await pool.query('INSERT INTO wallet_accounts (user_id) VALUES ($1) ON CONFLICT (user_id) DO NOTHING', [claims.sub]);
+  const [account, history] = await Promise.all([
+    pool.query('SELECT balance, updated_at AS "updatedAt" FROM wallet_accounts WHERE user_id = $1', [claims.sub]),
+    pool.query('SELECT id, amount, balance_after AS "balanceAfter", type, description, created_at AS "createdAt" FROM wallet_transactions WHERE user_id = $1 ORDER BY created_at DESC LIMIT 50', [claims.sub]),
+  ]);
+  return { balance: Number(account.rows[0]?.balance ?? 0), updatedAt: account.rows[0]?.updatedAt ?? null, transactions: history.rows };
+});
+
+app.get('/api/v1/subscriptions/plans', { onRequest: [requireMatchAuth] }, async () => {
+  const result = await pool.query('SELECT code, name, duration_days AS "durationDays", price_credits AS "priceCredits" FROM subscription_plans WHERE active = TRUE ORDER BY price_credits ASC');
+  return { plans: result.rows };
+});
+
+app.get('/api/v1/subscriptions/me', { onRequest: [requireMatchAuth] }, async (request) => {
+  const claims = request.user as { sub: string };
+  const result = await pool.query(
+    `SELECT s.id, p.code AS "planCode", p.name AS "planName", s.starts_at AS "startsAt",
+            s.ends_at AS "endsAt", s.status
+       FROM user_subscriptions s JOIN subscription_plans p ON p.id = s.plan_id
+      WHERE s.user_id = $1 AND s.status = 'active' AND s.ends_at > NOW()
+      ORDER BY s.ends_at DESC LIMIT 1`,
+    [claims.sub],
+  );
+  return { subscription: result.rows[0] ?? null };
+});
+
+app.post<{ Body: { planCode?: string } }>('/api/v1/subscriptions/activate', { onRequest: [requireMatchAuth] }, async (request, reply) => {
+  const claims = request.user as { sub: string };
+  const code = request.body?.planCode;
+  if (typeof code !== 'string' || !/^[a-z0-9_]{2,40}$/.test(code)) {
+    return reply.code(400).send({ error: 'Invalid subscription plan.' });
+  }
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const planResult = await client.query(
+      'SELECT id, name, duration_days, price_credits FROM subscription_plans WHERE code = $1 AND active = TRUE FOR SHARE',
+      [code],
+    );
+    const plan = planResult.rows[0] as { id: string; name: string; duration_days: number; price_credits: string } | undefined;
+    if (!plan) {
+      await client.query('ROLLBACK');
+      return reply.code(404).send({ error: 'Subscription plan not found.' });
+    }
+    await client.query('INSERT INTO wallet_accounts (user_id) VALUES ($1) ON CONFLICT (user_id) DO NOTHING', [claims.sub]);
+    const accountResult = await client.query('SELECT balance FROM wallet_accounts WHERE user_id = $1 FOR UPDATE', [claims.sub]);
+    const balance = Number(accountResult.rows[0]?.balance ?? 0);
+    const price = Number(plan.price_credits);
+    if (balance < price) {
+      await client.query('ROLLBACK');
+      return reply.code(409).send({ error: 'Insufficient wallet credits.', required: price, balance });
+    }
+    const active = await client.query(
+      `SELECT ends_at FROM user_subscriptions
+        WHERE user_id = $1 AND status = 'active' AND ends_at > NOW()
+        ORDER BY ends_at DESC LIMIT 1 FOR UPDATE`,
+      [claims.sub],
+    );
+    const startsAt = active.rows[0]?.ends_at ?? new Date();
+    const endsAt = new Date(new Date(startsAt).getTime() + Number(plan.duration_days) * 86400000);
+    const debit = await client.query(
+      'UPDATE wallet_accounts SET balance = balance - $1, updated_at = NOW() WHERE user_id = $2 RETURNING balance',
+      [price, claims.sub],
+    );
+    await client.query(
+      'INSERT INTO wallet_transactions (user_id, amount, balance_after, type, description) VALUES ($1, $2, $3, $4, $5)',
+      [claims.sub, -price, debit.rows[0].balance, 'subscription_purchase', plan.name],
+    );
+    await client.query(
+      `UPDATE user_subscriptions SET status = 'expired'
+        WHERE user_id = $1 AND status = 'active' AND ends_at <= NOW()`,
+      [claims.sub],
+    );
+    const subscription = await client.query(
+      `INSERT INTO user_subscriptions (user_id, plan_id, starts_at, ends_at, status)
+       VALUES ($1, $2, $3, $4, 'active')
+       RETURNING id, starts_at AS "startsAt", ends_at AS "endsAt", status`,
+      [claims.sub, plan.id, startsAt, endsAt],
+    );
+    await client.query('COMMIT');
+    return { subscription: { ...subscription.rows[0], planCode: code, planName: plan.name }, walletBalance: Number(debit.rows[0].balance) };
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    request.log.error({ err: error }, 'Could not activate subscription');
+    return reply.code(500).send({ error: 'Could not activate subscription.' });
+  } finally {
+    client.release();
+  }
+});
+
+// Only the configured owner email may administer credits and subscription pricing.
+const requireOwnerAuth = async (request: any, reply: any) => {
+  await requireMatchAuth(request, reply);
+  if (reply.sent) return;
+  const ownerEmail = process.env.OWNER_EMAIL?.trim().toLowerCase();
+  const claims = request.user as { sub?: string; email?: string };
+  if (!ownerEmail || claims.email?.trim().toLowerCase() !== ownerEmail) {
+    return reply.code(403).send({ error: 'Owner access is not configured or is not permitted.' });
+  }
+};
+
+app.post<{ Body: { userId?: string; amount?: number; description?: string } }>('/api/v1/admin/wallet/credit', { onRequest: [requireOwnerAuth] }, async (request, reply) => {
+  const { userId, amount, description } = request.body ?? {};
+  if (!isNumericId(userId) || !Number.isSafeInteger(amount) || Number(amount) <= 0 || Number(amount) > 1000000000 ||
+      (description !== undefined && (typeof description !== 'string' || description.length > 200))) {
+    return reply.code(400).send({ error: 'Provide a valid userId, positive credit amount, and short description.' });
+  }
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const user = await client.query('SELECT id FROM users WHERE id = $1', [userId]);
+    if (!user.rowCount) {
+      await client.query('ROLLBACK');
+      return reply.code(404).send({ error: 'User not found.' });
+    }
+    await client.query('INSERT INTO wallet_accounts (user_id) VALUES ($1) ON CONFLICT (user_id) DO NOTHING', [userId]);
+    const credited = await client.query(
+      'UPDATE wallet_accounts SET balance = balance + $1, updated_at = NOW() WHERE user_id = $2 RETURNING balance',
+      [amount, userId],
+    );
+    await client.query(
+      'INSERT INTO wallet_transactions (user_id, amount, balance_after, type, description) VALUES ($1, $2, $3, $4, $5)',
+      [userId, amount, credited.rows[0].balance, 'admin_credit', description?.trim() || 'اعتباردهی مدیر'],
+    );
+    await client.query('COMMIT');
+    return { userId, credited: amount, balance: Number(credited.rows[0].balance) };
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    request.log.error({ err: error }, 'Could not credit wallet');
+    return reply.code(500).send({ error: 'Could not credit wallet.' });
+  } finally {
+    client.release();
+  }
+});
+
+app.patch<{ Params: { code: string }; Body: { name?: string; durationDays?: number; priceCredits?: number; active?: boolean } }>('/api/v1/admin/subscription-plans/:code', { onRequest: [requireOwnerAuth] }, async (request, reply) => {
+  const { code } = request.params;
+  const { name, durationDays, priceCredits, active } = request.body ?? {};
+  if (!/^[a-z0-9_]{2,40}$/.test(code) ||
+      (name !== undefined && (typeof name !== 'string' || !name.trim() || name.length > 100)) ||
+      (durationDays !== undefined && (!Number.isInteger(durationDays) || durationDays < 1 || durationDays > 3650)) ||
+      (priceCredits !== undefined && (!Number.isSafeInteger(priceCredits) || priceCredits < 0 || priceCredits > 1000000000)) ||
+      (active !== undefined && typeof active !== 'boolean') ||
+      (name === undefined && durationDays === undefined && priceCredits === undefined && active === undefined)) {
+    return reply.code(400).send({ error: 'Invalid subscription plan update.' });
+  }
+  const result = await pool.query(
+    `UPDATE subscription_plans SET
+       name = COALESCE($1, name),
+       duration_days = COALESCE($2, duration_days),
+       price_credits = COALESCE($3, price_credits),
+       active = COALESCE($4, active),
+       updated_at = NOW()
+     WHERE code = $5
+     RETURNING code, name, duration_days AS "durationDays", price_credits AS "priceCredits", active`,
+    [name?.trim() ?? null, durationDays ?? null, priceCredits ?? null, active ?? null, code],
+  );
+  if (!result.rowCount) return reply.code(404).send({ error: 'Subscription plan not found.' });
+  return { plan: result.rows[0] };
+});
 
 app.get('/api/v1/notifications', { onRequest: [requireMatchAuth] }, async (request) => {
   const claims = request.user as { sub: string };
