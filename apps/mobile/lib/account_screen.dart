@@ -115,7 +115,7 @@ class _AccountScreenState extends State<AccountScreen> {
                           child: ListTile(
                             leading: const Icon(Icons.alternate_email, color: _accountGold),
                             title: const Text('نام کاربری', style: TextStyle(color: Colors.white60, fontSize: 12)),
-                            subtitle: Text('@' + (_user!['username']?.toString() ?? 'تنظیم نشده'), style: const TextStyle(color: Colors.white, fontSize: 16)),
+                            subtitle: Text('@${_user!['username']?.toString() ?? 'تنظیم نشده'}', style: const TextStyle(color: Colors.white, fontSize: 16)),
                             trailing: IconButton(onPressed: _editUsername, icon: const Icon(Icons.edit_outlined, color: _accountGold), tooltip: 'ویرایش نام کاربری'),
                           ),
                         ),

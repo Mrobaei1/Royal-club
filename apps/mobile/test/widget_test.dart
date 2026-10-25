@@ -10,16 +10,22 @@ void main() {
     expect(find.text('ROYAL CLUB'), findsWidgets);
   });
 
-  testWidgets('home exposes account, friends, and notifications', (tester) async {
+  testWidgets('home menu exposes account, friends, and notifications', (tester) async {
     await tester.pumpWidget(
       const MaterialApp(home: HomeScreen()),
     );
 
-    for (final label in ['دوستان', 'اعلان‌ها', 'حساب کاربری', 'گفت‌وگوهای خصوصی', 'پنل مدیریت', 'کیف پول و اشتراک']) {
-      for (var attempt = 0; attempt < 12 && find.text(label).evaluate().isEmpty; attempt++) {
-        await tester.drag(find.byType(ListView).first, const Offset(0, -400));
-        await tester.pumpAndSettle();
-      }
+    await tester.tap(find.byTooltip('منو و تنظیمات'));
+    await tester.pumpAndSettle();
+
+    for (final label in [
+      'دوستان',
+      'اعلان‌ها',
+      'حساب کاربری',
+      'گفت‌وگوهای خصوصی',
+      'پنل مدیریت',
+      'کیف پول و اشتراک',
+    ]) {
       expect(find.text(label), findsOneWidget);
     }
   });
