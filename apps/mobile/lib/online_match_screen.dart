@@ -166,7 +166,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(color: _matchPanel, borderRadius: BorderRadius.circular(16), border: Border.all(color: _matchGold.withValues(alpha: .35))),
               child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                Text(_matchStatus == 'finished' ? 'بازی پایان یافت' : (_state == null ? 'در انتظار ورود حریف...' : (isMyTurn ? 'نوبت شماست' : 'در انتظار حرکت حریف')),
+                Text(_matchStatus == 'finished' ? 'بازی پایان یافت' : (_state == null ? 'در انتظار ورود حریف...' : (isMyTurn ? 'نوبت شماست' : 'در انتظار حرکت حریف'))),
                   style: const TextStyle(color: _matchGold, fontWeight: FontWeight.bold, fontSize: 18)),
                 const SizedBox(height: 6),
                 Text(_state == null ? 'این صفحه به‌صورت خودکار هر ۳ ثانیه وضعیت اتاق را بررسی می‌کند.' : 'نسخه وضعیت: ${_state!['version']}',
