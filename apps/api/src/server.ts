@@ -25,7 +25,7 @@ await app.register(cors, {
     'https://super-duper-palm-tree-4r9v56pv6gcj7rw-8080.app.github.dev',
     'https://mrobaei1.github.io',
   ],
-  methods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
+  methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
 });
 await app.register(rateLimit, { max: 120, timeWindow: '1 minute' });
