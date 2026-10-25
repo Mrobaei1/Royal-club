@@ -355,7 +355,7 @@ app.post<{ Params: { id: string }; Body: { from: number | null; to: number | nul
     const board = [...game.board_state];
     const ownBar = hostTurn ? 'host' : 'guest';
     const otherBar = hostTurn ? 'guest' : 'host';
-    let target: number;
+    let target = -1;
 
     if (bar[ownBar] > 0) {
       if (body.from !== null || body.to === null) {
