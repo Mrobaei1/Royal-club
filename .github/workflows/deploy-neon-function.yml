@@ -21,7 +21,7 @@ permissions:
 
 concurrency:
   group: royal-club-neon-api-production
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   deploy:
@@ -137,6 +137,7 @@ jobs:
             echo "::error::Could not identify the function's public URL in Neon API response. Open the Neon Functions page and copy the invocation URL."
             exit 1
           fi
+          FUNCTION_URL="${FUNCTION_URL%/}"
           echo "url=$FUNCTION_URL" >> "$GITHUB_OUTPUT"
           echo "Function URL discovered."
 
@@ -147,7 +148,7 @@ jobs:
         run: |
           healthy=0
           for attempt in $(seq 1 12); do
-            if curl --fail --silent --show-error --max-time 60 "$FUNCTION_URL/api/v1/health" --output health.json; then
+            if curl --fail --silent --show-error --max-time 12 "$FUNCTION_URL/api/v1/health" --output health.json; then
               if grep -q '"status":"ok"' health.json; then healthy=1; break; fi
             fi
             echo "Health check attempt $attempt/12; waiting for Neon to finish activating the function."
