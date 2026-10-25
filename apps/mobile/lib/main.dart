@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'engine_backgammon_screen.dart';
 import 'services/auth_service.dart';
+import 'online_lobby_screen.dart';
 
 void main() => runApp(const RoyalClubApp());
 
@@ -247,6 +248,14 @@ class HomeScreen extends StatelessWidget {
                     onTap: () => Navigator.of(context).push(
                         MaterialPageRoute<void>(
                             builder: (_) => const EngineBackgammonScreen()))),
+                const SizedBox(height: 12),
+                GameTile(
+                    title: 'بازی آنلاین',
+                    subtitle: 'ساخت اتاق و پیوستن به حریف',
+                    icon: Icons.public_rounded,
+                    onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                            builder: (_) => const OnlineLobbyScreen()))),
                 const SizedBox(height: 12),
                 const GameTile(
                     title: 'شطرنج',
