@@ -42,6 +42,20 @@ await pool.query(`
   ALTER TABLE users ADD COLUMN IF NOT EXISTS full_name TEXT NOT NULL DEFAULT '';
   ALTER TABLE users ADD COLUMN IF NOT EXISTS phone TEXT NOT NULL DEFAULT '';
   ALTER TABLE users ADD COLUMN IF NOT EXISTS country TEXT NOT NULL DEFAULT '';
+
+  CREATE TABLE IF NOT EXISTS backgammon_matches (
+    id BIGSERIAL PRIMARY KEY,
+    room_code TEXT NOT NULL UNIQUE,
+    host_user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    guest_user_id BIGINT REFERENCES users(id) ON DELETE SET NULL,
+    status TEXT NOT NULL DEFAULT 'waiting' CHECK (status IN ('waiting', 'active', 'finished', 'cancelled')),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    expires_at TIMESTAMPTZ NOT NULL DEFAULT (NOW() + INTERVAL '30 minutes'),
+    CHECK (guest_user_id IS NULL OR guest_user_id <> host_user_id)
+  );
+  CREATE INDEX IF NOT EXISTS backgammon_matches_waiting_idx ON backgammon_matches (created_at DESC) WHERE status = 'waiting';
+  CREATE INDEX IF NOT EXISTS backgammon_matches_players_idx ON backgammon_matches (host_user_id, guest_user_id, status);
 `);
 
 app.get('/api/v1/health', async () => ({
