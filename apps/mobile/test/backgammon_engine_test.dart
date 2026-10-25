@@ -87,6 +87,18 @@ void main() {
       expect(moves.every((move) => move.to == 22 && move.die == 2), isTrue);
     });
 
+    test('negative player enters from the correct side of the bar', () {
+      clearPosition(player: -1, rolledDice: [1, 2]);
+      game.bar[0] = 1;
+      game.points[23] = 2; // Two opposing checkers block die 1.
+      game.points[12] = -1;
+
+      final moves = game.legalMoves();
+      expect(moves, isNotEmpty);
+      expect(moves.every((move) => move.fromBar), isTrue);
+      expect(moves.every((move) => move.to == 22 && move.die == 2), isTrue);
+    });
+
     test('hitting a single opposing checker sends it to the bar', () {
       clearPosition(rolledDice: [1, 2]);
       game.points[0] = 1;
