@@ -319,6 +319,28 @@ const requireMatchAuth = async (request: any, reply: any) => {
   }
 };
 
+app.patch<{ Body: { username?: string } }>('/api/v1/me/username', { onRequest: [requireMatchAuth], config: { rateLimit: { max: 5, timeWindow: '1 minute' } } }, async (request, reply) => {
+  const claims = request.user as { sub: string };
+  const username = typeof request.body?.username === 'string' ? request.body.username.trim().replace(/^@/, '') : '';
+  if (!/^[a-zA-Z0-9_.]{3,24}$/.test(username)) {
+    return reply.code(400).send({ error: 'نام کاربری باید ۳ تا ۲۴ حرف و فقط شامل حروف انگلیسی، عدد، نقطه یا زیرخط باشد.' });
+  }
+  try {
+    const result = await pool.query(
+      'UPDATE users SET username = $1 WHERE id = $2 RETURNING id, username',
+      [username, claims.sub],
+    );
+    if (!result.rowCount) return reply.code(404).send({ error: 'Account not found.' });
+    return { user: result.rows[0] };
+  } catch (error: unknown) {
+    if (typeof error === 'object' && error !== null && 'code' in error && error.code === '23505') {
+      return reply.code(409).send({ error: 'این نام کاربری قبلاً انتخاب شده است.' });
+    }
+    request.log.error({ err: error }, 'Could not update username');
+    return reply.code(500).send({ error: 'Could not update username.' });
+  }
+});
+
 // Wallet balances are server-owned; credits are non-transferable and every change is ledgered.
 app.get('/api/v1/wallet', { onRequest: [requireMatchAuth] }, async (request) => {
   const claims = request.user as { sub: string };
