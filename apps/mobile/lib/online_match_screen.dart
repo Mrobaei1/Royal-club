@@ -53,8 +53,8 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
       if (match['status'] == 'active' || match['status'] == 'finished') {
         final state = await MatchService.getState(_id);
         if (sequence != _refreshSequence) {
-        return;
-      }
+          return;
+        }
         if (mounted) setState(() {
           _state = state;
           _matchStatus = match['status'].toString();
