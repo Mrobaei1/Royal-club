@@ -7,7 +7,7 @@ import jwt from '@fastify/jwt';
 import { Pool } from 'pg';
 import { randomBytes, randomInt, scrypt as scryptCallback, timingSafeEqual } from 'node:crypto';
 import { isNumericId } from './validation.js';
-import { applyBackgammonMove, hasLegalMove } from './backgammon-rules.js';
+import { applyBackgammonMove, hasLegalMove, mustPlayHigherDie } from './backgammon-rules.js';
 import { promisify } from 'node:util';
 
 const scrypt = promisify(scryptCallback);
@@ -359,6 +359,10 @@ app.post<{ Params: { id: string }; Body: { moves: Array<{ from: number | null; t
         await client.query('ROLLBACK');
         return reply.code(409).send({ error: 'A selected die is invalid or has already been used in this sequence.' });
       }
+      if (mustPlayHigherDie(simulated, remaining, move, hostTurn)) {
+        await client.query('ROLLBACK');
+        return reply.code(409).send({ error: 'You must play the higher die first when the lower die would prevent it.' });
+      }
       const applied = applyBackgammonMove(simulated, move, hostTurn);
       if ('error' in applied) {
         await client.query('ROLLBACK');
@@ -446,6 +450,15 @@ app.post<{ Params: { id: string }; Body: { from: number | null; to: number | nul
     }
 
     const hostTurn = game.current_turn_user_id === game.host_user_id;
+    const moveState = {
+      board: [...game.board_state],
+      bar: { host: Number(game.bar_state?.host ?? 0), guest: Number(game.bar_state?.guest ?? 0) },
+      off: { host: Number(game.off_state?.host ?? 0), guest: Number(game.off_state?.guest ?? 0) },
+    };
+    if (mustPlayHigherDie(moveState, game.remaining_dice, body, hostTurn)) {
+      await client.query('ROLLBACK');
+      return reply.code(409).send({ error: 'You must play the higher die first when the lower die would prevent it.' });
+    }
     const sign = hostTurn ? 1 : -1;
     const bar = { host: Number(game.bar_state?.host ?? 0), guest: Number(game.bar_state?.guest ?? 0) };
     const off = { host: Number(game.off_state?.host ?? 0), guest: Number(game.off_state?.guest ?? 0) };
