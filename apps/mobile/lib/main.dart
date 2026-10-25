@@ -6,6 +6,7 @@ import 'engine_backgammon_screen.dart';
 import 'services/auth_service.dart';
 import 'online_lobby_screen.dart';
 import 'wallet_screen.dart';
+import 'admin_screen.dart';
 
 void main() => runApp(const RoyalClubApp());
 
@@ -292,6 +293,14 @@ class HomeScreen extends StatelessWidget {
                         MaterialPageRoute<void>(
                             builder: (_) => AccountScreen(
                                 onLogout: onLogout ?? () {})))),
+                const SizedBox(height: 12),
+                GameTile(
+                    title: 'پنل مدیریت',
+                    subtitle: 'اعتبار کاربران و قیمت اشتراک‌ها',
+                    icon: Icons.admin_panel_settings_outlined,
+                    onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                            builder: (_) => const AdminScreen()))),
                 const SizedBox(height: 12),
                 GameTile(
                     title: 'کیف پول و اشتراک',
