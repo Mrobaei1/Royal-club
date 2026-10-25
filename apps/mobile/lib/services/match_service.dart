@@ -42,6 +42,25 @@ class MatchService {
   static Future<Map<String, dynamic>> getState(String id) async =>
       Map<String, dynamic>.from((await _request('GET', '/$id/state'))['state'] as Map);
 
+  static Future<Map<String, dynamic>> move(
+    String id, {required int? from, required int? to, required int die, required int expectedVersion}
+  ) async {
+    final headers = await _headers();
+    final response = await http.post(
+      Uri.parse('$_baseUrl/api/v1/matches/$id/moves'),
+      headers: headers,
+      body: jsonEncode({'from': from, 'to': to, 'die': die, 'expectedVersion': expectedVersion}),
+    );
+    dynamic decoded;
+    try { decoded = jsonDecode(response.body); }
+    catch (_) { throw Exception('پاسخ سرور قابل‌خواندن نیست.'); }
+    if (decoded is! Map<String, dynamic>) throw Exception('پاسخ سرور نامعتبر است.');
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(decoded['error']?.toString() ?? 'خطای سرور (${response.statusCode})');
+    }
+    return Map<String, dynamic>.from(decoded['state'] as Map);
+  }
+
   static Future<Map<String, dynamic>> roll(String id, int expectedVersion) async {
     final headers = await _headers();
     final response = await http.post(
