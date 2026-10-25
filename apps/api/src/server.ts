@@ -50,6 +50,8 @@ await pool.query(`
     guest_user_id BIGINT REFERENCES users(id) ON DELETE SET NULL,
     status TEXT NOT NULL DEFAULT 'waiting' CHECK (status IN ('waiting', 'active', 'finished', 'cancelled')),
     board_state JSONB NOT NULL DEFAULT '[2,0,0,0,0,-5,0,-3,0,0,0,5,-5,0,0,0,3,0,5,0,0,0,0,-2]'::jsonb,
+    bar_state JSONB NOT NULL DEFAULT '{"host":0,"guest":0}'::jsonb,
+    off_state JSONB NOT NULL DEFAULT '{"host":0,"guest":0}'::jsonb,
     current_turn_user_id BIGINT REFERENCES users(id) ON DELETE SET NULL,
     dice JSONB NOT NULL DEFAULT '[]'::jsonb,
     remaining_dice JSONB NOT NULL DEFAULT '[]'::jsonb,
@@ -61,6 +63,8 @@ await pool.query(`
   );
   ALTER TABLE backgammon_matches ADD COLUMN IF NOT EXISTS board_state JSONB NOT NULL DEFAULT '[2,0,0,0,0,-5,0,-3,0,0,0,5,-5,0,0,0,3,0,5,0,0,0,0,-2]'::jsonb;
   ALTER TABLE backgammon_matches ADD COLUMN IF NOT EXISTS current_turn_user_id BIGINT REFERENCES users(id) ON DELETE SET NULL;
+  ALTER TABLE backgammon_matches ADD COLUMN IF NOT EXISTS bar_state JSONB NOT NULL DEFAULT '{"host":0,"guest":0}'::jsonb;
+  ALTER TABLE backgammon_matches ADD COLUMN IF NOT EXISTS off_state JSONB NOT NULL DEFAULT '{"host":0,"guest":0}'::jsonb;
   ALTER TABLE backgammon_matches ADD COLUMN IF NOT EXISTS dice JSONB NOT NULL DEFAULT '[]'::jsonb;
   ALTER TABLE backgammon_matches ADD COLUMN IF NOT EXISTS remaining_dice JSONB NOT NULL DEFAULT '[]'::jsonb;
   ALTER TABLE backgammon_matches ADD COLUMN IF NOT EXISTS state_version INTEGER NOT NULL DEFAULT 0;
@@ -297,12 +301,168 @@ app.get<{ Params: { id: string } }>('/api/v1/matches/:id', { onRequest: [require
   return { match: result.rows[0] };
 });
 
+// Apply one die-sized move under a row lock; the client never submits a replacement board.
+app.post<{ Params: { id: string }; Body: { from: number | null; to: number | null; die: number; expectedVersion: number } }>('/api/v1/matches/:id/moves', { onRequest: [requireMatchAuth] }, async (request, reply) => {
+  const claims = request.user as { sub: string };
+  const body = request.body;
+  if (!/^\\d+$/.test(request.params.id)) return reply.code(400).send({ error: 'Invalid match id.' });
+  if (!body || !Number.isInteger(body.die) || body.die < 1 || body.die > 6 ||
+      !Number.isInteger(body.expectedVersion) ||
+      (body.from !== null && (!Number.isInteger(body.from) || body.from < 0 || body.from > 23)) ||
+      (body.to !== null && (!Number.isInteger(body.to) || body.to < 0 || body.to > 23)) ||
+      (body.from === null && body.to === null)) {
+    return reply.code(400).send({ error: 'Invalid move format.' });
+  }
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const result = await client.query(
+      `SELECT id, status, host_user_id, guest_user_id, current_turn_user_id,
+              board_state, bar_state, off_state, dice, remaining_dice, state_version
+         FROM backgammon_matches WHERE id = $1 AND expires_at > NOW() FOR UPDATE`,
+      [request.params.id]);
+    const game = result.rows[0] as {
+      id: string; status: string; host_user_id: string; guest_user_id: string | null;
+      current_turn_user_id: string | null; board_state: number[];
+      bar_state: { host: number; guest: number }; off_state: { host: number; guest: number };
+      dice: number[]; remaining_dice: number[]; state_version: number;
+    } | undefined;
+    if (!game || ![game.host_user_id, game.guest_user_id].includes(claims.sub)) {
+      await client.query('ROLLBACK');
+      return reply.code(404).send({ error: 'Match not found.' });
+    }
+    if (game.status !== 'active' || !game.guest_user_id) {
+      await client.query('ROLLBACK');
+      return reply.code(409).send({ error: 'The match is not active.' });
+    }
+    if (game.current_turn_user_id !== claims.sub) {
+      await client.query('ROLLBACK');
+      return reply.code(409).send({ error: 'It is not your turn.' });
+    }
+    if (game.state_version !== body.expectedVersion) {
+      await client.query('ROLLBACK');
+      return reply.code(409).send({ error: 'Game state changed. Refresh the board and try again.' });
+    }
+    if (!Array.isArray(game.remaining_dice) || !game.remaining_dice.includes(body.die)) {
+      await client.query('ROLLBACK');
+      return reply.code(409).send({ error: 'That die is not available for this turn.' });
+    }
+
+    const hostTurn = game.current_turn_user_id === game.host_user_id;
+    const sign = hostTurn ? 1 : -1;
+    const bar = { host: Number(game.bar_state?.host ?? 0), guest: Number(game.bar_state?.guest ?? 0) };
+    const off = { host: Number(game.off_state?.host ?? 0), guest: Number(game.off_state?.guest ?? 0) };
+    const board = [...game.board_state];
+    const ownBar = hostTurn ? 'host' : 'guest';
+    const otherBar = hostTurn ? 'guest' : 'host';
+    let target: number;
+
+    if (bar[ownBar] > 0) {
+      if (body.from !== null || body.to === null) {
+        await client.query('ROLLBACK');
+        return reply.code(409).send({ error: 'A checker on the bar must enter before other checkers can move.' });
+      }
+      target = hostTurn ? 24 - body.die : body.die - 1;
+      if (body.to !== target) {
+        await client.query('ROLLBACK');
+        return reply.code(409).send({ error: 'Invalid bar-entry point for that die.' });
+      }
+    } else {
+      if (body.from === null) {
+        await client.query('ROLLBACK');
+        return reply.code(409).send({ error: 'No checker is available on the bar.' });
+      }
+      if (board[body.from] * sign <= 0) {
+        await client.query('ROLLBACK');
+        return reply.code(409).send({ error: 'Select one of your own checkers.' });
+      }
+      const rawTarget = hostTurn ? body.from - body.die : body.from + body.die;
+      if (body.to === null) {
+        const inHome = hostTurn ? body.from <= 5 : body.from >= 18;
+        const allHome = board.every((count, point) => hostTurn
+          ? point > 5 || count <= 0
+          : point < 18 || count >= 0);
+        const overshootClear = hostTurn
+          ? !board.some((count, point) => point > body.from! && point <= 5 && count > 0)
+          : !board.some((count, point) => point < body.from! && point >= 18 && count < 0);
+        if (!inHome || !allHome || rawTarget >= 0 && rawTarget <= 23 ||
+            (hostTurn ? body.from - body.die < 0 : body.from + body.die > 23) === false ||
+            (hostTurn ? body.from - body.die < -0 && overshootClear : body.from + body.die > 23 && overshootClear) === false) {
+          await client.query('ROLLBACK');
+          return reply.code(409).send({ error: 'That checker cannot bear off with this die.' });
+        }
+        off[ownBar] += 1;
+      } else {
+        if (rawTarget < 0 || rawTarget > 23 || body.to !== rawTarget) {
+          await client.query('ROLLBACK');
+          return reply.code(409).send({ error: 'Move distance does not match the selected die.' });
+        }
+        target = rawTarget;
+        if (board[target] * sign <= -2) {
+          await client.query('ROLLBACK');
+          return reply.code(409).send({ error: 'That point is blocked by the opponent.' });
+        }
+        board[body.from] -= sign;
+        if (board[target] * sign < 0) {
+          board[target] = 0;
+          bar[otherBar] += 1;
+        }
+        board[target] += sign;
+      }
+      if (body.to === null) board[body.from] -= sign;
+    }
+
+    if (body.from === null) {
+      bar[ownBar] -= 1;
+      if (board[target] * sign <= -2) {
+        await client.query('ROLLBACK');
+        return reply.code(409).send({ error: 'That entry point is blocked by the opponent.' });
+      }
+      if (board[target] * sign < 0) {
+        board[target] = 0;
+        bar[otherBar] += 1;
+      }
+      board[target] += sign;
+    }
+
+    const remaining = [...game.remaining_dice];
+    remaining.splice(remaining.indexOf(body.die), 1);
+    const turnComplete = remaining.length === 0;
+    const nextTurn = turnComplete
+      ? (hostTurn ? game.guest_user_id : game.host_user_id)
+      : game.current_turn_user_id;
+    const nextDice = turnComplete ? [] : game.dice;
+    const nextRemaining = turnComplete ? [] : remaining;
+    const finished = off.host >= 15 || off.guest >= 15;
+    const updated = await client.query(
+      `UPDATE backgammon_matches SET board_state = $1::jsonb, bar_state = $2::jsonb,
+              off_state = $3::jsonb, current_turn_user_id = $4, dice = $5::jsonb,
+              remaining_dice = $6::jsonb, status = $7,
+              state_version = state_version + 1, updated_at = NOW()
+         WHERE id = $8
+         RETURNING id, status, board_state AS board, bar_state AS bar, off_state AS off,
+                   current_turn_user_id AS "currentTurnUserId", dice,
+                   remaining_dice AS "remainingDice", state_version AS version`,
+      [JSON.stringify(board), JSON.stringify(bar), JSON.stringify(off), nextTurn,
+       JSON.stringify(nextDice), JSON.stringify(nextRemaining), finished ? 'finished' : 'active', game.id]);
+    await client.query('COMMIT');
+    return { state: updated.rows[0] };
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    request.log.error({ err: error }, 'Could not apply move');
+    return reply.code(500).send({ error: 'Could not apply move.' });
+  } finally {
+    client.release();
+  }
+});
+
 // Server-owned game snapshot. Clients can read state but cannot submit a replacement board.
 app.get<{ Params: { id: string } }>('/api/v1/matches/:id/state', { onRequest: [requireMatchAuth] }, async (request, reply) => {
   const claims = request.user as { sub: string };
   if (!/^\\d+$/.test(request.params.id)) return reply.code(400).send({ error: 'Invalid match id.' });
   const result = await pool.query(
-    `SELECT id, status, board_state AS board, current_turn_user_id AS "currentTurnUserId",
+    `SELECT id, status, board_state AS board, bar_state AS bar, off_state AS off,
+            current_turn_user_id AS "currentTurnUserId",
             current_turn_user_id = $2::bigint AS "isMyTurn",
             dice, remaining_dice AS "remainingDice", state_version AS version, updated_at AS "updatedAt"
        FROM backgammon_matches
