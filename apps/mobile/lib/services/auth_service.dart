@@ -3,8 +3,10 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 
 class AuthService {
-  static const String baseUrl =
-      'https://super-duper-palm-tree-4r9v56pv6gcj7rw-3000.app.github.dev';
+  static const String baseUrl = String.fromEnvironment(
+    'API_BASE_URL',
+    defaultValue: 'https://super-duper-palm-tree-4r9v56pv6gcj7rw-3000.app.github.dev',
+  );
   static const FlutterSecureStorage _storage = FlutterSecureStorage();
 
   static Future<Map<String, dynamic>> _post(
