@@ -159,7 +159,7 @@ jobs:
             echo "Last health response body (credentials are never included):"
             if [ -f health.json ]; then head -c 4000 health.json; echo; fi
             echo "Querying Neon function error logs..."
-            curl --silent --show-error --request POST "https://console.neon.tech/api/v2/projects/$NEON_PROJECT_ID/branches/$NEON_BRANCH_ID/logs/query" --header "Authorization: Bearer $NEON_API_KEY" --header "Accept: application/json" --header "Content-Type: application/json" --data '{"since":"1h","source":"function","minimum_severity":"error","limit":100}' --output neon-function-errors.json || true
+            curl --silent --show-error --request POST "https://console.neon.tech/api/v2/projects/$NEON_PROJECT_ID/branches/$NEON_BRANCH_ID/logs/query" --header "Authorization: Bearer $NEON_API_KEY" --header "Accept: application/json" --header "Content-Type: application/json" --data '{"since":"1h","source":"function","limit":100}' --output neon-function-errors.json || true
             if [ -s neon-function-errors.json ]; then
               node -e 'const x=JSON.parse(require("node:fs").readFileSync("neon-function-errors.json","utf8")); const rows=x.logs||x.records||x.data||[]; if (!rows.length) console.log(JSON.stringify(x).slice(0,12000)); else for (const r of rows) console.log(JSON.stringify({timestamp:r.timestamp,severity:r.severity_text||r.severity,message:r.message||r.body||r}));'
             else
