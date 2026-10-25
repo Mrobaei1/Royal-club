@@ -45,6 +45,13 @@ class AdminService {
     return (result['sent'] as num?)?.toInt() ?? 0;
   }
 
+  static Future<List<dynamic>> reports() async =>
+      (await _request('GET', '/api/v1/admin/reports'))['reports'] as List<dynamic>? ?? [];
+
+  static Future<void> updateReport(String id, String status) async {
+    await _request('PATCH', '/api/v1/admin/reports/$id', body: {'status': status});
+  }
+
   static Future<void> updatePlan(String code, {String? name, int? durationDays, int? priceCredits, bool? active}) async {
     final body = <String, dynamic>{};
     if (name != null) body['name'] = name;
