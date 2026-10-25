@@ -171,6 +171,7 @@ test('does not count an overshoot bear-off when another checker is outside the h
   const board = emptyBoard();
   board[1] = 1;
   board[10] = 1;
+  board[4] = -2;
   assert.equal(maxPlayableDiceCount(state(board), [6], true), 0);
 });
 
