@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { applyBackgammonMove, hasLegalMove, mustPlayHigherDie } from './backgammon-rules.js';
+import { applyBackgammonMove, hasLegalMove, maxPlayableDiceCount, mustPlayHigherDie } from './backgammon-rules.js';
 
 const emptyBoard = () => Array<number>(24).fill(0);
 const state = (board: number[], bar = { host: 0, guest: 0 }, off = { host: 0, guest: 0 }) => ({ board, bar, off });
@@ -121,6 +121,20 @@ test('rejects a blocked move without changing the source state', () => {
   assert.ok('error' in result);
   assert.equal(original.board[5], 1);
   assert.equal(original.board[4], -2);
+});
+
+
+test('calculates the maximum usable dice across a turn', () => {
+  const board = emptyBoard();
+  board[5] = 1;
+  assert.equal(maxPlayableDiceCount(state(board), [1, 2], true), 2);
+  assert.equal(maxPlayableDiceCount(state(board), [], true), 0);
+});
+
+test('counts doubles as four playable dice when a checker can keep moving', () => {
+  const board = emptyBoard();
+  board[10] = 1;
+  assert.equal(maxPlayableDiceCount(state(board), [2, 2, 2, 2], true), 4);
 });
 
 test('requires the higher die first when a lower move would make it unusable', () => {
