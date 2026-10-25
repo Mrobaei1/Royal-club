@@ -45,8 +45,8 @@ export function applyBackgammonMove(
   if (to === null) {
     const inHome = hostTurn ? from <= 5 : from >= 18;
     const allHome = board.every((count, point) => hostTurn
-      ? point > 5 || count <= 0
-      : point < 18 || count >= 0);
+      ? point <= 5 || count <= 0
+      : point >= 18 || count >= 0);
     const overshootClear = hostTurn
       ? !board.some((count, point) => point > from && point <= 5 && count > 0)
       : !board.some((count, point) => point < from && point >= 18 && count < 0);
@@ -84,7 +84,7 @@ export function hasLegalMove(
   const sign = hostTurn ? 1 : -1;
   const ownBar = hostTurn ? Number(bar.host ?? 0) : Number(bar.guest ?? 0);
   const allHome = board.every((count, point) =>
-    hostTurn ? point > 5 || count <= 0 : point < 18 || count >= 0,
+    hostTurn ? point <= 5 || count <= 0 : point >= 18 || count >= 0,
   );
 
   return remainingDice.some((die) => {
