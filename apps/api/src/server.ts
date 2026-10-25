@@ -289,7 +289,7 @@ app.delete<{ Params: { id: string } }>('/api/v1/matches/:id', { onRequest: [requ
   const result = await pool.query(
     `UPDATE backgammon_matches SET status = 'cancelled', updated_at = NOW()
       WHERE id = $1 AND host_user_id = $2 AND status = 'waiting'
-      RETURNING id, room_code AS \"roomCode\", status`,
+      RETURNING id, room_code AS "roomCode", status`,
     [request.params.id, claims.sub]);
   if (result.rowCount) return { match: result.rows[0] };
   const existing = await pool.query(
