@@ -70,8 +70,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
     final dice = (_state?['dice'] as List?)?.cast<num>() ?? const <num>[];
     final remaining = (_state?['remainingDice'] as List?)?.cast<num>() ?? const <num>[];
     final board = (_state?['board'] as List?)?.cast<num>() ?? const <num>[];
-    final currentTurn = _state?['currentTurnUserId']?.toString();
-    final isMyTurn = currentTurn != null && currentTurn == _currentUserId;
+    final isMyTurn = _state?['isMyTurn'] == true;
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
@@ -158,9 +157,6 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
       ),
     );
   }
-
-  // The API currently returns the turn owner; the account id is added to the snapshot in the next integration pass.
-  String? get _currentUserId => null;
 }
 
 class _Die extends StatelessWidget {
