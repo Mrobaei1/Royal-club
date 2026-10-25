@@ -50,7 +50,9 @@ class _FriendsScreenState extends State<FriendsScreen> {
 
   Future<void> _refresh() => _run(() async {
         final data = await FriendsService.list();
-        if (mounted) setState(() => _data = data);
+        if (mounted) {
+          setState(() => _data = data);
+        }
       });
 
   Future<void> _search() => _run(() async {
@@ -66,7 +68,9 @@ class _FriendsScreenState extends State<FriendsScreen> {
   Future<void> _sendRequest(String id) => _run(() async {
         await FriendsService.requestFriend(id);
         _email.clear();
-        if (mounted) setState(() => _results = []);
+        if (mounted) {
+          setState(() => _results = []);
+        }
         final data = await FriendsService.list();
         if (mounted) setState(() {
           _data = data;
