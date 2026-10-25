@@ -15,7 +15,7 @@ void main() {
       const MaterialApp(home: HomeScreen()),
     );
 
-    for (final label in ['دوستان', 'اعلان‌ها', 'حساب کاربری']) {
+    for (final label in ['دوستان', 'اعلان‌ها', 'حساب کاربری', 'گفت‌وگوهای خصوصی', 'پنل مدیریت', 'کیف پول و اشتراک']) {
       await tester.scrollUntilVisible(
         find.text(label),
         250,
