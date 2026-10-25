@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { applyBackgammonMove, hasLegalMove } from './backgammon-rules.js';
+import { applyBackgammonMove, hasLegalMove, mustPlayHigherDie } from './backgammon-rules.js';
 
 const emptyBoard = () => Array<number>(24).fill(0);
 const state = (board: number[], bar = { host: 0, guest: 0 }, off = { host: 0, guest: 0 }) => ({ board, bar, off });
@@ -121,4 +121,32 @@ test('rejects a blocked move without changing the source state', () => {
   assert.ok('error' in result);
   assert.equal(original.board[5], 1);
   assert.equal(original.board[4], -2);
+});
+
+test('requires the higher die first when a lower move would make it unusable', () => {
+  const board = emptyBoard();
+  board[5] = 1;
+  assert.equal(
+    mustPlayHigherDie(state(board), [2, 5], { from: 5, to: 3, die: 2 }, true),
+    true,
+  );
+});
+
+test('does not force the higher die first when both dice can still be used', () => {
+  const board = emptyBoard();
+  board[5] = 1;
+  board[10] = 1;
+  assert.equal(
+    mustPlayHigherDie(state(board), [2, 5], { from: 10, to: 8, die: 2 }, true),
+    false,
+  );
+});
+
+test('does not apply higher-die priority to doubles', () => {
+  const board = emptyBoard();
+  board[5] = 1;
+  assert.equal(
+    mustPlayHigherDie(state(board), [3, 3], { from: 5, to: 2, die: 3 }, true),
+    false,
+  );
 });
