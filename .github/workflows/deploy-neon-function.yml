@@ -62,15 +62,42 @@ jobs:
           test -s royal-club-function.zip
           test "$(stat -c%s royal-club-function.zip)" -lt 33554432
 
+      - name: Resolve Neon database connection
+        id: database
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+        run: |
+          curl --fail-with-body --silent --show-error --get \
+            "https://console.neon.tech/api/v2/projects/$NEON_PROJECT_ID/connection_uri" \
+            --header "Authorization: Bearer $NEON_API_KEY" \
+            --header "Accept: application/json" \
+            --data-urlencode "branch_id=$NEON_BRANCH_ID" \
+            --data-urlencode "database_name=neondb" \
+            --data-urlencode "role_name=neondb_owner" \
+            --output connection-response.json
+          DATABASE_URL="$(node -e 'const x=JSON.parse(require("node:fs").readFileSync("connection-response.json","utf8")); const u=x.connection_uri||x.uri||x.connectionUri; if(typeof u!=="string"||!u.startsWith("postgres")) process.exit(2); process.stdout.write(u)')"
+          if [ -z "$DATABASE_URL" ]; then
+            echo "::error::Neon did not return a database connection URI."
+            exit 1
+          fi
+          echo "::add-mask::$DATABASE_URL"
+          echo "url=$DATABASE_URL" >> "$GITHUB_OUTPUT"
+          echo "Neon database connection resolved without displaying credentials."
+
       - name: Prepare encrypted function environment
         env:
           JWT_SECRET: ${{ secrets.ROYAL_CLUB_JWT_SECRET }}
+          DATABASE_URL: ${{ steps.database.outputs.url }}
         run: |
           if [ -z "$JWT_SECRET" ] || [ "${#JWT_SECRET}" -lt 32 ]; then
             echo "::error::Add repository secret ROYAL_CLUB_JWT_SECRET with at least 32 random characters."
             exit 1
           fi
-          node -e 'const fs=require("node:fs"); fs.writeFileSync("function-env.json", JSON.stringify({JWT_SECRET:process.env.JWT_SECRET,NODE_ENV:"production",CORS_ORIGINS:process.env.CORS_ORIGINS,NEON_FUNCTION_RUNTIME:"1"}));'
+          if [ -z "$DATABASE_URL" ]; then
+            echo "::error::Neon DATABASE_URL was not resolved."
+            exit 1
+          fi
+          node -e 'const fs=require("node:fs"); fs.writeFileSync("function-env.json", JSON.stringify({JWT_SECRET:process.env.JWT_SECRET,DATABASE_URL:process.env.DATABASE_URL,NODE_ENV:"production",CORS_ORIGINS:process.env.CORS_ORIGINS,NEON_FUNCTION_RUNTIME:"1"}));'
 
       - name: Deploy function to Neon
         id: deploy
