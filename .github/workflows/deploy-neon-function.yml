@@ -147,7 +147,7 @@ jobs:
         run: |
           ready=0
           for attempt in $(seq 1 20); do
-            curl --fail-with-body --silent --show-error \
+            curl --connect-timeout 5 --max-time 12 --fail-with-body --silent --show-error \
               "https://console.neon.tech/api/v2/projects/$NEON_PROJECT_ID/branches/$NEON_BRANCH_ID/functions/$NEON_FUNCTION_SLUG" \
               --header "Authorization: Bearer $NEON_API_KEY" \
               --header "Accept: application/json" --output function-details.json
