@@ -196,7 +196,7 @@ const requireMatchAuth = async (request: any, reply: any) => {
   try {
     await request.jwtVerify();
     const claims = request.user as { sub?: string };
-    if (!claims.sub || !/^\\d+$/.test(claims.sub)) return reply.code(401).send({ error: 'Invalid token.' });
+    if (!claims.sub || !/^\d+$/.test(claims.sub)) return reply.code(401).send({ error: 'Invalid token.' });
   } catch {
     return reply.code(401).send({ error: 'Authentication required.' });
   }
@@ -205,7 +205,7 @@ const requireMatchAuth = async (request: any, reply: any) => {
 app.get('/api/v1/matches/open', { onRequest: [requireMatchAuth] }, async (request, reply) => {
   const claims = request.user as { sub: string };
   const result = await pool.query(
-    `SELECT m.id, m.room_code AS \"roomCode\", m.status, m.created_at AS \"createdAt\", u.full_name AS \"hostName\`
+    `SELECT m.id, m.room_code AS "roomCode", m.status, m.created_at AS "createdAt", u.full_name AS "hostName"
        FROM backgammon_matches m JOIN users u ON u.id = m.host_user_id
       WHERE m.status = 'waiting' AND m.expires_at > NOW() AND m.host_user_id <> $1
       ORDER BY m.created_at ASC LIMIT 30`, [claims.sub]);
@@ -219,7 +219,7 @@ app.post('/api/v1/matches', { onRequest: [requireMatchAuth] }, async (request, r
     try {
       const result = await pool.query(
         `INSERT INTO backgammon_matches (room_code, host_user_id) VALUES ($1, $2)
-         RETURNING id, room_code AS \"roomCode\", status, created_at AS \"createdAt\", expires_at AS \"expiresAt\`
+         RETURNING id, room_code AS "roomCode", status, created_at AS "createdAt", expires_at AS "expiresAt"
         , [roomCode, claims.sub]);
       return reply.code(201).send({ match: result.rows[0] });
     } catch (error: any) {
@@ -234,12 +234,12 @@ app.post('/api/v1/matches', { onRequest: [requireMatchAuth] }, async (request, r
 
 app.post<{ Params: { id: string } }>('/api/v1/matches/:id/join', { onRequest: [requireMatchAuth] }, async (request, reply) => {
   const claims = request.user as { sub: string };
-  if (!/^\\d+$/.test(request.params.id)) return reply.code(400).send({ error: 'Invalid match id.' });
+  if (!/^\d+$/.test(request.params.id)) return reply.code(400).send({ error: 'Invalid match id.' });
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
     const result = await client.query(
-      `SELECT id, room_code AS \"roomCode\", host_user_id, guest_user_id, status, expires_at AS \"expiresAt\`
+      `SELECT id, room_code AS "roomCode", host_user_id, guest_user_id, status, expires_at AS "expiresAt"
          FROM backgammon_matches WHERE id = $1 FOR UPDATE`, [request.params.id]);
     const match = result.rows[0] as { id: string; host_user_id: string; guest_user_id: string | null; status: string; expiresAt: Date } | undefined;
     if (!match || new Date(match.expiresAt).getTime() <= Date.now() || !['waiting', 'active'].includes(match.status)) {
@@ -259,8 +259,8 @@ app.post<{ Params: { id: string } }>('/api/v1/matches/:id/join', { onRequest: [r
       [claims.sub, match.id]);
     await client.query('COMMIT');
     const joined = await pool.query(
-      `SELECT m.id, m.room_code AS \"roomCode\", m.status, host.full_name AS \"hostName\`,
-              guest.full_name AS \"guestName\`, m.created_at AS \"createdAt\`
+      `SELECT m.id, m.room_code AS "roomCode", m.status, host.full_name AS "hostName",
+              guest.full_name AS "guestName", m.created_at AS "createdAt"
          FROM backgammon_matches m JOIN users host ON host.id = m.host_user_id
          LEFT JOIN users guest ON guest.id = m.guest_user_id WHERE m.id = $1`, [match.id]);
     return { match: joined.rows[0] };
@@ -273,10 +273,10 @@ app.post<{ Params: { id: string } }>('/api/v1/matches/:id/join', { onRequest: [r
 
 app.get<{ Params: { id: string } }>('/api/v1/matches/:id', { onRequest: [requireMatchAuth] }, async (request, reply) => {
   const claims = request.user as { sub: string };
-  if (!/^\\d+$/.test(request.params.id)) return reply.code(400).send({ error: 'Invalid match id.' });
+  if (!/^\d+$/.test(request.params.id)) return reply.code(400).send({ error: 'Invalid match id.' });
   const result = await pool.query(
-    `SELECT m.id, m.room_code AS \"roomCode\", m.status, host.full_name AS \"hostName\`,
-            guest.full_name AS \"guestName\`, m.created_at AS \"createdAt\`, m.updated_at AS \"updatedAt\`
+    `SELECT m.id, m.room_code AS "roomCode", m.status, host.full_name AS "hostName",
+            guest.full_name AS "guestName", m.created_at AS "createdAt", m.updated_at AS "updatedAt"
        FROM backgammon_matches m JOIN users host ON host.id = m.host_user_id
        LEFT JOIN users guest ON guest.id = m.guest_user_id
       WHERE m.id = $1 AND (m.host_user_id = $2 OR m.guest_user_id = $2) AND m.expires_at > NOW()`,
