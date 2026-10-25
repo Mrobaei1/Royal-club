@@ -13,7 +13,7 @@ class FriendsScreen extends StatefulWidget {
 }
 
 class _FriendsScreenState extends State<FriendsScreen> {
-  final _email = TextEditingController();
+  final _username = TextEditingController();
   Map<String, dynamic> _data = {};
   List<Map<String, dynamic>> _results = [];
   bool _busy = false;
@@ -27,7 +27,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
 
   @override
   void dispose() {
-    _email.dispose();
+    _username.dispose();
     super.dispose();
   }
 
@@ -56,18 +56,18 @@ class _FriendsScreenState extends State<FriendsScreen> {
       });
 
   Future<void> _search() => _run(() async {
-        final results = await FriendsService.searchByEmail(_email.text);
+        final results = await FriendsService.searchByUsername(_username.text);
         if (mounted) {
           setState(() {
             _results = results;
-            _message = results.isEmpty ? 'کاربری با این ایمیل پیدا نشد.' : null;
+            _message = results.isEmpty ? 'این نام کاربری پیدا نشد.' : null;
           });
         }
       });
 
   Future<void> _sendRequest(String id) => _run(() async {
         await FriendsService.requestFriend(id);
-        _email.clear();
+        _username.clear();
         if (mounted) {
           setState(() => _results = []);
         }
@@ -179,16 +179,17 @@ class _FriendsScreenState extends State<FriendsScreen> {
                       fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
               const Text(
-                'ایمیل دقیق کاربر را وارد کنید تا بتوانید درخواست دوستی بفرستید.',
+                'نام کاربری دقیق دوستتان را وارد کنید؛ نیازی به دانستن ایمیل او نیست.',
                 style: TextStyle(color: Colors.white70, height: 1.6),
               ),
               const SizedBox(height: 12),
               TextField(
-                controller: _email,
-                keyboardType: TextInputType.emailAddress,
+                controller: _username,
+                textDirection: TextDirection.ltr,
                 decoration: const InputDecoration(
-                  labelText: 'ایمیل کاربر',
-                  prefixIcon: Icon(Icons.email_outlined),
+                  labelText: 'نام کاربری',
+                  hintText: 'royal_player7',
+                  prefixIcon: Icon(Icons.alternate_email),
                   border: OutlineInputBorder(),
                 ),
                 onSubmitted: (_) => _search(),
