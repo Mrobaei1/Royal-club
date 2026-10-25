@@ -12,6 +12,7 @@ class _AdminScreenState extends State<AdminScreen> {
   bool _owner = false;
   String? _error;
   List<dynamic> _plans = [];
+  List<dynamic> _reports = [];
   final _email = TextEditingController();
   final _amount = TextEditingController(text: '100');
   final _description = TextEditingController();
@@ -45,9 +46,9 @@ class _AdminScreenState extends State<AdminScreen> {
         if (mounted) setState(() { _owner = false; _loading = false; _error = null; });
         return;
       }
-      final plans = await AdminService.plans();
+      final results = await Future.wait([AdminService.plans(), AdminService.reports()]);
       if (!mounted) return;
-      setState(() { _owner = true; _plans = plans; _loading = false; _error = null; });
+      setState(() { _owner = true; _plans = results[0]; _reports = results[1]; _loading = false; _error = null; });
     } catch (e) {
       if (mounted) setState(() { _loading = false; _error = e.toString().replaceFirst('Exception: ', ''); });
     }
@@ -100,6 +101,19 @@ class _AdminScreenState extends State<AdminScreen> {
         _notificationTitle.clear();
         _notificationBody.clear();
       }
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _updateReport(dynamic report, String status) async {
+    setState(() => _busy = true);
+    try {
+      await AdminService.updateReport(report['id'].toString(), status);
+      await _load();
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('وضعیت گزارش به‌روزرسانی شد.')));
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))));
     } finally {
@@ -193,6 +207,34 @@ class _AdminScreenState extends State<AdminScreen> {
               TextField(controller: _notificationBody, maxLines: 3, maxLength: 1000, decoration: const InputDecoration(labelText: 'متن اعلان', border: OutlineInputBorder())),
               const SizedBox(height: 8),
               FilledButton.icon(onPressed: _busy ? null : () => _notify(), icon: const Icon(Icons.campaign_outlined), label: const Text('ارسال اعلان به همه کاربران')),
+              const SizedBox(height: 22),
+              Row(children: [
+                const Expanded(child: Text('گزارش‌های کاربران', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold))),
+                IconButton(onPressed: _busy ? null : _load, tooltip: 'تازه‌سازی گزارش‌ها', icon: const Icon(Icons.refresh)),
+              ]),
+              const Text('گزارش‌های باز با حداقل ۲ گزارشگر یکتا در ۷ روز برجسته می‌شوند.', style: TextStyle(fontSize: 12)),
+              const SizedBox(height: 8),
+              if (_reports.isEmpty) const Text('گزارش ثبت‌شده‌ای وجود ندارد.'),
+              for (final report in _reports) Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(report['reportedEmail']?.toString() ?? 'کاربر', style: const TextStyle(fontWeight: FontWeight.bold)),
+                    Text('گزارشگر: ${report['reporterEmail'] ?? report['reporterId']}'),
+                    Text('گزارش‌های ۷ روز اخیر: ${report['uniqueReportsLast7Days']} گزارشگر یکتا از ${report['reportsLast7Days']} گزارش'),
+                    if ((report['uniqueReportsLast7Days'] as num?)?.toInt() != null && ((report['uniqueReportsLast7Days'] as num).toInt() >= 2))
+                      const Chip(label: Text('نیازمند بررسی مدیر')),
+                    const SizedBox(height: 4),
+                    Text(report['reason']?.toString() ?? ''),
+                    Text('وضعیت: ${report['status']}'),
+                    if (report['status'] == 'open') Wrap(spacing: 8, children: [
+                      OutlinedButton(onPressed: _busy ? null : () => _updateReport(report, 'reviewed'), child: const Text('بررسی شد')),
+                      OutlinedButton(onPressed: _busy ? null : () => _updateReport(report, 'dismissed'), child: const Text('رد گزارش')),
+                      FilledButton.tonal(onPressed: _busy ? null : () => _updateReport(report, 'actioned'), child: const Text('اقدام شد')),
+                    ]),
+                  ]),
+                ),
+              ),
               const SizedBox(height: 22),
               const Text('مدیریت اشتراک‌ها', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
