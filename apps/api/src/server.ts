@@ -354,7 +354,12 @@ app.post<{ Params: { id: string }; Body: { moves: Array<{ from: number | null; t
       off: { host: Number(game.off_state?.host ?? 0), guest: Number(game.off_state?.guest ?? 0) },
     };
     const remaining = [...game.remaining_dice];
-    for (const move of body.moves) {
+    for (let moveIndex = 0; moveIndex < body.moves.length; moveIndex++) {
+      const move = body.moves[moveIndex];
+      if (simulated.off.host >= 15 || simulated.off.guest >= 15) {
+        await client.query('ROLLBACK');
+        return reply.code(409).send({ error: 'The game has already ended within this move sequence.' });
+      }
       if (!move || !Number.isInteger(move.die) || !remaining.includes(move.die)) {
         await client.query('ROLLBACK');
         return reply.code(409).send({ error: 'A selected die is invalid or has already been used in this sequence.' });
@@ -378,6 +383,11 @@ app.post<{ Params: { id: string }; Body: { moves: Array<{ from: number | null; t
       }
       simulated = applied.state;
       remaining.splice(remaining.indexOf(move.die), 1);
+      if ((simulated.off.host >= 15 || simulated.off.guest >= 15) &&
+          moveIndex !== body.moves.length - 1) {
+        await client.query('ROLLBACK');
+        return reply.code(409).send({ error: 'No moves are allowed after a player wins.' });
+      }
     }
 
     const turnComplete = remaining.length === 0;
