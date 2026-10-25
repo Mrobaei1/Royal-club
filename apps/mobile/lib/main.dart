@@ -1,5 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'l10n/app_localizations.dart';
 import 'friends_screen.dart';
 import 'account_screen.dart';
 import 'notifications_screen.dart';
@@ -49,6 +51,18 @@ class RoyalThemeState extends ChangeNotifier {
 }
 
 final RoyalThemeState royalThemeState = RoyalThemeState();
+
+class RoyalLocaleState extends ChangeNotifier {
+  Locale _locale = const Locale('fa');
+  Locale get locale => _locale;
+  void select(String languageCode) {
+    if (languageCode != 'fa' && languageCode != 'en') return;
+    _locale = Locale(languageCode);
+    notifyListeners();
+  }
+}
+
+final RoyalLocaleState royalLocaleState = RoyalLocaleState();
 const Color navy = Color(0xFF10182B);
 const Color panel = Color(0xFF17243A);
 const Color gold = Color(0xFFD8B45A);
@@ -63,9 +77,19 @@ class RoyalClubApp extends StatelessWidget {
         animation: royalThemeState,
         builder: (context, _) {
           final selected = royalThemeState.current;
-          return MaterialApp(
+          return AnimatedBuilder(
+            animation: royalLocaleState,
+            builder: (context, _) => MaterialApp(
             debugShowCheckedModeBanner: false,
             title: 'Royal Club',
+            locale: royalLocaleState.locale,
+            supportedLocales: const [Locale('fa'), Locale('en')],
+            localizationsDelegates: const [
+              AppLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
             theme: ThemeData(
               useMaterial3: true,
               brightness: selected.dark ? Brightness.dark : Brightness.light,
@@ -82,6 +106,7 @@ class RoyalClubApp extends StatelessWidget {
               cardTheme: CardThemeData(color: selected.panel),
             ),
             home: const AuthGate(),
+          ),
           );
         },
       );
@@ -165,6 +190,10 @@ class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key, this.onLogout});
 
   void _openMenu(BuildContext context, String value) {
+    if (value.startsWith('language:')) {
+      royalLocaleState.select(value.substring(9));
+      return;
+    }
     if (value.startsWith('theme:')) {
       final index = int.tryParse(value.substring(6));
       if (index != null) royalThemeState.select(index);
@@ -235,6 +264,10 @@ class HomeScreen extends StatelessWidget {
                     const PopupMenuItem(value: 'wallet', child: ListTile(dense: true, leading: Icon(Icons.account_balance_wallet_outlined), title: Text('کیف پول و اشتراک'))),
                     const PopupMenuItem(value: 'admin', child: ListTile(dense: true, leading: Icon(Icons.admin_panel_settings_outlined), title: Text('پنل مدیریت'))),
                     const PopupMenuDivider(),
+                    const PopupMenuItem(enabled: false, child: Text('زبان / Language')),
+                    PopupMenuItem(value: 'language:fa', child: Row(children: [Icon(royalLocaleState.locale.languageCode == 'fa' ? Icons.radio_button_checked : Icons.radio_button_off, size: 18), const SizedBox(width: 10), const Text('فارسی')])),
+                    PopupMenuItem(value: 'language:en', child: Row(children: [Icon(royalLocaleState.locale.languageCode == 'en' ? Icons.radio_button_checked : Icons.radio_button_off, size: 18), const SizedBox(width: 10), const Text('English')])),
+                    const PopupMenuDivider(),
                     const PopupMenuItem(enabled: false, child: Text('پوسته برنامه')),
                     for (var i = 0; i < royalThemes.length; i++)
                       PopupMenuItem(value: 'theme:$i', child: Row(children: [
@@ -246,26 +279,26 @@ class HomeScreen extends StatelessWidget {
                 ),
               ]),
               const SizedBox(height: 28),
-              Text('بازی‌ها', textDirection: TextDirection.rtl,
+              Text(AppLocalizations.of(context)!.games, textDirection: royalLocaleState.locale.languageCode == 'fa' ? TextDirection.rtl : TextDirection.ltr,
                 style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 21, fontWeight: FontWeight.w800)),
               const SizedBox(height: 14),
               GameTile(
-                title: 'تخته‌نرد',
-                subtitle: 'بازی کلاسیک و رقابتی',
+                title: AppLocalizations.of(context)!.backgammon,
+                subtitle: royalLocaleState.locale.languageCode == 'fa' ? 'بازی کلاسیک و رقابتی' : 'Classic competitive game',
                 icon: Icons.casino_rounded,
                 onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const EngineBackgammonScreen())),
               ),
               const SizedBox(height: 12),
               GameTile(
-                title: 'بازی آنلاین',
-                subtitle: 'ساخت اتاق و پیوستن به حریف',
+                title: royalLocaleState.locale.languageCode == 'fa' ? 'بازی آنلاین' : 'Online play',
+                subtitle: royalLocaleState.locale.languageCode == 'fa' ? 'ساخت اتاق و پیوستن به حریف' : 'Create a room or join an opponent',
                 icon: Icons.public_rounded,
                 onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const OnlineLobbyScreen())),
               ),
               const SizedBox(height: 12),
-              const GameTile(title: 'شطرنج', subtitle: 'به‌زودی', icon: Icons.grid_4x4_rounded, comingSoon: true),
+              GameTile(title: AppLocalizations.of(context)!.chess, subtitle: royalLocaleState.locale.languageCode == 'fa' ? 'به‌زودی' : 'Coming soon', icon: Icons.grid_4x4_rounded, comingSoon: true),
               const SizedBox(height: 12),
-              const GameTile(title: 'بازی‌های کارتی', subtitle: 'به‌زودی', icon: Icons.style_rounded, comingSoon: true),
+              GameTile(title: AppLocalizations.of(context)!.cardGames, subtitle: royalLocaleState.locale.languageCode == 'fa' ? 'به‌زودی' : 'Coming soon', icon: Icons.style_rounded, comingSoon: true),
               const SizedBox(height: 26),
               const Center(child: Text('ROYAL CLUB  •  PLAY WITH HONOUR',
                 style: TextStyle(color: Color(0xFF77839A), fontSize: 9, letterSpacing: 1.5, fontWeight: FontWeight.w600))),
