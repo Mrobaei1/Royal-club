@@ -72,28 +72,34 @@ class _FriendsScreenState extends State<FriendsScreen> {
           setState(() => _results = []);
         }
         final data = await FriendsService.list();
-        if (mounted) setState(() {
-          _data = data;
-          _message = 'درخواست دوستی ارسال شد.';
-        });
+        if (mounted) {
+          setState(() {
+            _data = data;
+            _message = 'درخواست دوستی ارسال شد.';
+          });
+        }
       });
 
   Future<void> _accept(String id) => _run(() async {
         await FriendsService.accept(id);
         final data = await FriendsService.list();
-        if (mounted) setState(() {
-          _data = data;
-          _message = 'درخواست پذیرفته شد.';
-        });
+        if (mounted) {
+          setState(() {
+            _data = data;
+            _message = 'درخواست پذیرفته شد.';
+          });
+        }
       });
 
   Future<void> _remove(String id) => _run(() async {
         await FriendsService.remove(id);
         final data = await FriendsService.list();
-        if (mounted) setState(() {
-          _data = data;
-          _message = 'رابطه حذف شد.';
-        });
+        if (mounted) {
+          setState(() {
+            _data = data;
+            _message = 'رابطه حذف شد.';
+          });
+        }
       });
 
   Widget _sectionTitle(String title, int count) => Padding(
