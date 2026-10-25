@@ -908,7 +908,12 @@ app.get('/api/v1/matches/history', { onRequest: [requireMatchAuth] }, async (req
             CASE WHEN m.host_user_id = $1 THEN guest.email ELSE host.email END AS "opponentEmail",
             CASE WHEN COALESCE((m.off_state->>'host')::int, 0) >= 15 THEN m.host_user_id
                  WHEN COALESCE((m.off_state->>'guest')::int, 0) >= 15 THEN m.guest_user_id
-                 ELSE NULL END AS "winnerUserId"
+                 ELSE NULL END AS "winnerUserId",
+            CASE WHEN COALESCE((m.off_state->>'host')::int, 0) >= 15
+                   THEN CASE WHEN m.host_user_id = $1 THEN 'win' ELSE 'loss' END
+                 WHEN COALESCE((m.off_state->>'guest')::int, 0) >= 15
+                   THEN CASE WHEN m.guest_user_id = $1 THEN 'win' ELSE 'loss' END
+                 ELSE 'unknown' END AS result
        FROM backgammon_matches m
        JOIN users host ON host.id = m.host_user_id
        LEFT JOIN users guest ON guest.id = m.guest_user_id
