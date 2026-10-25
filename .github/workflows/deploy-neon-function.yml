@@ -134,7 +134,8 @@ jobs:
           FUNCTION_URL: ${{ steps.endpoint.outputs.url }}
         run: |
           gh variable set API_BASE_URL --repo "$GITHUB_REPOSITORY" --body "$FUNCTION_URL"
-          echo "Repository variable API_BASE_URL updated automatically."
+          gh workflow run royal-club-web-preview.yml --repo "$GITHUB_REPOSITORY" --ref main
+          echo "Repository variable API_BASE_URL updated; the GitHub Pages rebuild was queued."
 
       - name: Summary
         env:
