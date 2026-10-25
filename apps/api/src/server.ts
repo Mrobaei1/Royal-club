@@ -235,6 +235,17 @@ const requireMatchAuth = async (request: any, reply: any) => {
 };
 
 // Friend requests are server-owned and capped at 100 accepted friends per account.
+app.get<{ Querystring: { email?: string } }>('/api/v1/users/search', { onRequest: [requireMatchAuth] }, async (request) => {
+  const claims = request.user as { sub: string };
+  const email = request.query.email?.trim().toLowerCase();
+  if (!email || email.length > 254 || !email.includes('@')) return { users: [] };
+  const result = await pool.query(
+    'SELECT id, email, full_name AS "fullName" FROM users WHERE email = $1 AND id <> $2 LIMIT 1',
+    [email, claims.sub],
+  );
+  return { users: result.rows };
+});
+
 app.get('/api/v1/friends', { onRequest: [requireMatchAuth] }, async (request) => {
   const claims = request.user as { sub: string };
   const result = await pool.query(
