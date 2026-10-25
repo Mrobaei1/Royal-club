@@ -283,6 +283,21 @@ app.get<{ Params: { id: string } }>('/api/v1/matches/:id', { onRequest: [require
   if (!result.rowCount) return reply.code(404).send({ error: 'Match not found.' });
   return { match: result.rows[0] };
 });
+app.delete<{ Params: { id: string } }>('/api/v1/matches/:id', { onRequest: [requireMatchAuth] }, async (request, reply) => {
+  const claims = request.user as { sub: string };
+  if (!/^\\d+$/.test(request.params.id)) return reply.code(400).send({ error: 'Invalid match id.' });
+  const result = await pool.query(
+    `UPDATE backgammon_matches SET status = 'cancelled', updated_at = NOW()
+      WHERE id = $1 AND host_user_id = $2 AND status = 'waiting'
+      RETURNING id, room_code AS \"roomCode\", status`,
+    [request.params.id, claims.sub]);
+  if (result.rowCount) return { match: result.rows[0] };
+  const existing = await pool.query(
+    `SELECT status FROM backgammon_matches WHERE id = $1 AND host_user_id = $2`,
+    [request.params.id, claims.sub]);
+  if (!existing.rowCount) return reply.code(404).send({ error: 'Match not found.' });
+  return reply.code(409).send({ error: 'Only a waiting match can be cancelled.' });
+});
 app.addHook('onClose', async () => { await pool.end(); });
 
 const port = Number(process.env.PORT ?? 3000);
