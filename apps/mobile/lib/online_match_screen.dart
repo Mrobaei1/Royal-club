@@ -68,6 +68,26 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
     }
   }
 
+  Future<void> _endTurn() async {
+    if (_busy || _state == null) return;
+    setState(() { _busy = true; _error = null; });
+    try {
+      final next = await MatchService.endTurn(_id, (_state!['version'] as num).toInt());
+      if (mounted) setState(() {
+        _state = {...?_state, ...next};
+        _selectedFrom = null;
+        _selectedDie = null;
+        _fromBar = false;
+      });
+      await _refresh(silent: true);
+    } catch (e) {
+      if (mounted) setState(() => _error = e.toString().replaceFirst('Exception: ', ''));
+      await _refresh(silent: true);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   Future<void> _tapPoint(int point, List<num> board, List<num> remaining, bool isMyTurn) async {
     if (!isMyTurn || _busy) return;
     if (_selectedDie == null || !remaining.contains(_selectedDie)) {
@@ -215,6 +235,11 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
                     onPressed: _busy || _selectedDie == null ? null : () => _submitMove(from: _selectedFrom, to: null, die: _selectedDie!),
                     icon: const Icon(Icons.outbound),
                     label: const Text('خارج کردن مهره'),
+                  ),
+                  if (isMyTurn && remaining.isNotEmpty) OutlinedButton.icon(
+                    onPressed: _busy ? null : _endTurn,
+                    icon: const Icon(Icons.skip_next),
+                    label: const Text('پایان نوبت (فقط اگر حرکت قانونی نمانده باشد)'),
                   ),
                   const SizedBox(height: 12),
                   FilledButton.icon(
