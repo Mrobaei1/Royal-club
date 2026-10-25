@@ -20,11 +20,14 @@ const app = Fastify({ logger: true, trustProxy: false });
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
 await app.register(helmet);
+const allowedOrigins = (process.env.CORS_ORIGINS ??
+  'https://super-duper-palm-tree-4r9v56pv6gcj7rw-8080.app.github.dev,https://mrobaei1.github.io')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
 await app.register(cors, {
-  origin: [
-    'https://super-duper-palm-tree-4r9v56pv6gcj7rw-8080.app.github.dev',
-    'https://mrobaei1.github.io',
-  ],
+  origin: allowedOrigins,
   methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
 });
