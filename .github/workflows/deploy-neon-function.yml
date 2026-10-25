@@ -20,7 +20,7 @@ permissions:
   actions: write
 
 concurrency:
-  group: royal-club-neon-api-production
+  group: royal-club-neon-api-${{ github.run_id }}
   cancel-in-progress: true
 
 jobs:
