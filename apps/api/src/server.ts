@@ -477,8 +477,8 @@ app.post<{ Params: { id: string }; Body: { from: number | null; to: number | nul
       if (body.to === null) {
         const inHome = hostTurn ? body.from <= 5 : body.from >= 18;
         const allHome = board.every((count, point) => hostTurn
-          ? point > 5 || count <= 0
-          : point < 18 || count >= 0);
+          ? point <= 5 || count <= 0
+          : point >= 18 || count >= 0);
         const overshootClear = hostTurn
           ? !board.some((count, point) => point > body.from! && point <= 5 && count > 0)
           : !board.some((count, point) => point < body.from! && point >= 18 && count < 0);
