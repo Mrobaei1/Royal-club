@@ -36,6 +36,15 @@ class AdminService {
   static Future<void> credit(String userId, int amount, String description) async {
     await _request('POST', '/api/v1/admin/wallet/credit', body: {'userId': userId, 'amount': amount, 'description': description});
   }
+  static Future<int> sendNotification({String? userId, required String title, required String body}) async {
+    final result = await _request('POST', '/api/v1/admin/notifications', body: {
+      if (userId != null) 'userId': userId,
+      'title': title,
+      'body': body,
+    });
+    return (result['sent'] as num?)?.toInt() ?? 0;
+  }
+
   static Future<void> updatePlan(String code, {String? name, int? durationDays, int? priceCredits, bool? active}) async {
     final body = <String, dynamic>{};
     if (name != null) body['name'] = name;
