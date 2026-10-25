@@ -451,6 +451,22 @@ const requireOwnerAuth = async (request: any, reply: any) => {
   }
 };
 
+app.get<{ Params: { userId: string } }>('/api/v1/admin/users/:userId/profile', { onRequest: [requireOwnerAuth] }, async (request, reply) => {
+  const { userId } = request.params;
+  if (!isNumericId(userId)) return reply.code(400).send({ error: 'Invalid user ID.' });
+  const result = await pool.query(
+    `SELECT u.id, u.username, u.email, u.full_name AS "fullName",
+            u.phone, u.country, u.created_at AS "createdAt",
+            COALESCE(w.balance, 0)::text AS "walletBalance"
+       FROM users u
+       LEFT JOIN wallet_accounts w ON w.user_id = u.id
+      WHERE u.id = $1 LIMIT 1`,
+    [userId],
+  );
+  if (!result.rowCount) return reply.code(404).send({ error: 'User not found.' });
+  return { user: result.rows[0] };
+});
+
 app.post<{ Body: { userId?: string; amount?: number; description?: string } }>('/api/v1/admin/wallet/credit', { onRequest: [requireOwnerAuth] }, async (request, reply) => {
   const { userId, amount, description } = request.body ?? {};
   if (!isNumericId(userId) || !Number.isSafeInteger(amount) || Number(amount) <= 0 || Number(amount) > 1000000000 ||
