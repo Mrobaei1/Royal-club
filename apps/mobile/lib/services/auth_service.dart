@@ -117,5 +117,11 @@ class AuthService {
   static Future<void> saveThemePreference(int index) =>
       _storage.write(key: 'royal_club_theme', value: index.toString());
 
+  static Future<String?> readLanguagePreference() =>
+      _storage.read(key: 'royal_club_language');
+
+  static Future<void> saveLanguagePreference(String languageCode) =>
+      _storage.write(key: 'royal_club_language', value: languageCode);
+
   static Future<void> logout() => _storage.delete(key: 'royal_club_token');
 }
