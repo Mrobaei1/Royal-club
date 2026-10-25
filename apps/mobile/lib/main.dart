@@ -10,29 +10,80 @@ import 'wallet_screen.dart';
 import 'admin_screen.dart';
 import 'chat_screen.dart';
 
-void main() => runApp(const RoyalClubApp());
+const List<RoyalTheme> royalThemes = [
+  RoyalTheme('سلطنتی', Color(0xFF10182B), Color(0xFF17243A), Color(0xFFD8B45A)),
+  RoyalTheme('زمردی', Color(0xFF092B27), Color(0xFF12443B), Color(0xFF70D6A4)),
+  RoyalTheme('اقیانوسی', Color(0xFF0B1D35), Color(0xFF15365A), Color(0xFF72C9F8)),
+  RoyalTheme('یاقوتی', Color(0xFF2B1020), Color(0xFF481B32), Color(0xFFFF91B5)),
+  RoyalTheme('روشن', Color(0xFFF1F3F7), Color(0xFFFFFFFF), Color(0xFF8A6420), dark: false),
+];
 
-const Color navy = Color(0xFF10182B);
-const Color panel = Color(0xFF17243A);
-const Color gold = Color(0xFFD8B45A);
+class RoyalTheme {
+  final String name;
+  final Color background;
+  final Color panel;
+  final Color accent;
+  final bool dark;
+  const RoyalTheme(this.name, this.background, this.panel, this.accent, {this.dark = true});
+}
+
+class RoyalThemeState extends ChangeNotifier {
+  RoyalThemeState() { _load(); }
+  int index = 0;
+  RoyalTheme get current => royalThemes[index];
+  Future<void> _load() async {
+    try {
+      final value = await AuthService.readThemePreference();
+      if (value != null && value >= 0 && value < royalThemes.length) {
+        index = value;
+        notifyListeners();
+      }
+    } catch (_) {}
+  }
+  Future<void> select(int value) async {
+    if (value < 0 || value >= royalThemes.length) return;
+    index = value;
+    notifyListeners();
+    await AuthService.saveThemePreference(value);
+  }
+}
+
+final RoyalThemeState royalThemeState = RoyalThemeState();
+Color get navy => royalThemeState.current.background;
+Color get panel => royalThemeState.current.panel;
+Color get gold => royalThemeState.current.accent;
+
+void main() => runApp(const RoyalClubApp());
 
 class RoyalClubApp extends StatelessWidget {
   const RoyalClubApp({super.key});
 
   @override
-  Widget build(BuildContext context) => MaterialApp(
-        debugShowCheckedModeBanner: false,
-        title: 'Royal Club',
-        theme: ThemeData(
-          useMaterial3: true,
-          scaffoldBackgroundColor: navy,
-          colorScheme: ColorScheme.fromSeed(
-            seedColor: gold,
-            brightness: Brightness.dark,
-            surface: panel,
-          ),
-        ),
-        home: const AuthGate(),
+  Widget build(BuildContext context) => AnimatedBuilder(
+        animation: royalThemeState,
+        builder: (context, _) {
+          final selected = royalThemeState.current;
+          return MaterialApp(
+            debugShowCheckedModeBanner: false,
+            title: 'Royal Club',
+            theme: ThemeData(
+              useMaterial3: true,
+              brightness: selected.dark ? Brightness.dark : Brightness.light,
+              scaffoldBackgroundColor: selected.background,
+              colorScheme: ColorScheme.fromSeed(
+                seedColor: selected.accent,
+                brightness: selected.dark ? Brightness.dark : Brightness.light,
+                surface: selected.panel,
+              ),
+              appBarTheme: AppBarTheme(
+                backgroundColor: selected.background,
+                foregroundColor: selected.accent,
+              ),
+              cardTheme: CardThemeData(color: selected.panel),
+            ),
+            home: const AuthGate(),
+          );
+        },
       );
 }
 
