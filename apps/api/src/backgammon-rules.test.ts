@@ -125,9 +125,11 @@ test('rejects a blocked move without changing the source state', () => {
 
 test('requires the higher die first when a lower move would make it unusable', () => {
   const board = emptyBoard();
-  board[5] = 1;
+  board[6] = 1;
+  board[10] = 1;
+  board[5] = -2;
   assert.equal(
-    mustPlayHigherDie(state(board), [2, 5], { from: 5, to: 3, die: 2 }, true),
+    mustPlayHigherDie(state(board), [2, 5], { from: 6, to: 4, die: 2 }, true),
     true,
   );
 });
