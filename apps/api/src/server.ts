@@ -7,6 +7,7 @@ import jwt from '@fastify/jwt';
 import { Pool } from 'pg';
 import { randomBytes, randomInt, scrypt as scryptCallback, timingSafeEqual } from 'node:crypto';
 import { isNumericId } from './validation.js';
+import { getAllowedCorsOrigins } from './cors-config.js';
 import { applyBackgammonMove, hasLegalMove, maxPlayableDiceCount, mustPlayHigherDie } from './backgammon-rules.js';
 import { promisify } from 'node:util';
 
@@ -21,17 +22,10 @@ const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
 await app.register(helmet);
 const configuredCorsOrigins = process.env.CORS_ORIGINS;
-if (
-  process.env.NODE_ENV === 'production' &&
-  (!configuredCorsOrigins?.trim() || configuredCorsOrigins.split(',').some((origin) => origin.trim() === '*'))
-) {
-  throw new Error('Production requires explicit CORS_ORIGINS; wildcard origins are not allowed.');
-}
-const allowedOrigins = (configuredCorsOrigins ??
-  'https://super-duper-palm-tree-4r9v56pv6gcj7rw-8080.app.github.dev,https://mrobaei1.github.io')
-  .split(',')
-  .map((origin) => origin.trim())
-  .filter(Boolean);
+const allowedOrigins = getAllowedCorsOrigins({
+  nodeEnv: process.env.NODE_ENV,
+  corsOrigins: configuredCorsOrigins,
+});
 
 await app.register(cors, {
   origin: allowedOrigins,
