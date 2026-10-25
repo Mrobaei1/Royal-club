@@ -76,6 +76,21 @@ await pool.query(`
   CREATE INDEX IF NOT EXISTS notifications_inbox_idx
     ON notifications (user_id, read_at, created_at DESC);
 
+  CREATE TABLE IF NOT EXISTS user_reports (
+    id BIGSERIAL PRIMARY KEY,
+    reporter_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    reported_user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    reason TEXT NOT NULL CHECK (char_length(reason) BETWEEN 3 AND 1000),
+    status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'reviewed', 'dismissed', 'actioned')),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    reviewed_at TIMESTAMPTZ,
+    CHECK (reporter_id <> reported_user_id)
+  );
+  CREATE INDEX IF NOT EXISTS user_reports_target_time_idx
+    ON user_reports (reported_user_id, created_at DESC);
+  CREATE INDEX IF NOT EXISTS user_reports_status_time_idx
+    ON user_reports (status, created_at DESC);
+
   CREATE TABLE IF NOT EXISTS wallet_accounts (
     user_id BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
     balance BIGINT NOT NULL DEFAULT 0 CHECK (balance >= 0),
@@ -443,6 +458,71 @@ app.post<{ Body: { userId?: string; amount?: number; description?: string } }>('
   } finally {
     client.release();
   }
+});
+
+app.post<{ Params: { userId: string }; Body: { reason?: string } }>('/api/v1/users/:userId/report', { onRequest: [requireMatchAuth] }, async (request, reply) => {
+  const claims = request.user as { sub: string };
+  const { userId } = request.params;
+  const reason = typeof request.body?.reason === 'string' ? request.body.reason.trim() : '';
+  if (!isNumericId(userId) || userId === claims.sub || reason.length < 3 || reason.length > 1000) {
+    return reply.code(400).send({ error: 'A valid user and report reason (3-1000 characters) are required.' });
+  }
+  const target = await pool.query('SELECT id FROM users WHERE id = $1', [userId]);
+  if (!target.rowCount) return reply.code(404).send({ error: 'Reported user not found.' });
+  const recent = await pool.query(
+    `SELECT id FROM user_reports
+      WHERE reporter_id = $1 AND reported_user_id = $2 AND created_at >= NOW() - INTERVAL '7 days'
+      LIMIT 1`,
+    [claims.sub, userId],
+  );
+  if (recent.rowCount) return reply.code(409).send({ error: 'You have already reported this user in the last 7 days.' });
+  const inserted = await pool.query(
+    'INSERT INTO user_reports (reporter_id, reported_user_id, reason) VALUES ($1, $2, $3) RETURNING id, created_at AS "createdAt"',
+    [claims.sub, userId, reason],
+  );
+  const threshold = await pool.query(
+    `SELECT COUNT(DISTINCT reporter_id)::int AS "uniqueReporters"
+       FROM user_reports WHERE reported_user_id = $1 AND created_at >= NOW() - INTERVAL '7 days'`,
+    [userId],
+  );
+  return reply.code(201).send({
+    report: inserted.rows[0],
+    moderationReviewTriggered: Number(threshold.rows[0]?.uniqueReporters ?? 0) >= 2,
+  });
+});
+
+app.get('/api/v1/admin/reports', { onRequest: [requireOwnerAuth] }, async () => {
+  const result = await pool.query(
+    `SELECT r.id, r.reported_user_id AS "reportedUserId", target.email AS "reportedEmail",
+            r.reporter_id AS "reporterId", reporter.email AS "reporterEmail",
+            r.reason, r.status, r.created_at AS "createdAt", r.reviewed_at AS "reviewedAt",
+            (SELECT COUNT(DISTINCT recent.reporter_id)::int FROM user_reports recent
+              WHERE recent.reported_user_id = r.reported_user_id
+                AND recent.created_at >= NOW() - INTERVAL '7 days') AS "uniqueReportsLast7Days",
+            (SELECT COUNT(*)::int FROM user_reports recent
+              WHERE recent.reported_user_id = r.reported_user_id
+                AND recent.created_at >= NOW() - INTERVAL '7 days') AS "reportsLast7Days"
+       FROM user_reports r
+       JOIN users target ON target.id = r.reported_user_id
+       JOIN users reporter ON reporter.id = r.reporter_id
+      ORDER BY CASE WHEN r.status = 'open' THEN 0 ELSE 1 END, r.created_at DESC
+      LIMIT 200`,
+  );
+  return { reports: result.rows };
+});
+
+app.patch<{ Params: { id: string }; Body: { status?: string } }>('/api/v1/admin/reports/:id', { onRequest: [requireOwnerAuth] }, async (request, reply) => {
+  const { id } = request.params;
+  const { status } = request.body ?? {};
+  if (!isNumericId(id) || !['reviewed', 'dismissed', 'actioned'].includes(status ?? '')) {
+    return reply.code(400).send({ error: 'Choose a valid report status.' });
+  }
+  const result = await pool.query(
+    'UPDATE user_reports SET status = $1, reviewed_at = NOW() WHERE id = $2 RETURNING id, status, reviewed_at AS "reviewedAt"',
+    [status, id],
+  );
+  if (!result.rowCount) return reply.code(404).send({ error: 'Report not found.' });
+  return { report: result.rows[0] };
 });
 
 app.post<{ Body: { userId?: string; title?: string; body?: string } }>('/api/v1/admin/notifications', { onRequest: [requireOwnerAuth] }, async (request, reply) => {
