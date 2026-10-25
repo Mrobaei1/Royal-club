@@ -7,7 +7,7 @@ import jwt from '@fastify/jwt';
 import { Pool } from 'pg';
 import { randomBytes, randomInt, scrypt as scryptCallback, timingSafeEqual } from 'node:crypto';
 import { isNumericId } from './validation.js';
-import { applyBackgammonMove, hasLegalMove, mustPlayHigherDie } from './backgammon-rules.js';
+import { applyBackgammonMove, hasLegalMove, maxPlayableDiceCount, mustPlayHigherDie } from './backgammon-rules.js';
 import { promisify } from 'node:util';
 
 const scrypt = promisify(scryptCallback);
@@ -368,6 +368,14 @@ app.post<{ Params: { id: string }; Body: { moves: Array<{ from: number | null; t
         await client.query('ROLLBACK');
         return reply.code(409).send({ error: applied.error, rejectedMove: body.moves.indexOf(move) + 1 });
       }
+      const remainingAfterMove = [...remaining];
+      remainingAfterMove.splice(remainingAfterMove.indexOf(move.die), 1);
+      const maxBefore = maxPlayableDiceCount(simulated, remaining, hostTurn);
+      const maxAfter = maxPlayableDiceCount(applied.state, remainingAfterMove, hostTurn);
+      if (maxAfter < maxBefore - 1) {
+        await client.query('ROLLBACK');
+        return reply.code(409).send({ error: 'Choose a move sequence that uses the maximum number of dice.' });
+      }
       simulated = applied.state;
       remaining.splice(remaining.indexOf(move.die), 1);
     }
@@ -537,6 +545,12 @@ app.post<{ Params: { id: string }; Body: { from: number | null; to: number | nul
 
     const remaining = [...game.remaining_dice];
     remaining.splice(remaining.indexOf(body.die), 1);
+    const maxBefore = maxPlayableDiceCount(moveState, game.remaining_dice, hostTurn);
+    const maxAfter = maxPlayableDiceCount({ board, bar, off }, remaining, hostTurn);
+    if (maxAfter < maxBefore - 1) {
+      await client.query('ROLLBACK');
+      return reply.code(409).send({ error: 'Choose a move that preserves the maximum number of playable dice.' });
+    }
     const turnComplete = remaining.length === 0;
     const nextTurn = turnComplete
       ? (hostTurn ? game.guest_user_id : game.host_user_id)
