@@ -21,6 +21,13 @@ test('does not allow a checker to land on a point blocked by two opponents', () 
   assert.equal(hasLegalMove(board, { host: 0, guest: 0 }, [1], true), false);
 });
 
+test('allows landing on a point occupied by a single opposing checker', () => {
+  const board = emptyBoard();
+  board[5] = 1;
+  board[4] = -1;
+  assert.equal(hasLegalMove(board, { host: 0, guest: 0 }, [1], true), true);
+});
+
 test('requires a checker on the bar to enter at an open point', () => {
   const board = emptyBoard();
   board[23] = -2;
