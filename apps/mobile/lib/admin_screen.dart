@@ -86,13 +86,17 @@ class _AdminScreenState extends State<AdminScreen> {
     try {
       await AdminService.updatePlan(plan['code'].toString(), active: active);
       await _load();
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(active ? 'اشتراک فعال شد.' : 'اشتراک غیرفعال شد.')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(active ? 'اشتراک فعال شد.' : 'اشتراک غیرفعال شد.')),
+        );
+      }
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+        );
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
