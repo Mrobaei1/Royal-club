@@ -49,9 +49,9 @@ class RoyalThemeState extends ChangeNotifier {
 }
 
 final RoyalThemeState royalThemeState = RoyalThemeState();
-Color get navy => royalThemeState.current.background;
-Color get panel => royalThemeState.current.panel;
-Color get gold => royalThemeState.current.accent;
+const Color navy = Color(0xFF10182B);
+const Color panel = Color(0xFF17243A);
+const Color gold = Color(0xFFD8B45A);
 
 void main() => runApp(const RoyalClubApp());
 
