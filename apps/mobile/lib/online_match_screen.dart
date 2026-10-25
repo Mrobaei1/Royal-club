@@ -142,7 +142,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
       setState(() => _error = 'مهره‌ای روی بار ندارید.'); return;
     } else if (to == null) {
       final inHome = hostTurn ? from <= 5 : from >= 18;
-      final allHome = board.asMap().entries.every((e) => hostTurn ? e.key > 5 || e.value <= 0 : e.key < 18 || e.value >= 0);
+      final allHome = board.asMap().entries.every((e) => hostTurn ? e.key <= 5 || e.value <= 0 : e.key >= 18 || e.value >= 0);
       final distance = hostTurn ? from + 1 : 24 - from;
       final clear = hostTurn
           ? !board.asMap().entries.any((e) => e.key > from && e.key <= 5 && e.value > 0)
