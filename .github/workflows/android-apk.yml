@@ -54,7 +54,7 @@ jobs:
       - name: Build release APK
         working-directory: apps/mobile
         env:
-          API_BASE_URL: ${{ vars.API_BASE_URL || 'https://br-misty-flower-bavs47dm-royalclubapi.compute.c-8.eu-central-1.aws.neon.tech' }}
+          API_BASE_URL: https://br-misty-flower-bavs47dm-royalclubapi.compute.c-8.eu-central-1.aws.neon.tech
         run: |
           if [ -n "$API_BASE_URL" ]; then
             echo "Building APK with the Royal Club API endpoint."
