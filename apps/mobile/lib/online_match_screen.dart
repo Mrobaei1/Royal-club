@@ -61,8 +61,9 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
       if (mounted) setState(() => _state = {...?_state, ...next});
       await _refresh(silent: true);
     } catch (e) {
-      if (mounted) setState(() => _error = e.toString().replaceFirst('Exception: ', ''));
+      final message = e.toString().replaceFirst('Exception: ', '');
       await _refresh(silent: true);
+      if (mounted) setState(() => _error = message);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -81,8 +82,9 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
       });
       await _refresh(silent: true);
     } catch (e) {
-      if (mounted) setState(() => _error = e.toString().replaceFirst('Exception: ', ''));
+      final message = e.toString().replaceFirst('Exception: ', '');
       await _refresh(silent: true);
+      if (mounted) setState(() => _error = message);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -130,8 +132,9 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
       });
       await _refresh(silent: true);
     } catch (e) {
-      if (mounted) setState(() => _error = e.toString().replaceFirst('Exception: ', ''));
+      final message = e.toString().replaceFirst('Exception: ', '');
       await _refresh(silent: true);
+      if (mounted) setState(() => _error = message);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
