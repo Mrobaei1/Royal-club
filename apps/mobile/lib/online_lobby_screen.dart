@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'services/match_service.dart';
+import 'online_match_screen.dart';
 
 const _gold = Color(0xFFD8B45A);
 const _navy = Color(0xFF10182B);
@@ -34,7 +35,11 @@ class _OnlineLobbyScreenState extends State<OnlineLobbyScreen> {
 
   Future<void> _create() => _run(() async {
     final match = await MatchService.create();
-    if (mounted) setState(() => _created = match);
+    if (!mounted) return;
+    setState(() => _created = match);
+    await Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => OnlineMatchScreen(match: match),
+    ));
     final rows = await MatchService.listOpen();
     if (mounted) setState(() => _matches = rows);
   });
@@ -42,12 +47,8 @@ class _OnlineLobbyScreenState extends State<OnlineLobbyScreen> {
   Future<void> _join(Map<String, dynamic> room) => _run(() async {
     final match = await MatchService.join(room['id'].toString());
     if (!mounted) return;
-    await showDialog<void>(context: context, builder: (context) => AlertDialog(
-      backgroundColor: const Color(0xFF17243A),
-      title: const Text('به اتاق پیوستید', style: TextStyle(color: _gold)),
-      content: Text('کد اتاق: ${match['roomCode'] ?? '—'}\nوضعیت: ${match['status'] ?? '—'}\n\nاتصال اتاق به صفحه بازی و همگام‌سازی حرکت‌ها هنوز در مرحله بعدی توسعه است.',
-        style: const TextStyle(color: Colors.white, height: 1.6)),
-      actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('متوجه شدم'))],
+    await Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => OnlineMatchScreen(match: match),
     ));
     final rows = await MatchService.listOpen();
     if (mounted) setState(() => _matches = rows);
