@@ -96,3 +96,29 @@ test('applies bear-off and increments the off counter', () => {
   assert.ok('state' in result);
   if ('state' in result) assert.equal(result.state.off.host, 1);
 });
+
+test('supports a two-die sequence by applying each move to the previous preview state', () => {
+  const board = emptyBoard();
+  board[5] = 1;
+  const first = applyBackgammonMove(state(board), { from: 5, to: 3, die: 2 }, true);
+  assert.ok('state' in first);
+  if (!('state' in first)) return;
+  const second = applyBackgammonMove(first.state, { from: 3, to: 0, die: 3 }, true);
+  assert.ok('state' in second);
+  if ('state' in second) {
+    assert.equal(second.state.board[5], 0);
+    assert.equal(second.state.board[3], 0);
+    assert.equal(second.state.board[0], 1);
+  }
+});
+
+test('rejects a blocked move without changing the source state', () => {
+  const board = emptyBoard();
+  board[5] = 1;
+  board[4] = -2;
+  const original = state(board);
+  const result = applyBackgammonMove(original, { from: 5, to: 4, die: 1 }, true);
+  assert.ok('error' in result);
+  assert.equal(original.board[5], 1);
+  assert.equal(original.board[4], -2);
+});
