@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - ".github/workflows/deploy-neon-function.yml"
+      - "apps/api/**"
   workflow_dispatch:
     inputs:
       neon_project_id:
@@ -195,6 +196,54 @@ jobs:
           fi
           cat health.json
 
+      - name: Verify six-character registration and login
+        env:
+          FUNCTION_URL: ${{ steps.endpoint.outputs.url }}
+          DATABASE_URL: ${{ steps.database.outputs.url }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+          GITHUB_RUN_ATTEMPT: ${{ github.run_attempt }}
+        working-directory: apps/api
+        run: |
+          node --input-type=module <<'NODE'
+          import { Pool } from 'pg';
+          const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+          const base = process.env.FUNCTION_URL.replace(/\\/+$/, '');
+          const prefix = `royal-club-smoke-${process.env.GITHUB_RUN_ID}-${process.env.GITHUB_RUN_ATTEMPT}`;
+          const email = `${prefix}@example.invalid`;
+          const shortEmail = `${prefix}-short@example.invalid`;
+          const payload = { fullName: 'Royal Club automated test', phone: '+49123456789', country: 'Germany' };
+          try {
+            const shortResponse = await fetch(`${base}/api/v1/auth/register`, {
+              method: 'POST',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({ ...payload, email: shortEmail, password: 'Ab3!x' }),
+            });
+            if (shortResponse.status !== 400) {
+              throw new Error(`Expected five-character password to be rejected with 400; got ${shortResponse.status}`);
+            }
+            const registerResponse = await fetch(`${base}/api/v1/auth/register`, {
+              method: 'POST',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({ ...payload, email, password: 'Ab3!xY' }),
+            });
+            if (registerResponse.status !== 201) {
+              throw new Error(`Expected six-character password registration to return 201; got ${registerResponse.status}`);
+            }
+            const loginResponse = await fetch(`${base}/api/v1/auth/login`, {
+              method: 'POST',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({ email, password: 'Ab3!xY' }),
+            });
+            if (loginResponse.status !== 200) {
+              throw new Error(`Expected login with six-character password to return 200; got ${loginResponse.status}`);
+            }
+            console.log('PASS: five characters rejected; six-character registration and login succeeded.');
+          } finally {
+            await pool.query('DELETE FROM users WHERE email = ANY($1::text[])', [[email, shortEmail]]);
+            await pool.end();
+          }
+          NODE
+
       - name: Trigger GitHub Pages rebuild with Neon API endpoint
         env:
           GH_TOKEN: ${{ github.token }}
@@ -212,8 +261,9 @@ jobs:
             echo "## Royal Club API deployment"
             echo ""
             echo "- API health check: passed"
+            echo "- Six-character registration/login smoke test: passed"
             echo "- API base URL: `$FUNCTION_URL`"
-            echo "- GitHub Actions variable `API_BASE_URL`: updated"
+            echo "- GitHub Pages rebuild: queued"
             echo ""
             echo "Run the Royal Club Web Preview workflow to publish the updated web app."
           } >> "$GITHUB_STEP_SUMMARY"
