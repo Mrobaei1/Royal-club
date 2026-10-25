@@ -98,6 +98,45 @@ class _ChatThreadScreenState extends State<ChatThreadScreen> {
     }
   }
 
+  Future<void> _reportUser() async {
+    final reasonController = TextEditingController();
+    final reason = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('گزارش کاربر'),
+        content: TextField(
+          controller: reasonController,
+          autofocus: true,
+          minLines: 2,
+          maxLines: 5,
+          maxLength: 1000,
+          decoration: const InputDecoration(
+            hintText: 'دلیل گزارش را توضیح دهید (حداقل ۳ نویسه)',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('انصراف')),
+          FilledButton(onPressed: () => Navigator.pop(dialogContext, reasonController.text.trim()), child: const Text('ارسال گزارش')),
+        ],
+      ),
+    );
+    reasonController.dispose();
+    if (reason == null || reason.trim().length < 3 || !mounted) return;
+    try {
+      final result = await ChatService.report(widget.userId, reason.trim());
+      if (!mounted) return;
+      final review = result['moderationReviewTriggered'] == true
+          ? ' گزارش برای بررسی مدیر در صف قرار گرفت.'
+          : '';
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('گزارش ثبت شد.$review')));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+      );
+    }
+  }
+
   Future<void> _send() async {
     final body = _composer.text.trim();
     if (body.isEmpty || _sending) return;
@@ -117,7 +156,7 @@ class _ChatThreadScreenState extends State<ChatThreadScreen> {
   Widget build(BuildContext context) => Directionality(
     textDirection: TextDirection.rtl,
     child: Scaffold(
-      appBar: AppBar(title: Text(widget.title), actions: [IconButton(onPressed: _load, icon: const Icon(Icons.refresh))]),
+      appBar: AppBar(title: Text(widget.title), actions: [IconButton(tooltip: 'گزارش کاربر', onPressed: _reportUser, icon: const Icon(Icons.flag_outlined)), IconButton(onPressed: _load, icon: const Icon(Icons.refresh))]),
       body: Column(children: [
         Expanded(child: _loading ? const Center(child: CircularProgressIndicator())
           : _error != null ? Center(child: Padding(padding: const EdgeInsets.all(20), child: Text(_error!, textAlign: TextAlign.center)))
