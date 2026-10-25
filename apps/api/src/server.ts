@@ -7,6 +7,7 @@ import jwt from '@fastify/jwt';
 import { Pool } from 'pg';
 import { randomBytes, randomInt, scrypt as scryptCallback, timingSafeEqual } from 'node:crypto';
 import { isNumericId } from './validation.js';
+import { hasLegalMove } from './backgammon-rules.js';
 import { promisify } from 'node:util';
 
 const scrypt = promisify(scryptCallback);
@@ -494,32 +495,12 @@ app.post<{ Params: { id: string }; Body: { expectedVersion: number } }>('/api/v1
       return reply.code(409).send({ error: 'There are no remaining dice to end.' });
     }
     const hostTurn = game.current_turn_user_id === game.host_user_id;
-    const sign = hostTurn ? 1 : -1;
-    const ownBar = hostTurn ? Number(game.bar_state?.host ?? 0) : Number(game.bar_state?.guest ?? 0);
-    const board = game.board_state;
-    const allHome = board.every((count, point) => hostTurn
-      ? point > 5 || count <= 0
-      : point < 18 || count >= 0);
-    const canMove = remaining.some((die) => {
-      if (ownBar > 0) {
-        const target = hostTurn ? 24 - die : die - 1;
-        return board[target] * sign > -2;
-      }
-      for (let from = 0; from < 24; from++) {
-        if (board[from] * sign <= 0) continue;
-        const target = hostTurn ? from - die : from + die;
-        if (target >= 0 && target <= 23 && board[target] * sign > -2) return true;
-        const overshoots = hostTurn ? target < 0 : target > 23;
-        const inHome = hostTurn ? from <= 5 : from >= 18;
-        const distanceToOff = hostTurn ? from + 1 : 24 - from;
-        const overshootsDie = die > distanceToOff;
-        const overshootClear = hostTurn
-          ? !board.some((count, point) => point > from && point <= 5 && count > 0)
-          : !board.some((count, point) => point < from && point >= 18 && count < 0);
-        if (overshoots && inHome && allHome && die >= distanceToOff && (!overshootsDie || overshootClear)) return true;
-      }
-      return false;
-    });
+    const canMove = hasLegalMove(
+      game.board_state,
+      game.bar_state,
+      remaining,
+      hostTurn,
+    );
     if (canMove) {
       await client.query('ROLLBACK');
       return reply.code(409).send({ error: 'A legal move remains; play it before ending the turn.' });
