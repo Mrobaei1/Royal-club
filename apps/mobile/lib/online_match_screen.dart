@@ -21,6 +21,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
   int? _selectedFrom;
   int? _selectedDie;
   bool _fromBar = false;
+  String _matchStatus = 'waiting';
   String? _error;
 
   String get _id => widget.match['id'].toString();
@@ -42,11 +43,11 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
     if (_busy && !silent) return;
     try {
       final match = await MatchService.get(_id);
-      if (match['status'] == 'active') {
+      if (match['status'] == 'active' || match['status'] == 'finished') {
         final state = await MatchService.getState(_id);
-        if (mounted) setState(() { _state = state; _error = null; });
+        if (mounted) setState(() { _state = state; _matchStatus = match['status'].toString(); _error = null; });
       } else if (mounted) {
-        setState(() { _state = null; _error = null; });
+        setState(() { _state = null; _matchStatus = match['status']?.toString() ?? 'waiting'; _error = null; });
       }
     } catch (e) {
       if (mounted && !silent) setState(() => _error = e.toString().replaceFirst('Exception: ', ''));
@@ -165,7 +166,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(color: _matchPanel, borderRadius: BorderRadius.circular(16), border: Border.all(color: _matchGold.withValues(alpha: .35))),
               child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                Text(_state == null ? 'در انتظار ورود حریف...' : (isMyTurn ? 'نوبت شماست' : 'در انتظار حرکت حریف'),
+                Text(_matchStatus == 'finished' ? 'بازی پایان یافت' : (_state == null ? 'در انتظار ورود حریف...' : (isMyTurn ? 'نوبت شماست' : 'در انتظار حرکت حریف')),
                   style: const TextStyle(color: _matchGold, fontWeight: FontWeight.bold, fontSize: 18)),
                 const SizedBox(height: 6),
                 Text(_state == null ? 'این صفحه به‌صورت خودکار هر ۳ ثانیه وضعیت اتاق را بررسی می‌کند.' : 'نسخه وضعیت: ${_state!['version']}',
@@ -246,7 +247,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
                   ),
                   const SizedBox(height: 12),
                   FilledButton.icon(
-                    onPressed: _busy || !isMyTurn || dice.isNotEmpty ? null : _roll,
+                    onPressed: _busy || _matchStatus != 'active' || !isMyTurn || dice.isNotEmpty ? null : _roll,
                     icon: const Icon(Icons.casino),
                     label: Text(_busy ? 'در حال ثبت...' : 'ریختن تاس'),
                     style: FilledButton.styleFrom(backgroundColor: _matchGold, foregroundColor: _matchNavy, padding: const EdgeInsets.all(13)),
