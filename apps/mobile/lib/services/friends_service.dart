@@ -53,10 +53,10 @@ class FriendsService {
   static Future<Map<String, dynamic>> list() =>
       _request('GET', '/api/v1/friends');
 
-  static Future<List<Map<String, dynamic>>> searchByEmail(String email) async {
+  static Future<List<Map<String, dynamic>>> searchByUsername(String username) async {
     final result = await _request(
       'GET',
-      '/api/v1/users/search?email=${Uri.encodeQueryComponent(email.trim())}',
+      '/api/v1/users/search?username=${Uri.encodeQueryComponent(username.trim().replaceFirst(RegExp(r'^@'), ''))}',
     );
     return (result['users'] as List? ?? const [])
         .whereType<Map>()
