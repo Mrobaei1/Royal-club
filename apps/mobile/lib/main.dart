@@ -326,8 +326,10 @@ class GameTile extends StatelessWidget {
       this.comingSoon = false});
 
   @override
-  Widget build(BuildContext context) => Material(
-        color: panel,
+  Widget build(BuildContext context) {
+    final selectedTheme = royalThemeState.current;
+    return Material(
+        color: selectedTheme.panel,
         borderRadius: BorderRadius.circular(22),
         child: InkWell(
           onTap: onTap,
@@ -336,18 +338,18 @@ class GameTile extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 17),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(22),
-              border: Border.all(color: gold.withValues(alpha: .22)),
+              border: Border.all(color: selectedTheme.accent.withValues(alpha: .22)),
             ),
             child: Row(children: [
               Container(
                 width: 52,
                 height: 52,
                 decoration: BoxDecoration(
-                  color: gold.withValues(alpha: .10),
+                  color: selectedTheme.accent.withValues(alpha: .10),
                   borderRadius: BorderRadius.circular(17),
-                  border: Border.all(color: gold.withValues(alpha: .25)),
+                  border: Border.all(color: selectedTheme.accent.withValues(alpha: .25)),
                 ),
-                child: Icon(icon, color: gold, size: 27),
+                child: Icon(icon, color: selectedTheme.accent, size: 27),
               ),
               const SizedBox(width: 15),
               Expanded(
@@ -357,7 +359,7 @@ class GameTile extends StatelessWidget {
                   Text(title,
                       textDirection: TextDirection.rtl,
                       style: const TextStyle(
-                          color: Colors.white,
+                          color: selectedTheme.dark ? Colors.white : const Color(0xFF182033),
                           fontSize: 16,
                           fontWeight: FontWeight.w800)),
                   const SizedBox(height: 5),
@@ -370,17 +372,18 @@ class GameTile extends StatelessWidget {
               if (comingSoon)
                 const Text('SOON',
                     style: TextStyle(
-                        color: gold,
+                        color: selectedTheme.accent,
                         fontSize: 9,
                         letterSpacing: 1,
                         fontWeight: FontWeight.bold))
               else
                 const Icon(Icons.arrow_forward_ios_rounded,
-                    color: gold, size: 15),
+                    color: selectedTheme.accent, size: 15),
             ]),
           ),
         ),
       );
+  }
 }
 
 class AuthScreen extends StatefulWidget {
