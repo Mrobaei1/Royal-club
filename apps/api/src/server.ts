@@ -303,6 +303,7 @@ app.get<{ Params: { id: string } }>('/api/v1/matches/:id/state', { onRequest: [r
   if (!/^\\d+$/.test(request.params.id)) return reply.code(400).send({ error: 'Invalid match id.' });
   const result = await pool.query(
     `SELECT id, status, board_state AS board, current_turn_user_id AS "currentTurnUserId",
+            current_turn_user_id = $2::bigint AS "isMyTurn",
             dice, remaining_dice AS "remainingDice", state_version AS version, updated_at AS "updatedAt"
        FROM backgammon_matches
       WHERE id = $1 AND (host_user_id = $2 OR guest_user_id = $2) AND expires_at > NOW()`,
