@@ -53,7 +53,16 @@ jobs:
 
       - name: Build release APK
         working-directory: apps/mobile
-        run: flutter build apk --release
+        env:
+          API_BASE_URL: ${{ vars.API_BASE_URL }}
+        run: |
+          if [ -n "$API_BASE_URL" ]; then
+            echo "Building APK with the configured Royal Club API."
+            flutter build apk --release --dart-define="API_BASE_URL=$API_BASE_URL"
+          else
+            echo "::warning::Repository variable API_BASE_URL is not set. Registration and online services will show a setup message until the API is deployed and this variable is configured."
+            flutter build apk --release
+          fi
 
       - name: Upload installable APK
         uses: actions/upload-artifact@v4

@@ -25,6 +25,10 @@ Set `OWNER_USER_ID` in the API environment to the numeric `users.id` of the owne
 - Build the Flutter app with `--dart-define=API_BASE_URL=https://YOUR-API-HOST` so it does not depend on the temporary Codespaces API URL.
 - Verify database backups, restore procedures, TLS, monitoring, and a real deployed health check before inviting users. GitHub Actions passing is a build/test signal, not proof of a production deployment.
 
+## Test API deployment
+
+Follow [docs/DEPLOY-API.md](docs/DEPLOY-API.md) to deploy the included Render blueprint, configure `API_BASE_URL`, and rebuild the app for connected testing.
+
 ## Quick start (cloud IDE or computer)
 1. Import this folder/repository into a cloud IDE with a terminal (see `docs/DEVELOPMENT-ANDROID.md`).
 2. Start PostgreSQL with `docker compose -f infra/docker-compose.yml up -d db` where Docker is supported.
@@ -45,7 +49,7 @@ The latest validated web build is published at: https://mrobaei1.github.io/Royal
 4. Open backgammon and test legal moves, dice rolls, and the available AI difficulty options.
 5. Check the account, friends, notifications, private chat, wallet/subscription, and admin entry points; report any screen that fails to open or shows an error.
 
-**Important:** the API default in the mobile app currently points to a temporary GitHub Codespaces host. If registration/login reports a network, CORS, or server error, the backend may be asleep or unavailable; that is separate from the published web UI. A stable API deployment and persistent database are still required before production use. Do not enter real passwords or payment details in this test build.
+**Important:** the app no longer embeds a temporary Codespaces API address. Until a stable API is deployed and the repository Actions variable `API_BASE_URL` is set, registration and online services show a clear setup message. Follow [the test API deployment guide](docs/DEPLOY-API.md) before testing registration. Do not enter real passwords or payment details in this test build.
 
 ## Current validation
 
