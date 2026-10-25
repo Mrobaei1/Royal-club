@@ -1,8 +1,11 @@
 name: Validate Royal Club
 
 on:
+  schedule:
+    - cron: '*/30 * * * *'
   push:
     branches:
+      - main
       - feature/password-min-6
   pull_request:
   workflow_dispatch:
