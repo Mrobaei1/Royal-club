@@ -10,6 +10,21 @@ void main() {
     expect(find.text('ROYAL CLUB'), findsWidgets);
   });
 
+  testWidgets('home exposes account, friends, and notifications', (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(home: HomeScreen()),
+    );
+
+    for (final label in ['دوستان', 'اعلان‌ها', 'حساب کاربری']) {
+      await tester.scrollUntilVisible(
+        find.text(label),
+        250,
+        scrollable: find.byType(Scrollable).first,
+      );
+      expect(find.text(label), findsOneWidget);
+    }
+  });
+
   testWidgets('home screen keeps all game cards', (tester) async {
     await tester.pumpWidget(
       const MaterialApp(home: HomeScreen()),
