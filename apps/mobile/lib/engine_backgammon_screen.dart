@@ -129,6 +129,9 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
   }
 
   void _tapBearOff() {
+    if (_computerThinking || (_vsComputer && _engine.currentPlayer == -1)) {
+      return;
+    }
     if (_engine.finished || _engine.dice.isEmpty) return;
     setState(() {
       if (_selectedPoint == null || _selectedBar) {
