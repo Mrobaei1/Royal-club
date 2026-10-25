@@ -16,6 +16,8 @@ class _AdminScreenState extends State<AdminScreen> {
   final _amount = TextEditingController(text: '100');
   final _description = TextEditingController();
   final _price = TextEditingController();
+  final _notificationTitle = TextEditingController();
+  final _notificationBody = TextEditingController();
   List<dynamic> _users = [];
   bool _busy = false;
 
@@ -31,6 +33,8 @@ class _AdminScreenState extends State<AdminScreen> {
     _amount.dispose();
     _description.dispose();
     _price.dispose();
+    _notificationTitle.dispose();
+    _notificationBody.dispose();
     super.dispose();
   }
 
@@ -73,6 +77,28 @@ class _AdminScreenState extends State<AdminScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('اعتبار با موفقیت ثبت شد.')));
         await _search();
+      }
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _notify({String? userId}) async {
+    final title = _notificationTitle.text.trim();
+    final body = _notificationBody.text.trim();
+    if (title.isEmpty || title.length > 120 || body.length > 1000) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('عنوان الزامی است؛ عنوان حداکثر ۱۲۰ و متن حداکثر ۱۰۰۰ نویسه.')));
+      return;
+    }
+    setState(() => _busy = true);
+    try {
+      final count = await AdminService.sendNotification(userId: userId, title: title, body: body);
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('اعلان برای $count کاربر ارسال شد.')));
+      if (mounted && userId == null) {
+        _notificationTitle.clear();
+        _notificationBody.clear();
       }
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))));
@@ -157,7 +183,16 @@ class _AdminScreenState extends State<AdminScreen> {
                 TextField(controller: _description, decoration: const InputDecoration(labelText: 'توضیح تراکنش')),
                 const SizedBox(height: 8),
                 FilledButton(onPressed: _busy ? null : () => _credit(user), child: const Text('ثبت اعتبار')),
+                OutlinedButton(onPressed: _busy ? null : () => _notify(userId: user['id'].toString()), child: const Text('ارسال اعلان به این کاربر')),
               ]))),
+              const SizedBox(height: 22),
+              const Text('ارسال اعلان', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              TextField(controller: _notificationTitle, maxLength: 120, decoration: const InputDecoration(labelText: 'عنوان اعلان', border: OutlineInputBorder())),
+              const SizedBox(height: 8),
+              TextField(controller: _notificationBody, maxLines: 3, maxLength: 1000, decoration: const InputDecoration(labelText: 'متن اعلان', border: OutlineInputBorder())),
+              const SizedBox(height: 8),
+              FilledButton.icon(onPressed: _busy ? null : () => _notify(), icon: const Icon(Icons.campaign_outlined), label: const Text('ارسال اعلان به همه کاربران')),
               const SizedBox(height: 22),
               const Text('مدیریت اشتراک‌ها', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
