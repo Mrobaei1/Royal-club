@@ -53,12 +53,23 @@ class RoyalThemeState extends ChangeNotifier {
 final RoyalThemeState royalThemeState = RoyalThemeState();
 
 class RoyalLocaleState extends ChangeNotifier {
+  RoyalLocaleState() { _load(); }
   Locale _locale = const Locale('fa');
   Locale get locale => _locale;
-  void select(String languageCode) {
+  Future<void> _load() async {
+    try {
+      final saved = await AuthService.readLanguagePreference();
+      if (saved == 'fa' || saved == 'en') {
+        _locale = Locale(saved!);
+        notifyListeners();
+      }
+    } catch (_) {}
+  }
+  Future<void> select(String languageCode) async {
     if (languageCode != 'fa' && languageCode != 'en') return;
     _locale = Locale(languageCode);
     notifyListeners();
+    try { await AuthService.saveLanguagePreference(languageCode); } catch (_) {}
   }
 }
 
