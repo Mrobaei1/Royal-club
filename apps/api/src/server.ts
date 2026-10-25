@@ -6,7 +6,7 @@ import rateLimit from '@fastify/rate-limit';
 import jwt from '@fastify/jwt';
 import { Pool } from 'pg';
 import { randomBytes, randomInt, scrypt as scryptCallback, timingSafeEqual } from 'node:crypto';
-import { isNumericId } from './validation.js';
+import { isNumericId, isValidRegistrationPassword } from './validation.js';
 import { getAllowedCorsOrigins } from './cors-config.js';
 import { applyBackgammonMove, hasLegalMove, maxPlayableDiceCount, mustPlayHigherDie } from './backgammon-rules.js';
 import { promisify } from 'node:util';
@@ -207,10 +207,9 @@ app.post<{ Body: { email?: string; password?: string; fullName?: string; phone?:
         !/^[+0-9() .-]{6,32}$/.test(phone) || !country || country.length > 80 ||
         !email || email.length > 254 ||
         !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ||
-        typeof password !== 'string' || password.length < 6 ||
-        Buffer.byteLength(password, 'utf8') > 128) {
+        !isValidRegistrationPassword(password)) {
       return reply.code(400).send({
-        error: 'Enter a name, valid phone, country, valid email, and a password of 6–128 bytes.'
+        error: 'Enter a name, valid phone, country, valid email, and a password of at least 6 characters (maximum 128 UTF-8 bytes).'
       });
     }
 
