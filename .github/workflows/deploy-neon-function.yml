@@ -1,0 +1,151 @@
+name: Deploy Royal Club API to Neon Functions
+
+on:
+  workflow_dispatch:
+    inputs:
+      neon_project_id:
+        description: Neon project ID for the Frankfurt project
+        required: true
+        type: string
+      neon_branch_id:
+        description: Branch ID for that project's PostgreSQL database
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: write
+
+concurrency:
+  group: royal-club-neon-api-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      NEON_PROJECT_ID: ${{ inputs.neon_project_id }}
+      NEON_BRANCH_ID: ${{ inputs.neon_branch_id }}
+      NEON_FUNCTION_SLUG: royalclubapi
+      CORS_ORIGINS: https://mrobaei1.github.io
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: apps/api/package-lock.json
+
+      - name: Install dependencies
+        working-directory: apps/api
+        run: npm ci
+
+      - name: Build and test API
+        working-directory: apps/api
+        run: |
+          npm run build
+          npm test
+
+      - name: Bundle Fetch-compatible Neon Function
+        working-directory: apps/api
+        run: |
+          npx --yes esbuild@0.25.12 src/neon-function.ts --bundle --platform=node --target=node24 --format=esm --outfile=dist/index.mjs
+          mkdir -p dist/neon-package
+          cp dist/index.mjs dist/neon-package/index.mjs
+          cd dist/neon-package
+          zip -q ../royal-club-function.zip index.mjs
+          cd ..
+          test -s royal-club-function.zip
+          test "$(stat -c%s royal-club-function.zip)" -lt 33554432
+
+      - name: Prepare encrypted function environment
+        env:
+          JWT_SECRET: ${{ secrets.ROYAL_CLUB_JWT_SECRET }}
+        run: |
+          if [ -z "$JWT_SECRET" ] || [ "${#JWT_SECRET}" -lt 32 ]; then
+            echo "::error::Add repository secret ROYAL_CLUB_JWT_SECRET with at least 32 random characters."
+            exit 1
+          fi
+          node -e 'const fs=require("node:fs"); fs.writeFileSync("function-env.json", JSON.stringify({JWT_SECRET:process.env.JWT_SECRET,NODE_ENV:"production",CORS_ORIGINS:process.env.CORS_ORIGINS,NEON_FUNCTION_RUNTIME:"1"}));'
+
+      - name: Deploy function to Neon
+        id: deploy
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+        run: |
+          if [ -z "$NEON_API_KEY" ]; then
+            echo "::error::Add the repository secret NEON_API_KEY before running this workflow."
+            exit 1
+          fi
+          curl --fail-with-body --silent --show-error --request POST \
+            "https://console.neon.tech/api/v2/projects/$NEON_PROJECT_ID/branches/$NEON_BRANCH_ID/functions/$NEON_FUNCTION_SLUG/deployments" \
+            --header "Authorization: Bearer $NEON_API_KEY" \
+            --header "Accept: application/json" \
+            --form "zip=@apps/api/dist/royal-club-function.zip;type=application/zip" \
+            --form "runtime=nodejs24" \
+            --form "environment=$(cat function-env.json)" \
+            --output deployment-response.json
+          echo "Neon accepted the function deployment."
+          node -e 'const x=JSON.parse(require("node:fs").readFileSync("deployment-response.json","utf8")); console.log("Deployment response received; secret values are not displayed."); if (x.error) { console.error(x.error); process.exit(1); }'
+
+      - name: Discover function URL
+        id: endpoint
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+        run: |
+          curl --fail-with-body --silent --show-error \
+            "https://console.neon.tech/api/v2/projects/$NEON_PROJECT_ID/branches/$NEON_BRANCH_ID/functions/$NEON_FUNCTION_SLUG" \
+            --header "Authorization: Bearer $NEON_API_KEY" \
+            --header "Accept: application/json" \
+            --output function-details.json
+          FUNCTION_URL="$(node -e 'const x=JSON.parse(require("node:fs").readFileSync("function-details.json","utf8")); const all=[]; function walk(v){if(!v||typeof v!=="object")return;for(const [k,val] of Object.entries(v)){if(typeof val==="string" && /^https:\/\//.test(val) && /neon\.tech\//.test(val)) all.push([k,val]); else if(val && typeof val==="object") walk(val);}} walk(x); const preferred=all.find(([k])=>/url|endpoint/i.test(k)); process.stdout.write((preferred||all[0]||[])[1]||"");')"
+          if [ -z "$FUNCTION_URL" ]; then
+            echo "::error::Could not identify the function's public URL in Neon API response. Open the Neon Functions page and copy the invocation URL."
+            exit 1
+          fi
+          echo "url=$FUNCTION_URL" >> "$GITHUB_OUTPUT"
+          echo "Function URL discovered."
+
+      - name: Wait for API health check
+        env:
+          FUNCTION_URL: ${{ steps.endpoint.outputs.url }}
+        run: |
+          healthy=0
+          for attempt in $(seq 1 12); do
+            if curl --fail --silent --show-error --max-time 60 "$FUNCTION_URL/api/v1/health" --output health.json; then
+              if grep -q '"status":"ok"' health.json; then healthy=1; break; fi
+            fi
+            echo "Health check attempt $attempt/12; waiting for Neon to finish activating the function."
+            sleep 10
+          done
+          if [ "$healthy" -ne 1 ]; then
+            echo "::error::The deployed function did not pass /api/v1/health. Check Neon Function logs before continuing."
+            exit 1
+          fi
+          cat health.json
+
+      - name: Configure GitHub Pages API endpoint
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FUNCTION_URL: ${{ steps.endpoint.outputs.url }}
+        run: |
+          gh variable set API_BASE_URL --repo "$GITHUB_REPOSITORY" --body "$FUNCTION_URL"
+          echo "Repository variable API_BASE_URL updated automatically."
+
+      - name: Summary
+        env:
+          FUNCTION_URL: ${{ steps.endpoint.outputs.url }}
+        run: |
+          {
+            echo "## Royal Club API deployment"
+            echo ""
+            echo "- API health check: passed"
+            echo "- API base URL: `$FUNCTION_URL`"
+            echo "- GitHub Actions variable `API_BASE_URL`: updated"
+            echo ""
+            echo "Run the Royal Club Web Preview workflow to publish the updated web app."
+          } >> "$GITHUB_STEP_SUMMARY"
