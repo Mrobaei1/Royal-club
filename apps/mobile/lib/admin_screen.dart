@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';\nimport 'package:flutter/services.dart';
 import 'services/admin_service.dart';
 
 class AdminScreen extends StatefulWidget {
@@ -61,6 +61,47 @@ class _AdminScreenState extends State<AdminScreen> {
       if (mounted) setState(() { _users = users; });
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _exportUser(dynamic user) async {
+    setState(() => _busy = true);
+    try {
+      final profile = await AdminService.exportUserProfile(user['id'].toString());
+      final lines = <String>[
+        'شناسه کاربر: ${profile['id'] ?? ''}',
+        'نام کامل: ${profile['fullName'] ?? ''}',
+        'نام کاربری: ${profile['username'] ?? ''}',
+        'ایمیل: ${profile['email'] ?? ''}',
+        'تلفن: ${profile['phone'] ?? ''}',
+        'کشور: ${profile['country'] ?? ''}',
+        'موجودی اعتبار: ${profile['walletBalance'] ?? '0'}',
+        'تاریخ ثبت‌نام: ${profile['createdAt'] ?? ''}',
+      ];
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('مشخصات کاربر'),
+          content: SingleChildScrollView(child: SelectableText(lines.join('\\n'))),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('بستن')),
+            FilledButton.icon(
+              onPressed: () async {
+                await Clipboard.setData(ClipboardData(text: lines.join('\\n')));
+                if (dialogContext.mounted) Navigator.pop(dialogContext);
+                if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('مشخصات در کلیپ‌بورد کپی شد.')));
+              },
+              icon: const Icon(Icons.copy),
+              label: const Text('کپی برای استخراج'),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -197,7 +238,7 @@ class _AdminScreenState extends State<AdminScreen> {
                 TextField(controller: _description, decoration: const InputDecoration(labelText: 'توضیح تراکنش')),
                 const SizedBox(height: 8),
                 FilledButton(onPressed: _busy ? null : () => _credit(user), child: const Text('ثبت اعتبار')),
-                OutlinedButton(onPressed: _busy ? null : () => _notify(userId: user['id'].toString()), child: const Text('ارسال اعلان به این کاربر')),
+                OutlinedButton(onPressed: _busy ? null : () => _notify(userId: user['id'].toString()), child: const Text('ارسال اعلان به این کاربر')),\n                OutlinedButton.icon(onPressed: _busy ? null : () => _exportUser(user), icon: const Icon(Icons.person_search_outlined), label: const Text('استخراج مشخصات کاربر')),
               ]))),
               const SizedBox(height: 22),
               const Text('ارسال اعلان', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
