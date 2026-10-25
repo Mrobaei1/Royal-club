@@ -5,6 +5,12 @@ on:
     branches:
       - main
   workflow_dispatch:
+    inputs:
+      build_apk:
+        description: 'Build the release APK only after Stage 3 is complete'
+        required: true
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -64,6 +70,7 @@ jobs:
         run: flutter test
 
       - name: Build release APK
+        if: github.event_name == 'workflow_dispatch' && inputs.build_apk == true
         working-directory: apps/mobile
         env:
           API_BASE_URL: https://br-misty-flower-bavs47dm-royalclubapi.compute.c-8.eu-central-1.aws.neon.tech
@@ -77,6 +84,7 @@ jobs:
           fi
 
       - name: Upload installable APK
+        if: github.event_name == 'workflow_dispatch' && inputs.build_apk == true
         uses: actions/upload-artifact@v4
         with:
           name: royal-club-android-apk
