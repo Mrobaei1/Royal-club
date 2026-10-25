@@ -34,9 +34,11 @@ test('detects bearing off only when all checkers are in the home board', () => {
   board[0] = 15;
   assert.equal(hasLegalMove(board, { host: 0, guest: 0 }, [1], true), true);
   board[6] = 1;
+  board[5] = -2;
   board[0] = 14;
-  assert.equal(hasLegalMove(board, { host: 0, guest: 0 }, [1], true), true);
+  assert.equal(hasLegalMove(board, { host: 0, guest: 0 }, [1], true), false);
   board[6] = 0;
+  board[5] = 0;
   board[0] = 15;
   assert.equal(hasLegalMove(board, { host: 0, guest: 0 }, [6], true), true);
 });
