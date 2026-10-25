@@ -55,11 +55,13 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
         if (sequence != _refreshSequence) {
           return;
         }
-        if (mounted) setState(() {
-          _state = state;
-          _matchStatus = match['status'].toString();
-          _error = null;
-        });
+        if (mounted) {
+          setState(() {
+            _state = state;
+            _matchStatus = match['status'].toString();
+            _error = null;
+          });
+        }
       } else if (mounted) {
         setState(() {
           _state = null;
