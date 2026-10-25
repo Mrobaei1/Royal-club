@@ -19,7 +19,7 @@ const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
 await app.register(helmet);
 await app.register(cors, {
-  origin: ['https://super-duper-palm-tree-4r9v56pv6gcj7rw-8080.app.github.dev'],
+  origin: ['https://super-duper-palm-tree-4r9v56pv6gcj7rw-8080.app.github.dev', 'https://mrobaei1.github.io'],
   methods: ['GET', 'POST', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
 });
