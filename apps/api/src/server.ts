@@ -478,8 +478,8 @@ app.patch<{ Params: { code: string }; Body: { name?: string; durationDays?: numb
   return { plan: result.rows[0] };
 });
 
-const requireChatEntitlement = async (client: { query: (sql: string, params?: unknown[]) => Promise<{ rows: any[] }> }, userA: string, userB: string) => {
-  const result = await client.query(
+const requireChatEntitlement = async (userA: string, userB: string) => {
+  const result = await pool.query(
     `SELECT COUNT(DISTINCT user_id)::int AS entitled
        FROM user_subscriptions
       WHERE user_id = ANY($1::bigint[]) AND status = 'active' AND ends_at > NOW()`,
@@ -521,7 +521,7 @@ app.get<{ Params: { userId: string } }>('/api/v1/chat/:userId/messages', { onReq
     ['accepted', claims.sub, userId],
   );
   if (!friendship.rowCount) return reply.code(403).send({ error: 'Chat is available only between accepted friends.' });
-  if (!await requireChatEntitlement(pool, claims.sub, userId)) return reply.code(403).send({ error: 'An active subscription is required for both users to use private chat.' });
+  if (!await requireChatEntitlement(claims.sub, userId)) return reply.code(403).send({ error: 'An active subscription is required for both users to use private chat.' });
   const messages = await pool.query(
     `SELECT id, sender_id AS "senderId", recipient_id AS "recipientId", body,
             created_at AS "createdAt", read_at AS "readAt"
