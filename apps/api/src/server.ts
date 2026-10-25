@@ -288,14 +288,6 @@ app.post<{ Params: { id: string } }>('/api/v1/friends/:id/request', { onRequest:
       return reply.code(409).send({ error: 'You are already friends.' });
     }
     if (relation && relation.requester_id === targetId && relation.addressee_id === claims.sub) {
-      const count = await client.query(
-        `SELECT user_id, COUNT(*)::int AS total FROM (
-           SELECT requester_id AS user_id FROM friendships WHERE status = 'accepted' AND (requester_id = $1 OR addressee_id = $1)
-           UNION ALL
-           SELECT addressee_id AS user_id FROM friendships WHERE status = 'accepted' AND (requester_id = $1 OR addressee_id = $1)
-         ) accepted WHERE user_id = $1 GROUP BY user_id`,
-        [claims.sub],
-      );
       const targetCount = await client.query(
         `SELECT COUNT(*)::int AS total FROM friendships
           WHERE status = 'accepted' AND (requester_id = $1 OR addressee_id = $1)`,
@@ -306,7 +298,6 @@ app.post<{ Params: { id: string } }>('/api/v1/friends/:id/request', { onRequest:
           WHERE status = 'accepted' AND (requester_id = $1 OR addressee_id = $1)`,
         [claims.sub],
       );
-      void count;
       if (Number(ownCount.rows[0]?.total ?? 0) >= 100 || Number(targetCount.rows[0]?.total ?? 0) >= 100) {
         await client.query('ROLLBACK');
         return reply.code(409).send({ error: 'One account has reached the 100-friend limit.' });
