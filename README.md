@@ -17,6 +17,14 @@ Status: actively developed in `feature/password-min-6`. This branch is not a pro
 ## Owner admin configuration
 Set `OWNER_USER_ID` in the API environment to the numeric `users.id` of the owner. Leave it unset to keep owner-only operations disabled. The admin screen checks `/api/v1/admin/status`, and the server independently enforces owner authorization on every administrative write. Do not use an email address or expose this setting in the client app.
 
+## Deployment configuration checklist
+
+- Set `DATABASE_URL` to the managed PostgreSQL connection string and `JWT_SECRET` to a random secret of at least 32 characters.
+- Set `CORS_ORIGINS` to the exact comma-separated HTTPS origins serving the web app. Do not use `*` for a production deployment.
+- Set `OWNER_USER_ID` only after confirming the owner's numeric database user ID; leave it blank to disable owner-only routes.
+- Build the Flutter app with `--dart-define=API_BASE_URL=https://YOUR-API-HOST` so it does not depend on the temporary Codespaces API URL.
+- Verify database backups, restore procedures, TLS, monitoring, and a real deployed health check before inviting users. GitHub Actions passing is a build/test signal, not proof of a production deployment.
+
 ## Quick start (cloud IDE or computer)
 1. Import this folder/repository into a cloud IDE with a terminal (see `docs/DEVELOPMENT-ANDROID.md`).
 2. Start PostgreSQL with `docker compose -f infra/docker-compose.yml up -d db` where Docker is supported.
