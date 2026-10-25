@@ -181,65 +181,7 @@ class HomeScreen extends StatelessWidget {
                   ),
                 ]),
                 const SizedBox(height: 18),
-                const SizedBox(height: 27),                Container(
-                  padding: const EdgeInsets.all(23),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(27),
-                    border: Border.all(color: gold.withValues(alpha: .55)),
-                    gradient: const LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [Color(0xFF253650), Color(0xFF121C30)],
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                          color: Colors.black.withValues(alpha: .22),
-                          blurRadius: 24,
-                          offset: const Offset(0, 12))
-                    ],
-                  ),
-                  child: const Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('WELCOME TO THE CLUB',
-                          style: TextStyle(
-                              color: gold,
-                              fontSize: 9,
-                              letterSpacing: 1.4,
-                              fontWeight: FontWeight.bold)),
-                      SizedBox(height: 17),
-                      Text('بازی، رقابت، افتخار',
-                          textDirection: TextDirection.rtl,
-                          style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 28,
-                              height: 1.35,
-                              fontWeight: FontWeight.w900)),
-                      SizedBox(height: 8),
-                      Text(
-                          'به رویال کلاب خوش آمدید؛ جایی برای ذهن‌های استراتژیک.',
-                          textDirection: TextDirection.rtl,
-                          style: TextStyle(
-                              color: Color(0xFFD1D8E4),
-                              fontSize: 13,
-                              height: 1.8)),
-                      SizedBox(height: 20),
-                      Row(children: [
-                        Icon(Icons.shield_moon_rounded, color: gold, size: 18),
-                        SizedBox(width: 8),
-                        Expanded(
-                            child: Text('یک تجربه متفاوت از بازی‌های کلاسیک',
-                                textDirection: TextDirection.rtl,
-                                style: TextStyle(
-                                    color: Color(0xFFE7D7AA),
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600))),
-                      ]),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 30),
-                const Row(children: [
+                const SizedBox(height: 27),                const Row(children: [
                   Expanded(
                       child: Text('بازی‌ها',
                           textDirection: TextDirection.rtl,
@@ -331,6 +273,65 @@ class HomeScreen extends StatelessWidget {
                     subtitle: 'به‌زودی',
                     icon: Icons.style_rounded,
                     comingSoon: true),
+                const SizedBox(height: 26),
+                Container(
+                  padding: const EdgeInsets.all(23),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(27),
+                    border: Border.all(color: gold.withValues(alpha: .55)),
+                    gradient: const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [Color(0xFF253650), Color(0xFF121C30)],
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                          color: Colors.black.withValues(alpha: .22),
+                          blurRadius: 24,
+                          offset: const Offset(0, 12))
+                    ],
+                  ),
+                  child: const Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('WELCOME TO THE CLUB',
+                          style: TextStyle(
+                              color: gold,
+                              fontSize: 9,
+                              letterSpacing: 1.4,
+                              fontWeight: FontWeight.bold)),
+                      SizedBox(height: 17),
+                      Text('بازی، رقابت، افتخار',
+                          textDirection: TextDirection.rtl,
+                          style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 28,
+                              height: 1.35,
+                              fontWeight: FontWeight.w900)),
+                      SizedBox(height: 8),
+                      Text(
+                          'به رویال کلاب خوش آمدید؛ جایی برای ذهن‌های استراتژیک.',
+                          textDirection: TextDirection.rtl,
+                          style: TextStyle(
+                              color: Color(0xFFD1D8E4),
+                              fontSize: 13,
+                              height: 1.8)),
+                      SizedBox(height: 20),
+                      Row(children: [
+                        Icon(Icons.shield_moon_rounded, color: gold, size: 18),
+                        SizedBox(width: 8),
+                        Expanded(
+                            child: Text('یک تجربه متفاوت از بازی‌های کلاسیک',
+                                textDirection: TextDirection.rtl,
+                                style: TextStyle(
+                                    color: Color(0xFFE7D7AA),
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600))),
+                      ]),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 30),
                 const SizedBox(height: 24),
                 const Center(
                     child: Text('ROYAL CLUB  •  PLAY WITH HONOUR',
