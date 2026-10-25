@@ -105,7 +105,7 @@ class BackgammonEngine {
 
     // A checker on the bar must enter before any other checker can move.
     if (bars[slot] > 0) {
-      final destination = player == 1 ? die - 1 : 24 - die;
+      final destination = player == 1 ? 24 - die : die - 1;
       if (_canLand(destination, player, board)) {
         result.add(BackgammonMove(
           from: -1,
