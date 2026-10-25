@@ -99,7 +99,10 @@ class _AccountScreenState extends State<AccountScreen> {
                       ],
                       const SizedBox(height: 24),
                       OutlinedButton.icon(
-                        onPressed: widget.onLogout,
+                        onPressed: () {
+                          widget.onLogout();
+                          Navigator.of(context).pop();
+                        },
                         icon: const Icon(Icons.logout),
                         label: const Text('خروج از حساب'),
                         style: OutlinedButton.styleFrom(
