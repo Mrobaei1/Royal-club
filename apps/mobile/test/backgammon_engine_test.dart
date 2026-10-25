@@ -192,6 +192,20 @@ void main() {
       expect(moves.every((move) => move.to == 1 && move.die == 2), isTrue);
     });
 
+    test('negative player can bear off and wins with the fifteenth checker', () {
+      clearPosition(player: -1, rolledDice: [1]);
+      game.points[0] = -1;
+      game.borneOff[0] = 14;
+
+      final move = game.legalMoves().singleWhere(
+            (candidate) => candidate.from == 0 && candidate.to == -1,
+          );
+      expect(game.playMove(move), isTrue);
+      expect(game.finished, isTrue);
+      expect(game.winner, -1);
+      expect(game.borneOff[0], 15);
+    });
+
     test('reset clears dice, bars, borne-off counters and winner after a roll',
         () {
       game.rollDice();
