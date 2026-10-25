@@ -1456,12 +1456,17 @@ app.delete<{ Params: { id: string } }>('/api/v1/matches/:id', { onRequest: [requ
 });
 app.addHook('onClose', async () => { await pool.end(); });
 
-const port = Number(process.env.PORT ?? 3000);
-const host = process.env.HOST ?? '0.0.0.0';
-try {
-  await app.listen({ port, host });
-} catch (error) {
-  app.log.error(error);
-  await app.close();
-  process.exit(1);
+export { app };
+
+// Neon Functions invoke a Fetch-compatible handler; traditional hosts keep the normal listener.
+if (process.env.NEON_FUNCTION_RUNTIME !== '1') {
+  const port = Number(process.env.PORT ?? 3000);
+  const host = process.env.HOST ?? '0.0.0.0';
+  try {
+    await app.listen({ port, host });
+  } catch (error) {
+    app.log.error(error);
+    await app.close();
+    process.exit(1);
+  }
 }
