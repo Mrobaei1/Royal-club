@@ -33,3 +33,20 @@ Set `OWNER_USER_ID` in the API environment to the numeric `users.id` of the owne
 5. Flutter: in an environment with Flutter installed, from `apps/mobile`, run `flutter create . --platforms=android,web` if platform wrapper files are missing, then `flutter pub get` and `flutter run`.
 
 Never put production secrets in source control. The included credentials are for local development only.
+
+## Hands-on test preview
+
+The latest validated web build is published at: https://mrobaei1.github.io/Royal-club/
+
+### Quick test checklist
+1. Open the preview in Chrome. On first launch, the app should show the authentication gate rather than the games home.
+2. Try the registration and login screens. A successful authentication should lead to the games home.
+3. Confirm the home screen still shows backgammon, chess, and card games.
+4. Open backgammon and test legal moves, dice rolls, and the available AI difficulty options.
+5. Check the account, friends, notifications, private chat, wallet/subscription, and admin entry points; report any screen that fails to open or shows an error.
+
+**Important:** the API default in the mobile app currently points to a temporary GitHub Codespaces host. If registration/login reports a network, CORS, or server error, the backend may be asleep or unavailable; that is separate from the published web UI. A stable API deployment and persistent database are still required before production use. Do not enter real passwords or payment details in this test build.
+
+## Current validation
+
+The main-branch web-preview workflow completed successfully on 2026-10-25, including API build, Flutter analysis, Flutter tests, web release build, and GitHub Pages deployment. This confirms the build pipeline, not a full end-to-end test against a permanently hosted API.
