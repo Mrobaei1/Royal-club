@@ -166,3 +166,17 @@ test('does not apply higher-die priority to doubles', () => {
     false,
   );
 });
+
+test('does not count an overshoot bear-off when another checker is outside the home board', () => {
+  const board = emptyBoard();
+  board[1] = 1;
+  board[10] = 1;
+  assert.equal(maxPlayableDiceCount(state(board), [6], true), 0);
+});
+
+test('does not count an overshoot bear-off when a higher checker can still be borne off', () => {
+  const board = emptyBoard();
+  board[1] = 1;
+  board[3] = 1;
+  assert.equal(maxPlayableDiceCount(state(board), [6], true), 1);
+});
