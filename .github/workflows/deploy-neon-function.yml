@@ -195,14 +195,14 @@ jobs:
           fi
           cat health.json
 
-      - name: Configure GitHub Pages API endpoint
+      - name: Trigger GitHub Pages rebuild with Neon API endpoint
         env:
           GH_TOKEN: ${{ github.token }}
           FUNCTION_URL: ${{ steps.endpoint.outputs.url }}
         run: |
-          gh variable set API_BASE_URL --repo "$GITHUB_REPOSITORY" --body "$FUNCTION_URL"
+          echo "API health check passed at $FUNCTION_URL."
           gh workflow run royal-club-web-preview.yml --repo "$GITHUB_REPOSITORY" --ref main
-          echo "Repository variable API_BASE_URL updated; the GitHub Pages rebuild was queued."
+          echo "The GitHub Pages rebuild was queued; the web workflow has a safe default API endpoint."
 
       - name: Summary
         env:
