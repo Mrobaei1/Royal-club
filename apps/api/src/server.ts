@@ -1413,9 +1413,9 @@ app.post<{ Params: { id: string }; Body: { expectedVersion?: number } }>('/api/v
       await client.query('ROLLBACK');
       return reply.code(409).send({ error: 'Dice have already been rolled for this turn.' });
     }
-    if (request.body?.expectedVersion !== undefined && request.body.expectedVersion !== match.state_version) {
+    if (!Number.isInteger(request.body?.expectedVersion) || request.body.expectedVersion !== match.state_version) {
       await client.query('ROLLBACK');
-      return reply.code(409).send({ error: 'Game state changed. Refresh the board and try again.' });
+      return reply.code(409).send({ error: 'Game state changed or expectedVersion is missing. Refresh the board and try again.' });
     }
     const first = randomInt(1, 7);
     const second = randomInt(1, 7);
