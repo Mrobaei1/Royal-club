@@ -531,7 +531,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
       Container(
         padding: const EdgeInsets.all(6),
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
+          gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: _boardThemes[_boardThemeIndex],
