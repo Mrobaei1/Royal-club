@@ -1226,10 +1226,8 @@ app.post<{ Params: { id: string }; Body: { ready?: boolean } }>('/api/v1/matches
     } else {
       await client.query('UPDATE backgammon_matches SET guest_ready = $1, updated_at = NOW() WHERE id = $2', [request.body.ready, m.id]);
     }
-    const state = await client.query(
-      "UPDATE backgammon_matches SET status = CASE WHEN host_ready AND guest_ready THEN 'active' ELSE status END, current_turn_user_id = CASE WHEN host_ready AND guest_ready THEN host_user_id ELSE current_turn_user_id END, updated_at = NOW() WHERE id = $1 RETURNING status, match_length AS \"matchLength\", host_accepted AS \"hostAccepted\", guest_accepted AS \"guestAccepted\", host_ready AS \"hostReady\", guest_ready AS \"guestReady\"",
-      [m.id],
-    );
+    await client.query("UPDATE backgammon_matches SET status = 'active', current_turn_user_id = host_user_id, dice = '[]'::jsonb, remaining_dice = '[]'::jsonb, updated_at = NOW() WHERE id = $1 AND status = 'waiting' AND host_accepted AND guest_accepted AND host_ready AND guest_ready", [m.id]);
+    const state = await client.query('SELECT status, match_length AS "matchLength", host_accepted AS "hostAccepted", guest_accepted AS "guestAccepted", host_ready AS "hostReady", guest_ready AS "guestReady" FROM backgammon_matches WHERE id = $1', [m.id]);
     await client.query('COMMIT');
     return { match: state.rows[0] };
   } catch (error) {
