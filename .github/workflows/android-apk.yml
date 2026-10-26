@@ -72,7 +72,7 @@ jobs:
         run: flutter test
 
       - name: Build release APK
-        if: (github.event_name == 'push' && github.ref == 'refs/heads/stage2/localize-auth-validation') || (github.event_name == 'workflow_dispatch' && inputs.build_apk == true)
+        if: (github.event_name == 'push' && (github.ref == 'refs/heads/stage2/localize-auth-validation' || github.ref == 'refs/heads/fix/device-feedback-stage2')) || (github.event_name == 'workflow_dispatch' && inputs.build_apk == true)
         working-directory: apps/mobile
         env:
           API_BASE_URL: https://br-misty-flower-bavs47dm-royalclubapi.compute.c-8.eu-central-1.aws.neon.tech
@@ -86,7 +86,7 @@ jobs:
           fi
 
       - name: Upload installable APK
-        if: (github.event_name == 'push' && github.ref == 'refs/heads/stage2/localize-auth-validation') || (github.event_name == 'workflow_dispatch' && inputs.build_apk == true)
+        if: (github.event_name == 'push' && (github.ref == 'refs/heads/stage2/localize-auth-validation' || github.ref == 'refs/heads/fix/device-feedback-stage2')) || (github.event_name == 'workflow_dispatch' && inputs.build_apk == true)
         uses: actions/upload-artifact@v4
         with:
           name: royal-club-android-apk
