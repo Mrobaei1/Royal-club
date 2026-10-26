@@ -99,6 +99,30 @@ void main() {
       expect(moves.every((move) => move.to == 1 && move.die == 2), isTrue);
     });
 
+    test('positive player bar entry maps die 1 to point 24 and die 2 to point 23', () {
+      clearPosition(rolledDice: [1, 2]);
+      game.bar[1] = 1;
+
+      final moves = game.legalMoves();
+      expect(moves.any((move) => move.fromBar && move.die == 1 && move.to == 23), isTrue);
+      expect(moves.any((move) => move.fromBar && move.die == 2 && move.to == 22), isTrue);
+      expect(game.playMove(moves.firstWhere((move) => move.fromBar && move.die == 1 && move.to == 23)), isTrue);
+      expect(game.points[23], 1);
+      expect(game.bar[1], 0);
+    });
+
+    test('negative player bar entry maps die 1 to point 1 and die 2 to point 2', () {
+      clearPosition(player: -1, rolledDice: [1, 2]);
+      game.bar[0] = 1;
+
+      final moves = game.legalMoves();
+      expect(moves.any((move) => move.fromBar && move.die == 1 && move.to == 0), isTrue);
+      expect(moves.any((move) => move.fromBar && move.die == 2 && move.to == 1), isTrue);
+      expect(game.playMove(moves.firstWhere((move) => move.fromBar && move.die == 1 && move.to == 0)), isTrue);
+      expect(game.points[0], -1);
+      expect(game.bar[0], 0);
+    });
+
     test('hitting a single opposing checker sends it to the bar', () {
       clearPosition(rolledDice: [1, 2]);
       game.points[0] = 1;
