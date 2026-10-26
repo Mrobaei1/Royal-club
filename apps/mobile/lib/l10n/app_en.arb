@@ -47,5 +47,17 @@
   "appThemeMenu": "App theme",
   "adminPanel": "Admin panel",
   "brandTagline": "THE ART OF STRATEGY",
-  "brandFooter": "ROYAL CLUB • PLAY WITH HONOUR"
+  "brandFooter": "ROYAL CLUB • PLAY WITH HONOUR",
+  "chatTitle": "Private chats",
+  "startChatEmpty": "Add a friend to start a conversation.",
+  "friendFallback": "Friend",
+  "tapToChat": "Tap to start chatting",
+  "reportUser": "Report user",
+  "reportReasonHint": "Describe the reason for the report (at least 3 characters)",
+  "cancel": "Cancel",
+  "submitReport": "Submit report",
+  "reportQueued": " The report has been queued for admin review.",
+  "reportSaved": "Report submitted.",
+  "noMessages": "No messages have been sent yet.",
+  "writeMessage": "Write a message..."
 }
