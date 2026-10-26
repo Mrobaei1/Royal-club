@@ -1228,7 +1228,7 @@ app.post<{ Params: { id: string }; Body: { matchToWin?: number; acceptSettings?:
             return reply.code(409).send({ error: 'Accept the match settings before becoming ready.' });
           }
           values.push(Boolean(ready));
-          updates.push(`${readyColumn} = ${values.length}`);
+          updates.push(`${readyColumn} = $${values.length}`);
         }
         if (updates.length) {
           updates.push('updated_at = NOW()');
