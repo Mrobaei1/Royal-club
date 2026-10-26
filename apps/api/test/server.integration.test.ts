@@ -289,4 +289,23 @@ test('registered players can join an online match and history does not expose op
   assert.equal(guestStats.rating, 984);
   assert.equal(guestStats.losses, 1);
   assert.equal(guestStats.gamesPlayed, 1);
+
+  const secondCreated = await app.inject({ method: 'POST', url: '/api/v1/matches', headers: auth(host.token) });
+  assert.equal(secondCreated.statusCode, 201, secondCreated.body);
+  const secondId = String(secondCreated.json().match.id);
+  const secondJoin = await app.inject({ method: 'POST', url: '/api/v1/matches/' + secondId + '/join', headers: auth(guest.token) });
+  assert.equal(secondJoin.statusCode, 200, secondJoin.body);
+  const secondSettings = await app.inject({ method: 'POST', url: '/api/v1/matches/' + secondId + '/settings', headers: auth(host.token), payload: { matchLength: 1 } });
+  assert.equal(secondSettings.statusCode, 200, secondSettings.body);
+  const secondAccept = await app.inject({ method: 'POST', url: '/api/v1/matches/' + secondId + '/accept-settings', headers: auth(guest.token), payload: { accept: true } });
+  assert.equal(secondAccept.statusCode, 200, secondAccept.body);
+  const secondHostReady = await app.inject({ method: 'POST', url: '/api/v1/matches/' + secondId + '/ready', headers: auth(host.token), payload: { ready: true } });
+  assert.equal(secondHostReady.statusCode, 200, secondHostReady.body);
+  const secondGuestReady = await app.inject({ method: 'POST', url: '/api/v1/matches/' + secondId + '/ready', headers: auth(guest.token), payload: { ready: true } });
+  assert.equal(secondGuestReady.json().match.status, 'active');
+  const cancelProposal = await app.inject({ method: 'POST', url: '/api/v1/matches/' + secondId + '/cancellation', headers: auth(host.token), payload: { action: 'propose' } });
+  assert.equal(cancelProposal.statusCode, 200, cancelProposal.body);
+  const cancelAccepted = await app.inject({ method: 'POST', url: '/api/v1/matches/' + secondId + '/cancellation', headers: auth(guest.token), payload: { action: 'accept' } });
+  assert.equal(cancelAccepted.statusCode, 200, cancelAccepted.body);
+  assert.equal(cancelAccepted.json().match.status, 'cancelled');
 });
