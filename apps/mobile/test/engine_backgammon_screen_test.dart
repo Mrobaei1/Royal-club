@@ -30,6 +30,11 @@ void main() {
     expect(find.text('بازی با هوش مصنوعی'), findsOneWidget);
     expect(find.text('تم صفحه بازی:'), findsOneWidget);
     expect(find.text('شروع مجدد'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('نسخه آزمایشی محلی · بازی با هوش مصنوعی یا دونفره روی یک دستگاه'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(find.text('نسخه آزمایشی محلی · بازی با هوش مصنوعی یا دونفره روی یک دستگاه'),
         findsOneWidget);
   });
