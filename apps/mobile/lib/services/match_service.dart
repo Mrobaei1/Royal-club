@@ -143,4 +143,46 @@ class MatchService {
     }
     return Map<String, dynamic>.from(decoded['state'] as Map);
   }
+  static Future<Map<String, dynamic>> updateSetup(
+    String id, {int? matchToWin, bool? acceptSettings, bool? ready}
+  ) async {
+    final headers = await _headers();
+    final response = await http.post(
+      _uri('/$id/setup'),
+      headers: headers,
+      body: jsonEncode(<String, dynamic>{
+        if (matchToWin != null) 'matchToWin': matchToWin,
+        if (acceptSettings != null) 'acceptSettings': acceptSettings,
+        if (ready != null) 'ready': ready,
+      }),
+    ).timeout(const Duration(seconds: 12));
+    dynamic decoded;
+    try { decoded = jsonDecode(response.body); }
+    catch (_) { throw Exception('پاسخ سرور قابل‌خواندن نیست.'); }
+    if (decoded is! Map<String, dynamic>) throw Exception('پاسخ سرور نامعتبر است.');
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(decoded['error']?.toString() ?? 'خطای سرور (${response.statusCode})');
+    }
+    return Map<String, dynamic>.from(decoded['setup'] as Map);
+  }
+
+  static Future<Map<String, dynamic>> proposeOrRespondCancellation(
+    String id, {required bool accept}
+  ) async {
+    final headers = await _headers();
+    final response = await http.post(
+      _uri('/$id/cancellation'),
+      headers: headers,
+      body: jsonEncode({'accept': accept}),
+    ).timeout(const Duration(seconds: 12));
+    dynamic decoded;
+    try { decoded = jsonDecode(response.body); }
+    catch (_) { throw Exception('پاسخ سرور قابل‌خواندن نیست.'); }
+    if (decoded is! Map<String, dynamic>) throw Exception('پاسخ سرور نامعتبر است.');
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(decoded['error']?.toString() ?? 'خطای سرور (${response.statusCode})');
+    }
+    return Map<String, dynamic>.from(decoded['cancellation'] as Map);
+  }
+
 }
