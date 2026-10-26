@@ -92,5 +92,8 @@
   "userIdLabel": "شناسه کاربری",
   "editUsernameTooltip": "ویرایش نام کاربری",
   "logout": "خروج از حساب",
-  "accountTitle": "حساب کاربری"
+  "accountTitle": "حساب کاربری",
+  "markAllRead": "خواندن همه",
+  "noNotifications": "فعلاً اعلانی ندارید.",
+  "notificationFallback": "اعلان"
 }
