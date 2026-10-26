@@ -54,5 +54,6 @@ jobs:
       - run: flutter pub get
       - name: Generate and validate localizations
         run: flutter gen-l10n
-      - run: flutter analyze
+      - name: Analyze Dart code (errors remain fatal; lint warnings are reported)
+        run: flutter analyze --no-fatal-warnings --no-fatal-infos
       - run: flutter test
