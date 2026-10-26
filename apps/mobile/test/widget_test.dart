@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:royal_club/l10n/app_localizations.dart';
+import 'package:royal_club/account_screen.dart';
 import 'package:royal_club/main.dart';
 
 Widget _testApp(Widget home, {Locale locale = const Locale('fa')}) => MaterialApp(
@@ -58,6 +59,13 @@ void main() {
       scrollable: find.byType(Scrollable).first,
     );
     expect(find.text('Card games'), findsOneWidget);
+  });
+
+  testWidgets('account screen exposes profile photo selection', (tester) async {
+    await tester.pumpWidget(_testApp(AccountScreen(onLogout: () {})));
+    await tester.pumpAndSettle();
+
+    expect(find.text('انتخاب عکس پروفایل'), findsOneWidget);
   });
 
   testWidgets('home screen keeps all game cards', (tester) async {
