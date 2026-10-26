@@ -92,5 +92,8 @@
   "userIdLabel": "User ID",
   "editUsernameTooltip": "Edit username",
   "logout": "Log out",
-  "accountTitle": "Account"
+  "accountTitle": "Account",
+  "markAllRead": "Mark all as read",
+  "noNotifications": "You have no notifications yet.",
+  "notificationFallback": "Notification"
 }
