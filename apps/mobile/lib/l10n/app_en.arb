@@ -209,15 +209,54 @@
   "playAgain": "Play again",
   "exitGame": "Exit game",
   "bearOffShort": "Off",
-  "@congratulationsWinner": {"placeholders": {"player": {"type": "String"}}},
-  "@moveDoneRemainingDice": {"placeholders": {"dice": {"type": "String"}}},
-  "@computerTurnDice": {"placeholders": {"dice": {"type": "String"}}},
+  "@congratulationsWinner": {
+    "placeholders": {
+      "player": {
+        "type": "String"
+      }
+    }
+  },
+  "@moveDoneRemainingDice": {
+    "placeholders": {
+      "dice": {
+        "type": "String"
+      }
+    }
+  },
+  "@computerTurnDice": {
+    "placeholders": {
+      "dice": {
+        "type": "String"
+      }
+    }
+  },
   "turnRolledDice": "{player}'s turn · Dice: {dice}",
   "turnChangedPlayer": "No moves; it is {player}'s turn.",
   "turnRollPrompt": "It is {player}'s turn; roll the dice.",
-  "@turnRolledDice": {"placeholders": {"player": {"type": "String"}, "dice": {"type": "String"}}},
-  "@turnChangedPlayer": {"placeholders": {"player": {"type": "String"}}},
-  "@turnRollPrompt": {"placeholders": {"player": {"type": "String"}}},
+  "@turnRolledDice": {
+    "placeholders": {
+      "player": {
+        "type": "String"
+      },
+      "dice": {
+        "type": "String"
+      }
+    }
+  },
+  "@turnChangedPlayer": {
+    "placeholders": {
+      "player": {
+        "type": "String"
+      }
+    }
+  },
+  "@turnRollPrompt": {
+    "placeholders": {
+      "player": {
+        "type": "String"
+      }
+    }
+  },
   "goldenPlayer": "Golden",
   "lightPlayer": "Light",
   "gameRestarted": "Game restarted. Roll the dice.",
@@ -270,10 +309,30 @@
   "statusDismissed": "Dismissed",
   "statusActioned": "Actioned",
   "notificationSentCount": "Notification sent to {count} users.",
-  "@notificationSentCount": {"placeholders": {"count": {"type": "int"}}},
+  "@notificationSentCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "registrationDate": "Registration date",
   "diceTrayLabel": "Game dice",
   "barLabel": "Bar",
   "bearOffStatus": "{title}\nOff: {off} · Bar: {onBar}",
-  "@bearOffStatus": {"placeholders": {"title": {"type": "String"}, "off": {"type": "int"}, "onBar": {"type": "int"}}}
+  "@bearOffStatus": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      },
+      "off": {
+        "type": "int"
+      },
+      "onBar": {
+        "type": "int"
+      }
+    }
+  },
+  "editProfile": "Edit profile",
+  "profileFieldsRequired": "Please enter your name, phone number, and country."
 }
