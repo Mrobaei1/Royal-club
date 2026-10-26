@@ -39,12 +39,16 @@ await pool.query(`
   CREATE TABLE IF NOT EXISTS users (
     id BIGSERIAL PRIMARY KEY,
     email TEXT NOT NULL UNIQUE,
+    username TEXT,
     password_hash TEXT NOT NULL,
     full_name TEXT NOT NULL DEFAULT '',
     phone TEXT NOT NULL DEFAULT '',
     country TEXT NOT NULL DEFAULT '',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   );
+  ALTER TABLE users ADD COLUMN IF NOT EXISTS username TEXT;
+  UPDATE users SET username = 'p' || id::text WHERE username IS NULL OR username = '';
+  CREATE UNIQUE INDEX IF NOT EXISTS users_username_unique_idx ON users (LOWER(username)) WHERE username IS NOT NULL;
   ALTER TABLE users ADD COLUMN IF NOT EXISTS full_name TEXT NOT NULL DEFAULT '';
   ALTER TABLE users ADD COLUMN IF NOT EXISTS phone TEXT NOT NULL DEFAULT '';
   ALTER TABLE users ADD COLUMN IF NOT EXISTS country TEXT NOT NULL DEFAULT '';
@@ -222,13 +226,18 @@ app.post<{ Body: { email?: string; password?: string; fullName?: string; phone?:
         'INSERT INTO users (email, password_hash, full_name, phone, country) VALUES ($1, $2, $3, $4, $5) RETURNING id, email, full_name, phone, country, created_at',
         [email, passwordHash, fullName, phone, country]
       );
-      const user = result.rows[0] as { id: string; email: string; full_name: string; phone: string; country: string; created_at: Date };
+      const created = result.rows[0] as { id: string; email: string; full_name: string; phone: string; country: string; created_at: Date };
+      const profile = await pool.query(
+        'UPDATE users SET username = $1 WHERE id = $2 RETURNING username',
+        [`p${created.id}${randomInt(1000, 9999)}`, created.id],
+      );
+      const user = { ...created, username: profile.rows[0]?.username ?? null };
       const accessToken = app.jwt.sign(
         { sub: user.id, email: user.email },
         { expiresIn: '1h' }
       );
       return reply.code(201).send({
-        user: { id: user.id, email: user.email, fullName: user.full_name, phone: user.phone, country: user.country, createdAt: user.created_at },
+        user: { id: user.id, username: user.username, email: user.email, fullName: user.full_name, phone: user.phone, country: user.country, createdAt: user.created_at },
         accessToken,
         tokenType: 'Bearer',
         expiresIn: 3600
@@ -301,12 +310,12 @@ app.get('/api/v1/me', {
   if (!claims.sub) return reply.code(401).send({ error: 'Invalid token.' });
 
   const result = await pool.query(
-    'SELECT id, email, full_name, phone, country, created_at FROM users WHERE id = $1',
+    'SELECT id, username, email, full_name, phone, country, created_at FROM users WHERE id = $1',
     [claims.sub]
   );
   if (!result.rowCount) return reply.code(401).send({ error: 'Account not found.' });
-  const user = result.rows[0] as { id: string; email: string; full_name: string; phone: string; country: string; created_at: Date };
-  return { user: { id: user.id, email: user.email, fullName: user.full_name, phone: user.phone, country: user.country, createdAt: user.created_at } };
+  const user = result.rows[0] as { id: string; username: string | null; email: string; full_name: string; phone: string; country: string; created_at: Date };
+  return { user: { id: user.id, username: user.username, email: user.email, fullName: user.full_name, phone: user.phone, country: user.country, createdAt: user.created_at } };
 });
 
 const requireMatchAuth = async (request: any, reply: any) => {
@@ -318,6 +327,22 @@ const requireMatchAuth = async (request: any, reply: any) => {
     return reply.code(401).send({ error: 'Authentication required.' });
   }
 };
+
+app.patch<{ Body: { fullName?: string; phone?: string; country?: string } }>('/api/v1/me/profile', { onRequest: [requireMatchAuth], config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request, reply) => {
+  const claims = request.user as { sub: string };
+  const fullName = typeof request.body?.fullName === 'string' ? request.body.fullName.trim() : '';
+  const phone = typeof request.body?.phone === 'string' ? request.body.phone.trim() : '';
+  const country = typeof request.body?.country === 'string' ? request.body.country.trim() : '';
+  if (!fullName || fullName.length > 120 || !phone || !/^[+0-9() .-]{6,32}$/.test(phone) || !country || country.length > 80) {
+    return reply.code(400).send({ error: 'نام، شماره تلفن معتبر و کشور را وارد کنید.' });
+  }
+  const result = await pool.query(
+    'UPDATE users SET full_name = $1, phone = $2, country = $3 WHERE id = $4 RETURNING id, username, email, full_name AS "fullName", phone, country',
+    [fullName, phone, country, claims.sub],
+  );
+  if (!result.rowCount) return reply.code(404).send({ error: 'Account not found.' });
+  return { user: result.rows[0] };
+});
 
 app.patch<{ Body: { username?: string } }>('/api/v1/me/username', { onRequest: [requireMatchAuth], config: { rateLimit: { max: 5, timeWindow: '1 minute' } } }, async (request, reply) => {
   const claims = request.user as { sub: string };
@@ -735,13 +760,13 @@ app.post('/api/v1/notifications/read-all', { onRequest: [requireMatchAuth] }, as
 });
 
 // Friend requests are server-owned and capped at 100 accepted friends per account.
-app.get<{ Querystring: { email?: string } }>('/api/v1/users/search', { onRequest: [requireMatchAuth], config: { rateLimit: { max: 20, timeWindow: '1 minute' } } }, async (request) => {
+app.get<{ Querystring: { username?: string } }>('/api/v1/users/search', { onRequest: [requireMatchAuth], config: { rateLimit: { max: 20, timeWindow: '1 minute' } } }, async (request) => {
   const claims = request.user as { sub: string };
-  const email = request.query.email?.trim().toLowerCase();
-  if (!email || email.length > 254 || !email.includes('@')) return { users: [] };
+  const username = request.query.username?.trim().replace(/^@/, '');
+  if (!username || !/^[a-zA-Z0-9_.]{3,24}$/.test(username)) return { users: [] };
   const result = await pool.query(
-    'SELECT id, email, full_name AS "fullName" FROM users WHERE email = $1 AND id <> $2 LIMIT 1',
-    [email, claims.sub],
+    'SELECT id, username, full_name AS "fullName" FROM users WHERE LOWER(username) = LOWER($1) AND id <> $2 LIMIT 1',
+    [username, claims.sub],
   );
   return { users: result.rows };
 });
@@ -785,8 +810,10 @@ app.post<{ Params: { id: string } }>('/api/v1/friends/:id/request', { onRequest:
   if (targetId === claims.sub) return reply.code(400).send({ error: 'You cannot add yourself as a friend.' });
 
   const client = await pool.connect();
+  let phase = 'begin';
   try {
     await client.query('BEGIN');
+    phase = 'lock-users';
     const users = await client.query(
       'SELECT id FROM users WHERE id = ANY($1::bigint[]) ORDER BY id FOR UPDATE',
       [[claims.sub, targetId]],
@@ -796,6 +823,7 @@ app.post<{ Params: { id: string } }>('/api/v1/friends/:id/request', { onRequest:
       return reply.code(404).send({ error: 'User not found.' });
     }
 
+    phase = 'lookup-relation';
     const existing = await client.query(
       `SELECT id, requester_id, addressee_id, status FROM friendships
         WHERE (requester_id = $1 AND addressee_id = $2)
@@ -809,6 +837,7 @@ app.post<{ Params: { id: string } }>('/api/v1/friends/:id/request', { onRequest:
       return reply.code(409).send({ error: 'You are already friends.' });
     }
     if (relation && relation.requester_id === targetId && relation.addressee_id === claims.sub) {
+      phase = 'check-reciprocal-request-limits';
       const targetCount = await client.query(
         `SELECT COUNT(*)::int AS total FROM friendships
           WHERE status = 'accepted' AND (requester_id = $1 OR addressee_id = $1)`,
@@ -829,12 +858,12 @@ app.post<{ Params: { id: string } }>('/api/v1/friends/:id/request', { onRequest:
       );
       await client.query(
         `INSERT INTO notifications (user_id, actor_user_id, type, title, body, data)
-         VALUES ($1, $2, 'friend_accepted', 'درخواست دوستی پذیرفته شد', 'درخواست دوستی شما پذیرفته شد.', jsonb_build_object('userId', $2))`,
+         VALUES ($1, $2, 'friend_accepted', 'درخواست دوستی پذیرفته شد', 'درخواست دوستی شما پذیرفته شد.', jsonb_build_object('userId', $2::bigint))`,
         [targetId, claims.sub],
       );
       await client.query(
         `INSERT INTO notifications (user_id, actor_user_id, type, title, body, data)
-         VALUES ($1, $2, 'friend_accepted', 'دوستی برقرار شد', 'درخواست دوستی شما پذیرفته شد.', jsonb_build_object('userId', $2))`,
+         VALUES ($1, $2, 'friend_accepted', 'دوستی برقرار شد', 'درخواست دوستی شما پذیرفته شد.', jsonb_build_object('userId', $2::bigint))`,
         [claims.sub, targetId],
       );
       await client.query('COMMIT');
@@ -845,6 +874,7 @@ app.post<{ Params: { id: string } }>('/api/v1/friends/:id/request', { onRequest:
       return reply.code(409).send({ error: 'A friend request is already pending.' });
     }
 
+    phase = 'check-friend-limits';
     const counts = await client.query(
       `SELECT id, (SELECT COUNT(*)::int FROM friendships f WHERE f.status = 'accepted' AND (f.requester_id = users.id OR f.addressee_id = users.id)) AS friend_count
          FROM users WHERE id = ANY($1::bigint[])`,
@@ -854,21 +884,24 @@ app.post<{ Params: { id: string } }>('/api/v1/friends/:id/request', { onRequest:
       await client.query('ROLLBACK');
       return reply.code(409).send({ error: 'One account has reached the 100-friend limit.' });
     }
+    phase = 'insert-friendship';
     await client.query(
       'INSERT INTO friendships (requester_id, addressee_id) VALUES ($1, $2)',
       [claims.sub, targetId],
     );
+    phase = 'insert-notification';
     await client.query(
       `INSERT INTO notifications (user_id, actor_user_id, type, title, body, data)
-       VALUES ($1, $2, 'friend_request', 'درخواست دوستی جدید', 'یک کاربر برای شما درخواست دوستی فرستاده است.', jsonb_build_object('userId', $2))`,
+       VALUES ($1, $2, 'friend_request', 'درخواست دوستی جدید', 'یک کاربر برای شما درخواست دوستی فرستاده است.', jsonb_build_object('userId', $2::bigint))`,
       [targetId, claims.sub],
     );
+    phase = 'commit';
     await client.query('COMMIT');
     return reply.code(201).send({ status: 'pending', message: 'Friend request sent.' });
   } catch (error: any) {
     await client.query('ROLLBACK').catch(() => undefined);
     if (error?.code === '23505') return reply.code(409).send({ error: 'A friend request already exists.' });
-    request.log.error({ err: error }, 'Could not create friend request');
+    request.log.error({ err: error, phase }, 'Could not create friend request');
     return reply.code(500).send({ error: 'Could not send friend request.' });
   } finally {
     client.release();
@@ -911,7 +944,7 @@ app.post<{ Params: { id: string } }>('/api/v1/friends/:id/accept', { onRequest: 
     await client.query("UPDATE friendships SET status = 'accepted', updated_at = NOW() WHERE id = $1", [result.rows[0].id]);
     await client.query(
       `INSERT INTO notifications (user_id, actor_user_id, type, title, body, data)
-       VALUES ($1, $2, 'friend_accepted', 'درخواست دوستی پذیرفته شد', 'درخواست دوستی شما پذیرفته شد.', jsonb_build_object('userId', $2))`,
+       VALUES ($1, $2, 'friend_accepted', 'درخواست دوستی پذیرفته شد', 'درخواست دوستی شما پذیرفته شد.', jsonb_build_object('userId', $2::bigint))`,
       [requesterId, claims.sub],
     );
     await client.query('COMMIT');

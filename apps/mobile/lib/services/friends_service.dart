@@ -22,19 +22,25 @@ class FriendsService {
     String method,
     String path,
   ) async {
+    AuthService.ensureConfigured();
     final headers = await _headers();
-    final uri = Uri.parse('$_baseUrl$path');
+    final base = _baseUrl.trim().replaceFirst(RegExp(r'/+$'), '');
+    final uri = Uri.parse('$base$path');
     late http.Response response;
     switch (method) {
       case 'POST':
-        response = await http.post(uri, headers: headers);
+        response = await http.post(uri, headers: headers)
+            .timeout(const Duration(seconds: 15));
         break;
       case 'DELETE':
-        response = await http.delete(uri, headers: headers);
+        response = await http.delete(uri, headers: headers)
+            .timeout(const Duration(seconds: 15));
         break;
       default:
-        response = await http.get(uri, headers: headers);
+        response = await http.get(uri, headers: headers)
+            .timeout(const Duration(seconds: 15));
     }
+
     dynamic decoded;
     try {
       decoded = jsonDecode(response.body);
@@ -53,10 +59,13 @@ class FriendsService {
   static Future<Map<String, dynamic>> list() =>
       _request('GET', '/api/v1/friends');
 
-  static Future<List<Map<String, dynamic>>> searchByUsername(String username) async {
+  static Future<List<Map<String, dynamic>>> searchByUsername(
+      String username) async {
+    final cleanUsername =
+        username.trim().replaceFirst(RegExp(r'^@'), '');
     final result = await _request(
       'GET',
-      '/api/v1/users/search?username=${Uri.encodeQueryComponent(username.trim().replaceFirst(RegExp(r'^@'), ''))}',
+      '/api/v1/users/search?username=${Uri.encodeQueryComponent(cleanUsername)}',
     );
     return (result['users'] as List? ?? const [])
         .whereType<Map>()
