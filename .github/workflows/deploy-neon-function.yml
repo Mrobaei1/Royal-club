@@ -368,16 +368,36 @@ jobs:
               throw new Error('Server-generated online dice failed validation. HTTP status: ' + rollResponse.status + '; payload: ' + JSON.stringify(rollPayload));
             }
 
+            const moveDie = Math.max(...rolledState.remainingDice);
+            const fromPoint = moveDie === 6 ? 16 : 18;
+            const toPoint = fromPoint - moveDie;
+            const moveResponse = await fetch(`${base}/api/v1/matches/${matchId}/moves`, {
+              method: 'POST',
+              headers: { authorization: `Bearer ${firstToken}`, 'content-type': 'application/json' },
+              body: JSON.stringify({
+                from: fromPoint,
+                to: toPoint,
+                die: moveDie,
+                expectedVersion: rolledState.version,
+              }),
+            });
+            const movePayload = await moveResponse.json();
+            const movedState = movePayload.state;
+            if (moveResponse.status !== 200 || !Array.isArray(movedState?.board) ||
+                movedState.board.length !== 24 || movedState.version !== rolledState.version + 1) {
+              throw new Error('Legal online move failed: HTTP ' + moveResponse.status + '; payload: ' + JSON.stringify(movePayload));
+            }
+
             const guestRollResponse = await fetch(`${base}/api/v1/matches/${matchId}/roll`, {
               method: 'POST',
               headers: { authorization: `Bearer ${secondToken}`, 'content-type': 'application/json' },
-              body: JSON.stringify({ expectedVersion: rolledState.version }),
+              body: JSON.stringify({ expectedVersion: movedState.version }),
             });
             if (guestRollResponse.status !== 409) {
               throw new Error(`Out-of-turn dice roll should return 409; got ${guestRollResponse.status}`);
             }
 
-            console.log('PASS: auth, profile, friend requests/privacy, online match creation/join, server-owned state/dice, and out-of-turn rejection.');
+            console.log('PASS: auth, profile, friend requests/privacy, online match creation/join, server-owned state/dice, legal move persistence, and out-of-turn rejection.');
           } finally {
             if (matchId) await pool.query('DELETE FROM backgammon_matches WHERE id = $1', [matchId]);
             await pool.query('DELETE FROM users WHERE email = ANY($1::text[])', [[email, shortEmail, friendEmail]]);
