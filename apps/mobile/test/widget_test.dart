@@ -47,6 +47,7 @@ void main() {
 
   testWidgets('home screen keeps all game cards', (tester) async {
     await tester.pumpWidget(_localizedHome());
+    await tester.pumpAndSettle();
 
     expect(find.text('تخته‌نرد'), findsOneWidget);
     await tester.scrollUntilVisible(
