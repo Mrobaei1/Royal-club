@@ -1,6 +1,11 @@
 name: Royal Club Android APK
 
 on:
+  push:
+    branches:
+      - build-apk-1.1.5-fixes
+    paths:
+      - apps/mobile/pubspec.yaml
   workflow_dispatch:
     inputs:
       build_apk:
@@ -67,7 +72,7 @@ jobs:
         run: flutter test
 
       - name: Verify deployed API and database health
-        if: github.event_name == 'workflow_dispatch' && inputs.build_apk == true
+        if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.build_apk == true)
         id: endpoint
         env:
           API_BASE_URL: https://br-misty-flower-bavs47dm-royalclubapi.compute.c-8.eu-central-1.aws.neon.tech
