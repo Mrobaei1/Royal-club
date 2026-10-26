@@ -32,5 +32,12 @@
   "country": "کشور",
   "email": "ایمیل",
   "rememberMe": "مرا به خاطر بسپار",
-  "password": "رمز عبور"
+  "password": "رمز عبور",
+  "countryGermany": "آلمان",
+  "countryIran": "ایران",
+  "countryUnitedStates": "ایالات متحده",
+  "countryUnitedKingdom": "بریتانیا",
+  "countryTurkey": "ترکیه",
+  "countryUnitedArabEmirates": "امارات متحده عربی",
+  "countryOther": "سایر کشورها"
 }
