@@ -130,6 +130,10 @@ export function mustPlayHigherDie(
   const lower = Math.min(...remainingDice);
   if (selectedMove.die !== lower) return false;
   if (!hasLegalMove(state.board, state.bar, [higher], hostTurn)) return false;
+  // If only one die can be played, standard backgammon rules require the higher die.
+  // This is true even when playing the lower die would not literally block the higher
+  // die's destination; the two dice may simply be mutually incompatible.
+  if (maxPlayableDiceCount(state, remainingDice, hostTurn) === 1) return true;
   const afterLower = applyBackgammonMove(state, selectedMove, hostTurn);
   if ('error' in afterLower) return false;
   return !hasLegalMove(afterLower.state.board, afterLower.state.bar, [higher], hostTurn);
