@@ -271,5 +271,10 @@
   "statusActioned": "اقدام‌شده",
   "notificationSentCount": "اعلان برای {count} کاربر ارسال شد.",
   "@notificationSentCount": {"placeholders": {"count": {"type": "int"}}},
-  "registrationDate": "تاریخ ثبت‌نام"
+  "registrationDate": "تاریخ ثبت‌نام",
+  "diceTrayLabel": "تاس‌های بازی",
+  "barLabel": "بار",
+  "bearOffStatus": "{title}
+خارج: {off} · بار: {onBar}",
+  "@bearOffStatus": {"placeholders": {"title": {"type": "String"}, "off": {"type": "int"}, "onBar": {"type": "int"}}}
 }
