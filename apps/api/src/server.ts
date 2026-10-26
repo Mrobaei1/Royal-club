@@ -328,6 +328,22 @@ const requireMatchAuth = async (request: any, reply: any) => {
   }
 };
 
+app.patch<{ Body: { fullName?: string; phone?: string; country?: string } }>('/api/v1/me/profile', { onRequest: [requireMatchAuth], config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request, reply) => {
+  const claims = request.user as { sub: string };
+  const fullName = typeof request.body?.fullName === 'string' ? request.body.fullName.trim() : '';
+  const phone = typeof request.body?.phone === 'string' ? request.body.phone.trim() : '';
+  const country = typeof request.body?.country === 'string' ? request.body.country.trim() : '';
+  if (!fullName || fullName.length > 120 || !phone || !/^[+0-9() .-]{6,32}$/.test(phone) || !country || country.length > 80) {
+    return reply.code(400).send({ error: 'نام، شماره تلفن معتبر و کشور را وارد کنید.' });
+  }
+  const result = await pool.query(
+    'UPDATE users SET full_name = $1, phone = $2, country = $3 WHERE id = $4 RETURNING id, username, email, full_name AS "fullName", phone, country',
+    [fullName, phone, country, claims.sub],
+  );
+  if (!result.rowCount) return reply.code(404).send({ error: 'Account not found.' });
+  return { user: result.rows[0] };
+});
+
 app.patch<{ Body: { username?: string } }>('/api/v1/me/username', { onRequest: [requireMatchAuth], config: { rateLimit: { max: 5, timeWindow: '1 minute' } } }, async (request, reply) => {
   const claims = request.user as { sub: string };
   const username = typeof request.body?.username === 'string' ? request.body.username.trim().replace(/^@/, '') : '';
