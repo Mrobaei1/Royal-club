@@ -341,6 +341,8 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
         if (path.length >= 2 &&
             !path.first.fromBar &&
             path.first.from == _selectedPoint &&
+            path.first.to >= 0 &&
+            !path[1].fromBar &&
             path.first.to == path[1].from) {
           legalTargets.add(path.last.to);
         }
