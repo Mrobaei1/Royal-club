@@ -232,9 +232,56 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
+  void _showLanguageMenu(BuildContext context) {
+    final current = royalLocaleState.locale.languageCode;
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: royalThemeState.current.panel,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Padding(
+              padding: EdgeInsets.fromLTRB(20, 4, 20, 12),
+              child: Text(
+                'زبان برنامه / App language',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+              ),
+            ),
+            for (final language in const [
+              ('fa', 'فارسی'),
+              ('en', 'English'),
+            ])
+              ListTile(
+                leading: Icon(
+                  Icons.language_rounded,
+                  color: royalThemeState.current.accent,
+                ),
+                title: Text(language.$2),
+                trailing: current == language.$1
+                    ? Icon(Icons.check_circle,
+                        color: royalThemeState.current.accent)
+                    : const Icon(Icons.circle_outlined),
+                onTap: () {
+                  royalLocaleState.select(language.$1);
+                  Navigator.of(sheetContext).pop();
+                },
+              ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
   void _openMenu(BuildContext context, String value) {
     if (value == 'themeMenu') {
       _showThemeMenu(context);
+      return;
+    }
+    if (value == 'languageMenu') {
+      _showLanguageMenu(context);
       return;
     }
     if (value.startsWith('language:')) {
@@ -311,9 +358,16 @@ class HomeScreen extends StatelessWidget {
                     PopupMenuItem(value: 'wallet', child: ListTile(dense: true, leading: Icon(Icons.account_balance_wallet_outlined), title: Text(AppLocalizations.of(context).wallet))),
                     const PopupMenuItem(value: 'admin', child: ListTile(dense: true, leading: Icon(Icons.admin_panel_settings_outlined), title: Text('پنل مدیریت'))),
                     const PopupMenuDivider(),
-                    const PopupMenuItem(enabled: false, child: Text('زبان / Language')),
-                    PopupMenuItem(value: 'language:fa', child: Row(children: [Icon(royalLocaleState.locale.languageCode == 'fa' ? Icons.radio_button_checked : Icons.radio_button_off, size: 18), const SizedBox(width: 10), const Text('فارسی')])),
-                    PopupMenuItem(value: 'language:en', child: Row(children: [Icon(royalLocaleState.locale.languageCode == 'en' ? Icons.radio_button_checked : Icons.radio_button_off, size: 18), const SizedBox(width: 10), const Text('English')])),
+                    const PopupMenuItem(
+                      value: 'languageMenu',
+                      child: ListTile(
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        leading: Icon(Icons.language_rounded),
+                        title: Text('زبان برنامه / Language'),
+                        trailing: Icon(Icons.chevron_left_rounded),
+                      ),
+                    ),
                     const PopupMenuDivider(),
                     const PopupMenuItem(
                       value: 'themeMenu',
