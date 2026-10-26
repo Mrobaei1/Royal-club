@@ -200,12 +200,46 @@ class HomeScreen extends StatelessWidget {
   final VoidCallback? onLogout;
   const HomeScreen({super.key, this.onLogout});
 
+  Future<void> _showThemePicker(BuildContext context) async {
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(AppLocalizations.of(context)!.appThemeMenu),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (var i = 0; i < royalThemes.length; i++)
+              RadioListTile<int>(
+                value: i,
+                groupValue: royalThemeState.index,
+                activeColor: royalThemes[i].accent,
+                secondary: Icon(Icons.palette_outlined, color: royalThemes[i].accent),
+                title: Text(switch (i) {
+                  0 => AppLocalizations.of(context)!.themeRoyal,
+                  1 => AppLocalizations.of(context)!.themeEmerald,
+                  2 => AppLocalizations.of(context)!.themeOceanic,
+                  3 => AppLocalizations.of(context)!.themeRuby,
+                  _ => AppLocalizations.of(context)!.themeLight,
+                }),
+                onChanged: (value) {
+                  if (value != null) {
+                    royalThemeState.select(value);
+                    Navigator.of(dialogContext).pop();
+                  }
+                },
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
   void _openMenu(BuildContext context, String value) {
     if (value.startsWith('language:')) {
       royalLocaleState.select(value.substring(9));
       return;
     }
-    if (value.startsWith('theme:')) {
+    if (value == 'theme_picker') {\n      _showThemePicker(context);\n      return;\n    }\n    if (value.startsWith('theme:')) {
       final index = int.tryParse(value.substring(6));
       if (index != null) royalThemeState.select(index);
       return;
@@ -279,13 +313,7 @@ class HomeScreen extends StatelessWidget {
                     PopupMenuItem(value: 'language:fa', child: Row(children: [Icon(royalLocaleState.locale.languageCode == 'fa' ? Icons.radio_button_checked : Icons.radio_button_off, size: 18), const SizedBox(width: 10), const Text('فارسی')])),
                     PopupMenuItem(value: 'language:en', child: Row(children: [Icon(royalLocaleState.locale.languageCode == 'en' ? Icons.radio_button_checked : Icons.radio_button_off, size: 18), const SizedBox(width: 10), const Text('English')])),
                     const PopupMenuDivider(),
-                    PopupMenuItem(enabled: false, child: Text(AppLocalizations.of(context)!.appThemeMenu)),
-                    for (var i = 0; i < royalThemes.length; i++)
-                      PopupMenuItem(value: 'theme:$i', child: Row(children: [
-                        Icon(i == royalThemeState.index ? Icons.radio_button_checked : Icons.radio_button_off, color: royalThemes[i].accent, size: 18),
-                        const SizedBox(width: 10),
-                        Text(switch (i) { 0 => AppLocalizations.of(context)!.themeRoyal, 1 => AppLocalizations.of(context)!.themeEmerald, 2 => AppLocalizations.of(context)!.themeOceanic, 3 => AppLocalizations.of(context)!.themeRuby, _ => AppLocalizations.of(context)!.themeLight }),
-                      ])),
+                    PopupMenuItem(value: 'theme_picker', child: ListTile(dense: true, leading: const Icon(Icons.palette_outlined), title: Text(AppLocalizations.of(context)!.appThemeMenu), trailing: const Icon(Icons.chevron_right))),
                   ],
                 ),
               ]),
