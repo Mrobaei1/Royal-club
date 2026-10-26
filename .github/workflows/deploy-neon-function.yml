@@ -207,7 +207,7 @@ jobs:
           node --input-type=module <<'NODE'
           import { Pool } from 'pg';
           const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-          const base = process.env.FUNCTION_URL.replace(/\\/+$/, '');
+          const base = process.env.FUNCTION_URL.replace(/\/+$/, '');
           const prefix = `royal-club-smoke-${process.env.GITHUB_RUN_ID}-${process.env.GITHUB_RUN_ATTEMPT}`;
           const email = `${prefix}@example.invalid`;
           const shortEmail = `${prefix}-short@example.invalid`;
