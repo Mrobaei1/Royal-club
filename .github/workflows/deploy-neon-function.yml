@@ -291,7 +291,13 @@ jobs:
 
             const requestResponse = await fetch(`${base}/api/v1/friends/${secondUser.id}/request`, {
               method: 'POST',
-              headers: { authorization: `Bearer ${firstToken}` },
+              headers: {
+                authorization: `Bearer ${firstToken}`,
+                'content-type': 'application/json',
+                accept: 'application/json',
+              },
+              // Match the mobile app's action-only POST payload exactly.
+              body: JSON.stringify({}),
             });
             if (requestResponse.status !== 201) {
               throw new Error(`Friend request failed with status ${requestResponse.status}: ${await requestResponse.text()}`);
