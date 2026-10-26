@@ -219,5 +219,6 @@
   "@turnChangedPlayer": {"placeholders": {"player": {"type": "String"}}},
   "@turnRollPrompt": {"placeholders": {"player": {"type": "String"}}},
   "goldenPlayer": "Golden",
-  "lightPlayer": "Light"
+  "lightPlayer": "Light",
+  "gameRestarted": "Game restarted. Roll the dice."
 }
