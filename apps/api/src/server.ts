@@ -1172,7 +1172,7 @@ app.get<{ Params: { id: string } }>('/api/v1/matches/:id', { onRequest: [require
             guest.avatar_data_url AS "guestAvatarDataUrl", m.created_at AS "createdAt", m.updated_at AS "updatedAt",
             m.match_length AS "matchLength", m.host_accepted AS "hostAccepted", m.guest_accepted AS "guestAccepted",
             m.host_ready AS "hostReady", m.guest_ready AS "guestReady",
-            m.cancel_proposed_by AS "cancelProposedBy", (m.host_user_id = $2) AS "isHost"
+            m.cancel_proposed_by AS "cancelProposedBy", (m.host_user_id = $2) AS "isHost", (m.cancel_proposed_by = $2) AS "isCancelProposer"
        FROM backgammon_matches m JOIN users host ON host.id = m.host_user_id
        LEFT JOIN users guest ON guest.id = m.guest_user_id
       WHERE m.id = $1 AND (m.host_user_id = $2 OR m.guest_user_id = $2) AND m.expires_at > NOW()`,
