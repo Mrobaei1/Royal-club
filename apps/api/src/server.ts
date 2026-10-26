@@ -48,6 +48,9 @@ await pool.query(`
   ALTER TABLE users ADD COLUMN IF NOT EXISTS full_name TEXT NOT NULL DEFAULT '';
   ALTER TABLE users ADD COLUMN IF NOT EXISTS phone TEXT NOT NULL DEFAULT '';
   ALTER TABLE users ADD COLUMN IF NOT EXISTS country TEXT NOT NULL DEFAULT '';
+  ALTER TABLE users ADD COLUMN IF NOT EXISTS username TEXT;
+  CREATE UNIQUE INDEX IF NOT EXISTS users_username_unique_idx
+    ON users (LOWER(username)) WHERE username IS NOT NULL;
 
   CREATE TABLE IF NOT EXISTS friendships (
     id BIGSERIAL PRIMARY KEY,
@@ -735,13 +738,15 @@ app.post('/api/v1/notifications/read-all', { onRequest: [requireMatchAuth] }, as
 });
 
 // Friend requests are server-owned and capped at 100 accepted friends per account.
-app.get<{ Querystring: { email?: string } }>('/api/v1/users/search', { onRequest: [requireMatchAuth], config: { rateLimit: { max: 20, timeWindow: '1 minute' } } }, async (request) => {
+app.get<{ Querystring: { username?: string } }>('/api/v1/users/search', { onRequest: [requireMatchAuth], config: { rateLimit: { max: 20, timeWindow: '1 minute' } } }, async (request) => {
   const claims = request.user as { sub: string };
-  const email = request.query.email?.trim().toLowerCase();
-  if (!email || email.length > 254 || !email.includes('@')) return { users: [] };
+  const username = typeof request.query.username === 'string'
+    ? request.query.username.trim().replace(/^@/, '')
+    : '';
+  if (!/^[a-zA-Z0-9_.]{3,24}$/.test(username)) return { users: [] };
   const result = await pool.query(
-    'SELECT id, email, full_name AS "fullName" FROM users WHERE email = $1 AND id <> $2 LIMIT 1',
-    [email, claims.sub],
+    'SELECT id, username, email, full_name AS "fullName" FROM users WHERE LOWER(username) = LOWER($1) AND id <> $2 LIMIT 1',
+    [username, claims.sub],
   );
   return { users: result.rows };
 });
