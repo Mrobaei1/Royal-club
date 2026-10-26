@@ -264,6 +264,5 @@
   "notificationValidation": "عنوان الزامی است؛ عنوان حداکثر ۱۲۰ و متن حداکثر ۱۰۰۰ نویسه.",
   "reportUpdated": "وضعیت گزارش به‌روزرسانی شد.",
   "subscriptionUpdated": "اشتراک به‌روزرسانی شد.",
-  "subscriptionActivated": "اشتراک فعال شد.",
   "subscriptionDeactivated": "اشتراک غیرفعال شد."
 }
