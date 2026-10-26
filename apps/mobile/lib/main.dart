@@ -183,7 +183,7 @@ class _AuthGateState extends State<AuthGate> {
               SizedBox(height: 20),
               CircularProgressIndicator(color: gold),
               SizedBox(height: 12),
-              Text('در حال بررسی نشست قبلی...',
+              Text(AppLocalizations.of(context)!.sessionChecking,
                   style: TextStyle(color: Colors.white70)),
             ],
           ),
@@ -453,23 +453,23 @@ class _AuthScreenState extends State<AuthScreen> {
 
   Future<void> _submit() async {
     if (_email.text.trim().isEmpty || _password.text.isEmpty) {
-      setState(() => _message = 'ایمیل و رمز عبور را وارد کن.');
+      setState(() => _message = AppLocalizations.of(context)!.enterEmailPassword);
       return;
     }
     if (_register && _fullName.text.trim().isEmpty) {
-      setState(() => _message = 'نام کاربر را وارد کن.');
+      setState(() => _message = AppLocalizations.of(context)!.enterName);
       return;
     }
     if (_register && _phone.text.trim().isEmpty) {
-      setState(() => _message = 'شماره تلفن را وارد کن.');
+      setState(() => _message = AppLocalizations.of(context)!.enterPhone);
       return;
     }
     if (_register && _password.text.runes.length < 6) {
-      setState(() => _message = 'رمز عبور باید حداقل ۶ کاراکتر باشد.');
+      setState(() => _message = AppLocalizations.of(context)!.passwordMinLength);
       return;
     }
     if (_register && utf8.encode(_password.text).length > 128) {
-      setState(() => _message = 'رمز عبور نباید بیشتر از ۱۲۸ بایت باشد.');
+      setState(() => _message = AppLocalizations.of(context)!.passwordMaxBytes);
       return;
     }
 
@@ -495,10 +495,10 @@ class _AuthScreenState extends State<AuthScreen> {
       } else if (wasRegister) {
         setState(() {
           _register = false;
-          _message = 'ثبت‌نام انجام شد. برای ورود، رمز عبور را دوباره وارد کنید.';
+          _message = AppLocalizations.of(context)!.registrationSuccessLogin;
         });
       } else {
-        setState(() => _message = 'ورود انجام شد، اما توکن دریافت نشد.');
+        setState(() => _message = AppLocalizations.of(context)!.loginNoToken);
       }
     } catch (e) {
       if (!mounted) return;
@@ -591,7 +591,7 @@ class _AuthScreenState extends State<AuthScreen> {
                       controlAffinity: ListTileControlAffinity.leading,
                       title: Text(AppLocalizations.of(context)!.rememberMe),
                       subtitle: const Text(
-                          'ایمیل ذخیره می‌شود و نشست معتبر حفظ خواهد شد.'),
+                          AppLocalizations.of(context)!.rememberedEmailSubtitle),
                       onChanged: _busy
                           ? null
                           : (value) =>
@@ -614,7 +614,7 @@ class _AuthScreenState extends State<AuthScreen> {
                               height: 22,
                               width: 22,
                               child: CircularProgressIndicator(strokeWidth: 2))
-                          : Text(_register ? 'ایجاد حساب' : 'ورود به حساب'),
+                          : Text(_register ? AppLocalizations.of(context)!.createAccount : AppLocalizations.of(context)!.signInAccount),
                     ),
                   ),
                   if (_message != null) ...[
