@@ -998,7 +998,7 @@ app.get('/api/v1/matches/history', { onRequest: [requireMatchAuth] }, async (req
     `SELECT m.id, m.room_code AS "roomCode", m.host_user_id AS "hostUserId",
             m.guest_user_id AS "guestUserId", m.status,
             m.off_state AS "offState", m.created_at AS "createdAt", m.updated_at AS "finishedAt",
-            CASE WHEN m.host_user_id = $1 THEN guest.email ELSE host.email END AS "opponentEmail",
+            CASE WHEN m.host_user_id = $1 THEN guest.full_name ELSE host.full_name END AS "opponentName",
             CASE WHEN COALESCE((m.off_state->>'host')::int, 0) >= 15 THEN m.host_user_id
                  WHEN COALESCE((m.off_state->>'guest')::int, 0) >= 15 THEN m.guest_user_id
                  ELSE NULL END AS "winnerUserId",
