@@ -456,18 +456,28 @@ class _HomeScreenState extends State<HomeScreen> {
                       child: AlertDialog(
                         backgroundColor: const Color(0xFF17243A),
                         title: const Text('انتخاب حالت تخته‌نرد', style: TextStyle(color: Color(0xFFD8B45A), fontWeight: FontWeight.bold)),
-                        content: const Text('روش بازی را انتخاب کنید.', style: TextStyle(color: Colors.white70)),
+                        content: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            const Text('روش بازی را انتخاب کنید.', style: TextStyle(color: Colors.white70)),
+                            const SizedBox(height: 14),
+                            FilledButton.icon(
+                              onPressed: () => Navigator.pop(dialogContext, 'offline'),
+                              icon: const Icon(Icons.smart_toy_outlined),
+                              label: const Text('بازی آفلاین با هوش مصنوعی'),
+                            ),
+                            const SizedBox(height: 8),
+                            OutlinedButton.icon(
+                              onPressed: () => Navigator.pop(dialogContext, 'online'),
+                              icon: const Icon(Icons.public_rounded),
+                              label: const Text('بازی آنلاین'),
+                              style: OutlinedButton.styleFrom(foregroundColor: const Color(0xFFD8B45A)),
+                            ),
+                          ],
+                        ),
                         actions: [
-                          TextButton.icon(
-                            onPressed: () => Navigator.pop(dialogContext, 'offline'),
-                            icon: const Icon(Icons.smart_toy_outlined),
-                            label: const Text('بازی آفلاین با هوش مصنوعی'),
-                          ),
-                          FilledButton.icon(
-                            onPressed: () => Navigator.pop(dialogContext, 'online'),
-                            icon: const Icon(Icons.public_rounded),
-                            label: const Text('بازی آنلاین'),
-                          ),
+                          TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('انصراف')),
                         ],
                       ),
                     ),
