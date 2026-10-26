@@ -350,6 +350,8 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
                   _modeControls(),
                   const SizedBox(height: 10),
                   _statusPanel(),
+                  const SizedBox(height: 10),
+                  _rollControl(),
                   const SizedBox(height: 12),
                   LayoutBuilder(
                     builder: (context, boardConstraints) {
@@ -499,6 +501,8 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
                 _modeControls(compact: true),
                 const SizedBox(height: 6),
                 Expanded(flex: 3, child: _statusPanel(compact: true)),
+                const SizedBox(height: 6),
+                _rollControl(compact: true),
                 const SizedBox(height: 8),
                 Expanded(flex: 2, child: _scoreRow(compact: true)),
                 const SizedBox(height: 8),
@@ -558,7 +562,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
             ])),
             Container(
               margin: const EdgeInsets.symmetric(vertical: 4),
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
                     colors: [_boardNavy, Color(0xFF202D46), _boardNavy]),
@@ -571,106 +575,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
                       offset: Offset(0, 2))
                 ],
               ),
-              child: LayoutBuilder(
-                builder: (context, stripConstraints) => Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    Row(
-                children: [
-                  Expanded(
-                    child: FilledButton.icon(
-                      onPressed: _engine.dice.isEmpty &&
-                              !_engine.finished &&
-                              !_computerThinking &&
-                              !(_vsComputer && _engine.currentPlayer == -1)
-                          ? _roll
-                          : null,
-                      icon: const Icon(Icons.casino, size: 18),
-                      label: const Text('ریختن تاس'),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: _boardGold,
-                        foregroundColor: _boardNavy,
-                        padding: const EdgeInsets.symmetric(
-                            vertical: 6, horizontal: 4),
-                        textStyle: const TextStyle(
-                            fontWeight: FontWeight.bold, fontSize: 12),
-                        visualDensity: VisualDensity.compact,
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8)),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                      child: Align(
-                          alignment: Alignment.centerLeft,
-                          child: _diceTray(compact: true))),
-                  const SizedBox(width: 6),
-                  InkWell(
-                    onTap: _tapBearOff,
-                    borderRadius: BorderRadius.circular(8),
-                    child: Container(
-                      width: 54,
-                      padding: const EdgeInsets.symmetric(
-                          vertical: 3, horizontal: 2),
-                      decoration: BoxDecoration(
-                        color: _selectedPoint != null
-                            ? _boardGold.withValues(alpha: .22)
-                            : Colors.white.withValues(alpha: .06),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: _selectedPoint != null
-                              ? _boardGold
-                              : Colors.white24,
-                        ),
-                      ),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.exit_to_app, color: _boardGold, size: 17),
-                          const Text('خارج',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                              )),
-                          Text(
-                              '${_engine.borneOff[_engine.currentPlayer == 1 ? 1 : 0]}/15',
-                              style: const TextStyle(
-                                  color: Colors.white70, fontSize: 9)),
-                        ],
-                      ),
-                    ),
-                  ),
-                    ],
-                    ),
-                    Positioned(
-                      left: (stripConstraints.maxWidth +
-                              (compact || rowHeight < 120 ? 28.0 : 42.0) +
-                              5.0) /
-                          2 -
-                          1.5,
-                      top: 0,
-                      bottom: 0,
-                      width: 3,
-                      child: IgnorePointer(
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            color: _boardGold,
-                            boxShadow: [
-                              BoxShadow(
-                                color: _boardGold.withValues(alpha: .65),
-                                blurRadius: 5,
-                                spreadRadius: .5,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+              child: Center(child: _diceTray(compact: true)),
             ),
             Expanded(
                 child: Row(children: [
@@ -782,8 +687,69 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
     );
   }
 
+  Widget _rollControl({bool compact = false}) => SizedBox(
+        width: double.infinity,
+        child: FilledButton.icon(
+          onPressed: _engine.dice.isEmpty &&
+                  !_engine.finished &&
+                  !_computerThinking &&
+                  !(_vsComputer && _engine.currentPlayer == -1)
+              ? _roll
+              : null,
+          icon: Icon(Icons.casino, size: compact ? 17 : 21),
+          label: Text('ریختن تاس', style: TextStyle(fontSize: compact ? 12 : 15)),
+          style: FilledButton.styleFrom(
+            backgroundColor: _boardGold,
+            foregroundColor: _boardNavy,
+            padding: EdgeInsets.symmetric(vertical: compact ? 7 : 12, horizontal: 14),
+            textStyle: const TextStyle(fontWeight: FontWeight.bold),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            elevation: 4,
+          ),
+        ),
+      );
+
+  Widget _bearOffTray({bool compact = false}) {
+    final currentIndex = _engine.currentPlayer == 1 ? 1 : 0;
+    final selected = _selectedPoint != null && !_selectedBar;
+    return Tooltip(
+      message: 'مخزن مهره‌های خارج‌شده؛ ابتدا مهره را انتخاب کنید',
+      child: InkWell(
+        onTap: _tapBearOff,
+        borderRadius: BorderRadius.circular(6),
+        child: Container(
+          width: double.infinity,
+          padding: EdgeInsets.symmetric(vertical: compact ? 3 : 5, horizontal: 1),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: selected
+                  ? [_boardGold.withValues(alpha: .55), const Color(0xFF5A431D)]
+                  : [const Color(0xFF241B17), const Color(0xFF100E0D)],
+            ),
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(color: selected ? _boardGold : _boardGold.withValues(alpha: .65)),
+            boxShadow: const [
+              BoxShadow(color: Colors.black38, blurRadius: 3, offset: Offset(0, 2)),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.inventory_2_outlined, color: _boardGold, size: compact ? 13 : 16),
+              Text('خارج', style: TextStyle(color: Colors.white, fontSize: compact ? 7 : 9, fontWeight: FontWeight.bold)),
+              Text('${_engine.borneOff[currentIndex]}/15',
+                  style: TextStyle(color: _boardGold, fontSize: compact ? 7 : 9, fontWeight: FontWeight.w800)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _barPanel({bool compact = false}) => SizedBox(
-        width: compact ? 28 : 42,
+        width: compact ? 36 : 48,
         child: InkWell(
           onTap: _tapBar,
           borderRadius: BorderRadius.circular(8),
@@ -806,6 +772,8 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
                 _barCount(-1, compact: compact),
                 Divider(color: Colors.white24, height: compact ? 3 : 6),
                 _barCount(1, compact: compact),
+                const Spacer(),
+                _bearOffTray(compact: compact),
               ],
             ),
           ),
