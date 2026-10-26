@@ -356,7 +356,7 @@ jobs:
 
             const rollResponse = await fetch(`${base}/api/v1/matches/${matchId}/roll`, {
               method: 'POST',
-              headers: { authorization: `${firstToken}`, 'content-type': 'application/json' },
+              headers: { authorization: `Bearer ${firstToken}`, 'content-type': 'application/json' },
               body: JSON.stringify({ expectedVersion: initialState.version }),
             });
             const rollPayload = await rollResponse.json();
@@ -370,7 +370,7 @@ jobs:
 
             const guestRollResponse = await fetch(`${base}/api/v1/matches/${matchId}/roll`, {
               method: 'POST',
-              headers: { authorization: `${secondToken}`, 'content-type': 'application/json' },
+              headers: { authorization: `Bearer ${secondToken}`, 'content-type': 'application/json' },
               body: JSON.stringify({ expectedVersion: rolledState.version }),
             });
             if (guestRollResponse.status !== 409) {
