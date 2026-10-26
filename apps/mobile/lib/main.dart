@@ -242,7 +242,8 @@ class HomeScreen extends StatelessWidget {
     if (value == 'theme_picker') {
       _showThemePicker(context);
       return;
-    }\n    if (value.startsWith('theme:')) {
+    }
+    if (value.startsWith('theme:')) {
       final index = int.tryParse(value.substring(6));
       if (index != null) royalThemeState.select(index);
       return;
