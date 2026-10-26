@@ -794,7 +794,11 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
 
   Widget _pointRow(List<int> indexes, Set<int> legalTargets,
       {required bool top, bool compact = false}) {
-    return Row(
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        CustomPaint(painter: _RoyalEmblemPainter(top: top)),
+        Row(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         for (var position = 0; position < indexes.length; position++) ...[
@@ -863,6 +867,8 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
             }),
           ),
         ],
+      ],
+        ),
       ],
     );
   }
@@ -985,4 +991,83 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
           ],
         ),
       );
+}
+
+
+/// Subtle eight-point royal seal, drawn behind the checkers so the board stays playable.
+class _RoyalEmblemPainter extends CustomPainter {
+  const _RoyalEmblemPainter({required this.top});
+
+  final bool top;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = (size.width * 0.105).clamp(18.0, 42.0);
+    final gold = const Color(0xFFD8B45A).withValues(alpha: 0.16);
+    final line = Paint()
+      ..color = gold
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5;
+    final fill = Paint()
+      ..color = const Color(0xFF10182B).withValues(alpha: 0.12)
+      ..style = PaintingStyle.fill;
+
+    final octagon = Path();
+    for (var i = 0; i < 8; i++) {
+      final angle = -pi / 8 + i * pi / 4;
+      final point = Offset(
+        center.dx + radius * cos(angle),
+        center.dy + radius * sin(angle),
+      );
+      if (i == 0) {
+        octagon.moveTo(point.dx, point.dy);
+      } else {
+        octagon.lineTo(point.dx, point.dy);
+      }
+    }
+    octagon.close();
+    canvas.drawPath(octagon, fill);
+    canvas.drawPath(octagon, line);
+
+    final inner = Path();
+    for (var i = 0; i < 8; i++) {
+      final angle = -pi / 8 + i * pi / 4;
+      final point = Offset(
+        center.dx + radius * 0.78 * cos(angle),
+        center.dy + radius * 0.78 * sin(angle),
+      );
+      if (i == 0) {
+        inner.moveTo(point.dx, point.dy);
+      } else {
+        inner.lineTo(point.dx, point.dy);
+      }
+    }
+    inner.close();
+    canvas.drawPath(inner, line);
+
+    final crown = Path()
+      ..moveTo(center.dx - radius * .42, center.dy + radius * .18)
+      ..lineTo(center.dx - radius * .48, center.dy - radius * .22)
+      ..lineTo(center.dx - radius * .19, center.dy - radius * .02)
+      ..lineTo(center.dx, center.dy - radius * .48)
+      ..lineTo(center.dx + radius * .19, center.dy - radius * .02)
+      ..lineTo(center.dx + radius * .48, center.dy - radius * .22)
+      ..lineTo(center.dx + radius * .42, center.dy + radius * .18)
+      ..close();
+    final crownFill = Paint()
+      ..color = const Color(0xFFD8B45A).withValues(alpha: 0.12)
+      ..style = PaintingStyle.fill;
+    canvas.drawPath(crown, crownFill);
+    canvas.drawPath(crown, line);
+    canvas.drawLine(
+      Offset(center.dx - radius * .42, center.dy + radius * .28),
+      Offset(center.dx + radius * .42, center.dy + radius * .28),
+      line,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _RoyalEmblemPainter oldDelegate) =>
+      oldDelegate.top != top;
 }
