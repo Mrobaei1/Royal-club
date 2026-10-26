@@ -163,7 +163,7 @@ class _ChatThreadScreenState extends State<ChatThreadScreen> {
       body: Column(children: [
         Expanded(child: _loading ? const Center(child: CircularProgressIndicator())
           : _error != null ? Center(child: Padding(padding: const EdgeInsets.all(20), child: Text(_error!, textAlign: TextAlign.center)))
-          : _messages.isEmpty ? const Center(child: Text(AppLocalizations.of(context)!.noMessages))
+          : _messages.isEmpty ? Center(child: Text(AppLocalizations.of(context)!.noMessages))
           : ListView.builder(
             reverse: false,
             padding: const EdgeInsets.all(12),
