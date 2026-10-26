@@ -215,25 +215,37 @@ jobs:
           const shortEmail = `${prefix}-short@example.invalid`;
           const friendEmail = `${prefix}-friend@example.invalid`;
           const payload = { fullName: 'Royal Club automated test', phone: '+49123456789', country: 'Germany' };
+          // Neon can briefly rate-limit back-to-back smoke-test registrations when
+          // several CI runs share the same outbound address. Retry only HTTP 429;
+          // keep all other responses untouched so real failures stay visible.
+          async function registerWithRateLimitRetry(body) {
+            for (let attempt = 0; attempt < 3; attempt += 1) {
+              const response = await fetch(`${base}/api/v1/auth/register`, {
+                method: 'POST',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify(body),
+              });
+              if (response.status !== 429 || attempt === 2) return response;
+              const retryAfter = Number(response.headers.get('retry-after'));
+              const delayMs = Number.isFinite(retryAfter) && retryAfter > 0
+                ? Math.min(retryAfter, 60) * 1000
+                : 60_000;
+              console.log(`Registration rate-limited; retrying after ${delayMs / 1000}s (attempt ${attempt + 1}/2).`);
+              await new Promise((resolve) => setTimeout(resolve, delayMs));
+            }
+            throw new Error('Unreachable registration retry state.');
+          }
           let firstUser;
           let secondUser;
           let firstToken;
           let secondToken;
           try {
-            const shortResponse = await fetch(`${base}/api/v1/auth/register`, {
-              method: 'POST',
-              headers: { 'content-type': 'application/json' },
-              body: JSON.stringify({ ...payload, email: shortEmail, password: 'Ab3!x' }),
-            });
+            const shortResponse = await registerWithRateLimitRetry({ ...payload, email: shortEmail, password: 'Ab3!x' });
             if (shortResponse.status !== 400) {
               throw new Error(`Expected five-character password to be rejected with 400; got ${shortResponse.status}`);
             }
 
-            const registerResponse = await fetch(`${base}/api/v1/auth/register`, {
-              method: 'POST',
-              headers: { 'content-type': 'application/json' },
-              body: JSON.stringify({ ...payload, email, password: 'Ab3!xY' }),
-            });
+            const registerResponse = await registerWithRateLimitRetry({ ...payload, email, password: 'Ab3!xY' });
             if (registerResponse.status !== 201) {
               throw new Error(`Expected six-character registration to return 201; got ${registerResponse.status}`);
             }
@@ -269,11 +281,7 @@ jobs:
               throw new Error(`Username update failed with status ${usernameResponse.status}: ${await usernameResponse.text()}`);
             }
 
-            const friendRegisterResponse = await fetch(`${base}/api/v1/auth/register`, {
-              method: 'POST',
-              headers: { 'content-type': 'application/json' },
-              body: JSON.stringify({ ...payload, email: friendEmail, password: 'Ab3!xY' }),
-            });
+            const friendRegisterResponse = await registerWithRateLimitRetry({ ...payload, email: friendEmail, password: 'Ab3!xY' });
             if (friendRegisterResponse.status !== 201) {
               throw new Error(`Friend account registration failed with status ${friendRegisterResponse.status}`);
             }
