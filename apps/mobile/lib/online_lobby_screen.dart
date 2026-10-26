@@ -89,7 +89,7 @@ class _OnlineLobbyScreenState extends State<OnlineLobbyScreen> {
         const SizedBox(height: 20),
         Text(AppLocalizations.of(context)!.joinableRooms, style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
-        if (!_loading && _matches.isEmpty) const Padding(padding: EdgeInsets.all(18), child: Text(AppLocalizations.of(context)!.noOpenRooms, textAlign: TextAlign.center, style: TextStyle(color: Colors.white60))),
+        if (!_loading && _matches.isEmpty) Padding(padding: const EdgeInsets.all(18), child: Text(AppLocalizations.of(context)!.noOpenRooms, textAlign: TextAlign.center, style: TextStyle(color: Colors.white60))),
         ..._matches.map((room) => Card(color: const Color(0xFF17243A), child: ListTile(
           leading: const Icon(Icons.casino, color: _gold),
           title: Text('${AppLocalizations.of(context)!.roomLabel} ${room['roomCode'] ?? room['id']}', style: const TextStyle(color: Colors.white)),
@@ -100,7 +100,7 @@ class _OnlineLobbyScreenState extends State<OnlineLobbyScreen> {
         Text(AppLocalizations.of(context)!.recentGameResults, style: TextStyle(color: _gold, fontSize: 18, fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
         if (!_loading && _history.isEmpty)
-          const Padding(padding: EdgeInsets.all(12), child: Text(AppLocalizations.of(context)!.noCompletedGames, style: TextStyle(color: Colors.white60))),
+          Padding(padding: const EdgeInsets.all(12), child: Text(AppLocalizations.of(context)!.noCompletedGames, style: TextStyle(color: Colors.white60))),
         ..._history.map((game) {
           final result = game['result']?.toString() ?? 'unknown';
           final won = result == 'win';
