@@ -254,28 +254,6 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  Widget _menuBadge(int count) {
-    if (count <= 0) return const SizedBox.shrink();
-    final label = count > 99 ? '99+' : '$count';
-    return Container(
-      constraints: const BoxConstraints(minWidth: 19, minHeight: 19),
-      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-      decoration: BoxDecoration(
-        color: const Color(0xFFE53935),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      alignment: Alignment.center,
-      child: Text(
-        label,
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 10,
-          fontWeight: FontWeight.w800,
-        ),
-      ),
-    );
-  }
-
   void _showThemeMenu(BuildContext context) {
     showModalBottomSheet<void>(
       context: context,
@@ -430,8 +408,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   onSelected: (value) => _openMenu(context, value),
                   itemBuilder: (context) => [
                     PopupMenuItem(value: 'account', child: ListTile(dense: true, leading: Icon(Icons.account_circle_outlined), title: Text(AppLocalizations.of(context).account))),
-                    PopupMenuItem(value: 'friends', child: ListTile(dense: true, leading: Icon(Icons.people_outline), title: Text(AppLocalizations.of(context).friends), trailing: _menuBadge(_pendingRequests))),
-                    PopupMenuItem(value: 'chat', child: ListTile(dense: true, leading: Icon(Icons.chat_bubble_outline), title: Text(AppLocalizations.of(context).privateChat), trailing: _menuBadge(_unreadMessages))),
+                    PopupMenuItem(value: 'friends', child: ListTile(dense: true, leading: Icon(Icons.people_outline), title: Text(AppLocalizations.of(context).friends, style: TextStyle(color: _pendingRequests > 0 ? Colors.redAccent : null)))),
+                    PopupMenuItem(value: 'chat', child: ListTile(dense: true, leading: Icon(Icons.chat_bubble_outline), title: Text(AppLocalizations.of(context).privateChat, style: TextStyle(color: _unreadMessages > 0 ? Colors.redAccent : null)))),
                     PopupMenuItem(value: 'notifications', child: ListTile(dense: true, leading: Icon(Icons.notifications_outlined), title: Text(AppLocalizations.of(context).notifications))),
                     PopupMenuItem(value: 'wallet', child: ListTile(dense: true, leading: Icon(Icons.account_balance_wallet_outlined), title: Text(AppLocalizations.of(context).wallet))),
                     const PopupMenuItem(value: 'admin', child: ListTile(dense: true, leading: Icon(Icons.admin_panel_settings_outlined), title: Text('پنل مدیریت'))),
@@ -460,7 +438,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   ],
                 ),
               ]),
-              const SizedBox(height: 28),
+              const SizedBox(height: 20),
+              Divider(color: theme.accent.withValues(alpha: .65), thickness: 1, height: 1),
+              const SizedBox(height: 20),
               Text(AppLocalizations.of(context).games, textDirection: royalLocaleState.locale.languageCode == 'fa' ? TextDirection.rtl : TextDirection.ltr,
                 style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 21, fontWeight: FontWeight.w800)),
               const SizedBox(height: 14),
