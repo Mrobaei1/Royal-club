@@ -69,14 +69,53 @@ jobs:
         working-directory: apps/mobile
         run: flutter test
 
+      - name: Resolve and verify deployed Neon API endpoint
+        if: github.event_name == 'workflow_dispatch' && inputs.build_apk == true
+        id: endpoint
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}
+          NEON_BRANCH_ID: ${{ vars.NEON_BRANCH_ID }}
+          NEON_FUNCTION_SLUG: royalclubapi
+        run: |
+          if [ -z "$NEON_API_KEY" ]; then
+            echo "::error::NEON_API_KEY repository secret is missing; refusing to build an APK with an unverified API URL."
+            exit 1
+          fi
+          PROJECT_ID="${NEON_PROJECT_ID:-crimson-moon-58282245}"
+          BRANCH_ID="${NEON_BRANCH_ID:-br-misty-flower-bavs47dm}"
+          curl --fail-with-body --silent --show-error --connect-timeout 5 --max-time 15 \
+            "https://console.neon.tech/api/v2/projects/$PROJECT_ID/branches/$BRANCH_ID/functions/$NEON_FUNCTION_SLUG" \
+            --header "Authorization: Bearer $NEON_API_KEY" \
+            --header "Accept: application/json" \
+            --output function-details.json
+          FUNCTION_URL="$(node -e 'const fs=require("node:fs"); const x=JSON.parse(fs.readFileSync("function-details.json","utf8")); const found=[]; function walk(v){if(!v||typeof v!=="object")return;for(const [k,val] of Object.entries(v)){if(typeof val==="string"&&/^https:\/\//.test(val)&&/neon\.tech\//.test(val))found.push([k,val]);else if(val&&typeof val==="object")walk(val);}} walk(x); const hit=found.find(([k])=>/url|endpoint/i.test(k))||found[0]; if(!hit)process.exit(2); const u=new URL(hit[1]); if(u.protocol!=="https:"||!u.hostname.endsWith("neon.tech"))process.exit(3); process.stdout.write(u.toString().replace(/\/+$/,""));')"
+          if [ -z "$FUNCTION_URL" ]; then
+            echo "::error::Neon did not return a valid public function URL."
+            exit 1
+          fi
+          echo "Checking the deployed API health endpoint."
+          if ! curl --fail --silent --show-error --connect-timeout 5 --max-time 12 \
+            "$FUNCTION_URL/api/v1/health" --output health.json; then
+            echo "::error::The deployed Royal Club API is not reachable; no APK will be built."
+            exit 1
+          fi
+          if ! node -e 'const x=JSON.parse(require("node:fs").readFileSync("health.json","utf8")); if(x.status!=="ok")process.exit(1)'; then
+            echo "::error::The deployed Royal Club API health check did not return status=ok."
+            head -c 2000 health.json || true
+            exit 1
+          fi
+          echo "url=$FUNCTION_URL" >> "$GITHUB_OUTPUT"
+          echo "The deployed Royal Club API endpoint passed its health check."
+
       - name: Build release APK
         if: github.event_name == 'workflow_dispatch' && inputs.build_apk == true
         working-directory: apps/mobile
         env:
-          API_BASE_URL: https://br-misty-flower-bavs47dm-royalclubapi.compute.c-8.eu-central-1.aws.neon.tech
+          API_BASE_URL: ${{ steps.endpoint.outputs.url }}
         run: |
           if [ -n "$API_BASE_URL" ]; then
-            echo "Building APK with the Royal Club API endpoint."
+            echo "Building APK with the verified Royal Club API endpoint."
             flutter build apk --release --dart-define="API_BASE_URL=$API_BASE_URL"
           else
             echo "::error::API_BASE_URL is not configured; refusing to build a release APK without an API endpoint."
