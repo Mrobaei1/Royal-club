@@ -94,7 +94,7 @@ class _AdminScreenState extends State<AdminScreen> {
               onPressed: () async {
                 await Clipboard.setData(ClipboardData(text: lines.join('\\n')));
                 if (dialogContext.mounted) Navigator.pop(dialogContext);
-                if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text(AppLocalizations.of(context)!.copiedClipboard)));
+                if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context)!.copiedClipboard)));
               },
               icon: const Icon(Icons.copy),
               label: Text(AppLocalizations.of(context)!.copyForExport),
@@ -112,14 +112,14 @@ class _AdminScreenState extends State<AdminScreen> {
   Future<void> _credit(dynamic user) async {
     final amount = int.tryParse(_amount.text.trim());
     if (amount == null || amount <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text(AppLocalizations.of(context)!.creditPositive)));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context)!.creditPositive)));
       return;
     }
     setState(() => _busy = true);
     try {
       await AdminService.credit(user['id'].toString(), amount, _description.text.trim());
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text(AppLocalizations.of(context)!.creditSaved)));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context)!.creditSaved)));
         await _search();
       }
     } catch (e) {
@@ -133,7 +133,7 @@ class _AdminScreenState extends State<AdminScreen> {
     final title = _notificationTitle.text.trim();
     final body = _notificationBody.text.trim();
     if (title.isEmpty || title.length > 120 || body.length > 1000) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text(AppLocalizations.of(context)!.notificationValidation)));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context)!.notificationValidation)));
       return;
     }
     setState(() => _busy = true);
@@ -156,7 +156,7 @@ class _AdminScreenState extends State<AdminScreen> {
     try {
       await AdminService.updateReport(report['id'].toString(), status);
       await _load();
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text(AppLocalizations.of(context)!.reportUpdated)));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context)!.reportUpdated)));
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))));
     } finally {
@@ -193,9 +193,9 @@ class _AdminScreenState extends State<AdminScreen> {
     final accepted = await showDialog<bool>(context: context, builder: (context) => AlertDialog(
       title: Text(AppLocalizations.of(context)!.editSubscription),
       content: Form(key: formKey, child: Column(mainAxisSize: MainAxisSize.min, children: [
-        TextFormField(controller: name, decoration: const InputDecoration(labelText: AppLocalizations.of(context)!.subscriptionName), validator: (v) => v == null || v.trim().isEmpty ? AppLocalizations.of(context)!.requiredName : null),
-        TextFormField(controller: days, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: AppLocalizations.of(context)!.durationDays), validator: (v) => int.tryParse(v ?? '') == null || int.parse(v!) < 1 ? AppLocalizations.of(context)!.invalidDuration : null),
-        TextFormField(controller: price, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: AppLocalizations.of(context)!.priceCredits), validator: (v) => int.tryParse(v ?? '') == null || int.parse(v!) < 0 ? AppLocalizations.of(context)!.invalidPrice : null),
+        TextFormField(controller: name, decoration: InputDecoration(labelText: AppLocalizations.of(context)!.subscriptionName), validator: (v) => v == null || v.trim().isEmpty ? AppLocalizations.of(context)!.requiredName : null),
+        TextFormField(controller: days, keyboardType: TextInputType.number, decoration: InputDecoration(labelText: AppLocalizations.of(context)!.durationDays), validator: (v) => int.tryParse(v ?? '') == null || int.parse(v!) < 1 ? AppLocalizations.of(context)!.invalidDuration : null),
+        TextFormField(controller: price, keyboardType: TextInputType.number, decoration: InputDecoration(labelText: AppLocalizations.of(context)!.priceCredits), validator: (v) => int.tryParse(v ?? '') == null || int.parse(v!) < 0 ? AppLocalizations.of(context)!.invalidPrice : null),
       ])),
       actions: [
         TextButton(onPressed: () => Navigator.pop(context, false), child: Text(AppLocalizations.of(context)!.cancel)),
@@ -206,7 +206,7 @@ class _AdminScreenState extends State<AdminScreen> {
     try {
       await AdminService.updatePlan(plan['code'].toString(), name: name.text.trim(), durationDays: int.parse(days.text), priceCredits: int.parse(price.text));
       await _load();
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text(AppLocalizations.of(context)!.subscriptionUpdated)));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context)!.subscriptionUpdated)));
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))));
     } finally {
@@ -230,14 +230,14 @@ class _AdminScreenState extends State<AdminScreen> {
           : ListView(padding: const EdgeInsets.all(16), children: [
               Text(AppLocalizations.of(context)!.creditUser, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
               const SizedBox(height: 10),
-              TextField(controller: _email, keyboardType: TextInputType.emailAddress, decoration: const InputDecoration(labelText: AppLocalizations.of(context)!.exactUserEmail, border: OutlineInputBorder())),
+              TextField(controller: _email, keyboardType: TextInputType.emailAddress, decoration: InputDecoration(labelText: AppLocalizations.of(context)!.exactUserEmail, border: OutlineInputBorder())),
               const SizedBox(height: 8),
               FilledButton(onPressed: _busy ? null : _search, child: Text(AppLocalizations.of(context)!.searchUser)),
               for (final user in _users) Card(child: Padding(padding: const EdgeInsets.all(12), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text(user['fullName']?.toString() ?? AppLocalizations.of(context)!.userFallback, style: const TextStyle(fontWeight: FontWeight.bold)),
                 Text(user['email']?.toString() ?? ''),
-                TextField(controller: _amount, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: AppLocalizations.of(context)!.creditAmount)),
-                TextField(controller: _description, decoration: const InputDecoration(labelText: AppLocalizations.of(context)!.transactionDescription)),
+                TextField(controller: _amount, keyboardType: TextInputType.number, decoration: InputDecoration(labelText: AppLocalizations.of(context)!.creditAmount)),
+                TextField(controller: _description, decoration: InputDecoration(labelText: AppLocalizations.of(context)!.transactionDescription)),
                 const SizedBox(height: 8),
                 FilledButton(onPressed: _busy ? null : () => _credit(user), child: Text(AppLocalizations.of(context)!.submitCredit)),
                 OutlinedButton(onPressed: _busy ? null : () => _notify(userId: user['id'].toString()), child: Text(AppLocalizations.of(context)!.sendNotificationToUser)),
@@ -246,9 +246,9 @@ class _AdminScreenState extends State<AdminScreen> {
               const SizedBox(height: 22),
               Text(AppLocalizations.of(context)!.sendNotification, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
-              TextField(controller: _notificationTitle, maxLength: 120, decoration: const InputDecoration(labelText: AppLocalizations.of(context)!.notificationTitle, border: OutlineInputBorder())),
+              TextField(controller: _notificationTitle, maxLength: 120, decoration: InputDecoration(labelText: AppLocalizations.of(context)!.notificationTitle, border: OutlineInputBorder())),
               const SizedBox(height: 8),
-              TextField(controller: _notificationBody, maxLines: 3, maxLength: 1000, decoration: const InputDecoration(labelText: AppLocalizations.of(context)!.notificationBody, border: OutlineInputBorder())),
+              TextField(controller: _notificationBody, maxLines: 3, maxLength: 1000, decoration: InputDecoration(labelText: AppLocalizations.of(context)!.notificationBody, border: OutlineInputBorder())),
               const SizedBox(height: 8),
               FilledButton.icon(onPressed: _busy ? null : () => _notify(), icon: const Icon(Icons.campaign_outlined), label: Text(AppLocalizations.of(context)!.sendNotificationAll)),
               const SizedBox(height: 22),
