@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'l10n/app_localizations.dart';
 import 'services/notifications_service.dart';
 
 const _noticeGold = Color(0xFFD8B45A);
@@ -94,18 +95,18 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   @override
   Widget build(BuildContext context) => Directionality(
-        textDirection: TextDirection.rtl,
+        textDirection: Localizations.localeOf(context).languageCode == 'fa' ? TextDirection.rtl : TextDirection.ltr,
         child: Scaffold(
           backgroundColor: _noticeNavy,
           appBar: AppBar(
-            title: Text('اعلان‌ها${_unread > 0 ? ' ($_unread)' : ''}'),
+            title: Text('${AppLocalizations.of(context)!.notifications}${_unread > 0 ? ' ($_unread)' : ''}'),
             backgroundColor: _noticeNavy,
             foregroundColor: _noticeGold,
             actions: [
               IconButton(
                 onPressed: _loading ? null : _refresh,
                 icon: const Icon(Icons.refresh),
-                tooltip: 'به‌روزرسانی',
+                tooltip: AppLocalizations.of(context)!.refresh,
               ),
             ],
           ),
@@ -118,7 +119,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                     child: TextButton.icon(
                       onPressed: _busy ? null : _markAllRead,
                       icon: const Icon(Icons.done_all),
-                      label: const Text('خواندن همه'),
+                      label: Text(AppLocalizations.of(context)!.markAllRead),
                       style: TextButton.styleFrom(foregroundColor: _noticeGold),
                     ),
                   ),
@@ -134,7 +135,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                           child: CircularProgressIndicator(color: _noticeGold))
                       : _items.isEmpty
                           ? const Center(
-                              child: Text('فعلاً اعلانی ندارید.',
+                              child: Text(AppLocalizations.of(context)!.noNotifications,
                                   style: TextStyle(color: Colors.white70)))
                           : ListView.builder(
                               padding: const EdgeInsets.all(14),
@@ -155,7 +156,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                       color: _noticeGold,
                                     ),
                                     title: Text(
-                                      item['title']?.toString() ?? 'اعلان',
+                                      item['title']?.toString() ?? AppLocalizations.of(context)!.notificationFallback,
                                       style: TextStyle(
                                         color: Colors.white,
                                         fontWeight: unread
