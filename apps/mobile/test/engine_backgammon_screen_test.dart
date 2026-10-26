@@ -25,6 +25,9 @@ void main() {
 
     await tester.pumpWidget(const MaterialApp(home: EngineBackgammonScreen()));
     await tester.pump();
+    expect(find.text('روش بازی را انتخاب کنید'), findsOneWidget);
+    await tester.tap(find.text('بازی آفلاین با هوش مصنوعی'));
+    await tester.pumpAndSettle();
 
     expect(find.text('تخته‌نرد سلطنتی'), findsOneWidget);
     expect(find.text('بازی با هوش مصنوعی'), findsOneWidget);
@@ -48,6 +51,8 @@ void main() {
 
     await tester.pumpWidget(const MaterialApp(home: EngineBackgammonScreen()));
     await tester.pump();
+    await tester.tap(find.text('بازی آفلاین با هوش مصنوعی'));
+    await tester.pumpAndSettle();
 
     await tester.tap(find.text('بازی دونفره'));
     await tester.pump();
