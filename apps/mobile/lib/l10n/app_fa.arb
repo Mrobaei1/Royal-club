@@ -95,5 +95,19 @@
   "accountTitle": "حساب کاربری",
   "markAllRead": "خواندن همه",
   "noNotifications": "فعلاً اعلانی ندارید.",
-  "notificationFallback": "اعلان"
+  "notificationFallback": "اعلان",
+  "walletSubscriptionTitle": "کیف پول و اشتراک",
+  "walletBalance": "موجودی اعتبار",
+  "creditsUnit": "اعتبار",
+  "creditsNonTransferable": "اعتبارها قابل انتقال نیستند؛ شارژ فقط توسط مدیر مجاز انجام می‌شود.",
+  "availableSubscriptions": "اشتراک‌های موجود",
+  "activeSubscription": "اشتراک فعال",
+  "endsAt": "پایان",
+  "noPlans": "فعلاً اشتراکی تعریف نشده است.",
+  "activate": "فعال‌سازی",
+  "recentTransactions": "تراکنش‌های اخیر",
+  "noTransactions": "هنوز تراکنشی ثبت نشده است.",
+  "transactionFallback": "تراکنش",
+  "subscriptionActivated": "اشتراک با موفقیت فعال شد.",
+  "daysUnit": "روز"
 }
