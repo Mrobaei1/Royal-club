@@ -79,5 +79,19 @@
   "usernameNotFound": "این نام کاربری پیدا نشد.",
   "friendRequestSent": "درخواست دوستی ارسال شد.",
   "requestAccepted": "درخواست پذیرفته شد.",
-  "relationshipRemoved": "رابطه حذف شد."
+  "relationshipRemoved": "رابطه حذف شد.",
+  "editUsername": "تغییر نام کاربری",
+  "cancel": "انصراف",
+  "save": "ذخیره",
+  "usernameRules": "۳ تا ۲۴ حرف؛ حروف انگلیسی، عدد، نقطه یا زیرخط",
+  "notSet": "ثبت نشده",
+  "accountInfo": "اطلاعات حساب",
+  "fullNameLabel": "نام کامل",
+  "emailLabel": "ایمیل",
+  "phoneLabel": "تلفن",
+  "countryLabel": "کشور",
+  "userIdLabel": "شناسه کاربری",
+  "editUsernameTooltip": "ویرایش نام کاربری",
+  "logout": "خروج از حساب",
+  "accountTitle": "حساب کاربری"
 }
