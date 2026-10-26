@@ -139,7 +139,7 @@ class _OnlineLobbyScreenState extends State<OnlineLobbyScreen> {
               leading: Icon(won ? Icons.emoji_events_outlined : Icons.sports_esports_outlined,
                 color: won ? _gold : Colors.white60),
               title: Text(resultLabel, style: TextStyle(color: won ? _gold : Colors.white)),
-              subtitle: Text('حریف: ${game['opponentEmail'] ?? 'بازیکن'} • اتاق ${game['roomCode'] ?? game['id']}',
+              subtitle: Text('حریف: ${game['opponentName'] ?? 'بازیکن'} • اتاق ${game['roomCode'] ?? game['id']}',
                 style: const TextStyle(color: Colors.white70)),
               trailing: const Icon(Icons.history, color: Colors.white38),
             ),

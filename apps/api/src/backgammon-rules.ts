@@ -2,6 +2,9 @@ export type PlayerBar = { host: number; guest: number };
 export type PlayerOff = { host: number; guest: number };
 export type BackgammonMove = { from: number | null; to: number | null; die: number };
 export type MutableGameState = { board: number[]; bar: PlayerBar; off: PlayerOff };
+
+// Host checkers move toward point 0; guest checkers move toward point 23.
+export const INITIAL_BACKGAMMON_BOARD: number[] = [-2,0,0,0,0,5,0,3,0,0,0,-5,5,0,0,0,-3,0,-5,0,0,0,0,2];
 export type MoveResult = { state: MutableGameState } | { error: string };
 
 export function applyBackgammonMove(

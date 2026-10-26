@@ -8,7 +8,7 @@ import { Pool } from 'pg';
 import { randomBytes, randomInt, scrypt as scryptCallback, timingSafeEqual } from 'node:crypto';
 import { isNumericId, isValidRegistrationPassword } from './validation.js';
 import { getAllowedCorsOrigins } from './cors-config.js';
-import { applyBackgammonMove, hasLegalMove, maxPlayableDiceCount, mustPlayHigherDie } from './backgammon-rules.js';
+import { INITIAL_BACKGAMMON_BOARD, applyBackgammonMove, hasLegalMove, maxPlayableDiceCount, mustPlayHigherDie } from './backgammon-rules.js';
 import { promisify } from 'node:util';
 
 const scrypt = promisify(scryptCallback);
@@ -160,7 +160,7 @@ await pool.query(`
     host_user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     guest_user_id BIGINT REFERENCES users(id) ON DELETE SET NULL,
     status TEXT NOT NULL DEFAULT 'waiting' CHECK (status IN ('waiting', 'active', 'finished', 'cancelled')),
-    board_state JSONB NOT NULL DEFAULT '[2,0,0,0,0,-5,0,-3,0,0,0,5,-5,0,0,0,3,0,5,0,0,0,0,-2]'::jsonb,
+    board_state JSONB NOT NULL DEFAULT '${JSON.stringify(INITIAL_BACKGAMMON_BOARD)}'::jsonb,
     bar_state JSONB NOT NULL DEFAULT '{"host":0,"guest":0}'::jsonb,
     off_state JSONB NOT NULL DEFAULT '{"host":0,"guest":0}'::jsonb,
     current_turn_user_id BIGINT REFERENCES users(id) ON DELETE SET NULL,
@@ -172,13 +172,14 @@ await pool.query(`
     expires_at TIMESTAMPTZ NOT NULL DEFAULT (NOW() + INTERVAL '30 minutes'),
     CHECK (guest_user_id IS NULL OR guest_user_id <> host_user_id)
   );
-  ALTER TABLE backgammon_matches ADD COLUMN IF NOT EXISTS board_state JSONB NOT NULL DEFAULT '[2,0,0,0,0,-5,0,-3,0,0,0,5,-5,0,0,0,3,0,5,0,0,0,0,-2]'::jsonb;
+  ALTER TABLE backgammon_matches ADD COLUMN IF NOT EXISTS board_state JSONB NOT NULL DEFAULT '${JSON.stringify(INITIAL_BACKGAMMON_BOARD)}'::jsonb;
   ALTER TABLE backgammon_matches ADD COLUMN IF NOT EXISTS current_turn_user_id BIGINT REFERENCES users(id) ON DELETE SET NULL;
   ALTER TABLE backgammon_matches ADD COLUMN IF NOT EXISTS bar_state JSONB NOT NULL DEFAULT '{"host":0,"guest":0}'::jsonb;
   ALTER TABLE backgammon_matches ADD COLUMN IF NOT EXISTS off_state JSONB NOT NULL DEFAULT '{"host":0,"guest":0}'::jsonb;
   ALTER TABLE backgammon_matches ADD COLUMN IF NOT EXISTS dice JSONB NOT NULL DEFAULT '[]'::jsonb;
   ALTER TABLE backgammon_matches ADD COLUMN IF NOT EXISTS remaining_dice JSONB NOT NULL DEFAULT '[]'::jsonb;
   ALTER TABLE backgammon_matches ADD COLUMN IF NOT EXISTS state_version INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE backgammon_matches ALTER COLUMN board_state SET DEFAULT '${JSON.stringify(INITIAL_BACKGAMMON_BOARD)}'::jsonb;
   CREATE INDEX IF NOT EXISTS backgammon_matches_waiting_idx ON backgammon_matches (created_at DESC) WHERE status = 'waiting';
   CREATE INDEX IF NOT EXISTS backgammon_matches_players_idx ON backgammon_matches (host_user_id, guest_user_id, status);
 `);
@@ -998,7 +999,7 @@ app.get('/api/v1/matches/history', { onRequest: [requireMatchAuth] }, async (req
     `SELECT m.id, m.room_code AS "roomCode", m.host_user_id AS "hostUserId",
             m.guest_user_id AS "guestUserId", m.status,
             m.off_state AS "offState", m.created_at AS "createdAt", m.updated_at AS "finishedAt",
-            CASE WHEN m.host_user_id = $1 THEN guest.email ELSE host.email END AS "opponentEmail",
+            CASE WHEN m.host_user_id = $1 THEN guest.full_name ELSE host.full_name END AS "opponentName",
             CASE WHEN COALESCE((m.off_state->>'host')::int, 0) >= 15 THEN m.host_user_id
                  WHEN COALESCE((m.off_state->>'guest')::int, 0) >= 15 THEN m.guest_user_id
                  ELSE NULL END AS "winnerUserId",
