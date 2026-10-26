@@ -47,5 +47,17 @@
   "appThemeMenu": "پوسته برنامه",
   "adminPanel": "پنل مدیریت",
   "brandTagline": "هنر استراتژی",
-  "brandFooter": "باشگاه سلطنتی • با افتخار بازی کنید"
+  "brandFooter": "باشگاه سلطنتی • با افتخار بازی کنید",
+  "chatTitle": "گفت‌وگوهای خصوصی",
+  "startChatEmpty": "برای شروع گفت‌وگو، ابتدا یک دوست اضافه کنید.",
+  "friendFallback": "دوست",
+  "tapToChat": "برای شروع گفت‌وگو لمس کنید",
+  "reportUser": "گزارش کاربر",
+  "reportReasonHint": "دلیل گزارش را توضیح دهید (حداقل ۳ نویسه)",
+  "cancel": "انصراف",
+  "submitReport": "ارسال گزارش",
+  "reportQueued": "گزارش برای بررسی مدیر در صف قرار گرفت.",
+  "reportSaved": "گزارش ثبت شد.",
+  "noMessages": "هنوز پیامی ارسال نشده است.",
+  "writeMessage": "پیام بنویسید..."
 }
