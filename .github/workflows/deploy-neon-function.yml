@@ -393,24 +393,33 @@ jobs:
               throw new Error('Server-generated online dice failed validation. HTTP status: ' + rollResponse.status + '; payload: ' + JSON.stringify(rollPayload));
             }
 
-            // Find a genuinely legal host move from the server's current board.
-            // Do not hardcode point numbers: the host owns positive checkers and
-            // moves toward point 0, while the opponent blocks points with -2 or less.
+            // The roll endpoint returns dice/version; fetch the full board snapshot
+            // separately before selecting a legal move.
+            const rolledSnapshotResponse = await fetch(`${base}/api/v1/matches/${matchId}/state`, {
+              headers: { authorization: `Bearer ${firstToken}` },
+            });
+            const rolledSnapshot = (await rolledSnapshotResponse.json()).state;
+            if (rolledSnapshotResponse.status !== 200 || !Array.isArray(rolledSnapshot?.board) ||
+                rolledSnapshot.version !== rolledState.version) {
+              throw new Error('Could not load the current board after rolling dice.');
+            }
+            // Find a genuinely legal host move; do not hardcode point numbers.
+            // The host owns positive checkers and moves toward point 0.
             let selectedMove = null;
             for (const candidateDie of [...rolledState.remainingDice].sort((a, b) => b - a)) {
-              const barCount = Number(rolledState.bar?.host ?? 0);
+              const barCount = Number(rolledSnapshot.bar?.host ?? 0);
               if (barCount > 0) {
                 const entryPoint = 24 - candidateDie;
-                if (rolledState.board[entryPoint] > -2) {
+                if (rolledSnapshot.board[entryPoint] > -2) {
                   selectedMove = { from: null, to: entryPoint, die: candidateDie };
                   break;
                 }
                 continue;
               }
-              for (let point = 0; point < rolledState.board.length; point += 1) {
-                if (rolledState.board[point] <= 0) continue;
+              for (let point = 0; point < rolledSnapshot.board.length; point += 1) {
+                if (rolledSnapshot.board[point] <= 0) continue;
                 const target = point - candidateDie;
-                if (target < 0 || rolledState.board[target] <= -2) continue;
+                if (target < 0 || rolledSnapshot.board[target] <= -2) continue;
                 selectedMove = { from: point, to: target, die: candidateDie };
                 break;
               }
