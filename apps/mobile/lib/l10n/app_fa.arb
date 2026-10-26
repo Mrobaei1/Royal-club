@@ -158,5 +158,12 @@
   "barClosed": "خانهٔ ورود با دو مهرهٔ حریف بسته است.",
   "noCheckerOnBar": "مهره‌ای روی بار ندارید.",
   "cannotBearOff": "این مهره با این تاس قابل خارج‌کردن نیست.",
-  "illegalMoveWithDie": "این حرکت با تاس انتخاب‌شده قانونی نیست."
+  "illegalMoveWithDie": "این حرکت با تاس انتخاب‌شده قانونی نیست.",
+  "@stagedMovesNote": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  }
 }
