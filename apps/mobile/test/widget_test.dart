@@ -29,7 +29,8 @@ void main() {
       _localizedHome(),
     );
 
-    await tester.tap(find.byTooltip('منو و تنظیمات'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(PopupMenuButton<String>));
     await tester.pumpAndSettle();
 
     for (final label in [
@@ -38,16 +39,14 @@ void main() {
       'حساب کاربری',
       'گفت‌وگوهای خصوصی',
       'پنل مدیریت',
-      'کیف پول و اشتراک',
+      'کیف پول',
     ]) {
       expect(find.text(label), findsOneWidget);
     }
   });
 
   testWidgets('home screen keeps all game cards', (tester) async {
-    await tester.pumpWidget(
-      const MaterialApp(home: HomeScreen()),
-    );
+    await tester.pumpWidget(_localizedHome());
 
     expect(find.text('تخته‌نرد'), findsOneWidget);
     await tester.scrollUntilVisible(
