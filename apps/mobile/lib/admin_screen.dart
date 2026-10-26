@@ -222,7 +222,7 @@ class _AdminScreenState extends State<AdminScreen> {
       body: _loading ? const Center(child: CircularProgressIndicator()) : _error != null
         ? Center(child: Padding(padding: const EdgeInsets.all(24), child: Text(_error!, textAlign: TextAlign.center)))
         : !_owner
-          ? const Center(child: Padding(padding: EdgeInsets.all(28), child: Column(mainAxisSize: MainAxisSize.min, children: [
+          ? Center(child: Padding(padding: const EdgeInsets.all(28), child: Column(mainAxisSize: MainAxisSize.min, children: [
               Icon(Icons.lock_outline, size: 54), SizedBox(height: 14),
               Text(AppLocalizations.of(context)!.adminAccessDisabled, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
               SizedBox(height: 8), Text(AppLocalizations.of(context)!.ownerOnlyDescription, textAlign: TextAlign.center),
