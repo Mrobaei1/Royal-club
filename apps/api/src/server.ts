@@ -782,8 +782,9 @@ app.get<{ Querystring: { username?: string } }>('/api/v1/users/search', { onRequ
   const claims = request.user as { sub: string };
   const username = request.query.username?.trim().replace(/^@/, '');
   if (!username || !/^[a-zA-Z0-9_.]{3,24}$/.test(username)) return { users: [] };
+  // Do not expose full names in username-based friend search.
   const result = await pool.query(
-    'SELECT id, username, full_name AS "fullName" FROM users WHERE LOWER(username) = LOWER($1) AND id <> $2 LIMIT 1',
+    'SELECT id, username FROM users WHERE LOWER(username) = LOWER($1) AND id <> $2 LIMIT 1',
     [username, claims.sub],
   );
   return { users: result.rows };
