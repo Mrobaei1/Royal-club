@@ -858,12 +858,12 @@ app.post<{ Params: { id: string } }>('/api/v1/friends/:id/request', { onRequest:
       );
       await client.query(
         `INSERT INTO notifications (user_id, actor_user_id, type, title, body, data)
-         VALUES ($1, $2, 'friend_accepted', 'درخواست دوستی پذیرفته شد', 'درخواست دوستی شما پذیرفته شد.', jsonb_build_object('userId', $2))`,
+         VALUES ($1, $2, 'friend_accepted', 'درخواست دوستی پذیرفته شد', 'درخواست دوستی شما پذیرفته شد.', jsonb_build_object('userId', $2::bigint))`,
         [targetId, claims.sub],
       );
       await client.query(
         `INSERT INTO notifications (user_id, actor_user_id, type, title, body, data)
-         VALUES ($1, $2, 'friend_accepted', 'دوستی برقرار شد', 'درخواست دوستی شما پذیرفته شد.', jsonb_build_object('userId', $2))`,
+         VALUES ($1, $2, 'friend_accepted', 'دوستی برقرار شد', 'درخواست دوستی شما پذیرفته شد.', jsonb_build_object('userId', $2::bigint))`,
         [claims.sub, targetId],
       );
       await client.query('COMMIT');
@@ -892,7 +892,7 @@ app.post<{ Params: { id: string } }>('/api/v1/friends/:id/request', { onRequest:
     phase = 'insert-notification';
     await client.query(
       `INSERT INTO notifications (user_id, actor_user_id, type, title, body, data)
-       VALUES ($1, $2, 'friend_request', 'درخواست دوستی جدید', 'یک کاربر برای شما درخواست دوستی فرستاده است.', jsonb_build_object('userId', $2))`,
+       VALUES ($1, $2, 'friend_request', 'درخواست دوستی جدید', 'یک کاربر برای شما درخواست دوستی فرستاده است.', jsonb_build_object('userId', $2::bigint))`,
       [targetId, claims.sub],
     );
     phase = 'commit';
@@ -950,7 +950,7 @@ app.post<{ Params: { id: string } }>('/api/v1/friends/:id/accept', { onRequest: 
     await client.query("UPDATE friendships SET status = 'accepted', updated_at = NOW() WHERE id = $1", [result.rows[0].id]);
     await client.query(
       `INSERT INTO notifications (user_id, actor_user_id, type, title, body, data)
-       VALUES ($1, $2, 'friend_accepted', 'درخواست دوستی پذیرفته شد', 'درخواست دوستی شما پذیرفته شد.', jsonb_build_object('userId', $2))`,
+       VALUES ($1, $2, 'friend_accepted', 'درخواست دوستی پذیرفته شد', 'درخواست دوستی شما پذیرفته شد.', jsonb_build_object('userId', $2::bigint))`,
       [requesterId, claims.sub],
     );
     await client.query('COMMIT');
