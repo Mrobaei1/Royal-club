@@ -1,0 +1,93 @@
+name: Royal Club Android APK
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      build_apk:
+        description: 'Build the release APK only after Stage 3 is complete'
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: royal-club-android-apk
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Generate Android platform files if missing
+        working-directory: apps/mobile
+        run: |
+          if [ ! -d android ]; then
+            flutter create . --platforms=android
+          fi
+
+      - name: Ensure release APK has Internet permission
+        working-directory: apps/mobile
+        run: |
+          MANIFEST="android/app/src/main/AndroidManifest.xml"
+          test -f "$MANIFEST"
+          if ! grep -q 'android.permission.INTERNET' "$MANIFEST"; then
+            sed -i '/<manifest[^>]*>/a\    <uses-permission android:name="android.permission.INTERNET"/>' "$MANIFEST"
+          fi
+          grep -q 'android.permission.INTERNET' "$MANIFEST"
+          echo "Verified Android INTERNET permission in the main release manifest."
+          grep -n 'android.permission.INTERNET' "$MANIFEST"
+
+      - name: Install dependencies
+        working-directory: apps/mobile
+        run: flutter pub get
+
+      - name: Analyze
+        working-directory: apps/mobile
+        run: flutter analyze
+
+      - name: Test
+        working-directory: apps/mobile
+        run: flutter test
+
+      - name: Build release APK
+        if: github.event_name == 'workflow_dispatch' && inputs.build_apk == true
+        working-directory: apps/mobile
+        env:
+          API_BASE_URL: https://br-misty-flower-bavs47dm-royalclubapi.compute.c-8.eu-central-1.aws.neon.tech
+        run: |
+          if [ -n "$API_BASE_URL" ]; then
+            echo "Building APK with the Royal Club API endpoint."
+            flutter build apk --release --dart-define="API_BASE_URL=$API_BASE_URL"
+          else
+            echo "::error::API_BASE_URL is not configured; refusing to build a release APK without an API endpoint."
+            exit 1
+          fi
+
+      - name: Upload installable APK
+        if: github.event_name == 'workflow_dispatch' && inputs.build_apk == true
+        uses: actions/upload-artifact@v4
+        with:
+          name: royal-club-android-apk
+          path: apps/mobile/build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+          retention-days: 7
