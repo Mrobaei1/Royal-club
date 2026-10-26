@@ -174,9 +174,23 @@ test('registered players can join an online match and history does not expose op
     headers: auth(guest.token),
   });
   assert.equal(joined.statusCode, 200, joined.body);
-  assert.equal(joined.json().match.status, 'active');
+  assert.equal(joined.json().match.status, 'waiting');
   assert.equal(joined.json().match.guestAvatarDataUrl, avatar);
   assert.equal(joined.json().match.hostAvatarDataUrl, null);
+
+  const settings = await app.inject({ method: 'POST', url: '/api/v1/matches/' + matchId + '/settings', headers: auth(host.token), payload: { matchLength: 3 } });
+  assert.equal(settings.statusCode, 200, settings.body);
+  assert.equal(settings.json().settings.matchLength, 3);
+  const prematureReady = await app.inject({ method: 'POST', url: '/api/v1/matches/' + matchId + '/ready', headers: auth(host.token), payload: { ready: true } });
+  assert.equal(prematureReady.statusCode, 409);
+  const acceptedSettings = await app.inject({ method: 'POST', url: '/api/v1/matches/' + matchId + '/accept-settings', headers: auth(guest.token), payload: { accept: true } });
+  assert.equal(acceptedSettings.statusCode, 200, acceptedSettings.body);
+  const hostReady = await app.inject({ method: 'POST', url: '/api/v1/matches/' + matchId + '/ready', headers: auth(host.token), payload: { ready: true } });
+  assert.equal(hostReady.statusCode, 200, hostReady.body);
+  assert.equal(hostReady.json().match.status, 'waiting');
+  const guestReady = await app.inject({ method: 'POST', url: '/api/v1/matches/' + matchId + '/ready', headers: auth(guest.token), payload: { ready: true } });
+  assert.equal(guestReady.statusCode, 200, guestReady.body);
+  assert.equal(guestReady.json().match.status, 'active');
 
   const snapshot = await app.inject({
     method: 'GET',
