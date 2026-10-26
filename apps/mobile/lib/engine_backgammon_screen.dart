@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'backgammon_engine.dart';
 import 'backgammon_ai.dart';
+import 'l10n/app_localizations.dart';
 
 const _boardNavy = Color(0xFF10182B);
 const _boardGold = Color(0xFFD8B45A);
@@ -63,7 +64,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
 
   int? _selectedPoint;
   bool _selectedBar = false;
-  String _message = 'برای شروع، تاس بریزید.';
+  String _message = AppLocalizations.of(context)!.startRollPrompt;
   bool _gameOverDialogShown = false;
 
   List<BackgammonMove> get _moves => _engine.legalMoves();
@@ -78,9 +79,9 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
       final before = _engine.currentPlayer;
       final dice = _engine.rollDice();
       if (_engine.finished) {
-        _message = 'بازی تمام شده است.';
+        _message = AppLocalizations.of(context)!.gameFinished;
       } else if (dice.isEmpty) {
-        _message = 'حرکت مجاز وجود نداشت؛ نوبت عوض شد.';
+        _message = AppLocalizations.of(context)!.noLegalMoveTurnChanged;
       } else {
         _message =
             'نوبت ${_playerName(_engine.currentPlayer)} · تاس: ${dice.join('، ')}';
@@ -129,7 +130,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
           _engine.points[point] * _engine.currentPlayer > 0) {
         _selectedPoint = point;
         _selectedBar = false;
-        _message = 'مقصد یکی از خانه‌های مشخص‌شده را انتخاب کنید.';
+        _message = AppLocalizations.of(context)!.chooseHighlightedPoint;
       } else {
         _selectedPoint = null;
         _selectedBar = false;
@@ -144,14 +145,14 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
     if (_engine.finished || _engine.dice.isEmpty) return;
     setState(() {
       if (_selectedPoint == null || _selectedBar) {
-        _message = 'ابتدا مهره‌ای را که می‌خواهید خارج کنید انتخاب کنید.';
+        _message = AppLocalizations.of(context)!.selectCheckerToBearOff;
         return;
       }
       final candidates = _moves
           .where((m) => !m.fromBar && m.from == _selectedPoint && m.to == -1)
           .toList();
       if (candidates.isEmpty) {
-        _message = 'با تاس فعلی، خارج کردن این مهره مجاز نیست.';
+        _message = AppLocalizations.of(context)!.bearOffNotAllowed;
         return;
       }
       _play(candidates.first);
@@ -166,12 +167,12 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
     setState(() {
       final moves = _moves.where((m) => m.fromBar).toList();
       if (moves.isEmpty) {
-        _message = 'مهره‌ای برای ورود از بار ندارد یا خانه‌های ورود بسته‌اند.';
+        _message = AppLocalizations.of(context)!.noCheckerCanEnter;
         return;
       }
       _selectedBar = true;
       _selectedPoint = null;
-      _message = 'اکنون خانه ورود مشخص‌شده را انتخاب کنید.';
+      _message = AppLocalizations.of(context)!.chooseHighlightedEntry;
     });
   }
 
@@ -180,7 +181,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
     _selectedPoint = null;
     _selectedBar = false;
     if (!ok) {
-      _message = 'این حرکت مجاز نیست.';
+      _message = AppLocalizations.of(context)!.illegalMove;
       return;
     }
     if (_engine.finished) {
@@ -214,7 +215,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
         if (_engine.dice.isEmpty) {
           final rolled = _engine.rollDice();
           if (rolled.isEmpty) {
-            _message = 'نوبت کامپیوتر بدون حرکت تمام شد.';
+            _message = AppLocalizations.of(context)!.computerNoMoves;
             _computerThinking = false;
             return;
           }
@@ -229,9 +230,9 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
         }
         _computerThinking = false;
         if (_engine.finished) {
-          _message = 'کامپیوتر برنده شد.';
+          _message = AppLocalizations.of(context)!.computerWins;
         } else if (_engine.currentPlayer == 1) {
-          _message = 'نوبت شماست؛ تاس بریزید.';
+          _message = AppLocalizations.of(context)!.yourTurnRoll;
         } else {
           _message =
               'نوبت کامپیوتر است؛ تاس باقی‌مانده: ${_engine.dice.join('، ')}';
@@ -254,9 +255,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
       _computerThinking = false;
       _selectedPoint = null;
       _selectedBar = false;
-      _message = vsComputer
-          ? 'بازی با هوش مصنوعی؛ تاس بریزید.'
-          : 'بازی دونفره محلی؛ تاس بریزید.';
+      _message = vsComputer ? AppLocalizations.of(context)!.aiGameStart : AppLocalizations.of(context)!.localTwoPlayerStart;
     });
   }
 
@@ -269,11 +268,11 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
       context: context,
       barrierDismissible: false,
       builder: (dialogContext) => Directionality(
-        textDirection: TextDirection.rtl,
+        textDirection: Localizations.localeOf(context).languageCode == 'fa' ? TextDirection.rtl : TextDirection.ltr,
         child: AlertDialog(
           backgroundColor: const Color(0xFF1A2540),
           icon: const Icon(Icons.emoji_events, color: _boardGold, size: 42),
-          title: const Text('پایان بازی',
+          title: Text(AppLocalizations.of(context)!.gameOverTitle,
               style: TextStyle(color: _boardGold, fontWeight: FontWeight.bold)),
           content: Text('تبریک! بازیکن $winner برنده شد 🎉',
               textAlign: TextAlign.center,
@@ -286,7 +285,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
                 _reset();
               },
               icon: const Icon(Icons.refresh),
-              label: const Text('بازی مجدد'),
+              label: Text(AppLocalizations.of(context)!.playAgain),
               style: FilledButton.styleFrom(
                   backgroundColor: _boardGold, foregroundColor: _boardNavy),
             ),
@@ -296,7 +295,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
                 navigator.maybePop();
               },
               icon: const Icon(Icons.exit_to_app),
-              label: const Text('خروج از بازی'),
+              label: Text(AppLocalizations.of(context)!.exitGame),
               style: OutlinedButton.styleFrom(
                   foregroundColor: Colors.white,
                   side: const BorderSide(color: _boardGold)),
@@ -326,12 +325,12 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
                 toolbarHeight: 48,
                 backgroundColor: _boardNavy,
                 foregroundColor: _boardGold,
-                title: const Text('تخته‌نرد سلطنتی',
+                title: Text(AppLocalizations.of(context)!.backgammonTitle,
                     style:
                         TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                 actions: [
                   IconButton(
-                    tooltip: 'شروع مجدد',
+                    tooltip: AppLocalizations.of(context)!.resetGame,
                     onPressed: _reset,
                     icon: const Icon(Icons.refresh),
                   ),
@@ -372,7 +371,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
                     child: OutlinedButton.icon(
                       onPressed: _reset,
                       icon: const Icon(Icons.restart_alt),
-                      label: const Text('شروع مجدد'),
+                      label: Text(AppLocalizations.of(context)!.resetGame),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: _boardGold,
                         side: const BorderSide(color: _boardGold),
@@ -382,8 +381,8 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
                     ),
                   ),
                   const SizedBox(height: 10),
-                  const Text(
-                    'نسخه آزمایشی محلی · بازی دونفره روی یک دستگاه',
+                  Text(
+                    AppLocalizations.of(context)!.localDemoNote,
                     textAlign: TextAlign.center,
                     style: TextStyle(color: Colors.white54, fontSize: 12),
                   ),
@@ -409,7 +408,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
           children: [
             Wrap(alignment: WrapAlignment.center, spacing: 6, children: [
               ChoiceChip(
-                label: Text(compact ? 'با هوش مصنوعی' : 'بازی با هوش مصنوعی',
+                label: Text(compact ? AppLocalizations.of(context)!.modeAICompact : AppLocalizations.of(context)!.modeVsAI,
                     style: TextStyle(fontSize: compact ? 10 : 12)),
                 selected: _vsComputer,
                 onSelected: _computerThinking ? null : (_) => _changeMode(true),
@@ -419,7 +418,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
                 visualDensity: VisualDensity.compact,
               ),
               ChoiceChip(
-                label: Text(compact ? 'دونفره' : 'بازی دونفره',
+                label: Text(compact ? AppLocalizations.of(context)!.twoPlayersCompact : AppLocalizations.of(context)!.modeTwoPlayers,
                     style: TextStyle(fontSize: compact ? 10 : 12)),
                 selected: !_vsComputer,
                 onSelected:
@@ -431,7 +430,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
               ),
             ]),
             Row(children: [
-              Text('تم صفحه بازی:', style: TextStyle(color: Colors.white70, fontSize: compact ? 10 : 12)),
+              Text(AppLocalizations.of(context)!.boardThemeLabel, style: TextStyle(color: Colors.white70, fontSize: compact ? 10 : 12)),
               const SizedBox(width: 8),
               Expanded(child: DropdownButtonHideUnderline(child: DropdownButton<int>(
                 value: _boardThemeIndex,
@@ -444,7 +443,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
             ]),
             if (_vsComputer)
               Row(children: [
-                Text('سختی:',
+                Text(AppLocalizations.of(context)!.difficultyLabel,
                     style: TextStyle(
                         color: Colors.white70, fontSize: compact ? 10 : 12)),
                 const SizedBox(width: 8),
@@ -459,12 +458,12 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
                     items: const [
                       DropdownMenuItem(
                           value: BackgammonDifficulty.easy,
-                          child: Text('آسان')),
+                          child: Text(AppLocalizations.of(context)!.difficultyEasy)),
                       DropdownMenuItem(
                           value: BackgammonDifficulty.medium,
-                          child: Text('متوسط')),
+                          child: Text(AppLocalizations.of(context)!.difficultyMedium)),
                       DropdownMenuItem(
-                          value: BackgammonDifficulty.hard, child: Text('سخت')),
+                          value: BackgammonDifficulty.hard, child: Text(AppLocalizations.of(context)!.difficultyHard)),
                     ],
                     onChanged: _computerThinking
                         ? null
@@ -582,7 +581,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
                           ? _roll
                           : null,
                       icon: const Icon(Icons.casino, size: 18),
-                      label: const Text('ریختن تاس'),
+                      label: Text(AppLocalizations.of(context)!.rollDice),
                       style: FilledButton.styleFrom(
                         backgroundColor: _boardGold,
                         foregroundColor: _boardNavy,
@@ -624,7 +623,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(Icons.exit_to_app, color: _boardGold, size: 17),
-                          const Text('خارج',
+                          Text(AppLocalizations.of(context)!.bearOffShort,
                               style: TextStyle(
                                 color: Colors.white,
                                 fontSize: 10,
