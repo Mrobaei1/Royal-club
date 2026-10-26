@@ -17,6 +17,7 @@ class OnlineLobbyScreen extends StatefulWidget {
 class _OnlineLobbyScreenState extends State<OnlineLobbyScreen> {
   List<Map<String, dynamic>> _matches = [];
   List<Map<String, dynamic>> _history = [];
+  List<Map<String, dynamic>> _invites = [];
   Map<String, dynamic>? _created;
   bool _loading = false;
   String? _error;
@@ -43,8 +44,8 @@ class _OnlineLobbyScreenState extends State<OnlineLobbyScreen> {
     if (_loading || _silentRefreshing) return;
     _silentRefreshing = true;
     try {
-      final rooms = await MatchService.listOpen();
-      if (mounted) setState(() => _matches = rooms);
+      final results = await Future.wait([MatchService.listOpen(), MatchService.pendingInvites()]);
+      if (mounted) setState(() { _matches = results[0]; _invites = results[1]; });
     } catch (_) {
       // Keep the current room list; the next interval retries automatically.
     } finally {
@@ -61,19 +62,67 @@ class _OnlineLobbyScreenState extends State<OnlineLobbyScreen> {
   }
 
   Future<void> _refresh() => _run(() async {
-    final results = await Future.wait([MatchService.listOpen(), MatchService.history()]);
-    if (mounted) setState(() { _matches = results[0]; _history = results[1]; });
+    final results = await Future.wait([MatchService.listOpen(), MatchService.history(), MatchService.pendingInvites()]);
+    if (mounted) setState(() { _matches = results[0]; _history = results[1]; _invites = results[2]; });
   });
+
+  Future<String?> _chooseFriendToInvite() async {
+    final friends = await MatchService.friends();
+    if (!mounted || friends.isEmpty) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('برای دعوت مستقیم، ابتدا باید دوستی پذیرفته‌شده داشته باشید. می‌توانید کد اتاق را هم به اشتراک بگذارید.')),
+      );
+      return null;
+    }
+    return showDialog<String>(
+      context: context,
+      builder: (dialogContext) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: AlertDialog(
+          backgroundColor: const Color(0xFF17243A),
+          title: const Text('دعوت از دوست', style: TextStyle(color: _gold)),
+          content: SizedBox(
+            width: 360,
+            child: ListView(
+              shrinkWrap: true,
+              children: friends.map((friend) => ListTile(
+                leading: RoyalAvatar(dataUrl: friend['avatarDataUrl']?.toString(), radius: 20),
+                title: Text(friend['name']?.toString() ?? friend['username']?.toString() ?? 'دوست', style: const TextStyle(color: Colors.white)),
+                subtitle: Text('@${friend['username'] ?? ''}', style: const TextStyle(color: Colors.white54)),
+                onTap: () => Navigator.of(dialogContext).pop(friend['userId'].toString()),
+              )).toList(),
+            ),
+          ),
+          actions: [TextButton(onPressed: () => Navigator.of(dialogContext).pop(), child: const Text('بعداً'))],
+        ),
+      ),
+    );
+  }
 
   Future<void> _create() => _run(() async {
     final match = await MatchService.create();
     if (!mounted) return;
     setState(() => _created = match);
+    final friendId = await _chooseFriendToInvite();
+    if (friendId != null) await MatchService.inviteFriend(match['id'].toString(), friendId);
+    if (!mounted) return;
     await Navigator.of(context).push(MaterialPageRoute<void>(
       builder: (_) => OnlineMatchScreen(match: match),
     ));
-    final rows = await MatchService.listOpen();
-    if (mounted) setState(() => _matches = rows);
+    final results = await Future.wait([MatchService.listOpen(), MatchService.pendingInvites()]);
+    if (mounted) setState(() { _matches = results[0]; _invites = results[1]; });
+  });
+
+  Future<void> _respondToInvite(Map<String, dynamic> invite, {required bool accept}) => _run(() async {
+    final response = await MatchService.respondToInvite(invite['id'].toString(), accept: accept);
+    if (accept && response['match'] is Map) {
+      final match = Map<String, dynamic>.from(response['match'] as Map);
+      await Navigator.of(context).push(MaterialPageRoute<void>(
+        builder: (_) => OnlineMatchScreen(match: match),
+      ));
+    }
+    final results = await Future.wait([MatchService.listOpen(), MatchService.pendingInvites()]);
+    if (mounted) setState(() { _matches = results[0]; _invites = results[1]; });
   });
 
   Future<void> _join(Map<String, dynamic> room) => _run(() async {
@@ -127,6 +176,30 @@ class _OnlineLobbyScreenState extends State<OnlineLobbyScreen> {
         ]))),
         if (_error != null) Container(margin: const EdgeInsets.only(top: 12), padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: Colors.red.withValues(alpha: .12), borderRadius: BorderRadius.circular(10)), child: Text(_error!, style: const TextStyle(color: Colors.redAccent))),
         if (_loading) const Padding(padding: EdgeInsets.all(16), child: Center(child: CircularProgressIndicator(color: _gold))),
+        if (_invites.isNotEmpty) ...[
+          const SizedBox(height: 20),
+          const Text('دعوت‌های دریافتی', style: TextStyle(color: _gold, fontSize: 18, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          ..._invites.map((invite) => Card(
+            color: const Color(0xFF17243A),
+            child: Padding(
+              padding: const EdgeInsets.all(10),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: RoyalAvatar(dataUrl: invite['inviterAvatarDataUrl']?.toString(), radius: 22),
+                  title: Text(invite['inviterName']?.toString() ?? invite['inviterUsername']?.toString() ?? 'دوست', style: const TextStyle(color: Colors.white)),
+                  subtitle: Text('دعوت به اتاق ${invite['roomCode'] ?? invite['matchId']}', style: const TextStyle(color: Colors.white70)),
+                ),
+                Row(children: [
+                  Expanded(child: OutlinedButton(onPressed: _loading ? null : () => _respondToInvite(invite, accept: false), child: const Text('رد دعوت'))),
+                  const SizedBox(width: 8),
+                  Expanded(child: FilledButton(onPressed: _loading ? null : () => _respondToInvite(invite, accept: true), style: FilledButton.styleFrom(backgroundColor: _gold, foregroundColor: _navy), child: const Text('پذیرش و ورود'))),
+                ]),
+              ]),
+            ),
+          )),
+        ],
         const SizedBox(height: 20),
         const Text('اتاق‌های قابل پیوستن', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
