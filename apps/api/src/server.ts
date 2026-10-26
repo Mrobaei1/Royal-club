@@ -713,20 +713,11 @@ app.patch<{ Params: { code: string }; Body: { name?: string; durationDays?: numb
   return { plan: result.rows[0] };
 });
 
-const requireChatEntitlement = async (userA: string, userB: string) => {
-  const result = await pool.query(
-    `SELECT COUNT(DISTINCT user_id)::int AS entitled
-       FROM user_subscriptions
-      WHERE user_id = ANY($1::bigint[]) AND status = 'active' AND ends_at > NOW()`,
-    [[userA, userB]],
-  );
-  return Number(result.rows[0]?.entitled ?? 0) === 2;
-};
-
 app.get('/api/v1/chat/conversations', { onRequest: [requireMatchAuth] }, async (request) => {
   const claims = request.user as { sub: string };
   const result = await pool.query(
     `SELECT u.id AS "userId", u.full_name AS "fullName", u.email,
+            u.avatar_data_url AS "avatarDataUrl",
             latest.body AS "lastMessage", latest.created_at AS "lastMessageAt",
             COALESCE(unread.count, 0)::int AS "unreadCount"
        FROM friendships f
@@ -756,7 +747,6 @@ app.get<{ Params: { userId: string } }>('/api/v1/chat/:userId/messages', { onReq
     ['accepted', claims.sub, userId],
   );
   if (!friendship.rowCount) return reply.code(403).send({ error: 'Chat is available only between accepted friends.' });
-  if (!await requireChatEntitlement(claims.sub, userId)) return reply.code(403).send({ error: 'An active subscription is required for both users to use private chat.' });
   const messages = await pool.query(
     `SELECT id, sender_id AS "senderId", recipient_id AS "recipientId", body,
             created_at AS "createdAt", read_at AS "readAt"
@@ -781,7 +771,6 @@ app.post<{ Params: { userId: string }; Body: { body?: string } }>('/api/v1/chat/
     ['accepted', claims.sub, userId],
   );
   if (!friendship.rowCount) return reply.code(403).send({ error: 'Chat is available only between accepted friends.' });
-  if (!await requireChatEntitlement(claims.sub, userId)) return reply.code(403).send({ error: 'An active subscription is required for both users to use private chat.' });
   const inserted = await pool.query(
     `INSERT INTO private_messages (sender_id, recipient_id, body)
      VALUES ($1, $2, $3)
@@ -833,7 +822,7 @@ app.get<{ Querystring: { username?: string } }>('/api/v1/users/search', { onRequ
   if (!username || !/^[a-zA-Z0-9_.]{3,24}$/.test(username)) return { users: [] };
   // Do not expose full names in username-based friend search.
   const result = await pool.query(
-    'SELECT id, username FROM users WHERE LOWER(username) = LOWER($1) AND id <> $2 LIMIT 1',
+    'SELECT id, username, avatar_data_url AS "avatarDataUrl" FROM users WHERE LOWER(username) = LOWER($1) AND id <> $2 LIMIT 1',
     [username, claims.sub],
   );
   return { users: result.rows };
@@ -845,7 +834,9 @@ app.get('/api/v1/friends', { onRequest: [requireMatchAuth] }, async (request) =>
     `SELECT f.id, f.status, f.requester_id AS "requesterId",
             f.addressee_id AS "addresseeId", f.created_at AS "createdAt",
             requester.username AS "requesterUsername",
-            addressee.username AS "addresseeUsername"
+            addressee.username AS "addresseeUsername",
+            requester.avatar_data_url AS "requesterAvatarDataUrl",
+            addressee.avatar_data_url AS "addresseeAvatarDataUrl"
        FROM friendships f
        JOIN users requester ON requester.id = f.requester_id
        JOIN users addressee ON addressee.id = f.addressee_id
@@ -862,6 +853,7 @@ app.get('/api/v1/friends', { onRequest: [requireMatchAuth] }, async (request) =>
     userId: String(row.requesterId) === claims.sub ? row.addresseeId : row.requesterId,
     username: String(row.requesterId) === claims.sub ? row.addresseeUsername : row.requesterUsername,
     name: String(row.requesterId) === claims.sub ? row.addresseeUsername : row.requesterUsername,
+    avatarDataUrl: String(row.requesterId) === claims.sub ? row.addresseeAvatarDataUrl : row.requesterAvatarDataUrl,
     createdAt: row.createdAt,
   }));
   return {
@@ -1044,7 +1036,7 @@ app.delete<{ Params: { id: string } }>('/api/v1/friends/:id', { onRequest: [requ
 app.get('/api/v1/leaderboard', { onRequest: [requireMatchAuth] }, async (request) => {
   const claims = request.user as { sub: string };
   const result = await pool.query(
-    `SELECT s.user_id AS "userId", u.username, s.rating,
+    `SELECT s.user_id AS "userId", u.username, u.avatar_data_url AS "avatarDataUrl", s.rating,
             s.games_played AS "gamesPlayed", s.wins, s.losses
        FROM backgammon_player_stats s
        JOIN users u ON u.id = s.user_id
@@ -1062,6 +1054,7 @@ app.get('/api/v1/matches/history', { onRequest: [requireMatchAuth] }, async (req
             m.guest_user_id AS "guestUserId", m.status,
             m.off_state AS "offState", m.created_at AS "createdAt", m.updated_at AS "finishedAt",
             CASE WHEN m.host_user_id = $1 THEN guest.full_name ELSE host.full_name END AS "opponentName",
+            CASE WHEN m.host_user_id = $1 THEN guest.avatar_data_url ELSE host.avatar_data_url END AS "opponentAvatarDataUrl",
             CASE WHEN COALESCE((m.off_state->>'host')::int, 0) >= 15 THEN m.host_user_id
                  WHEN COALESCE((m.off_state->>'guest')::int, 0) >= 15 THEN m.guest_user_id
                  ELSE NULL END AS "winnerUserId",
@@ -1084,7 +1077,7 @@ app.get('/api/v1/matches/history', { onRequest: [requireMatchAuth] }, async (req
 app.get('/api/v1/matches/open', { onRequest: [requireMatchAuth] }, async (request, reply) => {
   const claims = request.user as { sub: string };
   const result = await pool.query(
-    `SELECT m.id, m.room_code AS "roomCode", m.status, m.created_at AS "createdAt", u.full_name AS "hostName"
+    `SELECT m.id, m.room_code AS "roomCode", m.status, m.created_at AS "createdAt", u.full_name AS "hostName", u.avatar_data_url AS "hostAvatarDataUrl"
        FROM backgammon_matches m JOIN users u ON u.id = m.host_user_id
       WHERE m.status = 'waiting' AND m.expires_at > NOW() AND m.host_user_id <> $1
       ORDER BY m.created_at ASC LIMIT 30`, [claims.sub]);
@@ -1141,7 +1134,8 @@ app.post<{ Params: { id: string } }>('/api/v1/matches/:id/join', { onRequest: [r
     await client.query('COMMIT');
     const joined = await pool.query(
       `SELECT m.id, m.room_code AS "roomCode", m.status, host.full_name AS "hostName",
-              guest.full_name AS "guestName", m.created_at AS "createdAt"
+              guest.full_name AS "guestName", host.avatar_data_url AS "hostAvatarDataUrl",
+              guest.avatar_data_url AS "guestAvatarDataUrl", m.created_at AS "createdAt"
          FROM backgammon_matches m JOIN users host ON host.id = m.host_user_id
          LEFT JOIN users guest ON guest.id = m.guest_user_id WHERE m.id = $1`, [match.id]);
     return { match: joined.rows[0] };
@@ -1157,7 +1151,8 @@ app.get<{ Params: { id: string } }>('/api/v1/matches/:id', { onRequest: [require
   if (!isNumericId(request.params.id)) return reply.code(400).send({ error: 'Invalid match id.' });
   const result = await pool.query(
     `SELECT m.id, m.room_code AS "roomCode", m.status, host.full_name AS "hostName",
-            guest.full_name AS "guestName", m.created_at AS "createdAt", m.updated_at AS "updatedAt"
+            guest.full_name AS "guestName", host.avatar_data_url AS "hostAvatarDataUrl",
+            guest.avatar_data_url AS "guestAvatarDataUrl", m.created_at AS "createdAt", m.updated_at AS "updatedAt"
        FROM backgammon_matches m JOIN users host ON host.id = m.host_user_id
        LEFT JOIN users guest ON guest.id = m.guest_user_id
       WHERE m.id = $1 AND (m.host_user_id = $2 OR m.guest_user_id = $2) AND m.expires_at > NOW()`,

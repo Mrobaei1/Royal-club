@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'profile_avatar.dart';
 import 'services/match_service.dart';
 import 'online_match_screen.dart';
 import 'leaderboard_screen.dart';
@@ -131,7 +132,7 @@ class _OnlineLobbyScreenState extends State<OnlineLobbyScreen> {
         const SizedBox(height: 8),
         if (!_loading && _matches.isEmpty) const Padding(padding: EdgeInsets.all(18), child: Text('در حال حاضر اتاق بازی آزادی وجود ندارد.', textAlign: TextAlign.center, style: TextStyle(color: Colors.white60))),
         ..._matches.map((room) => Card(color: const Color(0xFF17243A), child: ListTile(
-          leading: const Icon(Icons.casino, color: _gold),
+          leading: RoyalAvatar(dataUrl: room['hostAvatarDataUrl']?.toString(), radius: 22),
           title: Text('اتاق ${room['roomCode'] ?? room['id']}', style: const TextStyle(color: Colors.white)),
           subtitle: Text('میزبان: ${room['hostName'] ?? 'بازیکن'}', style: const TextStyle(color: Colors.white70)),
           trailing: FilledButton(onPressed: _loading ? null : () => _join(room), style: FilledButton.styleFrom(backgroundColor: _gold, foregroundColor: _navy), child: const Text('پیوستن')),
@@ -148,12 +149,11 @@ class _OnlineLobbyScreenState extends State<OnlineLobbyScreen> {
           return Card(
             color: const Color(0xFF17243A),
             child: ListTile(
-              leading: Icon(won ? Icons.emoji_events_outlined : Icons.sports_esports_outlined,
-                color: won ? _gold : Colors.white60),
+              leading: RoyalAvatar(dataUrl: game['opponentAvatarDataUrl']?.toString(), radius: 22),
               title: Text(resultLabel, style: TextStyle(color: won ? _gold : Colors.white)),
               subtitle: Text('حریف: ${game['opponentName'] ?? 'بازیکن'} • اتاق ${game['roomCode'] ?? game['id']}',
                 style: const TextStyle(color: Colors.white70)),
-              trailing: const Icon(Icons.history, color: Colors.white38),
+              trailing: Icon(won ? Icons.emoji_events_outlined : Icons.history, color: won ? _gold : Colors.white38),
             ),
           );
         }),

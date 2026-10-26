@@ -28,6 +28,7 @@ void main() {
 
   testWidgets('home menu exposes account, friends, and notifications', (tester) async {
     await tester.pumpWidget(_testApp(const HomeScreen()));
+    expect(find.byType(Divider), findsWidgets);
 
     await tester.tap(find.byTooltip('تنظیمات'));
     await tester.pumpAndSettle();
