@@ -165,5 +165,10 @@
         "type": "int"
       }
     }
-  }
+  },
+  "themeRoyal": "سلطنتی",
+  "themeEmerald": "زمردی",
+  "themeOceanic": "اقیانوسی",
+  "themeRuby": "یاقوتی",
+  "themeLight": "روشن"
 }
