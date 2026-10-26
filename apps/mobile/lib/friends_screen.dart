@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'profile_avatar.dart';
 import 'services/friends_service.dart';
 
 const _friendsGold = Color(0xFFD8B45A);
@@ -141,10 +142,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
     return Card(
       color: _friendsPanel,
       child: ListTile(
-        leading: const CircleAvatar(
-          backgroundColor: Color(0xFF283750),
-          child: Icon(Icons.person_outline, color: _friendsGold),
-        ),
+        leading: RoyalAvatar(dataUrl: user['avatarDataUrl']?.toString(), radius: 22),
         title: Text(title, style: const TextStyle(color: Colors.white)),
         subtitle: subtitle.isEmpty
             ? null
