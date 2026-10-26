@@ -48,6 +48,9 @@ await pool.query(`
   ALTER TABLE users ADD COLUMN IF NOT EXISTS full_name TEXT NOT NULL DEFAULT '';
   ALTER TABLE users ADD COLUMN IF NOT EXISTS phone TEXT NOT NULL DEFAULT '';
   ALTER TABLE users ADD COLUMN IF NOT EXISTS country TEXT NOT NULL DEFAULT '';
+  ALTER TABLE users ADD COLUMN IF NOT EXISTS username TEXT NOT NULL DEFAULT '';
+  UPDATE users SET username = 'royal_' || id::text WHERE username = '';
+  CREATE UNIQUE INDEX IF NOT EXISTS users_username_unique_idx ON users(username) WHERE username <> '';
 
   CREATE TABLE IF NOT EXISTS friendships (
     id BIGSERIAL PRIMARY KEY,
@@ -223,12 +226,17 @@ app.post<{ Body: { email?: string; password?: string; fullName?: string; phone?:
         [email, passwordHash, fullName, phone, country]
       );
       const user = result.rows[0] as { id: string; email: string; full_name: string; phone: string; country: string; created_at: Date };
+      const usernameResult = await pool.query(
+        "UPDATE users SET username = 'royal_' || id::text WHERE id = $1 AND username = '' RETURNING username",
+        [user.id],
+      );
+      const username = usernameResult.rows[0]?.username as string;
       const accessToken = app.jwt.sign(
         { sub: user.id, email: user.email },
         { expiresIn: '1h' }
       );
       return reply.code(201).send({
-        user: { id: user.id, email: user.email, fullName: user.full_name, phone: user.phone, country: user.country, createdAt: user.created_at },
+        user: { id: user.id, username, email: user.email, fullName: user.full_name, phone: user.phone, country: user.country, createdAt: user.created_at },
         accessToken,
         tokenType: 'Bearer',
         expiresIn: 3600
@@ -301,12 +309,12 @@ app.get('/api/v1/me', {
   if (!claims.sub) return reply.code(401).send({ error: 'Invalid token.' });
 
   const result = await pool.query(
-    'SELECT id, email, full_name, phone, country, created_at FROM users WHERE id = $1',
+    'SELECT id, username, email, full_name, phone, country, created_at FROM users WHERE id = $1',
     [claims.sub]
   );
   if (!result.rowCount) return reply.code(401).send({ error: 'Account not found.' });
-  const user = result.rows[0] as { id: string; email: string; full_name: string; phone: string; country: string; created_at: Date };
-  return { user: { id: user.id, email: user.email, fullName: user.full_name, phone: user.phone, country: user.country, createdAt: user.created_at } };
+  const user = result.rows[0] as { id: string; username: string; email: string; full_name: string; phone: string; country: string; created_at: Date };
+  return { user: { id: user.id, username: user.username, email: user.email, fullName: user.full_name, phone: user.phone, country: user.country, createdAt: user.created_at } };
 });
 
 const requireMatchAuth = async (request: any, reply: any) => {
@@ -338,6 +346,29 @@ app.patch<{ Body: { username?: string } }>('/api/v1/me/username', { onRequest: [
     }
     request.log.error({ err: error }, 'Could not update username');
     return reply.code(500).send({ error: 'Could not update username.' });
+  }
+});
+
+app.patch<{ Body: { fullName?: string; phone?: string; country?: string } }>('/api/v1/me/profile', { onRequest: [requireMatchAuth], config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request, reply) => {
+  const claims = request.user as { sub: string };
+  const fullName = typeof request.body?.fullName === 'string' ? request.body.fullName.trim() : '';
+  const phone = typeof request.body?.phone === 'string' ? request.body.phone.trim() : '';
+  const country = typeof request.body?.country === 'string' ? request.body.country.trim() : '';
+  if (!fullName || fullName.length > 120 || !phone || phone.length > 32 ||
+      !/^[+0-9() .-]{6,32}$/.test(phone) || !country || country.length > 80) {
+    return reply.code(400).send({ error: 'نام، شماره تلفن معتبر و کشور را وارد کنید.' });
+  }
+  try {
+    const result = await pool.query(
+      'UPDATE users SET full_name = $1, phone = $2, country = $3 WHERE id = $4 RETURNING id, username, email, full_name, phone, country, created_at',
+      [fullName, phone, country, claims.sub],
+    );
+    if (!result.rowCount) return reply.code(404).send({ error: 'Account not found.' });
+    const user = result.rows[0] as { id: string; username: string; email: string; full_name: string; phone: string; country: string; created_at: Date };
+    return { user: { id: user.id, username: user.username, email: user.email, fullName: user.full_name, phone: user.phone, country: user.country, createdAt: user.created_at } };
+  } catch (error: unknown) {
+    request.log.error({ err: error }, 'Could not update profile');
+    return reply.code(500).send({ error: 'Could not update profile.' });
   }
 });
 
