@@ -795,8 +795,8 @@ app.get('/api/v1/friends', { onRequest: [requireMatchAuth] }, async (request) =>
   const result = await pool.query(
     `SELECT f.id, f.status, f.requester_id AS "requesterId",
             f.addressee_id AS "addresseeId", f.created_at AS "createdAt",
-            requester.full_name AS "requesterName", requester.email AS "requesterEmail",
-            addressee.full_name AS "addresseeName", addressee.email AS "addresseeEmail"
+            requester.username AS "requesterUsername",
+            addressee.username AS "addresseeUsername"
        FROM friendships f
        JOIN users requester ON requester.id = f.requester_id
        JOIN users addressee ON addressee.id = f.addressee_id
@@ -811,8 +811,8 @@ app.get('/api/v1/friends', { onRequest: [requireMatchAuth] }, async (request) =>
     direction: row.status === 'accepted' ? 'friend'
       : String(row.addresseeId) === claims.sub ? 'incoming' : 'outgoing',
     userId: String(row.requesterId) === claims.sub ? row.addresseeId : row.requesterId,
-    name: String(row.requesterId) === claims.sub ? row.addresseeName : row.requesterName,
-    email: String(row.requesterId) === claims.sub ? row.addresseeEmail : row.requesterEmail,
+    username: String(row.requesterId) === claims.sub ? row.addresseeUsername : row.requesterUsername,
+    name: String(row.requesterId) === claims.sub ? row.addresseeUsername : row.requesterUsername,
     createdAt: row.createdAt,
   }));
   return {
