@@ -274,7 +274,6 @@
   "registrationDate": "تاریخ ثبت‌نام",
   "diceTrayLabel": "تاس‌های بازی",
   "barLabel": "بار",
-  "bearOffStatus": "{title}
-خارج: {off} · بار: {onBar}",
+  "bearOffStatus": "{title}\nخارج: {off} · بار: {onBar}",
   "@bearOffStatus": {"placeholders": {"title": {"type": "String"}, "off": {"type": "int"}, "onBar": {"type": "int"}}}
 }
