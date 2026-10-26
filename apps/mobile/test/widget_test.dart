@@ -4,8 +4,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:royal_club/l10n/app_localizations.dart';
 import 'package:royal_club/main.dart';
 
-Widget _testApp(Widget home) => MaterialApp(
-      locale: const Locale('fa'),
+Widget _testApp(Widget home, {Locale locale = const Locale('fa')}) => MaterialApp(
+      locale: locale,
       supportedLocales: const [Locale('fa'), Locale('en')],
       localizationsDelegates: const [
         AppLocalizations.delegate,
@@ -40,6 +40,24 @@ void main() {
     ]) {
       expect(find.text(label), findsOneWidget);
     }
+  });
+
+  testWidgets('English locale renders translated home game cards', (tester) async {
+    await tester.pumpWidget(_testApp(const HomeScreen(), locale: const Locale('en')));
+
+    expect(find.text('Backgammon'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('Chess'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('Chess'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('Card games'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('Card games'), findsOneWidget);
   });
 
   testWidgets('home screen keeps all game cards', (tester) async {
