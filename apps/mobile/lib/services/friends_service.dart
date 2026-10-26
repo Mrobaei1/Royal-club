@@ -12,9 +12,11 @@ class FriendsService {
     if (token == null || token.isEmpty) {
       throw Exception('ابتدا وارد حساب شوید.');
     }
+    // These endpoints do not send a JSON body. Do not declare
+    // application/json for an empty POST: Fastify can reject it with 400.
     return {
       'Authorization': 'Bearer $token',
-      'Content-Type': 'application/json',
+      'Accept': 'application/json',
     };
   }
 
