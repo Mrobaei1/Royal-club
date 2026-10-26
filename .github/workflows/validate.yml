@@ -40,6 +40,44 @@ jobs:
           test -s /tmp/royal-club-neon-function.mjs
           test "$(stat -c%s /tmp/royal-club-neon-function.mjs)" -lt 134217728
 
+  api-integration:
+    name: API integration tests
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: royalclub_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d royalclub_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/royalclub_test
+      JWT_SECRET: royal-club-integration-test-secret-32-characters
+      NEON_FUNCTION_RUNTIME: "1"
+      NODE_ENV: test
+      CORS_ORIGINS: http://localhost:8080
+    defaults:
+      run:
+        working-directory: apps/api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/api/package-lock.json
+      - run: npm ci
+      - run: npm run build
+      - run: npm run test:integration
+
   flutter:
     name: Flutter analyze and tests
     runs-on: ubuntu-latest
