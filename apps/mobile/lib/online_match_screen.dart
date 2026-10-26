@@ -347,7 +347,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(color: _matchPanel, borderRadius: BorderRadius.circular(12), border: Border.all(color: _matchGold)),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                  Text(AppLocalizations.of(context)!.stagedMovesNote.replaceFirst('{count}', _pendingMoves.length.toString()), style: const TextStyle(color: Colors.white70)),
+                  Text(AppLocalizations.of(context)!.stagedMovesNote(_pendingMoves.length), style: const TextStyle(color: Colors.white70)),
                   const SizedBox(height: 8),
                   Row(children: [
                     Expanded(child: OutlinedButton(onPressed: _busy ? null : _cancelBatch, child: Text(AppLocalizations.of(context)!.cancelAll))),
