@@ -158,5 +158,12 @@
   "barClosed": "The entry point is blocked by two opposing checkers.",
   "noCheckerOnBar": "You have no checkers on the bar.",
   "cannotBearOff": "This checker cannot be borne off with this die.",
-  "illegalMoveWithDie": "This move is not legal with the selected die."
+  "illegalMoveWithDie": "This move is not legal with the selected die.",
+  "@stagedMovesNote": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  }
 }
