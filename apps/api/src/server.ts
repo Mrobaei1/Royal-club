@@ -1095,7 +1095,7 @@ app.get('/api/v1/matches/open', { onRequest: [requireMatchAuth] }, async (reques
   const result = await pool.query(
     `SELECT m.id, m.room_code AS "roomCode", m.status, m.created_at AS "createdAt", u.full_name AS "hostName", u.avatar_data_url AS "hostAvatarDataUrl"
        FROM backgammon_matches m JOIN users u ON u.id = m.host_user_id
-      WHERE m.status = 'waiting' AND m.expires_at > NOW() AND m.host_user_id <> $1
+      WHERE m.status = 'waiting' AND m.guest_user_id IS NULL AND m.expires_at > NOW() AND m.host_user_id <> $1
       ORDER BY m.created_at ASC LIMIT 30`, [claims.sub]);
   return { matches: result.rows };
 });
@@ -1251,6 +1251,10 @@ app.post<{ Params: { id: string }; Body: { action?: string } }>('/api/v1/matches
       return reply.code(409).send({ error: 'Match cannot be cancelled in its current state.' });
     }
     if (action === 'propose') {
+      if (m.cancel_proposed_by) {
+        await client.query('ROLLBACK');
+        return reply.code(409).send({ error: 'A cancellation proposal is already awaiting a response.' });
+      }
       await client.query('UPDATE backgammon_matches SET cancel_proposed_by = $1, cancel_accepted_by = NULL, updated_at = NOW() WHERE id = $2', [claims.sub, m.id]);
     } else {
       if (!m.cancel_proposed_by || m.cancel_proposed_by === claims.sub) {
