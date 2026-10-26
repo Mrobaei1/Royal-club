@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
@@ -6,6 +7,18 @@ import 'auth_service.dart';
 class MatchService {
   static const _storage = FlutterSecureStorage();
   static const _baseUrl = AuthService.baseUrl;
+  static Future<http.Response> _getWithRetry(Uri uri, Map<String, String> headers) async {
+    Object? lastError;
+    for (var attempt = 0; attempt < 3; attempt++) {
+      try {
+        return await http.get(uri, headers: headers).timeout(const Duration(seconds: 12));
+      } catch (error) {
+        lastError = error;
+        if (attempt < 2) await Future<void>.delayed(Duration(milliseconds: 350 * (attempt + 1)));
+      }
+    }
+    throw Exception('اتصال به سرور ناپایدار است؛ وضعیت اتصال را بررسی و دوباره تلاش کنید. ($lastError)');
+  }
   static Future<Map<String, String>> _headers() async {
     final token = await _storage.read(key: 'royal_club_token');
     if (token == null || token.isEmpty) throw Exception('ابتدا وارد حساب شوید.');
@@ -16,9 +29,9 @@ class MatchService {
     final uri = Uri.parse('$_baseUrl/api/v1/matches$path');
     late http.Response response;
     switch (method) {
-      case 'POST': response = await http.post(uri, headers: headers); break;
-      case 'DELETE': response = await http.delete(uri, headers: headers); break;
-      default: response = await http.get(uri, headers: headers);
+      case 'POST': response = await http.post(uri, headers: headers).timeout(const Duration(seconds: 12)); break;
+      case 'DELETE': response = await http.delete(uri, headers: headers).timeout(const Duration(seconds: 12)); break;
+      default: response = await _getWithRetry(uri, headers);
     }
     dynamic decoded;
     try { decoded = jsonDecode(response.body); } catch (_) { throw Exception('پاسخ سرور قابل‌خواندن نیست. آدرس API و دسترسی Codespaces را بررسی کنید.'); }
