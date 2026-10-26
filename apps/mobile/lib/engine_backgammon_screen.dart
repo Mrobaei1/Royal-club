@@ -1093,12 +1093,14 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
                 children: [
                   Text(title, style: TextStyle(color: color, fontWeight: FontWeight.w800, fontSize: compact ? 10 : 12)),
                   Text(
-                    title == 'روشن' && _vsComputer ? 'هوش مصنوعی' : (title == 'طلایی' ? 'بازیکن اول' : 'بازیکن دوم'),
+                    _vsComputer
+                        ? (title == 'هوش مصنوعی' ? 'حریف رایانه‌ای' : 'بازیکن شما')
+                        : 'بازیکن محلی',
                     style: TextStyle(color: Colors.white54, fontSize: compact ? 8 : 10),
                     maxLines: 1, overflow: TextOverflow.ellipsis,
                   ),
                   Text('خارج: $off · بار: $onBar', style: TextStyle(color: Colors.white70, fontSize: compact ? 9 : 11)),
-                  if (_engine.currentPlayer == (title == 'طلایی' ? 1 : -1) && !_engine.finished)
+                  if (active && !_engine.finished)
                     Text('نوبت فعلی', style: TextStyle(color: _boardGold, fontSize: compact ? 8 : 10, fontWeight: FontWeight.bold)),
                 ],
               ),
