@@ -393,16 +393,36 @@ jobs:
               throw new Error('Server-generated online dice failed validation. HTTP status: ' + rollResponse.status + '; payload: ' + JSON.stringify(rollPayload));
             }
 
-            const moveDie = Math.max(...rolledState.remainingDice);
-            const fromPoint = moveDie === 6 ? 16 : 18;
-            const toPoint = fromPoint - moveDie;
+            // Find a legal move from the actual server board; fixed point assumptions
+            // fail because opening checkers and legal targets depend on board orientation.
+            let legalMove = null;
+            const hostBar = Number(rolledState.bar?.host ?? 0);
+            for (const die of [...rolledState.remainingDice].sort((a, b) => b - a)) {
+              if (hostBar > 0) {
+                const target = 24 - die;
+                if (target >= 0 && target < 24 && rolledState.board[target] > -2) {
+                  legalMove = { from: null, to: target, die };
+                  break;
+                }
+                continue;
+              }
+              for (let from = 0; from < 24; from += 1) {
+                if (rolledState.board[from] <= 0) continue;
+                const to = from - die;
+                if (to < 0 || to >= 24 || rolledState.board[to] <= -2) continue;
+                legalMove = { from, to, die };
+                break;
+              }
+              if (legalMove) break;
+            }
+            if (!legalMove) throw new Error('Smoke test could not find a legal host move for the server-generated dice.');
             const moveResponse = await fetch(`${base}/api/v1/matches/${matchId}/moves`, {
               method: 'POST',
               headers: { authorization: `Bearer ${firstToken}`, 'content-type': 'application/json' },
               body: JSON.stringify({
-                from: fromPoint,
-                to: toPoint,
-                die: moveDie,
+                from: legalMove.from,
+                to: legalMove.to,
+                die: legalMove.die,
                 expectedVersion: rolledState.version,
               }),
             });
