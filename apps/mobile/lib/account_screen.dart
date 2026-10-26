@@ -102,10 +102,12 @@ class _AccountScreenState extends State<AccountScreen> {
         _avatarSaving = false;
       });
     } catch (error) {
-      if (mounted) setState(() {
-        _error = error.toString().replaceFirst('Exception: ', '');
-        _avatarSaving = false;
-      });
+      if (mounted) {
+        setState(() {
+          _error = error.toString().replaceFirst('Exception: ', '');
+          _avatarSaving = false;
+        });
+      }
     }
   }
 
