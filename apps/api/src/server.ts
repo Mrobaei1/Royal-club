@@ -192,6 +192,20 @@ await pool.query(`
   ALTER TABLE backgammon_matches ADD COLUMN IF NOT EXISTS guest_game_wins INTEGER NOT NULL DEFAULT 0;
   ALTER TABLE backgammon_matches ADD COLUMN IF NOT EXISTS cancellation_proposed_by BIGINT REFERENCES users(id) ON DELETE SET NULL;
   ALTER TABLE backgammon_matches ADD COLUMN IF NOT EXISTS cancellation_accepted_by BIGINT REFERENCES users(id) ON DELETE SET NULL;
+  CREATE TABLE IF NOT EXISTS backgammon_match_invites (
+    id BIGSERIAL PRIMARY KEY,
+    match_id BIGINT NOT NULL REFERENCES backgammon_matches(id) ON DELETE CASCADE,
+    inviter_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    invitee_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'rejected')),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    responded_at TIMESTAMPTZ,
+    CHECK (inviter_id <> invitee_id)
+  );
+  CREATE INDEX IF NOT EXISTS backgammon_match_invites_inbox_idx
+    ON backgammon_match_invites (invitee_id, status, created_at DESC);
+  CREATE UNIQUE INDEX IF NOT EXISTS backgammon_match_invites_pending_pair_idx
+    ON backgammon_match_invites (match_id, invitee_id) WHERE status = 'pending';
   CREATE TABLE IF NOT EXISTS backgammon_player_stats (
     user_id BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
     rating INTEGER NOT NULL DEFAULT 1000 CHECK (rating >= 0),
@@ -1175,6 +1189,125 @@ app.get<{ Params: { id: string } }>('/api/v1/matches/:id', { onRequest: [require
   if (!result.rowCount) return reply.code(404).send({ error: 'Match not found.' });
   return { match: result.rows[0] };
 });
+
+app.get('/api/v1/match-invites', { onRequest: [requireMatchAuth] }, async (request) => {
+  const claims = request.user as { sub: string };
+  const result = await pool.query(
+    `SELECT i.id, i.match_id AS "matchId", i.status, i.created_at AS "createdAt",
+            m.room_code AS "roomCode", m.status AS "matchStatus",
+            inviter.username AS "inviterUsername", inviter.full_name AS "inviterName",
+            inviter.avatar_data_url AS "inviterAvatarDataUrl"
+       FROM backgammon_match_invites i
+       JOIN backgammon_matches m ON m.id = i.match_id
+       JOIN users inviter ON inviter.id = i.inviter_id
+      WHERE i.invitee_id = $1 AND i.status = 'pending' AND m.status = 'waiting'
+        AND m.guest_user_id IS NULL AND m.expires_at > NOW()
+      ORDER BY i.created_at DESC LIMIT 50`,
+    [claims.sub]);
+  return { invites: result.rows };
+});
+
+app.post<{ Params: { id: string }; Body: { inviteeId?: string } }>(
+  '/api/v1/matches/:id/invites', { onRequest: [requireMatchAuth] }, async (request, reply) => {
+    const claims = request.user as { sub: string };
+    const inviteeId = request.body?.inviteeId;
+    if (!isNumericId(request.params.id) || !isNumericId(inviteeId) || inviteeId === claims.sub) {
+      return reply.code(400).send({ error: 'Provide a valid friend to invite.' });
+    }
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const matchResult = await client.query(
+        `SELECT id, status, host_user_id, guest_user_id FROM backgammon_matches
+          WHERE id = $1 AND expires_at > NOW() FOR UPDATE`, [request.params.id]);
+      const match = matchResult.rows[0];
+      if (!match || match.host_user_id !== claims.sub || match.status !== 'waiting' || match.guest_user_id) {
+        await client.query('ROLLBACK');
+        return reply.code(409).send({ error: 'Only the host can invite a friend to an empty waiting room.' });
+      }
+      const friendship = await client.query(
+        `SELECT 1 FROM friendships WHERE status = 'accepted'
+          AND ((requester_id = $1 AND addressee_id = $2) OR (requester_id = $2 AND addressee_id = $1)) LIMIT 1`,
+        [claims.sub, inviteeId]);
+      if (!friendship.rowCount) {
+        await client.query('ROLLBACK');
+        return reply.code(403).send({ error: 'You can invite accepted friends only.' });
+      }
+      const inserted = await client.query(
+        `INSERT INTO backgammon_match_invites (match_id, inviter_id, invitee_id)
+          VALUES ($1, $2, $3) RETURNING id, match_id AS "matchId", status, created_at AS "createdAt"`,
+        [request.params.id, claims.sub, inviteeId]);
+      await client.query(
+        `INSERT INTO notifications (user_id, actor_user_id, type, title, body, data)
+          VALUES ($1, $2, 'system', 'دعوت به تخته‌نرد', 'دوست شما را به یک مسابقه تخته‌نرد دعوت کرده است.',
+                  jsonb_build_object('inviteId', $3::text, 'matchId', $4::text))
+          ON CONFLICT DO NOTHING`,
+        [inviteeId, claims.sub, inserted.rows[0].id, request.params.id]);
+      await client.query('COMMIT');
+      return reply.code(201).send({ invite: inserted.rows[0] });
+    } catch (error: any) {
+      await client.query('ROLLBACK').catch(() => undefined);
+      if (error?.code === '23505') return reply.code(409).send({ error: 'This friend has already been invited to this room.' });
+      request.log.error({ err: error }, 'Could not send match invitation');
+      return reply.code(500).send({ error: 'Could not send match invitation.' });
+    } finally { client.release(); }
+  });
+
+app.post<{ Params: { id: string }; Body: { accept: boolean } }>(
+  '/api/v1/match-invites/:id/respond', { onRequest: [requireMatchAuth] }, async (request, reply) => {
+    const claims = request.user as { sub: string };
+    if (!isNumericId(request.params.id) || typeof request.body?.accept !== 'boolean') {
+      return reply.code(400).send({ error: 'Provide a valid invitation id and response.' });
+    }
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const found = await client.query(
+        `SELECT i.id, i.match_id, i.invitee_id, i.status, m.status AS "matchStatus", m.guest_user_id
+           FROM backgammon_match_invites i JOIN backgammon_matches m ON m.id = i.match_id
+          WHERE i.id = $1 FOR UPDATE OF i, m`, [request.params.id]);
+      const invite = found.rows[0];
+      if (!invite || invite.invitee_id !== claims.sub || invite.status !== 'pending') {
+        await client.query('ROLLBACK');
+        return reply.code(404).send({ error: 'Pending invitation not found.' });
+      }
+      if (!request.body.accept) {
+        await client.query(
+          `UPDATE backgammon_match_invites SET status = 'rejected', responded_at = NOW() WHERE id = $1`,
+          [request.params.id]);
+        await client.query('COMMIT');
+        return { response: 'rejected' };
+      }
+      if (invite.matchStatus !== 'waiting' || invite.guest_user_id) {
+        await client.query(
+          `UPDATE backgammon_match_invites SET status = 'rejected', responded_at = NOW() WHERE id = $1`,
+          [request.params.id]);
+        await client.query('COMMIT');
+        return reply.code(409).send({ error: 'This room is no longer available.' });
+      }
+      await client.query(
+        `UPDATE backgammon_matches SET guest_user_id = $1, guest_settings_accepted = FALSE,
+           host_ready = FALSE, guest_ready = FALSE, cancellation_proposed_by = NULL,
+           cancellation_accepted_by = NULL, updated_at = NOW() WHERE id = $2`,
+        [claims.sub, invite.match_id]);
+      await client.query(
+        `UPDATE backgammon_match_invites SET status = CASE WHEN id = $1 THEN 'accepted' ELSE 'rejected' END,
+           responded_at = NOW() WHERE match_id = $2 AND status = 'pending'`,
+        [request.params.id, invite.match_id]);
+      await client.query('COMMIT');
+      const match = await pool.query(
+        `SELECT m.id, m.room_code AS "roomCode", m.status, host.full_name AS "hostName",
+                guest.full_name AS "guestName", host.avatar_data_url AS "hostAvatarDataUrl",
+                guest.avatar_data_url AS "guestAvatarDataUrl"
+           FROM backgammon_matches m JOIN users host ON host.id = m.host_user_id
+           JOIN users guest ON guest.id = m.guest_user_id WHERE m.id = $1`, [invite.match_id]);
+      return { response: 'accepted', match: match.rows[0] };
+    } catch (error) {
+      await client.query('ROLLBACK').catch(() => undefined);
+      request.log.error({ err: error }, 'Could not respond to match invitation');
+      return reply.code(500).send({ error: 'Could not respond to match invitation.' });
+    } finally { client.release(); }
+  });
 
 // Match setup is a server-authoritative two-player handshake. A match becomes active
 // only after both players accept the same target and both are ready.
