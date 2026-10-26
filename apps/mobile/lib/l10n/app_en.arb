@@ -274,7 +274,6 @@
   "registrationDate": "Registration date",
   "diceTrayLabel": "Game dice",
   "barLabel": "Bar",
-  "bearOffStatus": "{title}
-Off: {off} · Bar: {onBar}",
+  "bearOffStatus": "{title}\nOff: {off} · Bar: {onBar}",
   "@bearOffStatus": {"placeholders": {"title": {"type": "String"}, "off": {"type": "int"}, "onBar": {"type": "int"}}}
 }
