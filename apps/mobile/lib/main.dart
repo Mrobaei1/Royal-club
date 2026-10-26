@@ -273,7 +273,7 @@ class HomeScreen extends StatelessWidget {
                     PopupMenuItem(value: 'chat', child: ListTile(dense: true, leading: Icon(Icons.chat_bubble_outline), title: Text(AppLocalizations.of(context)!.privateChat))),
                     PopupMenuItem(value: 'notifications', child: ListTile(dense: true, leading: Icon(Icons.notifications_outlined), title: Text(AppLocalizations.of(context)!.notifications))),
                     PopupMenuItem(value: 'wallet', child: ListTile(dense: true, leading: Icon(Icons.account_balance_wallet_outlined), title: Text(AppLocalizations.of(context)!.wallet))),
-                    const PopupMenuItem(value: 'admin', child: ListTile(dense: true, leading: Icon(Icons.admin_panel_settings_outlined), title: Text(AppLocalizations.of(context)!.adminPanel))),
+                    PopupMenuItem(value: 'admin', child: ListTile(dense: true, leading: const Icon(Icons.admin_panel_settings_outlined), title: Text(AppLocalizations.of(context)!.adminPanel))),
                     const PopupMenuDivider(),
                     PopupMenuItem(enabled: false, child: Text(AppLocalizations.of(context)!.languageMenu)),
                     PopupMenuItem(value: 'language:fa', child: Row(children: [Icon(royalLocaleState.locale.languageCode == 'fa' ? Icons.radio_button_checked : Icons.radio_button_off, size: 18), const SizedBox(width: 10), const Text('فارسی')])),
