@@ -448,7 +448,35 @@ class _HomeScreenState extends State<HomeScreen> {
                 title: AppLocalizations.of(context).backgammon,
                 subtitle: royalLocaleState.locale.languageCode == 'fa' ? 'بازی کلاسیک و رقابتی' : 'Classic competitive game',
                 icon: Icons.casino_rounded,
-                onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const EngineBackgammonScreen())),
+                onTap: () async {
+                  final mode = await showDialog<String>(
+                    context: context,
+                    builder: (dialogContext) => Directionality(
+                      textDirection: TextDirection.rtl,
+                      child: AlertDialog(
+                        backgroundColor: const Color(0xFF17243A),
+                        title: const Text('انتخاب حالت تخته‌نرد', style: TextStyle(color: Color(0xFFD8B45A), fontWeight: FontWeight.bold)),
+                        content: const Text('روش بازی را انتخاب کنید.', style: TextStyle(color: Colors.white70)),
+                        actions: [
+                          TextButton.icon(
+                            onPressed: () => Navigator.pop(dialogContext, 'offline'),
+                            icon: const Icon(Icons.smart_toy_outlined),
+                            label: const Text('بازی آفلاین با هوش مصنوعی'),
+                          ),
+                          FilledButton.icon(
+                            onPressed: () => Navigator.pop(dialogContext, 'online'),
+                            icon: const Icon(Icons.public_rounded),
+                            label: const Text('بازی آنلاین'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                  if (!context.mounted || mode == null) return;
+                  Navigator.of(context).push(MaterialPageRoute<void>(
+                    builder: (_) => mode == 'online' ? const OnlineLobbyScreen() : const EngineBackgammonScreen(),
+                  ));
+                },
               ),
               const SizedBox(height: 12),
               GameTile(
