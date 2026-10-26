@@ -271,5 +271,10 @@
   "statusActioned": "Actioned",
   "notificationSentCount": "Notification sent to {count} users.",
   "@notificationSentCount": {"placeholders": {"count": {"type": "int"}}},
-  "registrationDate": "Registration date"
+  "registrationDate": "Registration date",
+  "diceTrayLabel": "Game dice",
+  "barLabel": "Bar",
+  "bearOffStatus": "{title}
+Off: {off} · Bar: {onBar}",
+  "@bearOffStatus": {"placeholders": {"title": {"type": "String"}, "off": {"type": "int"}, "onBar": {"type": "int"}}}
 }
