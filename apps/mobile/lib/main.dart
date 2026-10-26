@@ -200,7 +200,43 @@ class HomeScreen extends StatelessWidget {
   final VoidCallback? onLogout;
   const HomeScreen({super.key, this.onLogout});
 
+  void _showThemeMenu(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: royalThemeState.current.panel,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Padding(
+              padding: EdgeInsets.fromLTRB(20, 4, 20, 12),
+              child: Text('پوسته برنامه', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+            ),
+            for (var i = 0; i < royalThemes.length; i++)
+              ListTile(
+                leading: Icon(Icons.palette_outlined, color: royalThemes[i].accent),
+                title: Text(royalThemes[i].name),
+                trailing: i == royalThemeState.index
+                    ? Icon(Icons.check_circle, color: royalThemes[i].accent)
+                    : const Icon(Icons.circle_outlined),
+                onTap: () {
+                  royalThemeState.select(i);
+                  Navigator.of(sheetContext).pop();
+                },
+              ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
   void _openMenu(BuildContext context, String value) {
+    if (value == 'themeMenu') {
+      _showThemeMenu(context);
+      return;
+    }
     if (value.startsWith('language:')) {
       royalLocaleState.select(value.substring(9));
       return;
@@ -279,13 +315,16 @@ class HomeScreen extends StatelessWidget {
                     PopupMenuItem(value: 'language:fa', child: Row(children: [Icon(royalLocaleState.locale.languageCode == 'fa' ? Icons.radio_button_checked : Icons.radio_button_off, size: 18), const SizedBox(width: 10), const Text('فارسی')])),
                     PopupMenuItem(value: 'language:en', child: Row(children: [Icon(royalLocaleState.locale.languageCode == 'en' ? Icons.radio_button_checked : Icons.radio_button_off, size: 18), const SizedBox(width: 10), const Text('English')])),
                     const PopupMenuDivider(),
-                    const PopupMenuItem(enabled: false, child: Text('پوسته برنامه')),
-                    for (var i = 0; i < royalThemes.length; i++)
-                      PopupMenuItem(value: 'theme:$i', child: Row(children: [
-                        Icon(i == royalThemeState.index ? Icons.radio_button_checked : Icons.radio_button_off, color: royalThemes[i].accent, size: 18),
-                        const SizedBox(width: 10),
-                        Text(royalThemes[i].name),
-                      ])),
+                    const PopupMenuItem(
+                      value: 'themeMenu',
+                      child: ListTile(
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        leading: Icon(Icons.palette_outlined),
+                        title: Text('پوسته برنامه'),
+                        trailing: Icon(Icons.chevron_left_rounded),
+                      ),
+                    ),
                   ],
                 ),
               ]),
@@ -432,11 +471,19 @@ class _AuthScreenState extends State<AuthScreen> {
   Future<void> _loadRememberedEmail() async {
     try {
       final email = await AuthService.rememberedEmail();
+      final password = await AuthService.rememberedPassword();
       if (!mounted) return;
       if (email != null && email.isNotEmpty) {
         _email.text = email;
         _rememberMe = true;
       }
+      if (password != null && password.isNotEmpty) {
+        _password.text = password;
+        _rememberMe = true;
+        _register = false;
+      }
+    } catch (_) {
+      // If secure storage is unavailable, allow manual sign-in.
     } finally {
       if (mounted) setState(() => _checkingSession = false);
     }
@@ -489,7 +536,8 @@ class _AuthScreenState extends State<AuthScreen> {
 
       if (result['token'] is String &&
           (result['token'] as String).isNotEmpty) {
-        await AuthService.setRememberedEmail(_email.text, _rememberMe);
+        await AuthService.setRememberedCredentials(
+            _email.text, _password.text, _rememberMe);
         if (!mounted) return;
         widget.onAuthenticated();
       } else if (wasRegister) {
@@ -591,7 +639,7 @@ class _AuthScreenState extends State<AuthScreen> {
                       controlAffinity: ListTileControlAffinity.leading,
                       title: Text(AppLocalizations.of(context).rememberMe),
                       subtitle: const Text(
-                          'ایمیل ذخیره می‌شود و نشست معتبر حفظ خواهد شد.'),
+                          'نام کاربری و رمز عبور به‌صورت امن روی دستگاه ذخیره می‌شوند.'),
                       onChanged: _busy
                           ? null
                           : (value) =>
