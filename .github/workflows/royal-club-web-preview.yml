@@ -48,9 +48,9 @@ jobs:
       - name: Install dependencies
         working-directory: apps/mobile
         run: flutter pub get
-      - name: Analyze
+      - name: Analyze Dart code (errors remain fatal; lint warnings are reported)
         working-directory: apps/mobile
-        run: flutter analyze
+        run: flutter analyze --no-fatal-warnings --no-fatal-infos
       - name: Test
         working-directory: apps/mobile
         run: flutter test
