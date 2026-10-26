@@ -13,6 +13,10 @@ class AuthService {
     if (value.isEmpty || uri == null || (uri.scheme != 'https' && uri.scheme != 'http') || uri.host.isEmpty) {
       throw Exception('سرور Royal Club هنوز تنظیم نشده است. ابتدا سرویس API را راه‌اندازی کنید.');
     }
+    final host = uri.host.toLowerCase();
+    if (host.endsWith('.aws.neon.tech') && host.contains('.compute.')) {
+      throw Exception('آدرس تنظیم‌شده مربوط به دیتابیس Neon است، نه API. آدرس عمومی Neon Function را تنظیم و نسخه جدید برنامه را نصب کنید.');
+    }
   }
 
   static Future<http.Response> _send(Future<http.Response> Function() request) async {
