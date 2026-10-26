@@ -1,6 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:royal_club/l10n/app_localizations.dart';
 import 'package:royal_club/main.dart';
+
+Widget _localizedHome() => MaterialApp(
+      locale: const Locale('fa'),
+      supportedLocales: const [Locale('fa'), Locale('en')],
+      localizationsDelegates: const [
+        AppLocalizations.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      home: const HomeScreen(),
+    );
 
 void main() {
   testWidgets('app starts through the authentication gate', (tester) async {
@@ -12,7 +26,7 @@ void main() {
 
   testWidgets('home menu exposes account, friends, and notifications', (tester) async {
     await tester.pumpWidget(
-      const MaterialApp(home: HomeScreen()),
+      _localizedHome(),
     );
 
     await tester.tap(find.byTooltip('منو و تنظیمات'));
