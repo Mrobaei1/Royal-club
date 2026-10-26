@@ -146,7 +146,7 @@ class MatchService {
   static Uri _apiUri(String path) {
     AuthService.ensureConfigured();
     final base = _baseUrl.trim().replaceFirst(RegExp(r'/+$'), '');
-    return Uri.parse('\$base/api/v1\$path');
+    return Uri.parse('$base/api/v1$path');
   }
 
   static Future<Map<String, dynamic>> _postJson(String path, Map<String, dynamic> body) async {
@@ -159,7 +159,7 @@ class MatchService {
     catch (_) { throw Exception('پاسخ سرور قابل‌خواندن نیست.'); }
     if (decoded is! Map<String, dynamic>) throw Exception('پاسخ سرور نامعتبر است.');
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw Exception(decoded['error']?.toString() ?? 'خطای سرور (\${response.statusCode})');
+      throw Exception(decoded['error']?.toString() ?? 'خطای سرور (${response.statusCode})');
     }
     return decoded;
   }
@@ -191,16 +191,16 @@ class MatchService {
   }
 
   static Future<void> inviteFriend(String matchId, String friendId) async {
-    await _postJson('/matches/\$matchId/invites', {'inviteeId': friendId});
+    await _postJson('/matches/$matchId/invites', {'inviteeId': friendId});
   }
 
   static Future<Map<String, dynamic>> respondToInvite(String inviteId, {required bool accept}) async =>
-      _postJson('/match-invites/\$inviteId/respond', {'accept': accept});
+      _postJson('/match-invites/$inviteId/respond', {'accept': accept});
 
   static Future<Map<String, dynamic>> updateSetup(
     String id, {int? matchToWin, bool? acceptSettings, bool? ready}
   ) async {
-    return Map<String, dynamic>.from((await _postJson('/matches/\$id/setup', <String, dynamic>{
+    return Map<String, dynamic>.from((await _postJson('/matches/$id/setup', <String, dynamic>{
       if (matchToWin != null) 'matchToWin': matchToWin,
       if (acceptSettings != null) 'acceptSettings': acceptSettings,
       if (ready != null) 'ready': ready,
@@ -210,7 +210,7 @@ class MatchService {
   static Future<Map<String, dynamic>> proposeOrRespondCancellation(
     String id, {required bool accept}
   ) async {
-    return Map<String, dynamic>.from((await _postJson('/matches/\$id/cancellation', {'accept': accept}))['cancellation'] as Map);
+    return Map<String, dynamic>.from((await _postJson('/matches/$id/cancellation', {'accept': accept}))['cancellation'] as Map);
   }
 
 }
