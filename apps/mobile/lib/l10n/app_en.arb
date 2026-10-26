@@ -32,5 +32,12 @@
   "country": "Country",
   "email": "Email",
   "rememberMe": "Remember me",
-  "password": "Password"
+  "password": "Password",
+  "countryGermany": "Germany",
+  "countryIran": "Iran",
+  "countryUnitedStates": "United States",
+  "countryUnitedKingdom": "United Kingdom",
+  "countryTurkey": "Turkey",
+  "countryUnitedArabEmirates": "United Arab Emirates",
+  "countryOther": "Other"
 }
