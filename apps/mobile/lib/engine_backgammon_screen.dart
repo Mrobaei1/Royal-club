@@ -936,12 +936,12 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
           children: [
             Expanded(
                 child: _scoreCard(
-                    'طلایی', _engine.borneOff[1], _engine.bar[1], _boardGold,
+                    AppLocalizations.of(context)!.goldenPlayer, _engine.borneOff[1], _engine.bar[1], _boardGold,
                     compact: true)),
             const SizedBox(height: 6),
             Expanded(
                 child: _scoreCard(
-                    'روشن', _engine.borneOff[0], _engine.bar[0], _boardLight,
+                    AppLocalizations.of(context)!.lightPlayer, _engine.borneOff[0], _engine.bar[0], _boardLight,
                     compact: true)),
           ],
         )
@@ -949,11 +949,11 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
           children: [
             Expanded(
                 child: _scoreCard(
-                    'طلایی', _engine.borneOff[1], _engine.bar[1], _boardGold)),
+                    AppLocalizations.of(context)!.goldenPlayer, _engine.borneOff[1], _engine.bar[1], _boardGold)),
             const SizedBox(width: 8),
             Expanded(
                 child: _scoreCard(
-                    'روشن', _engine.borneOff[0], _engine.bar[0], _boardLight)),
+                    AppLocalizations.of(context)!.lightPlayer, _engine.borneOff[0], _engine.bar[0], _boardLight)),
           ],
         );
 
