@@ -381,14 +381,14 @@ class GameTile extends StatelessWidget {
                 ],
               )),
               if (comingSoon)
-                const Text('SOON',
+                Text('SOON',
                     style: TextStyle(
                         color: selectedTheme.accent,
                         fontSize: 9,
                         letterSpacing: 1,
                         fontWeight: FontWeight.bold))
               else
-                const Icon(Icons.arrow_forward_ios_rounded,
+                Icon(Icons.arrow_forward_ios_rounded,
                     color: selectedTheme.accent, size: 15),
             ]),
           ),

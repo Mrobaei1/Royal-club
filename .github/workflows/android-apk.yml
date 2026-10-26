@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       build_apk:
-        description: 'Build the release APK only after Stage 3 is complete'
+        description: 'Build an extra release APK on demand; main pushes build automatically'
         required: true
         type: boolean
         default: false
@@ -69,25 +69,75 @@ jobs:
         working-directory: apps/mobile
         run: flutter test
 
+      - name: Resolve and verify deployed Neon API endpoint
+        if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && inputs.build_apk == true)
+        id: endpoint
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}
+          NEON_BRANCH_ID: ${{ vars.NEON_BRANCH_ID }}
+          NEON_FUNCTION_SLUG: royalclubapi
+        run: |
+          if [ -z "$NEON_API_KEY" ]; then
+            echo "::error::NEON_API_KEY repository secret is missing; refusing to build an APK with an unverified API URL."
+            exit 1
+          fi
+          PROJECT_ID="${NEON_PROJECT_ID:-crimson-moon-58282245}"
+          BRANCH_ID="${NEON_BRANCH_ID:-br-misty-flower-bavs47dm}"
+          curl --fail-with-body --silent --show-error --connect-timeout 5 --max-time 15 \
+            "https://console.neon.tech/api/v2/projects/$PROJECT_ID/branches/$BRANCH_ID/functions/$NEON_FUNCTION_SLUG" \
+            --header "Authorization: Bearer $NEON_API_KEY" \
+            --header "Accept: application/json" \
+            --output function-details.json
+          FUNCTION_URL="$(node -e 'const fs=require("node:fs"); const x=JSON.parse(fs.readFileSync("function-details.json","utf8")); const found=[]; function walk(v){if(!v||typeof v!=="object")return;for(const [k,val] of Object.entries(v)){if(typeof val==="string"&&/^https:\/\//.test(val)){try{const u=new URL(val);if(u.protocol==="https:"&&u.hostname.endsWith(".neon.tech")&&u.hostname!=="console.neon.tech")found.push([k,u.toString()]);}catch{}}else if(val&&typeof val==="object")walk(val);}} walk(x); const hit=found.find(([k])=>/url|endpoint/i.test(k))||found[0]; if(!hit)process.exit(2); process.stdout.write(hit[1].replace(/\/+$/,""));')"
+          if [ -z "$FUNCTION_URL" ]; then
+            echo "::error::Neon did not return a valid public function URL."
+            exit 1
+          fi
+          echo "Checking the deployed API health endpoint."
+          if ! curl --fail --silent --show-error --connect-timeout 5 --max-time 12 \
+            "$FUNCTION_URL/api/v1/health" --output health.json; then
+            echo "::error::The deployed Royal Club API is not reachable; no APK will be built."
+            exit 1
+          fi
+          if ! node -e 'const x=JSON.parse(require("node:fs").readFileSync("health.json","utf8")); if(x.status!=="ok")process.exit(1)'; then
+            echo "::error::The deployed Royal Club API health check did not return status=ok."
+            head -c 2000 health.json || true
+            exit 1
+          fi
+          echo "Checking the API database connection."
+          if ! curl --fail --silent --show-error --connect-timeout 5 --max-time 12 \
+            "$FUNCTION_URL/api/v1/health/db" --output database-health.json; then
+            echo "::error::The deployed Royal Club API database health endpoint is not reachable."
+            exit 1
+          fi
+          if ! node -e 'const x=JSON.parse(require("node:fs").readFileSync("database-health.json","utf8")); if(x.status!=="ok"||x.database!=="connected")process.exit(1)'; then
+            echo "::error::The deployed Royal Club API did not confirm a connected database."
+            head -c 2000 database-health.json || true
+            exit 1
+          fi
+          echo "The deployed Royal Club API and database passed health checks."
+          echo "url=$FUNCTION_URL" >> "$GITHUB_OUTPUT"
+
       - name: Build release APK
-        if: github.event_name == 'workflow_dispatch' && inputs.build_apk == true
+        if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && inputs.build_apk == true)
         working-directory: apps/mobile
         env:
-          API_BASE_URL: https://br-misty-flower-bavs47dm-royalclubapi.compute.c-8.eu-central-1.aws.neon.tech
+          API_BASE_URL: ${{ steps.endpoint.outputs.url }}
         run: |
           if [ -n "$API_BASE_URL" ]; then
-            echo "Building APK with the Royal Club API endpoint."
-            flutter build apk --release --dart-define="API_BASE_URL=$API_BASE_URL"
+            echo "Building APK with the verified Royal Club API endpoint."
+            flutter build apk --release --target-platform android-arm64 --obfuscate --split-debug-info=build/symbols --tree-shake-icons --dart-define="API_BASE_URL=$API_BASE_URL"
           else
             echo "::error::API_BASE_URL is not configured; refusing to build a release APK without an API endpoint."
             exit 1
           fi
 
       - name: Upload installable APK
-        if: github.event_name == 'workflow_dispatch' && inputs.build_apk == true
+        if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && inputs.build_apk == true)
         uses: actions/upload-artifact@v4
         with:
-          name: royal-club-android-apk
+          name: royal-club-android-arm64-release
           path: apps/mobile/build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
           retention-days: 7
