@@ -1326,7 +1326,8 @@ app.post<{ Params: { id: string }; Body: { moves: Array<{ from: number | null; t
     await client.query('BEGIN');
     const result = await client.query(
       `SELECT id, status, host_user_id, guest_user_id, current_turn_user_id,
-              board_state, bar_state, off_state, dice, remaining_dice, state_version
+              board_state, bar_state, off_state, dice, remaining_dice, state_version,
+              match_to_win, host_game_wins, guest_game_wins
          FROM backgammon_matches WHERE id = $1 AND expires_at > NOW() FOR UPDATE`,
       [request.params.id]);
     const game = result.rows[0] as {
@@ -1334,6 +1335,7 @@ app.post<{ Params: { id: string }; Body: { moves: Array<{ from: number | null; t
       current_turn_user_id: string | null; board_state: number[];
       bar_state: { host: number; guest: number }; off_state: { host: number; guest: number };
       dice: number[]; remaining_dice: number[]; state_version: number;
+      match_to_win: number; host_game_wins: number; guest_game_wins: number;
     } | undefined;
     if (!game || ![game.host_user_id, game.guest_user_id].includes(claims.sub)) {
       await client.query('ROLLBACK');
@@ -1405,22 +1407,33 @@ app.post<{ Params: { id: string }; Body: { moves: Array<{ from: number | null; t
       : game.current_turn_user_id;
     const nextDice = turnComplete ? [] : game.dice;
     const nextRemaining = turnComplete ? [] : remaining;
-    const finished = simulated.off.host >= 15 || simulated.off.guest >= 15;
+    const gameFinished = simulated.off.host >= 15 || simulated.off.guest >= 15;
+    const hostWonGame = simulated.off.host >= 15;
+    const nextHostWins = Number(game.host_game_wins ?? 0) + (gameFinished && hostWonGame ? 1 : 0);
+    const nextGuestWins = Number(game.guest_game_wins ?? 0) + (gameFinished && !hostWonGame ? 1 : 0);
+    const matchFinished = gameFinished && Math.max(nextHostWins, nextGuestWins) >= Number(game.match_to_win ?? 1);
+    const nextBoard = gameFinished && !matchFinished ? INITIAL_BACKGAMMON_BOARD : simulated.board;
+    const nextBar = gameFinished && !matchFinished ? { host: 0, guest: 0 } : simulated.bar;
+    const nextOff = gameFinished && !matchFinished ? { host: 0, guest: 0 } : simulated.off;
     const updated = await client.query(
       `UPDATE backgammon_matches SET board_state = $1::jsonb, bar_state = $2::jsonb,
               off_state = $3::jsonb, current_turn_user_id = $4, dice = $5::jsonb,
               remaining_dice = $6::jsonb, status = $7,
+              host_game_wins = $8, guest_game_wins = $9,
               state_version = state_version + 1, updated_at = NOW()
-         WHERE id = $8
+         WHERE id = $10
          RETURNING id, status, board_state AS board, bar_state AS bar, off_state AS off,
                    current_turn_user_id AS "currentTurnUserId", dice,
-                   remaining_dice AS "remainingDice", state_version AS version`,
-      [JSON.stringify(simulated.board), JSON.stringify(simulated.bar), JSON.stringify(simulated.off),
-       nextTurn, JSON.stringify(nextDice), JSON.stringify(nextRemaining),
-       finished ? 'finished' : 'active', game.id]);
-    if (finished && game.guest_user_id) {
-      const winnerId = simulated.off.host >= 15 ? game.host_user_id : game.guest_user_id;
-      const loserId = simulated.off.host >= 15 ? game.guest_user_id : game.host_user_id;
+                   remaining_dice AS "remainingDice", state_version AS version,
+                   match_to_win AS "matchToWin", host_game_wins AS "hostGameWins",
+                   guest_game_wins AS "guestGameWins"`,
+      [JSON.stringify(nextBoard), JSON.stringify(nextBar), JSON.stringify(nextOff),
+       gameFinished ? game.host_user_id : nextTurn, JSON.stringify(gameFinished ? [] : nextDice),
+       JSON.stringify(gameFinished ? [] : nextRemaining), matchFinished ? 'finished' : 'active',
+       nextHostWins, nextGuestWins, game.id]);
+    if (matchFinished && game.guest_user_id) {
+      const winnerId = nextHostWins >= Number(game.match_to_win ?? 1) ? game.host_user_id : game.guest_user_id;
+      const loserId = winnerId === game.host_user_id ? game.guest_user_id : game.host_user_id;
       await updateBackgammonRatings(client, winnerId, loserId);
     }
     await client.query('COMMIT');
@@ -1581,21 +1594,33 @@ app.post<{ Params: { id: string }; Body: { from: number | null; to: number | nul
       : game.current_turn_user_id;
     const nextDice = turnComplete ? [] : game.dice;
     const nextRemaining = turnComplete ? [] : remaining;
-    const finished = off.host >= 15 || off.guest >= 15;
+    const gameFinished = off.host >= 15 || off.guest >= 15;
+    const hostWonGame = off.host >= 15;
+    const nextHostWins = Number(game.host_game_wins ?? 0) + (gameFinished && hostWonGame ? 1 : 0);
+    const nextGuestWins = Number(game.guest_game_wins ?? 0) + (gameFinished && !hostWonGame ? 1 : 0);
+    const matchFinished = gameFinished && Math.max(nextHostWins, nextGuestWins) >= Number(game.match_to_win ?? 1);
+    const nextBoard = gameFinished && !matchFinished ? INITIAL_BACKGAMMON_BOARD : board;
+    const nextBar = gameFinished && !matchFinished ? { host: 0, guest: 0 } : bar;
+    const nextOff = gameFinished && !matchFinished ? { host: 0, guest: 0 } : off;
     const updated = await client.query(
       `UPDATE backgammon_matches SET board_state = $1::jsonb, bar_state = $2::jsonb,
               off_state = $3::jsonb, current_turn_user_id = $4, dice = $5::jsonb,
               remaining_dice = $6::jsonb, status = $7,
+              host_game_wins = $8, guest_game_wins = $9,
               state_version = state_version + 1, updated_at = NOW()
-         WHERE id = $8
+         WHERE id = $10
          RETURNING id, status, board_state AS board, bar_state AS bar, off_state AS off,
                    current_turn_user_id AS "currentTurnUserId", dice,
-                   remaining_dice AS "remainingDice", state_version AS version`,
-      [JSON.stringify(board), JSON.stringify(bar), JSON.stringify(off), nextTurn,
-       JSON.stringify(nextDice), JSON.stringify(nextRemaining), finished ? 'finished' : 'active', game.id]);
-    if (finished && game.guest_user_id) {
-      const winnerId = off.host >= 15 ? game.host_user_id : game.guest_user_id;
-      const loserId = off.host >= 15 ? game.guest_user_id : game.host_user_id;
+                   remaining_dice AS "remainingDice", state_version AS version,
+                   match_to_win AS "matchToWin", host_game_wins AS "hostGameWins",
+                   guest_game_wins AS "guestGameWins"`,
+      [JSON.stringify(nextBoard), JSON.stringify(nextBar), JSON.stringify(nextOff),
+       gameFinished ? game.host_user_id : nextTurn, JSON.stringify(gameFinished ? [] : nextDice),
+       JSON.stringify(gameFinished ? [] : nextRemaining), matchFinished ? 'finished' : 'active',
+       nextHostWins, nextGuestWins, game.id]);
+    if (matchFinished && game.guest_user_id) {
+      const winnerId = nextHostWins >= Number(game.match_to_win ?? 1) ? game.host_user_id : game.guest_user_id;
+      const loserId = winnerId === game.host_user_id ? game.guest_user_id : game.host_user_id;
       await updateBackgammonRatings(client, winnerId, loserId);
     }
     await client.query('COMMIT');
