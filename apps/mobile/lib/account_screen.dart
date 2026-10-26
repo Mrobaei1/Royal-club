@@ -1,4 +1,7 @@
+import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'services/auth_service.dart';
 
 const _accountGold = Color(0xFFD8B45A);
@@ -17,6 +20,8 @@ class _AccountScreenState extends State<AccountScreen> {
   Map<String, dynamic>? _user;
   bool _loading = true;
   String? _error;
+  bool _avatarSaving = false;
+  final ImagePicker _imagePicker = ImagePicker();
 
   @override
   void initState() {
@@ -67,6 +72,75 @@ class _AccountScreenState extends State<AccountScreen> {
       if (mounted) setState(() { _error = error.toString().replaceFirst('Exception: ', ''); _loading = false; });
     }
   }
+  Future<void> _pickAvatar() async {
+    if (_avatarSaving) return;
+    try {
+      final image = await _imagePicker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 72,
+        maxWidth: 512,
+        maxHeight: 512,
+      );
+      if (image == null || !mounted) return;
+      final bytes = await image.readAsBytes();
+      if (bytes.length > 650 * 1024) {
+        setState(() => _error = 'حجم تصویر انتخابی زیاد است؛ لطفاً تصویر کوچک‌تری انتخاب کنید.');
+        return;
+      }
+      final extension = image.name.toLowerCase().split('.').last;
+      final mime = switch (extension) {
+        'png' => 'image/png',
+        'webp' => 'image/webp',
+        _ => 'image/jpeg',
+      };
+      final dataUrl = 'data:$mime;base64,${base64Encode(bytes)}';
+      setState(() { _avatarSaving = true; _error = null; });
+      final result = await AuthService.updateAvatar(dataUrl);
+      if (!mounted) return;
+      setState(() {
+        _user?['avatarDataUrl'] = result['avatarDataUrl'] ?? dataUrl;
+        _avatarSaving = false;
+      });
+    } catch (error) {
+      if (mounted) setState(() {
+        _error = error.toString().replaceFirst('Exception: ', '');
+        _avatarSaving = false;
+      });
+    }
+  }
+
+  Widget _avatar() {
+    final value = _user?['avatarDataUrl'];
+    Uint8List? bytes;
+    if (value is String && value.startsWith('data:image/')) {
+      final comma = value.indexOf(',');
+      if (comma >= 0) {
+        try { bytes = base64Decode(value.substring(comma + 1)); } catch (_) {}
+      }
+    }
+    return Column(
+      children: [
+        CircleAvatar(
+          radius: 48,
+          backgroundColor: _accountPanel,
+          backgroundImage: bytes == null ? null : MemoryImage(bytes),
+          child: bytes == null
+              ? const Icon(Icons.account_circle_outlined, color: _accountGold, size: 76)
+              : null,
+        ),
+        const SizedBox(height: 8),
+        OutlinedButton.icon(
+          onPressed: _avatarSaving ? null : _pickAvatar,
+          icon: _avatarSaving
+              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+              : const Icon(Icons.photo_library_outlined),
+          label: Text(_avatarSaving ? 'در حال ذخیره تصویر...' : 'انتخاب عکس پروفایل'),
+          style: OutlinedButton.styleFrom(foregroundColor: _accountGold, side: const BorderSide(color: _accountGold)),
+        ),
+      ],
+    );
+  }
+
   Widget _detail(IconData icon, String label, String value) => Card(
         color: _accountPanel,
         child: ListTile(
@@ -95,8 +169,7 @@ class _AccountScreenState extends State<AccountScreen> {
                 : ListView(
                     padding: const EdgeInsets.all(18),
                     children: [
-                      const Icon(Icons.account_circle_outlined,
-                          color: _accountGold, size: 76),
+                      _avatar(),
                       const SizedBox(height: 10),
                       const Text('اطلاعات حساب',
                           textAlign: TextAlign.center,
