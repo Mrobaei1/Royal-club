@@ -51,7 +51,7 @@ class _AccountScreenState extends State<AccountScreen> {
       builder: (dialogContext) => AlertDialog(
         backgroundColor: _accountPanel,
         title: Text(AppLocalizations.of(context)!.editUsername),
-        content: TextField(controller: controller, textDirection: TextDirection.ltr, decoration: const InputDecoration(labelText: AppLocalizations.of(context)!.username, hintText: 'royal_player7', prefixText: '@', helperText: AppLocalizations.of(context)!.usernameRules)),
+        content: TextField(controller: controller, textDirection: TextDirection.ltr, decoration: InputDecoration(labelText: AppLocalizations.of(context)!.username, hintText: 'royal_player7', prefixText: '@', helperText: AppLocalizations.of(context)!.usernameRules)),
         actions: [
           TextButton(onPressed: () => Navigator.pop(dialogContext), child: Text(AppLocalizations.of(context)!.cancel)),
           FilledButton(onPressed: () => Navigator.pop(dialogContext, controller.text.trim()), child: Text(AppLocalizations.of(context)!.save)),
