@@ -41,6 +41,15 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
     _lockLandscapeOnMobile();
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_initialMessageSet) {
+      _message = AppLocalizations.of(context)!.startRollPrompt;
+      _initialMessageSet = true;
+    }
+  }
+
   Future<void> _lockLandscapeOnMobile() async {
     if (kIsWeb) return;
     await SystemChrome.setPreferredOrientations(const [
@@ -64,7 +73,8 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
 
   int? _selectedPoint;
   bool _selectedBar = false;
-  String _message = AppLocalizations.of(context)!.startRollPrompt;
+  String _message = '';
+  bool _initialMessageSet = false;
   bool _gameOverDialogShown = false;
 
   List<BackgammonMove> get _moves => _engine.legalMoves();
@@ -232,7 +242,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
         } else if (_engine.currentPlayer == 1) {
           _message = AppLocalizations.of(context)!.yourTurnRoll;
         } else {
-          _message = AppLocalizations.of(context)!.computerTurnDice(_engine.dice.join('، '))
+          _message = AppLocalizations.of(context)!.computerTurnDice(_engine.dice.join('، '));
         }
       });
       if (_vsComputer &&
