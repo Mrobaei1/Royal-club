@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'services/match_service.dart';
 import 'online_match_screen.dart';
@@ -17,9 +18,37 @@ class _OnlineLobbyScreenState extends State<OnlineLobbyScreen> {
   Map<String, dynamic>? _created;
   bool _loading = false;
   String? _error;
+  Timer? _lobbyPoller;
+  bool _silentRefreshing = false;
 
   @override
-  void initState() { super.initState(); _refresh(); }
+  void initState() {
+    super.initState();
+    _refresh();
+    _lobbyPoller = Timer.periodic(
+      const Duration(seconds: 10),
+      (_) => _refreshOpenRoomsSilently(),
+    );
+  }
+
+  @override
+  void dispose() {
+    _lobbyPoller?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _refreshOpenRoomsSilently() async {
+    if (_loading || _silentRefreshing) return;
+    _silentRefreshing = true;
+    try {
+      final rooms = await MatchService.listOpen();
+      if (mounted) setState(() => _matches = rooms);
+    } catch (_) {
+      // Keep the current room list; the next interval retries automatically.
+    } finally {
+      _silentRefreshing = false;
+    }
+  }
 
   Future<void> _run(Future<void> Function() action) async {
     if (_loading) return;
