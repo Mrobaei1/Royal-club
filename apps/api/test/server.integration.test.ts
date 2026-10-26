@@ -361,6 +361,30 @@ test('registered players can join an online match and history does not expose op
     payload: { ready: true },
   });
   assert.equal(seriesHostReady.statusCode, 200, seriesHostReady.body);
+  const changeTargetAfterReady = await app.inject({
+    method: 'POST',
+    url: `/api/v1/matches/${seriesId}/setup`,
+    headers: auth(host.token),
+    payload: { matchToWin: 5 },
+  });
+  assert.equal(changeTargetAfterReady.statusCode, 200, changeTargetAfterReady.body);
+  assert.equal(changeTargetAfterReady.json().setup.host_ready, false);
+  assert.equal(changeTargetAfterReady.json().setup.guest_ready, false);
+  assert.equal(changeTargetAfterReady.json().setup.guest_settings_accepted, false);
+  const restoreTarget = await app.inject({
+    method: 'POST',
+    url: `/api/v1/matches/${seriesId}/setup`,
+    headers: auth(host.token),
+    payload: { matchToWin: 3 },
+  });
+  assert.equal(restoreTarget.statusCode, 200, restoreTarget.body);
+  const seriesHostReadyAgain = await app.inject({
+    method: 'POST',
+    url: `/api/v1/matches/${seriesId}/setup`,
+    headers: auth(host.token),
+    payload: { ready: true },
+  });
+  assert.equal(seriesHostReadyAgain.statusCode, 200, seriesHostReadyAgain.body);
   const seriesGuestReady = await app.inject({
     method: 'POST',
     url: `/api/v1/matches/${seriesId}/setup`,
