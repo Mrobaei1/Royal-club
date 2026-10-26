@@ -84,7 +84,7 @@ void main() {
       final moves = game.legalMoves();
       expect(moves, isNotEmpty);
       expect(moves.every((move) => move.fromBar), isTrue);
-      expect(moves.every((move) => move.to == 22 && move.die == 2), isTrue);
+      expect(moves.every((move) => move.to == 1 && move.die == 2), isTrue);
     });
 
     
