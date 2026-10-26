@@ -369,7 +369,7 @@ class GameTile extends StatelessWidget {
                 children: [
                   Text(title,
                       textDirection: TextDirection.rtl,
-                      style: const TextStyle(
+                      style: TextStyle(
                           color: selectedTheme.dark ? Colors.white : const Color(0xFF182033),
                           fontSize: 16,
                           fontWeight: FontWeight.w800)),
