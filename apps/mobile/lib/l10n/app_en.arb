@@ -95,5 +95,19 @@
   "accountTitle": "Account",
   "markAllRead": "Mark all as read",
   "noNotifications": "You have no notifications yet.",
-  "notificationFallback": "Notification"
+  "notificationFallback": "Notification",
+  "walletSubscriptionTitle": "Wallet and subscription",
+  "walletBalance": "Credit balance",
+  "creditsUnit": "credits",
+  "creditsNonTransferable": "Credits are non-transferable; only an authorized administrator can add credits.",
+  "availableSubscriptions": "Available subscriptions",
+  "activeSubscription": "Active subscription",
+  "endsAt": "Ends",
+  "noPlans": "No subscriptions are available yet.",
+  "activate": "Activate",
+  "recentTransactions": "Recent transactions",
+  "noTransactions": "No transactions have been recorded yet.",
+  "transactionFallback": "Transaction",
+  "subscriptionActivated": "Subscription activated successfully.",
+  "daysUnit": "days"
 }
