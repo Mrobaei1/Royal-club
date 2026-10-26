@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'l10n/app_localizations.dart';
 import 'services/match_service.dart';
 
 const _matchGold = Color(0xFFD8B45A);
@@ -158,10 +159,10 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
     final ownBar = bar[hostTurn ? 'host' : 'guest'] ?? 0;
     if (ownBar > 0) {
       final expected = hostTurn ? 24 - die : die - 1;
-      if (from != null || to != expected) { setState(() => _error = 'ابتدا باید مهره را با تاس انتخاب‌شده از بار وارد کنید.'); return; }
-      if (board[expected] * sign <= -2) { setState(() => _error = 'خانهٔ ورود با دو مهرهٔ حریف بسته است.'); return; }
+      if (from != null || to != expected) { setState(() => _error = AppLocalizations.of(context)!.enterFromBarFirst); return; }
+      if (board[expected] * sign <= -2) { setState(() => _error = AppLocalizations.of(context)!.barClosed); return; }
     } else if (from == null) {
-      setState(() => _error = 'مهره‌ای روی بار ندارید.'); return;
+      setState(() => _error = AppLocalizations.of(context)!.noCheckerOnBar); return;
     } else if (to == null) {
       final inHome = hostTurn ? from <= 5 : from >= 18;
       final allHome = board.asMap().entries.every((e) => hostTurn ? e.key <= 5 || e.value <= 0 : e.key >= 18 || e.value >= 0);
@@ -170,12 +171,12 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
           ? !board.asMap().entries.any((e) => e.key > from && e.key <= 5 && e.value > 0)
           : !board.asMap().entries.any((e) => e.key < from && e.key >= 18 && e.value < 0);
       if (board[from] * sign <= 0 || !inHome || !allHome || die < distance || (die > distance && !clear)) {
-        setState(() => _error = 'این مهره با این تاس قابل خارج‌کردن نیست.'); return;
+        setState(() => _error = AppLocalizations.of(context)!.cannotBearOff); return;
       }
     } else {
       final expected = hostTurn ? from - die : from + die;
       if (board[from] * sign <= 0 || expected != to || to < 0 || to > 23 || board[to] * sign <= -2) {
-        setState(() => _error = 'این حرکت با تاس انتخاب‌شده قانونی نیست.'); return;
+        setState(() => _error = AppLocalizations.of(context)!.illegalMoveWithDie); return;
       }
     }
     setState(() {
@@ -230,7 +231,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
   Future<void> _tapPoint(int point, List<num> board, List<num> remaining, bool isMyTurn) async {
     if (!isMyTurn || _busy) return;
     if (_selectedDie == null || !remaining.contains(_selectedDie)) {
-      setState(() => _error = 'ابتدا یکی از تاس‌های باقی‌مانده را انتخاب کنید.');
+      setState(() => _error = AppLocalizations.of(context)!.selectDieFirst);
       return;
     }
     if (_fromBar) {
@@ -240,7 +241,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
     if (_selectedFrom == null) {
       final sign = _state?['isHost'] == true ? 1 : -1;
       if (board[point].toInt() * sign <= 0) {
-        setState(() => _error = 'مهره‌ای از خودتان را انتخاب کنید.');
+        setState(() => _error = AppLocalizations.of(context)!.selectOwnChecker);
         return;
       }
       setState(() { _selectedFrom = point; _error = null; });
@@ -294,13 +295,13 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
     final bar = preview['bar'] as Map<String, int>;
     final ownBar = (bar[_state?['isHost'] == true ? 'host' : 'guest'] ?? 0);
     return Directionality(
-      textDirection: TextDirection.rtl,
+      textDirection: Localizations.localeOf(context).languageCode == 'fa' ? TextDirection.rtl : TextDirection.ltr,
       child: Scaffold(
         backgroundColor: _matchNavy,
         appBar: AppBar(
           backgroundColor: _matchNavy,
           foregroundColor: _matchGold,
-          title: Text('اتاق ${widget.match['roomCode'] ?? _id}'),
+          title: Text('${AppLocalizations.of(context)!.roomTitle} ${widget.match['roomCode'] ?? _id}'),
           actions: [IconButton(onPressed: _busy ? null : _refresh, icon: const Icon(Icons.refresh))],
         ),
         body: SafeArea(child: ListView(
@@ -312,10 +313,10 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
               child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                 Text(
                   _matchStatus == 'finished'
-                      ? 'بازی پایان یافت'
+                      ? AppLocalizations.of(context)!.matchFinished
                       : (_state == null
-                          ? 'در انتظار ورود حریف...'
-                          : (isMyTurn ? 'نوبت شماست' : 'در انتظار حرکت حریف')),
+                          ? AppLocalizations.of(context)!.waitingForOpponent
+                          : (isMyTurn ? AppLocalizations.of(context)!.yourTurn : AppLocalizations.of(context)!.waitingOpponentMove)),
                   style: const TextStyle(
                     color: _matchGold,
                     fontWeight: FontWeight.bold,
@@ -323,7 +324,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
                   ),
                 ),
                 const SizedBox(height: 6),
-                Text(_state == null ? 'این صفحه به‌صورت خودکار هر ۳ ثانیه وضعیت اتاق را بررسی می‌کند.' : 'نسخه وضعیت: ${_state!['version']}',
+                Text(_state == null ? AppLocalizations.of(context)!.autoRefreshNote : '${AppLocalizations.of(context)!.stateVersion}: ${_state!['version']}',
                   style: const TextStyle(color: Colors.white70)),
               ]),
             ),
@@ -339,19 +340,19 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
                   _error = null;
                 }),
                 icon: Icon(_batchMode ? Icons.playlist_remove : Icons.playlist_add),
-                label: Text(_batchMode ? 'لغو حالت حرکت ترکیبی' : 'ثبت چند حرکت با یک تأیید'),
+                label: Text(_batchMode ? AppLocalizations.of(context)!.cancelBatchMoves : AppLocalizations.of(context)!.batchMoves),
               ),
               if (_batchMode) Container(
                 margin: const EdgeInsets.only(bottom: 12),
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(color: _matchPanel, borderRadius: BorderRadius.circular(12), border: Border.all(color: _matchGold)),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                  Text('حرکت‌های آماده: ${_pendingMoves.length} — تخته پیش‌نمایش است؛ هنوز روی سرور ثبت نشده.', style: const TextStyle(color: Colors.white70)),
+                  Text(AppLocalizations.of(context)!.stagedMovesNote.replaceFirst('{count}', _pendingMoves.length.toString()), style: const TextStyle(color: Colors.white70)),
                   const SizedBox(height: 8),
                   Row(children: [
-                    Expanded(child: OutlinedButton(onPressed: _busy ? null : _cancelBatch, child: const Text('لغو همه'))),
+                    Expanded(child: OutlinedButton(onPressed: _busy ? null : _cancelBatch, child: Text(AppLocalizations.of(context)!.cancelAll))),
                     const SizedBox(width: 8),
-                    Expanded(child: FilledButton(onPressed: _busy || _pendingMoves.isEmpty ? null : _submitBatch, child: const Text('ثبت همه حرکت‌ها'))),
+                    Expanded(child: FilledButton(onPressed: _busy || _pendingMoves.isEmpty ? null : _submitBatch, child: Text(AppLocalizations.of(context)!.submitAllMoves))),
                   ]),
                 ]),
               ),
@@ -359,7 +360,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(color: const Color(0xFF6E4A2B), borderRadius: BorderRadius.circular(16), border: Border.all(color: _matchGold)),
                 child: Column(children: [
-                  const Text('وضعیت تخته از سرور', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  Text(AppLocalizations.of(context)!.serverBoardStatus, style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 12),
                   GridView.builder(
                     shrinkWrap: true,
@@ -391,7 +392,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(color: _matchPanel, borderRadius: BorderRadius.circular(16)),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                  const Text('تاس سرور', style: TextStyle(color: _matchGold, fontSize: 17, fontWeight: FontWeight.bold)),
+                  Text(AppLocalizations.of(context)!.serverDice, style: TextStyle(color: _matchGold, fontSize: 17, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 12),
                   Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                     _Die(value: dice.isNotEmpty ? dice[0].toInt() : null),
@@ -399,7 +400,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
                     _Die(value: dice.length > 1 ? dice[1].toInt() : null),
                   ]),
                   const SizedBox(height: 8),
-                  Text(dice.isEmpty ? 'هنوز تاسی ریخته نشده است.' : 'تاس‌های باقی‌مانده را انتخاب کنید:',
+                  Text(dice.isEmpty ? AppLocalizations.of(context)!.noDiceRolled : AppLocalizations.of(context)!.selectRemainingDice,
                     textAlign: TextAlign.center, style: const TextStyle(color: Colors.white70)),
                   if (remaining.isNotEmpty) Wrap(
                     alignment: WrapAlignment.center,
@@ -413,23 +414,23 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
                   if (ownBar > 0 && isMyTurn) OutlinedButton.icon(
                     onPressed: _busy ? null : () => setState(() { _fromBar = true; _selectedFrom = null; _error = null; }),
                     icon: const Icon(Icons.login),
-                    label: Text('ورود مهره از بار (${ownBar.toInt()})'),
+                    label: Text('${AppLocalizations.of(context)!.enterCheckerFromBar} (${ownBar.toInt()})'),
                   ),
                   if (_selectedFrom != null && isMyTurn) OutlinedButton.icon(
                     onPressed: _busy || _selectedDie == null ? null : () => _batchMode ? _stageMove(from: _selectedFrom, to: null, die: _selectedDie!) : _submitMove(from: _selectedFrom, to: null, die: _selectedDie!),
                     icon: const Icon(Icons.outbound),
-                    label: const Text('خارج کردن مهره'),
+                    label: Text(AppLocalizations.of(context)!.bearOffChecker),
                   ),
                   if (isMyTurn && remaining.isNotEmpty) OutlinedButton.icon(
                     onPressed: _busy ? null : _endTurn,
                     icon: const Icon(Icons.skip_next),
-                    label: const Text('پایان نوبت (فقط اگر حرکت قانونی نمانده باشد)'),
+                    label: Text(AppLocalizations.of(context)!.endTurnIfNoMoves),
                   ),
                   const SizedBox(height: 12),
                   FilledButton.icon(
                     onPressed: _busy || _matchStatus != 'active' || !isMyTurn || dice.isNotEmpty ? null : _roll,
                     icon: const Icon(Icons.casino),
-                    label: Text(_busy ? 'در حال ثبت...' : 'ریختن تاس'),
+                    label: Text(_busy ? AppLocalizations.of(context)!.rollingDice : AppLocalizations.of(context)!.rollDice),
                     style: FilledButton.styleFrom(backgroundColor: _matchGold, foregroundColor: _matchNavy, padding: const EdgeInsets.all(13)),
                   ),
                 ]),
@@ -437,7 +438,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
             ],
             if (_error != null) Padding(padding: const EdgeInsets.only(top: 12), child: Text(_error!, style: const TextStyle(color: Colors.redAccent))),
             const SizedBox(height: 10),
-            const Text('حرکت‌ها با شماره نسخه به سرور ارسال می‌شوند و سرور نوبت، تاس مصرفی، مسیر حرکت، خانه مسدود و خارج‌کردن مهره را بررسی می‌کند.',
+            Text(AppLocalizations.of(context)!.matchRulesNote,
               style: TextStyle(color: Colors.white54, height: 1.6)),
           ],
         )),
