@@ -1017,17 +1017,30 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
             borderRadius: BorderRadius.circular(10)),
         child: Row(
           children: [
-            _checker(color == _boardGold ? 1 : -1, size: compact ? 15 : 18),
+            CircleAvatar(
+              radius: compact ? 12 : 16,
+              backgroundColor: color.withValues(alpha: .18),
+              child: Icon(Icons.person_rounded, color: color, size: compact ? 15 : 20),
+            ),
             SizedBox(width: compact ? 4 : 7),
             Expanded(
-                child: Text('$title\nخارج: $off · بار: $onBar',
-                    style:
-                        TextStyle(fontSize: compact ? 10 : 12, height: 1.25))),
-            Text('$off/15',
-                style: TextStyle(
-                    color: color,
-                    fontWeight: FontWeight.bold,
-                    fontSize: compact ? 11 : 14)),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: TextStyle(color: color, fontWeight: FontWeight.w800, fontSize: compact ? 10 : 12)),
+                  Text(
+                    title == 'روشن' && _vsComputer ? 'هوش مصنوعی' : (title == 'طلایی' ? 'بازیکن اول' : 'بازیکن دوم'),
+                    style: TextStyle(color: Colors.white54, fontSize: compact ? 8 : 10),
+                    maxLines: 1, overflow: TextOverflow.ellipsis,
+                  ),
+                  Text('خارج: $off · بار: $onBar', style: TextStyle(color: Colors.white70, fontSize: compact ? 9 : 11)),
+                  if (_engine.currentPlayer == (title == 'طلایی' ? 1 : -1) && !_engine.finished)
+                    Text('نوبت فعلی', style: TextStyle(color: _boardGold, fontSize: compact ? 8 : 10, fontWeight: FontWeight.bold)),
+                ],
+              ),
+            ),
+            Text('$off/15', style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: compact ? 10 : 13)),
           ],
         ),
       );
