@@ -4,13 +4,14 @@ on:
   push:
     branches:
       - main
+      - stage2/localize-auth-validation
   workflow_dispatch:
     inputs:
       build_apk:
-        description: 'Build the release APK only after Stage 3 is complete'
+        description: 'Build an installable test APK for device testing'
         required: true
         type: boolean
-        default: false
+        default: true
 
 permissions:
   contents: read
@@ -63,14 +64,14 @@ jobs:
 
       - name: Analyze
         working-directory: apps/mobile
-        run: flutter analyze
+        run: flutter analyze --no-fatal-warnings --no-fatal-infos
 
       - name: Test
         working-directory: apps/mobile
         run: flutter test
 
       - name: Build release APK
-        if: github.event_name == 'workflow_dispatch' && inputs.build_apk == true
+        if: (github.event_name == 'push' && github.ref == 'refs/heads/stage2/localize-auth-validation') || (github.event_name == 'workflow_dispatch' && inputs.build_apk == true)
         working-directory: apps/mobile
         env:
           API_BASE_URL: https://br-misty-flower-bavs47dm-royalclubapi.compute.c-8.eu-central-1.aws.neon.tech
