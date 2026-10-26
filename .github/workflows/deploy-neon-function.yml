@@ -310,8 +310,12 @@ jobs:
             if (inboxResponse.status !== 200 || !inbox.incomingRequests?.some((request) => String(request.userId) === String(firstUser.id))) {
               throw new Error('Friend request did not appear in the recipient inbox.');
             }
+            const incomingRequest = inbox.incomingRequests.find((request) => String(request.userId) === String(firstUser.id));
+            if (Object.hasOwn(incomingRequest, 'email') || Object.hasOwn(incomingRequest, 'requesterEmail') || Object.hasOwn(incomingRequest, 'addresseeEmail')) {
+              throw new Error('Friend list response must not expose either account email address.');
+            }
 
-            console.log('PASS: password validation, registration/login, profile editing, username search, and friend request delivery.');
+            console.log('PASS: password validation, registration/login, profile editing, username search, friend request delivery, and friend-list email privacy.');
           } finally {
             await pool.query('DELETE FROM users WHERE email = ANY($1::text[])', [[email, shortEmail, friendEmail]]);
             await pool.end();
