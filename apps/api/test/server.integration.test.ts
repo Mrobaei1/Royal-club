@@ -293,4 +293,60 @@ test('registered players can join an online match and history does not expose op
   assert.equal(guestStats.rating, 984);
   assert.equal(guestStats.losses, 1);
   assert.equal(guestStats.gamesPlayed, 1);
+
+  const cancellationRoom = await app.inject({
+    method: 'POST',
+    url: '/api/v1/matches',
+    headers: auth(host.token),
+  });
+  assert.equal(cancellationRoom.statusCode, 201, cancellationRoom.body);
+  const cancellationId = String(cancellationRoom.json().match.id);
+  const cancellationJoin = await app.inject({
+    method: 'POST',
+    url: `/api/v1/matches/${cancellationId}/join`,
+    headers: auth(guest.token),
+  });
+  assert.equal(cancellationJoin.statusCode, 200, cancellationJoin.body);
+
+  const propose = () => app.inject({
+    method: 'POST',
+    url: `/api/v1/matches/${cancellationId}/cancellation`,
+    headers: auth(host.token),
+    payload: { accept: false },
+  });
+  const firstProposal = await propose();
+  assert.equal(firstProposal.statusCode, 200, firstProposal.body);
+  assert.equal(firstProposal.json().cancellation.status, 'proposed');
+
+  const reject = await app.inject({
+    method: 'POST',
+    url: `/api/v1/matches/${cancellationId}/cancellation`,
+    headers: auth(guest.token),
+    payload: { accept: false },
+  });
+  assert.equal(reject.statusCode, 200, reject.body);
+  assert.equal(reject.json().cancellation.status, 'rejected');
+  const stillWaiting = await app.inject({
+    method: 'GET',
+    url: `/api/v1/matches/${cancellationId}`,
+    headers: auth(host.token),
+  });
+  assert.equal(stillWaiting.json().match.status, 'waiting');
+
+  const secondProposal = await propose();
+  assert.equal(secondProposal.statusCode, 200, secondProposal.body);
+  const acceptCancellation = await app.inject({
+    method: 'POST',
+    url: `/api/v1/matches/${cancellationId}/cancellation`,
+    headers: auth(guest.token),
+    payload: { accept: true },
+  });
+  assert.equal(acceptCancellation.statusCode, 200, acceptCancellation.body);
+  assert.equal(acceptCancellation.json().cancellation.status, 'cancelled');
+  const cancelled = await app.inject({
+    method: 'GET',
+    url: `/api/v1/matches/${cancellationId}`,
+    headers: auth(host.token),
+  });
+  assert.equal(cancelled.json().match.status, 'cancelled');
 });
