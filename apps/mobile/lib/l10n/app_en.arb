@@ -264,6 +264,5 @@
   "notificationValidation": "A title is required (max 120 characters); message max 1,000 characters.",
   "reportUpdated": "Report status updated.",
   "subscriptionUpdated": "Subscription updated.",
-  "subscriptionActivated": "Subscription activated.",
   "subscriptionDeactivated": "Subscription deactivated."
 }
