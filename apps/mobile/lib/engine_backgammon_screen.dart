@@ -530,97 +530,119 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
   }
 
   Widget _board(Set<int> legalTargets,
-          {required double rowHeight, bool compact = false}) =>
-      Container(
-        padding: const EdgeInsets.all(6),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: _boardThemes[_boardThemeIndex],
+          {required double rowHeight, bool compact = false}) {
+    final barWidth = compact || rowHeight < 120 ? 32.0 : 42.0;
+    final topLeft = List.generate(6, (i) => 11 - i);
+    final topRight = List.generate(6, (i) => 5 - i);
+    final bottomLeft = List.generate(6, (i) => 12 + i);
+    final bottomRight = List.generate(6, (i) => 18 + i);
+
+    Widget points(List<int> indexes, {required bool top}) => Expanded(
+          child: SizedBox(
+            height: rowHeight,
+            child: _pointRow(indexes, legalTargets, top: top, compact: compact),
           ),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: _boardGold, width: 2),
-          boxShadow: const [
-            BoxShadow(
-                color: Colors.black45, blurRadius: 12, offset: Offset(0, 5)),
-            BoxShadow(color: Color(0x337D5A27), blurRadius: 2, spreadRadius: 1),
-          ],
-        ),
-        child: Column(
-          children: [
-            Expanded(
-                child: Row(children: [
-              _barPanel(compact: compact || rowHeight < 120),
-              const SizedBox(width: 5),
-              Expanded(
-                  child: SizedBox(
-                      height: rowHeight,
-                      child: _pointRow(
-                          List.generate(12, (i) => 11 - i), legalTargets,
-                          top: true, compact: compact))),
-            ])),
-            Container(
-              margin: const EdgeInsets.symmetric(vertical: 4),
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                    colors: [_boardNavy, Color(0xFF202D46), _boardNavy]),
-                borderRadius: BorderRadius.circular(9),
-                border: Border.all(color: _boardGold.withValues(alpha: .85)),
-                boxShadow: const [
-                  BoxShadow(
-                      color: Colors.black26,
-                      blurRadius: 4,
-                      offset: Offset(0, 2))
-                ],
+        );
+
+    Widget barCount(int player) => SizedBox(
+          width: barWidth,
+          child: Container(
+            margin: const EdgeInsets.symmetric(horizontal: 1),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [_boardDark, Color(0xFF211814), _boardDark],
               ),
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final barWidth = compact || rowHeight < 120 ? 36.0 : 48.0;
-                  final dividerLeft =
-                      constraints.maxWidth / 2 + (barWidth + 5) / 2 - 1.5;
-                  return Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      Center(child: _diceTray(compact: true)),
-                      Positioned(
-                        left: dividerLeft,
-                        top: -4,
-                        bottom: -4,
-                        child: Container(
-                          width: 3,
-                          decoration: BoxDecoration(
-                            color: _boardGold,
-                            boxShadow: [
-                              BoxShadow(
-                                color: _boardGold.withValues(alpha: 0.5),
-                                blurRadius: 4,
-                                spreadRadius: 0.5,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
-                  );
-                },
+              border: Border.symmetric(
+                vertical: BorderSide(color: _boardGold.withValues(alpha: .8), width: 1.2),
               ),
             ),
-            Expanded(
-                child: Row(children: [
-              _barPanel(compact: compact || rowHeight < 120),
-              const SizedBox(width: 5),
-              Expanded(
-                  child: SizedBox(
-                      height: rowHeight,
-                      child: _pointRow(
-                          List.generate(12, (i) => 12 + i), legalTargets,
-                          top: false, compact: compact))),
-            ])),
-          ],
+            alignment: Alignment.center,
+            child: _barCount(player, compact: compact || rowHeight < 120),
+          ),
+        );
+
+    return Container(
+      padding: const EdgeInsets.all(6),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: _boardThemes[_boardThemeIndex],
         ),
-      );
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _boardGold, width: 2),
+        boxShadow: const [
+          BoxShadow(color: Colors.black45, blurRadius: 12, offset: Offset(0, 5)),
+          BoxShadow(color: Color(0x337D5A27), blurRadius: 2, spreadRadius: 1),
+        ],
+      ),
+      child: Column(
+        children: [
+          Expanded(
+            child: Row(
+              children: [
+                _barPanel(compact: compact || rowHeight < 120, offPlayer: -1),
+                const SizedBox(width: 4),
+                points(topLeft, top: true),
+                barCount(-1),
+                points(topRight, top: true),
+              ],
+            ),
+          ),
+          Container(
+            height: compact || rowHeight < 120 ? 34 : 44,
+            margin: const EdgeInsets.symmetric(vertical: 3),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [_boardNavy, Color(0xFF202D46), _boardNavy],
+              ),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: _boardGold.withValues(alpha: .85)),
+              boxShadow: const [
+                BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(0, 2)),
+              ],
+            ),
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Center(child: _diceTray(compact: true)),
+                Positioned(
+                  left: 0,
+                  top: -2,
+                  bottom: -2,
+                  child: Container(
+                    width: 2,
+                    decoration: BoxDecoration(
+                      color: _boardGold,
+                      boxShadow: [
+                        BoxShadow(
+                          color: _boardGold.withValues(alpha: .55),
+                          blurRadius: 4,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: Row(
+              children: [
+                _barPanel(compact: compact || rowHeight < 120, offPlayer: 1),
+                const SizedBox(width: 4),
+                points(bottomLeft, top: false),
+                barCount(1),
+                points(bottomRight, top: false),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _statusPanel({bool compact = false}) => Container(
         width: double.infinity,
@@ -778,36 +800,56 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
     );
   }
 
-  Widget _barPanel({bool compact = false}) => SizedBox(
-        width: compact ? 36 : 48,
-        child: InkWell(
-          onTap: _tapBar,
-          borderRadius: BorderRadius.circular(8),
-          child: Container(
-            constraints: BoxConstraints(minHeight: compact ? 82 : 178),
-            padding:
-                EdgeInsets.symmetric(vertical: compact ? 3 : 8, horizontal: 2),
-            decoration: BoxDecoration(
-              color:
-                  _selectedBar ? _boardGold.withValues(alpha: .35) : _boardDark,
-              borderRadius: BorderRadius.circular(8),
-              border:
-                  Border.all(color: _selectedBar ? _boardGold : Colors.white24),
+  Widget _barPanel({bool compact = false, required int offPlayer}) {
+    final offIndex = offPlayer == 1 ? 1 : 0;
+    final isCurrentPlayer = _engine.currentPlayer == offPlayer;
+    return SizedBox(
+      width: compact ? 36 : 48,
+      child: InkWell(
+        onTap: isCurrentPlayer ? _tapBearOff : null,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          constraints: BoxConstraints(minHeight: compact ? 82 : 178),
+          padding: EdgeInsets.symmetric(vertical: compact ? 3 : 8, horizontal: 2),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xFF241B17), Color(0xFF100E0D)],
             ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text('بار',
-                    style: TextStyle(color: Colors.white70, fontSize: 10)),
-                _barCount(-1, compact: compact),
-                Divider(color: Colors.white24, height: compact ? 3 : 6),
-                _barCount(1, compact: compact),
-                _bearOffTray(compact: compact),
-              ],
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: isCurrentPlayer ? _boardGold : _boardGold.withValues(alpha: .45),
+              width: isCurrentPlayer ? 1.4 : 1,
             ),
           ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Icon(Icons.inventory_2_outlined, color: _boardGold, size: compact ? 13 : 16),
+              Text(
+                offPlayer == 1 ? 'طلایی' : 'روشن',
+                style: TextStyle(color: Colors.white70, fontSize: compact ? 7 : 9),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              _checker(offPlayer, size: compact ? 16 : 22),
+              Text(
+                '${_engine.borneOff[offIndex]}/15',
+                style: TextStyle(
+                  color: _boardGold,
+                  fontSize: compact ? 8 : 10,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              if (isCurrentPlayer)
+                Icon(Icons.touch_app_outlined, color: _boardGold, size: compact ? 12 : 15),
+            ],
+          ),
         ),
-      );
+      ),
+    );
+  }
 
   Widget _barCount(int player, {bool compact = false}) {
     final count = _engine.bar[player == 1 ? 1 : 0];
