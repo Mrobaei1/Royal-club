@@ -264,7 +264,7 @@ jobs:
             echo ""
             echo "- API health check: passed"
             echo "- Six-character registration/login smoke test: passed"
-            echo "- API base URL: `$FUNCTION_URL`"
+            echo "- API base URL: ${FUNCTION_URL}"
             echo "- GitHub Pages rebuild: queued"
             echo ""
             echo "Run the Royal Club Web Preview workflow to publish the updated web app."
