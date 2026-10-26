@@ -590,7 +590,7 @@ class _AuthScreenState extends State<AuthScreen> {
                       value: _rememberMe,
                       controlAffinity: ListTileControlAffinity.leading,
                       title: Text(AppLocalizations.of(context)!.rememberMe),
-                      subtitle: const Text(
+                      subtitle: Text(
                           AppLocalizations.of(context)!.rememberedEmailSubtitle),
                       onChanged: _busy
                           ? null
