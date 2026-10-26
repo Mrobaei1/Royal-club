@@ -264,5 +264,11 @@
   "notificationValidation": "عنوان الزامی است؛ عنوان حداکثر ۱۲۰ و متن حداکثر ۱۰۰۰ نویسه.",
   "reportUpdated": "وضعیت گزارش به‌روزرسانی شد.",
   "subscriptionUpdated": "اشتراک به‌روزرسانی شد.",
-  "subscriptionDeactivated": "اشتراک غیرفعال شد."
+  "subscriptionDeactivated": "اشتراک غیرفعال شد.",
+  "statusOpen": "باز",
+  "statusReviewed": "بررسی‌شده",
+  "statusDismissed": "ردشده",
+  "statusActioned": "اقدام‌شده",
+  "notificationSentCount": "اعلان برای {count} کاربر ارسال شد.",
+  "@notificationSentCount": {"placeholders": {"count": {"type": "int"}}}
 }
