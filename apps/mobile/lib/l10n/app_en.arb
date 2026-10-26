@@ -165,5 +165,10 @@
         "type": "int"
       }
     }
-  }
+  },
+  "themeRoyal": "Royal",
+  "themeEmerald": "Emerald",
+  "themeOceanic": "Oceanic",
+  "themeRuby": "Ruby",
+  "themeLight": "Light"
 }
