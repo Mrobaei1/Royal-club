@@ -677,7 +677,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
 
   Widget _diceTray({bool compact = false}) {
     if (_engine.dice.isEmpty) {
-      return const Row(
+      return Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(Icons.casino_outlined, color: Colors.white54, size: 21),
