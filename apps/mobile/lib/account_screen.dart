@@ -143,6 +143,69 @@ class _AccountScreenState extends State<AccountScreen> {
     );
   }
 
+  Future<void> _editProfile() async {
+    if (_user == null) return;
+    final nameController = TextEditingController(text: _user?['fullName']?.toString() ?? '');
+    final phoneController = TextEditingController(text: _user?['phone']?.toString() ?? '');
+    String country = _user?['country']?.toString() ?? 'Germany';
+    const countries = <String, String>{
+      'Germany': 'آلمان', 'Iran': 'ایران', 'United States': 'ایالات متحده',
+      'United Kingdom': 'بریتانیا', 'Turkey': 'ترکیه',
+      'United Arab Emirates': 'امارات متحده عربی', 'Other': 'سایر کشورها',
+    };
+    final picked = await showDialog<Map<String, String>>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) => AlertDialog(
+          backgroundColor: _accountPanel,
+          title: const Text('ویرایش اطلاعات حساب'),
+          content: SingleChildScrollView(
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              TextField(controller: nameController, textCapitalization: TextCapitalization.words,
+                decoration: const InputDecoration(labelText: 'نام کامل', border: OutlineInputBorder())),
+              const SizedBox(height: 14),
+              TextField(controller: phoneController, keyboardType: TextInputType.phone,
+                decoration: const InputDecoration(labelText: 'شماره تلفن', border: OutlineInputBorder())),
+              const SizedBox(height: 14),
+              DropdownButtonFormField<String>(
+                value: countries.containsKey(country) ? country : 'Other',
+                decoration: const InputDecoration(labelText: 'کشور', border: OutlineInputBorder()),
+                items: countries.entries.map((entry) => DropdownMenuItem<String>(value: entry.key, child: Text(entry.value))).toList(),
+                onChanged: (value) { if (value != null) setDialogState(() => country = value); },
+              ),
+              const SizedBox(height: 10),
+              const Text('ایمیل و شناسه کاربری ثابت‌اند؛ تغییر ایمیل به فرایند امنیتی جداگانه نیاز دارد.', style: TextStyle(color: Colors.white60, fontSize: 12)),
+            ]),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('انصراف')),
+            FilledButton(onPressed: () => Navigator.pop(dialogContext, {
+              'fullName': nameController.text.trim(), 'phone': phoneController.text.trim(), 'country': country,
+            }), child: const Text('ذخیره تغییرات')),
+          ],
+        ),
+      ),
+    );
+    nameController.dispose();
+    phoneController.dispose();
+    if (picked == null || !mounted) return;
+    setState(() { _loading = true; _error = null; });
+    try {
+      final updated = await AuthService.updateProfile(
+        fullName: picked['fullName'] ?? '', phone: picked['phone'] ?? '', country: picked['country'] ?? '',
+      );
+      if (!mounted) return;
+      setState(() {
+        _user?['fullName'] = updated['fullName'] ?? picked['fullName'];
+        _user?['phone'] = updated['phone'] ?? picked['phone'];
+        _user?['country'] = updated['country'] ?? picked['country'];
+        _loading = false;
+      });
+    } catch (error) {
+      if (mounted) setState(() { _error = error.toString().replaceFirst('Exception: ', ''); _loading = false; });
+    }
+  }
+
   Widget _detail(IconData icon, String label, String value) => Card(
         color: _accountPanel,
         child: ListTile(
@@ -184,6 +247,16 @@ class _AccountScreenState extends State<AccountScreen> {
                         Text(_error!,
                             textAlign: TextAlign.center,
                             style: const TextStyle(color: Colors.redAccent)),
+                      if (_user != null)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 14),
+                          child: FilledButton.icon(
+                            onPressed: _editProfile,
+                            icon: const Icon(Icons.edit_outlined),
+                            label: const Text('ویرایش اطلاعات حساب'),
+                            style: FilledButton.styleFrom(backgroundColor: _accountGold, foregroundColor: _accountNavy, padding: const EdgeInsets.all(14)),
+                          ),
+                        ),
                       if (_user != null) ...[
                         Card(
                           color: _accountPanel,
