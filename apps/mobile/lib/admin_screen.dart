@@ -263,7 +263,7 @@ class _AdminScreenState extends State<AdminScreen> {
                 child: Padding(
                   padding: const EdgeInsets.all(12),
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(report['reportedEmail']?.toString() ?? 'کاربر', style: const TextStyle(fontWeight: FontWeight.bold)),
+                    Text(report['reportedEmail']?.toString() ?? AppLocalizations.of(context)!.userFallback, style: const TextStyle(fontWeight: FontWeight.bold)),
                     Text('${AppLocalizations.of(context)!.reporterLabel}: ${report['reporterEmail'] ?? report['reporterId']}'),
                     Text('${AppLocalizations.of(context)!.recentReportsLabel}: ${report['uniqueReportsLast7Days']} / ${report['reportsLast7Days']}'),
                     if ((report['uniqueReportsLast7Days'] as num?)?.toInt() != null && ((report['uniqueReportsLast7Days'] as num).toInt() >= 2))
