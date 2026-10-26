@@ -893,6 +893,12 @@ app.post<{ Params: { id: string } }>('/api/v1/friends/:id/request', { onRequest:
   } catch (error: any) {
     await client.query('ROLLBACK').catch(() => undefined);
     if (error?.code === '23505') return reply.code(409).send({ error: 'A friend request already exists.' });
+    console.error('Friend request database failure', {
+      code: error?.code,
+      message: error?.message,
+      detail: error?.detail,
+      constraint: error?.constraint,
+    });
     request.log.error({ err: error }, 'Could not create friend request');
     return reply.code(500).send({ error: 'Could not send friend request.' });
   } finally {
