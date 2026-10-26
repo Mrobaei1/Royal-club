@@ -368,14 +368,14 @@ class GameTile extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(title,
-                      textDirection: TextDirection.rtl,
+                      textDirection: royalLocaleState.locale.languageCode == 'fa' ? TextDirection.rtl : TextDirection.ltr,
                       style: const TextStyle(
                           color: selectedTheme.dark ? Colors.white : const Color(0xFF182033),
                           fontSize: 16,
                           fontWeight: FontWeight.w800)),
                   const SizedBox(height: 5),
                   Text(subtitle,
-                      textDirection: TextDirection.rtl,
+                      textDirection: royalLocaleState.locale.languageCode == 'fa' ? TextDirection.rtl : TextDirection.ltr,
                       style: const TextStyle(
                           color: Color(0xFFAEB9CB), fontSize: 12)),
                 ],
