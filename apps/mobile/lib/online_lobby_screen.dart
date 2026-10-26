@@ -115,6 +115,7 @@ class _OnlineLobbyScreenState extends State<OnlineLobbyScreen> {
 
   Future<void> _respondToInvite(Map<String, dynamic> invite, {required bool accept}) => _run(() async {
     final response = await MatchService.respondToInvite(invite['id'].toString(), accept: accept);
+    if (!mounted) return;
     if (accept && response['match'] is Map) {
       final match = Map<String, dynamic>.from(response['match'] as Map);
       await Navigator.of(context).push(MaterialPageRoute<void>(
