@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'profile_avatar.dart';
 import 'services/auth_service.dart';
 import 'services/chat_service.dart';
 
@@ -40,7 +41,7 @@ class _ChatScreenState extends State<ChatScreen> {
             final item = _conversations[index] as Map<String, dynamic>;
             final unread = (item['unreadCount'] as num?)?.toInt() ?? 0;
             return ListTile(
-              leading: CircleAvatar(child: Text((item['fullName']?.toString().isNotEmpty == true ? item['fullName'].toString().characters.first : '?'))),
+              leading: RoyalAvatar(dataUrl: item['avatarDataUrl']?.toString(), radius: 22),
               title: Text(item['fullName']?.toString().isNotEmpty == true ? item['fullName'].toString() : item['email']?.toString() ?? 'دوست'),
               subtitle: Text(item['lastMessage']?.toString() ?? 'برای شروع گفت‌وگو لمس کنید', maxLines: 1, overflow: TextOverflow.ellipsis),
               trailing: unread > 0 ? CircleAvatar(radius: 12, child: Text('$unread', style: const TextStyle(fontSize: 11))) : const Icon(Icons.chevron_left),
