@@ -264,5 +264,11 @@
   "notificationValidation": "A title is required (max 120 characters); message max 1,000 characters.",
   "reportUpdated": "Report status updated.",
   "subscriptionUpdated": "Subscription updated.",
-  "subscriptionDeactivated": "Subscription deactivated."
+  "subscriptionDeactivated": "Subscription deactivated.",
+  "statusOpen": "Open",
+  "statusReviewed": "Reviewed",
+  "statusDismissed": "Dismissed",
+  "statusActioned": "Actioned",
+  "notificationSentCount": "Notification sent to {count} users.",
+  "@notificationSentCount": {"placeholders": {"count": {"type": "int"}}}
 }
