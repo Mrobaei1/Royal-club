@@ -452,7 +452,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
                     dropdownColor: _boardNavy,
                     style: TextStyle(
                         color: _boardGold, fontSize: compact ? 11 : 13),
-                    items: const [
+                    items: [
                       DropdownMenuItem(
                           value: BackgammonDifficulty.easy,
                           child: Text(AppLocalizations.of(context)!.difficultyEasy)),
