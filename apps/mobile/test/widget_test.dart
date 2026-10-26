@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:royal_club/l10n/app_localizations.dart';
@@ -62,8 +63,17 @@ void main() {
   });
 
   testWidgets('account screen exposes profile photo selection', (tester) async {
+    const secureStorage = MethodChannel('plugins.it_nomads.com/flutter_secure_storage');
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(secureStorage, (call) async => null);
+    addTearDown(() {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(secureStorage, null);
+    });
+
     await tester.pumpWidget(_testApp(AccountScreen(onLogout: () {})));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
 
     expect(find.text('انتخاب عکس پروفایل'), findsOneWidget);
   });
