@@ -12,8 +12,8 @@ class FriendsService {
     if (token == null || token.isEmpty) {
       throw Exception('ابتدا وارد حساب شوید.');
     }
-    // These endpoints do not send a JSON body. Do not declare
-    // application/json for an empty POST: Fastify can reject it with 400.
+    // Send JSON explicitly on action-only POSTs; some Fastify adapters reject
+    // an empty body when Content-Type is application/json.
     return {
       'Authorization': 'Bearer $token',
       'Accept': 'application/json',
@@ -29,23 +29,28 @@ class FriendsService {
     final base = _baseUrl.trim().replaceFirst(RegExp(r'/+$'), '');
     final uri = Uri.parse('$base$path');
     late http.Response response;
-    switch (method) {
-      case 'POST':
-        // Send a valid, explicit JSON payload even for action-only endpoints.
-        // This avoids empty-body JSON parser differences across API adapters.
-        response = await http.post(
-          uri,
-          headers: {...headers, 'Content-Type': 'application/json'},
-          body: jsonEncode(<String, dynamic>{}),
-        ).timeout(const Duration(seconds: 15));
-        break;
-      case 'DELETE':
-        response = await http.delete(uri, headers: headers)
-            .timeout(const Duration(seconds: 15));
-        break;
-      default:
-        response = await http.get(uri, headers: headers)
-            .timeout(const Duration(seconds: 15));
+    try {
+      switch (method) {
+        case 'POST':
+          // Send a valid, explicit JSON payload even for action-only endpoints.
+          response = await http.post(
+            uri,
+            headers: {...headers, 'Content-Type': 'application/json'},
+            body: jsonEncode(<String, dynamic>{}),
+          ).timeout(const Duration(seconds: 15));
+          break;
+        case 'DELETE':
+          response = await http.delete(uri, headers: headers)
+              .timeout(const Duration(seconds: 15));
+          break;
+        default:
+          response = await http.get(uri, headers: headers)
+              .timeout(const Duration(seconds: 15));
+      }
+    } on TimeoutException {
+      throw Exception('پاسخ سرور بیش از حد طول کشید؛ اتصال اینترنت را بررسی و دوباره تلاش کنید.');
+    } on http.ClientException {
+      throw Exception('اتصال به سرور برقرار نشد؛ آدرس API و دسترسی اینترنت را بررسی کنید.');
     }
 
     dynamic decoded;
