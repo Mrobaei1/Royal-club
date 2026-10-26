@@ -217,37 +217,33 @@ class BackgammonEngine {
     return sequences.isEmpty ? [[]] : sequences;
   }
 
-  /// Returns only moves that belong to a sequence using the maximum number
-  /// of available dice. If only one of two different dice can be used,
-  /// the higher die is required when it has a legal move.
-  List<BackgammonMove> legalMoves([int? die]) {
+  /// All legal maximum-length move sequences for previewing cumulative targets.
+  List<List<BackgammonMove>> legalSequences() {
     if (finished || dice.isEmpty) return [];
-
     final sequences = _allSequences(
       List<int>.from(dice),
       List<int>.from(points),
       List<int>.from(bar),
       List<int>.from(borneOff),
     );
-
     var maxLength = 0;
     for (final sequence in sequences) {
       if (sequence.length > maxLength) maxLength = sequence.length;
     }
     if (maxLength == 0) return [];
-
     var best = sequences.where((s) => s.length == maxLength).toList();
-
-    // With two distinct dice, if only one move can be made, use the higher
-    // die whenever it can legally be played.
     if (maxLength == 1 && dice.length == 2 && dice[0] != dice[1]) {
       final high = max(dice[0], dice[1]);
       final highMoves = best.where((s) => s.first.die == high).toList();
       if (highMoves.isNotEmpty) best = highMoves;
     }
+    return best;
+  }
 
+  /// Returns legal next moves, respecting maximum dice usage and higher-die rules.
+  List<BackgammonMove> legalMoves([int? die]) {
     final firstMoves = <BackgammonMove>[];
-    for (final sequence in best) {
+    for (final sequence in legalSequences()) {
       if (sequence.isEmpty) continue;
       final move = sequence.first;
       if (die != null && move.die != die) continue;
