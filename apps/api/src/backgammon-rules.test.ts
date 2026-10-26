@@ -181,3 +181,14 @@ test('does not count an overshoot bear-off when a higher checker can still be bo
   board[3] = 1;
   assert.equal(maxPlayableDiceCount(state(board), [6], true), 1);
 });
+
+test('requires the higher die when only one of two individually legal dice can be played', () => {
+  const board = emptyBoard();
+  board[5] = 1;
+  board[2] = -2;
+  assert.equal(maxPlayableDiceCount(state(board), [1, 2], true), 1);
+  assert.equal(
+    mustPlayHigherDie(state(board), [1, 2], { from: 5, to: 4, die: 1 }, true),
+    true,
+  );
+});
