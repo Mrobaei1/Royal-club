@@ -60,7 +60,7 @@ class RoyalLocaleState extends ChangeNotifier {
     try {
       final saved = await AuthService.readLanguagePreference();
       if (saved == 'fa' || saved == 'en') {
-        _locale = Locale(saved);
+        _locale = Locale(saved!);
         notifyListeners();
       }
     } catch (_) {}
@@ -221,7 +221,7 @@ class HomeScreen extends StatelessWidget {
       default: page = null;
     }
     if (page != null) {
-      Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => page));
+      Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => page!));
     }
   }
 
