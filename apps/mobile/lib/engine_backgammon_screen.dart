@@ -123,6 +123,26 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
           _play(sourceMoves.first);
           return;
         }
+        if (!_selectedBar && _selectedPoint != null) {
+          final path = _engine.legalSequences().where((sequence) =>
+              sequence.length >= 2 &&
+              !sequence.first.fromBar &&
+              sequence.first.from == _selectedPoint &&
+              sequence.first.to == sequence[1].from &&
+              sequence.last.to == point).firstOrNull;
+          if (path != null) {
+            final firstLeg = path.first;
+            _play(firstLeg);
+            if (!_engine.finished &&
+                _engine.dice.isNotEmpty &&
+                _engine.points[firstLeg.to] * _engine.currentPlayer > 0) {
+              _selectedPoint = firstLeg.to;
+              _selectedBar = false;
+              _message = 'مقصد تجمعی مشخص شد؛ حرکت دوم را از مهرهٔ انتخاب‌شده انجام دهید.';
+            }
+            return;
+          }
+        }
       }
       final canMoveFromHere = moves.any((m) => !m.fromBar && m.from == point);
       if (canMoveFromHere &&
@@ -134,6 +154,24 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
         _selectedPoint = null;
         _selectedBar = false;
       }
+    });
+  }
+
+  void _tapBar(int player) {
+    if (_computerThinking || (_vsComputer && _engine.currentPlayer == -1)) return;
+    if (_engine.finished || _engine.dice.isEmpty || player != _engine.currentPlayer) return;
+    if (_engine.bar[player == 1 ? 1 : 0] <= 0) return;
+    setState(() {
+      final entryMoves = _moves.where((m) => m.fromBar).toList();
+      if (entryMoves.isEmpty) {
+        _message = 'با تاس‌های باقی‌مانده فعلاً ورود از بار ممکن نیست.';
+        _selectedBar = false;
+        _selectedPoint = null;
+        return;
+      }
+      _selectedBar = true;
+      _selectedPoint = null;
+      _message = 'مهرهٔ روی بار انتخاب شد؛ یکی از خانه‌های مشخص‌شده را لمس کنید تا وارد شود.';
     });
   }
 
@@ -298,6 +336,16 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
             : _selectedPoint != null && !m.fromBar && m.from == _selectedPoint)
         .map((m) => m.to)
         .toSet();
+    if (_selectedPoint != null && !_selectedBar) {
+      for (final path in _engine.legalSequences()) {
+        if (path.length >= 2 &&
+            !path.first.fromBar &&
+            path.first.from == _selectedPoint &&
+            path.first.to == path[1].from) {
+          legalTargets.add(path.last.to);
+        }
+      }
+    }
 
     return Directionality(
       textDirection: TextDirection.rtl,
@@ -804,12 +852,28 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
 
   Widget _barCount(int player, {bool compact = false}) {
     final count = _engine.bar[player == 1 ? 1 : 0];
-    return Column(
-      children: [
-        _checker(player, size: compact ? 16 : 22),
-        Text('$count',
-            style: TextStyle(color: Colors.white, fontSize: compact ? 10 : 12)),
-      ],
+    final selectable = count > 0 && _engine.currentPlayer == player &&
+        !_engine.finished && _engine.dice.isNotEmpty;
+    return InkWell(
+      onTap: selectable ? () => _tapBar(player) : null,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.all(3),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: selectable ? _boardGold : Colors.transparent),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _checker(player, size: compact ? 16 : 22),
+            Text('$count',
+                style: TextStyle(color: Colors.white, fontSize: compact ? 10 : 12)),
+            if (selectable)
+              Icon(Icons.touch_app, color: _boardGold, size: compact ? 10 : 13),
+          ],
+        ),
+      ),
     );
   }
 
