@@ -209,5 +209,8 @@
   "gameOverTitle": "پایان بازی",
   "playAgain": "بازی مجدد",
   "exitGame": "خروج از بازی",
-  "bearOffShort": "خارج"
+  "bearOffShort": "خارج",
+  "@congratulationsWinner": {"placeholders": {"player": {"type": "String"}}},
+  "@moveDoneRemainingDice": {"placeholders": {"dice": {"type": "String"}}},
+  "@computerTurnDice": {"placeholders": {"dice": {"type": "String"}}}
 }
