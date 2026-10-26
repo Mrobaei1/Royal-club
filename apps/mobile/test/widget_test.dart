@@ -63,7 +63,10 @@ void main() {
   testWidgets('home screen keeps all game cards', (tester) async {
     await tester.pumpWidget(_testApp(const HomeScreen()));
 
-    expect(find.text('تخته‌نرد'), findsOneWidget);
+    final context = tester.element(find.byType(HomeScreen));
+    final l10n = AppLocalizations.of(context);
+
+    expect(find.text(l10n.backgammon), findsOneWidget);
     await tester.scrollUntilVisible(
       find.text('شطرنج'),
       300,
