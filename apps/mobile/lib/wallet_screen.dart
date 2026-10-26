@@ -121,7 +121,7 @@ class _WalletScreenState extends State<WalletScreen> {
                   subtitle: Text('${AppLocalizations.of(context)!.endsAt}: ${_subscription!['endsAt'] ?? '—'}', style: const TextStyle(color: Colors.white70)),
                 )),
               if (_plans.isEmpty)
-                const Padding(padding: EdgeInsets.all(12), child: Text(AppLocalizations.of(context)!.noPlans, style: TextStyle(color: Colors.white70))),
+                Padding(padding: const EdgeInsets.all(12), child: Text(AppLocalizations.of(context)!.noPlans, style: TextStyle(color: Colors.white70))),
               for (final item in _plans)
                 Card(
                   color: _walletPanel,
@@ -138,7 +138,7 @@ class _WalletScreenState extends State<WalletScreen> {
               const SizedBox(height: 22),
               Text(AppLocalizations.of(context)!.recentTransactions, style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
               if (_transactions.isEmpty)
-                const Padding(padding: EdgeInsets.all(12), child: Text(AppLocalizations.of(context)!.noTransactions, style: TextStyle(color: Colors.white70))),
+                Padding(padding: const EdgeInsets.all(12), child: Text(AppLocalizations.of(context)!.noTransactions, style: TextStyle(color: Colors.white70))),
               for (final tx in _transactions.take(20))
                 Card(
                   color: _walletPanel,
