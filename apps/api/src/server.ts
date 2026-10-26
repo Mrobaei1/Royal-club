@@ -1366,7 +1366,7 @@ app.post<{ Params: { id: string }; Body: { matchToWin?: number; acceptSettings?:
         if (updates.length) {
           updates.push('updated_at = NOW()');
           values.push(request.params.id);
-          await client.query(`UPDATE backgammon_matches SET ${updates.join(', ')} WHERE id = ${values.length}`, values);
+          await client.query(`UPDATE backgammon_matches SET ${updates.join(', ')} WHERE id = $${values.length}`, values);
         }
       }
       const current = await client.query(
