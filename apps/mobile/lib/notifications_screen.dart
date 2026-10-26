@@ -134,7 +134,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                       ? const Center(
                           child: CircularProgressIndicator(color: _noticeGold))
                       : _items.isEmpty
-                          ? const Center(
+                          ? Center(
                               child: Text(AppLocalizations.of(context)!.noNotifications,
                                   style: TextStyle(color: Colors.white70)))
                           : ListView.builder(
