@@ -39,12 +39,16 @@ await pool.query(`
   CREATE TABLE IF NOT EXISTS users (
     id BIGSERIAL PRIMARY KEY,
     email TEXT NOT NULL UNIQUE,
+    username TEXT,
     password_hash TEXT NOT NULL,
     full_name TEXT NOT NULL DEFAULT '',
     phone TEXT NOT NULL DEFAULT '',
     country TEXT NOT NULL DEFAULT '',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   );
+  ALTER TABLE users ADD COLUMN IF NOT EXISTS username TEXT;
+  UPDATE users SET username = 'p' || id::text WHERE username IS NULL OR username = '';
+  CREATE UNIQUE INDEX IF NOT EXISTS users_username_unique_idx ON users (LOWER(username)) WHERE username IS NOT NULL;
   ALTER TABLE users ADD COLUMN IF NOT EXISTS full_name TEXT NOT NULL DEFAULT '';
   ALTER TABLE users ADD COLUMN IF NOT EXISTS phone TEXT NOT NULL DEFAULT '';
   ALTER TABLE users ADD COLUMN IF NOT EXISTS country TEXT NOT NULL DEFAULT '';
@@ -222,13 +226,18 @@ app.post<{ Body: { email?: string; password?: string; fullName?: string; phone?:
         'INSERT INTO users (email, password_hash, full_name, phone, country) VALUES ($1, $2, $3, $4, $5) RETURNING id, email, full_name, phone, country, created_at',
         [email, passwordHash, fullName, phone, country]
       );
-      const user = result.rows[0] as { id: string; email: string; full_name: string; phone: string; country: string; created_at: Date };
+      const created = result.rows[0] as { id: string; email: string; full_name: string; phone: string; country: string; created_at: Date };
+      const profile = await pool.query(
+        'UPDATE users SET username = $1 WHERE id = $2 RETURNING username',
+        [`p${created.id}${randomInt(1000, 9999)}`, created.id],
+      );
+      const user = { ...created, username: profile.rows[0]?.username ?? null };
       const accessToken = app.jwt.sign(
         { sub: user.id, email: user.email },
         { expiresIn: '1h' }
       );
       return reply.code(201).send({
-        user: { id: user.id, email: user.email, fullName: user.full_name, phone: user.phone, country: user.country, createdAt: user.created_at },
+        user: { id: user.id, username: user.username, email: user.email, fullName: user.full_name, phone: user.phone, country: user.country, createdAt: user.created_at },
         accessToken,
         tokenType: 'Bearer',
         expiresIn: 3600
@@ -301,12 +310,12 @@ app.get('/api/v1/me', {
   if (!claims.sub) return reply.code(401).send({ error: 'Invalid token.' });
 
   const result = await pool.query(
-    'SELECT id, email, full_name, phone, country, created_at FROM users WHERE id = $1',
+    'SELECT id, username, email, full_name, phone, country, created_at FROM users WHERE id = $1',
     [claims.sub]
   );
   if (!result.rowCount) return reply.code(401).send({ error: 'Account not found.' });
-  const user = result.rows[0] as { id: string; email: string; full_name: string; phone: string; country: string; created_at: Date };
-  return { user: { id: user.id, email: user.email, fullName: user.full_name, phone: user.phone, country: user.country, createdAt: user.created_at } };
+  const user = result.rows[0] as { id: string; username: string | null; email: string; full_name: string; phone: string; country: string; created_at: Date };
+  return { user: { id: user.id, username: user.username, email: user.email, fullName: user.full_name, phone: user.phone, country: user.country, createdAt: user.created_at } };
 });
 
 const requireMatchAuth = async (request: any, reply: any) => {
@@ -735,13 +744,13 @@ app.post('/api/v1/notifications/read-all', { onRequest: [requireMatchAuth] }, as
 });
 
 // Friend requests are server-owned and capped at 100 accepted friends per account.
-app.get<{ Querystring: { email?: string } }>('/api/v1/users/search', { onRequest: [requireMatchAuth], config: { rateLimit: { max: 20, timeWindow: '1 minute' } } }, async (request) => {
+app.get<{ Querystring: { username?: string } }>('/api/v1/users/search', { onRequest: [requireMatchAuth], config: { rateLimit: { max: 20, timeWindow: '1 minute' } } }, async (request) => {
   const claims = request.user as { sub: string };
-  const email = request.query.email?.trim().toLowerCase();
-  if (!email || email.length > 254 || !email.includes('@')) return { users: [] };
+  const username = request.query.username?.trim().replace(/^@/, '');
+  if (!username || !/^[a-zA-Z0-9_.]{3,24}$/.test(username)) return { users: [] };
   const result = await pool.query(
-    'SELECT id, email, full_name AS "fullName" FROM users WHERE email = $1 AND id <> $2 LIMIT 1',
-    [email, claims.sub],
+    'SELECT id, username, full_name AS "fullName" FROM users WHERE LOWER(username) = LOWER($1) AND id <> $2 LIMIT 1',
+    [username, claims.sub],
   );
   return { users: result.rows };
 });
