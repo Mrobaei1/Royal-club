@@ -168,6 +168,14 @@ await pool.query(`
     dice JSONB NOT NULL DEFAULT '[]'::jsonb,
     remaining_dice JSONB NOT NULL DEFAULT '[]'::jsonb,
     state_version INTEGER NOT NULL DEFAULT 0,
+    match_length INTEGER NOT NULL DEFAULT 1 CHECK (match_length IN (1, 3, 5)),
+    host_accepted BOOLEAN NOT NULL DEFAULT FALSE,
+    guest_accepted BOOLEAN NOT NULL DEFAULT FALSE,
+    host_ready BOOLEAN NOT NULL DEFAULT FALSE,
+    guest_ready BOOLEAN NOT NULL DEFAULT FALSE,
+    cancel_proposed_by BIGINT REFERENCES users(id) ON DELETE SET NULL,
+    cancel_accepted_by BIGINT REFERENCES users(id) ON DELETE SET NULL,
+    match_games_won JSONB NOT NULL DEFAULT '{"host":0,"guest":0}'::jsonb,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     expires_at TIMESTAMPTZ NOT NULL DEFAULT (NOW() + INTERVAL '30 minutes'),
@@ -180,6 +188,14 @@ await pool.query(`
   ALTER TABLE backgammon_matches ADD COLUMN IF NOT EXISTS dice JSONB NOT NULL DEFAULT '[]'::jsonb;
   ALTER TABLE backgammon_matches ADD COLUMN IF NOT EXISTS remaining_dice JSONB NOT NULL DEFAULT '[]'::jsonb;
   ALTER TABLE backgammon_matches ADD COLUMN IF NOT EXISTS state_version INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE backgammon_matches ADD COLUMN IF NOT EXISTS match_length INTEGER NOT NULL DEFAULT 1;
+  ALTER TABLE backgammon_matches ADD COLUMN IF NOT EXISTS host_accepted BOOLEAN NOT NULL DEFAULT FALSE;
+  ALTER TABLE backgammon_matches ADD COLUMN IF NOT EXISTS guest_accepted BOOLEAN NOT NULL DEFAULT FALSE;
+  ALTER TABLE backgammon_matches ADD COLUMN IF NOT EXISTS host_ready BOOLEAN NOT NULL DEFAULT FALSE;
+  ALTER TABLE backgammon_matches ADD COLUMN IF NOT EXISTS guest_ready BOOLEAN NOT NULL DEFAULT FALSE;
+  ALTER TABLE backgammon_matches ADD COLUMN IF NOT EXISTS cancel_proposed_by BIGINT REFERENCES users(id) ON DELETE SET NULL;
+  ALTER TABLE backgammon_matches ADD COLUMN IF NOT EXISTS cancel_accepted_by BIGINT REFERENCES users(id) ON DELETE SET NULL;
+  ALTER TABLE backgammon_matches ADD COLUMN IF NOT EXISTS match_games_won JSONB NOT NULL DEFAULT '{"host":0,"guest":0}'::jsonb;
   ALTER TABLE backgammon_matches ALTER COLUMN board_state SET DEFAULT '${JSON.stringify(INITIAL_BACKGAMMON_BOARD)}'::jsonb;
   CREATE INDEX IF NOT EXISTS backgammon_matches_waiting_idx ON backgammon_matches (created_at DESC) WHERE status = 'waiting';
   CREATE INDEX IF NOT EXISTS backgammon_matches_players_idx ON backgammon_matches (host_user_id, guest_user_id, status);
@@ -1126,8 +1142,9 @@ app.post<{ Params: { id: string } }>('/api/v1/matches/:id/join', { onRequest: [r
       return reply.code(409).send({ error: 'This match is already full.' });
     }
     if (match.status === 'waiting') await client.query(
-      `UPDATE backgammon_matches SET guest_user_id = $1, status = 'active',
-              current_turn_user_id = host_user_id, dice = '[]'::jsonb,
+      `UPDATE backgammon_matches SET guest_user_id = $1, status = 'waiting',
+              guest_accepted = FALSE, host_ready = FALSE, guest_ready = FALSE,
+              current_turn_user_id = NULL, dice = '[]'::jsonb,
               remaining_dice = '[]'::jsonb, state_version = 0, updated_at = NOW()
          WHERE id = $2`,
       [claims.sub, match.id]);
