@@ -1169,7 +1169,10 @@ app.get<{ Params: { id: string } }>('/api/v1/matches/:id', { onRequest: [require
   const result = await pool.query(
     `SELECT m.id, m.room_code AS "roomCode", m.status, host.full_name AS "hostName",
             guest.full_name AS "guestName", host.avatar_data_url AS "hostAvatarDataUrl",
-            guest.avatar_data_url AS "guestAvatarDataUrl", m.created_at AS "createdAt", m.updated_at AS "updatedAt"
+            guest.avatar_data_url AS "guestAvatarDataUrl", m.created_at AS "createdAt", m.updated_at AS "updatedAt",
+            m.match_length AS "matchLength", m.host_accepted AS "hostAccepted", m.guest_accepted AS "guestAccepted",
+            m.host_ready AS "hostReady", m.guest_ready AS "guestReady",
+            m.cancel_proposed_by AS "cancelProposedBy", (m.host_user_id = $2) AS "isHost"
        FROM backgammon_matches m JOIN users host ON host.id = m.host_user_id
        LEFT JOIN users guest ON guest.id = m.guest_user_id
       WHERE m.id = $1 AND (m.host_user_id = $2 OR m.guest_user_id = $2) AND m.expires_at > NOW()`,
