@@ -10,7 +10,8 @@ class AuthService {
   static void ensureConfigured({String? configuredBaseUrl}) {
     final value = (configuredBaseUrl ?? baseUrl).trim();
     final uri = Uri.tryParse(value);
-    if (value.isEmpty || uri == null || (uri.scheme != 'https' && uri.scheme != 'http') || uri.host.isEmpty) {
+    if (value.isEmpty || uri == null ||
+        (uri.scheme != 'https' && uri.scheme != 'http') || uri.host.isEmpty) {
       throw Exception('سرور Royal Club هنوز تنظیم نشده است. ابتدا سرویس API را راه‌اندازی کنید.');
     }
   }
@@ -35,18 +36,20 @@ class AuthService {
     }
     if (decoded is! Map<String, dynamic>) throw Exception('پاسخ سرور نامعتبر است.');
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw Exception(decoded['error']?.toString() ?? decoded['message']?.toString() ?? 'خطا در ارتباط با سرور');
+      throw Exception(decoded['error']?.toString() ??
+          decoded['message']?.toString() ?? 'خطا در ارتباط با سرور');
     }
     return decoded;
   }
 
-  static Future<Map<String, dynamic>> _post(String path, Map<String, dynamic> data) async {
+  static Future<Map<String, dynamic>> _post(
+      String path, Map<String, dynamic> data) async {
     final base = baseUrl.trim().replaceFirst(RegExp(r'/+$'), '');
     final response = await _send(() => http.post(
-      Uri.parse('$base$path'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode(data),
-    ));
+          Uri.parse('$base$path'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode(data),
+        ));
     final decoded = await _decode(response);
     final token = decoded['accessToken'] ?? decoded['token'];
     if (token is String && token.isNotEmpty) {
@@ -56,12 +59,15 @@ class AuthService {
     return decoded;
   }
 
-  static Future<Map<String, dynamic>> register(String email, String password, {
-    required String fullName, required String phone, required String country,
-  }) => _post('/api/v1/auth/register', {
-    'email': email.trim(), 'password': password, 'fullName': fullName.trim(),
-    'phone': phone.trim(), 'country': country,
-  });
+  static Future<Map<String, dynamic>> register(String email, String password,
+          {required String fullName, required String phone, required String country}) =>
+      _post('/api/v1/auth/register', {
+        'email': email.trim(),
+        'password': password,
+        'fullName': fullName.trim(),
+        'phone': phone.trim(),
+        'country': country,
+      });
 
   static Future<Map<String, dynamic>> login(String email, String password) =>
       _post('/api/v1/auth/login', {'email': email.trim(), 'password': password});
@@ -71,8 +77,9 @@ class AuthService {
     if (token == null || token.isEmpty) throw Exception('ابتدا وارد حساب شوید.');
     final base = baseUrl.trim().replaceFirst(RegExp(r'/+$'), '');
     return _decode(await _send(() => http.get(
-      Uri.parse('$base/api/v1/me'), headers: {'Authorization': 'Bearer $token'},
-    )));
+          Uri.parse('$base/api/v1/me'),
+          headers: {'Authorization': 'Bearer $token'},
+        )));
   }
 
   static Future<Map<String, dynamic>> updateUsername(String username) async {
@@ -80,10 +87,13 @@ class AuthService {
     if (token == null || token.isEmpty) throw Exception('ابتدا وارد حساب شوید.');
     final base = baseUrl.trim().replaceFirst(RegExp(r'/+$'), '');
     final response = await _send(() => http.patch(
-      Uri.parse('$base/api/v1/me/username'),
-      headers: {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'},
-      body: jsonEncode({'username': username.trim().replaceFirst(RegExp(r'^@'), '')}),
-    ));
+          Uri.parse('$base/api/v1/me/username'),
+          headers: {
+            'Authorization': 'Bearer $token',
+            'Content-Type': 'application/json'
+          },
+          body: jsonEncode({'username': username.trim().replaceFirst(RegExp(r'^@'), '')}),
+        ));
     return _decode(response);
   }
 
@@ -94,54 +104,19 @@ class AuthService {
   }) async {
     final token = await _storage.read(key: 'royal_club_token');
     if (token == null || token.isEmpty) throw Exception('ابتدا وارد حساب شوید.');
-    final base = baseUrl.trim().replaceFirst(RegExp(r'/+
-    final token = await _storage.read(key: 'royal_club_token');
-    if (token == null || token.isEmpty) throw Exception('ابتدا وارد حساب شوید.');
     final base = baseUrl.trim().replaceFirst(RegExp(r'/+$'), '');
     final response = await _send(() => http.patch(
-      Uri.parse('$base/api/v1/me/avatar'),
-      headers: {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'},
-      body: jsonEncode({'avatarDataUrl': avatarDataUrl}),
-    ));
-    return _decode(response);
-  }
-
-  static Future<String?> rememberedEmail() => _storage.read(key: 'royal_club_remembered_email');
-
-  static Future<void> setRememberedEmail(String email, bool remember) async {
-    if (remember) {
-      await _storage.write(key: 'royal_club_remembered_email', value: email.trim());
-    } else {
-      await _storage.delete(key: 'royal_club_remembered_email');
-    }
-  }
-
-  static Future<int?> readThemePreference() async {
-    final value = await _storage.read(key: 'royal_club_theme');
-    return value == null ? null : int.tryParse(value);
-  }
-
-  static Future<void> saveThemePreference(int index) =>
-      _storage.write(key: 'royal_club_theme', value: index.toString());
-
-  static Future<String?> readLanguagePreference() =>
-      _storage.read(key: 'royal_club_language');
-
-  static Future<void> saveLanguagePreference(String languageCode) =>
-      _storage.write(key: 'royal_club_language', value: languageCode);
-
-  static Future<void> logout() => _storage.delete(key: 'royal_club_token');
-}
-), '');
-    final response = await _send(() => http.patch(
-      Uri.parse('$base/api/v1/me/profile'),
-      headers: {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'fullName': fullName.trim(),
-        'phone': phone.trim(),
-        'country': country.trim(),
-      }),
-    ));
+          Uri.parse('$base/api/v1/me/profile'),
+          headers: {
+            'Authorization': 'Bearer $token',
+            'Content-Type': 'application/json'
+          },
+          body: jsonEncode({
+            'fullName': fullName.trim(),
+            'phone': phone.trim(),
+            'country': country.trim(),
+          }),
+        ));
     final decoded = await _decode(response);
     final user = decoded['user'];
     return user is Map<String, dynamic> ? user : decoded;
@@ -152,20 +127,42 @@ class AuthService {
     if (token == null || token.isEmpty) throw Exception('ابتدا وارد حساب شوید.');
     final base = baseUrl.trim().replaceFirst(RegExp(r'/+$'), '');
     final response = await _send(() => http.patch(
-      Uri.parse('$base/api/v1/me/avatar'),
-      headers: {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'},
-      body: jsonEncode({'avatarDataUrl': avatarDataUrl}),
-    ));
+          Uri.parse('$base/api/v1/me/avatar'),
+          headers: {
+            'Authorization': 'Bearer $token',
+            'Content-Type': 'application/json'
+          },
+          body: jsonEncode({'avatarDataUrl': avatarDataUrl}),
+        ));
     return _decode(response);
   }
 
-  static Future<String?> rememberedEmail() => _storage.read(key: 'royal_club_remembered_email');
+  static Future<String?> rememberedEmail() =>
+      _storage.read(key: 'royal_club_remembered_email');
 
+  static Future<String?> rememberedPassword() =>
+      _storage.read(key: 'royal_club_remembered_password');
+
+  static Future<void> setRememberedCredentials(
+      String email, String password, bool remember) async {
+    if (remember) {
+      await _storage.write(
+          key: 'royal_club_remembered_email', value: email.trim());
+      await _storage.write(
+          key: 'royal_club_remembered_password', value: password);
+    } else {
+      await _storage.delete(key: 'royal_club_remembered_email');
+      await _storage.delete(key: 'royal_club_remembered_password');
+    }
+  }
+
+  // Kept for compatibility with older callers.
   static Future<void> setRememberedEmail(String email, bool remember) async {
     if (remember) {
       await _storage.write(key: 'royal_club_remembered_email', value: email.trim());
     } else {
       await _storage.delete(key: 'royal_club_remembered_email');
+      await _storage.delete(key: 'royal_club_remembered_password');
     }
   }
 
