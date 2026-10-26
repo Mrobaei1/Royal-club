@@ -209,15 +209,54 @@
   "playAgain": "بازی مجدد",
   "exitGame": "خروج از بازی",
   "bearOffShort": "خارج",
-  "@congratulationsWinner": {"placeholders": {"player": {"type": "String"}}},
-  "@moveDoneRemainingDice": {"placeholders": {"dice": {"type": "String"}}},
-  "@computerTurnDice": {"placeholders": {"dice": {"type": "String"}}},
+  "@congratulationsWinner": {
+    "placeholders": {
+      "player": {
+        "type": "String"
+      }
+    }
+  },
+  "@moveDoneRemainingDice": {
+    "placeholders": {
+      "dice": {
+        "type": "String"
+      }
+    }
+  },
+  "@computerTurnDice": {
+    "placeholders": {
+      "dice": {
+        "type": "String"
+      }
+    }
+  },
   "turnRolledDice": "نوبت {player} · تاس: {dice}",
   "turnChangedPlayer": "حرکتی نبود؛ نوبت {player} است.",
   "turnRollPrompt": "نوبت {player} است؛ تاس بریزید.",
-  "@turnRolledDice": {"placeholders": {"player": {"type": "String"}, "dice": {"type": "String"}}},
-  "@turnChangedPlayer": {"placeholders": {"player": {"type": "String"}}},
-  "@turnRollPrompt": {"placeholders": {"player": {"type": "String"}}},
+  "@turnRolledDice": {
+    "placeholders": {
+      "player": {
+        "type": "String"
+      },
+      "dice": {
+        "type": "String"
+      }
+    }
+  },
+  "@turnChangedPlayer": {
+    "placeholders": {
+      "player": {
+        "type": "String"
+      }
+    }
+  },
+  "@turnRollPrompt": {
+    "placeholders": {
+      "player": {
+        "type": "String"
+      }
+    }
+  },
   "goldenPlayer": "طلایی",
   "lightPlayer": "روشن",
   "gameRestarted": "بازی از ابتدا شروع شد. تاس بریزید.",
@@ -270,10 +309,30 @@
   "statusDismissed": "ردشده",
   "statusActioned": "اقدام‌شده",
   "notificationSentCount": "اعلان برای {count} کاربر ارسال شد.",
-  "@notificationSentCount": {"placeholders": {"count": {"type": "int"}}},
+  "@notificationSentCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "registrationDate": "تاریخ ثبت‌نام",
   "diceTrayLabel": "تاس‌های بازی",
   "barLabel": "بار",
   "bearOffStatus": "{title}\nخارج: {off} · بار: {onBar}",
-  "@bearOffStatus": {"placeholders": {"title": {"type": "String"}, "off": {"type": "int"}, "onBar": {"type": "int"}}}
+  "@bearOffStatus": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      },
+      "off": {
+        "type": "int"
+      },
+      "onBar": {
+        "type": "int"
+      }
+    }
+  },
+  "editProfile": "ویرایش اطلاعات کاربری",
+  "profileFieldsRequired": "لطفاً نام، شماره تلفن و کشور را کامل وارد کنید."
 }
