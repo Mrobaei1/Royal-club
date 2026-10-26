@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { applyBackgammonMove, hasLegalMove, maxPlayableDiceCount, mustPlayHigherDie } from './backgammon-rules.js';
+import { INITIAL_BACKGAMMON_BOARD, applyBackgammonMove, hasLegalMove, maxPlayableDiceCount, mustPlayHigherDie } from './backgammon-rules.js';
 
 const emptyBoard = () => Array<number>(24).fill(0);
 const state = (board: number[], bar = { host: 0, guest: 0 }, off = { host: 0, guest: 0 }) => ({ board, bar, off });
@@ -191,4 +191,21 @@ test('requires the higher die when only one of two individually legal dice can b
     mustPlayHigherDie(state(board), [1, 2], { from: 5, to: 4, die: 1 }, true),
     true,
   );
+});
+
+
+test('initial board has the correct orientation and allows both players to move', () => {
+  assert.equal(INITIAL_BACKGAMMON_BOARD.length, 24);
+  assert.equal(INITIAL_BACKGAMMON_BOARD[0], -2);
+  assert.equal(INITIAL_BACKGAMMON_BOARD[5], 5);
+  assert.equal(INITIAL_BACKGAMMON_BOARD[7], 3);
+  assert.equal(INITIAL_BACKGAMMON_BOARD[11], -5);
+  assert.equal(INITIAL_BACKGAMMON_BOARD[12], 5);
+  assert.equal(INITIAL_BACKGAMMON_BOARD[16], -3);
+  assert.equal(INITIAL_BACKGAMMON_BOARD[18], -5);
+  assert.equal(INITIAL_BACKGAMMON_BOARD[23], 2);
+  assert.equal(INITIAL_BACKGAMMON_BOARD.reduce((sum, count) => sum + Math.max(count, 0), 0), 15);
+  assert.equal(INITIAL_BACKGAMMON_BOARD.reduce((sum, count) => sum + Math.max(-count, 0), 0), 15);
+  assert.equal(hasLegalMove([...INITIAL_BACKGAMMON_BOARD], { host: 0, guest: 0 }, [1], true), true);
+  assert.equal(hasLegalMove([...INITIAL_BACKGAMMON_BOARD], { host: 0, guest: 0 }, [1], false), true);
 });
