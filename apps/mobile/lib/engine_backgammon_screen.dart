@@ -158,23 +158,6 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
     });
   }
 
-  void _tapBar() {
-    if (_computerThinking || (_vsComputer && _engine.currentPlayer == -1)) {
-      return;
-    }
-    if (_engine.finished || _engine.dice.isEmpty) return;
-    setState(() {
-      final moves = _moves.where((m) => m.fromBar).toList();
-      if (moves.isEmpty) {
-        _message = 'مهره‌ای برای ورود از بار ندارد یا خانه‌های ورود بسته‌اند.';
-        return;
-      }
-      _selectedBar = true;
-      _selectedPoint = null;
-      _message = 'اکنون خانه ورود مشخص‌شده را انتخاب کنید.';
-    });
-  }
-
   void _play(BackgammonMove move) {
     final ok = _engine.playMove(move);
     _selectedPoint = null;
