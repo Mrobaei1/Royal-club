@@ -30,6 +30,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
   final List<Map<String, int?>> _pendingMoves = [];
   String _matchStatus = 'waiting';
   String? _error;
+  int _selectedMatchLength = 1;
 
   String get _id => widget.match['id'].toString();
 
@@ -88,6 +89,83 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
     } finally {
       _refreshing = false;
     }
+  }
+
+  Future<void> _matchAction(Future<Map<String, dynamic>> Function() action) async {
+    if (_busy) return;
+    setState(() { _busy = true; _error = null; });
+    try {
+      await action();
+      await _refresh(silent: true);
+    } catch (e) {
+      if (mounted) setState(() => _error = e.toString().replaceFirst('Exception: ', ''));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Widget _matchAgreementPanel() {
+    final isHost = _matchDetails['isHost'] == true;
+    final hostAccepted = _matchDetails['hostAccepted'] == true;
+    final guestAccepted = _matchDetails['guestAccepted'] == true;
+    final hostReady = _matchDetails['hostReady'] == true;
+    final guestReady = _matchDetails['guestReady'] == true;
+    final hasGuest = _matchDetails['guestName'] != null;
+    final proposalExists = _matchDetails['cancelProposedBy'] != null;
+    final isProposer = _matchDetails['isCancelProposer'] == true;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(color: _matchPanel, borderRadius: BorderRadius.circular(12), border: Border.all(color: _matchGold.withValues(alpha: .55))),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        const Text('تنظیم و تأیید مسابقه', style: TextStyle(color: _matchGold, fontWeight: FontWeight.bold, fontSize: 16)),
+        const SizedBox(height: 8),
+        Text('تعداد برد لازم: ${_matchDetails['matchLength'] ?? 1} بازی', style: const TextStyle(color: Colors.white70)),
+        if (_matchStatus == 'waiting' && hasGuest && isHost) ...[
+          DropdownButton<int>(
+            value: _selectedMatchLength,
+            dropdownColor: _matchNavy,
+            style: const TextStyle(color: Colors.white),
+            items: const [
+              DropdownMenuItem(value: 1, child: Text('۱ بازی برای برد مسابقه')),
+              DropdownMenuItem(value: 3, child: Text('۳ بازی برای برد مسابقه')),
+              DropdownMenuItem(value: 5, child: Text('۵ بازی برای برد مسابقه')),
+            ],
+            onChanged: _busy ? null : (value) { if (value != null) setState(() => _selectedMatchLength = value); },
+          ),
+          OutlinedButton(onPressed: _busy ? null : () => _matchAction(() => MatchService.setMatchLength(_id, _selectedMatchLength)), child: const Text('ثبت تنظیم و درخواست تأیید مهمان')),
+        ],
+        if (_matchStatus == 'waiting' && hasGuest && !isHost && hostAccepted && !guestAccepted)
+          FilledButton(onPressed: _busy ? null : () => _matchAction(() => MatchService.acceptMatchSettings(_id)), child: const Text('پذیرش تنظیم میزبان')),
+        Text('پذیرش میزبان: ${hostAccepted ? 'تأیید شده' : 'در انتظار'} · مهمان: ${guestAccepted ? 'تأیید شده' : 'در انتظار'}',
+          style: const TextStyle(color: Colors.white70, fontSize: 12)),
+        if (_matchStatus == 'waiting' && hostAccepted && guestAccepted) ...[
+          Text('آمادگی میزبان: ${hostReady ? 'آماده' : 'آماده نیست'} · مهمان: ${guestReady ? 'آماده' : 'آماده نیست'}',
+            style: const TextStyle(color: Colors.white70, fontSize: 12)),
+          OutlinedButton(
+            onPressed: _busy ? null : () => _matchAction(() => MatchService.setReady(_id, !(isHost ? hostReady : guestReady))),
+            child: Text((isHost ? hostReady : guestReady) ? 'لغو آمادگی من' : 'من آماده‌ام'),
+          ),
+          const Text('شروع فقط پس از پذیرش تنظیم و آمادگی هر دو بازیکن انجام می‌شود.', style: TextStyle(color: Colors.white54, fontSize: 11)),
+        ],
+        if (hasGuest && ['waiting', 'active'].contains(_matchStatus)) ...[
+          const Divider(color: Colors.white24),
+          if (!proposalExists)
+            OutlinedButton.icon(
+              onPressed: _busy ? null : () => _matchAction(() => MatchService.cancellation(_id, 'propose')),
+              icon: const Icon(Icons.handshake_outlined),
+              label: const Text('پیشنهاد لغو مسابقه'),
+            )
+          else ...[
+            Text(isProposer ? 'پیشنهاد لغو ارسال شده؛ منتظر پاسخ حریف هستید.' : 'حریف پیشنهاد لغو داده است.',
+              style: const TextStyle(color: Colors.white70)),
+            if (!isProposer) Wrap(spacing: 8, children: [
+              OutlinedButton(onPressed: _busy ? null : () => _matchAction(() => MatchService.cancellation(_id, 'reject')), child: const Text('رد پیشنهاد')),
+              FilledButton(onPressed: _busy ? null : () => _matchAction(() => MatchService.cancellation(_id, 'accept')), child: const Text('پذیرش لغو')),
+            ]),
+          ],
+        ],
+      ]),
+    );
   }
 
   Future<void> _roll() async {
@@ -352,6 +430,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
                   style: const TextStyle(color: Colors.white70)),
               ]),
             ),
+            if (_matchDetails['guestName'] != null) _matchAgreementPanel(),
             const SizedBox(height: 12),
             Card(
               color: _matchPanel,
