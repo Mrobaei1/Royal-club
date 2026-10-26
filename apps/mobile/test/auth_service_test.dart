@@ -24,6 +24,23 @@ void main() {
     );
   });
 
+
+  test('rejects a Neon database compute host as an API URL', () {
+    expect(
+      () => AuthService.ensureConfigured(
+        configuredBaseUrl:
+            'https://br-misty-flower-bavs47dm-royalclubapi.compute.c-8.eu-central-1.aws.neon.tech',
+      ),
+      throwsA(
+        isA<Exception>().having(
+          (error) => error.toString(),
+          'message',
+          contains('مربوط به دیتابیس Neon است، نه API'),
+        ),
+      ),
+    );
+  });
+
   test('accepts a valid HTTPS API URL', () {
     expect(
       () => AuthService.ensureConfigured(
