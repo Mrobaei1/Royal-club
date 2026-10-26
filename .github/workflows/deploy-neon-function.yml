@@ -359,12 +359,13 @@ jobs:
               headers: { authorization: `${firstToken}`, 'content-type': 'application/json' },
               body: JSON.stringify({ expectedVersion: initialState.version }),
             });
-            const rolledState = (await rollResponse.json()).state;
+            const rollPayload = await rollResponse.json();
+            const rolledState = rollPayload.state;
             if (rollResponse.status !== 200 || !Array.isArray(rolledState?.dice) ||
                 rolledState.dice.length !== 2 || rolledState.dice.some((die) => !Number.isInteger(die) || die < 1 || die > 6) ||
                 !Array.isArray(rolledState.remainingDice) ||
                 ![2, 4].includes(rolledState.remainingDice.length)) {
-              throw new Error('Server-generated online dice failed validation.');
+              throw new Error('Server-generated online dice failed validation. HTTP status: ' + rollResponse.status + '; payload: ' + JSON.stringify(rollPayload));
             }
 
             const guestRollResponse = await fetch(`${base}/api/v1/matches/${matchId}/roll`, {
