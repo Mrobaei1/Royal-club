@@ -58,6 +58,17 @@ jobs:
       - name: Generate Android project files
         working-directory: apps/mobile
         run: flutter create --platforms=android --org com.royalclub .
+      - name: Ensure release APK has Internet permission
+        working-directory: apps/mobile
+        run: |
+          MANIFEST="android/app/src/main/AndroidManifest.xml"
+          test -f "$MANIFEST"
+          if ! grep -q 'android.permission.INTERNET' "$MANIFEST"; then
+            sed -i '/<manifest[^>]*>/a\    <uses-permission android:name="android.permission.INTERNET"/>' "$MANIFEST"
+          fi
+          grep -q 'android.permission.INTERNET' "$MANIFEST"
+          echo "Verified Android INTERNET permission in the main release manifest."
+
       - name: Build Android APK
         working-directory: apps/mobile
         env:
