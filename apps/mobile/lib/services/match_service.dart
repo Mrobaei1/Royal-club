@@ -143,4 +143,33 @@ class MatchService {
     }
     return Map<String, dynamic>.from(decoded['state'] as Map);
   }
+
+  static Future<Map<String, dynamic>> setMatchLength(String id, int matchLength) async =>
+      _postJson('/$id/settings', {'matchLength': matchLength});
+
+  static Future<Map<String, dynamic>> acceptMatchSettings(String id) async =>
+      _postJson('/$id/accept-settings', {'accept': true});
+
+  static Future<Map<String, dynamic>> setReady(String id, bool ready) async =>
+      _postJson('/$id/ready', {'ready': ready});
+
+  static Future<Map<String, dynamic>> cancellation(String id, String action) async =>
+      _postJson('/$id/cancellation', {'action': action});
+
+  static Future<Map<String, dynamic>> _postJson(String path, Map<String, dynamic> body) async {
+    final headers = await _headers();
+    final response = await http.post(
+      _uri(path),
+      headers: headers,
+      body: jsonEncode(body),
+    ).timeout(const Duration(seconds: 12));
+    dynamic decoded;
+    try { decoded = jsonDecode(response.body); }
+    catch (_) { throw Exception('پاسخ سرور قابل‌خواندن نیست.'); }
+    if (decoded is! Map<String, dynamic>) throw Exception('پاسخ سرور نامعتبر است.');
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(decoded['error']?.toString() ?? 'خطای سرور (${response.statusCode})');
+    }
+    return Map<String, dynamic>.from(decoded['settings'] as Map? ?? decoded['match'] as Map? ?? decoded);
+  }
 }
