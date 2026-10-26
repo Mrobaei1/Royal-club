@@ -284,7 +284,7 @@ class HomeScreen extends StatelessWidget {
                       PopupMenuItem(value: 'theme:$i', child: Row(children: [
                         Icon(i == royalThemeState.index ? Icons.radio_button_checked : Icons.radio_button_off, color: royalThemes[i].accent, size: 18),
                         const SizedBox(width: 10),
-                        Text(royalThemes[i].name),
+                        Text(switch (i) { 0 => AppLocalizations.of(context)!.themeRoyal, 1 => AppLocalizations.of(context)!.themeEmerald, 2 => AppLocalizations.of(context)!.themeOceanic, 3 => AppLocalizations.of(context)!.themeRuby, _ => AppLocalizations.of(context)!.themeLight }),
                       ])),
                   ],
                 ),
