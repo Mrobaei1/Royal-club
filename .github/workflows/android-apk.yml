@@ -89,7 +89,7 @@ jobs:
             --header "Authorization: Bearer $NEON_API_KEY" \
             --header "Accept: application/json" \
             --output function-details.json
-          FUNCTION_URL="$(node -e 'const fs=require("node:fs"); const x=JSON.parse(fs.readFileSync("function-details.json","utf8")); const found=[]; function walk(v){if(!v||typeof v!=="object")return;for(const [k,val] of Object.entries(v)){if(typeof val==="string"&&/^https:\/\//.test(val)&&/neon\.tech\//.test(val))found.push([k,val]);else if(val&&typeof val==="object")walk(val);}} walk(x); const hit=found.find(([k])=>/url|endpoint/i.test(k))||found[0]; if(!hit)process.exit(2); const u=new URL(hit[1]); if(u.protocol!=="https:"||!u.hostname.endsWith("neon.tech"))process.exit(3); process.stdout.write(u.toString().replace(/\/+$/,""));')"
+          FUNCTION_URL="$(node -e 'const fs=require("node:fs"); const x=JSON.parse(fs.readFileSync("function-details.json","utf8")); const found=[]; function walk(v){if(!v||typeof v!=="object")return;for(const [k,val] of Object.entries(v)){if(typeof val==="string"&&/^https:\/\//.test(val)){try{const u=new URL(val);if(u.protocol==="https:"&&u.hostname.endsWith(".neon.tech")&&u.hostname!=="console.neon.tech")found.push([k,u.toString()]);}catch{}}else if(val&&typeof val==="object")walk(val);}} walk(x); const hit=found.find(([k])=>/url|endpoint/i.test(k))||found[0]; if(!hit)process.exit(2); process.stdout.write(hit[1].replace(/\/+$/,""));')"
           if [ -z "$FUNCTION_URL" ]; then
             echo "::error::Neon did not return a valid public function URL."
             exit 1
@@ -106,7 +106,18 @@ jobs:
             exit 1
           fi
           echo "url=$FUNCTION_URL" >> "$GITHUB_OUTPUT"
-          echo "The deployed Royal Club API endpoint passed its health check."
+          echo "Checking the API database connection."
+          if ! curl --fail --silent --show-error --connect-timeout 5 --max-time 12 \
+            "$FUNCTION_URL/api/v1/health/db" --output database-health.json; then
+            echo "::error::The deployed Royal Club API database health endpoint is not reachable."
+            exit 1
+          fi
+          if ! node -e 'const x=JSON.parse(require("node:fs").readFileSync("database-health.json","utf8")); if(x.status!=="ok"||x.database!=="connected")process.exit(1)'; then
+            echo "::error::The deployed Royal Club API did not confirm a connected database."
+            head -c 2000 database-health.json || true
+            exit 1
+          fi
+          echo "The deployed Royal Club API and database passed health checks."
 
       - name: Build release APK
         if: github.event_name == 'workflow_dispatch' && inputs.build_apk == true
