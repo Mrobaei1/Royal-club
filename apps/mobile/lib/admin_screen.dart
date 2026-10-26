@@ -80,7 +80,7 @@ class _AdminScreenState extends State<AdminScreen> {
         '${AppLocalizations.of(context)!.phoneLabel}: ${profile['phone'] ?? ''}',
         '${AppLocalizations.of(context)!.countryLabel}: ${profile['country'] ?? ''}',
         '${AppLocalizations.of(context)!.walletBalance}: ${profile['walletBalance'] ?? '0'}',
-        '${AppLocalizations.of(context)!.register}: ${profile['createdAt'] ?? ''}',
+        '${AppLocalizations.of(context)!.registrationDate}: ${profile['createdAt'] ?? ''}',
       ];
       if (!mounted) return;
       await showDialog<void>(
@@ -285,7 +285,7 @@ class _AdminScreenState extends State<AdminScreen> {
               for (final plan in _plans) Card(child: ListTile(
                 leading: const Icon(Icons.workspace_premium),
                 title: Text(plan['name']?.toString() ?? ''),
-                subtitle: Text('${plan['durationDays']} روز • ${plan['priceCredits']} اعتبار'),
+                subtitle: Text('${plan['durationDays']} ${AppLocalizations.of(context)!.daysUnit} • ${plan['priceCredits']} ${AppLocalizations.of(context)!.creditsUnit}'),
                 trailing: Row(mainAxisSize: MainAxisSize.min, children: [
                   Switch(
                     value: plan['active'] == true,
