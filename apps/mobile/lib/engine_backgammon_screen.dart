@@ -33,7 +33,6 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
     [Color(0xFF7A3151), Color(0xFF54213A), Color(0xFF351529)],
     [Color(0xFF777B85), Color(0xFF4C515D), Color(0xFF30343D)],
   ];
-  static const List<String> _boardThemeNames = ['چوب سلطنتی', 'زمردی', 'آبی یاقوتی', 'زرشکی', 'نقره‌ای'];
 
   @override
   void initState() {
@@ -444,7 +443,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
                 isExpanded: true,
                 dropdownColor: _boardNavy,
                 style: TextStyle(color: _boardGold, fontSize: compact ? 11 : 13),
-                items: List.generate(_boardThemeNames.length, (i) => DropdownMenuItem(value: i, child: Text(switch (i) { 0 => AppLocalizations.of(context)!.themeRoyalWood, 1 => AppLocalizations.of(context)!.themeEmeraldBoard, 2 => AppLocalizations.of(context)!.themeSapphireBoard, 3 => AppLocalizations.of(context)!.themeBurgundyBoard, _ => AppLocalizations.of(context)!.themeSilverBoard }))),
+                items: List.generate(_boardThemes.length, (i) => DropdownMenuItem(value: i, child: Text(switch (i) { 0 => AppLocalizations.of(context)!.themeRoyalWood, 1 => AppLocalizations.of(context)!.themeEmeraldBoard, 2 => AppLocalizations.of(context)!.themeSapphireBoard, 3 => AppLocalizations.of(context)!.themeBurgundyBoard, _ => AppLocalizations.of(context)!.themeSilverBoard }))),
                 onChanged: (value) { if (value != null) setState(() => _boardThemeIndex = value); },
               ))),
             ]),
