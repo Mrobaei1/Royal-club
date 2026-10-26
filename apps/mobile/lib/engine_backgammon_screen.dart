@@ -545,6 +545,13 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
             BoxShadow(color: Color(0x337D5A27), blurRadius: 2, spreadRadius: 1),
           ],
         ),
+        foregroundDecoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(13),
+          border: Border.all(
+            color: const Color(0xFFD8B45A).withValues(alpha: 0.58),
+            width: 1,
+          ),
+        ),
         child: Column(
           children: [
             Expanded(
@@ -1044,7 +1051,7 @@ class _RoyalEmblemPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
     final radius = (size.width * 0.105).clamp(18.0, 42.0);
-    final gold = const Color(0xFFD8B45A).withValues(alpha: 0.16);
+    final gold = const Color(0xFFD8B45A).withValues(alpha: 0.27);
     final line = Paint()
       ..color = gold
       ..style = PaintingStyle.stroke
