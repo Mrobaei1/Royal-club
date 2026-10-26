@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'l10n/app_localizations.dart';
 import 'services/auth_service.dart';
 
 const _accountGold = Color(0xFFD8B45A);
@@ -49,11 +50,11 @@ class _AccountScreenState extends State<AccountScreen> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: _accountPanel,
-        title: const Text('تغییر نام کاربری'),
-        content: TextField(controller: controller, textDirection: TextDirection.ltr, decoration: const InputDecoration(labelText: 'نام کاربری', hintText: 'royal_player7', prefixText: '@', helperText: '۳ تا ۲۴ حرف؛ حروف انگلیسی، عدد، نقطه یا زیرخط')),
+        title: Text(AppLocalizations.of(context)!.editUsername),
+        content: TextField(controller: controller, textDirection: TextDirection.ltr, decoration: const InputDecoration(labelText: AppLocalizations.of(context)!.username, hintText: 'royal_player7', prefixText: '@', helperText: AppLocalizations.of(context)!.usernameRules)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('انصراف')),
-          FilledButton(onPressed: () => Navigator.pop(dialogContext, controller.text.trim()), child: const Text('ذخیره')),
+          TextButton(onPressed: () => Navigator.pop(dialogContext), child: Text(AppLocalizations.of(context)!.cancel)),
+          FilledButton(onPressed: () => Navigator.pop(dialogContext, controller.text.trim()), child: Text(AppLocalizations.of(context)!.save)),
         ],
       ),
     );
@@ -73,18 +74,18 @@ class _AccountScreenState extends State<AccountScreen> {
           leading: Icon(icon, color: _accountGold),
           title: Text(label,
               style: const TextStyle(color: Colors.white60, fontSize: 12)),
-          subtitle: Text(value.isEmpty ? 'ثبت نشده' : value,
+          subtitle: Text(value.isEmpty ? AppLocalizations.of(context)!.notSet : value,
               style: const TextStyle(color: Colors.white, fontSize: 15)),
         ),
       );
 
   @override
   Widget build(BuildContext context) => Directionality(
-        textDirection: TextDirection.rtl,
+        textDirection: Localizations.localeOf(context).languageCode == 'fa' ? TextDirection.rtl : TextDirection.ltr,
         child: Scaffold(
           backgroundColor: _accountNavy,
           appBar: AppBar(
-            title: const Text('حساب کاربری'),
+            title: Text(AppLocalizations.of(context)!.accountTitle),
             backgroundColor: _accountNavy,
             foregroundColor: _accountGold,
           ),
@@ -98,7 +99,7 @@ class _AccountScreenState extends State<AccountScreen> {
                       const Icon(Icons.account_circle_outlined,
                           color: _accountGold, size: 76),
                       const SizedBox(height: 10),
-                      const Text('اطلاعات حساب',
+                      Text(AppLocalizations.of(context)!.accountInfo,
                           textAlign: TextAlign.center,
                           style: TextStyle(
                               color: _accountGold,
@@ -114,20 +115,20 @@ class _AccountScreenState extends State<AccountScreen> {
                           color: _accountPanel,
                           child: ListTile(
                             leading: const Icon(Icons.alternate_email, color: _accountGold),
-                            title: const Text('نام کاربری', style: TextStyle(color: Colors.white60, fontSize: 12)),
-                            subtitle: Text('@${_user!['username']?.toString() ?? 'تنظیم نشده'}', style: const TextStyle(color: Colors.white, fontSize: 16)),
-                            trailing: IconButton(onPressed: _editUsername, icon: const Icon(Icons.edit_outlined, color: _accountGold), tooltip: 'ویرایش نام کاربری'),
+                            title: Text(AppLocalizations.of(context)!.username, style: TextStyle(color: Colors.white60, fontSize: 12)),
+                            subtitle: Text('@${_user!['username']?.toString() ?? AppLocalizations.of(context)!.notSet}', style: const TextStyle(color: Colors.white, fontSize: 16)),
+                            trailing: IconButton(onPressed: _editUsername, icon: const Icon(Icons.edit_outlined, color: _accountGold), tooltip: AppLocalizations.of(context)!.editUsernameTooltip),
                           ),
                         ),
-                        _detail(Icons.badge_outlined, 'نام کامل',
+                        _detail(Icons.badge_outlined, AppLocalizations.of(context)!.fullNameLabel,
                             _user!['fullName']?.toString() ?? ''),
-                        _detail(Icons.email_outlined, 'ایمیل',
+                        _detail(Icons.email_outlined, AppLocalizations.of(context)!.emailLabel,
                             _user!['email']?.toString() ?? ''),
-                        _detail(Icons.phone_outlined, 'تلفن',
+                        _detail(Icons.phone_outlined, AppLocalizations.of(context)!.phoneLabel,
                             _user!['phone']?.toString() ?? ''),
-                        _detail(Icons.public_outlined, 'کشور',
+                        _detail(Icons.public_outlined, AppLocalizations.of(context)!.countryLabel,
                             _user!['country']?.toString() ?? ''),
-                        _detail(Icons.numbers, 'شناسه کاربری',
+                        _detail(Icons.numbers, AppLocalizations.of(context)!.userIdLabel,
                             _user!['id']?.toString() ?? ''),
                       ],
                       const SizedBox(height: 24),
@@ -137,7 +138,7 @@ class _AccountScreenState extends State<AccountScreen> {
                           Navigator.of(context).pop();
                         },
                         icon: const Icon(Icons.logout),
-                        label: const Text('خروج از حساب'),
+                        label: Text(AppLocalizations.of(context)!.logout),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: _accountGold,
                           side: const BorderSide(color: _accountGold),
