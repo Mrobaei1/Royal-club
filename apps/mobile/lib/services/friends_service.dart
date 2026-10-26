@@ -31,8 +31,13 @@ class FriendsService {
     late http.Response response;
     switch (method) {
       case 'POST':
-        response = await http.post(uri, headers: headers)
-            .timeout(const Duration(seconds: 15));
+        // Send a valid, explicit JSON payload even for action-only endpoints.
+        // This avoids empty-body JSON parser differences across API adapters.
+        response = await http.post(
+          uri,
+          headers: {...headers, 'Content-Type': 'application/json'},
+          body: jsonEncode(<String, dynamic>{}),
+        ).timeout(const Duration(seconds: 15));
         break;
       case 'DELETE':
         response = await http.delete(uri, headers: headers)
@@ -53,7 +58,8 @@ class FriendsService {
       throw Exception('پاسخ سرور نامعتبر است.');
     }
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw Exception(decoded['error']?.toString() ?? 'خطای سرور');
+      final detail = decoded['error']?.toString() ?? decoded['message']?.toString() ?? 'خطای سرور';
+      throw Exception('$detail (HTTP ${response.statusCode})');
     }
     return decoded;
   }
