@@ -94,45 +94,7 @@ class AuthService {
   }) async {
     final token = await _storage.read(key: 'royal_club_token');
     if (token == null || token.isEmpty) throw Exception('ابتدا وارد حساب شوید.');
-    final base = baseUrl.trim().replaceFirst(RegExp(r'/+
-    final token = await _storage.read(key: 'royal_club_token');
-    if (token == null || token.isEmpty) throw Exception('ابتدا وارد حساب شوید.');
     final base = baseUrl.trim().replaceFirst(RegExp(r'/+$'), '');
-    final response = await _send(() => http.patch(
-      Uri.parse('$base/api/v1/me/avatar'),
-      headers: {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'},
-      body: jsonEncode({'avatarDataUrl': avatarDataUrl}),
-    ));
-    return _decode(response);
-  }
-
-  static Future<String?> rememberedEmail() => _storage.read(key: 'royal_club_remembered_email');
-
-  static Future<void> setRememberedEmail(String email, bool remember) async {
-    if (remember) {
-      await _storage.write(key: 'royal_club_remembered_email', value: email.trim());
-    } else {
-      await _storage.delete(key: 'royal_club_remembered_email');
-    }
-  }
-
-  static Future<int?> readThemePreference() async {
-    final value = await _storage.read(key: 'royal_club_theme');
-    return value == null ? null : int.tryParse(value);
-  }
-
-  static Future<void> saveThemePreference(int index) =>
-      _storage.write(key: 'royal_club_theme', value: index.toString());
-
-  static Future<String?> readLanguagePreference() =>
-      _storage.read(key: 'royal_club_language');
-
-  static Future<void> saveLanguagePreference(String languageCode) =>
-      _storage.write(key: 'royal_club_language', value: languageCode);
-
-  static Future<void> logout() => _storage.delete(key: 'royal_club_token');
-}
-), '');
     final response = await _send(() => http.patch(
       Uri.parse('$base/api/v1/me/profile'),
       headers: {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'},
