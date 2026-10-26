@@ -44,8 +44,10 @@ await pool.query(`
     full_name TEXT NOT NULL DEFAULT '',
     phone TEXT NOT NULL DEFAULT '',
     country TEXT NOT NULL DEFAULT '',
+    avatar_data_url TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   );
+  ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_data_url TEXT;
   ALTER TABLE users ADD COLUMN IF NOT EXISTS username TEXT;
   UPDATE users SET username = 'p' || id::text WHERE username IS NULL OR username = '';
   CREATE UNIQUE INDEX IF NOT EXISTS users_username_unique_idx ON users (LOWER(username)) WHERE username IS NOT NULL;
@@ -310,12 +312,12 @@ app.get('/api/v1/me', {
   if (!claims.sub) return reply.code(401).send({ error: 'Invalid token.' });
 
   const result = await pool.query(
-    'SELECT id, username, email, full_name, phone, country, created_at FROM users WHERE id = $1',
+    'SELECT id, username, email, full_name, phone, country, avatar_data_url, created_at FROM users WHERE id = $1',
     [claims.sub]
   );
   if (!result.rowCount) return reply.code(401).send({ error: 'Account not found.' });
-  const user = result.rows[0] as { id: string; username: string | null; email: string; full_name: string; phone: string; country: string; created_at: Date };
-  return { user: { id: user.id, username: user.username, email: user.email, fullName: user.full_name, phone: user.phone, country: user.country, createdAt: user.created_at } };
+  const user = result.rows[0] as { id: string; username: string | null; email: string; full_name: string; phone: string; country: string; avatar_data_url: string | null; created_at: Date };
+  return { user: { id: user.id, username: user.username, email: user.email, fullName: user.full_name, phone: user.phone, country: user.country, avatarDataUrl: user.avatar_data_url ?? null, createdAt: user.created_at } };
 });
 
 const requireMatchAuth = async (request: any, reply: any) => {
@@ -342,6 +344,22 @@ app.patch<{ Body: { fullName?: string; phone?: string; country?: string } }>('/a
   );
   if (!result.rowCount) return reply.code(404).send({ error: 'Account not found.' });
   return { user: result.rows[0] };
+});
+
+app.patch<{ Body: { avatarDataUrl?: string | null } }>('/api/v1/me/avatar', { onRequest: [requireMatchAuth], config: { rateLimit: { max: 6, timeWindow: '1 minute' } } }, async (request, reply) => {
+  const claims = request.user as { sub: string };
+  const avatar = request.body?.avatarDataUrl;
+  if (avatar !== null && (typeof avatar !== 'string' ||
+      avatar.length > 900_000 ||
+      !/^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/]+={0,2}$/.test(avatar))) {
+    return reply.code(400).send({ error: 'تصویر باید JPG یا PNG یا WebP و کمتر از 650 کیلوبایت باشد.' });
+  }
+  const result = await pool.query(
+    'UPDATE users SET avatar_data_url = $1 WHERE id = $2 RETURNING avatar_data_url',
+    [avatar ?? null, claims.sub],
+  );
+  if (!result.rowCount) return reply.code(404).send({ error: 'Account not found.' });
+  return { avatarDataUrl: result.rows[0].avatar_data_url ?? null };
 });
 
 app.patch<{ Body: { username?: string } }>('/api/v1/me/username', { onRequest: [requireMatchAuth], config: { rateLimit: { max: 5, timeWindow: '1 minute' } } }, async (request, reply) => {
