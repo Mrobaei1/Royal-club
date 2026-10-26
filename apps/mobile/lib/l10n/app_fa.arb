@@ -218,5 +218,7 @@
   "turnRollPrompt": "نوبت {player} است؛ تاس بریزید.",
   "@turnRolledDice": {"placeholders": {"player": {"type": "String"}, "dice": {"type": "String"}}},
   "@turnChangedPlayer": {"placeholders": {"player": {"type": "String"}}},
-  "@turnRollPrompt": {"placeholders": {"player": {"type": "String"}}}
+  "@turnRollPrompt": {"placeholders": {"player": {"type": "String"}}},
+  "goldenPlayer": "طلایی",
+  "lightPlayer": "روشن"
 }
