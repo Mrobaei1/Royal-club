@@ -537,7 +537,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
             colors: _boardThemes[_boardThemeIndex],
           ),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: _boardGold, width: 2),
+          border: Border.all(color: const Color(0xFF244E78), width: 3),
           boxShadow: const [
             BoxShadow(
                 color: Colors.black54, blurRadius: 14, offset: Offset(0, 6)),
