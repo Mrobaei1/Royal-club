@@ -310,6 +310,25 @@ jobs:
           }
           NODE
 
+      - name: Collect Neon function logs after smoke-test failure
+        if: failure()
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          NEON_PROJECT_ID: ${{ inputs.neon_project_id || 'crimson-moon-58282245' }}
+          NEON_BRANCH_ID: ${{ inputs.neon_branch_id || 'br-misty-flower-bavs47dm' }}
+        run: |
+          curl --silent --show-error --request POST "https://console.neon.tech/api/v2/projects/$NEON_PROJECT_ID/branches/$NEON_BRANCH_ID/logs/query" \
+            --header "Authorization: Bearer $NEON_API_KEY" \
+            --header "Accept: application/json" \
+            --header "Content-Type: application/json" \
+            --data '{"since":"1h","source":"function","limit":100}' \
+            --output neon-function-errors.json || true
+          if [ -s neon-function-errors.json ]; then
+            node -e 'const x=JSON.parse(require("node:fs").readFileSync("neon-function-errors.json","utf8")); const rows=x.logs||x.records||x.data||[]; if (!rows.length) console.log(JSON.stringify(x).slice(0,12000)); else for (const r of rows) console.log(JSON.stringify({timestamp:r.timestamp,severity:r.severity_text||r.severity,message:r.message||r.body||r}));'
+          else
+            echo "Neon log query returned no response."
+          fi
+
       - name: Trigger GitHub Pages rebuild with Neon API endpoint
         env:
           GH_TOKEN: ${{ github.token }}
