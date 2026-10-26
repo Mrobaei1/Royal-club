@@ -604,25 +604,32 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
                 BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(0, 2)),
               ],
             ),
-            child: Stack(
-              alignment: Alignment.center,
+            child: Row(
               children: [
-                Center(child: _diceTray(compact: true)),
-                Positioned(
-                  left: 0,
-                  top: -2,
-                  bottom: -2,
-                  child: Container(
-                    width: 2,
-                    decoration: BoxDecoration(
-                      color: _boardGold,
-                      boxShadow: [
-                        BoxShadow(
-                          color: _boardGold.withValues(alpha: .55),
-                          blurRadius: 4,
+                SizedBox(width: sideWidth + 4),
+                Expanded(
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      Center(child: _diceTray(compact: true)),
+                      Positioned(
+                        left: (barWidth - 2) / 2,
+                        top: -2,
+                        bottom: -2,
+                        child: Container(
+                          width: 2,
+                          decoration: BoxDecoration(
+                            color: _boardGold,
+                            boxShadow: [
+                              BoxShadow(
+                                color: _boardGold.withValues(alpha: .55),
+                                blurRadius: 4,
+                              ),
+                            ],
+                          ),
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
               ],
