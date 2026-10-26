@@ -301,7 +301,7 @@ class HomeScreen extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               GameTile(
-                title: royalLocaleState.locale.languageCode == 'fa' ? 'بازی آنلاین' : 'Online play',
+                title: AppLocalizations.of(context)!.onlinePlayTitle,
                 subtitle: AppLocalizations.of(context)!.onlinePlaySubtitle,
                 icon: Icons.public_rounded,
                 onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const OnlineLobbyScreen())),
@@ -309,7 +309,7 @@ class HomeScreen extends StatelessWidget {
               const SizedBox(height: 12),
               GameTile(title: AppLocalizations.of(context)!.chess, subtitle: AppLocalizations.of(context)!.comingSoon, icon: Icons.grid_4x4_rounded, comingSoon: true),
               const SizedBox(height: 12),
-              GameTile(title: AppLocalizations.of(context)!.cardGames, subtitle: royalLocaleState.locale.languageCode == 'fa' ? 'به‌زودی' : 'Coming soon', icon: Icons.style_rounded, comingSoon: true),
+              GameTile(title: AppLocalizations.of(context)!.cardGames, subtitle: AppLocalizations.of(context)!.comingSoon, icon: Icons.style_rounded, comingSoon: true),
               const SizedBox(height: 26),
               Center(child: Text(AppLocalizations.of(context)!.brandFooter,
                 style: TextStyle(color: Color(0xFF77839A), fontSize: 9, letterSpacing: 1.5, fontWeight: FontWeight.w600))),
