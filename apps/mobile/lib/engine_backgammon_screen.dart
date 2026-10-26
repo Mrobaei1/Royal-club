@@ -531,6 +531,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
 
   Widget _board(Set<int> legalTargets,
           {required double rowHeight, bool compact = false}) {
+    final sideWidth = compact || rowHeight < 120 ? 36.0 : 48.0;
     final barWidth = compact || rowHeight < 120 ? 32.0 : 42.0;
     final topLeft = List.generate(6, (i) => 11 - i);
     final topRight = List.generate(6, (i) => 5 - i);
