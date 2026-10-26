@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'backgammon_engine.dart';
 import 'backgammon_ai.dart';
+import 'online_lobby_screen.dart';
 
 const _boardNavy = Color(0xFF10182B);
 const _boardGold = Color(0xFFD8B45A);
@@ -20,6 +21,7 @@ class EngineBackgammonScreen extends StatefulWidget {
 class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
   final BackgammonEngine _engine = BackgammonEngine();
   final BackgammonAI _ai = BackgammonAI();
+  bool _modeChosen = false;
   bool _vsComputer = true;
   BackgammonDifficulty _difficulty = BackgammonDifficulty.medium;
   bool _computerThinking = false;
@@ -292,6 +294,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (!_modeChosen) return _entryScreen();
     final legalTargets = _moves
         .where((m) => _selectedBar
             ? m.fromBar
@@ -380,6 +383,80 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
       ),
     );
   }
+
+  Widget _entryScreen() => Directionality(
+        textDirection: TextDirection.rtl,
+        child: Scaffold(
+          backgroundColor: _boardNavy,
+          appBar: AppBar(
+            backgroundColor: _boardNavy,
+            foregroundColor: _boardGold,
+            title: const Text('تخته‌نرد سلطنتی'),
+          ),
+          body: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 440),
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Icon(Icons.workspace_premium, color: _boardGold, size: 64),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'روش بازی را انتخاب کنید',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: _boardGold, fontSize: 24, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 10),
+                    const Text(
+                      'بازی آفلاین برای تمرین به اینترنت نیاز ندارد. برای رقابت با بازیکنان دیگر، بازی آنلاین را انتخاب کنید.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.white70, height: 1.5),
+                    ),
+                    const SizedBox(height: 24),
+                    FilledButton.icon(
+                      onPressed: () {
+                        setState(() {
+                          _vsComputer = true;
+                          _modeChosen = true;
+                          _engine.reset();
+                          _message = 'بازی آفلاین با هوش مصنوعی؛ تاس بریزید.';
+                        });
+                      },
+                      icon: const Icon(Icons.psychology),
+                      label: const Text('بازی آفلاین با هوش مصنوعی'),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: _boardGold,
+                        foregroundColor: _boardNavy,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    OutlinedButton.icon(
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => const OnlineLobbyScreen(),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.public),
+                      label: const Text('بازی آنلاین'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: _boardGold,
+                        side: const BorderSide(color: _boardGold),
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
 
   Widget _modeControls({bool compact = false}) => Container(
         padding: EdgeInsets.symmetric(
