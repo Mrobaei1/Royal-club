@@ -368,7 +368,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
                   ),
                   const SizedBox(height: 10),
                   const Text(
-                    'نسخه آزمایشی محلی · بازی دونفره روی یک دستگاه',
+                    'نسخه آزمایشی محلی · بازی با هوش مصنوعی یا دونفره روی یک دستگاه',
                     textAlign: TextAlign.center,
                     style: TextStyle(color: Colors.white54, fontSize: 12),
                   ),
