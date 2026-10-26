@@ -90,6 +90,35 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
     }
   }
 
+  Future<void> _updateSetup({int? matchToWin, bool? acceptSettings, bool? ready}) async {
+    if (_busy) return;
+    setState(() { _busy = true; _error = null; });
+    try {
+      await MatchService.updateSetup(_id, matchToWin: matchToWin, acceptSettings: acceptSettings, ready: ready);
+      await _refresh(silent: true);
+    } catch (e) {
+      if (mounted) setState(() => _error = e.toString().replaceFirst('Exception: ', ''));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _cancelOrRespond({required bool accept}) async {
+    if (_busy) return;
+    setState(() { _busy = true; _error = null; });
+    try {
+      final result = await MatchService.proposeOrRespondCancellation(_id, accept: accept);
+      if (mounted && result['status'] == 'cancelled') {
+        setState(() => _matchStatus = 'cancelled');
+      }
+      await _refresh(silent: true);
+    } catch (e) {
+      if (mounted) setState(() => _error = e.toString().replaceFirst('Exception: ', ''));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   Future<void> _roll() async {
     if (_busy || _state == null) return;
     setState(() { _busy = true; _error = null; });
@@ -376,6 +405,66 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
                 ),
               ),
             ),
+            if (_matchDetails['guestName'] != null && _matchStatus == 'waiting') ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(color: _matchPanel, borderRadius: BorderRadius.circular(14), border: Border.all(color: _matchGold.withValues(alpha: .65))),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                  const Text('تنظیم مسابقه و آمادگی دوطرفه', style: TextStyle(color: _matchGold, fontWeight: FontWeight.bold, fontSize: 16)),
+                  const SizedBox(height: 8),
+                  Text('تعداد برد لازم: ${_matchDetails['matchToWin'] ?? 1} بازی', style: const TextStyle(color: Colors.white)),
+                  if (_matchDetails['isHost'] == true) Wrap(
+                    spacing: 8,
+                    children: [1, 3, 5].map((n) => ChoiceChip(
+                      label: Text('Match to Win $n'),
+                      selected: (_matchDetails['matchToWin'] ?? 1) == n,
+                      onSelected: _busy ? null : (_) => _updateSetup(matchToWin: n),
+                    )).toList(),
+                  ),
+                  if (_matchDetails['isHost'] != true && _matchDetails['guestSettingsAccepted'] != true)
+                    FilledButton(onPressed: _busy ? null : () => _updateSetup(acceptSettings: true), child: const Text('پذیرش تنظیمات میزبان')),
+                  Text('پذیرش تنظیمات: میزبان ${_matchDetails['hostSettingsAccepted'] == true ? 'پذیرفته' : 'در انتظار'} · مهمان ${_matchDetails['guestSettingsAccepted'] == true ? 'پذیرفته' : 'در انتظار'}',
+                    style: const TextStyle(color: Colors.white70)),
+                  const SizedBox(height: 6),
+                  Text('آمادگی: میزبان ${_matchDetails['hostReady'] == true ? 'آماده' : 'آماده نیست'} · مهمان ${_matchDetails['guestReady'] == true ? 'آماده' : 'آماده نیست'}',
+                    style: const TextStyle(color: Colors.white70)),
+                  const SizedBox(height: 8),
+                  FilledButton.icon(
+                    onPressed: _busy || (_matchDetails[_matchDetails['isHost'] == true ? 'hostSettingsAccepted' : 'guestSettingsAccepted'] != true)
+                      ? null : () => _updateSetup(ready: _matchDetails[_matchDetails['isHost'] == true ? 'hostReady' : 'guestReady'] != true),
+                    icon: Icon(_matchDetails[_matchDetails['isHost'] == true ? 'hostReady' : 'guestReady'] == true ? Icons.undo : Icons.check_circle),
+                    label: Text(_matchDetails[_matchDetails['isHost'] == true ? 'hostReady' : 'guestReady'] == true ? 'لغو آمادگی من' : 'من آماده‌ام'),
+                    style: FilledButton.styleFrom(backgroundColor: _matchGold, foregroundColor: _matchNavy),
+                  ),
+                  const Text('مسابقه فقط پس از پذیرش تنظیمات و آماده‌شدن هر دو بازیکن آغاز می‌شود. تغییر تعداد برد، آمادگی هر دو نفر را بازنشانی می‌کند.',
+                    style: TextStyle(color: Colors.white54, height: 1.5)),
+                ]),
+              ),
+            ],
+            if (_matchDetails['guestName'] != null && ['waiting', 'active'].contains(_matchStatus)) ...[
+              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(color: _matchPanel, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.redAccent.withValues(alpha: .45))),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                  const Text('لغو مسابقه با توافق طرفین', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 6),
+                  if (_matchDetails['cancellationProposedBy'] == null)
+                    OutlinedButton.icon(onPressed: _busy ? null : () => _cancelOrRespond(accept: false), icon: const Icon(Icons.handshake_outlined), label: const Text('پیشنهاد لغو مسابقه')),
+                  if (_matchDetails['cancellationProposedBy'] != null && _matchDetails['cancellationProposedBy'].toString() == (_matchDetails['isHost'] == true ? 'host' : 'guest'))
+                    const Text('پیشنهاد لغو شما در انتظار پاسخ حریف است.', style: TextStyle(color: Colors.white70)),
+                  if (_matchDetails['cancellationProposedBy'] != null && _matchDetails['cancellationProposedBy'].toString() != (_matchDetails['isHost'] == true ? 'host' : 'guest')) ...[
+                    const Text('حریف پیشنهاد لغو داده است. آیا موافق هستید؟', style: TextStyle(color: Colors.white70)),
+                    Row(children: [
+                      Expanded(child: OutlinedButton(onPressed: _busy ? null : () => _cancelOrRespond(accept: false), child: const Text('رد پیشنهاد'))),
+                      const SizedBox(width: 8),
+                      Expanded(child: FilledButton(onPressed: _busy ? null : () => _cancelOrRespond(accept: true), child: const Text('تأیید لغو'))),
+                    ]),
+                  ],
+                ]),
+              ),
+            ],
             if (_state != null) ...[
               const SizedBox(height: 16),
               if (isMyTurn && remaining.isNotEmpty) OutlinedButton.icon(
