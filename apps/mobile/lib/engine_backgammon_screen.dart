@@ -103,7 +103,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
     });
   }
 
-  String _playerName(int player) => player == 1 ? 'طلایی' : 'روشن';
+  String _playerName(int player) => player == 1 ? AppLocalizations.of(context)!.goldenPlayer : AppLocalizations.of(context)!.lightPlayer;
 
   void _tapPoint(int point) {
     if (_computerThinking || (_vsComputer && _engine.currentPlayer == -1)) {
