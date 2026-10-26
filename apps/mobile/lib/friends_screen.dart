@@ -179,7 +179,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
                       fontSize: 21,
                       fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
-              const Text(
+              Text(
                 AppLocalizations.of(context)!.friendInstructions,
                 style: TextStyle(color: Colors.white70, height: 1.6),
               ),
@@ -187,7 +187,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
               TextField(
                 controller: _username,
                 textDirection: TextDirection.ltr,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: AppLocalizations.of(context)!.username,
                   hintText: 'royal_player7',
                   prefixIcon: Icon(Icons.alternate_email),
