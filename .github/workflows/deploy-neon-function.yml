@@ -446,7 +446,15 @@ jobs:
               throw new Error(`Out-of-turn dice roll should return 409; got ${guestRollResponse.status}`);
             }
 
-            console.log('PASS: auth, profile, friend request/accept/remove/privacy, online match creation/join, server-owned state/dice, legal move persistence, illegal-move rollback, and out-of-turn rejection.');
+            const leaderboardResponse = await fetch(`${base}/api/v1/leaderboard`, {
+              headers: { authorization: `Bearer ${firstToken}` },
+            });
+            const leaderboardPayload = await leaderboardResponse.json();
+            if (leaderboardResponse.status !== 200 || !Array.isArray(leaderboardPayload.leaderboard)) {
+              throw new Error(`Leaderboard smoke test failed with status ${leaderboardResponse.status}: ${JSON.stringify(leaderboardPayload)}`);
+            }
+
+            console.log('PASS: auth, profile, friend request/accept/remove/privacy, online match creation/join, server-owned state/dice, legal move persistence, illegal-move rollback, out-of-turn rejection, and leaderboard endpoint.');
           } finally {
             if (matchId) await pool.query('DELETE FROM backgammon_matches WHERE id = $1', [matchId]);
             await pool.query('DELETE FROM users WHERE email = ANY($1::text[])', [[email, shortEmail, friendEmail]]);

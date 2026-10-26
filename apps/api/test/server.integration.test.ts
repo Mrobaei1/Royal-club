@@ -60,6 +60,55 @@ test('registered players can join an online match and history does not expose op
   const host = await register('Host Integration');
   const guest = await register('Guest Integration');
 
+  const login = await app.inject({
+    method: 'POST',
+    url: '/api/v1/auth/login',
+    payload: { email: host.user.email, password: 'IntegrationPass123!' },
+  });
+  assert.equal(login.statusCode, 200, login.body);
+  assert.ok(login.json().accessToken);
+  const profile = await app.inject({
+    method: 'GET',
+    url: '/api/v1/me',
+    headers: auth(login.json().accessToken),
+  });
+  assert.equal(profile.statusCode, 200, profile.body);
+  assert.equal(profile.json().user.email, host.user.email);
+
+  const friendRequest = await app.inject({
+    method: 'POST',
+    url: `/api/v1/friends/${guest.user.id}/request`,
+    headers: auth(host.token),
+    payload: {},
+  });
+  assert.equal(friendRequest.statusCode, 201, friendRequest.body);
+  const inbox = await app.inject({
+    method: 'GET',
+    url: '/api/v1/friends',
+    headers: auth(guest.token),
+  });
+  assert.equal(inbox.statusCode, 200, inbox.body);
+  const incoming = (inbox.json().incomingRequests as Array<Record<string, unknown>>)
+    .find((request) => String(request.userId) === String(host.user.id));
+  assert.ok(incoming);
+  assert.equal(Object.hasOwn(incoming, 'email'), false);
+
+  const accepted = await app.inject({
+    method: 'POST',
+    url: `/api/v1/friends/${host.user.id}/accept`,
+    headers: auth(guest.token),
+    payload: {},
+  });
+  assert.equal(accepted.statusCode, 200, accepted.body);
+  const friends = await app.inject({
+    method: 'GET',
+    url: '/api/v1/friends',
+    headers: auth(host.token),
+  });
+  assert.equal(friends.statusCode, 200, friends.body);
+  assert.ok((friends.json().friends as Array<Record<string, unknown>>)
+    .some((friend) => String(friend.userId) === String(guest.user.id)));
+
   const created = await app.inject({
     method: 'POST',
     url: '/api/v1/matches',
@@ -131,4 +180,45 @@ test('registered players can join an online match and history does not expose op
   assert.equal(record.opponentName, guest.user.fullName);
   assert.equal(Object.hasOwn(record, 'opponentEmail'), false);
   assert.equal(JSON.stringify(record).includes(guest.user.email), false);
+
+  // Prepare a single legal bear-off in the disposable DB so the real move route
+  // finishes a game and exercises atomic rating updates without a 15-checker simulation.
+  const nearWinBoard = Array<number>(24).fill(0);
+  nearWinBoard[0] = 1;
+  await testPool.query(
+    `UPDATE backgammon_matches
+        SET status = 'active', board_state = $1::jsonb,
+            bar_state = '{"host":0,"guest":0}'::jsonb,
+            off_state = $2::jsonb, current_turn_user_id = host_user_id,
+            dice = '[1,2]'::jsonb, remaining_dice = '[1]'::jsonb,
+            state_version = 100, updated_at = NOW()
+      WHERE id = $3`,
+    [JSON.stringify(nearWinBoard), JSON.stringify({ host: 14, guest: 0 }), matchId],
+  );
+  const winningMove = await app.inject({
+    method: 'POST',
+    url: `/api/v1/matches/${matchId}/moves`,
+    headers: auth(host.token),
+    payload: { from: 0, to: null, die: 1, expectedVersion: 100 },
+  });
+  assert.equal(winningMove.statusCode, 200, winningMove.body);
+  assert.equal(winningMove.json().state.status, 'finished');
+
+  const leaderboard = await app.inject({
+    method: 'GET',
+    url: '/api/v1/leaderboard',
+    headers: auth(host.token),
+  });
+  assert.equal(leaderboard.statusCode, 200, leaderboard.body);
+  const ranked = leaderboard.json().leaderboard as Array<Record<string, unknown>>;
+  const hostStats = ranked.find((player) => String(player.userId) === String(host.user.id));
+  const guestStats = ranked.find((player) => String(player.userId) === String(guest.user.id));
+  assert.ok(hostStats);
+  assert.ok(guestStats);
+  assert.equal(hostStats.rating, 1016);
+  assert.equal(hostStats.wins, 1);
+  assert.equal(hostStats.gamesPlayed, 1);
+  assert.equal(guestStats.rating, 984);
+  assert.equal(guestStats.losses, 1);
+  assert.equal(guestStats.gamesPlayed, 1);
 });

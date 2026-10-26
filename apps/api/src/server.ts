@@ -4,11 +4,12 @@ import helmet from '@fastify/helmet';
 import cors from '@fastify/cors';
 import rateLimit from '@fastify/rate-limit';
 import jwt from '@fastify/jwt';
-import { Pool } from 'pg';
+import { Pool, type PoolClient } from 'pg';
 import { randomBytes, randomInt, scrypt as scryptCallback, timingSafeEqual } from 'node:crypto';
 import { isNumericId, isValidRegistrationPassword } from './validation.js';
 import { getAllowedCorsOrigins } from './cors-config.js';
 import { INITIAL_BACKGAMMON_BOARD, applyBackgammonMove, hasLegalMove, maxPlayableDiceCount, mustPlayHigherDie } from './backgammon-rules.js';
+import { calculateEloRatings } from './backgammon-rating.js';
 import { promisify } from 'node:util';
 
 const scrypt = promisify(scryptCallback);
@@ -182,6 +183,16 @@ await pool.query(`
   ALTER TABLE backgammon_matches ALTER COLUMN board_state SET DEFAULT '${JSON.stringify(INITIAL_BACKGAMMON_BOARD)}'::jsonb;
   CREATE INDEX IF NOT EXISTS backgammon_matches_waiting_idx ON backgammon_matches (created_at DESC) WHERE status = 'waiting';
   CREATE INDEX IF NOT EXISTS backgammon_matches_players_idx ON backgammon_matches (host_user_id, guest_user_id, status);
+  CREATE TABLE IF NOT EXISTS backgammon_player_stats (
+    user_id BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    rating INTEGER NOT NULL DEFAULT 1000 CHECK (rating >= 0),
+    games_played INTEGER NOT NULL DEFAULT 0 CHECK (games_played >= 0),
+    wins INTEGER NOT NULL DEFAULT 0 CHECK (wins >= 0),
+    losses INTEGER NOT NULL DEFAULT 0 CHECK (losses >= 0),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+  CREATE INDEX IF NOT EXISTS backgammon_player_stats_leaderboard_idx
+    ON backgammon_player_stats (rating DESC, wins DESC, games_played ASC);
 `);
 
 app.get('/api/v1/health', async () => ({
@@ -330,6 +341,43 @@ const requireMatchAuth = async (request: any, reply: any) => {
     return reply.code(401).send({ error: 'Authentication required.' });
   }
 };
+
+async function updateBackgammonRatings(client: PoolClient, winnerUserId: string, loserUserId: string) {
+  const orderedIds = [winnerUserId, loserUserId].sort((left, right) => {
+    const a = BigInt(left);
+    const b = BigInt(right);
+    return a < b ? -1 : a > b ? 1 : 0;
+  });
+  await client.query(
+    'INSERT INTO backgammon_player_stats (user_id) VALUES ($1), ($2) ON CONFLICT (user_id) DO NOTHING',
+    orderedIds,
+  );
+  const result = await client.query(
+    `SELECT user_id, rating, games_played, wins, losses
+       FROM backgammon_player_stats
+      WHERE user_id = ANY($1::bigint[])
+      ORDER BY user_id
+      FOR UPDATE`,
+    [orderedIds],
+  );
+  const stats = new Map(result.rows.map((row) => [String(row.user_id), row]));
+  const winner = stats.get(winnerUserId);
+  const loser = stats.get(loserUserId);
+  if (!winner || !loser) throw new Error('Could not lock both player rating rows.');
+  const next = calculateEloRatings(Number(winner.rating), Number(loser.rating));
+  await client.query(
+    `UPDATE backgammon_player_stats
+        SET rating = $1, games_played = games_played + 1, wins = wins + 1, updated_at = NOW()
+      WHERE user_id = $2`,
+    [next.winnerRating, winnerUserId],
+  );
+  await client.query(
+    `UPDATE backgammon_player_stats
+        SET rating = $1, games_played = games_played + 1, losses = losses + 1, updated_at = NOW()
+      WHERE user_id = $2`,
+    [next.loserRating, loserUserId],
+  );
+}
 
 app.patch<{ Body: { fullName?: string; phone?: string; country?: string } }>('/api/v1/me/profile', { onRequest: [requireMatchAuth], config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request, reply) => {
   const claims = request.user as { sub: string };
@@ -993,6 +1041,20 @@ app.delete<{ Params: { id: string } }>('/api/v1/friends/:id', { onRequest: [requ
 // Lobby API pairs two authenticated players. It does not accept client-supplied board state.
 
 
+app.get('/api/v1/leaderboard', { onRequest: [requireMatchAuth] }, async (request) => {
+  const claims = request.user as { sub: string };
+  const result = await pool.query(
+    `SELECT s.user_id AS "userId", u.username, s.rating,
+            s.games_played AS "gamesPlayed", s.wins, s.losses
+       FROM backgammon_player_stats s
+       JOIN users u ON u.id = s.user_id
+      WHERE s.games_played > 0
+      ORDER BY s.rating DESC, s.wins DESC, s.games_played ASC, LOWER(u.username) ASC
+      LIMIT 50`,
+  );
+  return { leaderboard: result.rows, currentUserId: claims.sub };
+});
+
 app.get('/api/v1/matches/history', { onRequest: [requireMatchAuth] }, async (request) => {
   const claims = request.user as { sub: string };
   const result = await pool.query(
@@ -1210,6 +1272,11 @@ app.post<{ Params: { id: string }; Body: { moves: Array<{ from: number | null; t
       [JSON.stringify(simulated.board), JSON.stringify(simulated.bar), JSON.stringify(simulated.off),
        nextTurn, JSON.stringify(nextDice), JSON.stringify(nextRemaining),
        finished ? 'finished' : 'active', game.id]);
+    if (finished && game.guest_user_id) {
+      const winnerId = simulated.off.host >= 15 ? game.host_user_id : game.guest_user_id;
+      const loserId = simulated.off.host >= 15 ? game.guest_user_id : game.host_user_id;
+      await updateBackgammonRatings(client, winnerId, loserId);
+    }
     await client.query('COMMIT');
     return { state: updated.rows[0], appliedMoves: body.moves.length };
   } catch (error) {
@@ -1380,6 +1447,11 @@ app.post<{ Params: { id: string }; Body: { from: number | null; to: number | nul
                    remaining_dice AS "remainingDice", state_version AS version`,
       [JSON.stringify(board), JSON.stringify(bar), JSON.stringify(off), nextTurn,
        JSON.stringify(nextDice), JSON.stringify(nextRemaining), finished ? 'finished' : 'active', game.id]);
+    if (finished && game.guest_user_id) {
+      const winnerId = off.host >= 15 ? game.host_user_id : game.guest_user_id;
+      const loserId = off.host >= 15 ? game.guest_user_id : game.host_user_id;
+      await updateBackgammonRatings(client, winnerId, loserId);
+    }
     await client.query('COMMIT');
     return { state: updated.rows[0] };
   } catch (error) {
