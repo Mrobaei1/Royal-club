@@ -270,5 +270,6 @@
   "statusDismissed": "Dismissed",
   "statusActioned": "Actioned",
   "notificationSentCount": "Notification sent to {count} users.",
-  "@notificationSentCount": {"placeholders": {"count": {"type": "int"}}}
+  "@notificationSentCount": {"placeholders": {"count": {"type": "int"}}},
+  "registrationDate": "Registration date"
 }
