@@ -452,9 +452,9 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
                   const SizedBox(height: 6),
                   if (_matchDetails['cancellationProposedBy'] == null)
                     OutlinedButton.icon(onPressed: _busy ? null : () => _cancelOrRespond(accept: false), icon: const Icon(Icons.handshake_outlined), label: const Text('پیشنهاد لغو مسابقه')),
-                  if (_matchDetails['cancellationProposedBy'] != null && _matchDetails['cancellationProposedBy'].toString() == (_matchDetails['isHost'] == true ? 'host' : 'guest'))
+                  if (_matchDetails['cancellationProposedBy'] != null && _matchDetails['cancellationProposedByMe'] == true)
                     const Text('پیشنهاد لغو شما در انتظار پاسخ حریف است.', style: TextStyle(color: Colors.white70)),
-                  if (_matchDetails['cancellationProposedBy'] != null && _matchDetails['cancellationProposedBy'].toString() != (_matchDetails['isHost'] == true ? 'host' : 'guest')) ...[
+                  if (_matchDetails['cancellationProposedBy'] != null && _matchDetails['cancellationProposedByMe'] != true) ...[
                     const Text('حریف پیشنهاد لغو داده است. آیا موافق هستید؟', style: TextStyle(color: Colors.white70)),
                     Row(children: [
                       Expanded(child: OutlinedButton(onPressed: _busy ? null : () => _cancelOrRespond(accept: false), child: const Text('رد پیشنهاد'))),
