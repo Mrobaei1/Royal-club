@@ -571,7 +571,11 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
                       offset: Offset(0, 2))
                 ],
               ),
-              child: Row(
+              child: LayoutBuilder(
+                builder: (context, stripConstraints) => Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Row(
                 children: [
                   Expanded(
                     child: FilledButton.icon(
@@ -638,7 +642,34 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
                       ),
                     ),
                   ),
-                ],
+                    ],
+                    ),
+                    Positioned(
+                      left: (stripConstraints.maxWidth +
+                              (compact || rowHeight < 120 ? 28.0 : 42.0) +
+                              5.0) /
+                          2 -
+                          1.5,
+                      top: 0,
+                      bottom: 0,
+                      width: 3,
+                      child: IgnorePointer(
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            color: _boardGold,
+                            boxShadow: [
+                              BoxShadow(
+                                color: _boardGold.withValues(alpha: .65),
+                                blurRadius: 5,
+                                spreadRadius: .5,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
             Expanded(
