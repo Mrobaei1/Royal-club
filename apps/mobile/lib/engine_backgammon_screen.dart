@@ -562,7 +562,9 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
           BoxShadow(color: Color(0x337D5A27), blurRadius: 2, spreadRadius: 1),
         ],
       ),
-      child: Column(
+      child: CustomPaint(
+        painter: _WoodGrainPainter(),
+        child: Column(
         children: [
           Expanded(
             child: Row(
@@ -630,6 +632,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
             ),
           ),
         ],
+        ),
       ),
     );
   }
@@ -1039,6 +1042,26 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
       );
 }
 
+
+class _WoodGrainPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.65
+      ..color = const Color(0xFFD8B45A).withValues(alpha: 0.07);
+    for (var i = 0; i < 18; i++) {
+      final y = size.height * (i + 1) / 19;
+      final path = Path()..moveTo(0, y);
+      path.cubicTo(size.width * .22, y - 4, size.width * .38, y + 3, size.width * .58, y);
+      path.cubicTo(size.width * .74, y - 2, size.width * .86, y + 2, size.width, y - 1);
+      canvas.drawPath(path, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _WoodGrainPainter oldDelegate) => false;
+}
 
 class _DiePips extends StatelessWidget {
   const _DiePips({required this.value, required this.pipSize});
