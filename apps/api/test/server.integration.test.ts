@@ -174,9 +174,27 @@ test('registered players can join an online match and history does not expose op
     headers: auth(guest.token),
   });
   assert.equal(joined.statusCode, 200, joined.body);
-  assert.equal(joined.json().match.status, 'active');
+  assert.equal(joined.json().match.status, 'waiting');
   assert.equal(joined.json().match.guestAvatarDataUrl, avatar);
   assert.equal(joined.json().match.hostAvatarDataUrl, null);
+
+  const hostReady = await app.inject({
+    method: 'POST',
+    url: `/api/v1/matches/${matchId}/setup`,
+    headers: auth(host.token),
+    payload: { ready: true },
+  });
+  assert.equal(hostReady.statusCode, 200, hostReady.body);
+  assert.equal(hostReady.json().setup.status, 'waiting');
+
+  const guestAcceptAndReady = await app.inject({
+    method: 'POST',
+    url: `/api/v1/matches/${matchId}/setup`,
+    headers: auth(guest.token),
+    payload: { acceptSettings: true, ready: true },
+  });
+  assert.equal(guestAcceptAndReady.statusCode, 200, guestAcceptAndReady.body);
+  assert.equal(guestAcceptAndReady.json().setup.status, 'active');
 
   const snapshot = await app.inject({
     method: 'GET',
