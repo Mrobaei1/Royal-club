@@ -122,6 +122,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
   }) {
     final name = user['name']?.toString().trim();
     final email = user['email']?.toString() ?? '';
+    final username = user['username']?.toString() ?? '';
     return Card(
       color: _friendsPanel,
       child: ListTile(
@@ -131,7 +132,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
         ),
         title: Text(name == null || name.isEmpty ? email : name,
             style: const TextStyle(color: Colors.white)),
-        subtitle: Text(email, style: const TextStyle(color: Colors.white60)),
+        subtitle: Text(email.isNotEmpty ? email : (username.isNotEmpty ? '@$username' : ''), style: const TextStyle(color: Colors.white60)),
         trailing: trailing,
       ),
     );
@@ -208,7 +209,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
                 ..._results.map((user) => _userTile(
                       {
                         ...user,
-                        'name': user['fullName'] ?? user['name'],
+                        'name': user['fullName'] ?? user['name'] ?? user['username'],
                       },
                       trailing: IconButton(
                         onPressed: _busy
