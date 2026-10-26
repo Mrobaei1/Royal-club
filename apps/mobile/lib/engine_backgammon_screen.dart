@@ -271,7 +271,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
           icon: const Icon(Icons.emoji_events, color: _boardGold, size: 42),
           title: Text(AppLocalizations.of(context)!.gameOverTitle,
               style: TextStyle(color: _boardGold, fontWeight: FontWeight.bold)),
-          content: Text('تبریک! بازیکن $winner برنده شد 🎉',
+          content: Text(AppLocalizations.of(context)!.congratulationsWinner(winner),
               textAlign: TextAlign.center,
               style: const TextStyle(color: Colors.white, fontSize: 17)),
           actionsAlignment: MainAxisAlignment.center,
@@ -503,7 +503,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
                   child: OutlinedButton.icon(
                     onPressed: _reset,
                     icon: const Icon(Icons.restart_alt, size: 18),
-                    label: const Text('شروع مجدد'),
+                    label: Text(AppLocalizations.of(context)!.resetGame),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: _boardGold,
                       side: const BorderSide(color: _boardGold),
@@ -684,7 +684,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
           SizedBox(width: 4),
           Flexible(
             child: Text(
-              'تاس‌های بازی',
+              AppLocalizations.of(context)!.diceTrayLabel,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(color: Colors.white60, fontSize: 10),
@@ -766,7 +766,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('بار',
+                Text(AppLocalizations.of(context)!.barLabel,
                     style: TextStyle(color: Colors.white70, fontSize: 10)),
                 _barCount(-1, compact: compact),
                 Divider(color: Colors.white24, height: compact ? 3 : 6),
@@ -970,7 +970,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
             _checker(color == _boardGold ? 1 : -1, size: compact ? 15 : 18),
             SizedBox(width: compact ? 4 : 7),
             Expanded(
-                child: Text('$title\nخارج: $off · بار: $onBar',
+                child: Text(AppLocalizations.of(context)!.bearOffStatus(title, off, onBar),
                     style:
                         TextStyle(fontSize: compact ? 10 : 12, height: 1.25))),
             Text('$off/15',
