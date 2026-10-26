@@ -294,6 +294,46 @@ test('registered players can join an online match and history does not expose op
   assert.equal(guestStats.losses, 1);
   assert.equal(guestStats.gamesPlayed, 1);
 
+  const invitedRoom = await app.inject({
+    method: 'POST',
+    url: '/api/v1/matches',
+    headers: auth(host.token),
+  });
+  assert.equal(invitedRoom.statusCode, 201, invitedRoom.body);
+  const invitedRoomId = String(invitedRoom.json().match.id);
+  const sentInvite = await app.inject({
+    method: 'POST',
+    url: `/api/v1/matches/${invitedRoomId}/invites`,
+    headers: auth(host.token),
+    payload: { inviteeId: String(guest.user.id) },
+  });
+  assert.equal(sentInvite.statusCode, 201, sentInvite.body);
+  const invitesInbox = await app.inject({
+    method: 'GET',
+    url: '/api/v1/match-invites',
+    headers: auth(guest.token),
+  });
+  assert.equal(invitesInbox.statusCode, 200, invitesInbox.body);
+  const incomingInvite = (invitesInbox.json().invites as Array<Record<string, unknown>>)
+    .find((invite) => String(invite.matchId) === invitedRoomId);
+  assert.ok(incomingInvite);
+  const acceptInvite = await app.inject({
+    method: 'POST',
+    url: `/api/v1/match-invites/${incomingInvite.id}/respond`,
+    headers: auth(guest.token),
+    payload: { accept: true },
+  });
+  assert.equal(acceptInvite.statusCode, 200, acceptInvite.body);
+  assert.equal(acceptInvite.json().response, 'accepted');
+  const invitedMatch = await app.inject({
+    method: 'GET',
+    url: `/api/v1/matches/${invitedRoomId}`,
+    headers: auth(host.token),
+  });
+  assert.equal(invitedMatch.statusCode, 200, invitedMatch.body);
+  assert.equal(invitedMatch.json().match.status, 'waiting');
+  assert.equal(invitedMatch.json().match.guestName, 'Guest Integration');
+
   const seriesRoom = await app.inject({
     method: 'POST',
     url: '/api/v1/matches',
