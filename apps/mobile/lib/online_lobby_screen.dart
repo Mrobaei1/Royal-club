@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'services/match_service.dart';
 import 'online_match_screen.dart';
+import 'leaderboard_screen.dart';
 
 const _gold = Color(0xFFD8B45A);
 const _navy = Color(0xFF10182B);
@@ -97,7 +98,18 @@ class _OnlineLobbyScreenState extends State<OnlineLobbyScreen> {
     child: Scaffold(
       backgroundColor: _navy,
       appBar: AppBar(title: const Text('بازی آنلاین'), backgroundColor: _navy, foregroundColor: _gold,
-        actions: [IconButton(onPressed: _loading ? null : _refresh, icon: const Icon(Icons.refresh), tooltip: 'به‌روزرسانی')]),
+        actions: [
+          IconButton(
+            onPressed: _loading ? null : () {
+              Navigator.of(context).push(MaterialPageRoute<void>(
+                builder: (_) => const LeaderboardScreen(),
+              ));
+            },
+            icon: const Icon(Icons.leaderboard_outlined),
+            tooltip: 'رتبه‌بندی',
+          ),
+          IconButton(onPressed: _loading ? null : _refresh, icon: const Icon(Icons.refresh), tooltip: 'به‌روزرسانی'),
+        ]),
       body: SafeArea(child: ListView(padding: const EdgeInsets.all(16), children: [
         const Text('اتاق‌های تخته‌نرد', style: TextStyle(color: _gold, fontSize: 22, fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
