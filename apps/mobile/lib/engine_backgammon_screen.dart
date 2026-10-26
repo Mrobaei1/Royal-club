@@ -715,14 +715,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
                       ),
                     ],
                   ),
-                  child: Text(
-                    '$die',
-                    style: TextStyle(
-                      color: _boardNavy,
-                      fontSize: compact ? 14 : 16,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
+                  child: _DiePips(value: die, pipSize: compact ? 4 : 5),
                 ),
               ))
           .toList(),
@@ -1046,6 +1039,48 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
       );
 }
 
+
+class _DiePips extends StatelessWidget {
+  const _DiePips({required this.value, required this.pipSize});
+  final int value;
+  final double pipSize;
+
+  @override
+  Widget build(BuildContext context) {
+    const center = Alignment.center;
+    const topLeft = Alignment(-0.58, -0.58);
+    const topRight = Alignment(0.58, -0.58);
+    const bottomLeft = Alignment(-0.58, 0.58);
+    const bottomRight = Alignment(0.58, 0.58);
+    const middleLeft = Alignment(-0.58, 0);
+    const middleRight = Alignment(0.58, 0);
+    final positions = switch (value) {
+      1 => const [center],
+      2 => const [topLeft, bottomRight],
+      3 => const [topLeft, center, bottomRight],
+      4 => const [topLeft, topRight, bottomLeft, bottomRight],
+      5 => const [topLeft, topRight, center, bottomLeft, bottomRight],
+      _ => const [topLeft, topRight, middleLeft, middleRight, bottomLeft, bottomRight],
+    };
+    return Stack(
+      children: [
+        for (final position in positions)
+          Align(
+            alignment: position,
+            child: Container(
+              width: pipSize,
+              height: pipSize,
+              decoration: BoxDecoration(
+                color: const Color(0xFF172033),
+                shape: BoxShape.circle,
+                boxShadow: const [BoxShadow(color: Colors.black38, blurRadius: 1, offset: Offset(0, 1))],
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
 
 /// Draws the alternating, pointed inlays that define a traditional backgammon
 /// board. The top row points down; the bottom row points up.
