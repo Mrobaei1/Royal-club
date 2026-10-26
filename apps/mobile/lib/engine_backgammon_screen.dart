@@ -83,12 +83,10 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
       } else if (dice.isEmpty) {
         _message = AppLocalizations.of(context)!.noLegalMoveTurnChanged;
       } else {
-        _message =
-            'نوبت ${_playerName(_engine.currentPlayer)} · تاس: ${dice.join('، ')}';
+        _message = AppLocalizations.of(context)!.turnRolledDice(_playerName(_engine.currentPlayer), dice.join(', '));
       }
       if (before != _engine.currentPlayer && dice.isEmpty) {
-        _message =
-            'حرکتی نبود؛ نوبت ${_playerName(_engine.currentPlayer)} است.';
+        _message = AppLocalizations.of(context)!.turnChangedPlayer(_playerName(_engine.currentPlayer));
       }
     });
     _scheduleComputerTurn();
@@ -190,7 +188,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
         if (mounted) _showGameOverDialog();
       });
     } else if (_engine.dice.isEmpty) {
-      _message = 'نوبت ${_playerName(_engine.currentPlayer)} است؛ تاس بریزید.';
+      _message = AppLocalizations.of(context)!.turnRollPrompt(_playerName(_engine.currentPlayer));
     } else {
       _message = AppLocalizations.of(context)!.moveDoneRemainingDice(_engine.dice.join('، '));
     }
@@ -436,7 +434,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
                 isExpanded: true,
                 dropdownColor: _boardNavy,
                 style: TextStyle(color: _boardGold, fontSize: compact ? 11 : 13),
-                items: List.generate(_boardThemeNames.length, (i) => DropdownMenuItem(value: i, child: Text(_boardThemeNames[i]))),
+                items: List.generate(_boardThemeNames.length, (i) => DropdownMenuItem(value: i, child: Text(switch (i) { 0 => AppLocalizations.of(context)!.themeRoyalWood, 1 => AppLocalizations.of(context)!.themeEmeraldBoard, 2 => AppLocalizations.of(context)!.themeSapphireBoard, 3 => AppLocalizations.of(context)!.themeBurgundyBoard, _ => AppLocalizations.of(context)!.themeSilverBoard }))),
                 onChanged: (value) { if (value != null) setState(() => _boardThemeIndex = value); },
               ))),
             ]),
