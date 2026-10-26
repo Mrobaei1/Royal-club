@@ -13,7 +13,7 @@ test('an underdog gains more rating points for an upset win', () => {
   const upset = calculateEloRatings(1000, 1400);
   const favoriteWin = calculateEloRatings(1400, 1000);
   assert.ok(upset.winnerRating - 1000 > favoriteWin.winnerRating - 1400);
-  assert.ok(1400 - upset.loserRating > 1400 - favoriteWin.loserRating);
+  assert.ok(1400 - upset.loserRating > 1000 - favoriteWin.loserRating);
 });
 
 test('rejects invalid ratings and k-factors', () => {
