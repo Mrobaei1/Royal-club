@@ -19,6 +19,8 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
   int _refreshSequence = 0;
   Map<String, dynamic>? _state;
   bool _busy = false;
+  bool _refreshing = false;
+  bool _connectionLost = false;
   int? _selectedFrom;
   int? _selectedDie;
   bool _fromBar = false;
@@ -43,7 +45,8 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
   }
 
   Future<void> _refresh({bool silent = false}) async {
-    if (_busy && !silent) return;
+    if ((_busy && !silent) || _refreshing) return;
+    _refreshing = true;
     final sequence = ++_refreshSequence;
     try {
       final match = await MatchService.get(_id);
@@ -60,6 +63,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
             _state = state;
             _matchStatus = match['status'].toString();
             _error = null;
+            _connectionLost = false;
           });
         }
       } else if (mounted) {
@@ -67,12 +71,18 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
           _state = null;
           _matchStatus = match['status']?.toString() ?? 'waiting';
           _error = null;
+          _connectionLost = false;
         });
       }
     } catch (e) {
-      if (sequence == _refreshSequence && mounted && !silent) {
-        setState(() => _error = e.toString().replaceFirst('Exception: ', ''));
+      if (sequence == _refreshSequence && mounted) {
+        setState(() {
+          _connectionLost = true;
+          if (!silent) _error = e.toString().replaceFirst('Exception: ', '');
+        });
       }
+    } finally {
+      _refreshing = false;
     }
   }
 
@@ -306,6 +316,17 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
         body: SafeArea(child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
+            if (_connectionLost) Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(color: Colors.red.withValues(alpha: .13), borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.redAccent.withValues(alpha: .5))),
+              child: Row(children: [
+                const Icon(Icons.wifi_off_rounded, color: Colors.redAccent),
+                const SizedBox(width: 10),
+                const Expanded(child: Text('اتصال به سرور قطع یا ناپایدار است؛ تلاش برای اتصال مجدد ادامه دارد.', style: TextStyle(color: Colors.redAccent))),
+                IconButton(tooltip: 'تلاش دوباره', onPressed: _refreshing ? null : () => _refresh(), icon: const Icon(Icons.refresh, color: Colors.redAccent)),
+              ]),
+            ),
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(color: _matchPanel, borderRadius: BorderRadius.circular(16), border: Border.all(color: _matchGold.withValues(alpha: .35))),
