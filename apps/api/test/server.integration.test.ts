@@ -131,6 +131,15 @@ test('registered players can join an online match and history does not expose op
   });
   assert.equal(sentMessage.statusCode, 201, sentMessage.body);
 
+  const messageHistory = await app.inject({
+    method: 'GET',
+    url: `/api/v1/chat/${guest.user.id}/messages`,
+    headers: auth(host.token),
+  });
+  assert.equal(messageHistory.statusCode, 200, messageHistory.body);
+  assert.ok((messageHistory.json().messages as Array<Record<string, unknown>>)
+    .some((message) => message.body === 'Hello, friend!'));
+
   const stranger = await register('Stranger Integration');
   const deniedMessage = await app.inject({
     method: 'POST',
@@ -166,6 +175,8 @@ test('registered players can join an online match and history does not expose op
   });
   assert.equal(joined.statusCode, 200, joined.body);
   assert.equal(joined.json().match.status, 'active');
+  assert.equal(joined.json().match.guestAvatarDataUrl, avatar);
+  assert.equal(joined.json().match.hostAvatarDataUrl, null);
 
   const snapshot = await app.inject({
     method: 'GET',
@@ -220,6 +231,7 @@ test('registered players can join an online match and history does not expose op
     .find((match) => String(match.id) === matchId);
   assert.ok(record);
   assert.equal(record.opponentName, guest.user.fullName);
+  assert.equal(record.opponentAvatarDataUrl, avatar);
   assert.equal(Object.hasOwn(record, 'opponentEmail'), false);
   assert.equal(JSON.stringify(record).includes(guest.user.email), false);
 
