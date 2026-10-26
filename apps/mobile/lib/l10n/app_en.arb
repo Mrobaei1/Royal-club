@@ -39,5 +39,10 @@
   "countryUnitedKingdom": "United Kingdom",
   "countryTurkey": "Turkey",
   "countryUnitedArabEmirates": "United Arab Emirates",
-  "countryOther": "Other"
+  "countryOther": "Other",
+  "classicCompetitiveGame": "Classic competitive game",
+  "onlinePlaySubtitle": "Create a room or join an opponent",
+  "comingSoon": "Coming soon",
+  "languageMenu": "Language",
+  "appThemeMenu": "App theme"
 }
