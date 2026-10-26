@@ -12,7 +12,11 @@ class MatchService {
   // create a double-slash route, and fail clearly when the API is not configured.
   static Uri _uri(String path) {
     AuthService.ensureConfigured();
-    final base = _baseUrl.trim().replaceFirst(RegExp(r'/+  static Future<http.Response> _getWithRetry(Uri uri, Map<String, String> headers) async {
+    final base = _baseUrl.trim().replaceFirst(RegExp(r'/+$'), '');
+    return Uri.parse('$base/api/v1/matches$path');
+  }
+
+  static Future<http.Response> _getWithRetry(Uri uri, Map<String, String> headers) async {
     Object? lastError;
     for (var attempt = 0; attempt < 3; attempt++) {
       try {
