@@ -575,7 +575,37 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
                       offset: Offset(0, 2))
                 ],
               ),
-              child: Center(child: _diceTray(compact: true)),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final barWidth = compact || rowHeight < 120 ? 36.0 : 48.0;
+                  final dividerLeft =
+                      constraints.maxWidth / 2 + (barWidth + 5) / 2 - 1.5;
+                  return Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      Center(child: _diceTray(compact: true)),
+                      Positioned(
+                        left: dividerLeft,
+                        top: -4,
+                        bottom: -4,
+                        child: Container(
+                          width: 3,
+                          decoration: BoxDecoration(
+                            color: _boardGold,
+                            boxShadow: [
+                              BoxShadow(
+                                color: _boardGold.withValues(alpha: 0.5),
+                                blurRadius: 4,
+                                spreadRadius: 0.5,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
             ),
             Expanded(
                 child: Row(children: [
