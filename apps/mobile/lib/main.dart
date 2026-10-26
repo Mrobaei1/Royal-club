@@ -205,9 +205,32 @@ class HomeScreen extends StatelessWidget {
       royalLocaleState.select(value.substring(9));
       return;
     }
-    if (value.startsWith('theme:')) {
-      final index = int.tryParse(value.substring(6));
-      if (index != null) royalThemeState.select(index);
+    if (value == 'themes') {
+      showDialog<void>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('انتخاب پوسته و رنگ'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (var i = 0; i < royalThemes.length; i++)
+                ListTile(
+                  leading: Icon(
+                    i == royalThemeState.index
+                        ? Icons.radio_button_checked
+                        : Icons.radio_button_off,
+                    color: royalThemes[i].accent,
+                  ),
+                  title: Text(royalThemes[i].name),
+                  onTap: () {
+                    royalThemeState.select(i);
+                    Navigator.of(dialogContext).pop();
+                  },
+                ),
+            ],
+          ),
+        ),
+      );
       return;
     }
     final Widget? page;
@@ -279,13 +302,7 @@ class HomeScreen extends StatelessWidget {
                     PopupMenuItem(value: 'language:fa', child: Row(children: [Icon(royalLocaleState.locale.languageCode == 'fa' ? Icons.radio_button_checked : Icons.radio_button_off, size: 18), const SizedBox(width: 10), const Text('فارسی')])),
                     PopupMenuItem(value: 'language:en', child: Row(children: [Icon(royalLocaleState.locale.languageCode == 'en' ? Icons.radio_button_checked : Icons.radio_button_off, size: 18), const SizedBox(width: 10), const Text('English')])),
                     const PopupMenuDivider(),
-                    const PopupMenuItem(enabled: false, child: Text('پوسته برنامه')),
-                    for (var i = 0; i < royalThemes.length; i++)
-                      PopupMenuItem(value: 'theme:$i', child: Row(children: [
-                        Icon(i == royalThemeState.index ? Icons.radio_button_checked : Icons.radio_button_off, color: royalThemes[i].accent, size: 18),
-                        const SizedBox(width: 10),
-                        Text(royalThemes[i].name),
-                      ])),
+                    const PopupMenuItem(value: 'themes', child: ListTile(dense: true, leading: Icon(Icons.palette_outlined), title: Text('پوسته و رنگ‌ها'), trailing: Icon(Icons.chevron_left))),
                   ],
                 ),
               ]),
