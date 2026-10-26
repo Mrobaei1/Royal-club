@@ -29,7 +29,7 @@ class MatchService {
     final uri = Uri.parse('$_baseUrl/api/v1/matches$path');
     late http.Response response;
     switch (method) {
-      case 'POST': response = await http.post(uri, headers: headers).timeout(const Duration(seconds: 12)); break;
+      case 'POST': response = await http.post(uri, headers: headers, body: jsonEncode(<String, dynamic>{})).timeout(const Duration(seconds: 12)); break;
       case 'DELETE': response = await http.delete(uri, headers: headers).timeout(const Duration(seconds: 12)); break;
       default: response = await _getWithRetry(uri, headers);
     }
