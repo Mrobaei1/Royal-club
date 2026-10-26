@@ -767,45 +767,6 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
         ),
       );
 
-  Widget _bearOffTray({bool compact = false}) {
-    final currentIndex = _engine.currentPlayer == 1 ? 1 : 0;
-    final selected = _selectedPoint != null && !_selectedBar;
-    return Tooltip(
-      message: 'مخزن مهره‌های خارج‌شده؛ ابتدا مهره را انتخاب کنید',
-      child: InkWell(
-        onTap: _tapBearOff,
-        borderRadius: BorderRadius.circular(6),
-        child: Container(
-          width: double.infinity,
-          padding: EdgeInsets.symmetric(vertical: compact ? 3 : 5, horizontal: 1),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: selected
-                  ? [_boardGold.withValues(alpha: .55), const Color(0xFF5A431D)]
-                  : [const Color(0xFF241B17), const Color(0xFF100E0D)],
-            ),
-            borderRadius: BorderRadius.circular(6),
-            border: Border.all(color: selected ? _boardGold : _boardGold.withValues(alpha: .65)),
-            boxShadow: const [
-              BoxShadow(color: Colors.black38, blurRadius: 3, offset: Offset(0, 2)),
-            ],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.inventory_2_outlined, color: _boardGold, size: compact ? 13 : 16),
-              Text('خارج', style: TextStyle(color: Colors.white, fontSize: compact ? 7 : 9, fontWeight: FontWeight.bold)),
-              Text('${_engine.borneOff[currentIndex]}/15',
-                  style: TextStyle(color: _boardGold, fontSize: compact ? 7 : 9, fontWeight: FontWeight.w800)),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _barPanel({bool compact = false, required int offPlayer}) {
     final offIndex = offPlayer == 1 ? 1 : 0;
     final isCurrentPlayer = _engine.currentPlayer == offPlayer;
