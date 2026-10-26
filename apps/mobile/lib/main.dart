@@ -169,7 +169,7 @@ class _AuthGateState extends State<AuthGate> {
   @override
   Widget build(BuildContext context) {
     if (_checking) {
-      return const Scaffold(
+      return Scaffold(
         backgroundColor: navy,
         body: Center(
           child: Column(
