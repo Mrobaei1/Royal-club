@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - stage2/localize-auth-validation
+      - fix/device-feedback-stage2
   workflow_dispatch:
     inputs:
       build_apk:
@@ -78,7 +79,7 @@ jobs:
         run: |
           if [ -n "$API_BASE_URL" ]; then
             echo "Building APK with the Royal Club API endpoint."
-            flutter build apk --release --dart-define="API_BASE_URL=$API_BASE_URL"
+            flutter build apk --release --split-per-abi --dart-define="API_BASE_URL=$API_BASE_URL"
           else
             echo "::error::API_BASE_URL is not configured; refusing to build a release APK without an API endpoint."
             exit 1
@@ -89,6 +90,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: royal-club-android-apk
-          path: apps/mobile/build/app/outputs/flutter-apk/app-release.apk
+          path: apps/mobile/build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
           if-no-files-found: error
           retention-days: 7
