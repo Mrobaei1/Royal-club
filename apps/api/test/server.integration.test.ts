@@ -100,14 +100,56 @@ test('registered players can join an online match and history does not expose op
     payload: {},
   });
   assert.equal(accepted.statusCode, 200, accepted.body);
+
+  // Profile photos are exposed to accepted friends and private chat is free,
+  // while the API still rejects messages to non-friends.
+  const avatar = 'data:image/png;base64,aGVsbG8=';
+  const avatarUpdate = await app.inject({
+    method: 'PATCH',
+    url: '/api/v1/me/avatar',
+    headers: auth(guest.token),
+    payload: { avatarDataUrl: avatar },
+  });
+  assert.equal(avatarUpdate.statusCode, 200, avatarUpdate.body);
+
+  const conversations = await app.inject({
+    method: 'GET',
+    url: '/api/v1/chat/conversations',
+    headers: auth(host.token),
+  });
+  assert.equal(conversations.statusCode, 200, conversations.body);
+  const conversation = (conversations.json().conversations as Array<Record<string, unknown>>)
+    .find((item) => String(item.userId) === String(guest.user.id));
+  assert.ok(conversation);
+  assert.equal(conversation.avatarDataUrl, avatar);
+
+  const sentMessage = await app.inject({
+    method: 'POST',
+    url: `/api/v1/chat/${guest.user.id}/messages`,
+    headers: auth(host.token),
+    payload: { body: 'Hello, friend!' },
+  });
+  assert.equal(sentMessage.statusCode, 201, sentMessage.body);
+
+  const stranger = await register('Stranger Integration');
+  const deniedMessage = await app.inject({
+    method: 'POST',
+    url: `/api/v1/chat/${stranger.user.id}/messages`,
+    headers: auth(host.token),
+    payload: { body: 'Should be blocked' },
+  });
+  assert.equal(deniedMessage.statusCode, 403, deniedMessage.body);
+
   const friends = await app.inject({
     method: 'GET',
     url: '/api/v1/friends',
     headers: auth(host.token),
   });
   assert.equal(friends.statusCode, 200, friends.body);
-  assert.ok((friends.json().friends as Array<Record<string, unknown>>)
-    .some((friend) => String(friend.userId) === String(guest.user.id)));
+  const guestFriend = (friends.json().friends as Array<Record<string, unknown>>)
+    .find((friend) => String(friend.userId) === String(guest.user.id));
+  assert.ok(guestFriend);
+  assert.equal(guestFriend.avatarDataUrl, avatar);
 
   const created = await app.inject({
     method: 'POST',
