@@ -275,11 +275,11 @@ class HomeScreen extends StatelessWidget {
                     PopupMenuItem(value: 'wallet', child: ListTile(dense: true, leading: Icon(Icons.account_balance_wallet_outlined), title: Text(AppLocalizations.of(context)!.wallet))),
                     const PopupMenuItem(value: 'admin', child: ListTile(dense: true, leading: Icon(Icons.admin_panel_settings_outlined), title: Text(AppLocalizations.of(context)!.adminPanel))),
                     const PopupMenuDivider(),
-                    const PopupMenuItem(enabled: false, child: Text(AppLocalizations.of(context)!.languageMenu)),
+                    PopupMenuItem(enabled: false, child: Text(AppLocalizations.of(context)!.languageMenu)),
                     PopupMenuItem(value: 'language:fa', child: Row(children: [Icon(royalLocaleState.locale.languageCode == 'fa' ? Icons.radio_button_checked : Icons.radio_button_off, size: 18), const SizedBox(width: 10), const Text('فارسی')])),
                     PopupMenuItem(value: 'language:en', child: Row(children: [Icon(royalLocaleState.locale.languageCode == 'en' ? Icons.radio_button_checked : Icons.radio_button_off, size: 18), const SizedBox(width: 10), const Text('English')])),
                     const PopupMenuDivider(),
-                    const PopupMenuItem(enabled: false, child: Text(AppLocalizations.of(context)!.appThemeMenu)),
+                    PopupMenuItem(enabled: false, child: Text(AppLocalizations.of(context)!.appThemeMenu)),
                     for (var i = 0; i < royalThemes.length; i++)
                       PopupMenuItem(value: 'theme:$i', child: Row(children: [
                         Icon(i == royalThemeState.index ? Icons.radio_button_checked : Icons.radio_button_off, color: royalThemes[i].accent, size: 18),
