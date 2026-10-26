@@ -49,6 +49,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 await Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => ChatThreadScreen(
                   userId: item['userId'].toString(),
                   title: item['fullName']?.toString().isNotEmpty == true ? item['fullName'].toString() : item['email'].toString(),
+                  avatarDataUrl: item['avatarDataUrl']?.toString(),
                 )));
                 _load();
               },
@@ -62,7 +63,8 @@ class _ChatScreenState extends State<ChatScreen> {
 class ChatThreadScreen extends StatefulWidget {
   final String userId;
   final String title;
-  const ChatThreadScreen({super.key, required this.userId, required this.title});
+  final String? avatarDataUrl;
+  const ChatThreadScreen({super.key, required this.userId, required this.title, this.avatarDataUrl});
   @override
   State<ChatThreadScreen> createState() => _ChatThreadScreenState();
 }
@@ -159,7 +161,7 @@ class _ChatThreadScreenState extends State<ChatThreadScreen> {
   Widget build(BuildContext context) => Directionality(
     textDirection: TextDirection.rtl,
     child: Scaffold(
-      appBar: AppBar(title: Text(widget.title), actions: [IconButton(tooltip: 'گزارش کاربر', onPressed: _reportUser, icon: const Icon(Icons.flag_outlined)), IconButton(onPressed: _load, icon: const Icon(Icons.refresh))]),
+      appBar: AppBar(title: Row(children: [RoyalAvatar(dataUrl: widget.avatarDataUrl, radius: 16), const SizedBox(width: 8), Expanded(child: Text(widget.title, maxLines: 1, overflow: TextOverflow.ellipsis))]), actions: [IconButton(tooltip: 'گزارش کاربر', onPressed: _reportUser, icon: const Icon(Icons.flag_outlined)), IconButton(onPressed: _load, icon: const Icon(Icons.refresh))]),
       body: Column(children: [
         Expanded(child: _loading ? const Center(child: CircularProgressIndicator())
           : _error != null ? Center(child: Padding(padding: const EdgeInsets.all(20), child: Text(_error!, textAlign: TextAlign.center)))
