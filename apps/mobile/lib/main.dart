@@ -60,7 +60,7 @@ class RoyalLocaleState extends ChangeNotifier {
     try {
       final saved = await AuthService.readLanguagePreference();
       if (saved == 'fa' || saved == 'en') {
-        _locale = Locale(saved!);
+        _locale = Locale(saved);
         notifyListeners();
       }
     } catch (_) {}
@@ -221,7 +221,7 @@ class HomeScreen extends StatelessWidget {
       default: page = null;
     }
     if (page != null) {
-      Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => page!));
+      Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => page));
     }
   }
 
@@ -264,15 +264,15 @@ class HomeScreen extends StatelessWidget {
                   ),
                 ),
                 PopupMenuButton<String>(
-                  tooltip: AppLocalizations.of(context)!.settings,
+                  tooltip: AppLocalizations.of(context).settings,
                   icon: Icon(Icons.menu_rounded, color: theme.accent, size: 30),
                   onSelected: (value) => _openMenu(context, value),
                   itemBuilder: (context) => [
-                    PopupMenuItem(value: 'account', child: ListTile(dense: true, leading: Icon(Icons.account_circle_outlined), title: Text(AppLocalizations.of(context)!.account))),
-                    PopupMenuItem(value: 'friends', child: ListTile(dense: true, leading: Icon(Icons.people_outline), title: Text(AppLocalizations.of(context)!.friends))),
-                    PopupMenuItem(value: 'chat', child: ListTile(dense: true, leading: Icon(Icons.chat_bubble_outline), title: Text(AppLocalizations.of(context)!.privateChat))),
-                    PopupMenuItem(value: 'notifications', child: ListTile(dense: true, leading: Icon(Icons.notifications_outlined), title: Text(AppLocalizations.of(context)!.notifications))),
-                    PopupMenuItem(value: 'wallet', child: ListTile(dense: true, leading: Icon(Icons.account_balance_wallet_outlined), title: Text(AppLocalizations.of(context)!.wallet))),
+                    PopupMenuItem(value: 'account', child: ListTile(dense: true, leading: Icon(Icons.account_circle_outlined), title: Text(AppLocalizations.of(context).account))),
+                    PopupMenuItem(value: 'friends', child: ListTile(dense: true, leading: Icon(Icons.people_outline), title: Text(AppLocalizations.of(context).friends))),
+                    PopupMenuItem(value: 'chat', child: ListTile(dense: true, leading: Icon(Icons.chat_bubble_outline), title: Text(AppLocalizations.of(context).privateChat))),
+                    PopupMenuItem(value: 'notifications', child: ListTile(dense: true, leading: Icon(Icons.notifications_outlined), title: Text(AppLocalizations.of(context).notifications))),
+                    PopupMenuItem(value: 'wallet', child: ListTile(dense: true, leading: Icon(Icons.account_balance_wallet_outlined), title: Text(AppLocalizations.of(context).wallet))),
                     const PopupMenuItem(value: 'admin', child: ListTile(dense: true, leading: Icon(Icons.admin_panel_settings_outlined), title: Text('پنل مدیریت'))),
                     const PopupMenuDivider(),
                     const PopupMenuItem(enabled: false, child: Text('زبان / Language')),
@@ -290,11 +290,11 @@ class HomeScreen extends StatelessWidget {
                 ),
               ]),
               const SizedBox(height: 28),
-              Text(AppLocalizations.of(context)!.games, textDirection: royalLocaleState.locale.languageCode == 'fa' ? TextDirection.rtl : TextDirection.ltr,
+              Text(AppLocalizations.of(context).games, textDirection: royalLocaleState.locale.languageCode == 'fa' ? TextDirection.rtl : TextDirection.ltr,
                 style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 21, fontWeight: FontWeight.w800)),
               const SizedBox(height: 14),
               GameTile(
-                title: AppLocalizations.of(context)!.backgammon,
+                title: AppLocalizations.of(context).backgammon,
                 subtitle: royalLocaleState.locale.languageCode == 'fa' ? 'بازی کلاسیک و رقابتی' : 'Classic competitive game',
                 icon: Icons.casino_rounded,
                 onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const EngineBackgammonScreen())),
@@ -307,9 +307,9 @@ class HomeScreen extends StatelessWidget {
                 onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const OnlineLobbyScreen())),
               ),
               const SizedBox(height: 12),
-              GameTile(title: AppLocalizations.of(context)!.chess, subtitle: royalLocaleState.locale.languageCode == 'fa' ? 'به‌زودی' : 'Coming soon', icon: Icons.grid_4x4_rounded, comingSoon: true),
+              GameTile(title: AppLocalizations.of(context).chess, subtitle: royalLocaleState.locale.languageCode == 'fa' ? 'به‌زودی' : 'Coming soon', icon: Icons.grid_4x4_rounded, comingSoon: true),
               const SizedBox(height: 12),
-              GameTile(title: AppLocalizations.of(context)!.cardGames, subtitle: royalLocaleState.locale.languageCode == 'fa' ? 'به‌زودی' : 'Coming soon', icon: Icons.style_rounded, comingSoon: true),
+              GameTile(title: AppLocalizations.of(context).cardGames, subtitle: royalLocaleState.locale.languageCode == 'fa' ? 'به‌زودی' : 'Coming soon', icon: Icons.style_rounded, comingSoon: true),
               const SizedBox(height: 26),
               const Center(child: Text('ROYAL CLUB  •  PLAY WITH HONOUR',
                 style: TextStyle(color: Color(0xFF77839A), fontSize: 9, letterSpacing: 1.5, fontWeight: FontWeight.w600))),
@@ -369,7 +369,7 @@ class GameTile extends StatelessWidget {
                 children: [
                   Text(title,
                       textDirection: TextDirection.rtl,
-                      style: const TextStyle(
+                      style: TextStyle(
                           color: selectedTheme.dark ? Colors.white : const Color(0xFF182033),
                           fontSize: 16,
                           fontWeight: FontWeight.w800)),
@@ -381,14 +381,14 @@ class GameTile extends StatelessWidget {
                 ],
               )),
               if (comingSoon)
-                const Text('SOON',
+                Text('SOON',
                     style: TextStyle(
                         color: selectedTheme.accent,
                         fontSize: 9,
                         letterSpacing: 1,
                         fontWeight: FontWeight.bold))
               else
-                const Icon(Icons.arrow_forward_ios_rounded,
+                Icon(Icons.arrow_forward_ios_rounded,
                     color: selectedTheme.accent, size: 15),
             ]),
           ),
@@ -510,7 +510,7 @@ class _AuthScreenState extends State<AuthScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: Text(AppLocalizations.of(context)!.account)),
+        appBar: AppBar(title: Text(AppLocalizations.of(context).account)),
         body: Center(
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(24),
@@ -531,8 +531,8 @@ class _AuthScreenState extends State<AuthScreen> {
                   const SizedBox(height: 28),
                   SegmentedButton<bool>(
                     segments: [
-                      ButtonSegment(value: false, label: Text(AppLocalizations.of(context)!.login)),
-                      ButtonSegment(value: true, label: Text(AppLocalizations.of(context)!.register)),
+                      ButtonSegment(value: false, label: Text(AppLocalizations.of(context).login)),
+                      ButtonSegment(value: true, label: Text(AppLocalizations.of(context).register)),
                     ],
                     selected: {_register},
                     onSelectionChanged: (v) => setState(() {
@@ -544,14 +544,14 @@ class _AuthScreenState extends State<AuthScreen> {
                   if (_register) ...[
                     TextField(controller: _fullName, textCapitalization: TextCapitalization.words,
                       autofillHints: const [AutofillHints.name],
-                      decoration: InputDecoration(labelText: AppLocalizations.of(context)!.fullName, border: const OutlineInputBorder(), prefixIcon: const Icon(Icons.person_outline))),
+                      decoration: InputDecoration(labelText: AppLocalizations.of(context).fullName, border: const OutlineInputBorder(), prefixIcon: const Icon(Icons.person_outline))),
                     const SizedBox(height: 14),
                     TextField(controller: _phone, keyboardType: TextInputType.phone,
                       autofillHints: const [AutofillHints.telephoneNumber],
-                      decoration: InputDecoration(labelText: AppLocalizations.of(context)!.phone, hintText: '+49 123 456789', border: const OutlineInputBorder(), prefixIcon: const Icon(Icons.phone_outlined))),
+                      decoration: InputDecoration(labelText: AppLocalizations.of(context).phone, hintText: '+49 123 456789', border: const OutlineInputBorder(), prefixIcon: const Icon(Icons.phone_outlined))),
                     const SizedBox(height: 14),
                     DropdownButtonFormField<String>(initialValue: _country,
-                      decoration: InputDecoration(labelText: AppLocalizations.of(context)!.country, border: const OutlineInputBorder(), prefixIcon: const Icon(Icons.public_outlined)),
+                      decoration: InputDecoration(labelText: AppLocalizations.of(context).country, border: const OutlineInputBorder(), prefixIcon: const Icon(Icons.public_outlined)),
                       items: const [
                         DropdownMenuItem(value: 'Germany', child: Text('آلمان')),
                         DropdownMenuItem(value: 'Iran', child: Text('ایران')),
@@ -567,8 +567,8 @@ class _AuthScreenState extends State<AuthScreen> {
                     controller: _email,
                     keyboardType: TextInputType.emailAddress,
                     autofillHints: const [AutofillHints.email],
-                    decoration: const InputDecoration(
-                      labelText: AppLocalizations.of(context)!.email,
+                    decoration: InputDecoration(
+                      labelText: AppLocalizations.of(context).email,
                       border: OutlineInputBorder(),
                       prefixIcon: Icon(Icons.email_outlined),
                     ),
@@ -579,7 +579,7 @@ class _AuthScreenState extends State<AuthScreen> {
                     obscureText: true,
                     autofillHints: const [AutofillHints.password],
                     decoration: InputDecoration(
-                      labelText: AppLocalizations.of(context)!.password,
+                      labelText: AppLocalizations.of(context).password,
                       border: OutlineInputBorder(),
                       prefixIcon: Icon(Icons.lock_outline),
                     ),
@@ -589,7 +589,7 @@ class _AuthScreenState extends State<AuthScreen> {
                       contentPadding: EdgeInsets.zero,
                       value: _rememberMe,
                       controlAffinity: ListTileControlAffinity.leading,
-                      title: Text(AppLocalizations.of(context)!.rememberMe),
+                      title: Text(AppLocalizations.of(context).rememberMe),
                       subtitle: const Text(
                           'ایمیل ذخیره می‌شود و نشست معتبر حفظ خواهد شد.'),
                       onChanged: _busy
