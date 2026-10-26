@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'profile_avatar.dart';
 import 'services/leaderboard_service.dart';
 
 const _leaderboardGold = Color(0xFFD8B45A);
@@ -116,11 +117,11 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                               return Card(
                                 color: isCurrentUser ? const Color(0xFF26344B) : _leaderboardPanel,
                                 child: ListTile(
-                                  leading: CircleAvatar(
+                                  leading: RoyalAvatar(
+                                    dataUrl: player['avatarDataUrl']?.toString(),
+                                    radius: 23,
                                     backgroundColor: index < 3 ? _leaderboardGold : _leaderboardNavy,
                                     foregroundColor: index < 3 ? _leaderboardNavy : Colors.white70,
-                                    child: Text('${index + 1}',
-                                        style: const TextStyle(fontWeight: FontWeight.bold)),
                                   ),
                                   title: Text(
                                     username == null || username.isEmpty ? 'بازیکن' : '@$username',
