@@ -26,7 +26,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
   int _boardThemeIndex = 0;
 
   static const List<List<Color>> _boardThemes = [
-    [Color(0xFF98683B), Color(0xFF76502E), Color(0xFF4D301D)],
+    [Color(0xFF6D4026), Color(0xFF76502E), Color(0xFF3B2418)],
     [Color(0xFF176B55), Color(0xFF0D4B3D), Color(0xFF08352D)],
     [Color(0xFF315A8C), Color(0xFF203F6B), Color(0xFF152B4B)],
     [Color(0xFF7A3151), Color(0xFF54213A), Color(0xFF351529)],
@@ -820,16 +820,14 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
               final player = count == 0 ? 0 : count.sign;
               final selected = _selectedPoint == index;
               final target = legalTargets.contains(index);
+              final pointColor = top
+                  ? (position.isEven ? _boardGold : _boardNavy)
+                  : (position.isEven ? _boardLight : _boardNavy);
               return GestureDetector(
                 onTap: () => _tapPoint(index),
                 child: Container(
                   margin: const EdgeInsets.symmetric(horizontal: 1),
                   decoration: BoxDecoration(
-                    color: selected
-                        ? _boardGold.withValues(alpha: .28)
-                        : target
-                            ? Colors.green.withValues(alpha: .20)
-                            : Colors.transparent,
                     borderRadius: BorderRadius.circular(4),
                     border: Border.all(
                       color: selected
@@ -837,25 +835,52 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
                           : target
                               ? Colors.greenAccent
                               : Colors.transparent,
-                      width: 1.2,
+                      width: selected || target ? 1.5 : 0,
                     ),
+                    boxShadow: selected
+                        ? [BoxShadow(color: _boardGold.withValues(alpha: .45), blurRadius: 7)]
+                        : const [],
                   ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  child: Stack(
+                    fit: StackFit.expand,
                     children: [
-                      if (top) ...[
-                        Text('$index',
-                            style: const TextStyle(
-                                fontSize: 9, color: Colors.white70)),
-                        _checkerStack(player, count.abs(),
-                            top: true, compact: compact),
-                      ] else ...[
-                        _checkerStack(player, count.abs(),
-                            top: false, compact: compact),
-                        Text('$index',
-                            style: const TextStyle(
-                                fontSize: 9, color: Colors.white70)),
-                      ],
+                      CustomPaint(
+                        painter: _RoyalPointPainter(
+                          color: pointColor,
+                          top: top,
+                          highlight: selected
+                              ? _boardGold.withValues(alpha: .38)
+                              : target
+                                  ? Colors.green.withValues(alpha: .38)
+                                  : Colors.transparent,
+                        ),
+                      ),
+                      Column(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          if (top) ...[
+                            Text('$index',
+                                style: TextStyle(
+                                  fontSize: compact ? 7 : 9,
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w800,
+                                  shadows: const [Shadow(color: Colors.black87, blurRadius: 3)],
+                                )),
+                            _checkerStack(player, count.abs(),
+                                top: true, compact: compact),
+                          ] else ...[
+                            _checkerStack(player, count.abs(),
+                                top: false, compact: compact),
+                            Text('$index',
+                                style: TextStyle(
+                                  fontSize: compact ? 7 : 9,
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w800,
+                                  shadows: const [Shadow(color: Colors.black87, blurRadius: 3)],
+                                )),
+                          ],
+                        ],
+                      ),
                     ],
                   ),
                 ),
@@ -985,4 +1010,70 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
           ],
         ),
       );
+}
+
+
+/// Draws the alternating, pointed inlays that define a traditional backgammon
+/// board. The top row points down; the bottom row points up.
+class _RoyalPointPainter extends CustomPainter {
+  const _RoyalPointPainter({
+    required this.color,
+    required this.top,
+    required this.highlight,
+  });
+
+  final Color color;
+  final bool top;
+  final Color highlight;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final inset = size.width * 0.08;
+    final tipY = top ? size.height * 0.78 : size.height * 0.22;
+    final baseY = top ? 0.0 : size.height;
+    final path = Path()
+      ..moveTo(inset, baseY)
+      ..lineTo(size.width - inset, baseY)
+      ..lineTo(size.width / 2, tipY)
+      ..close();
+
+    canvas.drawPath(
+      path,
+      Paint()
+        ..shader = LinearGradient(
+          begin: top ? Alignment.topCenter : Alignment.bottomCenter,
+          end: top ? Alignment.bottomCenter : Alignment.topCenter,
+          colors: [
+            color,
+            Color.lerp(color, Colors.black, 0.18)!,
+          ],
+        ).createShader(Offset.zero & size),
+    );
+    canvas.drawPath(
+      path,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 0.7
+        ..color = _boardGold.withValues(alpha: 0.48),
+    );
+
+    if (highlight != Colors.transparent) {
+      canvas.drawPath(path, Paint()..color = highlight);
+    }
+
+    final sheen = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.8
+      ..color = Colors.white.withValues(alpha: 0.15);
+    final sheenPath = Path()
+      ..moveTo(inset + 1, baseY)
+      ..lineTo(size.width / 2, tipY + (top ? 3 : -3));
+    canvas.drawPath(sheenPath, sheen);
+  }
+
+  @override
+  bool shouldRepaint(covariant _RoyalPointPainter oldDelegate) =>
+      oldDelegate.color != color ||
+      oldDelegate.top != top ||
+      oldDelegate.highlight != highlight;
 }
