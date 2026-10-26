@@ -239,6 +239,7 @@ jobs:
           let secondUser;
           let firstToken;
           let secondToken;
+          let matchId;
           try {
             const shortResponse = await registerWithRateLimitRetry({ ...payload, email: shortEmail, password: 'Ab3!x' });
             if (shortResponse.status !== 400) {
@@ -323,8 +324,61 @@ jobs:
               throw new Error('Friend list response must not expose either account email address.');
             }
 
-            console.log('PASS: password validation, registration/login, profile editing, username search, friend request delivery, and friend-list email privacy.');
+            const createMatchResponse = await fetch(`${base}/api/v1/matches`, {
+              method: 'POST',
+              headers: { authorization: `${firstToken}` },
+            });
+            if (createMatchResponse.status !== 201) {
+              throw new Error(`Match creation failed with status ${createMatchResponse.status}: ${await createMatchResponse.text()}`);
+            }
+            const createdMatch = (await createMatchResponse.json()).match;
+            matchId = createdMatch.id;
+
+            const joinMatchResponse = await fetch(`${base}/api/v1/matches/${matchId}/join`, {
+              method: 'POST',
+              headers: { authorization: `${secondToken}` },
+            });
+            if (joinMatchResponse.status !== 200) {
+              throw new Error(`Joining match failed with status ${joinMatchResponse.status}: ${await joinMatchResponse.text()}`);
+            }
+            const joinedMatch = (await joinMatchResponse.json()).match;
+            if (joinedMatch.status !== 'active') throw new Error('Match did not become active after the second player joined.');
+
+            const stateResponse = await fetch(`${base}/api/v1/matches/${matchId}/state`, {
+              headers: { authorization: `${firstToken}` },
+            });
+            const initialState = (await stateResponse.json()).state;
+            if (stateResponse.status !== 200 || initialState?.status !== 'active' ||
+                !Array.isArray(initialState.board) || initialState.board.length !== 24 ||
+                initialState.isHost !== true || initialState.isMyTurn !== true) {
+              throw new Error('New online match returned an invalid initial game state.');
+            }
+
+            const rollResponse = await fetch(`${base}/api/v1/matches/${matchId}/roll`, {
+              method: 'POST',
+              headers: { authorization: `${firstToken}`, 'content-type': 'application/json' },
+              body: JSON.stringify({ expectedVersion: initialState.version }),
+            });
+            const rolledState = (await rollResponse.json()).state;
+            if (rollResponse.status !== 200 || !Array.isArray(rolledState?.dice) ||
+                rolledState.dice.length !== 2 || rolledState.dice.some((die) => !Number.isInteger(die) || die < 1 || die > 6) ||
+                !Array.isArray(rolledState.remainingDice) ||
+                ![2, 4].includes(rolledState.remainingDice.length)) {
+              throw new Error('Server-generated online dice failed validation.');
+            }
+
+            const guestRollResponse = await fetch(`${base}/api/v1/matches/${matchId}/roll`, {
+              method: 'POST',
+              headers: { authorization: `${secondToken}`, 'content-type': 'application/json' },
+              body: JSON.stringify({ expectedVersion: rolledState.version }),
+            });
+            if (guestRollResponse.status !== 409) {
+              throw new Error(`Out-of-turn dice roll should return 409; got ${guestRollResponse.status}`);
+            }
+
+            console.log('PASS: auth, profile, friend requests/privacy, online match creation/join, server-owned state/dice, and out-of-turn rejection.');
           } finally {
+            if (matchId) await pool.query('DELETE FROM backgammon_matches WHERE id = $1', [matchId]);
             await pool.query('DELETE FROM users WHERE email = ANY($1::text[])', [[email, shortEmail, friendEmail]]);
             await pool.end();
           }
