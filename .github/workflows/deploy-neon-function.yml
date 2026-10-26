@@ -393,16 +393,37 @@ jobs:
               throw new Error('Server-generated online dice failed validation. HTTP status: ' + rollResponse.status + '; payload: ' + JSON.stringify(rollPayload));
             }
 
-            const moveDie = Math.max(...rolledState.remainingDice);
-            const fromPoint = moveDie === 6 ? 16 : 18;
-            const toPoint = fromPoint - moveDie;
+            // Find a genuinely legal host move from the server's current board.
+            // Do not hardcode point numbers: the host owns positive checkers and
+            // moves toward point 0, while the opponent blocks points with -2 or less.
+            let selectedMove = null;
+            for (const candidateDie of [...rolledState.remainingDice].sort((a, b) => b - a)) {
+              const barCount = Number(rolledState.bar?.host ?? 0);
+              if (barCount > 0) {
+                const entryPoint = 24 - candidateDie;
+                if (rolledState.board[entryPoint] > -2) {
+                  selectedMove = { from: null, to: entryPoint, die: candidateDie };
+                  break;
+                }
+                continue;
+              }
+              for (let point = 0; point < rolledState.board.length; point += 1) {
+                if (rolledState.board[point] <= 0) continue;
+                const target = point - candidateDie;
+                if (target < 0 || rolledState.board[target] <= -2) continue;
+                selectedMove = { from: point, to: target, die: candidateDie };
+                break;
+              }
+              if (selectedMove) break;
+            }
+            if (!selectedMove) {
+              throw new Error('Smoke test could not find a legal host move on the initial board.');
+            }
             const moveResponse = await fetch(`${base}/api/v1/matches/${matchId}/moves`, {
               method: 'POST',
               headers: { authorization: `Bearer ${firstToken}`, 'content-type': 'application/json' },
               body: JSON.stringify({
-                from: fromPoint,
-                to: toPoint,
-                die: moveDie,
+                ...selectedMove,
                 expectedVersion: rolledState.version,
               }),
             });
