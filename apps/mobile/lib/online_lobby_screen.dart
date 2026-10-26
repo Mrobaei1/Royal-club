@@ -45,7 +45,7 @@ class _OnlineLobbyScreenState extends State<OnlineLobbyScreen> {
     _silentRefreshing = true;
     try {
       final results = await Future.wait([MatchService.listOpen(), MatchService.pendingInvites()]);
-      if (mounted) setState(() { _matches = results[0]; _invites = results[1]; });
+      if (mounted) { setState(() { _matches = results[0]; _invites = results[1]; }); }
     } catch (_) {
       // Keep the current room list; the next interval retries automatically.
     } finally {
