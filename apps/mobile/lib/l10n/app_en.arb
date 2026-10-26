@@ -212,5 +212,11 @@
   "bearOffShort": "Off",
   "@congratulationsWinner": {"placeholders": {"player": {"type": "String"}}},
   "@moveDoneRemainingDice": {"placeholders": {"dice": {"type": "String"}}},
-  "@computerTurnDice": {"placeholders": {"dice": {"type": "String"}}}
+  "@computerTurnDice": {"placeholders": {"dice": {"type": "String"}}},
+  "turnRolledDice": "{player}'s turn · Dice: {dice}",
+  "turnChangedPlayer": "No moves; it is {player}'s turn.",
+  "turnRollPrompt": "It is {player}'s turn; roll the dice.",
+  "@turnRolledDice": {"placeholders": {"player": {"type": "String"}, "dice": {"type": "String"}}},
+  "@turnChangedPlayer": {"placeholders": {"player": {"type": "String"}}},
+  "@turnRollPrompt": {"placeholders": {"player": {"type": "String"}}}
 }
