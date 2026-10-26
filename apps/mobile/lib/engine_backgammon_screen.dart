@@ -612,12 +612,11 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
                     alignment: Alignment.center,
                     children: [
                       Center(child: _diceTray(compact: true)),
-                      Positioned(
-                        left: (barWidth - 2) / 2,
-                        top: -2,
-                        bottom: -2,
+                      Align(
+                        alignment: Alignment.center,
                         child: Container(
                           width: 2,
+                          height: double.infinity,
                           decoration: BoxDecoration(
                             color: _boardGold,
                             boxShadow: [
