@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - feature/password-min-6
+      - design/royal-wood-board
   pull_request:
     branches:
       - main
