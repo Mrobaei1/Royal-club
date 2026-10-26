@@ -185,14 +185,14 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
       return;
     }
     if (_engine.finished) {
-      _message = 'تبریک! بازیکن ${_playerName(_engine.winner!)} برنده شد.';
+      _message = AppLocalizations.of(context)!.congratulationsWinner(_playerName(_engine.winner!));
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _showGameOverDialog();
       });
     } else if (_engine.dice.isEmpty) {
       _message = 'نوبت ${_playerName(_engine.currentPlayer)} است؛ تاس بریزید.';
     } else {
-      _message = 'حرکت انجام شد؛ تاس باقی‌مانده: ${_engine.dice.join('، ')}';
+      _message = AppLocalizations.of(context)!.moveDoneRemainingDice(_engine.dice.join('، '));
     }
     _scheduleComputerTurn();
   }
@@ -234,8 +234,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
         } else if (_engine.currentPlayer == 1) {
           _message = AppLocalizations.of(context)!.yourTurnRoll;
         } else {
-          _message =
-              'نوبت کامپیوتر است؛ تاس باقی‌مانده: ${_engine.dice.join('، ')}';
+          _message = AppLocalizations.of(context)!.computerTurnDice(_engine.dice.join('، '))
         }
       });
       if (_vsComputer &&
