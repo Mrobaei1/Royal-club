@@ -369,7 +369,7 @@ class GameTile extends StatelessWidget {
                 children: [
                   Text(title,
                       textDirection: royalLocaleState.locale.languageCode == 'fa' ? TextDirection.rtl : TextDirection.ltr,
-                      style: const TextStyle(
+                      style: TextStyle(
                           color: selectedTheme.dark ? Colors.white : const Color(0xFF182033),
                           fontSize: 16,
                           fontWeight: FontWeight.w800)),
@@ -381,14 +381,14 @@ class GameTile extends StatelessWidget {
                 ],
               )),
               if (comingSoon)
-                const Text('SOON',
+                Text('SOON',
                     style: TextStyle(
                         color: selectedTheme.accent,
                         fontSize: 9,
                         letterSpacing: 1,
                         fontWeight: FontWeight.bold))
               else
-                const Icon(Icons.arrow_forward_ios_rounded,
+                Icon(Icons.arrow_forward_ios_rounded,
                     color: selectedTheme.accent, size: 15),
             ]),
           ),
