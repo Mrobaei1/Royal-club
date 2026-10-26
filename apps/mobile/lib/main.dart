@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -11,6 +12,8 @@ import 'online_lobby_screen.dart';
 import 'wallet_screen.dart';
 import 'admin_screen.dart';
 import 'chat_screen.dart';
+import 'services/chat_service.dart';
+import 'services/friends_service.dart';
 
 const List<RoyalTheme> royalThemes = [
   RoyalTheme('سلطنتی', Color(0xFF10182B), Color(0xFF17243A), Color(0xFFD8B45A)),
@@ -196,9 +199,82 @@ class _AuthGateState extends State<AuthGate> {
   }
 }
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   final VoidCallback? onLogout;
   const HomeScreen({super.key, this.onLogout});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  int _pendingRequests = 0;
+  int _unreadMessages = 0;
+  Timer? _badgeTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _refreshMenuBadges();
+    _badgeTimer = Timer.periodic(
+      const Duration(seconds: 20),
+      (_) => _refreshMenuBadges(),
+    );
+  }
+
+  @override
+  void dispose() {
+    _badgeTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _refreshMenuBadges() async {
+    try {
+      final data = await FriendsService.list();
+      final incoming = data['incomingRequests'] as List? ?? const [];
+      if (mounted && _pendingRequests != incoming.length) {
+        setState(() => _pendingRequests = incoming.length);
+      }
+    } catch (_) {
+      // Keep the last known count if the connection is temporarily unavailable.
+    }
+
+    try {
+      final conversations = await ChatService.conversations();
+      final unread = conversations.fold<int>(0, (total, item) {
+        if (item is! Map) return total;
+        final count = item['unreadCount'];
+        return total + (count is num ? count.toInt() : int.tryParse('$count') ?? 0);
+      });
+      if (mounted && _unreadMessages != unread) {
+        setState(() => _unreadMessages = unread);
+      }
+    } catch (_) {
+      // Keep the last known count if the connection is temporarily unavailable.
+    }
+  }
+
+  Widget _menuBadge(int count) {
+    if (count <= 0) return const SizedBox.shrink();
+    final label = count > 99 ? '99+' : '$count';
+    return Container(
+      constraints: const BoxConstraints(minWidth: 19, minHeight: 19),
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+      decoration: const BoxDecoration(
+        color: Color(0xFFE53935),
+        shape: BoxShape.circle,
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 10,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+  }
 
   void _showThemeMenu(BuildContext context) {
     showModalBottomSheet<void>(
@@ -298,13 +374,15 @@ class HomeScreen extends StatelessWidget {
       case 'friends': page = const FriendsScreen(); break;
       case 'chat': page = const ChatScreen(); break;
       case 'notifications': page = const NotificationsScreen(); break;
-      case 'account': page = AccountScreen(onLogout: onLogout ?? () {}); break;
+      case 'account': page = AccountScreen(onLogout: widget.onLogout ?? () {}); break;
       case 'admin': page = const AdminScreen(); break;
       case 'wallet': page = const WalletScreen(); break;
       default: page = null;
     }
     if (page != null) {
-      Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => page!));
+      Navigator.of(context)
+          .push(MaterialPageRoute<void>(builder: (_) => page!))
+          .then((_) => _refreshMenuBadges());
     }
   }
 
@@ -352,8 +430,8 @@ class HomeScreen extends StatelessWidget {
                   onSelected: (value) => _openMenu(context, value),
                   itemBuilder: (context) => [
                     PopupMenuItem(value: 'account', child: ListTile(dense: true, leading: Icon(Icons.account_circle_outlined), title: Text(AppLocalizations.of(context).account))),
-                    PopupMenuItem(value: 'friends', child: ListTile(dense: true, leading: Icon(Icons.people_outline), title: Text(AppLocalizations.of(context).friends))),
-                    PopupMenuItem(value: 'chat', child: ListTile(dense: true, leading: Icon(Icons.chat_bubble_outline), title: Text(AppLocalizations.of(context).privateChat))),
+                    PopupMenuItem(value: 'friends', child: ListTile(dense: true, leading: Icon(Icons.people_outline), title: Text(AppLocalizations.of(context).friends), trailing: _menuBadge(_pendingRequests))),
+                    PopupMenuItem(value: 'chat', child: ListTile(dense: true, leading: Icon(Icons.chat_bubble_outline), title: Text(AppLocalizations.of(context).privateChat), trailing: _menuBadge(_unreadMessages))),
                     PopupMenuItem(value: 'notifications', child: ListTile(dense: true, leading: Icon(Icons.notifications_outlined), title: Text(AppLocalizations.of(context).notifications))),
                     PopupMenuItem(value: 'wallet', child: ListTile(dense: true, leading: Icon(Icons.account_balance_wallet_outlined), title: Text(AppLocalizations.of(context).wallet))),
                     const PopupMenuItem(value: 'admin', child: ListTile(dense: true, leading: Icon(Icons.admin_panel_settings_outlined), title: Text('پنل مدیریت'))),
