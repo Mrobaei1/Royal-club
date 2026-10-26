@@ -1,6 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:royal_club/l10n/app_localizations.dart';
 import 'package:royal_club/main.dart';
+
+Widget _testApp(Widget home, {Locale locale = const Locale('fa')}) => MaterialApp(
+      locale: locale,
+      supportedLocales: const [Locale('fa'), Locale('en')],
+      localizationsDelegates: const [
+        AppLocalizations.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      home: home,
+    );
 
 void main() {
   testWidgets('app starts through the authentication gate', (tester) async {
@@ -11,11 +25,9 @@ void main() {
   });
 
   testWidgets('home menu exposes account, friends, and notifications', (tester) async {
-    await tester.pumpWidget(
-      const MaterialApp(home: HomeScreen()),
-    );
+    await tester.pumpWidget(_testApp(const HomeScreen()));
 
-    await tester.tap(find.byTooltip('منو و تنظیمات'));
+    await tester.tap(find.byTooltip('تنظیمات'));
     await tester.pumpAndSettle();
 
     for (final label in [
@@ -24,29 +36,49 @@ void main() {
       'حساب کاربری',
       'گفت‌وگوهای خصوصی',
       'پنل مدیریت',
-      'کیف پول و اشتراک',
+      'کیف پول',
     ]) {
       expect(find.text(label), findsOneWidget);
     }
   });
 
-  testWidgets('home screen keeps all game cards', (tester) async {
-    await tester.pumpWidget(
-      const MaterialApp(home: HomeScreen()),
-    );
+  testWidgets('English locale renders translated home game cards', (tester) async {
+    await tester.pumpWidget(_testApp(const HomeScreen(), locale: const Locale('en')));
+    final context = tester.element(find.byType(HomeScreen));
+    final l10n = AppLocalizations.of(context);
 
-    expect(find.text('تخته‌نرد'), findsOneWidget);
+    expect(find.text(l10n.backgammon), findsOneWidget);
     await tester.scrollUntilVisible(
-      find.text('شطرنج'),
+      find.text(l10n.chess),
       300,
       scrollable: find.byType(Scrollable).first,
     );
-    expect(find.text('شطرنج'), findsOneWidget);
+    expect(find.text(l10n.chess), findsOneWidget);
     await tester.scrollUntilVisible(
-      find.text('بازی‌های کارتی'),
+      find.text(l10n.cardGames),
       300,
       scrollable: find.byType(Scrollable).first,
     );
-    expect(find.text('بازی‌های کارتی'), findsOneWidget);
+    expect(find.text(l10n.cardGames), findsOneWidget);
+  });
+
+  testWidgets('home screen keeps all game cards', (tester) async {
+    await tester.pumpWidget(_testApp(const HomeScreen()));
+    final context = tester.element(find.byType(HomeScreen));
+    final l10n = AppLocalizations.of(context);
+
+    expect(find.text(l10n.backgammon), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text(l10n.chess),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text(l10n.chess), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text(l10n.cardGames),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text(l10n.cardGames), findsOneWidget);
   });
 }
