@@ -196,7 +196,7 @@ jobs:
           fi
           cat health.json
 
-      - name: Verify six-character registration and login
+      - name: Verify registration, profile editing, and friend requests
         env:
           FUNCTION_URL: ${{ steps.endpoint.outputs.url }}
           DATABASE_URL: ${{ steps.database.outputs.url }}
@@ -207,11 +207,16 @@ jobs:
           node --input-type=module <<'NODE'
           import { Pool } from 'pg';
           const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-          const base = process.env.FUNCTION_URL.replace(/\/+$/, '');
+          const base = process.env.FUNCTION_URL.replace(/\\/+$/, '');
           const prefix = `royal-club-smoke-${process.env.GITHUB_RUN_ID}-${process.env.GITHUB_RUN_ATTEMPT}`;
           const email = `${prefix}@example.invalid`;
           const shortEmail = `${prefix}-short@example.invalid`;
+          const friendEmail = `${prefix}-friend@example.invalid`;
           const payload = { fullName: 'Royal Club automated test', phone: '+49123456789', country: 'Germany' };
+          let firstUser;
+          let secondUser;
+          let firstToken;
+          let secondToken;
           try {
             const shortResponse = await fetch(`${base}/api/v1/auth/register`, {
               method: 'POST',
@@ -221,14 +226,19 @@ jobs:
             if (shortResponse.status !== 400) {
               throw new Error(`Expected five-character password to be rejected with 400; got ${shortResponse.status}`);
             }
+
             const registerResponse = await fetch(`${base}/api/v1/auth/register`, {
               method: 'POST',
               headers: { 'content-type': 'application/json' },
               body: JSON.stringify({ ...payload, email, password: 'Ab3!xY' }),
             });
             if (registerResponse.status !== 201) {
-              throw new Error(`Expected six-character password registration to return 201; got ${registerResponse.status}`);
+              throw new Error(`Expected six-character registration to return 201; got ${registerResponse.status}`);
             }
+            const firstRegistration = await registerResponse.json();
+            firstUser = firstRegistration.user;
+            firstToken = firstRegistration.accessToken;
+
             const loginResponse = await fetch(`${base}/api/v1/auth/login`, {
               method: 'POST',
               headers: { 'content-type': 'application/json' },
@@ -237,9 +247,65 @@ jobs:
             if (loginResponse.status !== 200) {
               throw new Error(`Expected login with six-character password to return 200; got ${loginResponse.status}`);
             }
-            console.log('PASS: five characters rejected; six-character registration and login succeeded.');
+
+            const profileResponse = await fetch(`${base}/api/v1/me/profile`, {
+              method: 'PATCH',
+              headers: { 'content-type': 'application/json', authorization: `Bearer ${firstToken}` },
+              body: JSON.stringify({ ...payload, fullName: 'Royal Club profile smoke test' }),
+            });
+            if (profileResponse.status !== 200) {
+              throw new Error(`Profile update failed with status ${profileResponse.status}: ${await profileResponse.text()}`);
+            }
+
+            const username = `rc_${process.env.GITHUB_RUN_ID}`;
+            const usernameResponse = await fetch(`${base}/api/v1/me/username`, {
+              method: 'PATCH',
+              headers: { 'content-type': 'application/json', authorization: `Bearer ${firstToken}` },
+              body: JSON.stringify({ username }),
+            });
+            if (usernameResponse.status !== 200) {
+              throw new Error(`Username update failed with status ${usernameResponse.status}: ${await usernameResponse.text()}`);
+            }
+
+            const friendRegisterResponse = await fetch(`${base}/api/v1/auth/register`, {
+              method: 'POST',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({ ...payload, email: friendEmail, password: 'Ab3!xY' }),
+            });
+            if (friendRegisterResponse.status !== 201) {
+              throw new Error(`Friend account registration failed with status ${friendRegisterResponse.status}`);
+            }
+            const secondRegistration = await friendRegisterResponse.json();
+            secondUser = secondRegistration.user;
+            secondToken = secondRegistration.accessToken;
+
+            const searchResponse = await fetch(`${base}/api/v1/users/search?username=${encodeURIComponent(secondUser.username)}`, {
+              headers: { authorization: `Bearer ${firstToken}` },
+            });
+            const searchData = await searchResponse.json();
+            if (searchResponse.status !== 200 || !searchData.users?.some((user) => String(user.id) === String(secondUser.id))) {
+              throw new Error(`Friend username search failed: status ${searchResponse.status}`);
+            }
+
+            const requestResponse = await fetch(`${base}/api/v1/friends/${secondUser.id}/request`, {
+              method: 'POST',
+              headers: { authorization: `Bearer ${firstToken}` },
+            });
+            if (requestResponse.status !== 201) {
+              throw new Error(`Friend request failed with status ${requestResponse.status}: ${await requestResponse.text()}`);
+            }
+
+            const inboxResponse = await fetch(`${base}/api/v1/friends`, {
+              headers: { authorization: `Bearer ${secondToken}` },
+            });
+            const inbox = await inboxResponse.json();
+            if (inboxResponse.status !== 200 || !inbox.incomingRequests?.some((request) => String(request.userId) === String(firstUser.id))) {
+              throw new Error('Friend request did not appear in the recipient inbox.');
+            }
+
+            console.log('PASS: password validation, registration/login, profile editing, username search, and friend request delivery.');
           } finally {
-            await pool.query('DELETE FROM users WHERE email = ANY($1::text[])', [[email, shortEmail]]);
+            await pool.query('DELETE FROM users WHERE email = ANY($1::text[])', [[email, shortEmail, friendEmail]]);
             await pool.end();
           }
           NODE
