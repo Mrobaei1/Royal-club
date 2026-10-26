@@ -258,7 +258,7 @@ class _AdminScreenState extends State<AdminScreen> {
               ]),
               Text(AppLocalizations.of(context)!.reportThresholdInfo, style: TextStyle(fontSize: 12)),
               const SizedBox(height: 8),
-              if (_reports.isEmpty) Text(AppLocalizations.of(context)!.noReports,
+              if (_reports.isEmpty) Text(AppLocalizations.of(context)!.noReports),
               for (final report in _reports) Card(
                 child: Padding(
                   padding: const EdgeInsets.all(12),
