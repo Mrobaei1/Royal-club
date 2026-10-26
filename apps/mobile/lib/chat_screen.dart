@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'l10n/app_localizations.dart';
 import 'services/auth_service.dart';
 import 'services/chat_service.dart';
 
@@ -27,12 +28,12 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   Widget build(BuildContext context) => Directionality(
-    textDirection: TextDirection.rtl,
+    textDirection: Localizations.localeOf(context).languageCode == 'fa' ? TextDirection.rtl : TextDirection.ltr,
     child: Scaffold(
-      appBar: AppBar(title: const Text('گفت‌وگوهای خصوصی'), actions: [IconButton(onPressed: _load, icon: const Icon(Icons.refresh))]),
+      appBar: AppBar(title: Text(AppLocalizations.of(context)!.chatTitle), actions: [IconButton(onPressed: _load, icon: const Icon(Icons.refresh))]),
       body: _loading ? const Center(child: CircularProgressIndicator())
         : _error != null ? Center(child: Padding(padding: const EdgeInsets.all(24), child: Text(_error!, textAlign: TextAlign.center)))
-        : _conversations.isEmpty ? const Center(child: Padding(padding: EdgeInsets.all(24), child: Text('برای شروع گفت‌وگو، ابتدا یک دوست اضافه کنید.')))
+        : _conversations.isEmpty ? const Center(child: Padding(padding: EdgeInsets.all(24), child: Text(AppLocalizations.of(context)!.startChatEmpty)))
         : RefreshIndicator(onRefresh: _load, child: ListView.separated(
           itemCount: _conversations.length,
           separatorBuilder: (_, __) => const Divider(height: 1),
@@ -41,8 +42,8 @@ class _ChatScreenState extends State<ChatScreen> {
             final unread = (item['unreadCount'] as num?)?.toInt() ?? 0;
             return ListTile(
               leading: CircleAvatar(child: Text((item['fullName']?.toString().isNotEmpty == true ? item['fullName'].toString().characters.first : '?'))),
-              title: Text(item['fullName']?.toString().isNotEmpty == true ? item['fullName'].toString() : item['email']?.toString() ?? 'دوست'),
-              subtitle: Text(item['lastMessage']?.toString() ?? 'برای شروع گفت‌وگو لمس کنید', maxLines: 1, overflow: TextOverflow.ellipsis),
+              title: Text(item['fullName']?.toString().isNotEmpty == true ? item['fullName'].toString() : item['email']?.toString() ?? AppLocalizations.of(context)!.friendFallback),
+              subtitle: Text(item['lastMessage']?.toString() ?? AppLocalizations.of(context)!.tapToChat, maxLines: 1, overflow: TextOverflow.ellipsis),
               trailing: unread > 0 ? CircleAvatar(radius: 12, child: Text('$unread', style: const TextStyle(fontSize: 11))) : const Icon(Icons.chevron_left),
               onTap: () async {
                 await Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => ChatThreadScreen(
@@ -103,7 +104,7 @@ class _ChatThreadScreenState extends State<ChatThreadScreen> {
     final reason = await showDialog<String>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('گزارش کاربر'),
+        title: Text(AppLocalizations.of(context)!.reportUser),
         content: TextField(
           controller: reasonController,
           autofocus: true,
@@ -111,13 +112,13 @@ class _ChatThreadScreenState extends State<ChatThreadScreen> {
           maxLines: 5,
           maxLength: 1000,
           decoration: const InputDecoration(
-            hintText: 'دلیل گزارش را توضیح دهید (حداقل ۳ نویسه)',
+            hintText: AppLocalizations.of(context)!.reportReasonHint,
             border: OutlineInputBorder(),
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('انصراف')),
-          FilledButton(onPressed: () => Navigator.pop(dialogContext, reasonController.text.trim()), child: const Text('ارسال گزارش')),
+          TextButton(onPressed: () => Navigator.pop(dialogContext), child: Text(AppLocalizations.of(context)!.cancel)),
+          FilledButton(onPressed: () => Navigator.pop(dialogContext, reasonController.text.trim()), child: Text(AppLocalizations.of(context)!.submitReport)),
         ],
       ),
     );
@@ -127,9 +128,9 @@ class _ChatThreadScreenState extends State<ChatThreadScreen> {
       final result = await ChatService.report(widget.userId, reason.trim());
       if (!mounted) return;
       final review = result['moderationReviewTriggered'] == true
-          ? ' گزارش برای بررسی مدیر در صف قرار گرفت.'
+          ? AppLocalizations.of(context)!.reportQueued
           : '';
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('گزارش ثبت شد.$review')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${AppLocalizations.of(context)!.reportSaved}$review')));
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -158,11 +159,11 @@ class _ChatThreadScreenState extends State<ChatThreadScreen> {
   Widget build(BuildContext context) => Directionality(
     textDirection: TextDirection.rtl,
     child: Scaffold(
-      appBar: AppBar(title: Text(widget.title), actions: [IconButton(tooltip: 'گزارش کاربر', onPressed: _reportUser, icon: const Icon(Icons.flag_outlined)), IconButton(onPressed: _load, icon: const Icon(Icons.refresh))]),
+      appBar: AppBar(title: Text(widget.title), actions: [IconButton(tooltip: AppLocalizations.of(context)!.reportUser, onPressed: _reportUser, icon: const Icon(Icons.flag_outlined)), IconButton(onPressed: _load, icon: const Icon(Icons.refresh))]),
       body: Column(children: [
         Expanded(child: _loading ? const Center(child: CircularProgressIndicator())
           : _error != null ? Center(child: Padding(padding: const EdgeInsets.all(20), child: Text(_error!, textAlign: TextAlign.center)))
-          : _messages.isEmpty ? const Center(child: Text('هنوز پیامی ارسال نشده است.'))
+          : _messages.isEmpty ? const Center(child: Text(AppLocalizations.of(context)!.noMessages))
           : ListView.builder(
             reverse: false,
             padding: const EdgeInsets.all(12),
@@ -187,7 +188,7 @@ class _ChatThreadScreenState extends State<ChatThreadScreen> {
             },
           )),
         SafeArea(child: Padding(padding: const EdgeInsets.all(10), child: Row(children: [
-          Expanded(child: TextField(controller: _composer, minLines: 1, maxLines: 4, maxLength: 2000, decoration: const InputDecoration(hintText: 'پیام بنویسید...', border: OutlineInputBorder(), counterText: ''))),
+          Expanded(child: TextField(controller: _composer, minLines: 1, maxLines: 4, maxLength: 2000, decoration: const InputDecoration(hintText: AppLocalizations.of(context)!.writeMessage, border: OutlineInputBorder(), counterText: ''))),
           const SizedBox(width: 8),
           IconButton.filled(onPressed: _sending ? null : _send, icon: const Icon(Icons.send)),
         ]))),
