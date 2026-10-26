@@ -54,6 +54,21 @@ jobs:
       - name: Test
         working-directory: apps/mobile
         run: flutter test
+      - name: Generate Android project files
+        working-directory: apps/mobile
+        run: flutter create --platforms=android --org com.royalclub .
+      - name: Build Android APK
+        working-directory: apps/mobile
+        env:
+          API_BASE_URL: ${{ vars.API_BASE_URL || 'https://br-misty-flower-bavs47dm-royalclubapi.compute.c-8.eu-central-1.aws.neon.tech' }}
+        run: flutter build apk --release --dart-define="API_BASE_URL=$API_BASE_URL"
+      - name: Upload Android APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: royal-club-release-apk
+          path: apps/mobile/build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+          retention-days: 14
       - name: Build web preview
         working-directory: apps/mobile
         env:
