@@ -17,7 +17,7 @@ permissions:
   deployments: write
 
 concurrency:
-  group: royal-club-web-preview
+  group: royal-club-web-preview-${{ github.event.pull_request.head.ref || github.ref }}
   cancel-in-progress: true
 
 jobs:
