@@ -64,7 +64,7 @@ class MatchService {
       Uri.parse('$_baseUrl/api/v1/matches/$id/end-turn'),
       headers: headers,
       body: jsonEncode({'expectedVersion': expectedVersion}),
-    );
+    ).timeout(const Duration(seconds: 12));
     dynamic decoded;
     try { decoded = jsonDecode(response.body); }
     catch (_) { throw Exception('پاسخ سرور قابل‌خواندن نیست.'); }
@@ -83,7 +83,7 @@ class MatchService {
       Uri.parse('$_baseUrl/api/v1/matches/$id/moves/batch'),
       headers: headers,
       body: jsonEncode({'moves': moves, 'expectedVersion': expectedVersion}),
-    );
+    ).timeout(const Duration(seconds: 12));
     dynamic decoded;
     try { decoded = jsonDecode(response.body); }
     catch (_) { throw Exception('پاسخ سرور قابل‌خواندن نیست.'); }
@@ -104,7 +104,7 @@ class MatchService {
       Uri.parse('$_baseUrl/api/v1/matches/$id/moves'),
       headers: headers,
       body: jsonEncode({'from': from, 'to': to, 'die': die, 'expectedVersion': expectedVersion}),
-    );
+    ).timeout(const Duration(seconds: 12));
     dynamic decoded;
     try { decoded = jsonDecode(response.body); }
     catch (_) { throw Exception('پاسخ سرور قابل‌خواندن نیست.'); }
@@ -121,7 +121,7 @@ class MatchService {
       Uri.parse('$_baseUrl/api/v1/matches/$id/roll'),
       headers: headers,
       body: jsonEncode({'expectedVersion': expectedVersion}),
-    );
+    ).timeout(const Duration(seconds: 12));
     dynamic decoded;
     try {
       decoded = jsonDecode(response.body);
