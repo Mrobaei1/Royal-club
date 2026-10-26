@@ -99,7 +99,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
       _computerThinking = false;
       _selectedPoint = null;
       _selectedBar = false;
-      _message = 'بازی از ابتدا شروع شد. تاس بریزید.';
+      _message = AppLocalizations.of(context)!.gameRestarted;
     });
   }
 
