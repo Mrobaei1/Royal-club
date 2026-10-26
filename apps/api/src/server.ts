@@ -1167,7 +1167,7 @@ app.get<{ Params: { id: string } }>('/api/v1/matches/:id', { onRequest: [require
             m.host_settings_accepted AS "hostSettingsAccepted", m.guest_settings_accepted AS "guestSettingsAccepted",
             m.host_ready AS "hostReady", m.guest_ready AS "guestReady",
             m.host_game_wins AS "hostGameWins", m.guest_game_wins AS "guestGameWins",
-            m.cancellation_proposed_by AS "cancellationProposedBy"
+            m.cancellation_proposed_by AS "cancellationProposedBy", (m.cancellation_proposed_by = $2) AS "cancellationProposedByMe"
        FROM backgammon_matches m JOIN users host ON host.id = m.host_user_id
        LEFT JOIN users guest ON guest.id = m.guest_user_id
       WHERE m.id = $1 AND (m.host_user_id = $2 OR m.guest_user_id = $2) AND m.expires_at > NOW()`,
