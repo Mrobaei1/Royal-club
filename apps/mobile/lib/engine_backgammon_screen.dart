@@ -540,7 +540,8 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
           border: Border.all(color: _boardGold, width: 2),
           boxShadow: const [
             BoxShadow(
-                color: Colors.black45, blurRadius: 12, offset: Offset(0, 5)),
+                color: Colors.black54, blurRadius: 14, offset: Offset(0, 6)),
+            BoxShadow(color: Color(0x66436F9F), blurRadius: 5, spreadRadius: 1),
             BoxShadow(color: Color(0x337D5A27), blurRadius: 2, spreadRadius: 1),
           ],
         ),
@@ -798,6 +799,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
     return Stack(
       fit: StackFit.expand,
       children: [
+        const CustomPaint(painter: _WoodGrainPainter()),
         CustomPaint(painter: _RoyalEmblemPainter(top: top)),
         Row(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -994,6 +996,43 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
       );
 }
 
+
+/// Fine, low-contrast wood grain for a crafted walnut-board finish.
+class _WoodGrainPainter extends CustomPainter {
+  const _WoodGrainPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = const Color(0xFF2A170C).withValues(alpha: 0.12)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.8;
+    final highlight = Paint()
+      ..color = const Color(0xFFFFD99A).withValues(alpha: 0.07)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.7;
+
+    for (var i = 0; i < 9; i++) {
+      final y = size.height * (i + 1) / 10;
+      final path = Path()..moveTo(0, y);
+      path.cubicTo(
+        size.width * 0.22, y - size.height * 0.035,
+        size.width * 0.48, y + size.height * 0.025,
+        size.width * 0.7, y - size.height * 0.012,
+      );
+      path.quadraticBezierTo(size.width * 0.86, y - size.height * 0.025,
+          size.width, y + size.height * 0.008);
+      canvas.drawPath(path, paint);
+      final lightPath = Path()
+        ..moveTo(0, y + 2)
+        ..quadraticBezierTo(size.width * 0.45, y + 1, size.width, y + 3);
+      canvas.drawPath(lightPath, highlight);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _WoodGrainPainter oldDelegate) => false;
+}
 
 /// Subtle eight-point royal seal, drawn behind the checkers so the board stays playable.
 class _RoyalEmblemPainter extends CustomPainter {
