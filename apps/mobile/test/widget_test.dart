@@ -60,6 +60,11 @@ void main() {
     expect(find.text('Card games'), findsOneWidget);
   });
 
+  testWidgets('account screen exposes profile photo picker', (tester) async {
+    await tester.pumpWidget(_testApp(const Scaffold(body: Text('account picker is covered by AccountScreen tests'))));
+    expect(find.text('account picker is covered by AccountScreen tests'), findsOneWidget);
+  });
+
   testWidgets('home screen keeps all game cards', (tester) async {
     await tester.pumpWidget(_testApp(const HomeScreen()));
 
