@@ -772,7 +772,6 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
                 _barCount(-1, compact: compact),
                 Divider(color: Colors.white24, height: compact ? 3 : 6),
                 _barCount(1, compact: compact),
-                const Spacer(),
                 _bearOffTray(compact: compact),
               ],
             ),
