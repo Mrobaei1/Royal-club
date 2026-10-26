@@ -810,8 +810,10 @@ app.post<{ Params: { id: string } }>('/api/v1/friends/:id/request', { onRequest:
   if (targetId === claims.sub) return reply.code(400).send({ error: 'You cannot add yourself as a friend.' });
 
   const client = await pool.connect();
+  let phase = 'begin';
   try {
     await client.query('BEGIN');
+    phase = 'lock-users';
     const users = await client.query(
       'SELECT id FROM users WHERE id = ANY($1::bigint[]) ORDER BY id FOR UPDATE',
       [[claims.sub, targetId]],
@@ -821,6 +823,7 @@ app.post<{ Params: { id: string } }>('/api/v1/friends/:id/request', { onRequest:
       return reply.code(404).send({ error: 'User not found.' });
     }
 
+    phase = 'lookup-relation';
     const existing = await client.query(
       `SELECT id, requester_id, addressee_id, status FROM friendships
         WHERE (requester_id = $1 AND addressee_id = $2)
@@ -834,6 +837,7 @@ app.post<{ Params: { id: string } }>('/api/v1/friends/:id/request', { onRequest:
       return reply.code(409).send({ error: 'You are already friends.' });
     }
     if (relation && relation.requester_id === targetId && relation.addressee_id === claims.sub) {
+      phase = 'check-reciprocal-request-limits';
       const targetCount = await client.query(
         `SELECT COUNT(*)::int AS total FROM friendships
           WHERE status = 'accepted' AND (requester_id = $1 OR addressee_id = $1)`,
@@ -870,6 +874,7 @@ app.post<{ Params: { id: string } }>('/api/v1/friends/:id/request', { onRequest:
       return reply.code(409).send({ error: 'A friend request is already pending.' });
     }
 
+    phase = 'check-friend-limits';
     const counts = await client.query(
       `SELECT id, (SELECT COUNT(*)::int FROM friendships f WHERE f.status = 'accepted' AND (f.requester_id = users.id OR f.addressee_id = users.id)) AS friend_count
          FROM users WHERE id = ANY($1::bigint[])`,
@@ -879,15 +884,18 @@ app.post<{ Params: { id: string } }>('/api/v1/friends/:id/request', { onRequest:
       await client.query('ROLLBACK');
       return reply.code(409).send({ error: 'One account has reached the 100-friend limit.' });
     }
+    phase = 'insert-friendship';
     await client.query(
       'INSERT INTO friendships (requester_id, addressee_id) VALUES ($1, $2)',
       [claims.sub, targetId],
     );
+    phase = 'insert-notification';
     await client.query(
       `INSERT INTO notifications (user_id, actor_user_id, type, title, body, data)
        VALUES ($1, $2, 'friend_request', 'درخواست دوستی جدید', 'یک کاربر برای شما درخواست دوستی فرستاده است.', jsonb_build_object('userId', $2))`,
       [targetId, claims.sub],
     );
+    phase = 'commit';
     await client.query('COMMIT');
     return reply.code(201).send({ status: 'pending', message: 'Friend request sent.' });
   } catch (error: any) {
@@ -900,7 +908,7 @@ app.post<{ Params: { id: string } }>('/api/v1/friends/:id/request', { onRequest:
       constraint: error?.constraint,
     });
     request.log.error({ err: error }, 'Could not create friend request');
-    return reply.code(500).send({ error: 'Could not send friend request.' });
+    return reply.code(500).send({ error: 'Could not send friend request.', phase });
   } finally {
     client.release();
   }
