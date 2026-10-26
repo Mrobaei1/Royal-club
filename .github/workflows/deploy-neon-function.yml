@@ -413,6 +413,30 @@ jobs:
               throw new Error('Legal online move failed: HTTP ' + moveResponse.status + '; payload: ' + JSON.stringify(movePayload));
             }
 
+            // A blocked move must be rejected without changing the persisted board/version.
+            const illegalMoveResponse = await fetch(`${base}/api/v1/matches/${matchId}/moves`, {
+              method: 'POST',
+              headers: { authorization: `Bearer ${firstToken}`, 'content-type': 'application/json' },
+              body: JSON.stringify({
+                from: 0,
+                to: 23,
+                die: 1,
+                expectedVersion: movedState.version,
+              }),
+            });
+            if (illegalMoveResponse.status !== 409) {
+              throw new Error(`Blocked online move should return 409; got ${illegalMoveResponse.status}`);
+            }
+            const afterRejectedMoveResponse = await fetch(`${base}/api/v1/matches/${matchId}/state`, {
+              headers: { authorization: `Bearer ${firstToken}` },
+            });
+            const afterRejectedMove = (await afterRejectedMoveResponse.json()).state;
+            if (afterRejectedMoveResponse.status !== 200 ||
+                afterRejectedMove?.version !== movedState.version ||
+                JSON.stringify(afterRejectedMove?.board) !== JSON.stringify(movedState.board)) {
+              throw new Error('Rejected illegal move mutated the server-side game state.');
+            }
+
             const guestRollResponse = await fetch(`${base}/api/v1/matches/${matchId}/roll`, {
               method: 'POST',
               headers: { authorization: `Bearer ${secondToken}`, 'content-type': 'application/json' },
@@ -422,7 +446,7 @@ jobs:
               throw new Error(`Out-of-turn dice roll should return 409; got ${guestRollResponse.status}`);
             }
 
-            console.log('PASS: auth, profile, friend request/accept/remove/privacy, online match creation/join, server-owned state/dice, legal move persistence, and out-of-turn rejection.');
+            console.log('PASS: auth, profile, friend request/accept/remove/privacy, online match creation/join, server-owned state/dice, legal move persistence, illegal-move rollback, and out-of-turn rejection.');
           } finally {
             if (matchId) await pool.query('DELETE FROM backgammon_matches WHERE id = $1', [matchId]);
             await pool.query('DELETE FROM users WHERE email = ANY($1::text[])', [[email, shortEmail, friendEmail]]);
