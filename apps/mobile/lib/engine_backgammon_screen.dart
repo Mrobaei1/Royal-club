@@ -845,11 +845,20 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
                       width: 1.2,
                     ),
                   ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  child: Stack(
+                    fit: StackFit.expand,
                     children: [
+                      CustomPaint(
+                        painter: _PointTrianglePainter(
+                          top: top,
+                          color: _boardThemes[_boardThemeIndex][index.isEven ? 1 : 2],
+                        ),
+                      ),
+                      Column(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
                       if (top) ...[
-                        Text('$index',
+                        Text('${index + 1}',
                             style: const TextStyle(
                                 fontSize: 9, color: Colors.white70)),
                         _checkerStack(player, count.abs(),
@@ -857,10 +866,12 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
                       ] else ...[
                         _checkerStack(player, count.abs(),
                             top: false, compact: compact),
-                        Text('$index',
+                        Text('${index + 1}',
                             style: const TextStyle(
                                 fontSize: 9, color: Colors.white70)),
                       ],
+                        ],
+                      ),
                     ],
                   ),
                 ),
@@ -990,4 +1001,36 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
           ],
         ),
       );
+}
+
+
+class _PointTrianglePainter extends CustomPainter {
+  const _PointTrianglePainter({required this.top, required this.color});
+
+  final bool top;
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..color = color;
+    final path = Path();
+    if (top) {
+      path
+        ..moveTo(0, 0)
+        ..lineTo(size.width, 0)
+        ..lineTo(size.width / 2, size.height * 0.82)
+        ..close();
+    } else {
+      path
+        ..moveTo(0, size.height)
+        ..lineTo(size.width, size.height)
+        ..lineTo(size.width / 2, size.height * 0.18)
+        ..close();
+    }
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _PointTrianglePainter oldDelegate) =>
+      oldDelegate.top != top || oldDelegate.color != color;
 }
