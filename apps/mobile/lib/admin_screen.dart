@@ -139,7 +139,7 @@ class _AdminScreenState extends State<AdminScreen> {
     setState(() => _busy = true);
     try {
       final count = await AdminService.sendNotification(userId: userId, title: title, body: body);
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('اعلان برای $count کاربر ارسال شد.')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context)!.notificationSentCount(count))));
       if (mounted && userId == null) {
         _notificationTitle.clear();
         _notificationBody.clear();
@@ -270,7 +270,7 @@ class _AdminScreenState extends State<AdminScreen> {
                       Chip(label: Text(AppLocalizations.of(context)!.needsAdminReview)),
                     const SizedBox(height: 4),
                     Text(report['reason']?.toString() ?? ''),
-                    Text('${AppLocalizations.of(context)!.statusLabel}: ${report['status']}'),
+                    Text('${AppLocalizations.of(context)!.statusLabel}: ${switch (report['status']) { 'open' => AppLocalizations.of(context)!.statusOpen, 'reviewed' => AppLocalizations.of(context)!.statusReviewed, 'dismissed' => AppLocalizations.of(context)!.statusDismissed, 'actioned' => AppLocalizations.of(context)!.statusActioned, _ => report['status'].toString() }}'),
                     if (report['status'] == 'open') Wrap(spacing: 8, children: [
                       OutlinedButton(onPressed: _busy ? null : () => _updateReport(report, 'reviewed'), child: Text(AppLocalizations.of(context)!.reviewed)),
                       OutlinedButton(onPressed: _busy ? null : () => _updateReport(report, 'dismissed'), child: Text(AppLocalizations.of(context)!.dismissReport)),
