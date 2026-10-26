@@ -174,9 +174,27 @@ test('registered players can join an online match and history does not expose op
     headers: auth(guest.token),
   });
   assert.equal(joined.statusCode, 200, joined.body);
-  assert.equal(joined.json().match.status, 'active');
+  assert.equal(joined.json().match.status, 'waiting');
   assert.equal(joined.json().match.guestAvatarDataUrl, avatar);
   assert.equal(joined.json().match.hostAvatarDataUrl, null);
+
+  const hostReady = await app.inject({
+    method: 'POST',
+    url: `/api/v1/matches/${matchId}/setup`,
+    headers: auth(host.token),
+    payload: { ready: true },
+  });
+  assert.equal(hostReady.statusCode, 200, hostReady.body);
+  assert.equal(hostReady.json().setup.status, 'waiting');
+
+  const guestAcceptAndReady = await app.inject({
+    method: 'POST',
+    url: `/api/v1/matches/${matchId}/setup`,
+    headers: auth(guest.token),
+    payload: { acceptSettings: true, ready: true },
+  });
+  assert.equal(guestAcceptAndReady.statusCode, 200, guestAcceptAndReady.body);
+  assert.equal(guestAcceptAndReady.json().setup.status, 'active');
 
   const snapshot = await app.inject({
     method: 'GET',
@@ -275,4 +293,185 @@ test('registered players can join an online match and history does not expose op
   assert.equal(guestStats.rating, 984);
   assert.equal(guestStats.losses, 1);
   assert.equal(guestStats.gamesPlayed, 1);
+
+  const invitedRoom = await app.inject({
+    method: 'POST',
+    url: '/api/v1/matches',
+    headers: auth(host.token),
+  });
+  assert.equal(invitedRoom.statusCode, 201, invitedRoom.body);
+  const invitedRoomId = String(invitedRoom.json().match.id);
+  const sentInvite = await app.inject({
+    method: 'POST',
+    url: `/api/v1/matches/${invitedRoomId}/invites`,
+    headers: auth(host.token),
+    payload: { inviteeId: String(guest.user.id) },
+  });
+  assert.equal(sentInvite.statusCode, 201, sentInvite.body);
+  const invitesInbox = await app.inject({
+    method: 'GET',
+    url: '/api/v1/match-invites',
+    headers: auth(guest.token),
+  });
+  assert.equal(invitesInbox.statusCode, 200, invitesInbox.body);
+  const incomingInvite = (invitesInbox.json().invites as Array<Record<string, unknown>>)
+    .find((invite) => String(invite.matchId) === invitedRoomId);
+  assert.ok(incomingInvite);
+  const acceptInvite = await app.inject({
+    method: 'POST',
+    url: `/api/v1/match-invites/${incomingInvite.id}/respond`,
+    headers: auth(guest.token),
+    payload: { accept: true },
+  });
+  assert.equal(acceptInvite.statusCode, 200, acceptInvite.body);
+  assert.equal(acceptInvite.json().response, 'accepted');
+  const invitedMatch = await app.inject({
+    method: 'GET',
+    url: `/api/v1/matches/${invitedRoomId}`,
+    headers: auth(host.token),
+  });
+  assert.equal(invitedMatch.statusCode, 200, invitedMatch.body);
+  assert.equal(invitedMatch.json().match.status, 'waiting');
+  assert.equal(invitedMatch.json().match.guestName, 'Guest Integration');
+
+  const seriesRoom = await app.inject({
+    method: 'POST',
+    url: '/api/v1/matches',
+    headers: auth(host.token),
+  });
+  assert.equal(seriesRoom.statusCode, 201, seriesRoom.body);
+  const seriesId = String(seriesRoom.json().match.id);
+  const seriesJoin = await app.inject({
+    method: 'POST',
+    url: `/api/v1/matches/${seriesId}/join`,
+    headers: auth(guest.token),
+  });
+  assert.equal(seriesJoin.statusCode, 200, seriesJoin.body);
+  const chooseThree = await app.inject({
+    method: 'POST',
+    url: `/api/v1/matches/${seriesId}/setup`,
+    headers: auth(host.token),
+    payload: { matchToWin: 3 },
+  });
+  assert.equal(chooseThree.statusCode, 200, chooseThree.body);
+  const seriesHostReady = await app.inject({
+    method: 'POST',
+    url: `/api/v1/matches/${seriesId}/setup`,
+    headers: auth(host.token),
+    payload: { ready: true },
+  });
+  assert.equal(seriesHostReady.statusCode, 200, seriesHostReady.body);
+  const changeTargetAfterReady = await app.inject({
+    method: 'POST',
+    url: `/api/v1/matches/${seriesId}/setup`,
+    headers: auth(host.token),
+    payload: { matchToWin: 5 },
+  });
+  assert.equal(changeTargetAfterReady.statusCode, 200, changeTargetAfterReady.body);
+  assert.equal(changeTargetAfterReady.json().setup.host_ready, false);
+  assert.equal(changeTargetAfterReady.json().setup.guest_ready, false);
+  assert.equal(changeTargetAfterReady.json().setup.guest_settings_accepted, false);
+  const restoreTarget = await app.inject({
+    method: 'POST',
+    url: `/api/v1/matches/${seriesId}/setup`,
+    headers: auth(host.token),
+    payload: { matchToWin: 3 },
+  });
+  assert.equal(restoreTarget.statusCode, 200, restoreTarget.body);
+  const seriesHostReadyAgain = await app.inject({
+    method: 'POST',
+    url: `/api/v1/matches/${seriesId}/setup`,
+    headers: auth(host.token),
+    payload: { ready: true },
+  });
+  assert.equal(seriesHostReadyAgain.statusCode, 200, seriesHostReadyAgain.body);
+  const seriesGuestReady = await app.inject({
+    method: 'POST',
+    url: `/api/v1/matches/${seriesId}/setup`,
+    headers: auth(guest.token),
+    payload: { acceptSettings: true, ready: true },
+  });
+  assert.equal(seriesGuestReady.statusCode, 200, seriesGuestReady.body);
+  assert.equal(seriesGuestReady.json().setup.status, 'active');
+
+  const onePointBoard = Array<number>(24).fill(0);
+  onePointBoard[0] = 1;
+  await testPool.query(
+    `UPDATE backgammon_matches
+        SET board_state = $1::jsonb, bar_state = '{"host":0,"guest":0}'::jsonb,
+            off_state = '{"host":14,"guest":0}'::jsonb, current_turn_user_id = host_user_id,
+            dice = '[1,2]'::jsonb, remaining_dice = '[1]'::jsonb, state_version = 7
+      WHERE id = $2`,
+    [JSON.stringify(onePointBoard), seriesId],
+  );
+  const firstGameWin = await app.inject({
+    method: 'POST',
+    url: `/api/v1/matches/${seriesId}/moves`,
+    headers: auth(host.token),
+    payload: { from: 0, to: null, die: 1, expectedVersion: 7 },
+  });
+  assert.equal(firstGameWin.statusCode, 200, firstGameWin.body);
+  assert.equal(firstGameWin.json().state.status, 'active');
+  assert.equal(firstGameWin.json().state.hostGameWins, 1);
+  assert.equal(firstGameWin.json().state.off.host, 0);
+  assert.deepEqual(firstGameWin.json().state.board, [
+    -2, 0, 0, 0, 0, 5, 0, 3, 0, 0, 0, -5,
+    5, 0, 0, 0, -3, 0, -5, 0, 0, 0, 0, 2,
+  ]);
+
+  const cancellationRoom = await app.inject({
+    method: 'POST',
+    url: '/api/v1/matches',
+    headers: auth(host.token),
+  });
+  assert.equal(cancellationRoom.statusCode, 201, cancellationRoom.body);
+  const cancellationId = String(cancellationRoom.json().match.id);
+  const cancellationJoin = await app.inject({
+    method: 'POST',
+    url: `/api/v1/matches/${cancellationId}/join`,
+    headers: auth(guest.token),
+  });
+  assert.equal(cancellationJoin.statusCode, 200, cancellationJoin.body);
+
+  const propose = () => app.inject({
+    method: 'POST',
+    url: `/api/v1/matches/${cancellationId}/cancellation`,
+    headers: auth(host.token),
+    payload: { accept: false },
+  });
+  const firstProposal = await propose();
+  assert.equal(firstProposal.statusCode, 200, firstProposal.body);
+  assert.equal(firstProposal.json().cancellation.status, 'proposed');
+
+  const reject = await app.inject({
+    method: 'POST',
+    url: `/api/v1/matches/${cancellationId}/cancellation`,
+    headers: auth(guest.token),
+    payload: { accept: false },
+  });
+  assert.equal(reject.statusCode, 200, reject.body);
+  assert.equal(reject.json().cancellation.status, 'rejected');
+  const stillWaiting = await app.inject({
+    method: 'GET',
+    url: `/api/v1/matches/${cancellationId}`,
+    headers: auth(host.token),
+  });
+  assert.equal(stillWaiting.json().match.status, 'waiting');
+
+  const secondProposal = await propose();
+  assert.equal(secondProposal.statusCode, 200, secondProposal.body);
+  const acceptCancellation = await app.inject({
+    method: 'POST',
+    url: `/api/v1/matches/${cancellationId}/cancellation`,
+    headers: auth(guest.token),
+    payload: { accept: true },
+  });
+  assert.equal(acceptCancellation.statusCode, 200, acceptCancellation.body);
+  assert.equal(acceptCancellation.json().cancellation.status, 'cancelled');
+  const cancelled = await app.inject({
+    method: 'GET',
+    url: `/api/v1/matches/${cancellationId}`,
+    headers: auth(host.token),
+  });
+  assert.equal(cancelled.json().match.status, 'cancelled');
 });

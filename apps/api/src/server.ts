@@ -183,6 +183,29 @@ await pool.query(`
   ALTER TABLE backgammon_matches ALTER COLUMN board_state SET DEFAULT '${JSON.stringify(INITIAL_BACKGAMMON_BOARD)}'::jsonb;
   CREATE INDEX IF NOT EXISTS backgammon_matches_waiting_idx ON backgammon_matches (created_at DESC) WHERE status = 'waiting';
   CREATE INDEX IF NOT EXISTS backgammon_matches_players_idx ON backgammon_matches (host_user_id, guest_user_id, status);
+  ALTER TABLE backgammon_matches ADD COLUMN IF NOT EXISTS match_to_win INTEGER NOT NULL DEFAULT 1 CHECK (match_to_win IN (1, 3, 5));
+  ALTER TABLE backgammon_matches ADD COLUMN IF NOT EXISTS host_settings_accepted BOOLEAN NOT NULL DEFAULT TRUE;
+  ALTER TABLE backgammon_matches ADD COLUMN IF NOT EXISTS guest_settings_accepted BOOLEAN NOT NULL DEFAULT FALSE;
+  ALTER TABLE backgammon_matches ADD COLUMN IF NOT EXISTS host_ready BOOLEAN NOT NULL DEFAULT FALSE;
+  ALTER TABLE backgammon_matches ADD COLUMN IF NOT EXISTS guest_ready BOOLEAN NOT NULL DEFAULT FALSE;
+  ALTER TABLE backgammon_matches ADD COLUMN IF NOT EXISTS host_game_wins INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE backgammon_matches ADD COLUMN IF NOT EXISTS guest_game_wins INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE backgammon_matches ADD COLUMN IF NOT EXISTS cancellation_proposed_by BIGINT REFERENCES users(id) ON DELETE SET NULL;
+  ALTER TABLE backgammon_matches ADD COLUMN IF NOT EXISTS cancellation_accepted_by BIGINT REFERENCES users(id) ON DELETE SET NULL;
+  CREATE TABLE IF NOT EXISTS backgammon_match_invites (
+    id BIGSERIAL PRIMARY KEY,
+    match_id BIGINT NOT NULL REFERENCES backgammon_matches(id) ON DELETE CASCADE,
+    inviter_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    invitee_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'rejected')),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    responded_at TIMESTAMPTZ,
+    CHECK (inviter_id <> invitee_id)
+  );
+  CREATE INDEX IF NOT EXISTS backgammon_match_invites_inbox_idx
+    ON backgammon_match_invites (invitee_id, status, created_at DESC);
+  CREATE UNIQUE INDEX IF NOT EXISTS backgammon_match_invites_pending_pair_idx
+    ON backgammon_match_invites (match_id, invitee_id) WHERE status = 'pending';
   CREATE TABLE IF NOT EXISTS backgammon_player_stats (
     user_id BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
     rating INTEGER NOT NULL DEFAULT 1000 CHECK (rating >= 0),
@@ -1126,9 +1149,10 @@ app.post<{ Params: { id: string } }>('/api/v1/matches/:id/join', { onRequest: [r
       return reply.code(409).send({ error: 'This match is already full.' });
     }
     if (match.status === 'waiting') await client.query(
-      `UPDATE backgammon_matches SET guest_user_id = $1, status = 'active',
-              current_turn_user_id = host_user_id, dice = '[]'::jsonb,
-              remaining_dice = '[]'::jsonb, state_version = 0, updated_at = NOW()
+      `UPDATE backgammon_matches SET guest_user_id = $1, status = 'waiting',
+              guest_settings_accepted = FALSE, host_ready = FALSE, guest_ready = FALSE,
+              cancellation_proposed_by = NULL, cancellation_accepted_by = NULL,
+              updated_at = NOW()
          WHERE id = $2`,
       [claims.sub, match.id]);
     await client.query('COMMIT');
@@ -1152,7 +1176,12 @@ app.get<{ Params: { id: string } }>('/api/v1/matches/:id', { onRequest: [require
   const result = await pool.query(
     `SELECT m.id, m.room_code AS "roomCode", m.status, host.full_name AS "hostName",
             guest.full_name AS "guestName", host.avatar_data_url AS "hostAvatarDataUrl",
-            guest.avatar_data_url AS "guestAvatarDataUrl", m.created_at AS "createdAt", m.updated_at AS "updatedAt"
+            guest.avatar_data_url AS "guestAvatarDataUrl", m.created_at AS "createdAt", m.updated_at AS "updatedAt",
+            (m.host_user_id = $2) AS "isHost", m.match_to_win AS "matchToWin",
+            m.host_settings_accepted AS "hostSettingsAccepted", m.guest_settings_accepted AS "guestSettingsAccepted",
+            m.host_ready AS "hostReady", m.guest_ready AS "guestReady",
+            m.host_game_wins AS "hostGameWins", m.guest_game_wins AS "guestGameWins",
+            m.cancellation_proposed_by AS "cancellationProposedBy", (m.cancellation_proposed_by = $2) AS "cancellationProposedByMe"
        FROM backgammon_matches m JOIN users host ON host.id = m.host_user_id
        LEFT JOIN users guest ON guest.id = m.guest_user_id
       WHERE m.id = $1 AND (m.host_user_id = $2 OR m.guest_user_id = $2) AND m.expires_at > NOW()`,
@@ -1160,6 +1189,261 @@ app.get<{ Params: { id: string } }>('/api/v1/matches/:id', { onRequest: [require
   if (!result.rowCount) return reply.code(404).send({ error: 'Match not found.' });
   return { match: result.rows[0] };
 });
+
+app.get('/api/v1/match-invites', { onRequest: [requireMatchAuth] }, async (request) => {
+  const claims = request.user as { sub: string };
+  const result = await pool.query(
+    `SELECT i.id, i.match_id AS "matchId", i.status, i.created_at AS "createdAt",
+            m.room_code AS "roomCode", m.status AS "matchStatus",
+            inviter.username AS "inviterUsername", inviter.full_name AS "inviterName",
+            inviter.avatar_data_url AS "inviterAvatarDataUrl"
+       FROM backgammon_match_invites i
+       JOIN backgammon_matches m ON m.id = i.match_id
+       JOIN users inviter ON inviter.id = i.inviter_id
+      WHERE i.invitee_id = $1 AND i.status = 'pending' AND m.status = 'waiting'
+        AND m.guest_user_id IS NULL AND m.expires_at > NOW()
+      ORDER BY i.created_at DESC LIMIT 50`,
+    [claims.sub]);
+  return { invites: result.rows };
+});
+
+app.post<{ Params: { id: string }; Body: { inviteeId?: string } }>(
+  '/api/v1/matches/:id/invites', { onRequest: [requireMatchAuth] }, async (request, reply) => {
+    const claims = request.user as { sub: string };
+    const inviteeId = request.body?.inviteeId;
+    if (!isNumericId(request.params.id) || !isNumericId(inviteeId) || inviteeId === claims.sub) {
+      return reply.code(400).send({ error: 'Provide a valid friend to invite.' });
+    }
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const matchResult = await client.query(
+        `SELECT id, status, host_user_id, guest_user_id FROM backgammon_matches
+          WHERE id = $1 AND expires_at > NOW() FOR UPDATE`, [request.params.id]);
+      const match = matchResult.rows[0];
+      if (!match || match.host_user_id !== claims.sub || match.status !== 'waiting' || match.guest_user_id) {
+        await client.query('ROLLBACK');
+        return reply.code(409).send({ error: 'Only the host can invite a friend to an empty waiting room.' });
+      }
+      const friendship = await client.query(
+        `SELECT 1 FROM friendships WHERE status = 'accepted'
+          AND ((requester_id = $1 AND addressee_id = $2) OR (requester_id = $2 AND addressee_id = $1)) LIMIT 1`,
+        [claims.sub, inviteeId]);
+      if (!friendship.rowCount) {
+        await client.query('ROLLBACK');
+        return reply.code(403).send({ error: 'You can invite accepted friends only.' });
+      }
+      const inserted = await client.query(
+        `INSERT INTO backgammon_match_invites (match_id, inviter_id, invitee_id)
+          VALUES ($1, $2, $3) RETURNING id, match_id AS "matchId", status, created_at AS "createdAt"`,
+        [request.params.id, claims.sub, inviteeId]);
+      await client.query(
+        `INSERT INTO notifications (user_id, actor_user_id, type, title, body, data)
+          VALUES ($1, $2, 'system', 'دعوت به تخته‌نرد', 'دوست شما را به یک مسابقه تخته‌نرد دعوت کرده است.',
+                  jsonb_build_object('inviteId', $3::text, 'matchId', $4::text))
+          ON CONFLICT DO NOTHING`,
+        [inviteeId, claims.sub, inserted.rows[0].id, request.params.id]);
+      await client.query('COMMIT');
+      return reply.code(201).send({ invite: inserted.rows[0] });
+    } catch (error: any) {
+      await client.query('ROLLBACK').catch(() => undefined);
+      if (error?.code === '23505') return reply.code(409).send({ error: 'This friend has already been invited to this room.' });
+      request.log.error({ err: error }, 'Could not send match invitation');
+      return reply.code(500).send({ error: 'Could not send match invitation.' });
+    } finally { client.release(); }
+  });
+
+app.post<{ Params: { id: string }; Body: { accept: boolean } }>(
+  '/api/v1/match-invites/:id/respond', { onRequest: [requireMatchAuth] }, async (request, reply) => {
+    const claims = request.user as { sub: string };
+    if (!isNumericId(request.params.id) || typeof request.body?.accept !== 'boolean') {
+      return reply.code(400).send({ error: 'Provide a valid invitation id and response.' });
+    }
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const found = await client.query(
+        `SELECT i.id, i.match_id, i.invitee_id, i.status, m.status AS "matchStatus", m.guest_user_id
+           FROM backgammon_match_invites i JOIN backgammon_matches m ON m.id = i.match_id
+          WHERE i.id = $1 FOR UPDATE OF i, m`, [request.params.id]);
+      const invite = found.rows[0];
+      if (!invite || invite.invitee_id !== claims.sub || invite.status !== 'pending') {
+        await client.query('ROLLBACK');
+        return reply.code(404).send({ error: 'Pending invitation not found.' });
+      }
+      if (!request.body.accept) {
+        await client.query(
+          `UPDATE backgammon_match_invites SET status = 'rejected', responded_at = NOW() WHERE id = $1`,
+          [request.params.id]);
+        await client.query('COMMIT');
+        return { response: 'rejected' };
+      }
+      if (invite.matchStatus !== 'waiting' || invite.guest_user_id) {
+        await client.query(
+          `UPDATE backgammon_match_invites SET status = 'rejected', responded_at = NOW() WHERE id = $1`,
+          [request.params.id]);
+        await client.query('COMMIT');
+        return reply.code(409).send({ error: 'This room is no longer available.' });
+      }
+      await client.query(
+        `UPDATE backgammon_matches SET guest_user_id = $1, guest_settings_accepted = FALSE,
+           host_ready = FALSE, guest_ready = FALSE, cancellation_proposed_by = NULL,
+           cancellation_accepted_by = NULL, updated_at = NOW() WHERE id = $2`,
+        [claims.sub, invite.match_id]);
+      await client.query(
+        `UPDATE backgammon_match_invites SET status = CASE WHEN id = $1 THEN 'accepted' ELSE 'rejected' END,
+           responded_at = NOW() WHERE match_id = $2 AND status = 'pending'`,
+        [request.params.id, invite.match_id]);
+      await client.query('COMMIT');
+      const match = await pool.query(
+        `SELECT m.id, m.room_code AS "roomCode", m.status, host.full_name AS "hostName",
+                guest.full_name AS "guestName", host.avatar_data_url AS "hostAvatarDataUrl",
+                guest.avatar_data_url AS "guestAvatarDataUrl"
+           FROM backgammon_matches m JOIN users host ON host.id = m.host_user_id
+           JOIN users guest ON guest.id = m.guest_user_id WHERE m.id = $1`, [invite.match_id]);
+      return { response: 'accepted', match: match.rows[0] };
+    } catch (error) {
+      await client.query('ROLLBACK').catch(() => undefined);
+      request.log.error({ err: error }, 'Could not respond to match invitation');
+      return reply.code(500).send({ error: 'Could not respond to match invitation.' });
+    } finally { client.release(); }
+  });
+
+// Match setup is a server-authoritative two-player handshake. A match becomes active
+// only after both players accept the same target and both are ready.
+app.post<{ Params: { id: string }; Body: { matchToWin?: number; acceptSettings?: boolean; ready?: boolean } }>(
+  '/api/v1/matches/:id/setup',
+  { onRequest: [requireMatchAuth] },
+  async (request, reply) => {
+    const claims = request.user as { sub: string };
+    const { matchToWin, acceptSettings, ready } = request.body ?? {};
+    if (!isNumericId(request.params.id)) return reply.code(400).send({ error: 'Invalid match id.' });
+    if (matchToWin !== undefined && ![1, 3, 5].includes(matchToWin)) {
+      return reply.code(400).send({ error: 'Match to win must be 1, 3, or 5.' });
+    }
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const found = await client.query(
+        `SELECT id, host_user_id, guest_user_id, status, match_to_win,
+                host_settings_accepted, guest_settings_accepted, host_ready, guest_ready
+           FROM backgammon_matches WHERE id = $1 AND expires_at > NOW() FOR UPDATE`,
+        [request.params.id]);
+      const m = found.rows[0] as any;
+      if (!m || ![m.host_user_id, m.guest_user_id].includes(claims.sub) || !m.guest_user_id) {
+        await client.query('ROLLBACK');
+        return reply.code(404).send({ error: 'Match with two players not found.' });
+      }
+      if (m.status !== 'waiting') {
+        await client.query('ROLLBACK');
+        return reply.code(409).send({ error: 'Match setup is already closed.' });
+      }
+      const isHost = m.host_user_id === claims.sub;
+      if (matchToWin !== undefined && !isHost) {
+        await client.query('ROLLBACK');
+        return reply.code(403).send({ error: 'Only the host can change Match to Win.' });
+      }
+      if (matchToWin !== undefined && matchToWin !== m.match_to_win) {
+        await client.query(
+          `UPDATE backgammon_matches SET match_to_win = $1,
+             host_settings_accepted = TRUE, guest_settings_accepted = FALSE,
+             host_ready = FALSE, guest_ready = FALSE, updated_at = NOW()
+           WHERE id = $2`, [matchToWin, request.params.id]);
+      } else {
+        const acceptedColumn = isHost ? 'host_settings_accepted' : 'guest_settings_accepted';
+        const readyColumn = isHost ? 'host_ready' : 'guest_ready';
+        const updates: string[] = [];
+        const values: unknown[] = [];
+        if (acceptSettings === true) updates.push(`${acceptedColumn} = TRUE`);
+        if (ready !== undefined) {
+          if (ready && !(isHost ? m.host_settings_accepted : m.guest_settings_accepted) && acceptSettings !== true) {
+            await client.query('ROLLBACK');
+            return reply.code(409).send({ error: 'Accept the match settings before becoming ready.' });
+          }
+          values.push(Boolean(ready));
+          updates.push(`${readyColumn} = $${values.length}`);
+        }
+        if (updates.length) {
+          updates.push('updated_at = NOW()');
+          values.push(request.params.id);
+          await client.query(`UPDATE backgammon_matches SET ${updates.join(', ')} WHERE id = $${values.length}`, values);
+        }
+      }
+      const current = await client.query(
+        `SELECT match_to_win, host_settings_accepted, guest_settings_accepted, host_ready, guest_ready
+           FROM backgammon_matches WHERE id = $1 FOR UPDATE`, [request.params.id]);
+      const setup = current.rows[0];
+      let status = 'waiting';
+      if (setup.host_settings_accepted && setup.guest_settings_accepted && setup.host_ready && setup.guest_ready) {
+        await client.query(
+          `UPDATE backgammon_matches SET status = 'active', current_turn_user_id = host_user_id,
+             dice = '[]'::jsonb, remaining_dice = '[]'::jsonb, state_version = 0,
+             updated_at = NOW() WHERE id = $1 AND status = 'waiting'`, [request.params.id]);
+        status = 'active';
+      }
+      await client.query('COMMIT');
+      return { setup: { ...setup, status } };
+    } catch (error) {
+      await client.query('ROLLBACK').catch(() => undefined);
+      request.log.error({ err: error }, 'Could not update match setup');
+      return reply.code(500).send({ error: 'Could not update match setup.' });
+    } finally { client.release(); }
+  });
+
+app.post<{ Params: { id: string }; Body: { accept: boolean } }>(
+  '/api/v1/matches/:id/cancellation',
+  { onRequest: [requireMatchAuth] },
+  async (request, reply) => {
+    const claims = request.user as { sub: string };
+    if (!isNumericId(request.params.id) || typeof request.body?.accept !== 'boolean') {
+      return reply.code(400).send({ error: 'Provide a valid match id and accept boolean.' });
+    }
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const found = await client.query(
+        `SELECT id, host_user_id, guest_user_id, status, cancellation_proposed_by, cancellation_accepted_by
+           FROM backgammon_matches WHERE id = $1 AND expires_at > NOW() FOR UPDATE`,
+        [request.params.id]);
+      const m = found.rows[0] as any;
+      if (!m || ![m.host_user_id, m.guest_user_id].includes(claims.sub) || !m.guest_user_id) {
+        await client.query('ROLLBACK');
+        return reply.code(404).send({ error: 'Match not found.' });
+      }
+      if (!['waiting', 'active'].includes(m.status)) {
+        await client.query('ROLLBACK');
+        return reply.code(409).send({ error: 'This match cannot be cancelled.' });
+      }
+      if (m.cancellation_proposed_by == null) {
+        await client.query(
+          'UPDATE backgammon_matches SET cancellation_proposed_by = $1, cancellation_accepted_by = NULL, updated_at = NOW() WHERE id = $2',
+          [claims.sub, request.params.id]);
+        await client.query('COMMIT');
+        return { cancellation: { status: 'proposed', proposedBy: claims.sub } };
+      }
+      if (m.cancellation_proposed_by === claims.sub) {
+        await client.query('ROLLBACK');
+        return reply.code(409).send({ error: 'Your cancellation proposal is awaiting the other player.' });
+      }
+      if (!request.body.accept) {
+        await client.query(
+          'UPDATE backgammon_matches SET cancellation_proposed_by = NULL, cancellation_accepted_by = NULL, updated_at = NOW() WHERE id = $1',
+          [request.params.id]);
+        await client.query('COMMIT');
+        return { cancellation: { status: 'rejected' } };
+      }
+      await client.query(
+        `UPDATE backgammon_matches SET status = 'cancelled', cancellation_accepted_by = $1,
+           cancellation_proposed_by = NULL, updated_at = NOW() WHERE id = $2`,
+        [claims.sub, request.params.id]);
+      await client.query('COMMIT');
+      return { cancellation: { status: 'cancelled' } };
+    } catch (error) {
+      await client.query('ROLLBACK').catch(() => undefined);
+      request.log.error({ err: error }, 'Could not process match cancellation');
+      return reply.code(500).send({ error: 'Could not process match cancellation.' });
+    } finally { client.release(); }
+  });
 
 // Apply a sequence of die-sized moves atomically. Any invalid step rolls back the entire sequence.
 app.post<{ Params: { id: string }; Body: { moves: Array<{ from: number | null; to: number | null; die: number }>; expectedVersion: number } }>('/api/v1/matches/:id/moves/batch', { onRequest: [requireMatchAuth] }, async (request, reply) => {
@@ -1175,7 +1459,8 @@ app.post<{ Params: { id: string }; Body: { moves: Array<{ from: number | null; t
     await client.query('BEGIN');
     const result = await client.query(
       `SELECT id, status, host_user_id, guest_user_id, current_turn_user_id,
-              board_state, bar_state, off_state, dice, remaining_dice, state_version
+              board_state, bar_state, off_state, dice, remaining_dice, state_version,
+              match_to_win, host_game_wins, guest_game_wins
          FROM backgammon_matches WHERE id = $1 AND expires_at > NOW() FOR UPDATE`,
       [request.params.id]);
     const game = result.rows[0] as {
@@ -1183,6 +1468,7 @@ app.post<{ Params: { id: string }; Body: { moves: Array<{ from: number | null; t
       current_turn_user_id: string | null; board_state: number[];
       bar_state: { host: number; guest: number }; off_state: { host: number; guest: number };
       dice: number[]; remaining_dice: number[]; state_version: number;
+      match_to_win: number; host_game_wins: number; guest_game_wins: number;
     } | undefined;
     if (!game || ![game.host_user_id, game.guest_user_id].includes(claims.sub)) {
       await client.query('ROLLBACK');
@@ -1254,22 +1540,33 @@ app.post<{ Params: { id: string }; Body: { moves: Array<{ from: number | null; t
       : game.current_turn_user_id;
     const nextDice = turnComplete ? [] : game.dice;
     const nextRemaining = turnComplete ? [] : remaining;
-    const finished = simulated.off.host >= 15 || simulated.off.guest >= 15;
+    const gameFinished = simulated.off.host >= 15 || simulated.off.guest >= 15;
+    const hostWonGame = simulated.off.host >= 15;
+    const nextHostWins = Number(game.host_game_wins ?? 0) + (gameFinished && hostWonGame ? 1 : 0);
+    const nextGuestWins = Number(game.guest_game_wins ?? 0) + (gameFinished && !hostWonGame ? 1 : 0);
+    const matchFinished = gameFinished && Math.max(nextHostWins, nextGuestWins) >= Number(game.match_to_win ?? 1);
+    const nextBoard = gameFinished && !matchFinished ? INITIAL_BACKGAMMON_BOARD : simulated.board;
+    const nextBar = gameFinished && !matchFinished ? { host: 0, guest: 0 } : simulated.bar;
+    const nextOff = gameFinished && !matchFinished ? { host: 0, guest: 0 } : simulated.off;
     const updated = await client.query(
       `UPDATE backgammon_matches SET board_state = $1::jsonb, bar_state = $2::jsonb,
               off_state = $3::jsonb, current_turn_user_id = $4, dice = $5::jsonb,
               remaining_dice = $6::jsonb, status = $7,
+              host_game_wins = $8, guest_game_wins = $9,
               state_version = state_version + 1, updated_at = NOW()
-         WHERE id = $8
+         WHERE id = $10
          RETURNING id, status, board_state AS board, bar_state AS bar, off_state AS off,
                    current_turn_user_id AS "currentTurnUserId", dice,
-                   remaining_dice AS "remainingDice", state_version AS version`,
-      [JSON.stringify(simulated.board), JSON.stringify(simulated.bar), JSON.stringify(simulated.off),
-       nextTurn, JSON.stringify(nextDice), JSON.stringify(nextRemaining),
-       finished ? 'finished' : 'active', game.id]);
-    if (finished && game.guest_user_id) {
-      const winnerId = simulated.off.host >= 15 ? game.host_user_id : game.guest_user_id;
-      const loserId = simulated.off.host >= 15 ? game.guest_user_id : game.host_user_id;
+                   remaining_dice AS "remainingDice", state_version AS version,
+                   match_to_win AS "matchToWin", host_game_wins AS "hostGameWins",
+                   guest_game_wins AS "guestGameWins"`,
+      [JSON.stringify(nextBoard), JSON.stringify(nextBar), JSON.stringify(nextOff),
+       gameFinished ? game.host_user_id : nextTurn, JSON.stringify(gameFinished ? [] : nextDice),
+       JSON.stringify(gameFinished ? [] : nextRemaining), matchFinished ? 'finished' : 'active',
+       nextHostWins, nextGuestWins, game.id]);
+    if (matchFinished && game.guest_user_id) {
+      const winnerId = nextHostWins >= Number(game.match_to_win ?? 1) ? game.host_user_id : game.guest_user_id;
+      const loserId = winnerId === game.host_user_id ? game.guest_user_id : game.host_user_id;
       await updateBackgammonRatings(client, winnerId, loserId);
     }
     await client.query('COMMIT');
@@ -1300,7 +1597,8 @@ app.post<{ Params: { id: string }; Body: { from: number | null; to: number | nul
     await client.query('BEGIN');
     const result = await client.query(
       `SELECT id, status, host_user_id, guest_user_id, current_turn_user_id,
-              board_state, bar_state, off_state, dice, remaining_dice, state_version
+              board_state, bar_state, off_state, dice, remaining_dice, state_version,
+              match_to_win, host_game_wins, guest_game_wins
          FROM backgammon_matches WHERE id = $1 AND expires_at > NOW() FOR UPDATE`,
       [request.params.id]);
     const game = result.rows[0] as {
@@ -1308,6 +1606,7 @@ app.post<{ Params: { id: string }; Body: { from: number | null; to: number | nul
       current_turn_user_id: string | null; board_state: number[];
       bar_state: { host: number; guest: number }; off_state: { host: number; guest: number };
       dice: number[]; remaining_dice: number[]; state_version: number;
+      match_to_win: number; host_game_wins: number; guest_game_wins: number;
     } | undefined;
     if (!game || ![game.host_user_id, game.guest_user_id].includes(claims.sub)) {
       await client.query('ROLLBACK');
@@ -1430,21 +1729,33 @@ app.post<{ Params: { id: string }; Body: { from: number | null; to: number | nul
       : game.current_turn_user_id;
     const nextDice = turnComplete ? [] : game.dice;
     const nextRemaining = turnComplete ? [] : remaining;
-    const finished = off.host >= 15 || off.guest >= 15;
+    const gameFinished = off.host >= 15 || off.guest >= 15;
+    const hostWonGame = off.host >= 15;
+    const nextHostWins = Number(game.host_game_wins ?? 0) + (gameFinished && hostWonGame ? 1 : 0);
+    const nextGuestWins = Number(game.guest_game_wins ?? 0) + (gameFinished && !hostWonGame ? 1 : 0);
+    const matchFinished = gameFinished && Math.max(nextHostWins, nextGuestWins) >= Number(game.match_to_win ?? 1);
+    const nextBoard = gameFinished && !matchFinished ? INITIAL_BACKGAMMON_BOARD : board;
+    const nextBar = gameFinished && !matchFinished ? { host: 0, guest: 0 } : bar;
+    const nextOff = gameFinished && !matchFinished ? { host: 0, guest: 0 } : off;
     const updated = await client.query(
       `UPDATE backgammon_matches SET board_state = $1::jsonb, bar_state = $2::jsonb,
               off_state = $3::jsonb, current_turn_user_id = $4, dice = $5::jsonb,
               remaining_dice = $6::jsonb, status = $7,
+              host_game_wins = $8, guest_game_wins = $9,
               state_version = state_version + 1, updated_at = NOW()
-         WHERE id = $8
+         WHERE id = $10
          RETURNING id, status, board_state AS board, bar_state AS bar, off_state AS off,
                    current_turn_user_id AS "currentTurnUserId", dice,
-                   remaining_dice AS "remainingDice", state_version AS version`,
-      [JSON.stringify(board), JSON.stringify(bar), JSON.stringify(off), nextTurn,
-       JSON.stringify(nextDice), JSON.stringify(nextRemaining), finished ? 'finished' : 'active', game.id]);
-    if (finished && game.guest_user_id) {
-      const winnerId = off.host >= 15 ? game.host_user_id : game.guest_user_id;
-      const loserId = off.host >= 15 ? game.guest_user_id : game.host_user_id;
+                   remaining_dice AS "remainingDice", state_version AS version,
+                   match_to_win AS "matchToWin", host_game_wins AS "hostGameWins",
+                   guest_game_wins AS "guestGameWins"`,
+      [JSON.stringify(nextBoard), JSON.stringify(nextBar), JSON.stringify(nextOff),
+       gameFinished ? game.host_user_id : nextTurn, JSON.stringify(gameFinished ? [] : nextDice),
+       JSON.stringify(gameFinished ? [] : nextRemaining), matchFinished ? 'finished' : 'active',
+       nextHostWins, nextGuestWins, game.id]);
+    if (matchFinished && game.guest_user_id) {
+      const winnerId = nextHostWins >= Number(game.match_to_win ?? 1) ? game.host_user_id : game.guest_user_id;
+      const loserId = winnerId === game.host_user_id ? game.guest_user_id : game.host_user_id;
       await updateBackgammonRatings(client, winnerId, loserId);
     }
     await client.query('COMMIT');

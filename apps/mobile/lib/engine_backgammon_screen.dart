@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'backgammon_engine.dart';
 import 'backgammon_ai.dart';
+import 'online_lobby_screen.dart';
 
 const _boardNavy = Color(0xFF10182B);
 const _boardGold = Color(0xFFD8B45A);
@@ -20,6 +21,7 @@ class EngineBackgammonScreen extends StatefulWidget {
 class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
   final BackgammonEngine _engine = BackgammonEngine();
   final BackgammonAI _ai = BackgammonAI();
+  bool _modeChosen = false;
   bool _vsComputer = true;
   BackgammonDifficulty _difficulty = BackgammonDifficulty.medium;
   bool _computerThinking = false;
@@ -105,6 +107,10 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
   }
 
   String _playerName(int player) => player == 1 ? 'طلایی' : 'روشن';
+
+  String _profileName(int player) => _vsComputer
+      ? (player == 1 ? 'شما' : 'هوش مصنوعی')
+      : (player == 1 ? 'بازیکن ۱' : 'بازیکن ۲');
 
   void _tapPoint(int point) {
     if (_computerThinking || (_vsComputer && _engine.currentPlayer == -1)) {
@@ -292,6 +298,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (!_modeChosen) return _entryScreen();
     final legalTargets = _moves
         .where((m) => _selectedBar
             ? m.fromBar
@@ -380,6 +387,64 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
       ),
     );
   }
+
+  Widget _entryScreen() => Directionality(
+        textDirection: TextDirection.rtl,
+        child: Scaffold(
+          backgroundColor: _boardNavy,
+          appBar: AppBar(
+            backgroundColor: _boardNavy,
+            foregroundColor: _boardGold,
+            title: const Text('تخته‌نرد سلطنتی'),
+          ),
+          body: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 440),
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Icon(Icons.workspace_premium, color: _boardGold, size: 64),
+                    const SizedBox(height: 16),
+                    const Text('روش بازی را انتخاب کنید',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: _boardGold, fontSize: 24, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 10),
+                    const Text('بازی آفلاین برای تمرین به اینترنت نیاز ندارد. برای رقابت با بازیکنان دیگر، بازی آنلاین را انتخاب کنید.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.white70, height: 1.5)),
+                    const SizedBox(height: 24),
+                    FilledButton.icon(
+                      onPressed: () {
+                        setState(() {
+                          _vsComputer = true;
+                          _modeChosen = true;
+                          _engine.reset();
+                          _message = 'بازی آفلاین با هوش مصنوعی؛ تاس بریزید.';
+                        });
+                      },
+                      icon: const Icon(Icons.psychology),
+                      label: const Text('بازی آفلاین با هوش مصنوعی'),
+                      style: FilledButton.styleFrom(backgroundColor: _boardGold, foregroundColor: _boardNavy, padding: const EdgeInsets.symmetric(vertical: 16)),
+                    ),
+                    const SizedBox(height: 12),
+                    OutlinedButton.icon(
+                      onPressed: () {
+                        Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const OnlineLobbyScreen()));
+                      },
+                      icon: const Icon(Icons.public),
+                      label: const Text('بازی آنلاین'),
+                      style: OutlinedButton.styleFrom(foregroundColor: _boardGold, side: const BorderSide(color: _boardGold), padding: const EdgeInsets.symmetric(vertical: 16)),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
 
   Widget _modeControls({bool compact = false}) => Container(
         padding: EdgeInsets.symmetric(
@@ -562,7 +627,9 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
           BoxShadow(color: Color(0x337D5A27), blurRadius: 2, spreadRadius: 1),
         ],
       ),
-      child: Column(
+      child: CustomPaint(
+        painter: _WoodGrainPainter(),
+        child: Column(
         children: [
           Expanded(
             child: Row(
@@ -630,6 +697,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
             ),
           ),
         ],
+        ),
       ),
     );
   }
@@ -715,14 +783,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
                       ),
                     ],
                   ),
-                  child: Text(
-                    '$die',
-                    style: TextStyle(
-                      color: _boardNavy,
-                      fontSize: compact ? 14 : 16,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
+                  child: _DiePips(value: die, pipSize: compact ? 4 : 5),
                 ),
               ))
           .toList(),
@@ -986,29 +1047,31 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
           children: [
             Expanded(
                 child: _scoreCard(
-                    'طلایی', _engine.borneOff[1], _engine.bar[1], _boardGold,
-                    compact: true)),
+                    _profileName(1), _engine.borneOff[1], _engine.bar[1], _boardGold,
+                    active: _engine.currentPlayer == 1, compact: true)),
             const SizedBox(height: 6),
             Expanded(
                 child: _scoreCard(
-                    'روشن', _engine.borneOff[0], _engine.bar[0], _boardLight,
-                    compact: true)),
+                    _profileName(-1), _engine.borneOff[0], _engine.bar[0], _boardLight,
+                    active: _engine.currentPlayer == -1, compact: true)),
           ],
         )
       : Row(
           children: [
             Expanded(
                 child: _scoreCard(
-                    'طلایی', _engine.borneOff[1], _engine.bar[1], _boardGold)),
+                    _profileName(1), _engine.borneOff[1], _engine.bar[1], _boardGold,
+                    active: _engine.currentPlayer == 1)),
             const SizedBox(width: 8),
             Expanded(
                 child: _scoreCard(
-                    'روشن', _engine.borneOff[0], _engine.bar[0], _boardLight)),
+                    _profileName(-1), _engine.borneOff[0], _engine.bar[0], _boardLight,
+                    active: _engine.currentPlayer == -1)),
           ],
         );
 
   Widget _scoreCard(String title, int off, int onBar, Color color,
-          {bool compact = false}) =>
+          {bool compact = false, bool active = false}) =>
       Container(
         width: double.infinity,
         padding: EdgeInsets.all(compact ? 6 : 10),
@@ -1017,22 +1080,99 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
             borderRadius: BorderRadius.circular(10)),
         child: Row(
           children: [
-            _checker(color == _boardGold ? 1 : -1, size: compact ? 15 : 18),
+            CircleAvatar(
+              radius: compact ? 12 : 16,
+              backgroundColor: color.withValues(alpha: .18),
+              child: Icon(Icons.person_rounded, color: color, size: compact ? 15 : 20),
+            ),
             SizedBox(width: compact ? 4 : 7),
             Expanded(
-                child: Text('$title\nخارج: $off · بار: $onBar',
-                    style:
-                        TextStyle(fontSize: compact ? 10 : 12, height: 1.25))),
-            Text('$off/15',
-                style: TextStyle(
-                    color: color,
-                    fontWeight: FontWeight.bold,
-                    fontSize: compact ? 11 : 14)),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: TextStyle(color: color, fontWeight: FontWeight.w800, fontSize: compact ? 10 : 12)),
+                  Text(
+                    _vsComputer
+                        ? (title == 'هوش مصنوعی' ? 'حریف رایانه‌ای' : 'بازیکن شما')
+                        : 'بازیکن محلی',
+                    style: TextStyle(color: Colors.white54, fontSize: compact ? 8 : 10),
+                    maxLines: 1, overflow: TextOverflow.ellipsis,
+                  ),
+                  Text('خارج: $off · بار: $onBar', style: TextStyle(color: Colors.white70, fontSize: compact ? 9 : 11)),
+                  if (active && !_engine.finished)
+                    Text('نوبت فعلی', style: TextStyle(color: _boardGold, fontSize: compact ? 8 : 10, fontWeight: FontWeight.bold)),
+                ],
+              ),
+            ),
+            Text('$off/15', style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: compact ? 10 : 13)),
           ],
         ),
       );
 }
 
+
+class _WoodGrainPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.65
+      ..color = const Color(0xFFD8B45A).withValues(alpha: 0.07);
+    for (var i = 0; i < 18; i++) {
+      final y = size.height * (i + 1) / 19;
+      final path = Path()..moveTo(0, y);
+      path.cubicTo(size.width * .22, y - 4, size.width * .38, y + 3, size.width * .58, y);
+      path.cubicTo(size.width * .74, y - 2, size.width * .86, y + 2, size.width, y - 1);
+      canvas.drawPath(path, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _WoodGrainPainter oldDelegate) => false;
+}
+
+class _DiePips extends StatelessWidget {
+  const _DiePips({required this.value, required this.pipSize});
+  final int value;
+  final double pipSize;
+
+  @override
+  Widget build(BuildContext context) {
+    const center = Alignment.center;
+    const topLeft = Alignment(-0.58, -0.58);
+    const topRight = Alignment(0.58, -0.58);
+    const bottomLeft = Alignment(-0.58, 0.58);
+    const bottomRight = Alignment(0.58, 0.58);
+    const middleLeft = Alignment(-0.58, 0);
+    const middleRight = Alignment(0.58, 0);
+    final positions = switch (value) {
+      1 => const [center],
+      2 => const [topLeft, bottomRight],
+      3 => const [topLeft, center, bottomRight],
+      4 => const [topLeft, topRight, bottomLeft, bottomRight],
+      5 => const [topLeft, topRight, center, bottomLeft, bottomRight],
+      _ => const [topLeft, topRight, middleLeft, middleRight, bottomLeft, bottomRight],
+    };
+    return Stack(
+      children: [
+        for (final position in positions)
+          Align(
+            alignment: position,
+            child: Container(
+              width: pipSize,
+              height: pipSize,
+              decoration: BoxDecoration(
+                color: const Color(0xFF172033),
+                shape: BoxShape.circle,
+                boxShadow: const [BoxShadow(color: Colors.black38, blurRadius: 1, offset: Offset(0, 1))],
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
 
 /// Draws the alternating, pointed inlays that define a traditional backgammon
 /// board. The top row points down; the bottom row points up.

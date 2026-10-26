@@ -25,10 +25,18 @@ void main() {
 
     await tester.pumpWidget(const MaterialApp(home: EngineBackgammonScreen()));
     await tester.pump();
+    expect(find.text('روش بازی را انتخاب کنید'), findsOneWidget);
+    await tester.tap(find.text('بازی آفلاین با هوش مصنوعی'));
+    await tester.pumpAndSettle();
 
     expect(find.text('تخته‌نرد سلطنتی'), findsOneWidget);
     expect(find.text('بازی با هوش مصنوعی'), findsOneWidget);
     expect(find.text('تم صفحه بازی:'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('شروع مجدد'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(find.text('شروع مجدد'), findsOneWidget);
     await tester.scrollUntilVisible(
       find.text('نسخه آزمایشی محلی · بازی با هوش مصنوعی یا دونفره روی یک دستگاه'),
@@ -48,6 +56,8 @@ void main() {
 
     await tester.pumpWidget(const MaterialApp(home: EngineBackgammonScreen()));
     await tester.pump();
+    await tester.tap(find.text('بازی آفلاین با هوش مصنوعی'));
+    await tester.pumpAndSettle();
 
     await tester.tap(find.text('بازی دونفره'));
     await tester.pump();
