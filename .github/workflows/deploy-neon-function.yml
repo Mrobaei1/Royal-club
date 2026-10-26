@@ -326,7 +326,7 @@ jobs:
 
             const createMatchResponse = await fetch(`${base}/api/v1/matches`, {
               method: 'POST',
-              headers: { authorization: `${firstToken}` },
+              headers: { authorization: `Bearer ${firstToken}` },
             });
             if (createMatchResponse.status !== 201) {
               throw new Error(`Match creation failed with status ${createMatchResponse.status}: ${await createMatchResponse.text()}`);
@@ -336,7 +336,7 @@ jobs:
 
             const joinMatchResponse = await fetch(`${base}/api/v1/matches/${matchId}/join`, {
               method: 'POST',
-              headers: { authorization: `${secondToken}` },
+              headers: { authorization: `Bearer ${secondToken}` },
             });
             if (joinMatchResponse.status !== 200) {
               throw new Error(`Joining match failed with status ${joinMatchResponse.status}: ${await joinMatchResponse.text()}`);
@@ -345,7 +345,7 @@ jobs:
             if (joinedMatch.status !== 'active') throw new Error('Match did not become active after the second player joined.');
 
             const stateResponse = await fetch(`${base}/api/v1/matches/${matchId}/state`, {
-              headers: { authorization: `${firstToken}` },
+              headers: { authorization: `Bearer ${firstToken}` },
             });
             const initialState = (await stateResponse.json()).state;
             if (stateResponse.status !== 200 || initialState?.status !== 'active' ||
