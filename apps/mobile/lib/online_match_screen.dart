@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'profile_avatar.dart';
 import 'services/match_service.dart';
 
 const _matchGold = Color(0xFFD8B45A);
@@ -18,6 +19,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
   Timer? _poller;
   int _refreshSequence = 0;
   Map<String, dynamic>? _state;
+  Map<String, dynamic> _matchDetails = {};
   bool _busy = false;
   bool _refreshing = false;
   bool _connectionLost = false;
@@ -34,6 +36,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
   @override
   void initState() {
     super.initState();
+    _matchDetails = Map<String, dynamic>.from(widget.match);
     _refresh();
     _poller = Timer.periodic(const Duration(seconds: 3), (_) => _refresh(silent: true));
   }
@@ -53,6 +56,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
       if (sequence != _refreshSequence) {
         return;
       }
+      if (mounted) setState(() => _matchDetails = Map<String, dynamic>.from(match));
       if (match['status'] == 'active' || match['status'] == 'finished') {
         final state = await MatchService.getState(_id);
         if (sequence != _refreshSequence) {
@@ -347,6 +351,30 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
                 Text(_state == null ? 'این صفحه به‌صورت خودکار هر ۳ ثانیه وضعیت اتاق را بررسی می‌کند.' : 'نسخه وضعیت: ${_state!['version']}',
                   style: const TextStyle(color: Colors.white70)),
               ]),
+            ),
+            const SizedBox(height: 12),
+            Card(
+              color: _matchPanel,
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Row(
+                  children: [
+                    Expanded(child: Column(children: [
+                      RoyalAvatar(dataUrl: _matchDetails['hostAvatarDataUrl']?.toString(), radius: 25),
+                      const SizedBox(height: 5),
+                      Text(_matchDetails['hostName']?.toString() ?? 'میزبان', textAlign: TextAlign.center,
+                        style: const TextStyle(color: Colors.white70), maxLines: 1, overflow: TextOverflow.ellipsis),
+                    ])),
+                    const Padding(padding: EdgeInsets.symmetric(horizontal: 8), child: Text('در برابر', style: TextStyle(color: _matchGold))),
+                    Expanded(child: Column(children: [
+                      RoyalAvatar(dataUrl: _matchDetails['guestAvatarDataUrl']?.toString(), radius: 25),
+                      const SizedBox(height: 5),
+                      Text(_matchDetails['guestName']?.toString() ?? 'در انتظار حریف', textAlign: TextAlign.center,
+                        style: const TextStyle(color: Colors.white70), maxLines: 1, overflow: TextOverflow.ellipsis),
+                    ])),
+                  ],
+                ),
+              ),
             ),
             if (_state != null) ...[
               const SizedBox(height: 16),
