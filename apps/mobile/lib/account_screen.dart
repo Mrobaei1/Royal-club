@@ -168,7 +168,7 @@ class _AccountScreenState extends State<AccountScreen> {
                 decoration: const InputDecoration(labelText: 'شماره تلفن', border: OutlineInputBorder())),
               const SizedBox(height: 14),
               DropdownButtonFormField<String>(
-                value: countries.containsKey(country) ? country : 'Other',
+                initialValue: countries.containsKey(country) ? country : 'Other',
                 decoration: const InputDecoration(labelText: 'کشور', border: OutlineInputBorder()),
                 items: countries.entries.map((entry) => DropdownMenuItem<String>(value: entry.key, child: Text(entry.value))).toList(),
                 onChanged: (value) { if (value != null) setDialogState(() => country = value); },
