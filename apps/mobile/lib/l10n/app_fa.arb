@@ -212,5 +212,11 @@
   "bearOffShort": "خارج",
   "@congratulationsWinner": {"placeholders": {"player": {"type": "String"}}},
   "@moveDoneRemainingDice": {"placeholders": {"dice": {"type": "String"}}},
-  "@computerTurnDice": {"placeholders": {"dice": {"type": "String"}}}
+  "@computerTurnDice": {"placeholders": {"dice": {"type": "String"}}},
+  "turnRolledDice": "نوبت {player} · تاس: {dice}",
+  "turnChangedPlayer": "حرکتی نبود؛ نوبت {player} است.",
+  "turnRollPrompt": "نوبت {player} است؛ تاس بریزید.",
+  "@turnRolledDice": {"placeholders": {"player": {"type": "String"}, "dice": {"type": "String"}}},
+  "@turnChangedPlayer": {"placeholders": {"player": {"type": "String"}}},
+  "@turnRollPrompt": {"placeholders": {"player": {"type": "String"}}}
 }
