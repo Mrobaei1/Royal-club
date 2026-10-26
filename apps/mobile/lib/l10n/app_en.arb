@@ -79,5 +79,19 @@
   "usernameNotFound": "This username was not found.",
   "friendRequestSent": "Friend request sent.",
   "requestAccepted": "Request accepted.",
-  "relationshipRemoved": "Connection removed."
+  "relationshipRemoved": "Connection removed.",
+  "editUsername": "Change username",
+  "cancel": "Cancel",
+  "save": "Save",
+  "usernameRules": "3–24 characters; English letters, numbers, dots, or underscores",
+  "notSet": "Not set",
+  "accountInfo": "Account information",
+  "fullNameLabel": "Full name",
+  "emailLabel": "Email",
+  "phoneLabel": "Phone",
+  "countryLabel": "Country",
+  "userIdLabel": "User ID",
+  "editUsernameTooltip": "Edit username",
+  "logout": "Log out",
+  "accountTitle": "Account"
 }
