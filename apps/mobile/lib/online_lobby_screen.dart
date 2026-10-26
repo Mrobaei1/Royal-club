@@ -69,9 +69,11 @@ class _OnlineLobbyScreenState extends State<OnlineLobbyScreen> {
   Future<String?> _chooseFriendToInvite() async {
     final friends = await MatchService.friends();
     if (!mounted || friends.isEmpty) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('برای دعوت مستقیم، ابتدا باید دوستی پذیرفته‌شده داشته باشید. می‌توانید کد اتاق را هم به اشتراک بگذارید.')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('برای دعوت مستقیم، ابتدا باید دوستی پذیرفته‌شده داشته باشید. می‌توانید کد اتاق را هم به اشتراک بگذارید.')),
+        );
+      }
       return null;
     }
     return showDialog<String>(
@@ -114,11 +116,12 @@ class _OnlineLobbyScreenState extends State<OnlineLobbyScreen> {
   });
 
   Future<void> _respondToInvite(Map<String, dynamic> invite, {required bool accept}) => _run(() async {
+    final navigator = Navigator.of(context);
     final response = await MatchService.respondToInvite(invite['id'].toString(), accept: accept);
     if (!mounted) return;
     if (accept && response['match'] is Map) {
       final match = Map<String, dynamic>.from(response['match'] as Map);
-      await Navigator.of(context).push(MaterialPageRoute<void>(
+      await navigator.push(MaterialPageRoute<void>(
         builder: (_) => OnlineMatchScreen(match: match),
       ));
     }
