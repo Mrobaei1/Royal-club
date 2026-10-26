@@ -62,11 +62,49 @@ class _AccountScreenState extends State<AccountScreen> {
     setState(() { _loading = true; _error = null; });
     try {
       final updated = await AuthService.updateUsername(picked);
-      if (mounted) setState(() { _user?['username'] = updated['username']; _loading = false; });
+      if (mounted) setState(() { _user?['username'] = (updated['user'] as Map?)?['username'] ?? _user?['username']; _loading = false; });
     } catch (error) {
       if (mounted) setState(() { _error = error.toString().replaceFirst('Exception: ', ''); _loading = false; });
     }
   }
+  Future<void> _editProfile() async {
+    final name = TextEditingController(text: _user?['fullName']?.toString() ?? '');
+    final phone = TextEditingController(text: _user?['phone']?.toString() ?? '');
+    final country = TextEditingController(text: _user?['country']?.toString() ?? '');
+    final picked = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: _accountPanel,
+        title: const Text('ویرایش مشخصات'),
+        content: SingleChildScrollView(
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            TextField(controller: name, decoration: const InputDecoration(labelText: 'نام کامل')),
+            TextField(controller: phone, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: 'شماره تلفن')),
+            TextField(controller: country, decoration: const InputDecoration(labelText: 'کشور')),
+          ]),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('انصراف')),
+          FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('ذخیره')),
+        ],
+      ),
+    );
+    if (picked != true || !mounted) {
+      name.dispose(); phone.dispose(); country.dispose();
+      return;
+    }
+    setState(() { _loading = true; _error = null; });
+    try {
+      final result = await AuthService.updateProfile(fullName: name.text, phone: phone.text, country: country.text);
+      final updatedUser = result['user'];
+      if (mounted && updatedUser is Map) setState(() { _user = Map<String, dynamic>.from(updatedUser); _loading = false; });
+    } catch (error) {
+      if (mounted) setState(() { _error = error.toString().replaceFirst('Exception: ', ''); _loading = false; });
+    } finally {
+      name.dispose(); phone.dispose(); country.dispose();
+    }
+  }
+
   Widget _detail(IconData icon, String label, String value) => Card(
         color: _accountPanel,
         child: ListTile(
@@ -110,6 +148,8 @@ class _AccountScreenState extends State<AccountScreen> {
                             textAlign: TextAlign.center,
                             style: const TextStyle(color: Colors.redAccent)),
                       if (_user != null) ...[
+                        FilledButton.icon(onPressed: _editProfile, icon: const Icon(Icons.edit_outlined), label: const Text('ویرایش مشخصات'), style: FilledButton.styleFrom(backgroundColor: _accountGold, foregroundColor: _accountNavy)),
+                        const SizedBox(height: 12),
                         Card(
                           color: _accountPanel,
                           child: ListTile(
