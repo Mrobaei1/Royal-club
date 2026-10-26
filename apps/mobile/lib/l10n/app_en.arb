@@ -209,5 +209,8 @@
   "gameOverTitle": "Game over",
   "playAgain": "Play again",
   "exitGame": "Exit game",
-  "bearOffShort": "Off"
+  "bearOffShort": "Off",
+  "@congratulationsWinner": {"placeholders": {"player": {"type": "String"}}},
+  "@moveDoneRemainingDice": {"placeholders": {"dice": {"type": "String"}}},
+  "@computerTurnDice": {"placeholders": {"dice": {"type": "String"}}}
 }
