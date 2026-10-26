@@ -260,9 +260,9 @@ class _HomeScreenState extends State<HomeScreen> {
     return Container(
       constraints: const BoxConstraints(minWidth: 19, minHeight: 19),
       padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-      decoration: const BoxDecoration(
-        color: Color(0xFFE53935),
-        shape: BoxShape.circle,
+      decoration: BoxDecoration(
+        color: const Color(0xFFE53935),
+        borderRadius: BorderRadius.circular(10),
       ),
       alignment: Alignment.center,
       child: Text(
