@@ -85,7 +85,7 @@ jobs:
           fi
 
       - name: Upload installable APK
-        if: github.event_name == 'workflow_dispatch' && inputs.build_apk == true
+        if: (github.event_name == 'push' && github.ref == 'refs/heads/stage2/localize-auth-validation') || (github.event_name == 'workflow_dispatch' && inputs.build_apk == true)
         uses: actions/upload-artifact@v4
         with:
           name: royal-club-android-apk
