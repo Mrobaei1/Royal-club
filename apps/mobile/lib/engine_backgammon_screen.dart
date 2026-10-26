@@ -108,6 +108,10 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
 
   String _playerName(int player) => player == 1 ? 'طلایی' : 'روشن';
 
+  String _profileName(int player) => _vsComputer
+      ? (player == 1 ? 'شما' : 'هوش مصنوعی')
+      : (player == 1 ? 'بازیکن ۱' : 'بازیکن ۲');
+
   void _tapPoint(int point) {
     if (_computerThinking || (_vsComputer && _engine.currentPlayer == -1)) {
       return;
@@ -1063,29 +1067,31 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
           children: [
             Expanded(
                 child: _scoreCard(
-                    'طلایی', _engine.borneOff[1], _engine.bar[1], _boardGold,
-                    compact: true)),
+                    _profileName(1), _engine.borneOff[1], _engine.bar[1], _boardGold,
+                    active: _engine.currentPlayer == 1, compact: true)),
             const SizedBox(height: 6),
             Expanded(
                 child: _scoreCard(
-                    'روشن', _engine.borneOff[0], _engine.bar[0], _boardLight,
-                    compact: true)),
+                    _profileName(-1), _engine.borneOff[0], _engine.bar[0], _boardLight,
+                    active: _engine.currentPlayer == -1, compact: true)),
           ],
         )
       : Row(
           children: [
             Expanded(
                 child: _scoreCard(
-                    'طلایی', _engine.borneOff[1], _engine.bar[1], _boardGold)),
+                    _profileName(1), _engine.borneOff[1], _engine.bar[1], _boardGold,
+                    active: _engine.currentPlayer == 1)),
             const SizedBox(width: 8),
             Expanded(
                 child: _scoreCard(
-                    'روشن', _engine.borneOff[0], _engine.bar[0], _boardLight)),
+                    _profileName(-1), _engine.borneOff[0], _engine.bar[0], _boardLight,
+                    active: _engine.currentPlayer == -1)),
           ],
         );
 
   Widget _scoreCard(String title, int off, int onBar, Color color,
-          {bool compact = false}) =>
+          {bool compact = false, bool active = false}) =>
       Container(
         width: double.infinity,
         padding: EdgeInsets.all(compact ? 6 : 10),
@@ -1094,12 +1100,15 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
             borderRadius: BorderRadius.circular(10)),
         child: Row(
           children: [
-            _checker(color == _boardGold ? 1 : -1, size: compact ? 15 : 18),
+            CircleAvatar(
+              radius: compact ? 12 : 15,
+              backgroundColor: active ? color : color.withValues(alpha: .18),
+              child: Icon(Icons.person, size: compact ? 14 : 18, color: active ? _boardNavy : color),
+            ),
             SizedBox(width: compact ? 4 : 7),
             Expanded(
-                child: Text('$title\nخارج: $off · بار: $onBar',
-                    style:
-                        TextStyle(fontSize: compact ? 10 : 12, height: 1.25))),
+                child: Text('$title · ${active ? 'نوبت شما' : 'منتظر نوبت'}\nخارج: $off · بار: $onBar',
+                    style: TextStyle(fontSize: compact ? 10 : 12, height: 1.25, fontWeight: active ? FontWeight.bold : FontWeight.normal))),
             Text('$off/15',
                 style: TextStyle(
                     color: color,
