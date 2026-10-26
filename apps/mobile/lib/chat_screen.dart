@@ -33,7 +33,7 @@ class _ChatScreenState extends State<ChatScreen> {
       appBar: AppBar(title: Text(AppLocalizations.of(context)!.chatTitle), actions: [IconButton(onPressed: _load, icon: const Icon(Icons.refresh))]),
       body: _loading ? const Center(child: CircularProgressIndicator())
         : _error != null ? Center(child: Padding(padding: const EdgeInsets.all(24), child: Text(_error!, textAlign: TextAlign.center)))
-        : _conversations.isEmpty ? const Center(child: Padding(padding: EdgeInsets.all(24), child: Text(AppLocalizations.of(context)!.startChatEmpty)))
+        : _conversations.isEmpty ? Center(child: Padding(padding: const EdgeInsets.all(24), child: Text(AppLocalizations.of(context)!.startChatEmpty)))
         : RefreshIndicator(onRefresh: _load, child: ListView.separated(
           itemCount: _conversations.length,
           separatorBuilder: (_, __) => const Divider(height: 1),
@@ -111,7 +111,7 @@ class _ChatThreadScreenState extends State<ChatThreadScreen> {
           minLines: 2,
           maxLines: 5,
           maxLength: 1000,
-          decoration: const InputDecoration(
+          decoration: InputDecoration(
             hintText: AppLocalizations.of(context)!.reportReasonHint,
             border: OutlineInputBorder(),
           ),
@@ -188,7 +188,7 @@ class _ChatThreadScreenState extends State<ChatThreadScreen> {
             },
           )),
         SafeArea(child: Padding(padding: const EdgeInsets.all(10), child: Row(children: [
-          Expanded(child: TextField(controller: _composer, minLines: 1, maxLines: 4, maxLength: 2000, decoration: const InputDecoration(hintText: AppLocalizations.of(context)!.writeMessage, border: OutlineInputBorder(), counterText: ''))),
+          Expanded(child: TextField(controller: _composer, minLines: 1, maxLines: 4, maxLength: 2000, decoration: InputDecoration(hintText: AppLocalizations.of(context)!.writeMessage, border: OutlineInputBorder(), counterText: ''))),
           const SizedBox(width: 8),
           IconButton.filled(onPressed: _sending ? null : _send, icon: const Icon(Icons.send)),
         ]))),
