@@ -39,5 +39,10 @@
   "countryUnitedKingdom": "بریتانیا",
   "countryTurkey": "ترکیه",
   "countryUnitedArabEmirates": "امارات متحده عربی",
-  "countryOther": "سایر کشورها"
+  "countryOther": "سایر کشورها",
+  "classicCompetitiveGame": "بازی کلاسیک و رقابتی",
+  "onlinePlaySubtitle": "ساخت اتاق و پیوستن به حریف",
+  "comingSoon": "به‌زودی",
+  "languageMenu": "زبان / Language",
+  "appThemeMenu": "پوسته برنامه"
 }
