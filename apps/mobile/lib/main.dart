@@ -552,7 +552,7 @@ class _AuthScreenState extends State<AuthScreen> {
                     const SizedBox(height: 14),
                     DropdownButtonFormField<String>(initialValue: _country,
                       decoration: InputDecoration(labelText: AppLocalizations.of(context)!.country, border: const OutlineInputBorder(), prefixIcon: const Icon(Icons.public_outlined)),
-                      items: const [
+                      items: [
                         DropdownMenuItem(value: 'Germany', child: Text(AppLocalizations.of(context)!.countryGermany)),
                         DropdownMenuItem(value: 'Iran', child: Text(AppLocalizations.of(context)!.countryIran)),
                         DropdownMenuItem(value: 'United States', child: Text(AppLocalizations.of(context)!.countryUnitedStates)),
