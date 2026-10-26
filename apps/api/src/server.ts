@@ -183,6 +183,15 @@ await pool.query(`
   ALTER TABLE backgammon_matches ALTER COLUMN board_state SET DEFAULT '${JSON.stringify(INITIAL_BACKGAMMON_BOARD)}'::jsonb;
   CREATE INDEX IF NOT EXISTS backgammon_matches_waiting_idx ON backgammon_matches (created_at DESC) WHERE status = 'waiting';
   CREATE INDEX IF NOT EXISTS backgammon_matches_players_idx ON backgammon_matches (host_user_id, guest_user_id, status);
+  ALTER TABLE backgammon_matches ADD COLUMN IF NOT EXISTS match_to_win INTEGER NOT NULL DEFAULT 1 CHECK (match_to_win IN (1, 3, 5));
+  ALTER TABLE backgammon_matches ADD COLUMN IF NOT EXISTS host_settings_accepted BOOLEAN NOT NULL DEFAULT TRUE;
+  ALTER TABLE backgammon_matches ADD COLUMN IF NOT EXISTS guest_settings_accepted BOOLEAN NOT NULL DEFAULT FALSE;
+  ALTER TABLE backgammon_matches ADD COLUMN IF NOT EXISTS host_ready BOOLEAN NOT NULL DEFAULT FALSE;
+  ALTER TABLE backgammon_matches ADD COLUMN IF NOT EXISTS guest_ready BOOLEAN NOT NULL DEFAULT FALSE;
+  ALTER TABLE backgammon_matches ADD COLUMN IF NOT EXISTS host_game_wins INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE backgammon_matches ADD COLUMN IF NOT EXISTS guest_game_wins INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE backgammon_matches ADD COLUMN IF NOT EXISTS cancellation_proposed_by BIGINT REFERENCES users(id) ON DELETE SET NULL;
+  ALTER TABLE backgammon_matches ADD COLUMN IF NOT EXISTS cancellation_accepted_by BIGINT REFERENCES users(id) ON DELETE SET NULL;
   CREATE TABLE IF NOT EXISTS backgammon_player_stats (
     user_id BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
     rating INTEGER NOT NULL DEFAULT 1000 CHECK (rating >= 0),
@@ -1126,9 +1135,10 @@ app.post<{ Params: { id: string } }>('/api/v1/matches/:id/join', { onRequest: [r
       return reply.code(409).send({ error: 'This match is already full.' });
     }
     if (match.status === 'waiting') await client.query(
-      `UPDATE backgammon_matches SET guest_user_id = $1, status = 'active',
-              current_turn_user_id = host_user_id, dice = '[]'::jsonb,
-              remaining_dice = '[]'::jsonb, state_version = 0, updated_at = NOW()
+      `UPDATE backgammon_matches SET guest_user_id = $1, status = 'waiting',
+              guest_settings_accepted = FALSE, host_ready = FALSE, guest_ready = FALSE,
+              cancellation_proposed_by = NULL, cancellation_accepted_by = NULL,
+              updated_at = NOW()
          WHERE id = $2`,
       [claims.sub, match.id]);
     await client.query('COMMIT');
@@ -1160,6 +1170,142 @@ app.get<{ Params: { id: string } }>('/api/v1/matches/:id', { onRequest: [require
   if (!result.rowCount) return reply.code(404).send({ error: 'Match not found.' });
   return { match: result.rows[0] };
 });
+
+// Match setup is a server-authoritative two-player handshake. A match becomes active
+// only after both players accept the same target and both are ready.
+app.post<{ Params: { id: string }; Body: { matchToWin?: number; acceptSettings?: boolean; ready?: boolean } }>(
+  '/api/v1/matches/:id/setup',
+  { onRequest: [requireMatchAuth] },
+  async (request, reply) => {
+    const claims = request.user as { sub: string };
+    const { matchToWin, acceptSettings, ready } = request.body ?? {};
+    if (!isNumericId(request.params.id)) return reply.code(400).send({ error: 'Invalid match id.' });
+    if (matchToWin !== undefined && ![1, 3, 5].includes(matchToWin)) {
+      return reply.code(400).send({ error: 'Match to win must be 1, 3, or 5.' });
+    }
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const found = await client.query(
+        `SELECT id, host_user_id, guest_user_id, status, match_to_win,
+                host_settings_accepted, guest_settings_accepted, host_ready, guest_ready
+           FROM backgammon_matches WHERE id = $1 AND expires_at > NOW() FOR UPDATE`,
+        [request.params.id]);
+      const m = found.rows[0] as any;
+      if (!m || ![m.host_user_id, m.guest_user_id].includes(claims.sub) || !m.guest_user_id) {
+        await client.query('ROLLBACK');
+        return reply.code(404).send({ error: 'Match with two players not found.' });
+      }
+      if (m.status !== 'waiting') {
+        await client.query('ROLLBACK');
+        return reply.code(409).send({ error: 'Match setup is already closed.' });
+      }
+      const isHost = m.host_user_id === claims.sub;
+      if (matchToWin !== undefined && !isHost) {
+        await client.query('ROLLBACK');
+        return reply.code(403).send({ error: 'Only the host can change Match to Win.' });
+      }
+      if (matchToWin !== undefined && matchToWin !== m.match_to_win) {
+        await client.query(
+          `UPDATE backgammon_matches SET match_to_win = $1,
+             host_settings_accepted = TRUE, guest_settings_accepted = FALSE,
+             host_ready = FALSE, guest_ready = FALSE, updated_at = NOW()
+           WHERE id = $2`, [matchToWin, request.params.id]);
+      } else {
+        const acceptedColumn = isHost ? 'host_settings_accepted' : 'guest_settings_accepted';
+        const readyColumn = isHost ? 'host_ready' : 'guest_ready';
+        const updates: string[] = [];
+        const values: unknown[] = [];
+        if (acceptSettings === true) updates.push(`${acceptedColumn} = TRUE`);
+        if (ready !== undefined) {
+          if (ready && !(isHost ? m.host_settings_accepted : m.guest_settings_accepted) && acceptSettings !== true) {
+            await client.query('ROLLBACK');
+            return reply.code(409).send({ error: 'Accept the match settings before becoming ready.' });
+          }
+          values.push(Boolean(ready));
+          updates.push(`${readyColumn} = ${values.length}`);
+        }
+        if (updates.length) {
+          updates.push('updated_at = NOW()');
+          values.push(request.params.id);
+          await client.query(`UPDATE backgammon_matches SET ${updates.join(', ')} WHERE id = ${values.length}`, values);
+        }
+      }
+      const current = await client.query(
+        `SELECT match_to_win, host_settings_accepted, guest_settings_accepted, host_ready, guest_ready
+           FROM backgammon_matches WHERE id = $1 FOR UPDATE`, [request.params.id]);
+      const setup = current.rows[0];
+      let status = 'waiting';
+      if (setup.host_settings_accepted && setup.guest_settings_accepted && setup.host_ready && setup.guest_ready) {
+        await client.query(
+          `UPDATE backgammon_matches SET status = 'active', current_turn_user_id = host_user_id,
+             dice = '[]'::jsonb, remaining_dice = '[]'::jsonb, state_version = 0,
+             updated_at = NOW() WHERE id = $1 AND status = 'waiting'`, [request.params.id]);
+        status = 'active';
+      }
+      await client.query('COMMIT');
+      return { setup: { ...setup, status } };
+    } catch (error) {
+      await client.query('ROLLBACK').catch(() => undefined);
+      request.log.error({ err: error }, 'Could not update match setup');
+      return reply.code(500).send({ error: 'Could not update match setup.' });
+    } finally { client.release(); }
+  });
+
+app.post<{ Params: { id: string }; Body: { accept: boolean } }>(
+  '/api/v1/matches/:id/cancellation',
+  { onRequest: [requireMatchAuth] },
+  async (request, reply) => {
+    const claims = request.user as { sub: string };
+    if (!isNumericId(request.params.id) || typeof request.body?.accept !== 'boolean') {
+      return reply.code(400).send({ error: 'Provide a valid match id and accept boolean.' });
+    }
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const found = await client.query(
+        `SELECT id, host_user_id, guest_user_id, status, cancellation_proposed_by, cancellation_accepted_by
+           FROM backgammon_matches WHERE id = $1 AND expires_at > NOW() FOR UPDATE`,
+        [request.params.id]);
+      const m = found.rows[0] as any;
+      if (!m || ![m.host_user_id, m.guest_user_id].includes(claims.sub) || !m.guest_user_id) {
+        await client.query('ROLLBACK');
+        return reply.code(404).send({ error: 'Match not found.' });
+      }
+      if (!['waiting', 'active'].includes(m.status)) {
+        await client.query('ROLLBACK');
+        return reply.code(409).send({ error: 'This match cannot be cancelled.' });
+      }
+      if (m.cancellation_proposed_by == null) {
+        await client.query(
+          'UPDATE backgammon_matches SET cancellation_proposed_by = $1, cancellation_accepted_by = NULL, updated_at = NOW() WHERE id = $2',
+          [claims.sub, request.params.id]);
+        await client.query('COMMIT');
+        return { cancellation: { status: 'proposed', proposedBy: claims.sub } };
+      }
+      if (m.cancellation_proposed_by === claims.sub) {
+        await client.query('ROLLBACK');
+        return reply.code(409).send({ error: 'Your cancellation proposal is awaiting the other player.' });
+      }
+      if (!request.body.accept) {
+        await client.query(
+          'UPDATE backgammon_matches SET cancellation_proposed_by = NULL, cancellation_accepted_by = NULL, updated_at = NOW() WHERE id = $1',
+          [request.params.id]);
+        await client.query('COMMIT');
+        return { cancellation: { status: 'rejected' } };
+      }
+      await client.query(
+        `UPDATE backgammon_matches SET status = 'cancelled', cancellation_accepted_by = $1,
+           cancellation_proposed_by = NULL, updated_at = NOW() WHERE id = $2`,
+        [claims.sub, request.params.id]);
+      await client.query('COMMIT');
+      return { cancellation: { status: 'cancelled' } };
+    } catch (error) {
+      await client.query('ROLLBACK').catch(() => undefined);
+      request.log.error({ err: error }, 'Could not process match cancellation');
+      return reply.code(500).send({ error: 'Could not process match cancellation.' });
+    } finally { client.release(); }
+  });
 
 // Apply a sequence of die-sized moves atomically. Any invalid step rolls back the entire sequence.
 app.post<{ Params: { id: string }; Body: { moves: Array<{ from: number | null; to: number | null; die: number }>; expectedVersion: number } }>('/api/v1/matches/:id/moves/batch', { onRequest: [requireMatchAuth] }, async (request, reply) => {
