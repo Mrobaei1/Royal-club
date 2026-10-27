@@ -13,11 +13,14 @@ const _boardDark = Color(0xFF352B2A);
 
 /// Engine-connected local backgammon screen. No network or account required.
 class EngineBackgammonScreen extends StatefulWidget {
-  const EngineBackgammonScreen({super.key, this.engineForTesting});
+  const EngineBackgammonScreen({super.key, this.engineForTesting, this.vsComputerForTesting = true});
 
   /// Optional engine injection keeps rule-driven UI tests deterministic.
   @visibleForTesting
   final BackgammonEngine? engineForTesting;
+
+  @visibleForTesting
+  final bool vsComputerForTesting;
 
   @override
   State<EngineBackgammonScreen> createState() => _EngineBackgammonScreenState();
@@ -49,6 +52,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
   @override
   void initState() {
     super.initState();
+    _vsComputer = widget.vsComputerForTesting;
     _timerPlayer = _engine.currentPlayer;
     _lockLandscapeOnMobile();
   }
@@ -483,23 +487,6 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
     });
   }
 
-  void _changeMode(bool vsComputer) {
-    setState(() {
-      _vsComputer = vsComputer;
-      _engine.reset();
-      _gameOverDialogShown = false;
-      _computerThinking = false;
-      _selectedPoint = null;
-      _selectedBar = false;
-      _message = vsComputer
-          ? 'بازی با هوش مصنوعی؛ تاس بریزید.'
-          : 'بازی دونفره محلی؛ تاس بریزید.';
-      _timerPlayer = _engine.currentPlayer;
-      _secondsLeft = _turnLimitSeconds;
-    });
-    _startTurnTimer(reset: true);
-  }
-
   void _showGameOverDialog() {
     if (_gameOverDialogShown || !mounted || !_engine.finished) return;
     _gameOverDialogShown = true;
@@ -637,7 +624,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
                   ),
                   const SizedBox(height: 10),
                   Text(
-                    'نسخه آزمایشی محلی · بازی با هوش مصنوعی یا دونفره روی یک دستگاه',
+                    'نسخه آزمایشی محلی · تمرین با هوش مصنوعی',
                     textAlign: TextAlign.center,
                     style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.54), fontSize: 12),
                   ),
@@ -681,7 +668,6 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
                     FilledButton.icon(
                       onPressed: () {
                         setState(() {
-                          _vsComputer = true;
                           _modeChosen = true;
                           _engine.reset();
                           _message = 'بازی آفلاین با هوش مصنوعی؛ تاس بریزید.';
@@ -722,29 +708,6 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Wrap(alignment: WrapAlignment.center, spacing: 6, children: [
-              ChoiceChip(
-                label: Text(compact ? 'با هوش مصنوعی' : 'بازی با هوش مصنوعی',
-                    style: TextStyle(fontSize: compact ? 10 : 12)),
-                selected: _vsComputer,
-                onSelected: _computerThinking ? null : (_) => _changeMode(true),
-                selectedColor: Theme.of(context).colorScheme.primary,
-                labelStyle:
-                    TextStyle(color: _vsComputer ? Theme.of(context).colorScheme.surface : Theme.of(context).colorScheme.onSurface),
-                visualDensity: VisualDensity.compact,
-              ),
-              ChoiceChip(
-                label: Text(compact ? 'دونفره' : 'بازی دونفره',
-                    style: TextStyle(fontSize: compact ? 10 : 12)),
-                selected: !_vsComputer,
-                onSelected:
-                    _computerThinking ? null : (_) => _changeMode(false),
-                selectedColor: Theme.of(context).colorScheme.primary,
-                labelStyle:
-                    TextStyle(color: !_vsComputer ? Theme.of(context).colorScheme.surface : Theme.of(context).colorScheme.onSurface),
-                visualDensity: VisualDensity.compact,
-              ),
-            ]),
             Row(children: [
               Text('تم صفحه بازی:', style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7), fontSize: compact ? 10 : 12)),
               const SizedBox(width: 8),

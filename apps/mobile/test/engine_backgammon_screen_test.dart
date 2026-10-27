@@ -40,31 +40,23 @@ void main() {
     );
     expect(find.text('شروع مجدد'), findsOneWidget);
     await tester.scrollUntilVisible(
-      find.text('نسخه آزمایشی محلی · بازی با هوش مصنوعی یا دونفره روی یک دستگاه'),
+      find.text('نسخه آزمایشی محلی · تمرین با هوش مصنوعی'),
       300,
       scrollable: find.byType(Scrollable).first,
     );
-    expect(find.text('نسخه آزمایشی محلی · بازی با هوش مصنوعی یا دونفره روی یک دستگاه'),
+    expect(find.text('نسخه آزمایشی محلی · تمرین با هوش مصنوعی'),
         findsOneWidget);
   });
 
-  testWidgets('switching to local two-player mode updates the game status',
+  testWidgets('offline game does not expose a local two-player mode selector',
       (tester) async {
-    tester.view.physicalSize = const Size(390, 844);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
-
     await tester.pumpWidget(const MaterialApp(home: EngineBackgammonScreen()));
-    await tester.pump();
     await tester.tap(find.text('بازی آفلاین با هوش مصنوعی'));
     await tester.pumpAndSettle();
-
-    await tester.tap(find.text('بازی دونفره'));
-    await tester.pump();
-
-    expect(find.text('بازی دونفره محلی؛ تاس بریزید.'), findsOneWidget);
+    expect(find.text('بازی دونفره'), findsNothing);
+    expect(find.text('بازی با هوش مصنوعی'), findsNothing);
   });
+
   testWidgets('tapping a legal destination enters a checker directly from the bar',
       (tester) async {
     tester.view.physicalSize = const Size(390, 844);
@@ -74,11 +66,9 @@ void main() {
 
     final engine = BackgammonEngine();
     await tester.pumpWidget(
-      MaterialApp(home: EngineBackgammonScreen(engineForTesting: engine)),
+      MaterialApp(home: EngineBackgammonScreen(engineForTesting: engine, vsComputerForTesting: false)),
     );
     await tester.tap(find.text('بازی آفلاین با هوش مصنوعی'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('بازی دونفره'));
     await tester.pumpAndSettle();
     tester.view.physicalSize = const Size(900, 540);
     await tester.pumpAndSettle();
@@ -110,11 +100,9 @@ void main() {
 
     final engine = BackgammonEngine();
     await tester.pumpWidget(
-      MaterialApp(home: EngineBackgammonScreen(engineForTesting: engine)),
+      MaterialApp(home: EngineBackgammonScreen(engineForTesting: engine, vsComputerForTesting: false)),
     );
     await tester.tap(find.text('بازی آفلاین با هوش مصنوعی'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('بازی دونفره'));
     await tester.pumpAndSettle();
     tester.view.physicalSize = const Size(900, 540);
     await tester.pumpAndSettle();
@@ -153,10 +141,7 @@ void main() {
 
     expect(find.text('⏱ 20'), findsOneWidget);
 
-    await tester.tap(find.byWidgetPredicate((widget) => widget is Text && (widget.data == 'بازی دونفره' || widget.data == 'دونفره')));
-    await tester.pumpAndSettle();
-
-    expect(find.text('⏱ 20'), findsNWidgets(2));
+    expect(find.text('⏱ 20'), findsOneWidget);
   });
 
 
