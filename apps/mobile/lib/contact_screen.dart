@@ -51,7 +51,7 @@ class _ContactScreenState extends State<ContactScreen> {
           .where((r) => r['label']!.isNotEmpty && r['value']!.isNotEmpty).toList();
       await ContactService.save(methods);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('راه‌های ارتباطی ذخیره شد.')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(Localizations.localeOf(context).languageCode == 'en' ? 'Contact methods saved.' : 'راه‌های ارتباطی ذخیره شد.')));
       await _load();
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))));
@@ -71,17 +71,17 @@ class _ContactScreenState extends State<ContactScreen> {
           FilledButton(onPressed: _load, child: Text(Localizations.localeOf(context).languageCode == 'en' ? 'Try again' : 'تلاش دوباره')),
         ])))
       : ListView(padding: const EdgeInsets.all(18), children: [
-          Text(_owner ? 'راه‌های ارتباطی رسمی Royal Club را مدیریت کن. تغییرات ذخیره‌شده برای همه کاربران نمایش داده می‌شود.' : 'برای ارتباط با تیم مدیریت، از راه‌های رسمی زیر استفاده کن.',
+          Text(_owner ? (Localizations.localeOf(context).languageCode == 'en' ? 'Manage Royal Club’s official contact methods. Saved changes are visible to all users.' : 'راه‌های ارتباطی رسمی Royal Club را مدیریت کن. تغییرات ذخیره‌شده برای همه کاربران نمایش داده می‌شود.') : (Localizations.localeOf(context).languageCode == 'en' ? 'Use the official methods below to contact the management team.' : 'برای ارتباط با تیم مدیریت، از راه‌های رسمی زیر استفاده کن.'),
             style: TextStyle(color: theme.dark ? Colors.white70 : Colors.black87)),
           const SizedBox(height: 16),
-          if (_rows.isEmpty && !_owner) const Center(child: Padding(padding: EdgeInsets.all(24), child: Text('هنوز راه ارتباطی‌ای توسط مالک برنامه ثبت نشده است.'))),
+          if (_rows.isEmpty && !_owner) Center(child: Padding(padding: const EdgeInsets.all(24), child: Text(Localizations.localeOf(context).languageCode == 'en' ? 'The app owner has not added any contact methods yet.' : 'هنوز راه ارتباطی‌ای توسط مالک برنامه ثبت نشده است.'))),
           for (var i = 0; i < _rows.length; i++)
             Card(color: theme.panel, child: Padding(padding: const EdgeInsets.all(12), child: _owner
               ? Column(children: [
-                  TextField(controller: _rows[i].label, decoration: const InputDecoration(labelText: 'عنوان (مثلاً ایمیل پشتیبانی)')),
+                  TextField(controller: _rows[i].label, decoration: InputDecoration(labelText: Localizations.localeOf(context).languageCode == 'en' ? 'Label (e.g. support email)' : 'عنوان (مثلاً ایمیل پشتیبانی)')),
                   const SizedBox(height: 8),
-                  TextField(controller: _rows[i].value, minLines: 1, maxLines: 3, decoration: const InputDecoration(labelText: 'آدرس یا شناسه ارتباطی')),
-                  Align(alignment: Alignment.centerLeft, child: IconButton(tooltip: 'حذف این مورد', onPressed: () => setState(() { final row = _rows.removeAt(i); row.label.dispose(); row.value.dispose(); }), icon: const Icon(Icons.delete_outline))),
+                  TextField(controller: _rows[i].value, minLines: 1, maxLines: 3, decoration: InputDecoration(labelText: Localizations.localeOf(context).languageCode == 'en' ? 'Contact address or handle' : 'آدرس یا شناسه ارتباطی')),
+                  Align(alignment: Alignment.centerLeft, child: IconButton(tooltip: Localizations.localeOf(context).languageCode == 'en' ? 'Remove this item' : 'حذف این مورد', onPressed: () => setState(() { final row = _rows.removeAt(i); row.label.dispose(); row.value.dispose(); }), icon: const Icon(Icons.delete_outline))),
                 ])
               : ListTile(contentPadding: EdgeInsets.zero, leading: Icon(Icons.contact_support_outlined, color: theme.accent),
                   title: Text(_rows[i].label.text, style: TextStyle(fontWeight: FontWeight.w700, color: theme.dark ? Colors.white : Colors.black)),
