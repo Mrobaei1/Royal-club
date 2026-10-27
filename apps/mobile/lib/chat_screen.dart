@@ -127,9 +127,9 @@ class _ChatThreadScreenState extends State<ChatThreadScreen> {
           minLines: 2,
           maxLines: 5,
           maxLength: 1000,
-          decoration: const InputDecoration(
+          decoration: InputDecoration(
             hintText: _isEnglish ? 'Describe the reason (at least 3 characters)' : 'دلیل گزارش را توضیح دهید (حداقل ۳ نویسه)',
-            border: OutlineInputBorder(),
+            border: const OutlineInputBorder(),
           ),
         ),
         actions: [
@@ -167,7 +167,9 @@ class _ChatThreadScreenState extends State<ChatThreadScreen> {
   Future<void> _editMessage(Map<String, dynamic> message) async {
     final id = message['id']?.toString();
     if (id == null || message['senderId']?.toString() != _myId || message['deletedForAll'] == true ||
-        (message['body']?.toString().startsWith('data:image/') ?? false)) return;
+        (message['body']?.toString().startsWith('data:image/') ?? false)) {
+      return;
+    }
     final controller = TextEditingController(text: message['body']?.toString() ?? '');
     final body = await showDialog<String>(
       context: context,
