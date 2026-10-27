@@ -222,6 +222,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
 
   void _playSequence(List<BackgammonMove> sequence) {
     var allPlayed = true;
+    final playerAtStart = _engine.currentPlayer;
     for (final move in sequence) {
       if (!_engine.playMove(move)) {
         allPlayed = false;
@@ -248,9 +249,6 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
     _scheduleComputerTurn();
   }
 
-  int movePlayer(BackgammonMove move) => move.fromBar
-      ? _engine.currentPlayer
-      : _engine.currentPlayer;
   void _tapBearOff() {
     if (_computerThinking || (_vsComputer && _engine.currentPlayer == -1)) {
       return;
