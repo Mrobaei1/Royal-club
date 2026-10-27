@@ -114,6 +114,41 @@ test('registered players can join an online match and history does not expose op
   });
   assert.equal(accepted.statusCode, 200, accepted.body);
 
+  const hostNotifications = await app.inject({
+    method: 'GET',
+    url: '/api/v1/notifications',
+    headers: auth(host.token),
+  });
+  const guestNotifications = await app.inject({
+    method: 'GET',
+    url: '/api/v1/notifications',
+    headers: auth(guest.token),
+  });
+  assert.equal(hostNotifications.statusCode, 200, hostNotifications.body);
+  assert.equal(guestNotifications.statusCode, 200, guestNotifications.body);
+  assert.ok((hostNotifications.json().notifications as Array<Record<string, unknown>>).length > 0);
+  assert.ok((guestNotifications.json().notifications as Array<Record<string, unknown>>).length > 0);
+
+  const clearHostNotifications = await app.inject({
+    method: 'DELETE',
+    url: '/api/v1/notifications',
+    headers: auth(host.token),
+  });
+  assert.equal(clearHostNotifications.statusCode, 200, clearHostNotifications.body);
+  assert.ok(clearHostNotifications.json().deleted > 0);
+  const hostNotificationsAfterClear = await app.inject({
+    method: 'GET',
+    url: '/api/v1/notifications',
+    headers: auth(host.token),
+  });
+  const guestNotificationsAfterClear = await app.inject({
+    method: 'GET',
+    url: '/api/v1/notifications',
+    headers: auth(guest.token),
+  });
+  assert.equal((hostNotificationsAfterClear.json().notifications as Array<Record<string, unknown>>).length, 0);
+  assert.ok((guestNotificationsAfterClear.json().notifications as Array<Record<string, unknown>>).length > 0);
+
   // Profile photos are exposed to accepted friends and private chat is free,
   // while the API still rejects messages to non-friends.
   const avatar = 'data:image/png;base64,aGVsbG8=';
