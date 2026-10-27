@@ -135,7 +135,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
     final displayName = username.isNotEmpty ? '@$username' : 'کاربر';
     final title = titleOverride ?? displayName;
     final subtitle = subtitleOverride ??
-        (username.isNotEmpty ? '@$username' : (user['email']?.toString() ?? ''));
+        (username.isNotEmpty ? '@$username' : '');
     return Card(
       color: Theme.of(context).colorScheme.surface,
       child: ListTile(
