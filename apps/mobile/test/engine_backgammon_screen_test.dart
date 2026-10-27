@@ -92,11 +92,11 @@ void main() {
     engine.dice = [1, 2];
     await tester.pump();
 
-    await tester.tap(find.byKey(const ValueKey('backgammon-point-23')));
+    await tester.tap(find.byKey(const ValueKey('backgammon-point-0')));
     await tester.pump();
 
     expect(engine.bar[1], 0);
-    expect(engine.points[23], 1);
+    expect(engine.points[0], 1);
     expect(engine.dice, [2]);
     expect(engine.currentPlayer, 1);
   });
