@@ -876,6 +876,51 @@ app.post<{ Params: { userId: string }; Body: { body?: string } }>('/api/v1/chat/
   return reply.code(201).send({ message: inserted.rows[0] });
 });
 
+app.patch<{ Params: { userId: string; messageId: string }; Body: { body?: string } }>('/api/v1/chat/:userId/messages/:messageId', { onRequest: [requireMatchAuth] }, async (request, reply) => {
+  const claims = request.user as { sub: string };
+  const { userId, messageId } = request.params;
+  const body = typeof request.body?.body === 'string' ? request.body.body.trim() : '';
+  if (!isNumericId(userId) || !isNumericId(messageId) || !body || body.length > 2000 || body.startsWith('data:image/')) {
+    return reply.code(400).send({ error: 'Only text messages up to 2000 characters can be edited.' });
+  }
+  const result = await pool.query(
+    `UPDATE private_messages SET body = $1, edited_at = NOW()
+      WHERE id = $2 AND sender_id = $3 AND recipient_id = $4 AND deleted_for_all = FALSE
+      RETURNING id, body, edited_at AS "editedAt"`,
+    [body, messageId, claims.sub, userId],
+  );
+  if (!result.rowCount) return reply.code(404).send({ error: 'Only your own existing messages can be edited.' });
+  return { message: result.rows[0] };
+});
+
+app.delete<{ Params: { userId: string }; Body: { messageIds?: string[]; scope?: 'me' | 'both' } }>('/api/v1/chat/:userId/messages', { onRequest: [requireMatchAuth] }, async (request, reply) => {
+  const claims = request.user as { sub: string };
+  const { userId } = request.params;
+  const ids = Array.isArray(request.body?.messageIds) ? [...new Set(request.body.messageIds.filter((id) => isNumericId(id)))] : [];
+  const scope = request.body?.scope;
+  if (!isNumericId(userId) || userId === claims.sub || ids.length < 1 || ids.length > 100 || !['me', 'both'].includes(String(scope))) {
+    return reply.code(400).send({ error: 'Provide message IDs and a valid deletion scope.' });
+  }
+  if (scope === 'both') {
+    const result = await pool.query(
+      `UPDATE private_messages SET deleted_for_all = TRUE, body = '[پیام حذف شده]'
+        WHERE id = ANY($1::bigint[]) AND sender_id = $2 AND recipient_id = $3 AND deleted_for_all = FALSE
+        RETURNING id`,
+      [ids, claims.sub, userId],
+    );
+    return { deleted: result.rowCount ?? 0, scope };
+  }
+  const result = await pool.query(
+    `UPDATE private_messages
+        SET hidden_for_sender = CASE WHEN sender_id = $2 THEN TRUE ELSE hidden_for_sender END,
+            hidden_for_recipient = CASE WHEN recipient_id = $2 THEN TRUE ELSE hidden_for_recipient END
+      WHERE id = ANY($1::bigint[]) AND ((sender_id = $2 AND recipient_id = $3) OR (sender_id = $3 AND recipient_id = $2))
+      RETURNING id`,
+    [ids, claims.sub, userId],
+  );
+  return { deleted: result.rowCount ?? 0, scope };
+});
+
 app.get('/api/v1/notifications', { onRequest: [requireMatchAuth] }, async (request) => {
   const claims = request.user as { sub: string };
   const result = await pool.query(
