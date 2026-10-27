@@ -320,6 +320,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = royalThemeState.current;
+    final isEnglish = royalLocaleState.locale.languageCode == 'en';
     return Scaffold(
       backgroundColor: theme.background,
       body: Container(
@@ -406,32 +407,32 @@ class _HomeScreenState extends State<HomeScreen> {
                   final mode = await showDialog<String>(
                     context: context,
                     builder: (dialogContext) => Directionality(
-                      textDirection: TextDirection.rtl,
+                      textDirection: isEnglish ? TextDirection.ltr : TextDirection.rtl,
                       child: AlertDialog(
                         backgroundColor: const Color(0xFF17243A),
-                        title: const Text('انتخاب حالت تخته‌نرد', style: TextStyle(color: Color(0xFFD8B45A), fontWeight: FontWeight.bold)),
+                        title: Text(isEnglish ? 'Choose backgammon mode' : 'انتخاب حالت تخته‌نرد', style: const TextStyle(color: Color(0xFFD8B45A), fontWeight: FontWeight.bold)),
                         content: Column(
                           mainAxisSize: MainAxisSize.min,
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            const Text('روش بازی را انتخاب کنید.', style: TextStyle(color: Colors.white70)),
+                            Text(isEnglish ? 'Choose how you want to play.' : 'روش بازی را انتخاب کنید.', style: const TextStyle(color: Colors.white70)),
                             const SizedBox(height: 14),
                             FilledButton.icon(
                               onPressed: () => Navigator.pop(dialogContext, 'offline'),
                               icon: const Icon(Icons.smart_toy_outlined),
-                              label: const Text('بازی آفلاین با هوش مصنوعی'),
+                              label: Text(isEnglish ? 'Offline vs AI' : 'بازی آفلاین با هوش مصنوعی'),
                             ),
                             const SizedBox(height: 8),
                             OutlinedButton.icon(
                               onPressed: () => Navigator.pop(dialogContext, 'online'),
                               icon: const Icon(Icons.public_rounded),
-                              label: const Text('بازی آنلاین'),
+                              label: Text(isEnglish ? 'Online game' : 'بازی آنلاین'),
                               style: OutlinedButton.styleFrom(foregroundColor: const Color(0xFFD8B45A)),
                             ),
                           ],
                         ),
                         actions: [
-                          TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('انصراف')),
+                          TextButton(onPressed: () => Navigator.pop(dialogContext), child: Text(isEnglish ? 'Cancel' : 'انصراف')),
                         ],
                       ),
                     ),
@@ -441,13 +442,6 @@ class _HomeScreenState extends State<HomeScreen> {
                     builder: (_) => mode == 'online' ? const OnlineLobbyScreen() : const EngineBackgammonScreen(),
                   ));
                 },
-              ),
-              const SizedBox(height: 12),
-              GameTile(
-                title: royalLocaleState.locale.languageCode == 'fa' ? 'بازی آنلاین' : 'Online play',
-                subtitle: royalLocaleState.locale.languageCode == 'fa' ? 'ساخت اتاق و پیوستن به حریف' : 'Create a room or join an opponent',
-                icon: Icons.public_rounded,
-                onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const OnlineLobbyScreen())),
               ),
               const SizedBox(height: 12),
               GameTile(title: AppLocalizations.of(context).chess, subtitle: royalLocaleState.locale.languageCode == 'fa' ? 'به‌زودی' : 'Coming soon', icon: Icons.grid_4x4_rounded, comingSoon: true),
