@@ -2,10 +2,6 @@ import 'package:flutter/material.dart';
 import 'profile_avatar.dart';
 import 'services/leaderboard_service.dart';
 
-const _leaderboardGold = Color(0xFFD8B45A);
-const _leaderboardNavy = Color(0xFF10182B);
-const _leaderboardPanel = Color(0xFF17243A);
-
 class LeaderboardScreen extends StatefulWidget {
   const LeaderboardScreen({super.key});
 
@@ -66,7 +62,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
         ),
         body: SafeArea(
           child: _loading
-              ? const Center(child: CircularProgressIndicator(color: _leaderboardGold))
+              ? Center(child: CircularProgressIndicator(color: Theme.of(context).colorScheme.primary))
               : _error != null
                   ? Center(
                       child: Padding(
@@ -74,10 +70,10 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(Icons.cloud_off, color: _leaderboardGold, size: 42),
+                            Icon(Icons.cloud_off, color: Theme.of(context).colorScheme.primary, size: 42),
                             const SizedBox(height: 12),
                             Text(_error!, textAlign: TextAlign.center,
-                                style: const TextStyle(color: Colors.white70)),
+                                style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7))),
                             const SizedBox(height: 12),
                             FilledButton.icon(
                               onPressed: _load,
@@ -93,19 +89,19 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                       ),
                     )
                   : _players.isEmpty
-                      ? const Center(
+                      ? Center(
                           child: Padding(
-                            padding: EdgeInsets.all(24),
+                            padding: const EdgeInsets.all(24),
                             child: Text(
                               'هنوز بازی تمام‌شده‌ای برای رتبه‌بندی ثبت نشده است.',
                               textAlign: TextAlign.center,
-                              style: TextStyle(color: Colors.white70, height: 1.5),
+                              style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7), height: 1.5),
                             ),
                           ),
                         )
                       : RefreshIndicator(
                           onRefresh: _load,
-                          color: _leaderboardGold,
+                          color: Theme.of(context).colorScheme.primary,
                           child: ListView.separated(
                             padding: const EdgeInsets.all(16),
                             itemCount: _players.length,
@@ -115,35 +111,35 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                               final isCurrentUser = player['userId']?.toString() == _currentUserId;
                               final username = player['username']?.toString();
                               return Card(
-                                color: isCurrentUser ? const Color(0xFF26344B) : _leaderboardPanel,
+                                color: isCurrentUser ? Theme.of(context).colorScheme.surfaceContainerHighest : Theme.of(context).colorScheme.surface,
                                 child: ListTile(
                                   leading: RoyalAvatar(
                                     dataUrl: player['avatarDataUrl']?.toString(),
                                     radius: 23,
-                                    backgroundColor: index < 3 ? _leaderboardGold : _leaderboardNavy,
-                                    foregroundColor: index < 3 ? _leaderboardNavy : Colors.white70,
+                                    backgroundColor: index < 3 ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.surfaceContainerHighest,
+                                    foregroundColor: index < 3 ? Theme.of(context).colorScheme.onPrimary : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7), 
                                   ),
                                   title: Text(
                                     username == null || username.isEmpty ? 'بازیکن' : '@$username',
                                     style: TextStyle(
-                                      color: isCurrentUser ? _leaderboardGold : Colors.white,
+                                      color: isCurrentUser ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.onSurface,
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),
                                   subtitle: Text(
                                     'برد: ${player['wins'] ?? 0}  ·  باخت: ${player['losses'] ?? 0}  ·  بازی: ${player['gamesPlayed'] ?? 0}',
-                                    style: const TextStyle(color: Colors.white60, fontSize: 12),
+                                    style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6), fontSize: 12),
                                   ),
                                   trailing: Column(
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
                                       Text('${player['rating'] ?? 1000}',
                                           style: const TextStyle(
-                                            color: _leaderboardGold,
+                                            color: Theme.of(context).colorScheme.primary,
                                             fontSize: 18,
                                             fontWeight: FontWeight.bold,
                                           )),
-                                      const Text('امتیاز', style: TextStyle(color: Colors.white54, fontSize: 10)),
+                                      Text('امتیاز', style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.54), fontSize: 10)),
                                     ],
                                   ),
                                 ),
