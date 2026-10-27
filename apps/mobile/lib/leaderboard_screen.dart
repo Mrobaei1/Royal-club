@@ -51,11 +51,11 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        backgroundColor: _leaderboardNavy,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         appBar: AppBar(
           title: const Text('رتبه‌بندی بازیکنان'),
-          backgroundColor: _leaderboardNavy,
-          foregroundColor: _leaderboardGold,
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+          foregroundColor: Theme.of(context).colorScheme.primary,
           actions: [
             IconButton(
               onPressed: _loading ? null : _load,
@@ -84,8 +84,8 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                               icon: const Icon(Icons.refresh),
                               label: const Text('تلاش دوباره'),
                               style: FilledButton.styleFrom(
-                                backgroundColor: _leaderboardGold,
-                                foregroundColor: _leaderboardNavy,
+                                backgroundColor: Theme.of(context).colorScheme.primary,
+                                foregroundColor: Theme.of(context).colorScheme.onPrimary,
                               ),
                             ),
                           ],
