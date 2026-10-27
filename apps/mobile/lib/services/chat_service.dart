@@ -24,6 +24,7 @@ class ChatService {
   static Future<Map<String, dynamic>> _request(
     String path, {
     Map<String, dynamic>? body,
+    String method = 'GET',
   }) async {
     AuthService.ensureConfigured();
     final base = AuthService.baseUrl.trim().replaceFirst(RegExp(r'/+$'), '');
@@ -32,10 +33,14 @@ class ChatService {
     late final http.Response response;
 
     try {
-      response = await (body == null
-              ? http.get(uri, headers: headers)
-              : http.post(uri, headers: headers, body: jsonEncode(body)))
-          .timeout(_requestTimeout);
+      final encodedBody = body == null ? null : jsonEncode(body);
+      final request = switch (method) {
+        'POST' => http.post(uri, headers: headers, body: encodedBody),
+        'PATCH' => http.patch(uri, headers: headers, body: encodedBody),
+        'DELETE' => http.delete(uri, headers: headers, body: encodedBody),
+        _ => http.get(uri, headers: headers),
+      };
+      response = await request.timeout(_requestTimeout);
     } on TimeoutException {
       throw Exception('پاسخ سرور بیش از حد طول کشید. لطفاً دوباره تلاش کنید.');
     } on http.ClientException {
@@ -76,6 +81,15 @@ class ChatService {
       _request('/api/v1/users/$userId/report', body: {'reason': reason});
 
   static Future<void> send(String userId, String body) async {
-    await _request('/api/v1/chat/$userId/messages', body: {'body': body});
+    await _request('/api/v1/chat/$userId/messages', method: 'POST', body: {'body': body});
   }
+  static Future<Map<String, dynamic>> edit(String userId, String messageId, String body) =>
+      _request('/api/v1/chat/$userId/messages/$messageId', method: 'PATCH', body: {'body': body});
+
+  static Future<Map<String, dynamic>> deleteMessages(String userId, List<String> messageIds, {required bool forBoth}) =>
+      _request('/api/v1/chat/$userId/messages', method: 'DELETE', body: {
+        'messageIds': messageIds,
+        'scope': forBoth ? 'both' : 'me',
+      });
 }
+
