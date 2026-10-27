@@ -1286,10 +1286,10 @@ app.get<{ Params: { id: string } }>('/api/v1/matches/:id', { onRequest: [require
 app.get('/api/v1/match-invites', { onRequest: [requireMatchAuth] }, async (request) => {
   const claims = request.user as { sub: string };
   // Hard-delete expired waiting rooms; ON DELETE CASCADE removes their invitations.
-  await pool.query("DELETE FROM backgammon_matches WHERE status = 'waiting' AND guest_user_id IS NULL AND expires_at <= NOW()");
+  await pool.query("DELETE FROM backgammon_matches WHERE status = 'waiting' AND expires_at <= NOW()");
   const result = await pool.query(
     `SELECT i.id, i.match_id AS "matchId", i.status, i.created_at AS "createdAt",
-            m.room_code AS "roomCode", m.status AS "matchStatus",
+            m.expires_at AS "expiresAt", m.room_code AS "roomCode", m.status AS "matchStatus",
             inviter.username AS "inviterUsername", inviter.full_name AS "inviterName",
             inviter.avatar_data_url AS "inviterAvatarDataUrl"
        FROM backgammon_match_invites i
