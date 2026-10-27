@@ -719,6 +719,38 @@ test('registered players can join an online match and history does not expose op
     .some((notice) => String(notice.id) === String(expiredInviteNotice.rows[0].id)), false,
     'Invite notices older than ten seconds must be removed from the notifications inbox.');
 
+  const hostNotice = await testPool.query(
+    `INSERT INTO notifications (user_id, actor_user_id, type, title, body, data)
+      VALUES ($1, $2, 'system', 'Host notice', 'Private to host', '{}'::jsonb) RETURNING id`,
+    [host.user.id, guest.user.id],
+  );
+  const guestNotice = await testPool.query(
+    `INSERT INTO notifications (user_id, actor_user_id, type, title, body, data)
+      VALUES ($1, $2, 'system', 'Guest notice', 'Private to guest', '{}'::jsonb) RETURNING id`,
+    [guest.user.id, host.user.id],
+  );
+  const clearHostNotifications = await app.inject({
+    method: 'DELETE',
+    url: '/api/v1/notifications',
+    headers: auth(host.token),
+  });
+  assert.equal(clearHostNotifications.statusCode, 200, clearHostNotifications.body);
+  const hostNotificationsAfterClear = await app.inject({
+    method: 'GET',
+    url: '/api/v1/notifications',
+    headers: auth(host.token),
+  });
+  assert.equal((hostNotificationsAfterClear.json().notifications as Array<Record<string, unknown>>)
+    .some((notice) => String(notice.id) === String(hostNotice.rows[0].id)), false);
+  const guestNotificationsAfterHostClear = await app.inject({
+    method: 'GET',
+    url: '/api/v1/notifications',
+    headers: auth(guest.token),
+  });
+  assert.equal((guestNotificationsAfterHostClear.json().notifications as Array<Record<string, unknown>>)
+    .some((notice) => String(notice.id) === String(guestNotice.rows[0].id)), true,
+    'Clearing one account\'s notifications must not affect another account.');
+
   const seriesRoom = await app.inject({
     method: 'POST',
     url: '/api/v1/matches',
