@@ -211,7 +211,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                       color: _noticeGold,
                                     ),
                                     title: Text(
-                                      _localizedTitle(item, isEnglish),
+                                      _localizedTitle(item, Localizations.localeOf(context).languageCode == 'en'),
                                       style: TextStyle(
                                         color: Colors.white,
                                         fontWeight: unread
@@ -222,7 +222,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                     subtitle: Padding(
                                       padding: const EdgeInsets.only(top: 5),
                                       child: Text(
-                                        _localizedBody(item, isEnglish),
+                                        _localizedBody(item, Localizations.localeOf(context).languageCode == 'en'),
                                         style: const TextStyle(
                                             color: Colors.white70, height: 1.5),
                                       ),
