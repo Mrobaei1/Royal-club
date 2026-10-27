@@ -939,9 +939,8 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
               final player = count == 0 ? 0 : count.sign;
               final selected = _selectedPoint == index;
               final target = legalTargets.contains(index);
-              final pointColor = top
-                  ? (position.isEven ? _boardGold : _boardNavy)
-                  : (position.isEven ? _boardLight : _boardNavy);
+              final palette = _boardThemes[_boardThemeIndex];
+              final pointColor = position.isEven ? palette[1] : palette[2];
               return GestureDetector(
                 onTap: () => _tapPoint(index),
                 child: Container(
