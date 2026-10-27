@@ -150,8 +150,8 @@ class _OnlineLobbyScreenState extends State<OnlineLobbyScreen> {
   Widget build(BuildContext context) => Directionality(
     textDirection: TextDirection.rtl,
     child: Scaffold(
-      backgroundColor: _navy,
-      appBar: AppBar(title: const Text('بازی آنلاین'), backgroundColor: _navy, foregroundColor: _gold,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      appBar: AppBar(title: const Text('بازی آنلاین'), backgroundColor: Theme.of(context).scaffoldBackgroundColor, foregroundColor: Theme.of(context).colorScheme.primary,
         actions: [
           IconButton(
             onPressed: _loading ? null : () {
@@ -170,7 +170,7 @@ class _OnlineLobbyScreenState extends State<OnlineLobbyScreen> {
         const Text('ساخت اتاق و پیوستن به حریف از طریق API احراز هویت‌شده انجام می‌شود.', style: TextStyle(color: Colors.white70, height: 1.5)),
         const SizedBox(height: 16),
         FilledButton.icon(onPressed: _loading ? null : _create, icon: const Icon(Icons.add), label: const Text('ساخت اتاق جدید'),
-          style: FilledButton.styleFrom(backgroundColor: _gold, foregroundColor: _navy, padding: const EdgeInsets.all(14))),
+          style: FilledButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary, foregroundColor: Theme.of(context).colorScheme.onPrimary, padding: const EdgeInsets.all(14))),
         if (_created != null) Card(color: Theme.of(context).colorScheme.surface, child: Padding(padding: const EdgeInsets.all(14), child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           const Text('اتاق شما ساخته شد', style: TextStyle(color: _gold, fontWeight: FontWeight.bold)),
           const SizedBox(height: 6),
@@ -198,7 +198,7 @@ class _OnlineLobbyScreenState extends State<OnlineLobbyScreen> {
                 Row(children: [
                   Expanded(child: OutlinedButton(onPressed: _loading ? null : () => _respondToInvite(invite, accept: false), child: const Text('رد دعوت'))),
                   const SizedBox(width: 8),
-                  Expanded(child: FilledButton(onPressed: _loading ? null : () => _respondToInvite(invite, accept: true), style: FilledButton.styleFrom(backgroundColor: _gold, foregroundColor: _navy), child: const Text('پذیرش و ورود'))),
+                  Expanded(child: FilledButton(onPressed: _loading ? null : () => _respondToInvite(invite, accept: true), style: FilledButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary, foregroundColor: _navy), child: const Text('پذیرش و ورود'))),
                 ]),
               ]),
             ),
@@ -212,7 +212,7 @@ class _OnlineLobbyScreenState extends State<OnlineLobbyScreen> {
           leading: RoyalAvatar(dataUrl: room['hostAvatarDataUrl']?.toString(), radius: 22),
           title: Text('اتاق ${room['roomCode'] ?? room['id']}', style: const TextStyle(color: Colors.white)),
           subtitle: Text('میزبان: ${room['hostName'] ?? 'بازیکن'}', style: const TextStyle(color: Colors.white70)),
-          trailing: FilledButton(onPressed: _loading ? null : () => _join(room), style: FilledButton.styleFrom(backgroundColor: _gold, foregroundColor: _navy), child: const Text('پیوستن')),
+          trailing: FilledButton(onPressed: _loading ? null : () => _join(room), style: FilledButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary, foregroundColor: _navy), child: const Text('پیوستن')),
         ))),
         const SizedBox(height: 24),
         const Text('نتایج بازی‌های اخیر', style: TextStyle(color: _gold, fontSize: 18, fontWeight: FontWeight.bold)),
