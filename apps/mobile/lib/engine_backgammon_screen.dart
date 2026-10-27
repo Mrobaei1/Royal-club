@@ -12,14 +12,18 @@ const _boardDark = Color(0xFF352B2A);
 
 /// Engine-connected local backgammon screen. No network or account required.
 class EngineBackgammonScreen extends StatefulWidget {
-  const EngineBackgammonScreen({super.key});
+  const EngineBackgammonScreen({super.key, this.engineForTesting});
+
+  /// Optional engine injection keeps rule-driven UI tests deterministic.
+  @visibleForTesting
+  final BackgammonEngine? engineForTesting;
 
   @override
   State<EngineBackgammonScreen> createState() => _EngineBackgammonScreenState();
 }
 
 class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
-  final BackgammonEngine _engine = BackgammonEngine();
+  late final BackgammonEngine _engine = widget.engineForTesting ?? BackgammonEngine();
   final BackgammonAI _ai = BackgammonAI();
   bool _modeChosen = false;
   bool _vsComputer = true;
@@ -1019,6 +1023,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
                   ? const Color(0xFFFFFFFF)
                   : const Color(0xFFB9E7C5);
               return GestureDetector(
+                key: ValueKey('backgammon-point-$index'),
                 onTap: () => _tapPoint(index),
                 child: Container(
                   margin: const EdgeInsets.symmetric(horizontal: 1),
