@@ -43,10 +43,10 @@ void main() {
     });
 
     test('bar entry can hit a blot and sends the opponent to the bar', () {
-      position(player: 1, dice: [1], bars: [0, 1], points: {23: -1});
+      position(player: 1, dice: [1], bars: [0, 1], points: {0: -1});
       final move = game.legalMoves().single;
       expect(move.fromBar, isTrue);
-      expect(move.to, 23);
+      expect(move.to, 0);
       expect(game.playMove(move), isTrue);
       expect(game.bar, [1, 0]);
       expect(game.points[23], 1);
