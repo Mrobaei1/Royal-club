@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'services/wallet_service.dart';
 
 const _walletGold = Color(0xFFD8B45A);
-const _walletNavy = Color(0xFF10182B);
 const _walletPanel = Color(0xFF17243A);
 
 class WalletScreen extends StatefulWidget {
