@@ -99,7 +99,7 @@ void main() {
 
   testWidgets('tapping a cumulative destination moves the selected checker with both dice',
       (tester) async {
-    tester.view.physicalSize = const Size(900, 500);
+    tester.view.physicalSize = const Size(900, 540);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
@@ -141,12 +141,12 @@ void main() {
 
     await tester.pumpWidget(const MaterialApp(home: EngineBackgammonScreen()));
     await tester.tap(find.text('بازی آفلاین با هوش مصنوعی'));
-    await tester.pump();
+    await tester.pumpAndSettle();
 
     expect(find.text('⏱ 20'), findsOneWidget);
 
     await tester.tap(find.text('بازی دونفره'));
-    await tester.pump();
+    await tester.pumpAndSettle();
 
     expect(find.text('⏱ 20'), findsNWidgets(2));
   });
