@@ -149,7 +149,7 @@ class _AuthGateState extends State<AuthGate> {
               CircularProgressIndicator(color: Theme.of(context).colorScheme.primary),
               SizedBox(height: 12),
               Text('در حال بررسی نشست قبلی...',
-                  style: TextStyle(color: Colors.white70)),
+                  style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7))),
             ],
           ),
         ),
