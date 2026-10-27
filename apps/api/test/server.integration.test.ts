@@ -892,3 +892,74 @@ test('registered players can join an online match and history does not expose op
   assert.equal(expiredRoomStillExists.rowCount, 0,
     'Expired waiting rooms must be physically deleted without requiring a lobby poll.');
 });
+
+
+test('subscription purchases debit the wallet atomically and record a ledger entry', async () => {
+  const buyer = await register('Subscription Buyer');
+  const initialWallet = await app.inject({
+    method: 'GET',
+    url: '/api/v1/wallet',
+    headers: auth(buyer.token),
+  });
+  assert.equal(initialWallet.statusCode, 200, initialWallet.body);
+  assert.equal(initialWallet.json().balance, 0);
+
+  const plans = await app.inject({
+    method: 'GET',
+    url: '/api/v1/subscriptions/plans',
+    headers: auth(buyer.token),
+  });
+  assert.equal(plans.statusCode, 200, plans.body);
+  assert.ok((plans.json().plans as Array<Record<string, unknown>>)
+    .some((plan) => plan.code === 'vip_monthly'));
+
+  const insufficient = await app.inject({
+    method: 'POST',
+    url: '/api/v1/subscriptions/activate',
+    headers: auth(buyer.token),
+    payload: { planCode: 'vip_monthly' },
+  });
+  assert.equal(insufficient.statusCode, 409, insufficient.body);
+  assert.equal(insufficient.json().balance, 0);
+
+  await testPool.query(
+    'INSERT INTO wallet_accounts (user_id, balance) VALUES ($1, 500) ON CONFLICT (user_id) DO UPDATE SET balance = 500',
+    [buyer.user.id],
+  );
+  const purchase = await app.inject({
+    method: 'POST',
+    url: '/api/v1/subscriptions/activate',
+    headers: auth(buyer.token),
+    payload: { planCode: 'vip_monthly' },
+  });
+  assert.equal(purchase.statusCode, 200, purchase.body);
+  assert.equal(purchase.json().walletBalance, 200);
+  assert.equal(purchase.json().subscription.planCode, 'vip_monthly');
+
+  const ledger = await testPool.query(
+    'SELECT amount, balance_after, type FROM wallet_transactions WHERE user_id = $1 ORDER BY id DESC LIMIT 1',
+    [buyer.user.id],
+  );
+  assert.equal(Number(ledger.rows[0]?.amount), -300);
+  assert.equal(Number(ledger.rows[0]?.balance_after), 200);
+  assert.equal(ledger.rows[0]?.type, 'subscription_purchase');
+
+  const activeSubscription = await app.inject({
+    method: 'GET',
+    url: '/api/v1/subscriptions/me',
+    headers: auth(buyer.token),
+  });
+  assert.equal(activeSubscription.statusCode, 200, activeSubscription.body);
+  assert.equal(activeSubscription.json().subscription.planCode, 'vip_monthly');
+  assert.equal(activeSubscription.json().subscription.status, 'active');
+
+  const walletAfter = await app.inject({
+    method: 'GET',
+    url: '/api/v1/wallet',
+    headers: auth(buyer.token),
+  });
+  assert.equal(walletAfter.statusCode, 200, walletAfter.body);
+  assert.equal(walletAfter.json().balance, 200);
+  assert.ok((walletAfter.json().transactions as Array<Record<string, unknown>>)
+    .some((transaction) => Number(transaction.amount) === -300 && Number(transaction.balanceAfter) === 200));
+});
