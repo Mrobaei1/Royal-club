@@ -30,7 +30,7 @@ class _OnlineLobbyScreenState extends State<OnlineLobbyScreen> {
     super.initState();
     _refresh();
     _lobbyPoller = Timer.periodic(
-      const Duration(seconds: 10),
+      const Duration(seconds: 2),
       (_) => _refreshOpenRoomsSilently(),
     );
     _inviteExpiryTimer = Timer.periodic(const Duration(seconds: 1), (_) => _expireStaleInvites());
@@ -213,7 +213,7 @@ class _OnlineLobbyScreenState extends State<OnlineLobbyScreen> {
                   contentPadding: EdgeInsets.zero,
                   leading: RoyalAvatar(dataUrl: invite['inviterAvatarDataUrl']?.toString(), radius: 22),
                   title: Text('@${invite['inviterUsername'] ?? ''}', style: const TextStyle(color: Colors.white)),
-                  subtitle: Text('دعوت به اتاق ${invite['roomCode'] ?? invite['matchId']}', style: const TextStyle(color: Colors.white70)),
+                  subtitle: Text(isEnglish ? 'Invited you to backgammon · Room ${invite['roomCode'] ?? invite['matchId']}' : 'شما را به تخته‌نرد دعوت کرده · اتاق ${invite['roomCode'] ?? invite['matchId']}', style: const TextStyle(color: Colors.white70)),
                 ),
                 Row(children: [
                   Expanded(child: OutlinedButton(onPressed: _loading ? null : () => _respondToInvite(invite, accept: false), child: Text(isEnglish ? 'Decline' : 'رد دعوت'))),
@@ -231,7 +231,7 @@ class _OnlineLobbyScreenState extends State<OnlineLobbyScreen> {
         ..._matches.map((room) => Card(color: Theme.of(context).colorScheme.surface, child: ListTile(
           leading: RoyalAvatar(dataUrl: room['hostAvatarDataUrl']?.toString(), radius: 22),
           title: Text('اتاق ${room['roomCode'] ?? room['id']}', style: const TextStyle(color: Colors.white)),
-          subtitle: Text('میزبان: ${room['hostName'] ?? 'بازیکن'}', style: const TextStyle(color: Colors.white70)),
+          subtitle: Text(isEnglish ? 'Host: @${room['hostName'] ?? 'player'}' : 'میزبان: @${room['hostName'] ?? 'بازیکن'}', style: const TextStyle(color: Colors.white70)),
           trailing: FilledButton(onPressed: _loading ? null : () => _join(room), style: FilledButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary, foregroundColor: _navy), child: Text(isEnglish ? 'Join' : 'پیوستن')),
         ))),
         const SizedBox(height: 24),
@@ -248,7 +248,7 @@ class _OnlineLobbyScreenState extends State<OnlineLobbyScreen> {
             child: ListTile(
               leading: RoyalAvatar(dataUrl: game['opponentAvatarDataUrl']?.toString(), radius: 22),
               title: Text(resultLabel, style: TextStyle(color: won ? _gold : Colors.white)),
-              subtitle: Text('حریف: ${game['opponentName'] ?? 'بازیکن'} • اتاق ${game['roomCode'] ?? game['id']}',
+              subtitle: Text(isEnglish ? 'Opponent: @${game['opponentName'] ?? 'player'} • Room ${game['roomCode'] ?? game['id']}' : 'حریف: @${game['opponentName'] ?? 'بازیکن'} • اتاق ${game['roomCode'] ?? game['id']}',
                 style: const TextStyle(color: Colors.white70)),
               trailing: Icon(won ? Icons.emoji_events_outlined : Icons.history, color: won ? _gold : Colors.white38),
             ),
