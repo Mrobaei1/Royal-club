@@ -11,6 +11,7 @@ class LeaderboardScreen extends StatefulWidget {
 
 class _LeaderboardScreenState extends State<LeaderboardScreen> {
   bool _loading = true;
+  bool _weekly = true;
   String? _error;
   String? _currentUserId;
   List<Map<String, dynamic>> _players = const [];
@@ -24,7 +25,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
   Future<void> _load() async {
     if (mounted) setState(() { _loading = true; _error = null; });
     try {
-      final data = await LeaderboardService.fetch();
+      final data = await LeaderboardService.fetch(weekly: _weekly);
       final rows = (data['leaderboard'] as List? ?? const [])
           .whereType<Map>()
           .map((row) => Map<String, dynamic>.from(row))
@@ -44,15 +45,23 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isEnglish = Localizations.localeOf(context).languageCode == 'en';
     return Directionality(
       textDirection: (Localizations.localeOf(context).languageCode == 'en' ? TextDirection.ltr : TextDirection.rtl),
       child: Scaffold(
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         appBar: AppBar(
-          title: const Text('رتبه‌بندی بازیکنان'),
+          title: Text(isEnglish ? (_weekly ? 'Weekly leaderboard' : 'All-time leaderboard') : (_weekly ? 'رتبه‌بندی هفتگی' : 'رتبه‌بندی کلی')),
           backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           foregroundColor: Theme.of(context).colorScheme.primary,
           actions: [
+            TextButton(
+              onPressed: _loading ? null : () {
+                setState(() => _weekly = !_weekly);
+                _load();
+              },
+              child: Text(isEnglish ? (_weekly ? 'All-time' : 'Weekly') : (_weekly ? 'رتبه‌بندی کلی' : 'رتبه‌بندی هفتگی')),
+            ),
             IconButton(
               onPressed: _loading ? null : _load,
               icon: const Icon(Icons.refresh),
@@ -93,7 +102,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                           child: Padding(
                             padding: const EdgeInsets.all(24),
                             child: Text(
-                              'هنوز بازی تمام‌شده‌ای برای رتبه‌بندی ثبت نشده است.',
+                              (isEnglish ? 'No completed games are available for ranking yet.' : 'هنوز بازی تمام‌شده‌ای برای رتبه‌بندی ثبت نشده است.'),
                               textAlign: TextAlign.center,
                               style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7), height: 1.5),
                             ),
@@ -127,19 +136,21 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                                     ),
                                   ),
                                   subtitle: Text(
-                                    'برد: ${player['wins'] ?? 0}  ·  باخت: ${player['losses'] ?? 0}  ·  بازی: ${player['gamesPlayed'] ?? 0}',
+                                    isEnglish
+                                      ? 'Wins: ${player['wins'] ?? 0} · Losses: ${player['losses'] ?? 0} · Games: ${player['gamesPlayed'] ?? 0}'
+                                      : 'برد: ${player['wins'] ?? 0}  ·  باخت: ${player['losses'] ?? 0}  ·  بازی: ${player['gamesPlayed'] ?? 0}',
                                     style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6), fontSize: 12),
                                   ),
                                   trailing: Column(
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
-                                      Text('${player['rating'] ?? 1000}',
+                                      Text('${_weekly ? (player['score'] ?? 0) : (player['rating'] ?? 1000)}',
                                           style: TextStyle(
                                             color: Theme.of(context).colorScheme.primary,
                                             fontSize: 18,
                                             fontWeight: FontWeight.bold,
                                           )),
-                                      Text('امتیاز', style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.54), fontSize: 10)),
+                                      Text(isEnglish ? (_weekly ? 'Weekly points' : 'Rating') : (_weekly ? 'امتیاز هفتگی' : 'امتیاز'), style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.54), fontSize: 10)),
                                     ],
                                   ),
                                 ),
