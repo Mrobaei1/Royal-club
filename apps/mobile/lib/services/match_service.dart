@@ -213,9 +213,14 @@ class MatchService {
     return Map<String, dynamic>.from((await _postJson('/matches/$id/cancellation', {'accept': accept}))['cancellation'] as Map);
   }
 
-  static Future<Map<String, dynamic>> resign(String id) async {
+  static Future<Map<String, dynamic>> resign(
+    String id, {required String scope}
+  ) async {
+    if (scope != 'game' && scope != 'match') {
+      throw ArgumentError.value(scope, 'scope', 'Expected game or match');
+    }
     return Map<String, dynamic>.from(
-      (await _postJson('/matches/$id/resign', const {}))['result'] as Map,
+      (await _postJson('/matches/$id/resign', {'scope': scope}))['result'] as Map,
     );
   }
 
