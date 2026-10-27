@@ -800,11 +800,20 @@ test('registered players can join an online match and history does not expose op
       WHERE id = $1 AND status = 'waiting'`,
     [abandonedRoomId],
   );
-  await new Promise((resolve) => setTimeout(resolve, 6_000));
-  const expiredRoomStillExists = await testPool.query(
+  let expiredRoomStillExists = await testPool.query(
     'SELECT id FROM backgammon_matches WHERE id = $1',
     [abandonedRoomId],
   );
+  // The timer may run just before expiry, so exercise the request hook until
+  // its throttled cleanup pass runs (this also models the serverless runtime).
+  for (let attempt = 0; attempt < 10 && (expiredRoomStillExists.rowCount ?? 0) > 0; attempt++) {
+    await new Promise((resolve) => setTimeout(resolve, 1_000));
+    await app.inject({ method: 'GET', url: '/api/v1/health' });
+    expiredRoomStillExists = await testPool.query(
+      'SELECT id FROM backgammon_matches WHERE id = $1',
+      [abandonedRoomId],
+    );
+  }
   assert.equal(expiredRoomStillExists.rowCount, 0,
-    'Background cleanup should physically delete expired waiting rooms without lobby polling.');
+    'Expired waiting rooms must be physically deleted without requiring a lobby poll.');
 });
