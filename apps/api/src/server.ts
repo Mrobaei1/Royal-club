@@ -1408,8 +1408,8 @@ app.post<{ Params: { id: string }; Body: { accept: boolean } }>(
         [request.params.id, invite.match_id]);
       await client.query('COMMIT');
       const match = await pool.query(
-        `SELECT m.id, m.room_code AS "roomCode", m.status, host.full_name AS "hostName",
-                guest.full_name AS "guestName", host.avatar_data_url AS "hostAvatarDataUrl",
+        `SELECT m.id, m.room_code AS "roomCode", m.status, host.username AS "hostName",
+                guest.username AS "guestName", host.avatar_data_url AS "hostAvatarDataUrl",
                 guest.avatar_data_url AS "guestAvatarDataUrl"
            FROM backgammon_matches m JOIN users host ON host.id = m.host_user_id
            JOIN users guest ON guest.id = m.guest_user_id WHERE m.id = $1`, [invite.match_id]);
