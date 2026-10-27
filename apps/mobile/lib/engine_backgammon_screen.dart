@@ -1096,7 +1096,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
-              _checker(offPlayer, size: compact ? 18 : 24),
+              _checker(offPlayer, size: compact ? 26 : 42),
               Text(
                 '${_engine.borneOff[offIndex]}/15',
                 style: TextStyle(
@@ -1119,7 +1119,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
     final count = _engine.bar[player == 1 ? 1 : 0];
     return Column(
       children: [
-        _checker(player, size: compact ? 18 : 24),
+        _checker(player, size: compact ? 26 : 42),
         Text('$count',
             style: TextStyle(color: Colors.white, fontSize: compact ? 10 : 12)),
       ],
@@ -1234,14 +1234,11 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
       return const Expanded(child: SizedBox());
     }
     final shown = count > 5 ? 5 : count;
-    final chips =
-        List.generate(shown, (_) => _checker(player, size: compact ? 13 : 21));
+    final checkerSize = compact ? 26.0 : 42.0;
+    final overlapStep = compact ? 15.0 : 24.0;
     return Expanded(
-      child: AnimatedAlign(
-        duration: const Duration(milliseconds: 220),
-        curve: Curves.easeOutCubic,
-        alignment: top ? Alignment.topCenter : Alignment.bottomCenter,
-        child: AnimatedSwitcher(
+      child: LayoutBuilder(
+        builder: (context, constraints) => AnimatedSwitcher(
           duration: const Duration(milliseconds: 220),
           switchInCurve: Curves.easeOutBack,
           switchOutCurve: Curves.easeIn,
@@ -1249,10 +1246,21 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
             opacity: animation,
             child: ScaleTransition(scale: animation, child: child),
           ),
-          child: Column(
+          child: Stack(
             key: ValueKey('$player-$count-$top'),
-            mainAxisSize: MainAxisSize.min,
-            children: top ? chips : chips.reversed.toList(),
+            clipBehavior: Clip.none,
+            children: [
+              for (var i = 0; i < shown; i++)
+                Positioned(
+                  top: top ? i * overlapStep : null,
+                  bottom: top ? null : i * overlapStep,
+                  left: 0,
+                  right: 0,
+                  child: Center(
+                    child: _checker(player, size: checkerSize),
+                  ),
+                ),
+            ],
           ),
         ),
       ),
