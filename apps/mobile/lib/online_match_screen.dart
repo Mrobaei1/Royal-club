@@ -885,8 +885,8 @@ class _OnlineBackgammonBoardPainter extends CustomPainter {
   _OnlineBackgammonBoardPainter({required this.points, required this.selectedPoint});
 
   static const _gold = Color(0xFFD8B45A);
-  static const _lightChecker = Color(0xFFF1DDB4);
-  static const _darkChecker = Color(0xFF20202A);
+  static const _lightChecker = Color(0xFFD8B45A);
+  static const _darkChecker = Color(0xFF171717);
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -931,16 +931,35 @@ class _OnlineBackgammonBoardPainter extends CustomPainter {
         triangle.lineTo(rect.center.dx, rect.top);
       }
       triangle.close();
-      canvas.drawPath(triangle, Paint()..color = i.isEven ? const Color(0xFF35241B) : const Color(0xFFD7B17A));
+      canvas.drawPath(triangle, Paint()..color = i.isEven ? const Color(0xFFFFFFFF) : const Color(0xFFB9E7C5));
       if (selectedPoint == i) {
         canvas.drawPath(triangle, Paint()..color = _gold.withValues(alpha: .38));
         canvas.drawPath(triangle, Paint()..style = PaintingStyle.stroke..strokeWidth = 2..color = _gold);
       }
+      final pointNumber = TextPainter(
+        text: TextSpan(
+          text: '${i + 1}',
+          style: TextStyle(
+            color: const Color(0xFFE53935),
+            fontSize: (pointWidth * .24).clamp(7.0, 10.0),
+            fontWeight: FontWeight.w900,
+            shadows: const [Shadow(color: Colors.black87, blurRadius: 2)],
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      pointNumber.paint(
+        canvas,
+        Offset(
+          x + (pointWidth - pointNumber.width) / 2,
+          top ? rect.top + 2 : rect.bottom - pointNumber.height - 2,
+        ),
+      );
       final count = points[i].toInt();
       if (count == 0) continue;
       final positive = count > 0;
       final checker = Paint()..color = positive ? _lightChecker : _darkChecker;
-      final outline = Paint()..style = PaintingStyle.stroke..strokeWidth = 1.2..color = positive ? _gold : Colors.white70;
+      final outline = Paint()..style = PaintingStyle.stroke..strokeWidth = 1.2..color = positive ? const Color(0xFFFFE7A0) : const Color(0xFF777777);
       final visible = count.abs().clamp(1, 5);
       for (var stack = 0; stack < visible; stack++) {
         final cy = top
