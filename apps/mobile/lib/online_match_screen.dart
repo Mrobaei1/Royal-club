@@ -604,23 +604,50 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
                 child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                   Text(isEnglish ? 'Match setup' : 'تنظیم مسابقه', style: const TextStyle(color: _matchGold, fontWeight: FontWeight.bold, fontSize: 16)),
                   const SizedBox(height: 8),
-                  if (_matchDetails['isHost'] == true) Wrap(
-                    spacing: 8,
-                    children: [1, 3, 5].map((n) => ChoiceChip(
-                      label: Text(isEnglish ? 'First to $n' : '$n برد'),
-                      selected: (_matchDetails['matchToWin'] ?? 1) == n,
-                      onSelected: _busy ? null : (_) => _updateSetup(matchToWin: n),
-                    )).toList(),
-                  ) else Text(isEnglish ? 'First to ${_matchDetails['matchToWin'] ?? 1}' : 'تعداد برد لازم: ${_matchDetails['matchToWin'] ?? 1}', style: const TextStyle(color: Colors.white)),
+                  if (_matchDetails['isHost'] == true)
+                    Row(children: [
+                      Text(isEnglish ? 'Match length' : 'طول مسابقه', style: const TextStyle(color: Colors.white70)),
+                      const SizedBox(width: 12),
+                      Expanded(child: DropdownButton<int>(
+                        isExpanded: true,
+                        value: [1, 3, 5].contains((_matchDetails['matchToWin'] as num?)?.toInt())
+                            ? (_matchDetails['matchToWin'] as num).toInt() : 1,
+                        items: [1, 3, 5].map((n) => DropdownMenuItem<int>(
+                          value: n,
+                          child: Text(isEnglish ? 'First to $n win${n == 1 ? '' : 's'}' : '$n برد'),
+                        )).toList(),
+                        onChanged: _busy ? null : (n) { if (n != null) _updateSetup(matchToWin: n); },
+                      )),
+                    ])
+                  else
+                    Text(
+                      isEnglish ? 'Match: first to ${_matchDetails['matchToWin'] ?? 1} win${(_matchDetails['matchToWin'] ?? 1) == 1 ? '' : 's'}'
+                        : 'خلاصه: ${_matchDetails['matchToWin'] ?? 1} برد',
+                      style: const TextStyle(color: Colors.white),
+                    ),
                   if (_matchDetails['isHost'] != true && _matchDetails['guestSettingsAccepted'] != true)
-                    FilledButton(onPressed: _busy ? null : () => _updateSetup(acceptSettings: true), child: Text(isEnglish ? 'Accept settings' : 'پذیرش تنظیمات')),
-                  const SizedBox(height: 8),
+                    Align(
+                      alignment: AlignmentDirectional.centerStart,
+                      child: TextButton.icon(
+                        onPressed: _busy ? null : () => _updateSetup(acceptSettings: true),
+                        icon: const Icon(Icons.check_circle_outline),
+                        label: Text(isEnglish ? 'Accept settings' : 'تأیید تنظیمات'),
+                      ),
+                    ),
+                  const SizedBox(height: 4),
                   FilledButton.icon(
                     onPressed: _busy || (_matchDetails[_matchDetails['isHost'] == true ? 'hostSettingsAccepted' : 'guestSettingsAccepted'] != true)
                       ? null : () => _updateSetup(ready: _matchDetails[_matchDetails['isHost'] == true ? 'hostReady' : 'guestReady'] != true),
-                    icon: Icon(_matchDetails[_matchDetails['isHost'] == true ? 'hostReady' : 'guestReady'] == true ? Icons.undo : Icons.check_circle),
-                    label: Text(_matchDetails[_matchDetails['isHost'] == true ? 'hostReady' : 'guestReady'] == true ? (isEnglish ? 'Not ready' : 'لغو آمادگی') : (isEnglish ? 'Ready — start quickly' : 'آماده‌ام — شروع سریع')),
-                    style: FilledButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary, foregroundColor: _matchNavy),
+                    icon: Icon(_matchDetails[_matchDetails['isHost'] == true ? 'hostReady' : 'guestReady'] == true ? Icons.undo : Icons.play_arrow_rounded),
+                    label: Text(_matchDetails[_matchDetails['isHost'] == true ? 'hostReady' : 'guestReady'] == true
+                      ? (isEnglish ? 'Cancel ready' : 'لغو آمادگی')
+                      : (isEnglish ? 'Ready to play' : 'آماده شروع بازی')),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: Theme.of(context).colorScheme.primary,
+                      foregroundColor: _matchNavy,
+                      minimumSize: const Size(0, 42),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    ),
                   ),
                 ]),
               ),
