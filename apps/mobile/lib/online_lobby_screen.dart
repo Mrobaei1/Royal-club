@@ -144,11 +144,12 @@ class _OnlineLobbyScreenState extends State<OnlineLobbyScreen> {
   });
 
   Future<String?> _chooseFriendToInvite() async {
+    final isEnglish = Localizations.localeOf(context).languageCode == 'en';
     final friends = await MatchService.friends();
     if (!mounted || friends.isEmpty) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('برای دعوت مستقیم، ابتدا باید دوستی پذیرفته‌شده داشته باشید. می‌توانید کد اتاق را هم به اشتراک بگذارید.')),
+          SnackBar(content: Text(isEnglish ? 'Accept a friend request first, or share the room code.' : 'برای دعوت مستقیم، ابتدا باید دوستی پذیرفته‌شده داشته باشید. می‌توانید کد اتاق را هم به اشتراک بگذارید.')),
         );
       }
       return null;
@@ -156,10 +157,10 @@ class _OnlineLobbyScreenState extends State<OnlineLobbyScreen> {
     return showDialog<String>(
       context: context,
       builder: (dialogContext) => Directionality(
-        textDirection: TextDirection.rtl,
+        textDirection: isEnglish ? TextDirection.ltr : TextDirection.rtl,
         child: AlertDialog(
           backgroundColor: Theme.of(context).colorScheme.surface,
-          title: const Text('دعوت از دوست', style: TextStyle(color: _gold)),
+          title: Text(isEnglish ? 'Invite a friend' : 'دعوت از دوست', style: const TextStyle(color: _gold)),
           content: SizedBox(
             width: 360,
             child: ListView(
@@ -172,7 +173,7 @@ class _OnlineLobbyScreenState extends State<OnlineLobbyScreen> {
               )).toList(),
             ),
           ),
-          actions: [TextButton(onPressed: () => Navigator.of(dialogContext).pop(), child: const Text('بعداً'))],
+          actions: [TextButton(onPressed: () => Navigator.of(dialogContext).pop(), child: Text(isEnglish ? 'Later' : 'بعداً'))],
         ),
       ),
     );
@@ -253,7 +254,7 @@ class _OnlineLobbyScreenState extends State<OnlineLobbyScreen> {
         if (_created != null) Card(color: Theme.of(context).colorScheme.surface, child: Padding(padding: const EdgeInsets.all(14), child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           Text(isEnglish ? 'Your room is ready' : 'اتاق شما ساخته شد', style: TextStyle(color: _gold, fontWeight: FontWeight.bold)),
           const SizedBox(height: 6),
-          Text('کد: ${_created!['roomCode'] ?? '—'}   ·   شناسه: ${_created!['id'] ?? '—'}', style: const TextStyle(color: Colors.white)),
+          Text(isEnglish ? 'Code: ${_created!['roomCode'] ?? '—'}' : 'کد: ${_created!['roomCode'] ?? '—'}', style: const TextStyle(color: Colors.white)),
           const SizedBox(height: 8),
           OutlinedButton.icon(onPressed: _loading ? null : _cancelCreated, icon: const Icon(Icons.cancel_outlined), label: Text(isEnglish ? 'Cancel waiting room' : 'لغو اتاق در انتظار')),
         ]))),
@@ -286,10 +287,10 @@ class _OnlineLobbyScreenState extends State<OnlineLobbyScreen> {
         const SizedBox(height: 20),
         Text(isEnglish ? 'Available rooms' : 'اتاق‌های قابل پیوستن', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
-        if (!_loading && _matches.isEmpty) const Padding(padding: EdgeInsets.all(18), child: Text('در حال حاضر اتاق بازی آزادی وجود ندارد.', textAlign: TextAlign.center, style: TextStyle(color: Colors.white60))),
+        if (!_loading && _matches.isEmpty) Padding(padding: const EdgeInsets.all(18), child: Text(isEnglish ? 'No open rooms are available right now.' : 'در حال حاضر اتاق بازی آزادی وجود ندارد.', textAlign: TextAlign.center, style: const TextStyle(color: Colors.white60))),
         ..._matches.map((room) => Card(color: Theme.of(context).colorScheme.surface, child: ListTile(
           leading: RoyalAvatar(dataUrl: room['hostAvatarDataUrl']?.toString(), radius: 22),
-          title: Text('اتاق ${room['roomCode'] ?? room['id']}', style: const TextStyle(color: Colors.white)),
+          title: Text(isEnglish ? 'Room ${room['roomCode'] ?? room['id']}' : 'اتاق ${room['roomCode'] ?? room['id']}', style: const TextStyle(color: Colors.white)),
           subtitle: Text(isEnglish ? 'Host: @${room['hostName'] ?? 'player'}' : 'میزبان: @${room['hostName'] ?? 'بازیکن'}', style: const TextStyle(color: Colors.white70)),
           trailing: FilledButton(onPressed: _loading ? null : () => _join(room), style: FilledButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary, foregroundColor: _navy), child: Text(isEnglish ? 'Join' : 'پیوستن')),
         ))),
@@ -297,11 +298,11 @@ class _OnlineLobbyScreenState extends State<OnlineLobbyScreen> {
         Text(isEnglish ? 'Recent results' : 'نتایج بازی‌های اخیر', style: TextStyle(color: _gold, fontSize: 18, fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
         if (!_loading && _history.isEmpty)
-          const Padding(padding: EdgeInsets.all(12), child: Text('هنوز بازی پایان‌یافته‌ای ثبت نشده است.', style: TextStyle(color: Colors.white60))),
+          Padding(padding: const EdgeInsets.all(12), child: Text(isEnglish ? 'No completed games yet.' : 'هنوز بازی پایان‌یافته‌ای ثبت نشده است.', style: const TextStyle(color: Colors.white60))),
         ..._history.map((game) {
           final result = game['result']?.toString() ?? 'unknown';
           final won = result == 'win';
-          final resultLabel = won ? 'پیروزی' : result == 'loss' ? 'شکست' : 'نتیجه نامشخص';
+          final resultLabel = isEnglish ? (won ? 'Win' : result == 'loss' ? 'Loss' : 'Unknown result') : (won ? 'پیروزی' : result == 'loss' ? 'شکست' : 'نتیجه نامشخص');
           return Card(
             color: Theme.of(context).colorScheme.surface,
             child: ListTile(
