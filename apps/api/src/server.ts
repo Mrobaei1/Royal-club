@@ -1498,19 +1498,21 @@ app.post<{ Params: { id: string }; Body: { accept: boolean } }>(
   });
 
 // A player can resign an active online match. The server records the winner and rating atomically.
-app.post<{ Params: { id: string } }>(
+app.post<{ Params: { id: string }; Body: { scope?: 'game' | 'match' } }>(
   '/api/v1/matches/:id/resign',
   { onRequest: [requireMatchAuth] },
   async (request, reply) => {
     const claims = request.user as { sub: string };
-    if (!isNumericId(request.params.id)) {
-      return reply.code(400).send({ error: 'Invalid match id.' });
+    const scope = request.body?.scope;
+    if (!isNumericId(request.params.id) || !['game', 'match'].includes(String(scope))) {
+      return reply.code(400).send({ error: "Provide a valid match id and scope ('game' or 'match')." });
     }
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
       const found = await client.query(
-        `SELECT id, status, host_user_id, guest_user_id, winner_user_id
+        `SELECT id, status, host_user_id, guest_user_id, winner_user_id,
+                match_to_win, host_game_wins, guest_game_wins
            FROM backgammon_matches
           WHERE id = $1 AND expires_at > NOW()
           FOR UPDATE`,
@@ -1519,6 +1521,7 @@ app.post<{ Params: { id: string } }>(
       const match = found.rows[0] as {
         id: string; status: string; host_user_id: string;
         guest_user_id: string | null; winner_user_id: string | null;
+        match_to_win: number; host_game_wins: number; guest_game_wins: number;
       } | undefined;
       if (!match || ![match.host_user_id, match.guest_user_id].includes(claims.sub)) {
         await client.query('ROLLBACK');
@@ -1535,18 +1538,53 @@ app.post<{ Params: { id: string } }>(
       const winnerUserId = match.host_user_id === claims.sub
         ? match.guest_user_id
         : match.host_user_id;
+
+      if (scope === 'match') {
+        await client.query(
+          `UPDATE backgammon_matches
+              SET status = 'finished', winner_user_id = $1, finish_reason = 'resignation',
+                  dice = '[]'::jsonb, remaining_dice = '[]'::jsonb,
+                  cancellation_proposed_by = NULL, cancellation_accepted_by = NULL,
+                  state_version = state_version + 1, updated_at = NOW()
+            WHERE id = $2`,
+          [winnerUserId, match.id],
+        );
+        await updateBackgammonRatings(client, winnerUserId, claims.sub);
+        await client.query('COMMIT');
+        return { result: { status: 'finished', scope, winnerUserId, loserUserId: claims.sub, reason: 'resignation' } };
+      }
+
+      const hostWonGame = winnerUserId === match.host_user_id;
+      const nextHostWins = Number(match.host_game_wins ?? 0) + (hostWonGame ? 1 : 0);
+      const nextGuestWins = Number(match.guest_game_wins ?? 0) + (hostWonGame ? 0 : 1);
+      const matchFinished = Math.max(nextHostWins, nextGuestWins) >= Number(match.match_to_win ?? 1);
       await client.query(
         `UPDATE backgammon_matches
-            SET status = 'finished', winner_user_id = $1, finish_reason = 'resignation',
+            SET status = $1,
+                winner_user_id = CASE WHEN $1 = 'finished' THEN $2 ELSE NULL END,
+                finish_reason = CASE WHEN $1 = 'finished' THEN 'resignation' ELSE NULL END,
+                host_game_wins = $3, guest_game_wins = $4,
+                board_state = CASE WHEN $1 = 'active' THEN $5::jsonb ELSE board_state END,
+                bar_state = CASE WHEN $1 = 'active' THEN '{"host":0,"guest":0}'::jsonb ELSE bar_state END,
+                off_state = CASE WHEN $1 = 'active' THEN '{"host":0,"guest":0}'::jsonb ELSE off_state END,
+                current_turn_user_id = CASE WHEN $1 = 'active' THEN $6 ELSE NULL END,
                 dice = '[]'::jsonb, remaining_dice = '[]'::jsonb,
                 cancellation_proposed_by = NULL, cancellation_accepted_by = NULL,
                 state_version = state_version + 1, updated_at = NOW()
-          WHERE id = $2`,
-        [winnerUserId, match.id],
+          WHERE id = $7`,
+        [matchFinished ? 'finished' : 'active', winnerUserId, nextHostWins, nextGuestWins,
+         JSON.stringify(INITIAL_BACKGAMMON_BOARD), winnerUserId, match.id],
       );
-      await updateBackgammonRatings(client, winnerUserId, claims.sub);
+      if (matchFinished) {
+        await updateBackgammonRatings(client, winnerUserId, claims.sub);
+      }
       await client.query('COMMIT');
-      return { result: { status: 'finished', winnerUserId, loserUserId: claims.sub, reason: 'resignation' } };
+      return { result: {
+        status: matchFinished ? 'finished' : 'active',
+        scope, winnerUserId, loserUserId: claims.sub, reason: 'resignation',
+        hostGameWins: nextHostWins, guestGameWins: nextGuestWins,
+        matchToWin: Number(match.match_to_win ?? 1),
+      } };
     } catch (error) {
       await client.query('ROLLBACK').catch(() => undefined);
       request.log.error({ err: error }, 'Could not resign online match');
