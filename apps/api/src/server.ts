@@ -178,10 +178,11 @@ await pool.query(`
     state_version INTEGER NOT NULL DEFAULT 0,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    expires_at TIMESTAMPTZ NOT NULL DEFAULT (NOW() + INTERVAL '30 minutes'),
+    expires_at TIMESTAMPTZ NOT NULL DEFAULT (NOW() + INTERVAL '60 seconds'),
     CHECK (guest_user_id IS NULL OR guest_user_id <> host_user_id)
   );
   ALTER TABLE backgammon_matches ADD COLUMN IF NOT EXISTS board_state JSONB NOT NULL DEFAULT '${JSON.stringify(INITIAL_BACKGAMMON_BOARD)}'::jsonb;
+  ALTER TABLE backgammon_matches ALTER COLUMN expires_at SET DEFAULT (NOW() + INTERVAL '60 seconds');
   ALTER TABLE backgammon_matches ADD COLUMN IF NOT EXISTS current_turn_user_id BIGINT REFERENCES users(id) ON DELETE SET NULL;
   ALTER TABLE backgammon_matches ADD COLUMN IF NOT EXISTS bar_state JSONB NOT NULL DEFAULT '{"host":0,"guest":0}'::jsonb;
   ALTER TABLE backgammon_matches ADD COLUMN IF NOT EXISTS off_state JSONB NOT NULL DEFAULT '{"host":0,"guest":0}'::jsonb;
@@ -1228,7 +1229,7 @@ app.post<{ Params: { id: string } }>('/api/v1/matches/:id/join', { onRequest: [r
       `UPDATE backgammon_matches SET guest_user_id = $1, status = 'waiting',
               guest_settings_accepted = FALSE, host_ready = FALSE, guest_ready = FALSE,
               cancellation_proposed_by = NULL, cancellation_accepted_by = NULL,
-              updated_at = NOW()
+              expires_at = NOW() + INTERVAL '30 minutes', updated_at = NOW()
          WHERE id = $2`,
       [claims.sub, match.id]);
     await client.query('COMMIT');
@@ -1401,7 +1402,8 @@ app.post<{ Params: { id: string }; Body: { accept: boolean } }>(
       await client.query(
         `UPDATE backgammon_matches SET guest_user_id = $1, guest_settings_accepted = FALSE,
            host_ready = FALSE, guest_ready = FALSE, cancellation_proposed_by = NULL,
-           cancellation_accepted_by = NULL, updated_at = NOW() WHERE id = $2`,
+           cancellation_accepted_by = NULL, expires_at = NOW() + INTERVAL '30 minutes',
+           updated_at = NOW() WHERE id = $2`,
         [claims.sub, invite.match_id]);
       await client.query(
         `UPDATE backgammon_match_invites SET status = CASE WHEN id = $1 THEN 'accepted' ELSE 'rejected' END,
