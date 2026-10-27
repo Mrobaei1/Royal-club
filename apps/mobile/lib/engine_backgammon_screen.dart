@@ -423,7 +423,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
       return;
     }
     _computerThinking = true;
-    Future<void>.delayed(const Duration(milliseconds: 350), () {
+    Future<void>.delayed(const Duration(seconds: 3), () {
       if (!mounted) return;
       setState(() {
         if (!_vsComputer || _engine.finished || _engine.currentPlayer != -1) {
@@ -438,14 +438,8 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
             return;
           }
         }
-        var safety = 0;
-        while (!_engine.finished &&
-            _engine.currentPlayer == -1 &&
-            _engine.dice.isNotEmpty &&
-            safety++ < 4) {
-          final move = _ai.chooseMove(_engine, difficulty: _difficulty);
-          if (move == null || !_engine.playMove(move)) break;
-        }
+        final move = _ai.chooseMove(_engine, difficulty: _difficulty);
+        if (move != null) _engine.playMove(move);
         _computerThinking = false;
         if (_engine.finished) {
           _message = 'کامپیوتر برنده شد.';
