@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - 'apps/mobile/pubspec.yaml'
+      - 'apps/mobile/lib/**'
       - '.github/workflows/android-apk.yml'
   workflow_dispatch:
     inputs:
