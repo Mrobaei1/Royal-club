@@ -177,6 +177,20 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
     }
   }
 
+  Future<void> _toggleSpectators(bool enabled) async {
+    if (_busy || _matchDetails['isHost'] != true) return;
+    setState(() { _busy = true; _error = null; });
+    try {
+      final saved = await MatchService.setSpectatorsEnabled(_id, enabled);
+      if (mounted) setState(() => _matchDetails['spectatorsEnabled'] = saved);
+      await _refresh(silent: true);
+    } catch (e) {
+      if (mounted) setState(() => _error = e.toString().replaceFirst('Exception: ', ''));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   void _showHeadToHeadSummary({required bool isHost}) {
     final isEnglish = _isEnglish;
     final myIsHost = _matchDetails['isHost'] == true;
@@ -653,6 +667,24 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
                     ),
                   ),
                 ]),
+              ),
+            ],
+            if (_matchDetails['isHost'] == true && ['waiting', 'active'].contains(_matchStatus)) ...[
+              Card(
+                color: _matchPanel,
+                child: SwitchListTile(
+                  value: _matchDetails['spectatorsEnabled'] == true,
+                  onChanged: _busy ? null : _toggleSpectators,
+                  activeThumbColor: _matchGold,
+                  title: Text(_isEnglish ? 'Allow live spectators' : 'اجازه تماشای زنده',
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                  subtitle: Text(
+                    _isEnglish
+                        ? 'Only accepted friends of either player can watch. Spectators are read-only.'
+                        : 'فقط دوستان پذیرفته‌شدهٔ یکی از دو بازیکن می‌توانند تماشا کنند؛ تماشاگر فقط امکان مشاهده دارد.',
+                    style: const TextStyle(color: Colors.white60),
+                  ),
+                ),
               ),
             ],
             if (_matchStatus == 'active') ...[
