@@ -702,4 +702,25 @@ test('registered players can join an online match and history does not expose op
     headers: auth(host.token),
   });
   assert.equal(cancelled.json().match.status, 'cancelled');
+
+  // Expired waiting rooms must be removed even when no client polls the lobby.
+  const abandonedRoom = await app.inject({
+    method: 'POST',
+    url: '/api/v1/matches',
+    headers: auth(host.token),
+  });
+  assert.equal(abandonedRoom.statusCode, 201, abandonedRoom.body);
+  const abandonedRoomId = String(abandonedRoom.json().match.id);
+  await testPool.query(
+    `UPDATE backgammon_matches SET expires_at = NOW() - INTERVAL '1 second'
+      WHERE id = $1 AND status = 'waiting'`,
+    [abandonedRoomId],
+  );
+  await new Promise((resolve) => setTimeout(resolve, 6_000));
+  const expiredRoomStillExists = await testPool.query(
+    'SELECT id FROM backgammon_matches WHERE id = $1',
+    [abandonedRoomId],
+  );
+  assert.equal(expiredRoomStillExists.rowCount, 0,
+    'Background cleanup should physically delete expired waiting rooms without lobby polling.');
 });
