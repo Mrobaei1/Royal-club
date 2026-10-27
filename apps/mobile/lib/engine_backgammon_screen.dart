@@ -407,8 +407,10 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
   @override
   Widget build(BuildContext context) {
     if (!_modeChosen) return _entryScreen();
+    final hasCheckerOnBar =
+        _engine.bar[_engine.currentPlayer == 1 ? 1 : 0] > 0;
     final legalTargets = _moves
-        .where((m) => _selectedBar
+        .where((m) => hasCheckerOnBar || _selectedBar
             ? m.fromBar
             : _selectedPoint != null && !m.fromBar && m.from == _selectedPoint)
         .map((m) => m.to)
