@@ -1397,13 +1397,27 @@ app.post<{ Params: { id: string }; Body: { accept: boolean } }>(
         await client.query('ROLLBACK');
         return reply.code(404).send({ error: 'Pending invitation not found.' });
       }
+      const freshInvite = await client.query(
+        `SELECT created_at > NOW() - INTERVAL '10 seconds' AS fresh
+           FROM backgammon_match_invites WHERE id = $1`,
+        [request.params.id]);
+      if (!freshInvite.rows[0]?.fresh) {
+        await client.query(
+          `UPDATE backgammon_match_invites SET status = 'rejected', responded_at = NOW() WHERE id = $1`,
+          [request.params.id]);
+        await client.query(
+          `DELETE FROM notifications WHERE data->>'inviteId' = $1`,
+          [request.params.id]);
+        await client.query('COMMIT');
+        return reply.code(410).send({ error: 'This invitation has expired.' });
+      }
       if (!request.body.accept) {
         await client.query(
-          `DELETE FROM notifications WHERE data->>'matchId' = $1`,
-          [invite.match_id.toString()]);
+          `UPDATE backgammon_match_invites SET status = 'rejected', responded_at = NOW() WHERE id = $1`,
+          [request.params.id]);
         await client.query(
-          `DELETE FROM backgammon_matches WHERE id = $1`,
-          [invite.match_id]);
+          `DELETE FROM notifications WHERE data->>'inviteId' = $1`,
+          [request.params.id]);
         await client.query('COMMIT');
         return { response: 'rejected' };
       }
