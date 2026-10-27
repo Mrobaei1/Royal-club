@@ -203,7 +203,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
               TextField(
                 controller: _username,
                 textDirection: TextDirection.ltr,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: isEnglish ? 'Username' : 'نام کاربری',
                   hintText: 'royal_player7',
                   prefixIcon: Icon(Icons.alternate_email),
