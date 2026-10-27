@@ -45,13 +45,13 @@ class _ChatScreenState extends State<ChatScreen> {
             final unread = (item['unreadCount'] as num?)?.toInt() ?? 0;
             return ListTile(
               leading: RoyalAvatar(dataUrl: item['avatarDataUrl']?.toString(), radius: 22),
-              title: Text(item['fullName']?.toString().isNotEmpty == true ? item['fullName'].toString() : item['email']?.toString() ?? 'دوست'),
+              title: Text(item['username']?.toString().isNotEmpty == true ? '@${item['username']}' : 'دوست'),
               subtitle: Text(item['lastMessage']?.toString() ?? 'برای شروع گفت‌وگو لمس کنید', maxLines: 1, overflow: TextOverflow.ellipsis),
               trailing: unread > 0 ? CircleAvatar(radius: 12, child: Text('$unread', style: const TextStyle(fontSize: 11))) : const Icon(Icons.chevron_left),
               onTap: () async {
                 await Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => ChatThreadScreen(
                   userId: item['userId'].toString(),
-                  title: item['fullName']?.toString().isNotEmpty == true ? item['fullName'].toString() : item['email'].toString(),
+                  title: item['username']?.toString().isNotEmpty == true ? '@${item['username']}' : 'دوست',
                   avatarDataUrl: item['avatarDataUrl']?.toString(),
                 )));
                 _load();
