@@ -480,6 +480,22 @@ test('registered players can join an online match and history does not expose op
   assert.equal(Object.hasOwn(record, 'opponentEmail'), false);
   assert.equal(JSON.stringify(record).includes(guest.user.email), false);
 
+  const weeklyLeaderboard = await app.inject({
+    method: 'GET',
+    url: '/api/v1/leaderboard/weekly',
+    headers: auth(host.token),
+  });
+  assert.equal(weeklyLeaderboard.statusCode, 200, weeklyLeaderboard.body);
+  assert.equal(weeklyLeaderboard.json().period, '7d');
+  assert.equal(weeklyLeaderboard.json().pointsPerWin, 3);
+  const weeklyHost = (weeklyLeaderboard.json().leaderboard as Array<Record<string, unknown>>)
+    .find((player) => String(player.userId) === String(host.user.id));
+  assert.ok(weeklyHost, 'A finished match in the last seven days must contribute to weekly rankings.');
+  assert.equal(weeklyHost.username, host.user.username);
+  assert.equal(weeklyHost.wins, 1);
+  assert.equal(weeklyHost.score, 3);
+  assert.equal(Object.hasOwn(weeklyHost, 'fullName'), false);
+
   // Prepare a single legal bear-off in the disposable DB so the real move route
   // finishes a game and exercises atomic rating updates without a 15-checker simulation.
   const nearWinBoard = Array<number>(24).fill(0);

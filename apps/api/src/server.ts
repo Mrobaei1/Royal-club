@@ -1273,6 +1273,39 @@ app.get('/api/v1/leaderboard', { onRequest: [requireMatchAuth] }, async (request
   return { leaderboard: result.rows, currentUserId: claims.sub };
 });
 
+app.get('/api/v1/leaderboard/weekly', { onRequest: [requireMatchAuth] }, async (request) => {
+  const claims = request.user as { sub: string };
+  const result = await pool.query(
+    `WITH completed AS (
+       SELECT id, host_user_id, guest_user_id,
+              COALESCE(winner_user_id,
+                CASE WHEN COALESCE((off_state->>'host')::int, 0) >= 15 THEN host_user_id
+                     WHEN COALESCE((off_state->>'guest')::int, 0) >= 15 THEN guest_user_id
+                     ELSE NULL END) AS winner_user_id
+         FROM backgammon_matches
+        WHERE status = 'finished' AND updated_at >= NOW() - INTERVAL '7 days'
+     ), participants AS (
+       SELECT host_user_id AS user_id, winner_user_id
+         FROM completed WHERE winner_user_id IS NOT NULL
+       UNION ALL
+       SELECT guest_user_id AS user_id, winner_user_id
+         FROM completed WHERE winner_user_id IS NOT NULL
+     )
+     SELECT p.user_id AS "userId", u.username,
+            u.avatar_data_url AS "avatarDataUrl",
+            COUNT(*)::int AS "gamesPlayed",
+            COUNT(*) FILTER (WHERE p.winner_user_id = p.user_id)::int AS wins,
+            COUNT(*) FILTER (WHERE p.winner_user_id <> p.user_id)::int AS losses,
+            (COUNT(*) FILTER (WHERE p.winner_user_id = p.user_id) * 3)::int AS score
+       FROM participants p
+       JOIN users u ON u.id = p.user_id
+      GROUP BY p.user_id, u.username, u.avatar_data_url
+      ORDER BY score DESC, wins DESC, "gamesPlayed" ASC, LOWER(u.username) ASC
+      LIMIT 50`,
+  );
+  return { leaderboard: result.rows, currentUserId: claims.sub, period: '7d', pointsPerWin: 3 };
+});
+
 app.get('/api/v1/matches/history', { onRequest: [requireMatchAuth] }, async (request) => {
   const claims = request.user as { sub: string };
   const result = await pool.query(
