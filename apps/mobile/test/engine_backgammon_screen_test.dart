@@ -67,7 +67,7 @@ void main() {
   });
   testWidgets('tapping a legal destination enters a checker directly from the bar',
       (tester) async {
-    tester.view.physicalSize = const Size(900, 500);
+    tester.view.physicalSize = const Size(900, 540);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
@@ -130,5 +130,26 @@ void main() {
     expect(engine.dice, isEmpty);
     expect(engine.currentPlayer, -1);
   });
+
+
+  testWidgets('shows a 20-second timer for the human and hides the AI timer',
+      (tester) async {
+    tester.view.physicalSize = const Size(900, 540);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(const MaterialApp(home: EngineBackgammonScreen()));
+    await tester.tap(find.text('بازی آفلاین با هوش مصنوعی'));
+    await tester.pump();
+
+    expect(find.text('⏱ 20'), findsOneWidget);
+
+    await tester.tap(find.text('بازی دونفره'));
+    await tester.pump();
+
+    expect(find.text('⏱ 20'), findsNWidgets(2));
+  });
+
 
 }
