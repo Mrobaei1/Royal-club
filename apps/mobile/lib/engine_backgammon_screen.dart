@@ -891,7 +891,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
             ),
           ),
           Container(
-            height: compact || rowHeight < 120 ? 34 : 44,
+            height: compact || rowHeight < 120 ? 26 : 44,
             margin: const EdgeInsets.symmetric(vertical: 3),
             decoration: BoxDecoration(
               gradient: const LinearGradient(
