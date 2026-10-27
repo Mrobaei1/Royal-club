@@ -896,6 +896,22 @@ test('registered players can join an online match and history does not expose op
 
 test('subscription purchases debit the wallet atomically and record a ledger entry', async () => {
   const buyer = await register('Subscription Buyer');
+  const adminStatus = await app.inject({
+    method: 'GET',
+    url: '/api/v1/admin/status',
+    headers: auth(buyer.token),
+  });
+  assert.equal(adminStatus.statusCode, 200, adminStatus.body);
+  assert.equal(adminStatus.json().isOwner, false);
+
+  const forbiddenCredit = await app.inject({
+    method: 'POST',
+    url: '/api/v1/admin/wallet/credit',
+    headers: auth(buyer.token),
+    payload: { userId: buyer.user.id, amount: 100, description: 'should be denied' },
+  });
+  assert.equal(forbiddenCredit.statusCode, 403, forbiddenCredit.body);
+
   const initialWallet = await app.inject({
     method: 'GET',
     url: '/api/v1/wallet',
