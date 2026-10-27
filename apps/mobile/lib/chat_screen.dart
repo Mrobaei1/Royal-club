@@ -168,6 +168,7 @@ class _ChatThreadScreenState extends State<ChatThreadScreen> {
       final picked = await _imagePicker.pickImage(source: ImageSource.gallery, imageQuality: 65, maxWidth: 1100, maxHeight: 1100);
       if (picked == null || !mounted) return;
       final bytes = await picked.readAsBytes();
+      if (!mounted) return;
       final mimeType = picked.mimeType == 'image/png' ? 'image/png' : 'image/jpeg';
       final encoded = 'data:$mimeType;base64,${base64Encode(bytes)}';
       if (encoded.length > 680000) {
@@ -219,13 +220,18 @@ class _ChatThreadScreenState extends State<ChatThreadScreen> {
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(color: mine ? Theme.of(context).colorScheme.primary.withValues(alpha: .5) : Theme.of(context).dividerColor),
                   ),
-                  child: Text(message['body']?.toString() ?? ''),
+                  child: _messageContent(message['body']?.toString() ?? ''),
                 ),
               );
             },
           )),
         SafeArea(child: Column(mainAxisSize: MainAxisSize.min, children: [
           Padding(padding: const EdgeInsets.all(10), child: Row(children: [
+            IconButton(
+              tooltip: 'ارسال تصویر',
+              onPressed: _sending ? null : _sendImage,
+              icon: const Icon(Icons.image_outlined),
+            ),
             IconButton(
               tooltip: _showEmojiPicker ? 'بستن ایموجی‌ها' : 'افزودن ایموجی',
               onPressed: () => setState(() => _showEmojiPicker = !_showEmojiPicker),
