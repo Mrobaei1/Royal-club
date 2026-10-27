@@ -308,6 +308,45 @@ void main() {
       expect(game.dice, isEmpty);
       expect(game.currentPlayer, -1);
     });
+    test('exact bear-off is allowed even when a farther checker remains', () {
+      clearPosition(rolledDice: [1]);
+      game.points[23] = 1;
+      game.points[20] = 1;
+
+      final moves = game.legalMoves();
+      expect(moves.any((move) => move.from == 23 && move.to == -1), isTrue);
+      expect(moves.any((move) => move.from == 20 && move.to == -1), isFalse);
+    });
+
+    test('a long deterministic game preserves all 15 checkers per player', () {
+      final simulated = BackgammonEngine(
+        random: _FixedRandom([0, 1, 2, 3, 4, 5, 2, 2, 4, 4]),
+      );
+
+      for (var ply = 0; ply < 1000 && !simulated.finished; ply++) {
+        if (simulated.dice.isEmpty) {
+          simulated.rollDice();
+        }
+        while (simulated.dice.isNotEmpty && !simulated.finished) {
+          final legal = simulated.legalMoves();
+          expect(legal, isNotEmpty,
+              reason: 'A turn with dice must have a legal move or pass automatically.');
+          expect(simulated.playMove(legal.first), isTrue);
+        }
+
+        for (final player in [1, -1]) {
+          final boardCount = simulated.points.fold<int>(
+            0,
+            (sum, point) => sum + (point * player > 0 ? point.abs() : 0),
+          );
+          final barCount = simulated.bar[player == 1 ? 1 : 0];
+          final offCount = simulated.borneOff[player == 1 ? 1 : 0];
+          expect(boardCount + barCount + offCount, 15,
+              reason: 'Checker count must remain conserved for player $player.');
+        }
+      }
+    });
+
   });
 }
 
