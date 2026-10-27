@@ -409,6 +409,15 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
             : _selectedPoint != null && !m.fromBar && m.from == _selectedPoint)
         .map((m) => m.to)
         .toSet();
+    // Also mark endpoints reachable by moving the selected checker with
+    // multiple dice, so cumulative destinations are visible before tapping.
+    if (_selectedPoint != null && !_selectedBar && _engine.dice.length > 1) {
+      for (var destination = 0; destination < 24; destination++) {
+        if (_findCumulativeSequence(_selectedPoint!, destination) != null) {
+          legalTargets.add(destination);
+        }
+      }
+    }
 
     return Directionality(
       textDirection: TextDirection.rtl,
