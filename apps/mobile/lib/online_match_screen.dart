@@ -32,6 +32,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
   String? _error;
 
   String get _id => widget.match['id'].toString();
+  bool get _isEnglish => Localizations.localeOf(context).languageCode == 'en';
 
   @override
   void initState() {
@@ -514,7 +515,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
         appBar: AppBar(
           backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           foregroundColor: Theme.of(context).colorScheme.primary,
-          title: Text('اتاق ${widget.match['roomCode'] ?? _id}'),
+          title: Text(isEnglish ? 'Room ${widget.match['roomCode'] ?? _id}' : 'اتاق ${widget.match['roomCode'] ?? _id}'),
           actions: [IconButton(onPressed: _busy ? null : _refresh, icon: const Icon(Icons.refresh))],
         ),
         body: SafeArea(child: ListView(
@@ -527,8 +528,8 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
               child: Row(children: [
                 const Icon(Icons.wifi_off_rounded, color: Colors.redAccent),
                 const SizedBox(width: 10),
-                const Expanded(child: Text('اتصال به سرور قطع یا ناپایدار است؛ تلاش برای اتصال مجدد ادامه دارد.', style: TextStyle(color: Colors.redAccent))),
-                IconButton(tooltip: 'تلاش دوباره', onPressed: _refreshing ? null : () => _refresh(), icon: const Icon(Icons.refresh, color: Colors.redAccent)),
+                Expanded(child: Text(isEnglish ? 'Server connection is unstable. Reconnecting…' : 'اتصال به سرور قطع یا ناپایدار است؛ تلاش برای اتصال مجدد ادامه دارد.', style: const TextStyle(color: Colors.redAccent))),
+                IconButton(tooltip: isEnglish ? 'Retry' : 'تلاش دوباره', onPressed: _refreshing ? null : () => _refresh(), icon: const Icon(Icons.refresh, color: Colors.redAccent)),
               ]),
             ),
             Container(
@@ -537,10 +538,10 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
               child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                 Text(
                   _matchStatus == 'finished'
-                      ? 'بازی پایان یافت'
+                      ? (isEnglish ? 'Game finished' : 'بازی پایان یافت')
                       : (_state == null
-                          ? 'در انتظار ورود حریف...'
-                          : (isMyTurn ? 'نوبت شماست' : 'در انتظار حرکت حریف')),
+                          ? (isEnglish ? 'Waiting for opponent…' : 'در انتظار ورود حریف...')
+                          : (isMyTurn ? (isEnglish ? 'Your turn' : 'نوبت شماست') : (isEnglish ? 'Waiting for opponent' : 'در انتظار حرکت حریف'))),
                   style: const TextStyle(
                     color: _matchGold,
                     fontWeight: FontWeight.bold,
@@ -548,10 +549,10 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
                   ),
                 ),
                 const SizedBox(height: 6),
-                Text('Match to Win: ${_matchDetails['matchToWin'] ?? 1} · امتیاز مسابقه: ${_matchDetails['hostGameWins'] ?? 0} - ${_matchDetails['guestGameWins'] ?? 0}',
+                Text(isEnglish ? 'First to ${_matchDetails['matchToWin'] ?? 1} · Match score: ${_matchDetails['hostGameWins'] ?? 0} - ${_matchDetails['guestGameWins'] ?? 0}' : 'Match to Win: ${_matchDetails['matchToWin'] ?? 1} · امتیاز مسابقه: ${_matchDetails['hostGameWins'] ?? 0} - ${_matchDetails['guestGameWins'] ?? 0}',
                   style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.w600)),
                 const SizedBox(height: 4),
-                Text(_state == null ? 'این صفحه به‌صورت خودکار هر ۳ ثانیه وضعیت اتاق را بررسی می‌کند.' : 'نسخه وضعیت: ${_state!['version']}',
+                Text(_state == null ? (isEnglish ? 'Room status refreshes automatically.' : 'این صفحه به‌صورت خودکار هر ۳ ثانیه وضعیت اتاق را بررسی می‌کند.') : (isEnglish ? 'State version: ${_state!['version']}' : 'نسخه وضعیت: ${_state!['version']}'),
                   style: const TextStyle(color: Colors.white54, fontSize: 12)),
               ]),
             ),
@@ -577,18 +578,18 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
                       child: Column(children: [
                         RoyalAvatar(dataUrl: _matchDetails['hostAvatarDataUrl']?.toString(), radius: 25),
                         const SizedBox(height: 5),
-                        Text(_matchDetails['hostName']?.toString() ?? 'میزبان', textAlign: TextAlign.center,
+                        Text(_matchDetails['hostName']?.toString() ?? (isEnglish ? 'Host' : 'میزبان'), textAlign: TextAlign.center,
                           style: const TextStyle(color: Colors.white70), maxLines: 1, overflow: TextOverflow.ellipsis),
                       ]),
                     )),
-                    const Padding(padding: EdgeInsets.symmetric(horizontal: 8), child: Text('در برابر', style: TextStyle(color: _matchGold))),
+                    Padding(padding: const EdgeInsets.symmetric(horizontal: 8), child: Text(isEnglish ? 'vs.' : 'در برابر', style: const TextStyle(color: _matchGold))),
                     Expanded(child: InkWell(
                       borderRadius: BorderRadius.circular(12),
                       onTap: _matchDetails['guestName'] == null ? null : () => _showHeadToHeadSummary(isHost: false),
                       child: Column(children: [
                         RoyalAvatar(dataUrl: _matchDetails['guestAvatarDataUrl']?.toString(), radius: 25),
                         const SizedBox(height: 5),
-                        Text(_matchDetails['guestName']?.toString() ?? 'در انتظار حریف', textAlign: TextAlign.center,
+                        Text(_matchDetails['guestName']?.toString() ?? (isEnglish ? 'Waiting for opponent' : 'در انتظار حریف'), textAlign: TextAlign.center,
                           style: const TextStyle(color: Colors.white70), maxLines: 1, overflow: TextOverflow.ellipsis),
                       ]),
                     )),
@@ -657,7 +658,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
               OutlinedButton.icon(
                 onPressed: _busy ? null : _resignMatch,
                 icon: const Icon(Icons.flag_rounded, size: 18, color: Colors.redAccent),
-                label: const Text('تسلیم'),
+                label: Text(isEnglish ? 'Resign' : 'تسلیم'),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: Colors.redAccent,
                   side: const BorderSide(color: Colors.redAccent),
@@ -675,18 +676,18 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(color: _matchPanel, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.redAccent.withValues(alpha: .45))),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                  const Text('لغو مسابقه با توافق طرفین', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
+                  Text(isEnglish ? 'Cancel match by agreement' : 'لغو مسابقه با توافق طرفین', style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 6),
                   if (_matchDetails['cancellationProposedBy'] == null)
-                    OutlinedButton.icon(onPressed: _busy ? null : () => _cancelOrRespond(accept: false), icon: const Icon(Icons.handshake_outlined), label: const Text('پیشنهاد لغو مسابقه')),
+                    OutlinedButton.icon(onPressed: _busy ? null : () => _cancelOrRespond(accept: false), icon: const Icon(Icons.handshake_outlined), label: Text(_isEnglish ? 'Propose cancellation' : 'پیشنهاد لغو مسابقه')),
                   if (_matchDetails['cancellationProposedBy'] != null && _matchDetails['cancellationProposedByMe'] == true)
-                    const Text('پیشنهاد لغو شما در انتظار پاسخ حریف است.', style: TextStyle(color: Colors.white70)),
+                    Text(_isEnglish ? 'Your cancellation request is awaiting a response.' : 'پیشنهاد لغو شما در انتظار پاسخ حریف است.', style: const TextStyle(color: Colors.white70)),
                   if (_matchDetails['cancellationProposedBy'] != null && _matchDetails['cancellationProposedByMe'] != true) ...[
-                    const Text('حریف پیشنهاد لغو داده است. آیا موافق هستید؟', style: TextStyle(color: Colors.white70)),
+                    Text(_isEnglish ? 'Your opponent proposed cancelling the match. Do you agree?' : 'حریف پیشنهاد لغو داده است. آیا موافق هستید؟', style: const TextStyle(color: Colors.white70)),
                     Row(children: [
-                      Expanded(child: OutlinedButton(onPressed: _busy ? null : () => _cancelOrRespond(accept: false), child: const Text('رد پیشنهاد'))),
+                      Expanded(child: OutlinedButton(onPressed: _busy ? null : () => _cancelOrRespond(accept: false), child: Text(_isEnglish ? 'Decline' : 'رد پیشنهاد'))),
                       const SizedBox(width: 8),
-                      Expanded(child: FilledButton(onPressed: _busy ? null : () => _cancelOrRespond(accept: true), child: const Text('تأیید لغو'))),
+                      Expanded(child: FilledButton(onPressed: _busy ? null : () => _cancelOrRespond(accept: true), child: Text(_isEnglish ? 'Accept cancellation' : 'تأیید لغو'))),
                     ]),
                   ],
                 ]),
@@ -704,19 +705,19 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
                   _error = null;
                 }),
                 icon: Icon(_batchMode ? Icons.playlist_remove : Icons.playlist_add),
-                label: Text(_batchMode ? 'لغو حالت حرکت ترکیبی' : 'ثبت چند حرکت با یک تأیید'),
+                label: Text(_batchMode ? (isEnglish ? 'Exit batch move' : 'لغو حالت حرکت ترکیبی') : (isEnglish ? 'Plan multiple moves' : 'ثبت چند حرکت با یک تأیید')),
               ),
               if (_batchMode) Container(
                 margin: const EdgeInsets.only(bottom: 12),
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(color: _matchPanel, borderRadius: BorderRadius.circular(12), border: Border.all(color: _matchGold)),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                  Text('حرکت‌های آماده: ${_pendingMoves.length} — تخته پیش‌نمایش است؛ هنوز روی سرور ثبت نشده.', style: const TextStyle(color: Colors.white70)),
+                  Text(isEnglish ? 'Planned moves: ${_pendingMoves.length} — preview only, not yet submitted.' : 'حرکت‌های آماده: ${_pendingMoves.length} — تخته پیش‌نمایش است؛ هنوز روی سرور ثبت نشده.', style: const TextStyle(color: Colors.white70)),
                   const SizedBox(height: 8),
                   Row(children: [
-                    Expanded(child: OutlinedButton(onPressed: _busy ? null : _cancelBatch, child: const Text('لغو همه'))),
+                    Expanded(child: OutlinedButton(onPressed: _busy ? null : _cancelBatch, child: Text(isEnglish ? 'Clear all' : 'لغو همه'))),
                     const SizedBox(width: 8),
-                    Expanded(child: FilledButton(onPressed: _busy || _pendingMoves.isEmpty ? null : _submitBatch, child: const Text('ثبت همه حرکت‌ها'))),
+                    Expanded(child: FilledButton(onPressed: _busy || _pendingMoves.isEmpty ? null : _submitBatch, child: Text(isEnglish ? 'Submit all moves' : 'ثبت همه حرکت‌ها'))),
                   ]),
                 ]),
               ),
@@ -724,7 +725,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(color: const Color(0xFF6E4A2B), borderRadius: BorderRadius.circular(16), border: Border.all(color: _matchGold)),
                 child: Column(children: [
-                  const Text('وضعیت تخته از سرور', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  Text(isEnglish ? 'Server board state' : 'وضعیت تخته از سرور', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 12),
                   OnlineBackgammonBoard(
                     points: board,
@@ -738,7 +739,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(color: _matchPanel, borderRadius: BorderRadius.circular(16)),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                  const Text('تاس سرور', style: TextStyle(color: _matchGold, fontSize: 17, fontWeight: FontWeight.bold)),
+                  Text(isEnglish ? 'Dice' : 'تاس سرور', style: const TextStyle(color: _matchGold, fontSize: 17, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 12),
                   Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                     _Die(value: dice.isNotEmpty ? dice[0].toInt() : null),
@@ -746,7 +747,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
                     _Die(value: dice.length > 1 ? dice[1].toInt() : null),
                   ]),
                   const SizedBox(height: 8),
-                  Text(dice.isEmpty ? 'هنوز تاسی ریخته نشده است.' : 'تاس‌های باقی‌مانده را انتخاب کنید:',
+                  Text(dice.isEmpty ? (isEnglish ? 'No dice rolled yet.' : 'هنوز تاسی ریخته نشده است.') : (isEnglish ? 'Choose a remaining die:' : 'تاس‌های باقی‌مانده را انتخاب کنید:'),
                     textAlign: TextAlign.center, style: const TextStyle(color: Colors.white70)),
                   if (remaining.isNotEmpty) Wrap(
                     alignment: WrapAlignment.center,
@@ -760,23 +761,23 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
                   if (ownBar > 0 && isMyTurn) OutlinedButton.icon(
                     onPressed: _busy ? null : () => setState(() { _fromBar = true; _selectedFrom = null; _error = null; }),
                     icon: const Icon(Icons.login),
-                    label: Text('ورود مهره از بار (${ownBar.toInt()})'),
+                    label: Text(isEnglish ? 'Enter checker from bar (${ownBar.toInt()})' : 'ورود مهره از بار (${ownBar.toInt()})'),
                   ),
                   if (_selectedFrom != null && isMyTurn) OutlinedButton.icon(
                     onPressed: _busy || _selectedDie == null ? null : () => _batchMode ? _stageMove(from: _selectedFrom, to: null, die: _selectedDie!) : _submitMove(from: _selectedFrom, to: null, die: _selectedDie!),
                     icon: const Icon(Icons.outbound),
-                    label: const Text('خارج کردن مهره'),
+                    label: Text(isEnglish ? 'Bear off checker' : 'خارج کردن مهره'),
                   ),
                   if (isMyTurn && remaining.isNotEmpty) OutlinedButton.icon(
                     onPressed: _busy ? null : _endTurn,
                     icon: const Icon(Icons.skip_next),
-                    label: const Text('پایان نوبت (فقط اگر حرکت قانونی نمانده باشد)'),
+                    label: Text(isEnglish ? 'End turn (only when no legal move remains)' : 'پایان نوبت (فقط اگر حرکت قانونی نمانده باشد)'),
                   ),
                   const SizedBox(height: 12),
                   FilledButton.icon(
                     onPressed: _busy || _matchStatus != 'active' || !isMyTurn || dice.isNotEmpty ? null : _roll,
                     icon: const Icon(Icons.casino),
-                    label: Text(_busy ? 'در حال ثبت...' : 'ریختن تاس'),
+                    label: Text(_busy ? (isEnglish ? 'Submitting…' : 'در حال ثبت...') : (isEnglish ? 'Roll dice' : 'ریختن تاس')),
                     style: FilledButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary, foregroundColor: Theme.of(context).colorScheme.onPrimary, padding: const EdgeInsets.all(13)),
                   ),
                 ]),
@@ -784,8 +785,6 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
             ],
             if (_error != null) Padding(padding: const EdgeInsets.only(top: 12), child: Text(_error!, style: const TextStyle(color: Colors.redAccent))),
             const SizedBox(height: 10),
-            const Text('حرکت‌ها با شماره نسخه به سرور ارسال می‌شوند و سرور نوبت، تاس مصرفی، مسیر حرکت، خانه مسدود و خارج‌کردن مهره را بررسی می‌کند.',
-              style: TextStyle(color: Colors.white54, height: 1.6)),
           ],
         )),
       ),
