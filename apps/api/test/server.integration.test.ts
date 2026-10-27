@@ -42,7 +42,7 @@ async function register(fullName: string) {
   assert.equal(response.statusCode, 201, response.body);
   const body = response.json() as {
     accessToken: string;
-    user: { id: string; email: string; fullName: string };
+    user: { id: string; email: string; username: string; fullName: string };
   };
   assert.ok(body.accessToken);
   return { token: body.accessToken, user: body.user };
@@ -248,7 +248,9 @@ test('registered players can join an online match and history does not expose op
   const record = (history.json().matches as Array<Record<string, unknown>>)
     .find((match) => String(match.id) === matchId);
   assert.ok(record);
-  assert.equal(record.opponentName, guest.user.fullName);
+  // Public match history must expose usernames, never another player's full name.
+  assert.equal(record.opponentName, guest.user.username);
+  assert.notEqual(record.opponentName, guest.user.fullName);
   assert.equal(record.opponentAvatarDataUrl, avatar);
   assert.equal(Object.hasOwn(record, 'opponentEmail'), false);
   assert.equal(JSON.stringify(record).includes(guest.user.email), false);
