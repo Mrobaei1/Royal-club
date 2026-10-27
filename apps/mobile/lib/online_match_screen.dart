@@ -447,6 +447,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
       if (die != null) remaining.remove(die);
     }
     final isMyTurn = _state?['isMyTurn'] == true;
+    final isEnglish = Localizations.localeOf(context).languageCode == 'en';
     final bar = preview['bar'] as Map<String, int>;
     final ownBar = (bar[_state?['isHost'] == true ? 'host' : 'guest'] ?? 0);
     return Directionality(
