@@ -22,6 +22,7 @@ class _OnlineLobbyScreenState extends State<OnlineLobbyScreen> {
   bool _loading = false;
   String? _error;
   Timer? _lobbyPoller;
+  Timer? _inviteExpiryTimer;
   bool _silentRefreshing = false;
 
   @override
@@ -32,12 +33,29 @@ class _OnlineLobbyScreenState extends State<OnlineLobbyScreen> {
       const Duration(seconds: 10),
       (_) => _refreshOpenRoomsSilently(),
     );
+    _inviteExpiryTimer = Timer.periodic(const Duration(seconds: 1), (_) => _expireStaleInvites());
   }
 
   @override
   void dispose() {
     _lobbyPoller?.cancel();
+    _inviteExpiryTimer?.cancel();
     super.dispose();
+  }
+
+  bool _isInviteExpired(Map<String, dynamic> invite) {
+    final raw = invite['expiresAt']?.toString();
+    final expiry = raw == null ? null : DateTime.tryParse(raw);
+    return expiry != null && !DateTime.now().isBefore(expiry.toLocal());
+  }
+
+  Future<void> _expireStaleInvites() async {
+    final expired = _invites.where(_isInviteExpired).toList();
+    if (expired.isEmpty || _silentRefreshing || _loading) return;
+    if (mounted) setState(() => _invites.removeWhere(_isInviteExpired));
+    // The authenticated endpoint also physically deletes expired rooms and their
+    // invitations from the database (the invite table cascades on room deletion).
+    await _refreshOpenRoomsSilently();
   }
 
   Future<void> _refreshOpenRoomsSilently() async {
@@ -45,7 +63,7 @@ class _OnlineLobbyScreenState extends State<OnlineLobbyScreen> {
     _silentRefreshing = true;
     try {
       final results = await Future.wait([MatchService.listOpen(), MatchService.pendingInvites()]);
-      if (mounted) { setState(() { _matches = results[0]; _invites = results[1]; }); }
+      if (mounted) { setState(() { _matches = results[0]; _invites = results[1].where((invite) => !_isInviteExpired(invite)).toList(); }); }
     } catch (_) {
       // Keep the current room list; the next interval retries automatically.
     } finally {
@@ -63,7 +81,7 @@ class _OnlineLobbyScreenState extends State<OnlineLobbyScreen> {
 
   Future<void> _refresh() => _run(() async {
     final results = await Future.wait([MatchService.listOpen(), MatchService.history(), MatchService.pendingInvites()]);
-    if (mounted) setState(() { _matches = results[0]; _history = results[1]; _invites = results[2]; });
+    if (mounted) setState(() { _matches = results[0]; _history = results[1]; _invites = results[2].where((invite) => !_isInviteExpired(invite)).toList(); });
   });
 
   Future<String?> _chooseFriendToInvite() async {
@@ -147,11 +165,13 @@ class _OnlineLobbyScreenState extends State<OnlineLobbyScreen> {
   });
 
   @override
-  Widget build(BuildContext context) => Directionality(
-    textDirection: TextDirection.rtl,
+  Widget build(BuildContext context) {
+    final isEnglish = Localizations.localeOf(context).languageCode == 'en';
+    return Directionality(
+    textDirection: isEnglish ? TextDirection.ltr : TextDirection.rtl,
     child: Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      appBar: AppBar(title: const Text('بازی آنلاین'), backgroundColor: Theme.of(context).scaffoldBackgroundColor, foregroundColor: Theme.of(context).colorScheme.primary,
+      appBar: AppBar(title: Text(isEnglish ? 'Online backgammon' : 'بازی آنلاین'), backgroundColor: Theme.of(context).scaffoldBackgroundColor, foregroundColor: Theme.of(context).colorScheme.primary,
         actions: [
           IconButton(
             onPressed: _loading ? null : () {
@@ -160,29 +180,29 @@ class _OnlineLobbyScreenState extends State<OnlineLobbyScreen> {
               ));
             },
             icon: const Icon(Icons.leaderboard_outlined),
-            tooltip: 'رتبه‌بندی',
+            tooltip: isEnglish ? 'Leaderboard' : 'رتبه‌بندی',
           ),
-          IconButton(onPressed: _loading ? null : _refresh, icon: const Icon(Icons.refresh), tooltip: 'به‌روزرسانی'),
+          IconButton(onPressed: _loading ? null : _refresh, icon: const Icon(Icons.refresh), tooltip: isEnglish ? 'Refresh' : 'به‌روزرسانی'),
         ]),
       body: SafeArea(child: ListView(padding: const EdgeInsets.all(16), children: [
-        const Text('اتاق‌های تخته‌نرد', style: TextStyle(color: _gold, fontSize: 22, fontWeight: FontWeight.bold)),
+        Text(isEnglish ? 'Backgammon rooms' : 'اتاق‌های تخته‌نرد', style: TextStyle(color: _gold, fontSize: 22, fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
-        const Text('ساخت اتاق و پیوستن به حریف از طریق API احراز هویت‌شده انجام می‌شود.', style: TextStyle(color: Colors.white70, height: 1.5)),
+        Text(isEnglish ? 'Create a room or join an opponent through the secure game service.' : 'ساخت اتاق و پیوستن به حریف از طریق API احراز هویت‌شده انجام می‌شود.', style: TextStyle(color: Colors.white70, height: 1.5)),
         const SizedBox(height: 16),
-        FilledButton.icon(onPressed: _loading ? null : _create, icon: const Icon(Icons.add), label: const Text('ساخت اتاق جدید'),
+        FilledButton.icon(onPressed: _loading ? null : _create, icon: const Icon(Icons.add), label: Text(isEnglish ? 'Create room' : 'ساخت اتاق جدید'),
           style: FilledButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary, foregroundColor: Theme.of(context).colorScheme.onPrimary, padding: const EdgeInsets.all(14))),
         if (_created != null) Card(color: Theme.of(context).colorScheme.surface, child: Padding(padding: const EdgeInsets.all(14), child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          const Text('اتاق شما ساخته شد', style: TextStyle(color: _gold, fontWeight: FontWeight.bold)),
+          Text(isEnglish ? 'Your room is ready' : 'اتاق شما ساخته شد', style: TextStyle(color: _gold, fontWeight: FontWeight.bold)),
           const SizedBox(height: 6),
           Text('کد: ${_created!['roomCode'] ?? '—'}   ·   شناسه: ${_created!['id'] ?? '—'}', style: const TextStyle(color: Colors.white)),
           const SizedBox(height: 8),
-          OutlinedButton.icon(onPressed: _loading ? null : _cancelCreated, icon: const Icon(Icons.cancel_outlined), label: const Text('لغو اتاق در انتظار')),
+          OutlinedButton.icon(onPressed: _loading ? null : _cancelCreated, icon: const Icon(Icons.cancel_outlined), label: Text(isEnglish ? 'Cancel waiting room' : 'لغو اتاق در انتظار')),
         ]))),
         if (_error != null) Container(margin: const EdgeInsets.only(top: 12), padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: Colors.red.withValues(alpha: .12), borderRadius: BorderRadius.circular(10)), child: Text(_error!, style: const TextStyle(color: Colors.redAccent))),
         if (_loading) const Padding(padding: EdgeInsets.all(16), child: Center(child: CircularProgressIndicator(color: _gold))),
         if (_invites.isNotEmpty) ...[
           const SizedBox(height: 20),
-          const Text('دعوت‌های دریافتی', style: TextStyle(color: _gold, fontSize: 18, fontWeight: FontWeight.bold)),
+          Text(isEnglish ? 'Incoming invitations' : 'دعوت‌های دریافتی', style: TextStyle(color: _gold, fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
           ..._invites.map((invite) => Card(
             color: Theme.of(context).colorScheme.surface,
@@ -196,26 +216,26 @@ class _OnlineLobbyScreenState extends State<OnlineLobbyScreen> {
                   subtitle: Text('دعوت به اتاق ${invite['roomCode'] ?? invite['matchId']}', style: const TextStyle(color: Colors.white70)),
                 ),
                 Row(children: [
-                  Expanded(child: OutlinedButton(onPressed: _loading ? null : () => _respondToInvite(invite, accept: false), child: const Text('رد دعوت'))),
+                  Expanded(child: OutlinedButton(onPressed: _loading ? null : () => _respondToInvite(invite, accept: false), child: Text(isEnglish ? 'Decline' : 'رد دعوت'))),
                   const SizedBox(width: 8),
-                  Expanded(child: FilledButton(onPressed: _loading ? null : () => _respondToInvite(invite, accept: true), style: FilledButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary, foregroundColor: _navy), child: const Text('پذیرش و ورود'))),
+                  Expanded(child: FilledButton(onPressed: _loading ? null : () => _respondToInvite(invite, accept: true), style: FilledButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary, foregroundColor: _navy), child: Text(isEnglish ? 'Accept and join' : 'پذیرش و ورود'))),
                 ]),
               ]),
             ),
           )),
         ],
         const SizedBox(height: 20),
-        const Text('اتاق‌های قابل پیوستن', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+        Text(isEnglish ? 'Available rooms' : 'اتاق‌های قابل پیوستن', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
         if (!_loading && _matches.isEmpty) const Padding(padding: EdgeInsets.all(18), child: Text('در حال حاضر اتاق بازی آزادی وجود ندارد.', textAlign: TextAlign.center, style: TextStyle(color: Colors.white60))),
         ..._matches.map((room) => Card(color: Theme.of(context).colorScheme.surface, child: ListTile(
           leading: RoyalAvatar(dataUrl: room['hostAvatarDataUrl']?.toString(), radius: 22),
           title: Text('اتاق ${room['roomCode'] ?? room['id']}', style: const TextStyle(color: Colors.white)),
           subtitle: Text('میزبان: ${room['hostName'] ?? 'بازیکن'}', style: const TextStyle(color: Colors.white70)),
-          trailing: FilledButton(onPressed: _loading ? null : () => _join(room), style: FilledButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary, foregroundColor: _navy), child: const Text('پیوستن')),
+          trailing: FilledButton(onPressed: _loading ? null : () => _join(room), style: FilledButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary, foregroundColor: _navy), child: Text(isEnglish ? 'Join' : 'پیوستن')),
         ))),
         const SizedBox(height: 24),
-        const Text('نتایج بازی‌های اخیر', style: TextStyle(color: _gold, fontSize: 18, fontWeight: FontWeight.bold)),
+        Text(isEnglish ? 'Recent results' : 'نتایج بازی‌های اخیر', style: TextStyle(color: _gold, fontSize: 18, fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
         if (!_loading && _history.isEmpty)
           const Padding(padding: EdgeInsets.all(12), child: Text('هنوز بازی پایان‌یافته‌ای ثبت نشده است.', style: TextStyle(color: Colors.white60))),
@@ -236,5 +256,6 @@ class _OnlineLobbyScreenState extends State<OnlineLobbyScreen> {
         }),
       ])),
     ),
-  );
+  );    );
+  }
 }
