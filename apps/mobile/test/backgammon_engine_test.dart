@@ -78,7 +78,7 @@ void main() {
     test('a checker on the bar must enter before any other checker moves', () {
       clearPosition(rolledDice: [1, 2]);
       game.bar[1] = 1;
-      game.points[23] = -2; // Entry for die 1 is blocked.
+      game.points[0] = -2; // Player +1 enters from the opponent's home board; die 1 is blocked.
       game.points[10] = 1; // Must not move this checker instead.
 
       final moves = game.legalMoves();
@@ -90,13 +90,13 @@ void main() {
     test('negative player enters from the correct side of the bar', () {
       clearPosition(player: -1, rolledDice: [1, 2]);
       game.bar[0] = 1;
-      game.points[0] = 2; // Two opposing checkers block die 1.
+      game.points[23] = 2; // Player -1 enters from the opponent's home board; die 1 is blocked.
       game.points[12] = -1;
 
       final moves = game.legalMoves();
       expect(moves, isNotEmpty);
       expect(moves.every((move) => move.fromBar), isTrue);
-      expect(moves.every((move) => move.to == 1 && move.die == 2), isTrue);
+      expect(moves.every((move) => move.to == 22 && move.die == 2), isTrue);
     });
 
     test('hitting a single opposing checker sends it to the bar', () {
@@ -183,8 +183,8 @@ void main() {
     test('player -1 enters from the bar only onto an open point', () {
       clearPosition(player: -1, rolledDice: [1, 2]);
       game.bar[0] = 1;
-      game.points[0] = 2; // Blocks entry for die 1.
-      game.points[1] = 0; // Entry for die 2 is open.
+      game.points[23] = 2; // Blocks entry for die 1.
+      game.points[22] = 0; // Entry for die 2 is open.
 
       final moves = game.legalMoves();
       expect(moves, isNotEmpty);
