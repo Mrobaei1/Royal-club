@@ -858,6 +858,8 @@ app.get('/api/v1/friends', { onRequest: [requireMatchAuth] }, async (request) =>
             f.addressee_id AS "addresseeId", f.created_at AS "createdAt",
             requester.username AS "requesterUsername",
             addressee.username AS "addresseeUsername",
+            requester.full_name AS "requesterFullName",
+            addressee.full_name AS "addresseeFullName",
             requester.avatar_data_url AS "requesterAvatarDataUrl",
             addressee.avatar_data_url AS "addresseeAvatarDataUrl"
        FROM friendships f
@@ -875,6 +877,7 @@ app.get('/api/v1/friends', { onRequest: [requireMatchAuth] }, async (request) =>
       : String(row.addresseeId) === claims.sub ? 'incoming' : 'outgoing',
     userId: String(row.requesterId) === claims.sub ? row.addresseeId : row.requesterId,
     username: String(row.requesterId) === claims.sub ? row.addresseeUsername : row.requesterUsername,
+    fullName: String(row.requesterId) === claims.sub ? row.addresseeFullName : row.requesterFullName,
     name: String(row.requesterId) === claims.sub ? row.addresseeUsername : row.requesterUsername,
     avatarDataUrl: String(row.requesterId) === claims.sub ? row.addresseeAvatarDataUrl : row.requesterAvatarDataUrl,
     createdAt: row.createdAt,
