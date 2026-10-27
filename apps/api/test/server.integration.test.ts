@@ -560,6 +560,29 @@ test('registered players can join an online match and history does not expose op
   const incomingInvite = (invitesInbox.json().invites as Array<Record<string, unknown>>)
     .find((invite) => String(invite.matchId) === invitedRoomId);
   assert.ok(incomingInvite);
+  const inviteNotifications = await app.inject({
+    method: 'GET',
+    url: '/api/v1/notifications',
+    headers: auth(guest.token),
+  });
+  const inviteNotice = (inviteNotifications.json().notifications as Array<Record<string, unknown>>)
+    .find((notice) => String((notice.data as Record<string, unknown>)?.inviteId) === String(incomingInvite.id));
+  assert.ok(inviteNotice, 'A new invitation should create a notification.');
+  const openInviteNotice = await app.inject({
+    method: 'POST',
+    url: `/api/v1/notifications/${inviteNotice.id}/read`,
+    headers: auth(guest.token),
+  });
+  assert.equal(openInviteNotice.statusCode, 200, openInviteNotice.body);
+  assert.equal(openInviteNotice.json().cleared, true);
+  const notificationsAfterOpeningInvite = await app.inject({
+    method: 'GET',
+    url: '/api/v1/notifications',
+    headers: auth(guest.token),
+  });
+  assert.equal((notificationsAfterOpeningInvite.json().notifications as Array<Record<string, unknown>>)
+    .some((notice) => String(notice.id) === String(inviteNotice.id)), false);
+
   const acceptInvite = await app.inject({
     method: 'POST',
     url: `/api/v1/match-invites/${incomingInvite.id}/respond`,

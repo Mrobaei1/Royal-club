@@ -1000,6 +1000,14 @@ app.delete<{ Params: { userId: string }; Body: { messageIds?: string[]; scope?: 
 
 app.get('/api/v1/notifications', { onRequest: [requireMatchAuth] }, async (request) => {
   const claims = request.user as { sub: string };
+  // Invite notifications are intentionally ephemeral: clear expired cards even
+  // when the user visits Notifications rather than the game lobby.
+  await pool.query(
+    `DELETE FROM notifications
+      WHERE user_id = $1 AND data ? 'inviteId'
+        AND created_at <= NOW() - INTERVAL '10 seconds'`,
+    [claims.sub],
+  );
   const result = await pool.query(
     `SELECT id, type, title, body, data, created_at AS "createdAt",
             read_at AS "readAt", actor_user_id AS "actorUserId"
@@ -1016,12 +1024,21 @@ app.post<{ Params: { id: string } }>('/api/v1/notifications/:id/read', { onReque
   const claims = request.user as { sub: string };
   const id = request.params.id;
   if (!isNumericId(id)) return reply.code(400).send({ error: 'Invalid notification id.' });
+  const clearedInvite = await pool.query(
+    `DELETE FROM notifications
+      WHERE id = $1 AND user_id = $2 AND data ? 'inviteId'
+      RETURNING id`,
+    [id, claims.sub],
+  );
+  if (clearedInvite.rowCount) {
+    return { notification: { id: clearedInvite.rows[0].id, readAt: new Date().toISOString() }, cleared: true };
+  }
   const result = await pool.query(
     'UPDATE notifications SET read_at = COALESCE(read_at, NOW()) WHERE id = $1 AND user_id = $2 RETURNING id, read_at AS "readAt"',
     [id, claims.sub],
   );
   if (!result.rowCount) return reply.code(404).send({ error: 'Notification not found.' });
-  return { notification: result.rows[0] };
+  return { notification: result.rows[0], cleared: false };
 });
 
 app.post('/api/v1/notifications/read-all', { onRequest: [requireMatchAuth] }, async (request) => {
