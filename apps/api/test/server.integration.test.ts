@@ -912,6 +912,14 @@ test('subscription purchases debit the wallet atomically and record a ledger ent
   });
   assert.equal(forbiddenCredit.statusCode, 403, forbiddenCredit.body);
 
+  const forbiddenPlanChange = await app.inject({
+    method: 'PATCH',
+    url: '/api/v1/admin/subscription-plans/vip_monthly',
+    headers: auth(buyer.token),
+    payload: { priceCredits: 0 },
+  });
+  assert.equal(forbiddenPlanChange.statusCode, 403, forbiddenPlanChange.body);
+
   const initialWallet = await app.inject({
     method: 'GET',
     url: '/api/v1/wallet',
