@@ -119,6 +119,42 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
     }
   }
 
+  Future<void> _resignMatch() async {
+    if (_busy || _matchStatus != 'active') return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: AlertDialog(
+          title: const Text('تسلیم و قبول شکست'),
+          content: const Text('با تأیید این گزینه، شکست شما ثبت می‌شود، حریف برنده اعلام می‌شود و امتیازهای رتبه‌بندی به‌روزرسانی می‌شوند. این کار قابل بازگشت نیست. ادامه می‌دهید؟'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('بازگشت'),
+            ),
+            FilledButton(
+              style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: const Text('تأیید تسلیم'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() { _busy = true; _error = null; });
+    try {
+      await MatchService.resign(_id);
+      if (mounted) setState(() => _matchStatus = 'finished');
+      await _refresh(silent: true);
+    } catch (e) {
+      if (mounted) setState(() => _error = e.toString().replaceFirst('Exception: ', ''));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   Future<void> _roll() async {
     if (_busy || _state == null) return;
     setState(() { _busy = true; _error = null; });
@@ -443,6 +479,19 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
                   const Text('مسابقه فقط پس از پذیرش تنظیمات و آماده‌شدن هر دو بازیکن آغاز می‌شود. تغییر تعداد برد، آمادگی هر دو نفر را بازنشانی می‌کند.',
                     style: TextStyle(color: Colors.white54, height: 1.5)),
                 ]),
+              ),
+            ],
+            if (_matchStatus == 'active') ...[
+              const SizedBox(height: 10),
+              OutlinedButton.icon(
+                onPressed: _busy ? null : _resignMatch,
+                icon: const Icon(Icons.flag_rounded, color: Colors.redAccent),
+                label: const Text('تسلیم و قبول شکست'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.redAccent,
+                  side: const BorderSide(color: Colors.redAccent),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
               ),
             ],
             if (_matchDetails['guestName'] != null && ['waiting', 'active'].contains(_matchStatus)) ...[
