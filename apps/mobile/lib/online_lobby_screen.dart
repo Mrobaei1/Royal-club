@@ -258,7 +258,7 @@ class _OnlineLobbyScreenState extends State<OnlineLobbyScreen> {
           OutlinedButton.icon(onPressed: _loading ? null : _cancelCreated, icon: const Icon(Icons.cancel_outlined), label: Text(isEnglish ? 'Cancel waiting room' : 'لغو اتاق در انتظار')),
         ]))),
         if (_error != null) Container(margin: const EdgeInsets.only(top: 12), padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: Colors.red.withValues(alpha: .12), borderRadius: BorderRadius.circular(10)), child: Text(_error!, style: const TextStyle(color: Colors.redAccent))),
-        if (_loading) const Padding(padding: EdgeInsets.all(16), child: Center(child: CircularProgressIndicator(color: Theme.of(context).colorScheme.primary))),
+        if (_loading) Padding(padding: const EdgeInsets.all(16), child: Center(child: CircularProgressIndicator(color: Theme.of(context).colorScheme.primary))),
         if (_invites.isNotEmpty) ...[
           const SizedBox(height: 20),
           Text(isEnglish ? 'Incoming invitations' : 'دعوت‌های دریافتی', style: TextStyle(color: Theme.of(context).colorScheme.primary, fontSize: 18, fontWeight: FontWeight.bold)),
@@ -296,7 +296,7 @@ class _OnlineLobbyScreenState extends State<OnlineLobbyScreen> {
         const SizedBox(height: 24),
         Row(
           children: [
-            const Icon(Icons.visibility_outlined, color: Theme.of(context).colorScheme.primary),
+            Icon(Icons.visibility_outlined, color: Theme.of(context).colorScheme.primary),
             const SizedBox(width: 8),
             Expanded(child: Text(isEnglish ? 'Live games to watch' : 'بازی‌های زنده برای تماشا',
               style: TextStyle(color: Theme.of(context).colorScheme.primary, fontSize: 18, fontWeight: FontWeight.bold))),
@@ -322,7 +322,7 @@ class _OnlineLobbyScreenState extends State<OnlineLobbyScreen> {
         ..._liveMatches.map((game) => Card(
           color: Theme.of(context).colorScheme.surface,
           child: ListTile(
-            leading: const CircleAvatar(
+            leading: CircleAvatar(
               backgroundColor: Colors.redAccent,
               child: Icon(Icons.visibility, color: Theme.of(context).colorScheme.onSurface),
             ),

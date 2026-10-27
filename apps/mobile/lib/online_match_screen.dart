@@ -3,10 +3,6 @@ import 'package:flutter/material.dart';
 import 'profile_avatar.dart';
 import 'services/match_service.dart';
 
-const _matchGold = Color(0xFFD8B45A);
-const _matchNavy = Color(0xFF10182B);
-const _matchPanel = Color(0xFF17243A);
-
 class OnlineMatchScreen extends StatefulWidget {
   final Map<String, dynamic> match;
   const OnlineMatchScreen({super.key, required this.match});
