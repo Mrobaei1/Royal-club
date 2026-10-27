@@ -1285,8 +1285,17 @@ app.get<{ Params: { id: string } }>('/api/v1/matches/:id', { onRequest: [require
 
 app.get('/api/v1/match-invites', { onRequest: [requireMatchAuth] }, async (request) => {
   const claims = request.user as { sub: string };
-  // Hard-delete expired waiting rooms; ON DELETE CASCADE removes their invitations.
-  await pool.query("DELETE FROM backgammon_matches WHERE status = 'waiting' AND expires_at <= NOW()");
+  // Hard-delete expired waiting rooms, their invitation rows, and invitation notices.
+  await pool.query(`
+    WITH expired AS (
+      SELECT id FROM backgammon_matches WHERE status = 'waiting' AND expires_at <= NOW()
+    ), notices AS (
+      DELETE FROM notifications
+       WHERE data->>'matchId' IN (SELECT id::text FROM expired)
+       RETURNING id
+    )
+    DELETE FROM backgammon_matches WHERE id IN (SELECT id FROM expired)
+  `);
   const result = await pool.query(
     `SELECT i.id, i.match_id AS "matchId", i.status, i.created_at AS "createdAt",
             m.expires_at AS "expiresAt", m.room_code AS "roomCode", m.status AS "matchStatus",
@@ -1374,8 +1383,11 @@ app.post<{ Params: { id: string }; Body: { accept: boolean } }>(
       }
       if (!request.body.accept) {
         await client.query(
-          `UPDATE backgammon_match_invites SET status = 'rejected', responded_at = NOW() WHERE id = $1`,
-          [request.params.id]);
+          `DELETE FROM notifications WHERE data->>'matchId' = $1`,
+          [invite.match_id.toString()]);
+        await client.query(
+          `DELETE FROM backgammon_matches WHERE id = $1`,
+          [invite.match_id]);
         await client.query('COMMIT');
         return { response: 'rejected' };
       }
