@@ -63,7 +63,7 @@ class _ContactScreenState extends State<ContactScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = royalThemeState.current;
-    return Directionality(textDirection: TextDirection.rtl, child: Scaffold(
+    return Directionality(textDirection: (Localizations.localeOf(context).languageCode == 'en' ? TextDirection.ltr : TextDirection.rtl), child: Scaffold(
       appBar: AppBar(title: const Text('ارتباط با ما')),
       body: _loading ? const Center(child: CircularProgressIndicator())
       : _error != null ? Center(child: Padding(padding: const EdgeInsets.all(24), child: Column(mainAxisSize: MainAxisSize.min, children: [
