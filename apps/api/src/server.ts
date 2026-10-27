@@ -2231,7 +2231,7 @@ app.get<{ Params: { id: string } }>('/api/v1/matches/:id/spectate', { onRequest:
        FROM backgammon_matches m
        JOIN users host ON host.id = m.host_user_id
        JOIN users guest ON guest.id = m.guest_user_id
-      WHERE m.id = $1 AND m.status IN ('active', 'finished') AND m.spectators_enabled = TRUE
+      WHERE m.id = $1 AND m.status = 'active' AND m.spectators_enabled = TRUE
         AND $2::bigint NOT IN (m.host_user_id, m.guest_user_id)
         AND (
           EXISTS (SELECT 1 FROM friendships f WHERE f.status = 'accepted'

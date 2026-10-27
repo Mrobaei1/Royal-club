@@ -432,10 +432,18 @@ test('registered players can join an online match and history does not expose op
   // having to simulate 15 bear-offs. This database is disposable and CI-only.
   await testPool.query(
     `UPDATE backgammon_matches
-        SET status = 'finished', off_state = $1::jsonb, updated_at = NOW()
+        SET status = 'finished', off_state = $1::jsonb, spectators_enabled = TRUE, updated_at = NOW()
       WHERE id = $2`,
     [JSON.stringify({ host: 15, guest: 0 }), matchId],
   );
+
+  const finishedMatchSpectate = await app.inject({
+    method: 'GET',
+    url: `/api/v1/matches/${matchId}/spectate`,
+    headers: auth(stranger.token),
+  });
+  assert.equal(finishedMatchSpectate.statusCode, 404,
+    'Finished matches must not expose a spectator snapshot or become replayable.');
 
   const history = await app.inject({
     method: 'GET',
