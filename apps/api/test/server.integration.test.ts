@@ -601,6 +601,22 @@ test('registered players can join an online match and history does not expose op
   assert.equal(invitedMatch.json().match.guestName, guest.user.username);
   assert.notEqual(invitedMatch.json().match.guestName, guest.user.fullName);
 
+  const expiredInviteNotice = await testPool.query(
+    `INSERT INTO notifications (user_id, actor_user_id, type, title, body, data, created_at)
+      VALUES ($1, $2, 'system', 'Expired invite', 'Expired', jsonb_build_object('inviteId', 'expired-test', 'matchId', $3::text), NOW() - INTERVAL '11 seconds')
+      RETURNING id`,
+    [guest.user.id, host.user.id, invitedRoomId],
+  );
+  const notificationsAfterExpiry = await app.inject({
+    method: 'GET',
+    url: '/api/v1/notifications',
+    headers: auth(guest.token),
+  });
+  assert.equal(notificationsAfterExpiry.statusCode, 200, notificationsAfterExpiry.body);
+  assert.equal((notificationsAfterExpiry.json().notifications as Array<Record<string, unknown>>)
+    .some((notice) => String(notice.id) === String(expiredInviteNotice.rows[0].id)), false,
+    'Invite notices older than ten seconds must be removed from the notifications inbox.');
+
   const seriesRoom = await app.inject({
     method: 'POST',
     url: '/api/v1/matches',
