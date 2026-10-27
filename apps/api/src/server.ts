@@ -162,6 +162,12 @@ await pool.query(`
     hidden_for_recipient BOOLEAN NOT NULL DEFAULT FALSE,
     CHECK (sender_id <> recipient_id)
   );
+  -- Image messages are data URLs; the API separately enforces 2,000 characters
+  -- for text and a bounded image payload. Widen the legacy table constraint so
+  -- valid image messages are not rejected by PostgreSQL.
+  ALTER TABLE private_messages DROP CONSTRAINT IF EXISTS private_messages_body_check;
+  ALTER TABLE private_messages ADD CONSTRAINT private_messages_body_check
+    CHECK (char_length(body) BETWEEN 1 AND 680000);
   ALTER TABLE private_messages ADD COLUMN IF NOT EXISTS edited_at TIMESTAMPTZ;
   ALTER TABLE private_messages ADD COLUMN IF NOT EXISTS deleted_for_all BOOLEAN NOT NULL DEFAULT FALSE;
   ALTER TABLE private_messages ADD COLUMN IF NOT EXISTS hidden_for_sender BOOLEAN NOT NULL DEFAULT FALSE;
