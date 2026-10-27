@@ -798,9 +798,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
             width: 190,
             child: Column(
               children: [
-                Expanded(flex: 3, child: _statusPanel(compact: true)),
-                const SizedBox(height: 8),
-                Expanded(flex: 2, child: _scoreRow(compact: true)),
+                Expanded(child: _scoreRow(compact: true)),
                 const SizedBox(height: 8),
                 SizedBox(
                   width: double.infinity,
