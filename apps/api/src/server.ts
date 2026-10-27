@@ -1285,6 +1285,8 @@ app.get<{ Params: { id: string } }>('/api/v1/matches/:id', { onRequest: [require
 
 app.get('/api/v1/match-invites', { onRequest: [requireMatchAuth] }, async (request) => {
   const claims = request.user as { sub: string };
+  // Hard-delete expired waiting rooms; ON DELETE CASCADE removes their invitations.
+  await pool.query("DELETE FROM backgammon_matches WHERE status = 'waiting' AND guest_user_id IS NULL AND expires_at <= NOW()");
   const result = await pool.query(
     `SELECT i.id, i.match_id AS "matchId", i.status, i.created_at AS "createdAt",
             m.room_code AS "roomCode", m.status AS "matchStatus",
@@ -1326,6 +1328,12 @@ app.post<{ Params: { id: string }; Body: { inviteeId?: string } }>(
         await client.query('ROLLBACK');
         return reply.code(403).send({ error: 'You can invite accepted friends only.' });
       }
+      // A direct invitation is valid for 60 seconds. The room and invite are
+      // physically deleted by the lobby cleanup once the deadline passes.
+      await client.query(
+        `UPDATE backgammon_matches SET expires_at = NOW() + INTERVAL '60 seconds', updated_at = NOW()
+          WHERE id = $1`,
+        [request.params.id]);
       const inserted = await client.query(
         `INSERT INTO backgammon_match_invites (match_id, inviter_id, invitee_id)
           VALUES ($1, $2, $3) RETURNING id, match_id AS "matchId", status, created_at AS "createdAt"`,
@@ -1471,7 +1479,7 @@ app.post<{ Params: { id: string }; Body: { matchToWin?: number; acceptSettings?:
         await client.query(
           `UPDATE backgammon_matches SET status = 'active', current_turn_user_id = host_user_id,
              dice = '[]'::jsonb, remaining_dice = '[]'::jsonb, state_version = 0,
-             updated_at = NOW() WHERE id = $1 AND status = 'waiting'`, [request.params.id]);
+             expires_at = NOW() + INTERVAL '30 minutes', updated_at = NOW() WHERE id = $1 AND status = 'waiting'`, [request.params.id]);
         status = 'active';
       }
       await client.query('COMMIT');
