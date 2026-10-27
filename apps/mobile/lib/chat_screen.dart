@@ -29,14 +29,16 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
+  bool get _isEnglish => Localizations.localeOf(context).languageCode == 'en';
+
   @override
   Widget build(BuildContext context) => Directionality(
-    textDirection: (Localizations.localeOf(context).languageCode == 'en' ? TextDirection.ltr : TextDirection.rtl),
+    textDirection: (_isEnglish ? TextDirection.ltr : TextDirection.rtl),
     child: Scaffold(
-      appBar: AppBar(title: const Text('گفت‌وگوهای خصوصی'), actions: [IconButton(onPressed: _load, icon: const Icon(Icons.refresh))]),
+      appBar: AppBar(title: Text(_isEnglish ? 'Private chats' : 'گفت‌وگوهای خصوصی'), actions: [IconButton(tooltip: _isEnglish ? 'Refresh' : 'به‌روزرسانی', onPressed: _load, icon: const Icon(Icons.refresh))]),
       body: _loading ? const Center(child: CircularProgressIndicator())
         : _error != null ? Center(child: Padding(padding: const EdgeInsets.all(24), child: Text(_error!, textAlign: TextAlign.center)))
-        : _conversations.isEmpty ? const Center(child: Padding(padding: EdgeInsets.all(24), child: Text('برای شروع گفت‌وگو، ابتدا یک دوست اضافه کنید.')))
+        : _conversations.isEmpty ? const Center(child: Padding(padding: EdgeInsets.all(24), child: Text(_isEnglish ? 'Add a friend to start a conversation.' : 'برای شروع گفت‌وگو، ابتدا یک دوست اضافه کنید.')))
         : RefreshIndicator(onRefresh: _load, child: ListView.separated(
           itemCount: _conversations.length,
           separatorBuilder: (_, __) => const Divider(height: 1),
@@ -46,7 +48,7 @@ class _ChatScreenState extends State<ChatScreen> {
             return ListTile(
               leading: RoyalAvatar(dataUrl: item['avatarDataUrl']?.toString(), radius: 22),
               title: Text(item['username']?.toString().isNotEmpty == true ? '@${item['username']}' : 'دوست'),
-              subtitle: Text(item['lastMessage']?.toString() ?? 'برای شروع گفت‌وگو لمس کنید', maxLines: 1, overflow: TextOverflow.ellipsis),
+              subtitle: Text(item['lastMessage']?.toString() ?? (_isEnglish ? 'Tap to start chatting' : 'برای شروع گفت‌وگو لمس کنید'), maxLines: 1, overflow: TextOverflow.ellipsis),
               trailing: unread > 0 ? CircleAvatar(radius: 12, child: Text('$unread', style: const TextStyle(fontSize: 11))) : const Icon(Icons.chevron_left),
               onTap: () async {
                 await Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => ChatThreadScreen(
@@ -113,7 +115,7 @@ class _ChatThreadScreenState extends State<ChatThreadScreen> {
     final reason = await showDialog<String>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('گزارش کاربر'),
+        title: Text(_isEnglish ? 'Report user' : 'گزارش کاربر'),
         content: TextField(
           controller: reasonController,
           autofocus: true,
@@ -121,13 +123,13 @@ class _ChatThreadScreenState extends State<ChatThreadScreen> {
           maxLines: 5,
           maxLength: 1000,
           decoration: const InputDecoration(
-            hintText: 'دلیل گزارش را توضیح دهید (حداقل ۳ نویسه)',
+            hintText: _isEnglish ? 'Describe the reason (at least 3 characters)' : 'دلیل گزارش را توضیح دهید (حداقل ۳ نویسه)',
             border: OutlineInputBorder(),
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('انصراف')),
-          FilledButton(onPressed: () => Navigator.pop(dialogContext, reasonController.text.trim()), child: const Text('ارسال گزارش')),
+          TextButton(onPressed: () => Navigator.pop(dialogContext), child: Text(_isEnglish ? 'Cancel' : 'انصراف')),
+          FilledButton(onPressed: () => Navigator.pop(dialogContext, reasonController.text.trim()), child: Text(_isEnglish ? 'Submit report' : 'ارسال گزارش')),
         ],
       ),
     );
@@ -137,9 +139,9 @@ class _ChatThreadScreenState extends State<ChatThreadScreen> {
       final result = await ChatService.report(widget.userId, reason.trim());
       if (!mounted) return;
       final review = result['moderationReviewTriggered'] == true
-          ? ' گزارش برای بررسی مدیر در صف قرار گرفت.'
+          ? (_isEnglish ? ' The report was queued for moderator review.' : ' گزارش برای بررسی مدیر در صف قرار گرفت.')
           : '';
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('گزارش ثبت شد.$review')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text((_isEnglish ? 'Report submitted.$review' : 'گزارش ثبت شد.$review'))));
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -228,7 +230,7 @@ class _ChatThreadScreenState extends State<ChatThreadScreen> {
       final mimeType = picked.mimeType == 'image/png' ? 'image/png' : 'image/jpeg';
       final encoded = 'data:$mimeType;base64,${base64Encode(bytes)}';
       if (encoded.length > 680000) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('حجم تصویر زیاد است؛ لطفاً تصویر کوچک‌تری انتخاب کنید.')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_isEnglish ? 'The image is too large. Please choose a smaller image.' : 'حجم تصویر زیاد است؛ لطفاً تصویر کوچک‌تری انتخاب کنید.')));
         return;
       }
       setState(() => _sending = true);
@@ -245,8 +247,8 @@ class _ChatThreadScreenState extends State<ChatThreadScreen> {
     if (!body.startsWith('data:image/') || !body.contains(';base64,')) return Text(body);
     try {
       final encoded = body.substring(body.indexOf(';base64,') + 8);
-      return ClipRRect(borderRadius: BorderRadius.circular(10), child: Image.memory(base64Decode(encoded), width: 230, fit: BoxFit.contain, errorBuilder: (_, __, ___) => const Text('نمایش تصویر ممکن نیست.')));
-    } catch (_) { return const Text('تصویر نامعتبر است.'); }
+      return ClipRRect(borderRadius: BorderRadius.circular(10), child: Image.memory(base64Decode(encoded), width: 230, fit: BoxFit.contain, errorBuilder: (_, __, ___) => Text(_isEnglish ? 'Unable to display image.' : 'نمایش تصویر ممکن نیست.')));
+    } catch (_) { return Text(_isEnglish ? 'Invalid image.' : 'تصویر نامعتبر است.'); }
   }
 
   @override
@@ -257,7 +259,7 @@ class _ChatThreadScreenState extends State<ChatThreadScreen> {
       body: Column(children: [
         Expanded(child: _loading ? const Center(child: CircularProgressIndicator())
           : _error != null ? Center(child: Padding(padding: const EdgeInsets.all(20), child: Text(_error!, textAlign: TextAlign.center)))
-          : _messages.isEmpty ? const Center(child: Text('هنوز پیامی ارسال نشده است.'))
+          : _messages.isEmpty ? Center(child: Text(_isEnglish ? 'No messages yet.' : 'هنوز پیامی ارسال نشده است.'))
           : ListView.builder(
             reverse: false,
             padding: const EdgeInsets.all(12),
@@ -293,16 +295,16 @@ class _ChatThreadScreenState extends State<ChatThreadScreen> {
         SafeArea(child: Column(mainAxisSize: MainAxisSize.min, children: [
           Padding(padding: const EdgeInsets.all(10), child: Row(children: [
             IconButton(
-              tooltip: 'ارسال تصویر',
+              tooltip: _isEnglish ? 'Send image' : 'ارسال تصویر',
               onPressed: _sending ? null : _sendImage,
               icon: const Icon(Icons.image_outlined),
             ),
             IconButton(
-              tooltip: _showEmojiPicker ? 'بستن ایموجی‌ها' : 'افزودن ایموجی',
+              tooltip: _showEmojiPicker ? (_isEnglish ? 'Close emoji picker' : 'بستن ایموجی‌ها') : (_isEnglish ? 'Add emoji' : 'افزودن ایموجی'),
               onPressed: () => setState(() => _showEmojiPicker = !_showEmojiPicker),
               icon: Icon(_showEmojiPicker ? Icons.keyboard_alt_outlined : Icons.emoji_emotions_outlined),
             ),
-            Expanded(child: TextField(controller: _composer, minLines: 1, maxLines: 4, maxLength: 2000, decoration: const InputDecoration(hintText: 'پیام بنویسید...', border: OutlineInputBorder(), counterText: ''))),
+            Expanded(child: TextField(controller: _composer, minLines: 1, maxLines: 4, maxLength: 2000, decoration: InputDecoration(hintText: _isEnglish ? 'Write a message...' : 'پیام بنویسید...', border: const OutlineInputBorder(), counterText: ''))),
             const SizedBox(width: 8),
             IconButton.filled(onPressed: _sending ? null : _send, icon: const Icon(Icons.send)),
           ])),
