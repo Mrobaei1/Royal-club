@@ -56,6 +56,14 @@ await pool.query(`
   ALTER TABLE users ADD COLUMN IF NOT EXISTS phone TEXT NOT NULL DEFAULT '';
   ALTER TABLE users ADD COLUMN IF NOT EXISTS country TEXT NOT NULL DEFAULT '';
 
+  CREATE TABLE IF NOT EXISTS app_contact_methods (
+    id BIGSERIAL PRIMARY KEY,
+    label TEXT NOT NULL,
+    value TEXT NOT NULL,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+
   CREATE TABLE IF NOT EXISTS friendships (
     id BIGSERIAL PRIMARY KEY,
     requester_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -565,6 +573,39 @@ const requireOwnerAuth = async (request: any, reply: any) => {
     return reply.code(403).send({ error: 'Owner access is not configured or is not permitted.' });
   }
 };
+
+app.get('/api/v1/contact-methods', { onRequest: [requireMatchAuth] }, async () => {
+  const result = await pool.query('SELECT id, label, value FROM app_contact_methods ORDER BY sort_order ASC, id ASC');
+  return { methods: result.rows };
+});
+
+app.patch<{ Body: { methods?: Array<{ label?: string; value?: string }> } }>('/api/v1/admin/contact-methods', { onRequest: [requireOwnerAuth] }, async (request, reply) => {
+  const methods = request.body?.methods;
+  if (!Array.isArray(methods) || methods.length > 20) return reply.code(400).send({ error: 'Provide at most 20 contact methods.' });
+  const clean = methods.map((item) => ({
+    label: typeof item.label === 'string' ? item.label.trim() : '',
+    value: typeof item.value === 'string' ? item.value.trim() : '',
+  })).filter((item) => item.label && item.value);
+  if (clean.some((item) => item.label.length > 60 || item.value.length > 500)) {
+    return reply.code(400).send({ error: 'Contact labels must be up to 60 characters and values up to 500 characters.' });
+  }
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query('DELETE FROM app_contact_methods');
+    for (let i = 0; i < clean.length; i++) {
+      await client.query('INSERT INTO app_contact_methods (label, value, sort_order) VALUES ($1, $2, $3)', [clean[i].label, clean[i].value, i]);
+    }
+    await client.query('COMMIT');
+    return { methods: clean };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    request.log.error({ err: error }, 'Could not save contact methods');
+    return reply.code(500).send({ error: 'Could not save contact methods.' });
+  } finally {
+    client.release();
+  }
+});
 
 app.get<{ Params: { userId: string } }>('/api/v1/admin/users/:userId/profile', { onRequest: [requireOwnerAuth] }, async (request, reply) => {
   const { userId } = request.params;
