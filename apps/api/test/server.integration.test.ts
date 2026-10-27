@@ -58,6 +58,41 @@ test('registered players can join an online match and history does not expose op
   assert.equal(databaseHealth.statusCode, 200);
   assert.equal(databaseHealth.json().database, 'connected');
 
+  const shortPassword = await app.inject({
+    method: 'POST',
+    url: '/api/v1/auth/register',
+    payload: {
+      email: `short-${randomUUID()}@example.test`,
+      password: '12345',
+      fullName: 'Short Password',
+    },
+  });
+  assert.equal(shortPassword.statusCode, 400,
+    'Registration must reject passwords shorter than six characters.');
+
+  const sixCharacterEmail = `six-${randomUUID()}@example.test`;
+  const sixCharacterRegistration = await app.inject({
+    method: 'POST',
+    url: '/api/v1/auth/register',
+    payload: { email: sixCharacterEmail, password: '123456', fullName: 'Six Character' },
+  });
+  assert.equal(sixCharacterRegistration.statusCode, 201, sixCharacterRegistration.body);
+  const sixCharacterLogin = await app.inject({
+    method: 'POST',
+    url: '/api/v1/auth/login',
+    headers: { 'x-forwarded-for': '198.51.100.11' },
+    payload: { email: sixCharacterEmail, password: '123456' },
+  });
+  assert.equal(sixCharacterLogin.statusCode, 200, sixCharacterLogin.body);
+  const sameAccountOtherNetwork = await app.inject({
+    method: 'POST',
+    url: '/api/v1/auth/login',
+    headers: { 'x-forwarded-for': '203.0.113.24' },
+    payload: { email: sixCharacterEmail, password: '123456' },
+  });
+  assert.equal(sameAccountOtherNetwork.statusCode, 200, sameAccountOtherNetwork.body,
+    'Changing the apparent client network must not change account authentication.');
+
   const host = await register('Host Integration');
   const guest = await register('Guest Integration');
 
