@@ -61,4 +61,12 @@ class NotificationsService {
   static Future<void> markAllRead() async {
     await _send('/api/v1/notifications/read-all');
   }
+
+  static Future<void> deleteAll() async {
+    final response = await http.delete(
+      Uri.parse('$_baseUrl/api/v1/notifications'),
+      headers: await _headers(),
+    );
+    await _decode(response);
+  }
 }
