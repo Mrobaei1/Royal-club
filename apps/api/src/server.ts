@@ -921,6 +921,53 @@ app.delete<{ Params: { userId: string }; Body: { messageIds?: string[]; scope?: 
   return { deleted: result.rowCount ?? 0, scope };
 });
 
+app.patch<{ Params: { userId: string; messageId: string }; Body: { body?: string } }>('/api/v1/chat/:userId/messages/:messageId', { onRequest: [requireMatchAuth] }, async (request, reply) => {
+  const claims = request.user as { sub: string };
+  const { userId, messageId } = request.params;
+  const body = typeof request.body?.body === 'string' ? request.body.body.trim() : '';
+  if (!isNumericId(userId) || !isNumericId(messageId) || !body || body.length > 2000 || body.startsWith('data:image/')) {
+    return reply.code(400).send({ error: 'Only text messages up to 2000 characters can be edited.' });
+  }
+  const result = await pool.query(
+    `UPDATE private_messages SET body = $1, edited_at = NOW()
+      WHERE id = $2 AND sender_id = $3 AND recipient_id = $4
+        AND deleted_for_everyone = FALSE
+      RETURNING id, body, edited_at AS "editedAt"`,
+    [body, messageId, claims.sub, userId],
+  );
+  if (!result.rowCount) return reply.code(404).send({ error: 'Only your own existing messages can be edited.' });
+  return { message: result.rows[0] };
+});
+
+app.delete<{ Params: { userId: string; messageId: string }; Querystring: { scope?: string } }>('/api/v1/chat/:userId/messages/:messageId', { onRequest: [requireMatchAuth] }, async (request, reply) => {
+  const claims = request.user as { sub: string };
+  const { userId, messageId } = request.params;
+  const scope = request.query.scope ?? 'me';
+  if (!isNumericId(userId) || !isNumericId(messageId) || !['me', 'everyone'].includes(scope)) {
+    return reply.code(400).send({ error: 'Invalid message deletion request.' });
+  }
+  if (scope === 'everyone') {
+    const result = await pool.query(
+      `UPDATE private_messages SET deleted_for_everyone = TRUE, body = '[پیام حذف شد]'
+        WHERE id = $1 AND sender_id = $2 AND recipient_id = $3
+        RETURNING id`,
+      [messageId, claims.sub, userId],
+    );
+    if (!result.rowCount) return reply.code(404).send({ error: 'Only your own messages can be deleted for everyone.' });
+  } else {
+    const result = await pool.query(
+      `UPDATE private_messages SET deleted_for_users = CASE
+          WHEN $1 = ANY(deleted_for_users) THEN deleted_for_users
+          ELSE array_append(deleted_for_users, $1::BIGINT) END
+        WHERE id = $2 AND ((sender_id = $1 AND recipient_id = $3) OR (sender_id = $3 AND recipient_id = $1))
+        RETURNING id`,
+      [claims.sub, messageId, userId],
+    );
+    if (!result.rowCount) return reply.code(404).send({ error: 'Message not found.' });
+  }
+  return { deleted: true, scope };
+});
+
 app.get('/api/v1/notifications', { onRequest: [requireMatchAuth] }, async (request) => {
   const claims = request.user as { sub: string };
   const result = await pool.query(
