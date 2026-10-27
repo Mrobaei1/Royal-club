@@ -38,7 +38,7 @@ class _ChatScreenState extends State<ChatScreen> {
       appBar: AppBar(title: Text(_isEnglish ? 'Private chats' : 'گفت‌وگوهای خصوصی'), actions: [IconButton(tooltip: _isEnglish ? 'Refresh' : 'به‌روزرسانی', onPressed: _load, icon: const Icon(Icons.refresh))]),
       body: _loading ? const Center(child: CircularProgressIndicator())
         : _error != null ? Center(child: Padding(padding: const EdgeInsets.all(24), child: Text(_error!, textAlign: TextAlign.center)))
-        : _conversations.isEmpty ? const Center(child: Padding(padding: EdgeInsets.all(24), child: Text(_isEnglish ? 'Add a friend to start a conversation.' : 'برای شروع گفت‌وگو، ابتدا یک دوست اضافه کنید.')))
+        : _conversations.isEmpty ? Center(child: Padding(padding: const EdgeInsets.all(24), child: Text(_isEnglish ? 'Add a friend to start a conversation.' : 'برای شروع گفت‌وگو، ابتدا یک دوست اضافه کنید.')))
         : RefreshIndicator(onRefresh: _load, child: ListView.separated(
           itemCount: _conversations.length,
           separatorBuilder: (_, __) => const Divider(height: 1),
@@ -47,7 +47,7 @@ class _ChatScreenState extends State<ChatScreen> {
             final unread = (item['unreadCount'] as num?)?.toInt() ?? 0;
             return ListTile(
               leading: RoyalAvatar(dataUrl: item['avatarDataUrl']?.toString(), radius: 22),
-              title: Text(item['username']?.toString().isNotEmpty == true ? '@${item['username']}' : 'دوست'),
+              title: Text(item['username']?.toString().isNotEmpty == true ? '@${item['username']}' : (_isEnglish ? 'Friend' : 'دوست')),
               subtitle: Text(item['lastMessage']?.toString() ?? (_isEnglish ? 'Tap to start chatting' : 'برای شروع گفت‌وگو لمس کنید'), maxLines: 1, overflow: TextOverflow.ellipsis),
               trailing: unread > 0 ? CircleAvatar(radius: 12, child: Text('$unread', style: const TextStyle(fontSize: 11))) : const Icon(Icons.chevron_left),
               onTap: () async {
