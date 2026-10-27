@@ -195,6 +195,83 @@ test('registered players can join an online match and history does not expose op
   });
   assert.equal(guestAcceptAndReady.statusCode, 200, guestAcceptAndReady.body);
   assert.equal(guestAcceptAndReady.json().setup.status, 'active');
+  // Live spectator access is opt-in by the host and limited to accepted friends.
+  const enableSpectators = await app.inject({
+    method: 'POST',
+    url: `/api/v1/matches/${matchId}/spectators`,
+    headers: auth(host.token),
+    payload: { enabled: true },
+  });
+  assert.equal(enableSpectators.statusCode, 200, enableSpectators.body);
+  assert.equal(enableSpectators.json().settings.spectatorsEnabled, true);
+
+  const blockedLiveList = await app.inject({
+    method: 'GET',
+    url: '/api/v1/matches/live',
+    headers: auth(stranger.token),
+  });
+  assert.equal(blockedLiveList.statusCode, 200, blockedLiveList.body);
+  assert.equal((blockedLiveList.json().matches as Array<Record<string, unknown>>)
+    .some((match) => String(match.id) === matchId), false);
+
+  const watcherRequest = await app.inject({
+    method: 'POST',
+    url: `/api/v1/friends/${stranger.user.id}/request`,
+    headers: auth(host.token),
+    payload: {},
+  });
+  assert.equal(watcherRequest.statusCode, 201, watcherRequest.body);
+  const watcherAccept = await app.inject({
+    method: 'POST',
+    url: `/api/v1/friends/${host.user.id}/accept`,
+    headers: auth(stranger.token),
+    payload: {},
+  });
+  assert.equal(watcherAccept.statusCode, 200, watcherAccept.body);
+
+  const liveList = await app.inject({
+    method: 'GET',
+    url: '/api/v1/matches/live',
+    headers: auth(stranger.token),
+  });
+  assert.equal(liveList.statusCode, 200, liveList.body);
+  assert.ok((liveList.json().matches as Array<Record<string, unknown>>)
+    .some((match) => String(match.id) === matchId));
+
+  const spectatorSnapshot = await app.inject({
+    method: 'GET',
+    url: `/api/v1/matches/${matchId}/spectate`,
+    headers: auth(stranger.token),
+  });
+  assert.equal(spectatorSnapshot.statusCode, 200, spectatorSnapshot.body);
+  assert.equal(spectatorSnapshot.json().match.hostName, host.user.username);
+  assert.equal(spectatorSnapshot.json().match.guestName, guest.user.username);
+  assert.equal(spectatorSnapshot.json().state.isMyTurn, false);
+  assert.equal(JSON.stringify(spectatorSnapshot.json()).includes(host.user.fullName), false);
+  assert.equal(JSON.stringify(spectatorSnapshot.json()).includes(guest.user.fullName), false);
+
+  const spectatorCannotRoll = await app.inject({
+    method: 'POST',
+    url: `/api/v1/matches/${matchId}/roll`,
+    headers: auth(stranger.token),
+    payload: { expectedVersion: spectatorSnapshot.json().state.version },
+  });
+  assert.notEqual(spectatorCannotRoll.statusCode, 200);
+
+  const disableSpectators = await app.inject({
+    method: 'POST',
+    url: `/api/v1/matches/${matchId}/spectators`,
+    headers: auth(host.token),
+    payload: { enabled: false },
+  });
+  assert.equal(disableSpectators.statusCode, 200, disableSpectators.body);
+  const deniedSnapshot = await app.inject({
+    method: 'GET',
+    url: `/api/v1/matches/${matchId}/spectate`,
+    headers: auth(stranger.token),
+  });
+  assert.equal(deniedSnapshot.statusCode, 404);
+
 
   const snapshot = await app.inject({
     method: 'GET',
