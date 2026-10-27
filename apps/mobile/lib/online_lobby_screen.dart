@@ -116,7 +116,7 @@ class _OnlineLobbyScreenState extends State<OnlineLobbyScreen> {
       final results = await Future.wait([MatchService.listOpen(), MatchService.listLive(), MatchService.pendingInvites()]);
       if (mounted) {
         final previousIds = _invites.map((invite) => invite['id']?.toString()).whereType<String>().toSet();
-        final freshInvites = results[3].where((invite) => !_isInviteExpired(invite)).toList();
+        final freshInvites = results[2].where((invite) => !_isInviteExpired(invite)).toList();
         setState(() { _matches = results[0]; _liveMatches = results[1]; _invites = freshInvites; });
         _notifyNewInvites(freshInvites, previousIds);
       }
@@ -139,7 +139,7 @@ class _OnlineLobbyScreenState extends State<OnlineLobbyScreen> {
     final results = await Future.wait([MatchService.listOpen(), MatchService.history(), MatchService.listLive(), MatchService.pendingInvites()]);
     if (mounted) {
       final previousIds = _invites.map((invite) => invite['id']?.toString()).whereType<String>().toSet();
-      final freshInvites = results[2].where((invite) => !_isInviteExpired(invite)).toList();
+      final freshInvites = results[3].where((invite) => !_isInviteExpired(invite)).toList();
       setState(() { _matches = results[0]; _history = results[1]; _liveMatches = results[2]; _invites = freshInvites; });
       _notifyNewInvites(freshInvites, previousIds);
     }
