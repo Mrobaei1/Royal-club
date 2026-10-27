@@ -409,13 +409,13 @@ class _HomeScreenState extends State<HomeScreen> {
                     builder: (dialogContext) => Directionality(
                       textDirection: isEnglish ? TextDirection.ltr : TextDirection.rtl,
                       child: AlertDialog(
-                        backgroundColor: const Color(0xFF17243A),
-                        title: Text(isEnglish ? 'Choose backgammon mode' : 'انتخاب حالت تخته‌نرد', style: const TextStyle(color: Color(0xFFD8B45A), fontWeight: FontWeight.bold)),
+                        backgroundColor: Theme.of(dialogContext).colorScheme.surface,
+                        title: Text(isEnglish ? 'Choose backgammon mode' : 'انتخاب حالت تخته‌نرد', style: TextStyle(color: Theme.of(dialogContext).colorScheme.primary, fontWeight: FontWeight.bold)),
                         content: Column(
                           mainAxisSize: MainAxisSize.min,
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            Text(isEnglish ? 'Choose how you want to play.' : 'روش بازی را انتخاب کنید.', style: const TextStyle(color: Colors.white70)),
+                            Text(isEnglish ? 'Choose how you want to play.' : 'روش بازی را انتخاب کنید.', style: TextStyle(color: Theme.of(dialogContext).colorScheme.onSurface.withValues(alpha: 0.7))),
                             const SizedBox(height: 14),
                             FilledButton.icon(
                               onPressed: () => Navigator.pop(dialogContext, 'offline'),
@@ -427,7 +427,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               onPressed: () => Navigator.pop(dialogContext, 'online'),
                               icon: const Icon(Icons.public_rounded),
                               label: Text(isEnglish ? 'Online game' : 'بازی آنلاین'),
-                              style: OutlinedButton.styleFrom(foregroundColor: const Color(0xFFD8B45A)),
+                              style: OutlinedButton.styleFrom(foregroundColor: Theme.of(dialogContext).colorScheme.primary),
                             ),
                           ],
                         ),
@@ -510,14 +510,14 @@ class GameTile extends StatelessWidget {
                   Text(title,
                       textDirection: TextDirection.rtl,
                       style: TextStyle(
-                          color: selectedTheme.dark ? Colors.white : const Color(0xFF182033),
+                          color: selectedTheme.dark ? Colors.white : Colors.black,
                           fontSize: 16,
                           fontWeight: FontWeight.w800)),
                   const SizedBox(height: 5),
                   Text(subtitle,
                       textDirection: TextDirection.rtl,
-                      style: const TextStyle(
-                          color: Color(0xFFAEB9CB), fontSize: 12)),
+                      style: TextStyle(
+                          color: selectedTheme.dark ? Colors.white70 : Colors.black54, fontSize: 12)),
                 ],
               )),
               if (comingSoon)
