@@ -25,8 +25,8 @@ This checklist is the release gate before starting Phase 4. A green CI run prove
 
 ### Phase 2 — wallet, subscriptions, ranking
 
-- [ ] Run the newly added integration test for wallet debit, insufficient balance, subscription activation, and ledger consistency in CI.
-- [ ] Review the owner-facing plan/credit controls and prove that unauthorized users cannot change credits or pricing in integration tests.
+- [x] CI integration test passed for wallet debit, insufficient balance, subscription activation, active-subscription lookup, and ledger consistency.
+- [x] Integration test passed for denying a normal user permission to credit a wallet. Owner plan/credit controls still need broader end-to-end acceptance testing.
 - [ ] Confirm the initial monetization policy end-to-end: games and social features remain free unless the owner explicitly enables charges. Verify that subscription and league-entry rules match the configured product policy; league-entry/subscription-day behavior still needs acceptance testing.
 - [ ] Verify ranking/weekly score behavior against agreed examples, including draws/unfinished games and rating updates.
 
@@ -45,6 +45,10 @@ This checklist is the release gate before starting Phase 4. A green CI run prove
 - [ ] Production API/database health is checked against the actual deployment, not a mocked or skipped step.
 - [ ] Manual end-to-end acceptance checklist is signed off.
 - [ ] No APK is built until the owner explicitly authorizes the final build after the above criteria are met.
+
+## Latest automated verification
+
+- Commit `ef0cf75e66e24653a82318069e0ba003ac0a1a6a`: API build/unit tests, API integration tests, Flutter analyze/tests, backgammon engine audit, and Android workflow guard all passed. The Android workflow skipped deployed API health verification and APK build/upload as intended. Web preview was still running at the time of this update.
 
 ## Current decision
 
