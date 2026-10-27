@@ -263,7 +263,7 @@ const cleanupExpiredWaitingRooms = async () => {
     await pool.query(`
       WITH expired AS (
         SELECT id FROM backgammon_matches
-         WHERE status = 'waiting' AND expires_at <= NOW()
+         WHERE status = 'waiting' AND guest_user_id IS NULL AND expires_at <= NOW()
       ), notices AS (
         DELETE FROM notifications
          WHERE data->>'matchId' IN (SELECT id::text FROM expired)
@@ -1446,7 +1446,7 @@ app.post<{ Params: { id: string } }>('/api/v1/matches/:id/join', { onRequest: [r
       `UPDATE backgammon_matches SET guest_user_id = $1, status = 'waiting',
               guest_settings_accepted = FALSE, host_ready = FALSE, guest_ready = FALSE,
               cancellation_proposed_by = NULL, cancellation_accepted_by = NULL,
-              updated_at = NOW()
+              expires_at = NOW() + INTERVAL '30 minutes', updated_at = NOW()
          WHERE id = $2`,
       [claims.sub, match.id]);
     await client.query('COMMIT');
@@ -1507,7 +1507,7 @@ app.get('/api/v1/match-invites', { onRequest: [requireMatchAuth] }, async (reque
   // Hard-delete expired waiting rooms, their invitation rows, and invitation notices.
   await pool.query(`
     WITH expired AS (
-      SELECT id FROM backgammon_matches WHERE status = 'waiting' AND expires_at <= NOW()
+      SELECT id FROM backgammon_matches WHERE status = 'waiting' AND guest_user_id IS NULL AND expires_at <= NOW()
     ), notices AS (
       DELETE FROM notifications
        WHERE data->>'matchId' IN (SELECT id::text FROM expired)

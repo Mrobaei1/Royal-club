@@ -314,6 +314,12 @@ test('registered players can join an online match and history does not expose op
     headers: auth(guest.token),
   });
   assert.equal(joined.statusCode, 200, joined.body);
+  const joinedRoomExpiry = await testPool.query(
+    'SELECT expires_at > NOW() + INTERVAL \'5 minutes\' AS extended FROM backgammon_matches WHERE id = $1',
+    [matchId],
+  );
+  assert.equal(joinedRoomExpiry.rows[0].extended, true,
+    'A room must not retain the 60-second unaccepted-invitation expiry after a player joins.');
   assert.equal(joined.json().match.status, 'waiting');
   assert.equal(joined.json().match.guestAvatarDataUrl, avatar);
   assert.equal(joined.json().match.hostAvatarDataUrl, null);
@@ -600,6 +606,12 @@ test('registered players can join an online match and history does not expose op
   });
   assert.equal(acceptInvite.statusCode, 200, acceptInvite.body);
   assert.equal(acceptInvite.json().response, 'accepted');
+  const acceptedRoomExpiry = await testPool.query(
+    'SELECT expires_at > NOW() + INTERVAL \'5 minutes\' AS extended FROM backgammon_matches WHERE id = $1',
+    [invitedRoomId],
+  );
+  assert.equal(acceptedRoomExpiry.rows[0].extended, true,
+    'Accepting an invitation must extend the waiting-room expiry.');
   const invitedMatch = await app.inject({
     method: 'GET',
     url: `/api/v1/matches/${invitedRoomId}`,
