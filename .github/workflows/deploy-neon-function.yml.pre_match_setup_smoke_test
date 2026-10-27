@@ -1,0 +1,536 @@
+name: Deploy Royal Club API to Neon Functions
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/deploy-neon-function.yml"
+      - "apps/api/**"
+  workflow_dispatch:
+    inputs:
+      neon_project_id:
+        description: Neon project ID for the Frankfurt project
+        required: true
+        type: string
+      neon_branch_id:
+        description: Branch ID for that project's PostgreSQL database
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: write
+
+concurrency:
+  group: royal-club-neon-api-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      NEON_PROJECT_ID: ${{ inputs.neon_project_id || 'crimson-moon-58282245' }}
+      NEON_BRANCH_ID: ${{ inputs.neon_branch_id || 'br-misty-flower-bavs47dm' }}
+      NEON_FUNCTION_SLUG: royalclubapi
+      CORS_ORIGINS: https://mrobaei1.github.io
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: apps/api/package-lock.json
+
+      - name: Install dependencies
+        working-directory: apps/api
+        run: npm ci
+
+      - name: Build and test API
+        working-directory: apps/api
+        run: |
+          npm run build
+          npm test
+
+      - name: Bundle Fetch-compatible Neon Function
+        working-directory: apps/api
+        run: |
+          npx --yes esbuild@0.25.12 src/neon-function.ts --bundle --platform=node --target=node24 --format=esm --banner:js='import { createRequire as __createRequire } from "node:module"; const require = __createRequire(import.meta.url);' --outfile=dist/index.mjs
+          mkdir -p dist/neon-package
+          cp dist/index.mjs dist/neon-package/index.mjs
+          cd dist/neon-package
+          zip -q ../royal-club-function.zip index.mjs
+          cd ..
+          test -s royal-club-function.zip
+          test "$(stat -c%s royal-club-function.zip)" -lt 33554432
+
+      - name: Resolve Neon database connection
+        id: database
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+        run: |
+          curl --fail-with-body --silent --show-error --get \
+            "https://console.neon.tech/api/v2/projects/$NEON_PROJECT_ID/connection_uri" \
+            --header "Authorization: Bearer $NEON_API_KEY" \
+            --header "Accept: application/json" \
+            --data-urlencode "branch_id=$NEON_BRANCH_ID" \
+            --data-urlencode "database_name=neondb" \
+            --data-urlencode "role_name=neondb_owner" \
+            --output connection-response.json
+          DATABASE_URL="$(node -e 'const x=JSON.parse(require("node:fs").readFileSync("connection-response.json","utf8")); const u=x.connection_uri||x.uri||x.connectionUri; if(typeof u!=="string"||!u.startsWith("postgres")) process.exit(2); process.stdout.write(u)')"
+          if [ -z "$DATABASE_URL" ]; then
+            echo "::error::Neon did not return a database connection URI."
+            exit 1
+          fi
+          echo "::add-mask::$DATABASE_URL"
+          echo "url=$DATABASE_URL" >> "$GITHUB_OUTPUT"
+          echo "Neon database connection resolved without displaying credentials."
+
+      - name: Prepare encrypted function environment
+        env:
+          JWT_SECRET: ${{ secrets.ROYAL_CLUB_JWT_SECRET }}
+          DATABASE_URL: ${{ steps.database.outputs.url }}
+        run: |
+          if [ -z "$JWT_SECRET" ] || [ "${#JWT_SECRET}" -lt 32 ]; then
+            echo "::error::Add repository secret ROYAL_CLUB_JWT_SECRET with at least 32 random characters."
+            exit 1
+          fi
+          if [ -z "$DATABASE_URL" ]; then
+            echo "::error::Neon DATABASE_URL was not resolved."
+            exit 1
+          fi
+          node -e 'const fs=require("node:fs"); fs.writeFileSync("function-env.json", JSON.stringify({JWT_SECRET:process.env.JWT_SECRET,DATABASE_URL:process.env.DATABASE_URL,NODE_ENV:"production",CORS_ORIGINS:process.env.CORS_ORIGINS,NEON_FUNCTION_RUNTIME:"1"}));'
+
+      - name: Deploy function to Neon
+        id: deploy
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+        run: |
+          if [ -z "$NEON_API_KEY" ]; then
+            echo "::error::Add the repository secret NEON_API_KEY before running this workflow."
+            exit 1
+          fi
+          curl --fail-with-body --silent --show-error --request POST \
+            "https://console.neon.tech/api/v2/projects/$NEON_PROJECT_ID/branches/$NEON_BRANCH_ID/functions/$NEON_FUNCTION_SLUG/deployments" \
+            --header "Authorization: Bearer $NEON_API_KEY" \
+            --header "Accept: application/json" \
+            --form "zip=@apps/api/dist/royal-club-function.zip;type=application/zip" \
+            --form "runtime=nodejs24" \
+            --form "environment=$(cat function-env.json)" \
+            --output deployment-response.json
+          echo "Neon accepted the function deployment."
+          node -e 'const x=JSON.parse(require("node:fs").readFileSync("deployment-response.json","utf8")); console.log("Deployment response received; secret values are not displayed."); if (x.error) { console.error(x.error); process.exit(1); }'
+
+      - name: Discover function URL
+        id: endpoint
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+        run: |
+          curl --fail-with-body --silent --show-error \
+            "https://console.neon.tech/api/v2/projects/$NEON_PROJECT_ID/branches/$NEON_BRANCH_ID/functions/$NEON_FUNCTION_SLUG" \
+            --header "Authorization: Bearer $NEON_API_KEY" \
+            --header "Accept: application/json" \
+            --output function-details.json
+          FUNCTION_URL="$(node -e 'const x=JSON.parse(require("node:fs").readFileSync("function-details.json","utf8")); const all=[]; function walk(v){if(!v||typeof v!=="object")return;for(const [k,val] of Object.entries(v)){if(typeof val==="string" && /^https:\/\//.test(val) && /neon\.tech\//.test(val)) all.push([k,val]); else if(val && typeof val==="object") walk(val);}} walk(x); const preferred=all.find(([k])=>/url|endpoint/i.test(k)); process.stdout.write((preferred||all[0]||[])[1]||"");')"
+          if [ -z "$FUNCTION_URL" ]; then
+            echo "::error::Could not identify the function's public URL in Neon API response. Open the Neon Functions page and copy the invocation URL."
+            exit 1
+          fi
+          FUNCTION_URL="${FUNCTION_URL%/}"
+          echo "url=$FUNCTION_URL" >> "$GITHUB_OUTPUT"
+          echo "Function URL discovered."
+
+      - name: Wait for Neon deployment to become ready
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+        run: |
+          ready=0
+          for attempt in $(seq 1 20); do
+            curl --connect-timeout 5 --max-time 12 --fail-with-body --silent --show-error \
+              "https://console.neon.tech/api/v2/projects/$NEON_PROJECT_ID/branches/$NEON_BRANCH_ID/functions/$NEON_FUNCTION_SLUG" \
+              --header "Authorization: Bearer $NEON_API_KEY" \
+              --header "Accept: application/json" --output function-details.json
+            STATUS="$(node -e 'const x=JSON.parse(require("node:fs").readFileSync("function-details.json","utf8")); const f=x.function||x; const d=f.current_deployment||f.currentDeployment||f.deployment||{}; process.stdout.write(String(d.status||f.status||x.status||"unknown").toLowerCase())')"
+            echo "Neon function deployment status: $STATUS (check $attempt/20)"
+            if [ "$STATUS" = "completed" ] || [ "$STATUS" = "ready" ]; then ready=1; break; fi
+            if [ "$STATUS" = "failed" ] || [ "$STATUS" = "error" ]; then
+              echo "::error::Neon reports that the function deployment failed."
+              cat function-details.json
+              exit 1
+            fi
+            sleep 6
+          done
+          if [ "$ready" -ne 1 ]; then
+            echo "::error::Neon function deployment did not become ready in 120 seconds."
+            cat function-details.json
+            exit 1
+          fi
+
+      - name: Wait for API health check
+        env:
+          FUNCTION_URL: ${{ steps.endpoint.outputs.url }}
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+        run: |
+          healthy=0
+          for attempt in $(seq 1 4); do
+            if curl --fail --silent --show-error --max-time 8 "$FUNCTION_URL/api/v1/health" --output health.json; then
+              if grep -q '"status":"ok"' health.json; then healthy=1; break; fi
+            fi
+            echo "Health check attempt $attempt/4; waiting briefly for Neon to finish activating the function."
+            sleep 3
+          done
+          if [ "$healthy" -ne 1 ]; then
+            echo "::error::The deployed function did not pass /api/v1/health."
+            echo "Last health response body (credentials are never included):"
+            if [ -f health.json ]; then head -c 4000 health.json; echo; fi
+            echo "Querying Neon function error logs..."
+            curl --silent --show-error --request POST "https://console.neon.tech/api/v2/projects/$NEON_PROJECT_ID/branches/$NEON_BRANCH_ID/logs/query" --header "Authorization: Bearer $NEON_API_KEY" --header "Accept: application/json" --header "Content-Type: application/json" --data '{"since":"1h","source":"function","limit":100}' --output neon-function-errors.json || true
+            if [ -s neon-function-errors.json ]; then
+              node -e 'const x=JSON.parse(require("node:fs").readFileSync("neon-function-errors.json","utf8")); const rows=x.logs||x.records||x.data||[]; if (!rows.length) console.log(JSON.stringify(x).slice(0,12000)); else for (const r of rows) console.log(JSON.stringify({timestamp:r.timestamp,severity:r.severity_text||r.severity,message:r.message||r.body||r}));'
+            else
+              echo "Neon log query returned no response."
+            fi
+            exit 1
+          fi
+          cat health.json
+
+      - name: Verify registration, profile editing, and friend requests
+        env:
+          FUNCTION_URL: ${{ steps.endpoint.outputs.url }}
+          DATABASE_URL: ${{ steps.database.outputs.url }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+          GITHUB_RUN_ATTEMPT: ${{ github.run_attempt }}
+        working-directory: apps/api
+        run: |
+          node --input-type=module <<'NODE'
+          import { Pool } from 'pg';
+          const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+          const base = process.env.FUNCTION_URL.replace(/\/+$/, '');
+          const prefix = `royal-club-smoke-${process.env.GITHUB_RUN_ID}-${process.env.GITHUB_RUN_ATTEMPT}`;
+          const email = `${prefix}@example.invalid`;
+          const shortEmail = `${prefix}-short@example.invalid`;
+          const friendEmail = `${prefix}-friend@example.invalid`;
+          const payload = { fullName: 'Royal Club automated test', phone: '+49123456789', country: 'Germany' };
+          // Neon can briefly rate-limit back-to-back smoke-test registrations when
+          // several CI runs share the same outbound address. Retry only HTTP 429;
+          // keep all other responses untouched so real failures stay visible.
+          async function registerWithRateLimitRetry(body) {
+            for (let attempt = 0; attempt < 3; attempt += 1) {
+              const response = await fetch(`${base}/api/v1/auth/register`, {
+                method: 'POST',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify(body),
+              });
+              if (response.status !== 429 || attempt === 2) return response;
+              const retryAfter = Number(response.headers.get('retry-after'));
+              const delayMs = Number.isFinite(retryAfter) && retryAfter > 0
+                ? Math.min(retryAfter, 60) * 1000
+                : 60_000;
+              console.log(`Registration rate-limited; retrying after ${delayMs / 1000}s (attempt ${attempt + 1}/2).`);
+              await new Promise((resolve) => setTimeout(resolve, delayMs));
+            }
+            throw new Error('Unreachable registration retry state.');
+          }
+          let firstUser;
+          let secondUser;
+          let firstToken;
+          let secondToken;
+          let matchId;
+          try {
+            const shortResponse = await registerWithRateLimitRetry({ ...payload, email: shortEmail, password: 'Ab3!x' });
+            if (shortResponse.status !== 400) {
+              throw new Error(`Expected five-character password to be rejected with 400; got ${shortResponse.status}`);
+            }
+
+            const registerResponse = await registerWithRateLimitRetry({ ...payload, email, password: 'Ab3!xY' });
+            if (registerResponse.status !== 201) {
+              throw new Error(`Expected six-character registration to return 201; got ${registerResponse.status}`);
+            }
+            const firstRegistration = await registerResponse.json();
+            firstUser = firstRegistration.user;
+            firstToken = firstRegistration.accessToken;
+
+            const loginResponse = await fetch(`${base}/api/v1/auth/login`, {
+              method: 'POST',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({ email, password: 'Ab3!xY' }),
+            });
+            if (loginResponse.status !== 200) {
+              throw new Error(`Expected login with six-character password to return 200; got ${loginResponse.status}`);
+            }
+
+            const profileResponse = await fetch(`${base}/api/v1/me/profile`, {
+              method: 'PATCH',
+              headers: { 'content-type': 'application/json', authorization: `Bearer ${firstToken}` },
+              body: JSON.stringify({ ...payload, fullName: 'Royal Club profile smoke test' }),
+            });
+            if (profileResponse.status !== 200) {
+              throw new Error(`Profile update failed with status ${profileResponse.status}: ${await profileResponse.text()}`);
+            }
+
+            const username = `rc_${process.env.GITHUB_RUN_ID}`;
+            const usernameResponse = await fetch(`${base}/api/v1/me/username`, {
+              method: 'PATCH',
+              headers: { 'content-type': 'application/json', authorization: `Bearer ${firstToken}` },
+              body: JSON.stringify({ username }),
+            });
+            if (usernameResponse.status !== 200) {
+              throw new Error(`Username update failed with status ${usernameResponse.status}: ${await usernameResponse.text()}`);
+            }
+
+            const friendRegisterResponse = await registerWithRateLimitRetry({ ...payload, email: friendEmail, password: 'Ab3!xY' });
+            if (friendRegisterResponse.status !== 201) {
+              throw new Error(`Friend account registration failed with status ${friendRegisterResponse.status}`);
+            }
+            const secondRegistration = await friendRegisterResponse.json();
+            secondUser = secondRegistration.user;
+            secondToken = secondRegistration.accessToken;
+
+            const searchResponse = await fetch(`${base}/api/v1/users/search?username=${encodeURIComponent(secondUser.username)}`, {
+              headers: { authorization: `Bearer ${firstToken}` },
+            });
+            const searchData = await searchResponse.json();
+            if (searchResponse.status !== 200 || !searchData.users?.some((user) => String(user.id) === String(secondUser.id))) {
+              throw new Error(`Friend username search failed: status ${searchResponse.status}`);
+            }
+
+            const requestResponse = await fetch(`${base}/api/v1/friends/${secondUser.id}/request`, {
+              method: 'POST',
+              headers: {
+                authorization: `Bearer ${firstToken}`,
+                'content-type': 'application/json',
+                accept: 'application/json',
+              },
+              // Match the mobile app's action-only POST payload exactly.
+              body: JSON.stringify({}),
+            });
+            if (requestResponse.status !== 201) {
+              throw new Error(`Friend request failed with status ${requestResponse.status}: ${await requestResponse.text()}`);
+            }
+
+            const inboxResponse = await fetch(`${base}/api/v1/friends`, {
+              headers: { authorization: `Bearer ${secondToken}` },
+            });
+            const inbox = await inboxResponse.json();
+            if (inboxResponse.status !== 200 || !inbox.incomingRequests?.some((request) => String(request.userId) === String(firstUser.id))) {
+              throw new Error('Friend request did not appear in the recipient inbox.');
+            }
+            const incomingRequest = inbox.incomingRequests.find((request) => String(request.userId) === String(firstUser.id));
+            if (Object.hasOwn(incomingRequest, 'email') || Object.hasOwn(incomingRequest, 'requesterEmail') || Object.hasOwn(incomingRequest, 'addresseeEmail')) {
+              throw new Error('Friend list response must not expose either account email address.');
+            }
+
+            const acceptResponse = await fetch(`${base}/api/v1/friends/${firstUser.id}/accept`, {
+              method: 'POST',
+              headers: { authorization: `Bearer ${secondToken}`, 'content-type': 'application/json' },
+              body: JSON.stringify({}),
+            });
+            if (acceptResponse.status !== 200) {
+              throw new Error(`Friend request acceptance failed with status ${acceptResponse.status}: ${await acceptResponse.text()}`);
+            }
+            const acceptedFriendsResponse = await fetch(`${base}/api/v1/friends`, {
+              headers: { authorization: `Bearer ${firstToken}` },
+            });
+            const acceptedFriends = await acceptedFriendsResponse.json();
+            if (acceptedFriendsResponse.status !== 200 ||
+                !acceptedFriends.friends?.some((friend) => String(friend.userId) === String(secondUser.id))) {
+              throw new Error('Accepted friend did not appear in the sender friend list.');
+            }
+
+            const removeFriendResponse = await fetch(`${base}/api/v1/friends/${secondUser.id}`, {
+              method: 'DELETE',
+              headers: { authorization: `Bearer ${firstToken}` },
+            });
+            if (removeFriendResponse.status !== 200) {
+              throw new Error(`Friend removal failed with status ${removeFriendResponse.status}: ${await removeFriendResponse.text()}`);
+            }
+
+            const createMatchResponse = await fetch(`${base}/api/v1/matches`, {
+              method: 'POST',
+              headers: { authorization: `Bearer ${firstToken}` },
+            });
+            if (createMatchResponse.status !== 201) {
+              throw new Error(`Match creation failed with status ${createMatchResponse.status}: ${await createMatchResponse.text()}`);
+            }
+            const createdMatch = (await createMatchResponse.json()).match;
+            matchId = createdMatch.id;
+
+            const joinMatchResponse = await fetch(`${base}/api/v1/matches/${matchId}/join`, {
+              method: 'POST',
+              headers: { authorization: `Bearer ${secondToken}` },
+            });
+            if (joinMatchResponse.status !== 200) {
+              throw new Error(`Joining match failed with status ${joinMatchResponse.status}: ${await joinMatchResponse.text()}`);
+            }
+            const joinedMatch = (await joinMatchResponse.json()).match;
+            if (joinedMatch.status !== 'active') throw new Error('Match did not become active after the second player joined.');
+
+            const stateResponse = await fetch(`${base}/api/v1/matches/${matchId}/state`, {
+              headers: { authorization: `Bearer ${firstToken}` },
+            });
+            const initialState = (await stateResponse.json()).state;
+            if (stateResponse.status !== 200 || initialState?.status !== 'active' ||
+                !Array.isArray(initialState.board) || initialState.board.length !== 24 ||
+                initialState.isHost !== true || initialState.isMyTurn !== true) {
+              throw new Error('New online match returned an invalid initial game state.');
+            }
+
+            const rollResponse = await fetch(`${base}/api/v1/matches/${matchId}/roll`, {
+              method: 'POST',
+              headers: { authorization: `Bearer ${firstToken}`, 'content-type': 'application/json' },
+              body: JSON.stringify({ expectedVersion: initialState.version }),
+            });
+            const rollPayload = await rollResponse.json();
+            const rolledState = rollPayload.state;
+            if (rollResponse.status !== 200 || !Array.isArray(rolledState?.dice) ||
+                rolledState.dice.length !== 2 || rolledState.dice.some((die) => !Number.isInteger(die) || die < 1 || die > 6) ||
+                !Array.isArray(rolledState.remainingDice) ||
+                ![2, 4].includes(rolledState.remainingDice.length)) {
+              throw new Error('Server-generated online dice failed validation. HTTP status: ' + rollResponse.status + '; payload: ' + JSON.stringify(rollPayload));
+            }
+
+            // The roll endpoint returns dice/version; fetch the full board snapshot
+            // separately before selecting a legal move.
+            const rolledSnapshotResponse = await fetch(`${base}/api/v1/matches/${matchId}/state`, {
+              headers: { authorization: `Bearer ${firstToken}` },
+            });
+            const rolledSnapshot = (await rolledSnapshotResponse.json()).state;
+            if (rolledSnapshotResponse.status !== 200 || !Array.isArray(rolledSnapshot?.board) ||
+                rolledSnapshot.version !== rolledState.version) {
+              throw new Error('Could not load the current board after rolling dice.');
+            }
+            // Find a genuinely legal host move; do not hardcode point numbers.
+            // The host owns positive checkers and moves toward point 0.
+            let selectedMove = null;
+            for (const candidateDie of [...rolledState.remainingDice].sort((a, b) => b - a)) {
+              const barCount = Number(rolledSnapshot.bar?.host ?? 0);
+              if (barCount > 0) {
+                const entryPoint = 24 - candidateDie;
+                if (rolledSnapshot.board[entryPoint] > -2) {
+                  selectedMove = { from: null, to: entryPoint, die: candidateDie };
+                  break;
+                }
+                continue;
+              }
+              for (let point = 0; point < rolledSnapshot.board.length; point += 1) {
+                if (rolledSnapshot.board[point] <= 0) continue;
+                const target = point - candidateDie;
+                if (target < 0 || rolledSnapshot.board[target] <= -2) continue;
+                selectedMove = { from: point, to: target, die: candidateDie };
+                break;
+              }
+              if (selectedMove) break;
+            }
+            if (!selectedMove) {
+              throw new Error('Smoke test could not find a legal host move on the initial board.');
+            }
+            const moveResponse = await fetch(`${base}/api/v1/matches/${matchId}/moves`, {
+              method: 'POST',
+              headers: { authorization: `Bearer ${firstToken}`, 'content-type': 'application/json' },
+              body: JSON.stringify({
+                ...selectedMove,
+                expectedVersion: rolledState.version,
+              }),
+            });
+            const movePayload = await moveResponse.json();
+            const movedState = movePayload.state;
+            if (moveResponse.status !== 200 || !Array.isArray(movedState?.board) ||
+                movedState.board.length !== 24 || movedState.version !== rolledState.version + 1) {
+              throw new Error('Legal online move failed: HTTP ' + moveResponse.status + '; payload: ' + JSON.stringify(movePayload));
+            }
+
+            // A blocked move must be rejected without changing the persisted board/version.
+            const illegalMoveResponse = await fetch(`${base}/api/v1/matches/${matchId}/moves`, {
+              method: 'POST',
+              headers: { authorization: `Bearer ${firstToken}`, 'content-type': 'application/json' },
+              body: JSON.stringify({
+                from: 0,
+                to: 23,
+                die: 1,
+                expectedVersion: movedState.version,
+              }),
+            });
+            if (illegalMoveResponse.status !== 409) {
+              throw new Error(`Blocked online move should return 409; got ${illegalMoveResponse.status}`);
+            }
+            const afterRejectedMoveResponse = await fetch(`${base}/api/v1/matches/${matchId}/state`, {
+              headers: { authorization: `Bearer ${firstToken}` },
+            });
+            const afterRejectedMove = (await afterRejectedMoveResponse.json()).state;
+            if (afterRejectedMoveResponse.status !== 200 ||
+                afterRejectedMove?.version !== movedState.version ||
+                JSON.stringify(afterRejectedMove?.board) !== JSON.stringify(movedState.board)) {
+              throw new Error('Rejected illegal move mutated the server-side game state.');
+            }
+
+            const guestRollResponse = await fetch(`${base}/api/v1/matches/${matchId}/roll`, {
+              method: 'POST',
+              headers: { authorization: `Bearer ${secondToken}`, 'content-type': 'application/json' },
+              body: JSON.stringify({ expectedVersion: movedState.version }),
+            });
+            if (guestRollResponse.status !== 409) {
+              throw new Error(`Out-of-turn dice roll should return 409; got ${guestRollResponse.status}`);
+            }
+
+            const leaderboardResponse = await fetch(`${base}/api/v1/leaderboard`, {
+              headers: { authorization: `Bearer ${firstToken}` },
+            });
+            const leaderboardPayload = await leaderboardResponse.json();
+            if (leaderboardResponse.status !== 200 || !Array.isArray(leaderboardPayload.leaderboard)) {
+              throw new Error(`Leaderboard smoke test failed with status ${leaderboardResponse.status}: ${JSON.stringify(leaderboardPayload)}`);
+            }
+
+            console.log('PASS: auth, profile, friend request/accept/remove/privacy, online match creation/join, server-owned state/dice, legal move persistence, illegal-move rollback, out-of-turn rejection, and leaderboard endpoint.');
+          } finally {
+            if (matchId) await pool.query('DELETE FROM backgammon_matches WHERE id = $1', [matchId]);
+            await pool.query('DELETE FROM users WHERE email = ANY($1::text[])', [[email, shortEmail, friendEmail]]);
+            await pool.end();
+          }
+          NODE
+
+      - name: Collect Neon function logs after smoke-test failure
+        if: failure()
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          NEON_PROJECT_ID: ${{ inputs.neon_project_id || 'crimson-moon-58282245' }}
+          NEON_BRANCH_ID: ${{ inputs.neon_branch_id || 'br-misty-flower-bavs47dm' }}
+        run: |
+          curl --silent --show-error --request POST "https://console.neon.tech/api/v2/projects/$NEON_PROJECT_ID/branches/$NEON_BRANCH_ID/logs/query" \
+            --header "Authorization: Bearer $NEON_API_KEY" \
+            --header "Accept: application/json" \
+            --header "Content-Type: application/json" \
+            --data '{"since":"1h","source":"function","limit":100}' \
+            --output neon-function-errors.json || true
+          if [ -s neon-function-errors.json ]; then
+            node -e 'const x=JSON.parse(require("node:fs").readFileSync("neon-function-errors.json","utf8")); const rows=x.logs||x.records||x.data||[]; if (!rows.length) console.log(JSON.stringify(x).slice(0,12000)); else for (const r of rows) console.log(JSON.stringify({timestamp:r.timestamp,severity:r.severity_text||r.severity,message:r.message||r.body||r}));'
+          else
+            echo "Neon log query returned no response."
+          fi
+
+      - name: Trigger GitHub Pages rebuild with Neon API endpoint
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FUNCTION_URL: ${{ steps.endpoint.outputs.url }}
+        run: |
+          echo "API health check passed at $FUNCTION_URL."
+          gh workflow run royal-club-web-preview.yml --repo "$GITHUB_REPOSITORY" --ref main
+          echo "The GitHub Pages rebuild was queued; the web workflow has a safe default API endpoint."
+
+      - name: Summary
+        env:
+          FUNCTION_URL: ${{ steps.endpoint.outputs.url }}
+        run: |
+          {
+            echo "## Royal Club API deployment"
+            echo ""
+            echo "- API health check: passed"
+            echo "- Six-character registration/login smoke test: passed"
+            echo "- API base URL: ${FUNCTION_URL}"
+            echo "- GitHub Pages rebuild: queued"
+            echo ""
+            echo "Run the Royal Club Web Preview workflow to publish the updated web app."
+          } >> "$GITHUB_STEP_SUMMARY"
