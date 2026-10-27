@@ -437,6 +437,10 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
             _computerThinking = false;
             return;
           }
+          // Show the rolled dice for a full three seconds before the first move.
+          _computerThinking = false;
+          _message = 'تاس کامپیوتر: ${_engine.dice.join('، ')}';
+          return;
         }
         final move = _ai.chooseMove(_engine, difficulty: _difficulty);
         if (move != null) _engine.playMove(move);
