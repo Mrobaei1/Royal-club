@@ -5,6 +5,7 @@ on:
     paths:
       - 'apps/mobile/pubspec.yaml'
       - 'apps/mobile/lib/**'
+      - 'apps/mobile/test/**'
       - '.github/workflows/android-apk.yml'
   workflow_dispatch:
     inputs:
