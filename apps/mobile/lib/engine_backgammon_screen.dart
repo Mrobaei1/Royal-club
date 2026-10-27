@@ -30,6 +30,11 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
   BackgammonDifficulty _difficulty = BackgammonDifficulty.medium;
   bool _computerThinking = false;
   int _boardThemeIndex = 0;
+  static const int _turnLimitSeconds = 20;
+  int _secondsLeft = _turnLimitSeconds;
+  int _timerPlayer = 1;
+  Timer? _turnTimer;
+  bool _timeoutMoveRunning = false;
 
   static const List<List<Color>> _boardThemes = [
     [Color(0xFF6D4026), Color(0xFF76502E), Color(0xFF3B2418)],
@@ -43,6 +48,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
   @override
   void initState() {
     super.initState();
+    _timerPlayer = _engine.currentPlayer;
     _lockLandscapeOnMobile();
   }
 
@@ -56,6 +62,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
 
   @override
   void dispose() {
+    _turnTimer?.cancel();
     if (!kIsWeb) {
       SystemChrome.setPreferredOrientations(const [
         DeviceOrientation.portraitUp,
@@ -73,6 +80,108 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
   bool _gameOverDialogShown = false;
 
   List<BackgammonMove> get _moves => _engine.legalMoves();
+  void _startTurnTimer({bool reset = false}) {
+    if (!mounted || _engine.finished) {
+      _turnTimer?.cancel();
+      return;
+    }
+    if (_vsComputer && _engine.currentPlayer == -1) {
+      _turnTimer?.cancel();
+      return;
+    }
+    if (!reset && _turnTimer != null && _timerPlayer == _engine.currentPlayer) return;
+    _turnTimer?.cancel();
+    _timerPlayer = _engine.currentPlayer;
+    _secondsLeft = _turnLimitSeconds;
+    _turnTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted || _engine.finished) {
+        timer.cancel();
+        return;
+      }
+      if (_vsComputer && _engine.currentPlayer == -1) {
+        timer.cancel();
+        return;
+      }
+      if (_timerPlayer != _engine.currentPlayer) {
+        timer.cancel();
+        setState(() {
+          _timerPlayer = _engine.currentPlayer;
+          _secondsLeft = _turnLimitSeconds;
+        });
+        _startTurnTimer(reset: true);
+        return;
+      }
+      if (_secondsLeft > 1) {
+        setState(() => _secondsLeft--);
+      } else {
+        timer.cancel();
+        setState(() => _secondsLeft = 0);
+        _playTimedOutTurn();
+      }
+    });
+  }
+
+  void _playTimedOutTurn() {
+    if (_timeoutMoveRunning || !mounted || _engine.finished ||
+        (_vsComputer && _engine.currentPlayer == -1)) return;
+    _timeoutMoveRunning = true;
+    setState(() {
+      _selectedPoint = null;
+      _selectedBar = false;
+      var safety = 0;
+      while (!_engine.finished && safety++ < 8) {
+        if (_engine.dice.isEmpty) {
+          final rolled = _engine.rollDice();
+          if (rolled.isEmpty || _engine.finished) break;
+        }
+        var moveSafety = 0;
+        while (!_engine.finished && _engine.dice.isNotEmpty && moveSafety++ < 4) {
+          final move = _ai.chooseMove(_engine, difficulty: _difficulty);
+          if (move == null || !_engine.playMove(move)) break;
+        }
+        if (_engine.finished || _engine.currentPlayer != _timerPlayer ||
+            _engine.dice.isNotEmpty) break;
+        break;
+      }
+      _message = _engine.finished
+          ? 'بازی با پایان زمان و حرکت خودکار تمام شد.'
+          : 'زمان تمام شد؛ هوش مصنوعی حرکت‌های مجاز این نوبت را انجام داد.';
+    });
+    _timeoutMoveRunning = false;
+    if (_engine.finished) {
+      _turnTimer?.cancel();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _showGameOverDialog();
+      });
+    } else {
+      _timerPlayer = _engine.currentPlayer;
+      _secondsLeft = _turnLimitSeconds;
+      _startTurnTimer(reset: true);
+      _scheduleComputerTurn();
+    }
+  }
+
+  Widget _turnCountdown(int player, {bool compact = false}) {
+    if (_vsComputer && player == -1) return const SizedBox.shrink();
+    final active = _engine.currentPlayer == player;
+    final seconds = active && _timerPlayer == player ? _secondsLeft : _turnLimitSeconds;
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: compact ? 3 : 5, vertical: 2),
+      decoration: BoxDecoration(
+        color: active && seconds <= 5 ? Colors.red.shade900 : _boardNavy,
+        borderRadius: BorderRadius.circular(5),
+        border: Border.all(color: active ? _boardGold : Colors.white24),
+      ),
+      child: Text('⏱ $seconds',
+        maxLines: 1,
+        style: TextStyle(
+          color: active && seconds <= 5 ? Colors.white : _boardGold,
+          fontSize: compact ? 8 : 10,
+          fontWeight: FontWeight.w800,
+        )),
+    );
+  }
+
 
   void _roll() {
     if (_computerThinking || (_vsComputer && _engine.currentPlayer == -1)) {
@@ -96,6 +205,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
             'حرکتی نبود؛ نوبت ${_playerName(_engine.currentPlayer)} است.';
       }
     });
+    _startTurnTimer();
     _scheduleComputerTurn();
   }
 
@@ -107,7 +217,10 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
       _selectedPoint = null;
       _selectedBar = false;
       _message = 'بازی از ابتدا شروع شد. تاس بریزید.';
+      _timerPlayer = _engine.currentPlayer;
+      _secondsLeft = _turnLimitSeconds;
     });
+    _startTurnTimer(reset: true);
   }
 
   String _playerName(int player) => player == 1 ? 'طلایی' : 'روشن';
@@ -246,6 +359,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
     } else {
       _message = 'حرکت تجمعی انجام شد؛ تاس باقی‌مانده: ${_engine.dice.join('، ')}';
     }
+    _startTurnTimer();
     _scheduleComputerTurn();
   }
 
@@ -288,6 +402,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
     } else {
       _message = 'حرکت انجام شد؛ تاس باقی‌مانده: ${_engine.dice.join('، ')}';
     }
+    _startTurnTimer();
     _scheduleComputerTurn();
   }
 
@@ -332,6 +447,11 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
               'نوبت کامپیوتر است؛ تاس باقی‌مانده: ${_engine.dice.join('، ')}';
         }
       });
+      if (!_engine.finished && _engine.currentPlayer != _timerPlayer) {
+        _timerPlayer = _engine.currentPlayer;
+        _secondsLeft = _turnLimitSeconds;
+      }
+      _startTurnTimer(reset: true);
       if (_vsComputer &&
           !_engine.finished &&
           _engine.currentPlayer == -1 &&
@@ -352,7 +472,10 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
       _message = vsComputer
           ? 'بازی با هوش مصنوعی؛ تاس بریزید.'
           : 'بازی دونفره محلی؛ تاس بریزید.';
+      _timerPlayer = _engine.currentPlayer;
+      _secondsLeft = _turnLimitSeconds;
     });
+    _startTurnTimer(reset: true);
   }
 
   void _showGameOverDialog() {
@@ -970,6 +1093,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
                   fontWeight: FontWeight.w800,
                 ),
               ),
+              _turnCountdown(offPlayer, compact: compact),
               if (isCurrentPlayer)
                 Icon(Icons.touch_app_outlined, color: _boardGold, size: compact ? 12 : 15),
             ],
