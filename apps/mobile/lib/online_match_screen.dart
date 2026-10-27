@@ -640,30 +640,11 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
                 child: Column(children: [
                   const Text('وضعیت تخته از سرور', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 12),
-                  GridView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: board.length,
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 6, childAspectRatio: .9, crossAxisSpacing: 5, mainAxisSpacing: 5),
-                    itemBuilder: (context, index) {
-                      final count = board[index].toInt();
-                      final selected = _selectedFrom == index;
-                      return InkWell(
-                        onTap: () => _tapPoint(index, board, remaining, isMyTurn),
-                        borderRadius: BorderRadius.circular(8),
-                        child: Container(
-                          decoration: BoxDecoration(color: selected ? _matchGold.withValues(alpha: .35) : const Color(0xFF35271F), borderRadius: BorderRadius.circular(8), border: Border.all(color: selected ? _matchGold : Colors.white24, width: selected ? 2 : 1)),
-                          child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                            Text('${index + 1}', style: const TextStyle(color: Colors.white54, fontSize: 10)),
-                            const SizedBox(height: 3),
-                            Icon(Icons.circle, size: 15, color: count > 0 ? const Color(0xFFF0D7A1) : count < 0 ? const Color(0xFF20202A) : Colors.white12),
-                            Text(count == 0 ? '—' : count.abs().toString(), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                          ]),
-                        ),
-                      );
-                    },
-                  ),
-                ]),
+                  OnlineBackgammonBoard(
+                    points: board,
+                    selectedPoint: _selectedFrom,
+                    onPointTap: (point) => _tapPoint(point, board, remaining, isMyTurn),
+                  ),                ]),
               ),
               const SizedBox(height: 16),
               Container(
@@ -722,6 +703,160 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
         )),
       ),
     );
+  }
+}
+
+
+/// Traditional 24-point board drawn from the server-authoritative match state.
+class OnlineBackgammonBoard extends StatelessWidget {
+  final List<num> points;
+  final int? selectedPoint;
+  final ValueChanged<int> onPointTap;
+
+  const OnlineBackgammonBoard({
+    super.key,
+    required this.points,
+    required this.onPointTap,
+    this.selectedPoint,
+  });
+
+  int? _pointAt(Offset position, Size size) {
+    if (position.dy < 0 || position.dy > size.height) return null;
+    final barWidth = size.width * .075;
+    final halfWidth = (size.width - barWidth) / 2;
+    final x = position.dx;
+    if (x >= halfWidth && x <= halfWidth + barWidth) return null;
+    final column = x < halfWidth
+        ? (x / (halfWidth / 6)).floor().clamp(0, 5)
+        : ((x - halfWidth - barWidth) / (halfWidth / 6)).floor().clamp(0, 5);
+    if (position.dy < size.height / 2) {
+      return x < halfWidth ? 11 - column : 5 - column;
+    }
+    return x < halfWidth ? 12 + column : 18 + column;
+  }
+
+  @override
+  Widget build(BuildContext context) => AspectRatio(
+        aspectRatio: 1.48,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final size = Size(constraints.maxWidth, constraints.maxHeight);
+            return GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTapDown: (details) {
+                final point = _pointAt(details.localPosition, size);
+                if (point != null && point >= 0 && point < points.length) {
+                  onPointTap(point);
+                }
+              },
+              child: CustomPaint(
+                size: size,
+                painter: _OnlineBackgammonBoardPainter(
+                  points: points,
+                  selectedPoint: selectedPoint,
+                ),
+              ),
+            );
+          },
+        ),
+      );
+}
+
+class _OnlineBackgammonBoardPainter extends CustomPainter {
+  final List<num> points;
+  final int? selectedPoint;
+
+  _OnlineBackgammonBoardPainter({required this.points, required this.selectedPoint});
+
+  static const _gold = Color(0xFFD8B45A);
+  static const _lightChecker = Color(0xFFF1DDB4);
+  static const _darkChecker = Color(0xFF20202A);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final bounds = Offset.zero & size;
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(bounds, const Radius.circular(14)),
+      Paint()..shader = const LinearGradient(
+        colors: [Color(0xFFB9844D), Color(0xFF704626), Color(0xFF482B1A)],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+      ).createShader(bounds),
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(bounds.deflate(2), const Radius.circular(12)),
+      Paint()..style = PaintingStyle.stroke..strokeWidth = 3..color = _gold,
+    );
+
+    final barWidth = size.width * .075;
+    final halfWidth = (size.width - barWidth) / 2;
+    final midY = size.height / 2;
+    canvas.drawRect(Rect.fromLTWH(halfWidth, 5, barWidth, size.height - 10),
+        Paint()..color = const Color(0xFF241811));
+    final pointWidth = halfWidth / 6;
+    final checkerRadius = (pointWidth * .34).clamp(3.0, size.height * .035);
+    final stackGap = checkerRadius * 1.75;
+
+    for (var i = 0; i < 24 && i < points.length; i++) {
+      final top = i < 12;
+      final column = i < 12 ? (i < 6 ? 5 - i : 11 - i) : (i < 18 ? i - 12 : i - 18);
+      final rightHalf = i < 6 || i >= 18;
+      final left = rightHalf ? halfWidth + barWidth : 0.0;
+      final x = left + column * pointWidth;
+      final rect = Rect.fromLTWH(x + 2, top ? 5 : midY, pointWidth - 4, size.height / 2 - 8);
+      final triangle = Path();
+      if (top) {
+        triangle.moveTo(rect.left, rect.top);
+        triangle.lineTo(rect.right, rect.top);
+        triangle.lineTo(rect.center.dx, rect.bottom);
+      } else {
+        triangle.moveTo(rect.left, rect.bottom);
+        triangle.lineTo(rect.right, rect.bottom);
+        triangle.lineTo(rect.center.dx, rect.top);
+      }
+      triangle.close();
+      canvas.drawPath(triangle, Paint()..color = i.isEven ? const Color(0xFF35241B) : const Color(0xFFD7B17A));
+      if (selectedPoint == i) {
+        canvas.drawPath(triangle, Paint()..color = _gold.withValues(alpha: .38));
+        canvas.drawPath(triangle, Paint()..style = PaintingStyle.stroke..strokeWidth = 2..color = _gold);
+      }
+      final count = points[i].toInt();
+      if (count == 0) continue;
+      final positive = count > 0;
+      final checker = Paint()..color = positive ? _lightChecker : _darkChecker;
+      final outline = Paint()..style = PaintingStyle.stroke..strokeWidth = 1.2..color = positive ? _gold : Colors.white70;
+      final visible = count.abs().clamp(1, 5);
+      for (var stack = 0; stack < visible; stack++) {
+        final cy = top
+            ? 12 + checkerRadius + stack * stackGap
+            : size.height - 12 - checkerRadius - stack * stackGap;
+        final center = Offset(x + pointWidth / 2, cy);
+        canvas.drawCircle(center, checkerRadius, checker);
+        canvas.drawCircle(center, checkerRadius, outline);
+      }
+      if (count.abs() > 5) {
+        final label = TextPainter(
+          text: TextSpan(text: count.abs().toString(), style: TextStyle(
+            color: positive ? _darkChecker : Colors.white,
+            fontSize: checkerRadius * .95,
+            fontWeight: FontWeight.w900,
+          )),
+          textDirection: TextDirection.ltr,
+        )..layout();
+        label.paint(canvas, Offset(x + (pointWidth - label.width) / 2, top ? 8 : size.height - label.height - 8));
+      }
+    }
+    canvas.drawLine(Offset(halfWidth, 0), Offset(halfWidth, size.height), Paint()..color = _gold..strokeWidth = 1.5);
+    canvas.drawLine(Offset(halfWidth + barWidth, 0), Offset(halfWidth + barWidth, size.height), Paint()..color = _gold..strokeWidth = 1.5);
+  }
+
+  @override
+  bool shouldRepaint(covariant _OnlineBackgammonBoardPainter oldDelegate) {
+    if (oldDelegate.selectedPoint != selectedPoint || oldDelegate.points.length != points.length) return true;
+    for (var i = 0; i < points.length; i++) {
+      if (oldDelegate.points[i] != points[i]) return true;
+    }
+    return false;
   }
 }
 
