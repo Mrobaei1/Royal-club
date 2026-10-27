@@ -122,41 +122,56 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
     });
   }
 
-  void _playTimedOutTurn() {
+  Future<void> _playTimedOutTurn() async {
     if (_timeoutMoveRunning || !mounted || _engine.finished ||
         (_vsComputer && _engine.currentPlayer == -1)) {
       return;
     }
     _timeoutMoveRunning = true;
-    setState(() {
-      _selectedPoint = null;
-      _selectedBar = false;
-      var safety = 0;
-      while (!_engine.finished && safety++ < 8) {
-        if (_engine.dice.isEmpty) {
-          final rolled = _engine.rollDice();
-          if (rolled.isEmpty || _engine.finished) {
-            break;
-          }
-        }
-        var moveSafety = 0;
-        while (!_engine.finished && _engine.dice.isNotEmpty && moveSafety++ < 4) {
-          final move = _ai.chooseMove(_engine, difficulty: _difficulty);
-          if (move == null || !_engine.playMove(move)) {
-            break;
-          }
-        }
-        if (_engine.finished || _engine.currentPlayer != _timerPlayer ||
-            _engine.dice.isNotEmpty) {
-          break;
-        }
-        break;
+    _selectedPoint = null;
+    _selectedBar = false;
+
+    // Keep the timeout substitute readable too: reveal a fresh roll, wait three
+    // seconds, then animate each legal move with the same three-second cadence
+    // used by the regular computer turn.
+    if (_engine.dice.isEmpty) {
+      setState(() {
+        final rolled = _engine.rollDice();
+        _message = rolled.isEmpty
+            ? 'زمان تمام شد؛ حرکت خودکار آغاز نشد.'
+            : 'زمان تمام شد؛ تاس‌ها: ${_engine.dice.join('، ')}';
+      });
+      if (_engine.dice.isNotEmpty) {
+        await Future<void>.delayed(const Duration(seconds: 3));
       }
-      _message = _engine.finished
-          ? 'بازی با پایان زمان و حرکت خودکار تمام شد.'
-          : 'زمان تمام شد؛ هوش مصنوعی حرکت‌های مجاز این نوبت را انجام داد.';
-    });
+    }
+
+    var safety = 0;
+    while (mounted && !_engine.finished && _engine.dice.isNotEmpty && safety++ < 4) {
+      await Future<void>.delayed(const Duration(seconds: 3));
+      if (!mounted || _engine.finished) break;
+      var moved = false;
+      setState(() {
+        final move = _ai.chooseMove(_engine, difficulty: _difficulty);
+        if (move != null) moved = _engine.playMove(move);
+        _message = _engine.finished
+            ? 'بازی با پایان زمان و حرکت خودکار تمام شد.'
+            : moved
+                ? 'حرکت خودکار انجام شد؛ تاس باقی‌مانده: ${_engine.dice.join('، ')}'
+                : 'حرکت قانونی دیگری باقی نمانده است.';
+      });
+      if (!moved) break;
+    }
+
+    if (mounted && !_engine.finished) {
+      setState(() {
+        if (_engine.dice.isEmpty) {
+          _message = 'زمان تمام شد؛ حرکت‌های مجاز این نوبت انجام شد.';
+        }
+      });
+    }
     _timeoutMoveRunning = false;
+    if (!mounted) return;
     if (_engine.finished) {
       _turnTimer?.cancel();
       WidgetsBinding.instance.addPostFrameCallback((_) {
