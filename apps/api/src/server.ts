@@ -809,12 +809,13 @@ app.get('/api/v1/chat/conversations', { onRequest: [requireMatchAuth] }, async (
   const result = await pool.query(
     `SELECT u.id AS "userId", u.username,
             u.avatar_data_url AS "avatarDataUrl",
-            latest.body AS "lastMessage", latest.created_at AS "lastMessageAt",
+            latest.body AS "lastMessage", latest.deleted_for_all AS "lastMessageDeleted",
+            latest.created_at AS "lastMessageAt",
             COALESCE(unread.count, 0)::int AS "unreadCount"
        FROM friendships f
        JOIN users u ON u.id = CASE WHEN f.requester_id = $1 THEN f.addressee_id ELSE f.requester_id END
        LEFT JOIN LATERAL (
-         SELECT body, created_at FROM private_messages
+         SELECT body, deleted_for_all, created_at FROM private_messages
           WHERE (sender_id = $1 AND recipient_id = u.id) OR (sender_id = u.id AND recipient_id = $1)
           ORDER BY created_at DESC LIMIT 1
        ) latest ON TRUE
