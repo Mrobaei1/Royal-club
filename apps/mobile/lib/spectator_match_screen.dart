@@ -4,9 +4,6 @@ import 'online_match_screen.dart';
 import 'profile_avatar.dart';
 import 'services/match_service.dart';
 
-const _spectatorGold = Color(0xFFD8B45A);
-const _spectatorNavy = Color(0xFF10182B);
-
 class SpectatorMatchScreen extends StatefulWidget {
   final Map<String, dynamic> match;
   const SpectatorMatchScreen({super.key, required this.match});
@@ -101,18 +98,18 @@ class _SpectatorMatchScreenState extends State<SpectatorMatchScreen> {
                                 RoyalAvatar(dataUrl: _match['hostAvatarDataUrl']?.toString(), radius: 26),
                                 const SizedBox(height: 6),
                                 Text('@${_match['hostName'] ?? 'player'}', textAlign: TextAlign.center,
-                                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                                  style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.bold)),
                               ],
                             ),
                           ),
-                          Text(isEnglish ? 'VS' : 'در برابر', style: const TextStyle(color: _spectatorGold, fontWeight: FontWeight.bold)),
+                          Text(isEnglish ? 'VS' : 'در برابر', style: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.bold)),
                           Expanded(
                             child: Column(
                               children: [
                                 RoyalAvatar(dataUrl: _match['guestAvatarDataUrl']?.toString(), radius: 26),
                                 const SizedBox(height: 6),
                                 Text('@${_match['guestName'] ?? 'player'}', textAlign: TextAlign.center,
-                                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                                  style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.bold)),
                               ],
                             ),
                           ),
@@ -123,7 +120,7 @@ class _SpectatorMatchScreenState extends State<SpectatorMatchScreen> {
                         isEnglish ? 'Room ${_match['roomCode'] ?? _id} · Read-only live view'
                             : 'اتاق ${_match['roomCode'] ?? _id} · تماشای زنده بدون امکان حرکت',
                         textAlign: TextAlign.center,
-                        style: const TextStyle(color: Colors.white60),
+                        style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6)),
                       ),
                     ],
                   ),
@@ -135,24 +132,24 @@ class _SpectatorMatchScreenState extends State<SpectatorMatchScreen> {
                   child: Text(_error!, style: const TextStyle(color: Colors.redAccent)),
                 ),
               if (_loading)
-                const Padding(
-                  padding: EdgeInsets.all(24),
-                  child: Center(child: CircularProgressIndicator(color: _spectatorGold)),
+                Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Center(child: CircularProgressIndicator(color: Theme.of(context).colorScheme.primary)),
                 ),
               if (points.length == 24) ...[
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF6E4A2B),
+                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: _spectatorGold),
+                    border: Border.all(color: Theme.of(context).colorScheme.primary),
                   ),
                   child: Column(
                     children: [
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Text(isEnglish ? 'LIVE' : 'زنده', style: const TextStyle(color: _spectatorGold, fontWeight: FontWeight.bold)),
+                          Text(isEnglish ? 'LIVE' : 'زنده', style: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.bold)),
                           const SizedBox(width: 12),
                           ...List.generate(2, (index) => Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 5),
@@ -160,9 +157,9 @@ class _SpectatorMatchScreenState extends State<SpectatorMatchScreen> {
                               width: 34,
                               height: 34,
                               alignment: Alignment.center,
-                              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8)),
+                              decoration: BoxDecoration(color: Theme.of(context).colorScheme.primary, borderRadius: BorderRadius.circular(8)),
                               child: Text(index < dice.length ? '${dice[index]}' : '–',
-                                style: const TextStyle(color: _spectatorNavy, fontWeight: FontWeight.bold, fontSize: 18)),
+                                style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.bold, fontSize: 18)),
                             ),
                           )),
                         ],
@@ -186,7 +183,7 @@ class _SpectatorMatchScreenState extends State<SpectatorMatchScreen> {
                           ? 'Bar — host: ${bar['host'] ?? 0}, guest: ${bar['guest'] ?? 0}   ·   Off — host: ${off['host'] ?? 0}, guest: ${off['guest'] ?? 0}'
                           : 'مهره‌های خارج از بازی — میزبان: ${bar['host'] ?? 0}، مهمان: ${bar['guest'] ?? 0}   ·   خارج‌شده: میزبان: ${off['host'] ?? 0}، مهمان: ${off['guest'] ?? 0}',
                       textAlign: TextAlign.center,
-                      style: const TextStyle(color: Colors.white70),
+                      style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7)),
                     ),
                   ),
                 ),
@@ -197,7 +194,7 @@ class _SpectatorMatchScreenState extends State<SpectatorMatchScreen> {
                     ? 'Spectators cannot roll dice, move checkers, resign, or change the match.'
                     : 'تماشاگر نمی‌تواند تاس بریزد، مهره حرکت دهد، تسلیم شود یا وضعیت مسابقه را تغییر دهد.',
                 textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.white54),
+                style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.54)),
               ),
             ],
           ),
