@@ -137,7 +137,7 @@ class _AccountScreenState extends State<AccountScreen> {
               ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
               : const Icon(Icons.photo_library_outlined),
           label: Text(_avatarSaving ? 'در حال ذخیره تصویر...' : 'انتخاب عکس پروفایل'),
-          style: OutlinedButton.styleFrom(foregroundColor: _accountGold, side: const BorderSide(color: _accountGold)),
+          style: OutlinedButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.primary, side: const BorderSide(color: _accountGold)),
         ),
       ],
     );
@@ -207,7 +207,7 @@ class _AccountScreenState extends State<AccountScreen> {
   }
 
   Widget _detail(IconData icon, String label, String value) => Card(
-        color: _accountPanel,
+        color: Theme.of(context).colorScheme.surface,
         child: ListTile(
           leading: Icon(icon, color: _accountGold),
           title: Text(label,
@@ -221,11 +221,11 @@ class _AccountScreenState extends State<AccountScreen> {
   Widget build(BuildContext context) => Directionality(
         textDirection: TextDirection.rtl,
         child: Scaffold(
-          backgroundColor: _accountNavy,
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           appBar: AppBar(
             title: const Text('حساب کاربری'),
-            backgroundColor: _accountNavy,
-            foregroundColor: _accountGold,
+            backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+            foregroundColor: Theme.of(context).colorScheme.primary,
           ),
           body: SafeArea(
             child: _loading
@@ -254,12 +254,12 @@ class _AccountScreenState extends State<AccountScreen> {
                             onPressed: _editProfile,
                             icon: const Icon(Icons.edit_outlined),
                             label: const Text('ویرایش اطلاعات حساب'),
-                            style: FilledButton.styleFrom(backgroundColor: _accountGold, foregroundColor: _accountNavy, padding: const EdgeInsets.all(14)),
+                            style: FilledButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary, foregroundColor: Theme.of(context).colorScheme.onPrimary, padding: const EdgeInsets.all(14)),
                           ),
                         ),
                       if (_user != null) ...[
                         Card(
-                          color: _accountPanel,
+                          color: Theme.of(context).colorScheme.surface,
                           child: ListTile(
                             leading: const Icon(Icons.alternate_email, color: _accountGold),
                             title: const Text('نام کاربری', style: TextStyle(color: Colors.white60, fontSize: 12)),
@@ -287,7 +287,7 @@ class _AccountScreenState extends State<AccountScreen> {
                         icon: const Icon(Icons.logout),
                         label: const Text('خروج از حساب'),
                         style: OutlinedButton.styleFrom(
-                          foregroundColor: _accountGold,
+                          foregroundColor: Theme.of(context).colorScheme.primary,
                           side: const BorderSide(color: _accountGold),
                           padding: const EdgeInsets.all(14),
                         ),
