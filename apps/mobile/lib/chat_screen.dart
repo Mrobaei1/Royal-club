@@ -294,7 +294,7 @@ class _ChatThreadScreenState extends State<ChatThreadScreen> {
                     _messageContent(message['deletedForAll'] == true
                         ? (_isEnglish ? 'Message deleted' : 'پیام حذف شده')
                         : (message['body']?.toString() ?? '')),
-                    if (message['editedAt'] != null) Text(_isEnglish ? 'edited' : 'ویرایش‌شده', style: const TextStyle(fontSize: 10, color: Colors.white54)),
+                    if (message['editedAt'] != null) Text(_isEnglish ? 'edited' : 'ویرایش‌شده', style: TextStyle(fontSize: 10, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.54))),
                   ]),
                 ),
                 ),
