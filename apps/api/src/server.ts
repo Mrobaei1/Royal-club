@@ -302,7 +302,22 @@ app.post<{ Body: { email?: string; password?: string; fullName?: string; phone?:
 
 app.post<{ Body: { email?: string; password?: string } }>(
   '/api/v1/auth/login',
-  { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } },
+  {
+    config: {
+      rateLimit: {
+        max: 10,
+        timeWindow: '1 minute',
+        // Login throttling follows the account, not the network/IP, so VPN changes
+        // do not alter the identity or login allowance for a user.
+        keyGenerator: (request) => {
+          const email = request.body?.email;
+          return typeof email === 'string' && email.trim()
+            ? `login:${email.trim().toLowerCase()}`
+            : 'login:missing-email';
+        },
+      },
+    },
+  },
   async (request, reply) => {
     const email = request.body?.email?.trim().toLowerCase();
     const password = request.body?.password;
