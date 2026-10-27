@@ -65,6 +65,8 @@ test('registered players can join an online match and history does not expose op
       email: `short-${randomUUID()}@example.test`,
       password: '12345',
       fullName: 'Short Password',
+      phone: '+491234567890',
+      country: 'Germany',
     },
   });
   assert.equal(shortPassword.statusCode, 400,
@@ -74,7 +76,7 @@ test('registered players can join an online match and history does not expose op
   const sixCharacterRegistration = await app.inject({
     method: 'POST',
     url: '/api/v1/auth/register',
-    payload: { email: sixCharacterEmail, password: '123456', fullName: 'Six Character' },
+    payload: { email: sixCharacterEmail, password: '123456', fullName: 'Six Character', phone: '+491234567890', country: 'Germany' },
   });
   assert.equal(sixCharacterRegistration.statusCode, 201, sixCharacterRegistration.body);
   const sixCharacterLogin = await app.inject({
