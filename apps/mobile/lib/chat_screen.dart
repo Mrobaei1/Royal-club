@@ -48,7 +48,12 @@ class _ChatScreenState extends State<ChatScreen> {
             return ListTile(
               leading: RoyalAvatar(dataUrl: item['avatarDataUrl']?.toString(), radius: 22),
               title: Text(item['username']?.toString().isNotEmpty == true ? '@${item['username']}' : (_isEnglish ? 'Friend' : 'دوست')),
-              subtitle: Text(item['lastMessage']?.toString() ?? (_isEnglish ? 'Tap to start chatting' : 'برای شروع گفت‌وگو لمس کنید'), maxLines: 1, overflow: TextOverflow.ellipsis),
+              subtitle: Text(
+                item['lastMessageDeleted'] == true
+                    ? (_isEnglish ? 'Message deleted' : 'پیام حذف شده')
+                    : (item['lastMessage']?.toString() ?? (_isEnglish ? 'Tap to start chatting' : 'برای شروع گفت‌وگو لمس کنید')),
+                maxLines: 1, overflow: TextOverflow.ellipsis,
+              ),
               trailing: unread > 0 ? CircleAvatar(radius: 12, child: Text('$unread', style: const TextStyle(fontSize: 11))) : const Icon(Icons.chevron_left),
               onTap: () async {
                 await Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => ChatThreadScreen(
@@ -284,7 +289,9 @@ class _ChatThreadScreenState extends State<ChatThreadScreen> {
                     border: Border.all(color: mine ? Theme.of(context).colorScheme.primary.withValues(alpha: .5) : Theme.of(context).dividerColor),
                   ),
                   child: Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                    _messageContent(message['body']?.toString() ?? ''),
+                    _messageContent(message['deletedForAll'] == true
+                        ? (_isEnglish ? 'Message deleted' : 'پیام حذف شده')
+                        : (message['body']?.toString() ?? '')),
                     if (message['editedAt'] != null) Text(_isEnglish ? 'edited' : 'ویرایش‌شده', style: const TextStyle(fontSize: 10, color: Colors.white54)),
                   ]),
                 ),
