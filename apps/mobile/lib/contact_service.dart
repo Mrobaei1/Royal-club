@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
-import 'auth_service.dart';
+import 'services/auth_service.dart';
 
 class ContactService {
   static const FlutterSecureStorage _storage = FlutterSecureStorage();
