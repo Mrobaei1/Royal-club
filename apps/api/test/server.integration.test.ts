@@ -139,6 +139,73 @@ test('registered players can join an online match and history does not expose op
   assert.equal(messageHistory.statusCode, 200, messageHistory.body);
   assert.ok((messageHistory.json().messages as Array<Record<string, unknown>>)
     .some((message) => message.body === 'Hello, friend!'));
+  const messageId = String((sentMessage.json().message as Record<string, unknown>).id);
+
+  const editedMessage = await app.inject({
+    method: 'PATCH',
+    url: `/api/v1/chat/${guest.user.id}/messages/${messageId}`,
+    headers: auth(host.token),
+    payload: { body: 'Edited message' },
+  });
+  assert.equal(editedMessage.statusCode, 200, editedMessage.body);
+  assert.equal(editedMessage.json().message.body, 'Edited message');
+
+  const recipientCannotEdit = await app.inject({
+    method: 'PATCH',
+    url: `/api/v1/chat/${host.user.id}/messages/${messageId}`,
+    headers: auth(guest.token),
+    payload: { body: 'Unauthorized edit' },
+  });
+  assert.equal(recipientCannotEdit.statusCode, 404, recipientCannotEdit.body);
+
+  const hideForSender = await app.inject({
+    method: 'DELETE',
+    url: `/api/v1/chat/${guest.user.id}/messages`,
+    headers: auth(host.token),
+    payload: { messageIds: [messageId], scope: 'me' },
+  });
+  assert.equal(hideForSender.statusCode, 200, hideForSender.body);
+  assert.equal(hideForSender.json().deleted, 1);
+
+  const senderHistoryAfterHide = await app.inject({
+    method: 'GET',
+    url: `/api/v1/chat/${guest.user.id}/messages`,
+    headers: auth(host.token),
+  });
+  assert.equal((senderHistoryAfterHide.json().messages as Array<Record<string, unknown>>)
+    .some((message) => String(message.id) === messageId), false);
+
+  const recipientHistoryAfterHide = await app.inject({
+    method: 'GET',
+    url: `/api/v1/chat/${host.user.id}/messages`,
+    headers: auth(guest.token),
+  });
+  assert.ok((recipientHistoryAfterHide.json().messages as Array<Record<string, unknown>>)
+    .some((message) => String(message.id) === messageId && message.body === 'Edited message'));
+
+  const secondMessage = await app.inject({
+    method: 'POST',
+    url: `/api/v1/chat/${guest.user.id}/messages`,
+    headers: auth(host.token),
+    payload: { body: 'Delete for everyone' },
+  });
+  assert.equal(secondMessage.statusCode, 201, secondMessage.body);
+  const secondMessageId = String((secondMessage.json().message as Record<string, unknown>).id);
+  const deleteForBoth = await app.inject({
+    method: 'DELETE',
+    url: `/api/v1/chat/${guest.user.id}/messages`,
+    headers: auth(host.token),
+    payload: { messageIds: [secondMessageId], scope: 'both' },
+  });
+  assert.equal(deleteForBoth.statusCode, 200, deleteForBoth.body);
+  assert.equal(deleteForBoth.json().deleted, 1);
+  const recipientHistoryAfterDeleteForBoth = await app.inject({
+    method: 'GET',
+    url: `/api/v1/chat/${host.user.id}/messages`,
+    headers: auth(guest.token),
+  });
+  assert.ok((recipientHistoryAfterDeleteForBoth.json().messages as Array<Record<string, unknown>>)
+    .some((message) => String(message.id) === secondMessageId && message.deletedForAll === true));
 
   const stranger = await register('Stranger Integration');
   const deniedMessage = await app.inject({
