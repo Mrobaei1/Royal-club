@@ -65,38 +65,31 @@ class _OnlineLobbyScreenState extends State<OnlineLobbyScreen> {
     if (!mounted || id == null || _popupInviteId != null || !_shownInviteIds.add(id)) return;
     _popupInviteId = id;
     final isEnglish = Localizations.localeOf(context).languageCode == 'en';
+    final timeout = Timer(const Duration(seconds: 10), () {
+      if (mounted && _popupInviteId == id) {
+        Navigator.of(context, rootNavigator: true).pop('expired');
+      }
+    });
     final result = await showDialog<String>(
       context: context,
       barrierDismissible: true,
-      builder: (dialogContext) {
-        var remaining = 10;
-        return StatefulBuilder(builder: (context, setDialogState) {
-          Future.delayed(const Duration(seconds: 1), () {
-            if (!dialogContext.mounted) return;
-            if (remaining <= 1) {
-              Navigator.of(dialogContext).pop('expired');
-            } else {
-              setDialogState(() => remaining--);
-            }
-          });
-          return AlertDialog(
-            title: Text(isEnglish ? 'Backgammon invitation' : 'دعوت بازی تخته‌نرد'),
-            content: Text(isEnglish
-                ? '@${invite['inviterUsername'] ?? 'friend'} invited you to play. This invitation expires in $remaining seconds.'
-                : '@${invite['inviterUsername'] ?? 'دوست'} شما را به بازی دعوت کرده است. این دعوت تا $remaining ثانیه دیگر منقضی می‌شود.'),
-            actions: [
-              TextButton(onPressed: () => Navigator.of(dialogContext).pop('decline'), child: Text(isEnglish ? 'Decline' : 'رد دعوت')),
-              FilledButton(onPressed: () => Navigator.of(dialogContext).pop('accept'), child: Text(isEnglish ? 'Accept & join' : 'پذیرش و ورود')),
-            ],
-          );
-        });
-      },
+      builder: (dialogContext) => AlertDialog(
+        title: Text(isEnglish ? 'Backgammon invitation' : 'دعوت بازی تخته‌نرد'),
+        content: Text(isEnglish
+            ? '@${invite['inviterUsername'] ?? 'friend'} invited you to play. This invitation expires in 10 seconds.'
+            : '@${invite['inviterUsername'] ?? 'دوست'} شما را به بازی دعوت کرده است. این دعوت تا ۱۰ ثانیه دیگر منقضی می‌شود.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(dialogContext).pop('decline'), child: Text(isEnglish ? 'Decline' : 'رد دعوت')),
+          FilledButton(onPressed: () => Navigator.of(dialogContext).pop('accept'), child: Text(isEnglish ? 'Accept & join' : 'پذیرش و ورود')),
+        ],
+      ),
     );
+    timeout.cancel();
     _popupInviteId = null;
     if (!mounted) return;
-    if (result == 'accept' || result == 'decline') {
-      final current = _invites.where((item) => item['id']?.toString() == id).firstOrNull;
-      if (current != null) await _respondToInvite(current, accept: result == 'accept');
+    final matching = _invites.where((item) => item['id']?.toString() == id).toList();
+    if ((result == 'accept' || result == 'decline') && matching.isNotEmpty) {
+      await _respondToInvite(matching.first, accept: result == 'accept');
     }
   }
 
@@ -107,7 +100,9 @@ class _OnlineLobbyScreenState extends State<OnlineLobbyScreen> {
     }).toList();
     if (fresh.isNotEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _showNewInvite(fresh.first);
+        Future<void>.delayed(const Duration(milliseconds: 250), () {
+          if (mounted) _showNewInvite(fresh.first);
+        });
       });
     }
   }
