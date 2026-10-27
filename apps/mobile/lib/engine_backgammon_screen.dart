@@ -135,12 +135,16 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
       while (!_engine.finished && safety++ < 8) {
         if (_engine.dice.isEmpty) {
           final rolled = _engine.rollDice();
-          if (rolled.isEmpty || _engine.finished) break;
+          if (rolled.isEmpty || _engine.finished) {
+            break;
+          }
         }
         var moveSafety = 0;
         while (!_engine.finished && _engine.dice.isNotEmpty && moveSafety++ < 4) {
           final move = _ai.chooseMove(_engine, difficulty: _difficulty);
-          if (move == null || !_engine.playMove(move)) break;
+          if (move == null || !_engine.playMove(move)) {
+            break;
+          }
         }
         if (_engine.finished || _engine.currentPlayer != _timerPlayer ||
             _engine.dice.isNotEmpty) {
