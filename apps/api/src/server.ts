@@ -210,6 +210,7 @@ await pool.query(`
   ALTER TABLE backgammon_matches ADD COLUMN IF NOT EXISTS cancellation_proposed_by BIGINT REFERENCES users(id) ON DELETE SET NULL;
   ALTER TABLE backgammon_matches ADD COLUMN IF NOT EXISTS cancellation_accepted_by BIGINT REFERENCES users(id) ON DELETE SET NULL;
   ALTER TABLE backgammon_matches ADD COLUMN IF NOT EXISTS winner_user_id BIGINT REFERENCES users(id) ON DELETE SET NULL;
+  ALTER TABLE backgammon_matches ADD COLUMN IF NOT EXISTS spectators_enabled BOOLEAN NOT NULL DEFAULT FALSE;
   ALTER TABLE backgammon_matches ADD COLUMN IF NOT EXISTS finish_reason TEXT CHECK (finish_reason IS NULL OR finish_reason IN ('bear_off', 'resignation'));
   CREATE TABLE IF NOT EXISTS backgammon_match_invites (
     id BIGSERIAL PRIMARY KEY,
@@ -1229,6 +1230,46 @@ app.get('/api/v1/matches/history', { onRequest: [requireMatchAuth] }, async (req
   return { matches: result.rows };
 });
 
+app.get('/api/v1/matches/live', { onRequest: [requireMatchAuth] }, async (request) => {
+  const claims = request.user as { sub: string };
+  const result = await pool.query(
+    `SELECT m.id, m.room_code AS "roomCode", m.status, m.updated_at AS "updatedAt",
+            host.username AS "hostName", host.avatar_data_url AS "hostAvatarDataUrl",
+            guest.username AS "guestName", guest.avatar_data_url AS "guestAvatarDataUrl"
+       FROM backgammon_matches m
+       JOIN users host ON host.id = m.host_user_id
+       JOIN users guest ON guest.id = m.guest_user_id
+      WHERE m.status = 'active' AND m.spectators_enabled = TRUE
+        AND $1 NOT IN (m.host_user_id, m.guest_user_id)
+        AND (
+          EXISTS (SELECT 1 FROM friendships f WHERE f.status = 'accepted'
+            AND LEAST(f.requester_id, f.addressee_id) = LEAST($1::bigint, m.host_user_id)
+            AND GREATEST(f.requester_id, f.addressee_id) = GREATEST($1::bigint, m.host_user_id))
+          OR EXISTS (SELECT 1 FROM friendships f WHERE f.status = 'accepted'
+            AND LEAST(f.requester_id, f.addressee_id) = LEAST($1::bigint, m.guest_user_id)
+            AND GREATEST(f.requester_id, f.addressee_id) = GREATEST($1::bigint, m.guest_user_id))
+        )
+      ORDER BY m.updated_at DESC LIMIT 30`,
+    [claims.sub],
+  );
+  return { matches: result.rows };
+});
+
+app.post<{ Params: { id: string }; Body: { enabled?: boolean } }>('/api/v1/matches/:id/spectators', { onRequest: [requireMatchAuth] }, async (request, reply) => {
+  const claims = request.user as { sub: string };
+  if (!isNumericId(request.params.id) || typeof request.body?.enabled !== 'boolean') {
+    return reply.code(400).send({ error: 'A valid match id and enabled flag are required.' });
+  }
+  const result = await pool.query(
+    `UPDATE backgammon_matches
+        SET spectators_enabled = $3, updated_at = NOW()
+      WHERE id = $1 AND host_user_id = $2 AND status IN ('waiting', 'active')
+      RETURNING id, spectators_enabled AS "spectatorsEnabled"`,
+    [request.params.id, claims.sub, request.body.enabled],
+  );
+  if (!result.rowCount) return reply.code(404).send({ error: 'Only the host can change spectator access for an available match.' });
+  return { settings: result.rows[0] };
+});
 app.get('/api/v1/matches/open', { onRequest: [requireMatchAuth] }, async (request, reply) => {
   const claims = request.user as { sub: string };
   const result = await pool.query(
@@ -1318,7 +1359,8 @@ app.get<{ Params: { id: string } }>('/api/v1/matches/:id', { onRequest: [require
             COALESCE(h2h.guest_game_points, 0)::int AS "headToHeadGuestPoints",
             COALESCE(h2h.host_match_wins, 0)::int AS "headToHeadHostWins",
             COALESCE(h2h.guest_match_wins, 0)::int AS "headToHeadGuestWins",
-            m.cancellation_proposed_by AS "cancellationProposedBy", (m.cancellation_proposed_by = $2) AS "cancellationProposedByMe"
+            m.cancellation_proposed_by AS "cancellationProposedBy", (m.cancellation_proposed_by = $2) AS "cancellationProposedByMe",
+            m.spectators_enabled AS "spectatorsEnabled"
        FROM backgammon_matches m JOIN users host ON host.id = m.host_user_id
        LEFT JOIN LATERAL (
          SELECT COUNT(*) AS matches_played,
@@ -2156,6 +2198,48 @@ app.post<{ Params: { id: string }; Body: { expectedVersion: number } }>('/api/v1
 });
 
 // Server-owned game snapshot. Clients can read state but cannot submit a replacement board.
+app.get<{ Params: { id: string } }>('/api/v1/matches/:id/spectate', { onRequest: [requireMatchAuth] }, async (request, reply) => {
+  const claims = request.user as { sub: string };
+  if (!isNumericId(request.params.id)) return reply.code(400).send({ error: 'Invalid match id.' });
+  const result = await pool.query(
+    `SELECT m.id, m.room_code AS "roomCode", m.status,
+            host.username AS "hostName", host.avatar_data_url AS "hostAvatarDataUrl",
+            guest.username AS "guestName", guest.avatar_data_url AS "guestAvatarDataUrl",
+            m.board_state AS board, m.bar_state AS bar, m.off_state AS off,
+            m.current_turn_user_id AS "currentTurnUserId",
+            m.dice, m.remaining_dice AS "remainingDice", m.state_version AS version,
+            m.updated_at AS "updatedAt", m.spectators_enabled AS "spectatorsEnabled"
+       FROM backgammon_matches m
+       JOIN users host ON host.id = m.host_user_id
+       JOIN users guest ON guest.id = m.guest_user_id
+      WHERE m.id = $1 AND m.status = 'active' AND m.spectators_enabled = TRUE
+        AND $2::bigint NOT IN (m.host_user_id, m.guest_user_id)
+        AND (
+          EXISTS (SELECT 1 FROM friendships f WHERE f.status = 'accepted'
+            AND LEAST(f.requester_id, f.addressee_id) = LEAST($2::bigint, m.host_user_id)
+            AND GREATEST(f.requester_id, f.addressee_id) = GREATEST($2::bigint, m.host_user_id))
+          OR EXISTS (SELECT 1 FROM friendships f WHERE f.status = 'accepted'
+            AND LEAST(f.requester_id, f.addressee_id) = LEAST($2::bigint, m.guest_user_id)
+            AND GREATEST(f.requester_id, f.addressee_id) = GREATEST($2::bigint, m.guest_user_id))
+        ) AND m.expires_at > NOW()`,
+    [request.params.id, claims.sub],
+  );
+  if (!result.rowCount) return reply.code(404).send({ error: 'This match is not available for your spectator access.' });
+  const row = result.rows[0];
+  return {
+    match: {
+      id: row.id, roomCode: row.roomCode, status: row.status,
+      hostName: row.hostName, hostAvatarDataUrl: row.hostAvatarDataUrl,
+      guestName: row.guestName, guestAvatarDataUrl: row.guestAvatarDataUrl,
+      spectatorsEnabled: row.spectatorsEnabled,
+    },
+    state: {
+      id: row.id, status: row.status, board: row.board, bar: row.bar, off: row.off,
+      currentTurnUserId: row.currentTurnUserId, isMyTurn: false, isHost: false,
+      dice: row.dice, remainingDice: row.remainingDice, version: row.version, updatedAt: row.updatedAt,
+    },
+  };
+});
 app.get<{ Params: { id: string } }>('/api/v1/matches/:id/state', { onRequest: [requireMatchAuth] }, async (request, reply) => {
   const claims = request.user as { sub: string };
   if (!isNumericId(request.params.id)) return reply.code(400).send({ error: 'Invalid match id.' });
