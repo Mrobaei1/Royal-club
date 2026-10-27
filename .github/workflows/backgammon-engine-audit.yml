@@ -1,0 +1,36 @@
+name: Backgammon engine audit
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/mobile/lib/backgammon_engine.dart"
+      - "apps/mobile/lib/backgammon_ai.dart"
+      - "apps/mobile/test/backgammon_engine*.dart"
+      - "apps/mobile/test/backgammon_ai_test.dart"
+      - ".github/workflows/backgammon-engine-audit.yml"
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backgammon:
+    name: Backgammon engine and AI tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - name: Analyze engine and AI
+        run: dart analyze lib/backgammon_engine.dart lib/backgammon_ai.dart test/backgammon_engine_test.dart test/backgammon_engine_audit_test.dart test/backgammon_ai_test.dart
+      - name: Run engine and AI regression tests
+        run: flutter test test/backgammon_engine_test.dart test/backgammon_engine_audit_test.dart test/backgammon_ai_test.dart
