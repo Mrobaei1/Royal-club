@@ -96,11 +96,11 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   Widget build(BuildContext context) => Directionality(
         textDirection: TextDirection.rtl,
         child: Scaffold(
-          backgroundColor: _noticeNavy,
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           appBar: AppBar(
             title: Text('اعلان‌ها${_unread > 0 ? ' ($_unread)' : ''}'),
-            backgroundColor: _noticeNavy,
-            foregroundColor: _noticeGold,
+            backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+            foregroundColor: Theme.of(context).colorScheme.primary,
             actions: [
               IconButton(
                 onPressed: _loading ? null : _refresh,
