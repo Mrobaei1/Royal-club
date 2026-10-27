@@ -77,11 +77,11 @@ class _WalletScreenState extends State<WalletScreen> {
   Widget build(BuildContext context) => Directionality(
     textDirection: TextDirection.rtl,
     child: Scaffold(
-      backgroundColor: _walletNavy,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text('کیف پول و اشتراک'),
-        backgroundColor: _walletNavy,
-        foregroundColor: _walletGold,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        foregroundColor: Theme.of(context).colorScheme.primary,
         actions: [IconButton(onPressed: _load, icon: const Icon(Icons.refresh))],
       ),
       body: _loading
@@ -114,7 +114,7 @@ class _WalletScreenState extends State<WalletScreen> {
               const Text('اشتراک‌های موجود', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
               const SizedBox(height: 10),
               if (_subscription != null)
-                Card(color: _walletPanel, child: ListTile(
+                Card(color: Theme.of(context).colorScheme.surface, child: ListTile(
                   leading: const Icon(Icons.workspace_premium, color: _walletGold),
                   title: Text(_subscription!['planName']?.toString() ?? 'اشتراک فعال', style: const TextStyle(color: Colors.white)),
                   subtitle: Text('پایان: ${_subscription!['endsAt'] ?? '—'}', style: const TextStyle(color: Colors.white70)),
@@ -123,7 +123,7 @@ class _WalletScreenState extends State<WalletScreen> {
                 const Padding(padding: EdgeInsets.all(12), child: Text('فعلاً اشتراکی تعریف نشده است.', style: TextStyle(color: Colors.white70))),
               for (final item in _plans)
                 Card(
-                  color: _walletPanel,
+                  color: Theme.of(context).colorScheme.surface,
                   child: ListTile(
                     leading: const Icon(Icons.stars_rounded, color: _walletGold),
                     title: Text(item['name']?.toString() ?? 'اشتراک', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
@@ -140,7 +140,7 @@ class _WalletScreenState extends State<WalletScreen> {
                 const Padding(padding: EdgeInsets.all(12), child: Text('هنوز تراکنشی ثبت نشده است.', style: TextStyle(color: Colors.white70))),
               for (final tx in _transactions.take(20))
                 Card(
-                  color: _walletPanel,
+                  color: Theme.of(context).colorScheme.surface,
                   child: ListTile(
                     title: Text(tx['description']?.toString() ?? tx['type']?.toString() ?? 'تراکنش', style: const TextStyle(color: Colors.white)),
                     subtitle: Text(tx['createdAt']?.toString() ?? '', style: const TextStyle(color: Colors.white54, fontSize: 11)),
