@@ -568,9 +568,16 @@ test('registered players can join an online match and history does not expose op
   const inviteNotice = (inviteNotifications.json().notifications as Array<Record<string, unknown>>)
     .find((notice) => String((notice.data as Record<string, unknown>)?.inviteId) === String(incomingInvite.id));
   assert.ok(inviteNotice, 'A new invitation should create a notification.');
+  const openedNoticeRow = await testPool.query(
+    `INSERT INTO notifications (user_id, actor_user_id, type, title, body, data)
+      VALUES ($1, $2, 'system', 'Opened invite', 'Opened', jsonb_build_object('inviteId', 'opened-test', 'matchId', $3::text))
+      RETURNING id`,
+    [guest.user.id, host.user.id, invitedRoomId],
+  );
+  const openedNoticeId = String(openedNoticeRow.rows[0].id);
   const openInviteNotice = await app.inject({
     method: 'POST',
-    url: `/api/v1/notifications/${inviteNotice.id}/read`,
+    url: `/api/v1/notifications/${openedNoticeId}/read`,
     headers: auth(guest.token),
   });
   assert.equal(openInviteNotice.statusCode, 200, openInviteNotice.body);
@@ -581,7 +588,7 @@ test('registered players can join an online match and history does not expose op
     headers: auth(guest.token),
   });
   assert.equal((notificationsAfterOpeningInvite.json().notifications as Array<Record<string, unknown>>)
-    .some((notice) => String(notice.id) === String(inviteNotice.id)), false);
+    .some((notice) => String(notice.id) === openedNoticeId), false);
 
   const acceptInvite = await app.inject({
     method: 'POST',
@@ -600,6 +607,14 @@ test('registered players can join an online match and history does not expose op
   assert.equal(invitedMatch.json().match.status, 'waiting');
   assert.equal(invitedMatch.json().match.guestName, guest.user.username);
   assert.notEqual(invitedMatch.json().match.guestName, guest.user.fullName);
+  const notificationsAfterAcceptance = await app.inject({
+    method: 'GET',
+    url: '/api/v1/notifications',
+    headers: auth(guest.token),
+  });
+  assert.equal((notificationsAfterAcceptance.json().notifications as Array<Record<string, unknown>>)
+    .some((notice) => String(notice.id) === String(inviteNotice.id)), false,
+    'Accepting an invitation must clear its notification.');
 
   const expiredInviteNotice = await testPool.query(
     `INSERT INTO notifications (user_id, actor_user_id, type, title, body, data, created_at)
