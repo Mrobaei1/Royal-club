@@ -1294,9 +1294,26 @@ app.get('/api/v1/match-invites', { onRequest: [requireMatchAuth] }, async (reque
     )
     DELETE FROM backgammon_matches WHERE id IN (SELECT id FROM expired)
   `);
+  // Invitation cards expire after 10 seconds. Mark them responded without
+  // deleting the waiting room, so the host can invite the same friend again.
+  await pool.query(
+    `UPDATE backgammon_match_invites SET status = 'rejected', responded_at = NOW()
+      WHERE invitee_id = $1 AND status = 'pending'
+        AND created_at <= NOW() - INTERVAL '10 seconds'`,
+    [claims.sub]);
+  await pool.query(
+    `DELETE FROM notifications
+      WHERE user_id = $1 AND data ? 'inviteId'
+        AND data->>'inviteId' IN (
+          SELECT id::text FROM backgammon_match_invites
+           WHERE invitee_id = $1 AND status = 'rejected'
+             AND responded_at >= NOW() - INTERVAL '1 minute'
+        )`,
+    [claims.sub]);
   const result = await pool.query(
     `SELECT i.id, i.match_id AS "matchId", i.status, i.created_at AS "createdAt",
-            m.expires_at AS "expiresAt", m.room_code AS "roomCode", m.status AS "matchStatus",
+            (i.created_at + INTERVAL '10 seconds') AS "expiresAt",
+            m.room_code AS "roomCode", m.status AS "matchStatus",
             inviter.username AS "inviterUsername",
             inviter.avatar_data_url AS "inviterAvatarDataUrl"
        FROM backgammon_match_invites i
@@ -1304,6 +1321,7 @@ app.get('/api/v1/match-invites', { onRequest: [requireMatchAuth] }, async (reque
        JOIN users inviter ON inviter.id = i.inviter_id
       WHERE i.invitee_id = $1 AND i.status = 'pending' AND m.status = 'waiting'
         AND m.guest_user_id IS NULL AND m.expires_at > NOW()
+        AND i.created_at > NOW() - INTERVAL '10 seconds'
       ORDER BY i.created_at DESC LIMIT 50`,
     [claims.sub]);
   return { invites: result.rows };
