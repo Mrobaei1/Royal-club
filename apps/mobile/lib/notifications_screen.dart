@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
 import 'services/notifications_service.dart';
 
-const _noticeGold = Color(0xFFD8B45A);
-const _noticePanel = Color(0xFF17243A);
-
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
 
@@ -167,7 +164,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                           onPressed: _busy ? null : _markAllRead,
                           icon: const Icon(Icons.done_all),
                           label: Text(Localizations.localeOf(context).languageCode == 'en' ? 'Mark all read' : 'خواندن همه'),
-                          style: TextButton.styleFrom(foregroundColor: _noticeGold),
+                          style: TextButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.primary),
                         ),
                         if (_items.isNotEmpty) TextButton.icon(
                           onPressed: _busy ? null : _deleteAll,
@@ -186,12 +183,12 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   ),
                 Expanded(
                   child: _loading
-                      ? const Center(
-                          child: CircularProgressIndicator(color: _noticeGold))
+                      ? Center(
+                          child: CircularProgressIndicator(color: Theme.of(context).colorScheme.primary))
                       : _items.isEmpty
                           ? Center(
                               child: Text(Localizations.localeOf(context).languageCode == 'en' ? 'No notifications yet.' : 'فعلاً اعلانی ندارید.',
-                                  style: const TextStyle(color: Colors.white70)))
+                                  style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7))))
                           : ListView.builder(
                               padding: const EdgeInsets.all(14),
                               itemCount: _items.length,
@@ -200,20 +197,20 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                 final unread = item['readAt'] == null;
                                 return Card(
                                   color: unread
-                                      ? const Color(0xFF26334A)
-                                      : _noticePanel,
+                                      ? Theme.of(context).colorScheme.surfaceContainerHighest
+                                      : Theme.of(context).colorScheme.surface,
                                   child: ListTile(
                                     onTap: _busy ? null : () => _markRead(item),
                                     leading: Icon(
                                       unread
                                           ? Icons.notifications_active_outlined
                                           : Icons.notifications_none_rounded,
-                                      color: _noticeGold,
+                                      color: Theme.of(context).colorScheme.primary,
                                     ),
                                     title: Text(
                                       _localizedTitle(item, Localizations.localeOf(context).languageCode == 'en'),
                                       style: TextStyle(
-                                        color: Colors.white,
+                                        color: Theme.of(context).colorScheme.onSurface,
                                         fontWeight: unread
                                             ? FontWeight.bold
                                             : FontWeight.normal,
@@ -223,15 +220,15 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                       padding: const EdgeInsets.only(top: 5),
                                       child: Text(
                                         _localizedBody(item, Localizations.localeOf(context).languageCode == 'en'),
-                                        style: const TextStyle(
-                                            color: Colors.white70, height: 1.5),
+                                        style: TextStyle(
+                                            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7), height: 1.5),
                                       ),
                                     ),
                                     trailing: unread
-                                        ? const Icon(Icons.circle,
-                                            color: _noticeGold, size: 9)
-                                        : const Icon(Icons.check,
-                                            color: Colors.white38),
+                                        ? Icon(Icons.circle,
+                                            color: Theme.of(context).colorScheme.primary, size: 9)
+                                        : Icon(Icons.check,
+                                            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.38)),
                                   ),
                                 );
                               },
