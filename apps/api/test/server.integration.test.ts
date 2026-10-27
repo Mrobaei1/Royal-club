@@ -494,6 +494,7 @@ test('registered players can join an online match and history does not expose op
   assert.equal(weeklyHost.username, host.user.username);
   assert.equal(weeklyHost.wins, 1);
   assert.equal(weeklyHost.score, 3);
+  assert.equal(weeklyHost.level, 1);
   assert.equal(Object.hasOwn(weeklyHost, 'fullName'), false);
 
   // Prepare a single legal bear-off in the disposable DB so the real move route
@@ -531,6 +532,7 @@ test('registered players can join an online match and history does not expose op
   assert.ok(hostStats);
   assert.ok(guestStats);
   assert.equal(hostStats.rating, 1016);
+  assert.equal(hostStats.level, 1);
   assert.equal(hostStats.wins, 1);
   assert.equal(hostStats.gamesPlayed, 1);
   assert.equal(guestStats.rating, 984);

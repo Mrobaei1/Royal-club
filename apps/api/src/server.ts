@@ -1276,10 +1276,13 @@ app.delete<{ Params: { id: string } }>('/api/v1/friends/:id', { onRequest: [requ
 // Lobby API pairs two authenticated players. It does not accept client-supplied board state.
 
 
+// Backgammon level is derived from Elo rating: level 1 below 1100,
+// then one level per 100 rating points, capped at level 10 from 1900 onward.
 app.get('/api/v1/leaderboard', { onRequest: [requireMatchAuth] }, async (request) => {
   const claims = request.user as { sub: string };
   const result = await pool.query(
     `SELECT s.user_id AS "userId", u.username, u.avatar_data_url AS "avatarDataUrl", s.rating,
+            GREATEST(1, LEAST(10, FLOOR((s.rating - 1000) / 100.0)::int + 1))::int AS level,
             s.games_played AS "gamesPlayed", s.wins, s.losses
        FROM backgammon_player_stats s
        JOIN users u ON u.id = s.user_id
@@ -1310,13 +1313,16 @@ app.get('/api/v1/leaderboard/weekly', { onRequest: [requireMatchAuth] }, async (
      )
      SELECT p.user_id AS "userId", u.username,
             u.avatar_data_url AS "avatarDataUrl",
+            COALESCE(s.rating, 1000)::int AS rating,
+            GREATEST(1, LEAST(10, FLOOR((COALESCE(s.rating, 1000) - 1000) / 100.0)::int + 1))::int AS level,
             COUNT(*)::int AS "gamesPlayed",
             COUNT(*) FILTER (WHERE p.winner_user_id = p.user_id)::int AS wins,
             COUNT(*) FILTER (WHERE p.winner_user_id <> p.user_id)::int AS losses,
             (COUNT(*) FILTER (WHERE p.winner_user_id = p.user_id) * 3)::int AS score
        FROM participants p
        JOIN users u ON u.id = p.user_id
-      GROUP BY p.user_id, u.username, u.avatar_data_url
+       LEFT JOIN backgammon_player_stats s ON s.user_id = p.user_id
+      GROUP BY p.user_id, u.username, u.avatar_data_url, s.rating
       ORDER BY score DESC, wins DESC, "gamesPlayed" ASC, LOWER(u.username) ASC
       LIMIT 50`,
   );
