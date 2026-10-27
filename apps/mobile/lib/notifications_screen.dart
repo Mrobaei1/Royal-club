@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'services/notifications_service.dart';
 
 const _noticeGold = Color(0xFFD8B45A);
-const _noticeNavy = Color(0xFF10182B);
 const _noticePanel = Color(0xFF17243A);
 
 class NotificationsScreen extends StatefulWidget {
