@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
 import 'profile_avatar.dart';
 import 'services/auth_service.dart';
@@ -75,6 +77,7 @@ class _ChatThreadScreenState extends State<ChatThreadScreen> {
   bool _loading = true;
   bool _sending = false;
   bool _showEmojiPicker = false;
+  final ImagePicker _imagePicker = ImagePicker();
   String? _error;
   String? _myId;
   List<dynamic> _messages = [];
@@ -157,6 +160,36 @@ class _ChatThreadScreenState extends State<ChatThreadScreen> {
     } finally {
       if (mounted) setState(() => _sending = false);
     }
+  }
+
+  Future<void> _sendImage() async {
+    if (_sending) return;
+    try {
+      final picked = await _imagePicker.pickImage(source: ImageSource.gallery, imageQuality: 65, maxWidth: 1100, maxHeight: 1100);
+      if (picked == null || !mounted) return;
+      final bytes = await picked.readAsBytes();
+      final mimeType = picked.mimeType == 'image/png' ? 'image/png' : 'image/jpeg';
+      final encoded = 'data:$mimeType;base64,${base64Encode(bytes)}';
+      if (encoded.length > 680000) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('حجم تصویر زیاد است؛ لطفاً تصویر کوچک‌تری انتخاب کنید.')));
+        return;
+      }
+      setState(() => _sending = true);
+      await ChatService.send(widget.userId, encoded);
+      await _load();
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))));
+    } finally {
+      if (mounted) setState(() => _sending = false);
+    }
+  }
+
+  Widget _messageContent(String body) {
+    if (!body.startsWith('data:image/') || !body.contains(';base64,')) return Text(body);
+    try {
+      final encoded = body.substring(body.indexOf(';base64,') + 8);
+      return ClipRRect(borderRadius: BorderRadius.circular(10), child: Image.memory(base64Decode(encoded), width: 230, fit: BoxFit.contain, errorBuilder: (_, __, ___) => const Text('نمایش تصویر ممکن نیست.')));
+    } catch (_) { return const Text('تصویر نامعتبر است.'); }
   }
 
   @override
