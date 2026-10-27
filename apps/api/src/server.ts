@@ -165,9 +165,26 @@ await pool.query(`
   -- Image messages are data URLs; the API separately enforces 2,000 characters
   -- for text and a bounded image payload. Widen the legacy table constraint so
   -- valid image messages are not rejected by PostgreSQL.
-  ALTER TABLE private_messages DROP CONSTRAINT IF EXISTS private_messages_body_check;
-  ALTER TABLE private_messages ADD CONSTRAINT private_messages_body_check
-    CHECK (char_length(body) BETWEEN 1 AND 680000);
+  DO $
+  BEGIN
+    IF EXISTS (
+      SELECT 1 FROM pg_constraint
+       WHERE conrelid = 'private_messages'::regclass
+         AND conname = 'private_messages_body_check'
+         AND pg_get_constraintdef(oid) NOT LIKE '%680000%'
+    ) THEN
+      ALTER TABLE private_messages DROP CONSTRAINT private_messages_body_check;
+    END IF;
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_constraint
+       WHERE conrelid = 'private_messages'::regclass
+         AND conname = 'private_messages_body_check'
+    ) THEN
+      ALTER TABLE private_messages ADD CONSTRAINT private_messages_body_check
+        CHECK (char_length(body) BETWEEN 1 AND 680000);
+    END IF;
+  END
+  $;
   ALTER TABLE private_messages ADD COLUMN IF NOT EXISTS edited_at TIMESTAMPTZ;
   ALTER TABLE private_messages ADD COLUMN IF NOT EXISTS deleted_for_all BOOLEAN NOT NULL DEFAULT FALSE;
   ALTER TABLE private_messages ADD COLUMN IF NOT EXISTS hidden_for_sender BOOLEAN NOT NULL DEFAULT FALSE;
@@ -244,25 +261,38 @@ await pool.query(`
     ON backgammon_player_stats (rating DESC, wins DESC, games_played ASC);
 `);
 
-// Waiting rooms have a strict expiry independent of whether a client polls the
-// lobby. Remove expired rooms and their invite notices in the background; the
-// lobby endpoint also performs opportunistic cleanup for recovery after restarts.
-const expiredWaitingRoomCleanup = setInterval(() => {
-  void pool.query(`
-    WITH expired AS (
-      SELECT id FROM backgammon_matches
-       WHERE status = 'waiting' AND expires_at <= NOW()
-    ), notices AS (
-      DELETE FROM notifications
-       WHERE data->>'matchId' IN (SELECT id::text FROM expired)
-       RETURNING id
-    )
-    DELETE FROM backgammon_matches WHERE id IN (SELECT id FROM expired)
-  `).catch((error: unknown) => {
+// Waiting rooms expire even if the lobby is never reopened. The timer is
+// useful on persistent hosts; the request hook provides best-effort cleanup in
+// warm/serverless runtimes where background timers may be suspended.
+let lastExpiredRoomCleanupAt = 0;
+const cleanupExpiredWaitingRooms = async () => {
+  const now = Date.now();
+  if (now - lastExpiredRoomCleanupAt < 5_000) return;
+  lastExpiredRoomCleanupAt = now;
+  try {
+    await pool.query(`
+      WITH expired AS (
+        SELECT id FROM backgammon_matches
+         WHERE status = 'waiting' AND expires_at <= NOW()
+      ), notices AS (
+        DELETE FROM notifications
+         WHERE data->>'matchId' IN (SELECT id::text FROM expired)
+         RETURNING id
+      )
+      DELETE FROM backgammon_matches WHERE id IN (SELECT id FROM expired)
+    `);
+  } catch (error: unknown) {
+    lastExpiredRoomCleanupAt = 0;
     app.log.error({ err: error }, 'Expired waiting-room cleanup failed');
-  });
+  }
+};
+const expiredWaitingRoomCleanup = setInterval(() => {
+  void cleanupExpiredWaitingRooms();
 }, 5_000);
 expiredWaitingRoomCleanup.unref();
+app.addHook('onRequest', async () => {
+  await cleanupExpiredWaitingRooms();
+});
 
 app.get('/api/v1/health', async () => ({
   status: 'ok',
