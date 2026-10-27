@@ -134,15 +134,15 @@ class _FriendsScreenState extends State<FriendsScreen> {
     String? subtitleOverride,
   }) {
     final username = user['username']?.toString().trim() ?? '';
-    final fullName = user['fullName']?.toString().trim() ?? '';
+    final fullName = (user['fullName'] ?? user['name'] ?? user['full_name'])?.toString().trim() ?? '';
     final title = titleOverride ??
         (fullName.isNotEmpty ? fullName : (username.isNotEmpty ? '@$username' : 'کاربر'));
     final subtitle = subtitleOverride ??
         (username.isNotEmpty ? '@$username' : (user['email']?.toString() ?? ''));
     return Card(
-      color: _friendsPanel,
+      color: Theme.of(context).colorScheme.surface,
       child: ListTile(
-        leading: RoyalAvatar(dataUrl: user['avatarDataUrl']?.toString(), radius: 22),
+        leading: RoyalAvatar(dataUrl: (user['avatarDataUrl'] ?? user['avatar_data_url'] ?? user['profilePhoto'] ?? user['photoUrl'])?.toString(), radius: 22),
         title: Text(title, style: const TextStyle(color: Colors.white)),
         subtitle: subtitle.isEmpty
             ? null
@@ -170,11 +170,11 @@ class _FriendsScreenState extends State<FriendsScreen> {
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        backgroundColor: _friendsNavy,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         appBar: AppBar(
           title: const Text('دوستان'),
           backgroundColor: _friendsNavy,
-          foregroundColor: _friendsGold,
+          foregroundColor: Theme.of(context).colorScheme.primary,
           actions: [
             IconButton(
               onPressed: _busy ? null : _refresh,
