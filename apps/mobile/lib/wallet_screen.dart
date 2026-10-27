@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
 import 'services/wallet_service.dart';
 
-const _walletGold = Color(0xFFD8B45A);
-const _walletPanel = Color(0xFF17243A);
-
 class WalletScreen extends StatefulWidget {
   const WalletScreen({super.key});
 
@@ -73,7 +70,9 @@ class _WalletScreenState extends State<WalletScreen> {
   }
 
   @override
-  Widget build(BuildContext context) => Directionality(
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Directionality(
     textDirection: TextDirection.rtl,
     child: Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -84,7 +83,7 @@ class _WalletScreenState extends State<WalletScreen> {
         actions: [IconButton(onPressed: _load, icon: const Icon(Icons.refresh))],
       ),
       body: _loading
-        ? const Center(child: CircularProgressIndicator(color: _walletGold))
+        ? Center(child: CircularProgressIndicator(color: colors.primary))
         : RefreshIndicator(
           onRefresh: _load,
           child: ListView(
@@ -94,15 +93,15 @@ class _WalletScreenState extends State<WalletScreen> {
                 padding: const EdgeInsets.all(22),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(22),
-                  border: Border.all(color: _walletGold.withValues(alpha: .45)),
-                  gradient: const LinearGradient(colors: [Color(0xFF253650), _walletPanel]),
+                  border: Border.all(color: colors.primary.withValues(alpha: .45)), 
+                  gradient: LinearGradient(colors: [colors.surfaceContainerHighest, colors.surface]),
                 ),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  const Text('موجودی اعتبار', style: TextStyle(color: Colors.white70)),
+                  Text('موجودی اعتبار', style: TextStyle(color: colors.onSurface.withValues(alpha: 0.7))),
                   const SizedBox(height: 8),
-                  Text('$_balance اعتبار', style: const TextStyle(color: _walletGold, fontSize: 30, fontWeight: FontWeight.w900)),
+                  Text('$_balance اعتبار', style: TextStyle(color: colors.primary, fontSize: 30, fontWeight: FontWeight.w900)),
                   const SizedBox(height: 8),
-                  const Text('اعتبارها قابل انتقال نیستند؛ شارژ فقط توسط مدیر مجاز انجام می‌شود.', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                  Text('اعتبارها قابل انتقال نیستند؛ شارژ فقط توسط مدیر مجاز انجام می‌شود.', style: TextStyle(color: colors.onSurface.withValues(alpha: 0.7), fontSize: 12)),
                 ]),
               ),
               if (_error != null) Padding(
@@ -110,23 +109,23 @@ class _WalletScreenState extends State<WalletScreen> {
                 child: Text(_error!, style: const TextStyle(color: Colors.redAccent)),
               ),
               const SizedBox(height: 22),
-              const Text('اشتراک‌های موجود', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+              Text('اشتراک‌های موجود', style: TextStyle(color: colors.onSurface, fontSize: 20, fontWeight: FontWeight.bold)),
               const SizedBox(height: 10),
               if (_subscription != null)
                 Card(color: Theme.of(context).colorScheme.surface, child: ListTile(
-                  leading: const Icon(Icons.workspace_premium, color: _walletGold),
-                  title: Text(_subscription!['planName']?.toString() ?? 'اشتراک فعال', style: const TextStyle(color: Colors.white)),
-                  subtitle: Text('پایان: ${_subscription!['endsAt'] ?? '—'}', style: const TextStyle(color: Colors.white70)),
+                  leading: Icon(Icons.workspace_premium, color: colors.primary),
+                  title: Text(_subscription!['planName']?.toString() ?? 'اشتراک فعال', style: TextStyle(color: colors.onSurface)),
+                  subtitle: Text('پایان: ${_subscription!['endsAt'] ?? '—'}', style: TextStyle(color: colors.onSurface.withValues(alpha: 0.7))),
                 )),
               if (_plans.isEmpty)
-                const Padding(padding: EdgeInsets.all(12), child: Text('فعلاً اشتراکی تعریف نشده است.', style: TextStyle(color: Colors.white70))),
+                Padding(padding: const EdgeInsets.all(12), child: Text('فعلاً اشتراکی تعریف نشده است.', style: TextStyle(color: colors.onSurface.withValues(alpha: 0.7)))),
               for (final item in _plans)
                 Card(
                   color: Theme.of(context).colorScheme.surface,
                   child: ListTile(
-                    leading: const Icon(Icons.stars_rounded, color: _walletGold),
-                    title: Text(item['name']?.toString() ?? 'اشتراک', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                    subtitle: Text('${item['durationDays'] ?? 30} روز • ${item['priceCredits'] ?? 0} اعتبار', style: const TextStyle(color: Colors.white70)),
+                    leading: Icon(Icons.stars_rounded, color: colors.primary),
+                    title: Text(item['name']?.toString() ?? 'اشتراک', style: TextStyle(color: colors.onSurface, fontWeight: FontWeight.bold)),
+                    subtitle: Text('${item['durationDays'] ?? 30} روز • ${item['priceCredits'] ?? 0} اعتبار', style: TextStyle(color: colors.onSurface.withValues(alpha: 0.7))),
                     trailing: FilledButton(
                       onPressed: _busy ? null : () => _activate(item['code'].toString()),
                       child: const Text('فعال‌سازی'),
@@ -134,16 +133,16 @@ class _WalletScreenState extends State<WalletScreen> {
                   ),
                 ),
               const SizedBox(height: 22),
-              const Text('تراکنش‌های اخیر', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+              Text('تراکنش‌های اخیر', style: TextStyle(color: colors.onSurface, fontSize: 20, fontWeight: FontWeight.bold)),
               if (_transactions.isEmpty)
-                const Padding(padding: EdgeInsets.all(12), child: Text('هنوز تراکنشی ثبت نشده است.', style: TextStyle(color: Colors.white70))),
+                Padding(padding: const EdgeInsets.all(12), child: Text('هنوز تراکنشی ثبت نشده است.', style: TextStyle(color: colors.onSurface.withValues(alpha: 0.7)))),
               for (final tx in _transactions.take(20))
                 Card(
                   color: Theme.of(context).colorScheme.surface,
                   child: ListTile(
-                    title: Text(tx['description']?.toString() ?? tx['type']?.toString() ?? 'تراکنش', style: const TextStyle(color: Colors.white)),
-                    subtitle: Text(tx['createdAt']?.toString() ?? '', style: const TextStyle(color: Colors.white54, fontSize: 11)),
-                    trailing: Text('${(tx['amount'] as num?)?.toInt() ?? 0}', style: TextStyle(color: ((tx['amount'] as num?)?.toInt() ?? 0) >= 0 ? _walletGold : Colors.orangeAccent, fontWeight: FontWeight.bold)),
+                    title: Text(tx['description']?.toString() ?? tx['type']?.toString() ?? 'تراکنش', style: TextStyle(color: colors.onSurface)),
+                    subtitle: Text(tx['createdAt']?.toString() ?? '', style: TextStyle(color: colors.onSurface.withValues(alpha: 0.54), fontSize: 11)),
+                    trailing: Text('${(tx['amount'] as num?)?.toInt() ?? 0}', style: TextStyle(color: ((tx['amount'] as num?)?.toInt() ?? 0) >= 0 ? colors.primary : colors.error, fontWeight: FontWeight.bold)),
                   ),
                 ),
             ],
@@ -151,4 +150,5 @@ class _WalletScreenState extends State<WalletScreen> {
         ),
     ),
   );
+  }
 }
