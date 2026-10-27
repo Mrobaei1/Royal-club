@@ -108,7 +108,8 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(home: EngineBackgammonScreen(engineForTesting: engine)),
     );
-    await tester.tap(find.text('بازی آفلاین با هوش مصنوعی'));
+    await tester.pump();
+    await tester.tap(find.byWidgetPredicate((widget) => widget is Text && (widget.data == 'بازی دونفره' || widget.data == 'دونفره')));
     await tester.pumpAndSettle();
 
     engine.points.fillRange(0, 24, 0);
@@ -145,7 +146,7 @@ void main() {
 
     expect(find.text('⏱ 20'), findsOneWidget);
 
-    await tester.tap(find.text('بازی دونفره').or(find.text('دونفره')));
+    await tester.tap(find.byWidgetPredicate((widget) => widget is Text && (widget.data == 'بازی دونفره' || widget.data == 'دونفره')));
     await tester.pumpAndSettle();
 
     expect(find.text('⏱ 20'), findsNWidgets(2));
