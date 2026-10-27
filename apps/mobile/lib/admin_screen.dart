@@ -73,7 +73,6 @@ class _AdminScreenState extends State<AdminScreen> {
       final profile = await AdminService.exportUserProfile(user['id'].toString());
       final lines = <String>[
         'شناسه کاربر: ${profile['id'] ?? ''}',
-        'نام کامل: ${profile['fullName'] ?? ''}',
         'نام کاربری: ${profile['username'] ?? ''}',
         'ایمیل: ${profile['email'] ?? ''}',
         'تلفن: ${profile['phone'] ?? ''}',
@@ -233,7 +232,7 @@ class _AdminScreenState extends State<AdminScreen> {
               const SizedBox(height: 8),
               FilledButton(onPressed: _busy ? null : _search, child: const Text('جستجوی کاربر')),
               for (final user in _users) Card(child: Padding(padding: const EdgeInsets.all(12), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(user['fullName']?.toString() ?? 'کاربر', style: const TextStyle(fontWeight: FontWeight.bold)),
+                Text('@${user['username'] ?? 'کاربر'}', style: const TextStyle(fontWeight: FontWeight.bold)),
                 Text(user['email']?.toString() ?? ''),
                 TextField(controller: _amount, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'مقدار اعتبار')),
                 TextField(controller: _description, decoration: const InputDecoration(labelText: 'توضیح تراکنش')),
