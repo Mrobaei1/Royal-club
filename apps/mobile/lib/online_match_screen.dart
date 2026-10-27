@@ -119,6 +119,51 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
     }
   }
 
+  void _showHeadToHeadSummary({required bool isHost}) {
+    final myIsHost = _matchDetails['isHost'] == true;
+    final hostName = _matchDetails['hostName']?.toString() ?? 'میزبان';
+    final guestName = _matchDetails['guestName']?.toString() ?? 'حریف';
+    final hostPoints = (_matchDetails['headToHeadHostPoints'] as num?)?.toInt() ?? 0;
+    final guestPoints = (_matchDetails['headToHeadGuestPoints'] as num?)?.toInt() ?? 0;
+    final hostWins = (_matchDetails['headToHeadHostWins'] as num?)?.toInt() ?? 0;
+    final guestWins = (_matchDetails['headToHeadGuestWins'] as num?)?.toInt() ?? 0;
+    final matches = (_matchDetails['headToHeadMatches'] as num?)?.toInt() ?? 0;
+    final viewerName = myIsHost ? hostName : guestName;
+    final opponentName = myIsHost ? guestName : hostName;
+    final viewerPoints = myIsHost ? hostPoints : guestPoints;
+    final opponentPoints = myIsHost ? guestPoints : hostPoints;
+    final viewerWins = myIsHost ? hostWins : guestWins;
+    final opponentWins = myIsHost ? guestWins : hostWins;
+    showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: _matchPanel,
+        title: Text('آمار رودررو', style: const TextStyle(color: _matchGold)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text('$viewerName  $viewerPoints  -  $opponentPoints  $opponentName',
+              textAlign: TextAlign.center, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 14),
+            _headToHeadRow('تعداد مسابقات رودررو', '$matches'),
+            _headToHeadRow('بردهای مسابقه', '$viewerWins - $opponentWins'),
+            _headToHeadRow('امتیاز دست‌ها', '$viewerPoints - $opponentPoints'),
+          ],
+        ),
+        actions: [TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('بستن'))],
+      ),
+    );
+  }
+
+  Widget _headToHeadRow(String label, String value) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 5),
+    child: Row(children: [
+      Expanded(child: Text(label, style: const TextStyle(color: Colors.white70))),
+      Text(value, style: const TextStyle(color: _matchGold, fontWeight: FontWeight.bold)),
+    ]),
+  );
+
   Future<void> _resignMatch() async {
     if (_busy || _matchStatus != 'active') return;
     final scope = await showDialog<String>(
@@ -459,19 +504,27 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
                 padding: const EdgeInsets.all(12),
                 child: Row(
                   children: [
-                    Expanded(child: Column(children: [
-                      RoyalAvatar(dataUrl: _matchDetails['hostAvatarDataUrl']?.toString(), radius: 25),
-                      const SizedBox(height: 5),
-                      Text(_matchDetails['hostName']?.toString() ?? 'میزبان', textAlign: TextAlign.center,
-                        style: const TextStyle(color: Colors.white70), maxLines: 1, overflow: TextOverflow.ellipsis),
-                    ])),
+                    Expanded(child: InkWell(
+                      borderRadius: BorderRadius.circular(12),
+                      onTap: () => _showHeadToHeadSummary(isHost: true),
+                      child: Column(children: [
+                        RoyalAvatar(dataUrl: _matchDetails['hostAvatarDataUrl']?.toString(), radius: 25),
+                        const SizedBox(height: 5),
+                        Text(_matchDetails['hostName']?.toString() ?? 'میزبان', textAlign: TextAlign.center,
+                          style: const TextStyle(color: Colors.white70), maxLines: 1, overflow: TextOverflow.ellipsis),
+                      ]),
+                    )),
                     const Padding(padding: EdgeInsets.symmetric(horizontal: 8), child: Text('در برابر', style: TextStyle(color: _matchGold))),
-                    Expanded(child: Column(children: [
-                      RoyalAvatar(dataUrl: _matchDetails['guestAvatarDataUrl']?.toString(), radius: 25),
-                      const SizedBox(height: 5),
-                      Text(_matchDetails['guestName']?.toString() ?? 'در انتظار حریف', textAlign: TextAlign.center,
-                        style: const TextStyle(color: Colors.white70), maxLines: 1, overflow: TextOverflow.ellipsis),
-                    ])),
+                    Expanded(child: InkWell(
+                      borderRadius: BorderRadius.circular(12),
+                      onTap: _matchDetails['guestName'] == null ? null : () => _showHeadToHeadSummary(isHost: false),
+                      child: Column(children: [
+                        RoyalAvatar(dataUrl: _matchDetails['guestAvatarDataUrl']?.toString(), radius: 25),
+                        const SizedBox(height: 5),
+                        Text(_matchDetails['guestName']?.toString() ?? 'در انتظار حریف', textAlign: TextAlign.center,
+                          style: const TextStyle(color: Colors.white70), maxLines: 1, overflow: TextOverflow.ellipsis),
+                      ]),
+                    )),
                   ],
                 ),
               ),
