@@ -1086,9 +1086,12 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
               width: isCurrentPlayer ? 1.4 : 1,
             ),
           ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
               Icon(Icons.inventory_2_outlined, color: _boardGold, size: compact ? 10 : 16),
               Text(
                 offPlayer == 1 ? 'طلایی' : 'مشکی',
@@ -1108,7 +1111,8 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
               _turnCountdown(offPlayer, compact: compact),
               if (isCurrentPlayer)
                 Icon(Icons.touch_app_outlined, color: _boardGold, size: compact ? 9 : 15),
-            ],
+              ],
+            ),
           ),
         ),
       ),
