@@ -121,6 +121,9 @@ test('registered players can join an online match and history does not expose op
   const conversation = (conversations.json().conversations as Array<Record<string, unknown>>)
     .find((item) => String(item.userId) === String(guest.user.id));
   assert.ok(conversation);
+  assert.equal(conversation.username, guest.user.username);
+  assert.equal(Object.hasOwn(conversation, 'fullName'), false);
+  assert.equal(JSON.stringify(conversation).includes(guest.user.fullName), false);
   assert.equal(conversation.avatarDataUrl, avatar);
 
   const sentMessage = await app.inject({
@@ -225,6 +228,9 @@ test('registered players can join an online match and history does not expose op
   const guestFriend = (friends.json().friends as Array<Record<string, unknown>>)
     .find((friend) => String(friend.userId) === String(guest.user.id));
   assert.ok(guestFriend);
+  assert.equal(guestFriend.username, guest.user.username);
+  assert.equal(Object.hasOwn(guestFriend, 'fullName'), false);
+  assert.equal(JSON.stringify(guestFriend).includes(guest.user.fullName), false);
   assert.equal(guestFriend.avatarDataUrl, avatar);
 
   const created = await app.inject({
