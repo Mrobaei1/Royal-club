@@ -174,7 +174,7 @@ class _ChatThreadScreenState extends State<ChatThreadScreen> {
       ),
     );
     controller.dispose();
-    if (body == null || body.isEmpty || !mounted) return;
+    if (body == null || body.isEmpty || !mounted) { return; }
     try { await ChatService.edit(widget.userId, id, body); await _load(); }
     catch (e) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString().replaceFirst('Exception: ', '')))); }
   }
