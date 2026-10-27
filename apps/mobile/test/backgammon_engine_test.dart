@@ -84,7 +84,7 @@ void main() {
       final moves = game.legalMoves();
       expect(moves, isNotEmpty);
       expect(moves.every((move) => move.fromBar), isTrue);
-      expect(moves.every((move) => move.to == 22 && move.die == 2), isTrue);
+      expect(moves.every((move) => move.to == 1 && move.die == 2), isTrue);
     });
 
     test('negative player enters from the correct side of the bar', () {
@@ -240,7 +240,7 @@ void main() {
       final blockedGame = BackgammonEngine(random: _FixedRandom([0, 0]));
       blockedGame.points.fillRange(0, 24, 0);
       blockedGame.bar[1] = 1;
-      for (var point = 18; point < 24; point++) {
+      for (var point = 0; point < 6; point++) {
         blockedGame.points[point] = -2;
       }
 
