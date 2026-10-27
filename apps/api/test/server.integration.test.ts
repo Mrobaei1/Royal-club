@@ -486,7 +486,7 @@ test('registered players can join an online match and history does not expose op
   assert.equal(batchMove.json().state.board[3], 1);
   assert.equal(batchMove.json().state.board[0], 1);
   assert.deepEqual(batchMove.json().state.remainingDice, []);
-  assert.equal(batchMove.json().state.currentTurnUserId, guest.user.id);
+  assert.equal(String(batchMove.json().state.currentTurnUserId), String(guest.user.id));
 
   // Mark a test match as finished to exercise the real history endpoint without
   // having to simulate 15 bear-offs. This database is disposable and CI-only.
