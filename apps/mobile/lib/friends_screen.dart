@@ -4,7 +4,6 @@ import 'services/friends_service.dart';
 
 const _friendsGold = Color(0xFFD8B45A);
 const _friendsNavy = Color(0xFF10182B);
-const _friendsPanel = Color(0xFF17243A);
 
 class FriendsScreen extends StatefulWidget {
   const FriendsScreen({super.key});
