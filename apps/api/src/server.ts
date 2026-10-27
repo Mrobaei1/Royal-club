@@ -310,7 +310,8 @@ app.post<{ Body: { email?: string; password?: string } }>(
         // Login throttling follows the account, not the network/IP, so VPN changes
         // do not alter the identity or login allowance for a user.
         keyGenerator: (request) => {
-          const email = request.body?.email;
+          const body = request.body as { email?: unknown } | undefined;
+          const email = body?.email;
           return typeof email === 'string' && email.trim()
             ? `login:${email.trim().toLowerCase()}`
             : 'login:missing-email';
