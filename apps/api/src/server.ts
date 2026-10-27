@@ -1229,7 +1229,7 @@ app.post<{ Params: { id: string } }>('/api/v1/matches/:id/join', { onRequest: [r
       `UPDATE backgammon_matches SET guest_user_id = $1, status = 'waiting',
               guest_settings_accepted = FALSE, host_ready = FALSE, guest_ready = FALSE,
               cancellation_proposed_by = NULL, cancellation_accepted_by = NULL,
-              expires_at = NOW() + INTERVAL '30 minutes', updated_at = NOW()
+              updated_at = NOW()
          WHERE id = $2`,
       [claims.sub, match.id]);
     await client.query('COMMIT');
