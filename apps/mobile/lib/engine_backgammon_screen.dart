@@ -546,11 +546,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
             width: 190,
             child: Column(
               children: [
-                _modeControls(compact: true),
-                const SizedBox(height: 6),
                 Expanded(flex: 3, child: _statusPanel(compact: true)),
-                const SizedBox(height: 6),
-                _rollControl(compact: true),
                 const SizedBox(height: 8),
                 Expanded(flex: 2, child: _scoreRow(compact: true)),
                 const SizedBox(height: 8),
@@ -659,25 +655,28 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
               children: [
                 SizedBox(width: sideWidth + 4),
                 Expanded(
-                  child: Stack(
-                    alignment: Alignment.center,
+                  child: Row(
                     children: [
-                      Center(child: _diceTray(compact: true)),
-                      Align(
-                        alignment: Alignment.center,
-                        child: Container(
-                          width: 2,
-                          height: double.infinity,
-                          decoration: BoxDecoration(
-                            color: _boardGold,
-                            boxShadow: [
-                              BoxShadow(
-                                color: _boardGold.withValues(alpha: .55),
-                                blurRadius: 4,
-                              ),
-                            ],
-                          ),
+                      Expanded(
+                        child: Center(
+                          child: _rollControl(compact: true),
                         ),
+                      ),
+                      Container(
+                        width: 2,
+                        height: double.infinity,
+                        decoration: BoxDecoration(
+                          color: _boardGold,
+                          boxShadow: [
+                            BoxShadow(
+                              color: _boardGold.withValues(alpha: .55),
+                              blurRadius: 4,
+                            ),
+                          ],
+                        ),
+                      ),
+                      Expanded(
+                        child: Center(child: _diceTray(compact: true)),
                       ),
                     ],
                   ),
@@ -902,9 +901,10 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
               final player = count == 0 ? 0 : count.sign;
               final selected = _selectedPoint == index;
               final target = legalTargets.contains(index);
-              final pointColor = top
-                  ? (position.isEven ? _boardGold : _boardNavy)
-                  : (position.isEven ? _boardLight : _boardNavy);
+              // High-contrast inlays keep both gold and dark checkers readable.
+              final pointColor = position.isEven
+                  ? const Color(0xFFFFFFFF)
+                  : const Color(0xFFB9E7C5);
               return GestureDetector(
                 onTap: () => _tapPoint(index),
                 child: Container(
@@ -944,8 +944,8 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
                             Text('$index',
                                 style: TextStyle(
                                   fontSize: compact ? 7 : 9,
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w800,
+                                  color: const Color(0xFFE53935),
+                                  fontWeight: FontWeight.w900,
                                   shadows: const [Shadow(color: Colors.black87, blurRadius: 3)],
                                 )),
                             _checkerStack(player, count.abs(),
