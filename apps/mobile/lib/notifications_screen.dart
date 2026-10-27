@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'services/notifications_service.dart';
 
@@ -13,6 +14,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   bool _loading = true;
   bool _busy = false;
   String? _error;
+  Timer? _inviteExpiryTimer;
 
   int get _unread => _items.where((item) => item['readAt'] == null).length;
 
@@ -34,22 +36,49 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     _refresh();
   }
 
-  Future<void> _refresh() async {
-    setState(() {
-      _loading = true;
-      _error = null;
+  @override
+  void dispose() {
+    _inviteExpiryTimer?.cancel();
+    super.dispose();
+  }
+
+  void _scheduleInviteExpiry() {
+    _inviteExpiryTimer?.cancel();
+    DateTime? nextExpiry;
+    for (final item in _items) {
+      final data = item['data'];
+      if (data is! Map || !data.containsKey('inviteId')) continue;
+      final createdAt = DateTime.tryParse(item['createdAt']?.toString() ?? '');
+      if (createdAt == null) continue;
+      final expiresAt = createdAt.add(const Duration(seconds: 10));
+      if (nextExpiry == null || expiresAt.isBefore(nextExpiry)) nextExpiry = expiresAt;
+    }
+    if (nextExpiry == null) return;
+    final remaining = nextExpiry.difference(DateTime.now());
+    _inviteExpiryTimer = Timer(remaining.isNegative ? Duration.zero : remaining, () {
+      if (mounted) _refresh(silent: true);
     });
+  }
+
+  Future<void> _refresh({bool silent = false}) async {
+    if (!silent) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
     try {
       final items = await NotificationsService.list();
       if (mounted) {
         setState(() => _items = items);
+        _scheduleInviteExpiry();
       }
     } catch (error) {
       if (mounted) {
         setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
       }
     } finally {
-      if (mounted) {
+      if (mounted && !silent) {
         setState(() => _loading = false);
       }
     }
@@ -104,7 +133,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     setState(() { _busy = true; _error = null; });
     try {
       await NotificationsService.deleteAll();
-      if (mounted) setState(() => _items = []);
+      if (mounted) {
+        setState(() => _items = []);
+        _scheduleInviteExpiry();
+      }
     } catch (error) {
       if (mounted) setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
     } finally {
@@ -126,6 +158,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   ? {...entry, 'readAt': DateTime.now().toIso8601String()}
                   : entry).toList();
         });
+        _scheduleInviteExpiry();
       }
     } catch (error) {
       if (mounted) {
