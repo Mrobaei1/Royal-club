@@ -367,7 +367,29 @@ jobs:
               throw new Error(`Joining match failed with status ${joinMatchResponse.status}: ${await joinMatchResponse.text()}`);
             }
             const joinedMatch = (await joinMatchResponse.json()).match;
-            if (joinedMatch.status !== 'active') throw new Error('Match did not become active after the second player joined.');
+            if (joinedMatch.status !== 'waiting') {
+              throw new Error(`A joined match should wait for both players to accept settings and be ready; got ${joinedMatch.status}.`);
+            }
+
+            const hostReadyResponse = await fetch(`${base}/api/v1/matches/${matchId}/setup`, {
+              method: 'POST',
+              headers: { authorization: `Bearer ${firstToken}`, 'content-type': 'application/json' },
+              body: JSON.stringify({ ready: true }),
+            });
+            const hostReadyPayload = await hostReadyResponse.json();
+            if (hostReadyResponse.status !== 200 || hostReadyPayload.setup?.status !== 'waiting') {
+              throw new Error(`Host readiness handshake failed with status ${hostReadyResponse.status}: ${JSON.stringify(hostReadyPayload)}`);
+            }
+
+            const guestSetupResponse = await fetch(`${base}/api/v1/matches/${matchId}/setup`, {
+              method: 'POST',
+              headers: { authorization: `Bearer ${secondToken}`, 'content-type': 'application/json' },
+              body: JSON.stringify({ acceptSettings: true, ready: true }),
+            });
+            const guestSetupPayload = await guestSetupResponse.json();
+            if (guestSetupResponse.status !== 200 || guestSetupPayload.setup?.status !== 'active') {
+              throw new Error(`Two-player setup handshake failed with status ${guestSetupResponse.status}: ${JSON.stringify(guestSetupPayload)}`);
+            }
 
             const stateResponse = await fetch(`${base}/api/v1/matches/${matchId}/state`, {
               headers: { authorization: `Bearer ${firstToken}` },
