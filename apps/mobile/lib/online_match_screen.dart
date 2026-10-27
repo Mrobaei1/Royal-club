@@ -644,7 +644,8 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
                     points: board,
                     selectedPoint: _selectedFrom,
                     onPointTap: (point) => _tapPoint(point, board, remaining, isMyTurn),
-                  ),                ]),
+                  ),
+                ]),
               ),
               const SizedBox(height: 16),
               Container(
@@ -727,7 +728,7 @@ class OnlineBackgammonBoard extends StatelessWidget {
     final x = position.dx;
     if (x >= halfWidth && x <= halfWidth + barWidth) return null;
     final column = x < halfWidth
-        ? (x / (halfWidth / 6)).floor().clamp(0, 5)
+        ? (x / (halfWidth / 6)).floor().clamp(0, 5).toInt()
         : ((x - halfWidth - barWidth) / (halfWidth / 6)).floor().clamp(0, 5);
     if (position.dy < size.height / 2) {
       return x < halfWidth ? 11 - column : 5 - column;
@@ -794,7 +795,7 @@ class _OnlineBackgammonBoardPainter extends CustomPainter {
     canvas.drawRect(Rect.fromLTWH(halfWidth, 5, barWidth, size.height - 10),
         Paint()..color = const Color(0xFF241811));
     final pointWidth = halfWidth / 6;
-    final checkerRadius = (pointWidth * .34).clamp(3.0, size.height * .035);
+    final checkerRadius = (pointWidth * .34).clamp(3.0, size.height * .035).toDouble();
     final stackGap = checkerRadius * 1.75;
 
     for (var i = 0; i < 24 && i < points.length; i++) {
