@@ -165,26 +165,7 @@ await pool.query(`
   -- Image messages are data URLs; the API separately enforces 2,000 characters
   -- for text and a bounded image payload. Widen the legacy table constraint so
   -- valid image messages are not rejected by PostgreSQL.
-  DO $
-  BEGIN
-    IF EXISTS (
-      SELECT 1 FROM pg_constraint
-       WHERE conrelid = 'private_messages'::regclass
-         AND conname = 'private_messages_body_check'
-         AND pg_get_constraintdef(oid) NOT LIKE '%680000%'
-    ) THEN
-      ALTER TABLE private_messages DROP CONSTRAINT private_messages_body_check;
-    END IF;
-    IF NOT EXISTS (
-      SELECT 1 FROM pg_constraint
-       WHERE conrelid = 'private_messages'::regclass
-         AND conname = 'private_messages_body_check'
-    ) THEN
-      ALTER TABLE private_messages ADD CONSTRAINT private_messages_body_check
-        CHECK (char_length(body) BETWEEN 1 AND 680000);
-    END IF;
-  END
-  $;
+  -- Image body constraint is migrated idempotently after schema setup.
   ALTER TABLE private_messages ADD COLUMN IF NOT EXISTS edited_at TIMESTAMPTZ;
   ALTER TABLE private_messages ADD COLUMN IF NOT EXISTS deleted_for_all BOOLEAN NOT NULL DEFAULT FALSE;
   ALTER TABLE private_messages ADD COLUMN IF NOT EXISTS hidden_for_sender BOOLEAN NOT NULL DEFAULT FALSE;
@@ -260,6 +241,15 @@ await pool.query(`
   CREATE INDEX IF NOT EXISTS backgammon_player_stats_leaderboard_idx
     ON backgammon_player_stats (rating DESC, wins DESC, games_played ASC);
 `);
+
+const messageBodyConstraint = await pool.query(
+  'SELECT pg_get_constraintdef(oid) AS definition FROM pg_constraint WHERE conrelid = \'private_messages\'::regclass AND conname = \'private_messages_body_check\'',
+);
+if (!String(messageBodyConstraint.rows[0]?.definition ?? '').includes('680000')) {
+  await pool.query('ALTER TABLE private_messages DROP CONSTRAINT IF EXISTS private_messages_body_check');
+  await pool.query('ALTER TABLE private_messages ADD CONSTRAINT private_messages_body_check CHECK (char_length(body) BETWEEN 1 AND 680000)');
+}
+
 
 // Waiting rooms expire even if the lobby is never reopened. The timer is
 // useful on persistent hosts; the request hook provides best-effort cleanup in
