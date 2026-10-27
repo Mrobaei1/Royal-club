@@ -19,6 +19,18 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   int get _unread => _items.where((item) => item['readAt'] == null).length;
 
+  String _localizedTitle(Map<String, dynamic> item, bool isEnglish) {
+    final data = item['data'] is Map ? Map<String, dynamic>.from(item['data'] as Map) : <String, dynamic>{};
+    if (data.containsKey('inviteId')) return isEnglish ? 'Backgammon invitation' : 'دعوت به تخته‌نرد';
+    return item['title']?.toString() ?? (isEnglish ? 'Notification' : 'اعلان');
+  }
+
+  String _localizedBody(Map<String, dynamic> item, bool isEnglish) {
+    final data = item['data'] is Map ? Map<String, dynamic>.from(item['data'] as Map) : <String, dynamic>{};
+    if (data.containsKey('inviteId')) return isEnglish ? 'A friend invited you to a backgammon match. Accept within 10 seconds to join.' : 'دوست شما را به مسابقه تخته‌نرد دعوت کرده است. برای ورود، تا ۱۰ ثانیه دعوت را بپذیرید.';
+    return item['body']?.toString() ?? '';
+  }
+
   @override
   void initState() {
     super.initState();
@@ -199,7 +211,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                       color: _noticeGold,
                                     ),
                                     title: Text(
-                                      item['title']?.toString() ?? 'اعلان',
+                                      _localizedTitle(item, isEnglish),
                                       style: TextStyle(
                                         color: Colors.white,
                                         fontWeight: unread
@@ -210,7 +222,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                     subtitle: Padding(
                                       padding: const EdgeInsets.only(top: 5),
                                       child: Text(
-                                        item['body']?.toString() ?? '',
+                                        _localizedBody(item, isEnglish),
                                         style: const TextStyle(
                                             color: Colors.white70, height: 1.5),
                                       ),
