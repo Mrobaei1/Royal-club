@@ -519,7 +519,13 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
                           ),
                         ),
                         const SizedBox(width: 8),
-                        Text(_boardThemeNames[i]),
+                        Flexible(
+                          child: Text(
+                            _boardThemeNames[i],
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
                       ],
                     ),
                   ),
