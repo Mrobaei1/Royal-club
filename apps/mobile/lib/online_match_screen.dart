@@ -210,14 +210,14 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
     showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: _matchPanel,
-        title: Text(isEnglish ? 'Head-to-head stats' : 'آمار رودررو', style: const TextStyle(color: _matchGold)),
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        title: Text(isEnglish ? 'Head-to-head stats' : 'آمار رودررو', style: TextStyle(color: Theme.of(context).colorScheme.primary)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text('$viewerName  $viewerPoints  -  $opponentPoints  $opponentName',
-              textAlign: TextAlign.center, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              textAlign: TextAlign.center, style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.bold)),
             const SizedBox(height: 14),
             _headToHeadRow(isEnglish ? 'Matches played' : 'تعداد مسابقات رودررو', '$matches'),
             _headToHeadRow(isEnglish ? 'Match wins' : 'بردهای مسابقه', '$viewerWins - $opponentWins'),
@@ -232,8 +232,8 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
   Widget _headToHeadRow(String label, String value) => Padding(
     padding: const EdgeInsets.symmetric(vertical: 5),
     child: Row(children: [
-      Expanded(child: Text(label, style: const TextStyle(color: Colors.white70))),
-      Text(value, style: const TextStyle(color: _matchGold, fontWeight: FontWeight.bold)),
+      Expanded(child: Text(label, style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7)))),
+      Text(value, style: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.bold)),
     ]),
   );
 
@@ -550,7 +550,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
             ),
             Container(
               padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(color: _matchPanel, borderRadius: BorderRadius.circular(16), border: Border.all(color: _matchGold.withValues(alpha: .35))),
+              decoration: BoxDecoration(color: Theme.of(context).colorScheme.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: Theme.of(context).colorScheme.primary.withValues(alpha: .35))),
               child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                 Text(
                   _matchStatus == 'finished'
@@ -559,17 +559,17 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
                           ? (isEnglish ? 'Waiting for opponent…' : 'در انتظار ورود حریف...')
                           : (isMyTurn ? (isEnglish ? 'Your turn' : 'نوبت شماست') : (isEnglish ? 'Waiting for opponent' : 'در انتظار حرکت حریف'))),
                   style: const TextStyle(
-                    color: _matchGold,
+                    color: Theme.of(context).colorScheme.primary,
                     fontWeight: FontWeight.bold,
                     fontSize: 18,
                   ),
                 ),
                 const SizedBox(height: 6),
                 Text(isEnglish ? 'First to ${_matchDetails['matchToWin'] ?? 1} · Match score: ${_matchDetails['hostGameWins'] ?? 0} - ${_matchDetails['guestGameWins'] ?? 0}' : 'Match to Win: ${_matchDetails['matchToWin'] ?? 1} · امتیاز مسابقه: ${_matchDetails['hostGameWins'] ?? 0} - ${_matchDetails['guestGameWins'] ?? 0}',
-                  style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.w600)),
+                  style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7), fontWeight: FontWeight.w600)),
                 const SizedBox(height: 4),
                 Text(_state == null ? (isEnglish ? 'Room status refreshes automatically.' : 'این صفحه به‌صورت خودکار هر ۳ ثانیه وضعیت اتاق را بررسی می‌کند.') : (isEnglish ? 'State version: ${_state!['version']}' : 'نسخه وضعیت: ${_state!['version']}'),
-                  style: const TextStyle(color: Colors.white54, fontSize: 12)),
+                  style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.54), fontSize: 12)),
               ]),
             ),
             if (_matchStatus == 'waiting' && _matchDetails['isHost'] == true)
@@ -583,7 +583,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
               ),
             const SizedBox(height: 12),
             Card(
-              color: _matchPanel,
+              color: Theme.of(context).colorScheme.surface,
               child: Padding(
                 padding: const EdgeInsets.all(12),
                 child: Row(
@@ -595,10 +595,10 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
                         RoyalAvatar(dataUrl: _matchDetails['hostAvatarDataUrl']?.toString(), radius: 25),
                         const SizedBox(height: 5),
                         Text(_matchDetails['hostName']?.toString() ?? (isEnglish ? 'Host' : 'میزبان'), textAlign: TextAlign.center,
-                          style: const TextStyle(color: Colors.white70), maxLines: 1, overflow: TextOverflow.ellipsis),
+                          style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7)), maxLines: 1, overflow: TextOverflow.ellipsis),
                       ]),
                     )),
-                    Padding(padding: const EdgeInsets.symmetric(horizontal: 8), child: Text(isEnglish ? 'vs.' : 'در برابر', style: const TextStyle(color: _matchGold))),
+                    Padding(padding: const EdgeInsets.symmetric(horizontal: 8), child: Text(isEnglish ? 'vs.' : 'در برابر', style: TextStyle(color: Theme.of(context).colorScheme.primary))),
                     Expanded(child: InkWell(
                       borderRadius: BorderRadius.circular(12),
                       onTap: _matchDetails['guestName'] == null ? null : () => _showHeadToHeadSummary(isHost: false),
@@ -606,7 +606,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
                         RoyalAvatar(dataUrl: _matchDetails['guestAvatarDataUrl']?.toString(), radius: 25),
                         const SizedBox(height: 5),
                         Text(_matchDetails['guestName']?.toString() ?? (isEnglish ? 'Waiting for opponent' : 'در انتظار حریف'), textAlign: TextAlign.center,
-                          style: const TextStyle(color: Colors.white70), maxLines: 1, overflow: TextOverflow.ellipsis),
+                          style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7)), maxLines: 1, overflow: TextOverflow.ellipsis),
                       ]),
                     )),
                   ],
@@ -617,13 +617,13 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
               const SizedBox(height: 12),
               Container(
                 padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(color: _matchPanel, borderRadius: BorderRadius.circular(14), border: Border.all(color: _matchGold.withValues(alpha: .65))),
+                decoration: BoxDecoration(color: Theme.of(context).colorScheme.surface, borderRadius: BorderRadius.circular(14), border: Border.all(color: Theme.of(context).colorScheme.primary.withValues(alpha: .65))),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                  Text(isEnglish ? 'Match setup' : 'تنظیم مسابقه', style: const TextStyle(color: _matchGold, fontWeight: FontWeight.bold, fontSize: 16)),
+                  Text(isEnglish ? 'Match setup' : 'تنظیم مسابقه', style: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.bold, fontSize: 16)),
                   const SizedBox(height: 8),
                   if (_matchDetails['isHost'] == true)
                     Row(children: [
-                      Text(isEnglish ? 'Match length' : 'طول مسابقه', style: const TextStyle(color: Colors.white70)),
+                      Text(isEnglish ? 'Match length' : 'طول مسابقه', style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7))),
                       const SizedBox(width: 12),
                       Expanded(child: DropdownButton<int>(
                         isExpanded: true,
@@ -640,7 +640,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
                     Text(
                       isEnglish ? 'Match: first to ${_matchDetails['matchToWin'] ?? 1} win${(_matchDetails['matchToWin'] ?? 1) == 1 ? '' : 's'}'
                         : 'خلاصه: ${_matchDetails['matchToWin'] ?? 1} برد',
-                      style: const TextStyle(color: Colors.white),
+                      style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
                     ),
                   if (_matchDetails['isHost'] != true && _matchDetails['guestSettingsAccepted'] != true)
                     Align(
@@ -661,7 +661,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
                       : (isEnglish ? 'Ready to play' : 'آماده شروع بازی')),
                     style: FilledButton.styleFrom(
                       backgroundColor: Theme.of(context).colorScheme.primary,
-                      foregroundColor: _matchNavy,
+                      foregroundColor: Theme.of(context).colorScheme.onPrimary,
                       minimumSize: const Size(0, 42),
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     ),
@@ -671,18 +671,18 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
             ],
             if (_matchDetails['isHost'] == true && ['waiting', 'active'].contains(_matchStatus)) ...[
               Card(
-                color: _matchPanel,
+                color: Theme.of(context).colorScheme.surface,
                 child: SwitchListTile(
                   value: _matchDetails['spectatorsEnabled'] == true,
                   onChanged: _busy ? null : _toggleSpectators,
-                  activeThumbColor: _matchGold,
+                  activeThumbColor: Theme.of(context).colorScheme.primary,
                   title: Text(_isEnglish ? 'Allow live spectators' : 'اجازه تماشای زنده',
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.w600)),
                   subtitle: Text(
                     _isEnglish
                         ? 'Only accepted friends of either player can watch. Spectators are read-only.'
                         : 'فقط دوستان پذیرفته‌شدهٔ یکی از دو بازیکن می‌توانند تماشا کنند؛ تماشاگر فقط امکان مشاهده دارد.',
-                    style: const TextStyle(color: Colors.white60),
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6)),
                   ),
                 ),
               ),
@@ -708,16 +708,16 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
               const SizedBox(height: 10),
               Container(
                 padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(color: _matchPanel, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.redAccent.withValues(alpha: .45))),
+                decoration: BoxDecoration(color: Theme.of(context).colorScheme.surface, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.redAccent.withValues(alpha: .45))),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                   Text(isEnglish ? 'Cancel match by agreement' : 'لغو مسابقه با توافق طرفین', style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 6),
                   if (_matchDetails['cancellationProposedBy'] == null)
                     OutlinedButton.icon(onPressed: _busy ? null : () => _cancelOrRespond(accept: false), icon: const Icon(Icons.handshake_outlined), label: Text(_isEnglish ? 'Propose cancellation' : 'پیشنهاد لغو مسابقه')),
                   if (_matchDetails['cancellationProposedBy'] != null && _matchDetails['cancellationProposedByMe'] == true)
-                    Text(_isEnglish ? 'Your cancellation request is awaiting a response.' : 'پیشنهاد لغو شما در انتظار پاسخ حریف است.', style: const TextStyle(color: Colors.white70)),
+                    Text(_isEnglish ? 'Your cancellation request is awaiting a response.' : 'پیشنهاد لغو شما در انتظار پاسخ حریف است.', style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7))),
                   if (_matchDetails['cancellationProposedBy'] != null && _matchDetails['cancellationProposedByMe'] != true) ...[
-                    Text(_isEnglish ? 'Your opponent proposed cancelling the match. Do you agree?' : 'حریف پیشنهاد لغو داده است. آیا موافق هستید؟', style: const TextStyle(color: Colors.white70)),
+                    Text(_isEnglish ? 'Your opponent proposed cancelling the match. Do you agree?' : 'حریف پیشنهاد لغو داده است. آیا موافق هستید؟', style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7))),
                     Row(children: [
                       Expanded(child: OutlinedButton(onPressed: _busy ? null : () => _cancelOrRespond(accept: false), child: Text(_isEnglish ? 'Decline' : 'رد پیشنهاد'))),
                       const SizedBox(width: 8),
@@ -744,9 +744,9 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
               if (_batchMode) Container(
                 margin: const EdgeInsets.only(bottom: 12),
                 padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(color: _matchPanel, borderRadius: BorderRadius.circular(12), border: Border.all(color: _matchGold)),
+                decoration: BoxDecoration(color: Theme.of(context).colorScheme.surface, borderRadius: BorderRadius.circular(12), border: Border.all(color: Theme.of(context).colorScheme.primary)),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                  Text(isEnglish ? 'Planned moves: ${_pendingMoves.length} — preview only, not yet submitted.' : 'حرکت‌های آماده: ${_pendingMoves.length} — تخته پیش‌نمایش است؛ هنوز روی سرور ثبت نشده.', style: const TextStyle(color: Colors.white70)),
+                  Text(isEnglish ? 'Planned moves: ${_pendingMoves.length} — preview only, not yet submitted.' : 'حرکت‌های آماده: ${_pendingMoves.length} — تخته پیش‌نمایش است؛ هنوز روی سرور ثبت نشده.', style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7))),
                   const SizedBox(height: 8),
                   Row(children: [
                     Expanded(child: OutlinedButton(onPressed: _busy ? null : _cancelBatch, child: Text(isEnglish ? 'Clear all' : 'لغو همه'))),
@@ -757,9 +757,9 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
               ),
               Container(
                 padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(color: const Color(0xFF6E4A2B), borderRadius: BorderRadius.circular(16), border: Border.all(color: _matchGold)),
+                decoration: BoxDecoration(color: Theme.of(context).colorScheme.surfaceContainerHighest, borderRadius: BorderRadius.circular(16), border: Border.all(color: Theme.of(context).colorScheme.primary)),
                 child: Column(children: [
-                  Text(isEnglish ? 'Server board state' : 'وضعیت تخته از سرور', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  Text(isEnglish ? 'Server board state' : 'وضعیت تخته از سرور', style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 12),
                   OnlineBackgammonBoard(
                     points: board,
@@ -771,9 +771,9 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
               const SizedBox(height: 16),
               Container(
                 padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(color: _matchPanel, borderRadius: BorderRadius.circular(16)),
+                decoration: BoxDecoration(color: Theme.of(context).colorScheme.surface, borderRadius: BorderRadius.circular(16)),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                  Text(isEnglish ? 'Dice' : 'تاس سرور', style: const TextStyle(color: _matchGold, fontSize: 17, fontWeight: FontWeight.bold)),
+                  Text(isEnglish ? 'Dice' : 'تاس سرور', style: TextStyle(color: Theme.of(context).colorScheme.primary, fontSize: 17, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 12),
                   Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                     _Die(value: dice.isNotEmpty ? dice[0].toInt() : null),
@@ -782,7 +782,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
                   ]),
                   const SizedBox(height: 8),
                   Text(dice.isEmpty ? (isEnglish ? 'No dice rolled yet.' : 'هنوز تاسی ریخته نشده است.') : (isEnglish ? 'Choose a remaining die:' : 'تاس‌های باقی‌مانده را انتخاب کنید:'),
-                    textAlign: TextAlign.center, style: const TextStyle(color: Colors.white70)),
+                    textAlign: TextAlign.center, style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7))),
                   if (remaining.isNotEmpty) Wrap(
                     alignment: WrapAlignment.center,
                     spacing: 8,
