@@ -116,11 +116,11 @@ class RoyalClubApp extends StatelessWidget {
                 brightness: selected.dark ? Brightness.dark : Brightness.light,
                 surface: selected.panel,
               ),
-              appBarTheme: AppBarTheme(
-                backgroundColor: selected.background,
-                foregroundColor: selected.accent,
-              ),
               cardTheme: CardThemeData(color: selected.panel),
+              textTheme: ThemeData(brightness: selected.dark ? Brightness.dark : Brightness.light).textTheme.apply(bodyColor: selected.dark ? Colors.white : Colors.black, displayColor: selected.dark ? Colors.white : Colors.black),
+              primaryTextTheme: ThemeData(brightness: selected.dark ? Brightness.dark : Brightness.light).primaryTextTheme.apply(bodyColor: selected.dark ? Colors.white : Colors.black, displayColor: selected.dark ? Colors.white : Colors.black),
+              iconTheme: IconThemeData(color: selected.dark ? Colors.white : Colors.black),
+              appBarTheme: AppBarTheme(backgroundColor: selected.background, foregroundColor: selected.dark ? selected.accent : Colors.black, titleTextStyle: TextStyle(color: selected.dark ? selected.accent : Colors.black, fontSize: 20, fontWeight: FontWeight.w600)),
             ),
             home: const AuthGate(),
           ),
@@ -262,28 +262,18 @@ class _HomeScreenState extends State<HomeScreen> {
       context: context,
       backgroundColor: royalThemeState.current.panel,
       showDragHandle: true,
+      isScrollControlled: true,
       builder: (sheetContext) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Padding(
-              padding: EdgeInsets.fromLTRB(20, 4, 20, 12),
-              child: Text('پوسته برنامه', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
-            ),
-            for (var i = 0; i < royalThemes.length; i++)
-              ListTile(
-                leading: Icon(Icons.palette_outlined, color: royalThemes[i].accent),
-                title: Text(royalThemes[i].name),
-                trailing: i == royalThemeState.index
-                    ? Icon(Icons.check_circle, color: royalThemes[i].accent)
-                    : const Icon(Icons.circle_outlined),
-                onTap: () {
-                  royalThemeState.select(i);
-                  Navigator.of(sheetContext).pop();
-                },
-              ),
-            const SizedBox(height: 8),
-          ],
+        child: SizedBox(height: MediaQuery.sizeOf(sheetContext).height * 0.72,
+          child: Column(children: [
+            const Padding(padding: EdgeInsets.fromLTRB(20, 4, 20, 12), child: Text('پوسته برنامه', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800))),
+            Expanded(child: ListView.builder(itemCount: royalThemes.length, itemBuilder: (context, i) => ListTile(
+              leading: Icon(Icons.palette_outlined, color: royalThemes[i].accent),
+              title: Text(royalThemes[i].name, style: TextStyle(color: royalThemes[i].dark ? Colors.white : Colors.black)),
+              trailing: i == royalThemeState.index ? Icon(Icons.check_circle, color: royalThemes[i].accent) : Icon(Icons.circle_outlined, color: royalThemeState.current.dark ? Colors.white70 : Colors.black54),
+              onTap: () { royalThemeState.select(i); Navigator.of(sheetContext).pop(); },
+            ))),
+          ]),
         ),
       ),
     );
@@ -608,7 +598,6 @@ class _AuthScreenState extends State<AuthScreen> {
   final _password = TextEditingController();
   final _fullName = TextEditingController();
   final _phone = TextEditingController();
-  String _country = 'Germany';
   late bool _register = widget.initialRegister;
   bool _busy = false;
   bool _rememberMe = true;
@@ -682,7 +671,7 @@ class _AuthScreenState extends State<AuthScreen> {
     try {
       final result = wasRegister
           ? await AuthService.register(_email.text, _password.text,
-              fullName: _fullName.text, phone: _phone.text, country: _country)
+              fullName: _fullName.text, phone: _phone.text, country: '')
           : await AuthService.login(_email.text, _password.text);
 
       if (!mounted) return;
@@ -749,19 +738,7 @@ class _AuthScreenState extends State<AuthScreen> {
                     const SizedBox(height: 14),
                     TextField(controller: _phone, keyboardType: TextInputType.phone,
                       autofillHints: const [AutofillHints.telephoneNumber],
-                      decoration: InputDecoration(labelText: AppLocalizations.of(context).phone, hintText: '+49 123 456789', border: const OutlineInputBorder(), prefixIcon: const Icon(Icons.phone_outlined))),
-                    const SizedBox(height: 14),
-                    DropdownButtonFormField<String>(initialValue: _country,
-                      decoration: InputDecoration(labelText: AppLocalizations.of(context).country, border: const OutlineInputBorder(), prefixIcon: const Icon(Icons.public_outlined)),
-                      items: const [
-                        DropdownMenuItem(value: 'Germany', child: Text('آلمان')),
-                        DropdownMenuItem(value: 'Iran', child: Text('ایران')),
-                        DropdownMenuItem(value: 'United States', child: Text('ایالات متحده')),
-                        DropdownMenuItem(value: 'United Kingdom', child: Text('بریتانیا')),
-                        DropdownMenuItem(value: 'Turkey', child: Text('ترکیه')),
-                        DropdownMenuItem(value: 'United Arab Emirates', child: Text('امارات متحده عربی')),
-                        DropdownMenuItem(value: 'Other', child: Text('سایر کشورها')),
-                      ], onChanged: _busy ? null : (value) { if (value != null) setState(() => _country = value); }),
+                      decoration: InputDecoration(labelText: AppLocalizations.of(context).phone, hintText: 'شماره تلفن بدون کد کشور', border: const OutlineInputBorder(), prefixIcon: const Icon(Icons.phone_outlined))),
                     const SizedBox(height: 14),
                   ],
                   TextField(
