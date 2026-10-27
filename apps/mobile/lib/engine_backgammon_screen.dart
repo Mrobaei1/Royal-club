@@ -27,14 +27,24 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
   bool _computerThinking = false;
   int _boardThemeIndex = 0;
 
+  // Six selectable board palettes. Each theme changes the board finish and
+  // point inlays without changing the rules, checker positions, or dice.
   static const List<List<Color>> _boardThemes = [
-    [Color(0xFF6D4026), Color(0xFF76502E), Color(0xFF3B2418)],
-    [Color(0xFF176B55), Color(0xFF0D4B3D), Color(0xFF08352D)],
-    [Color(0xFF315A8C), Color(0xFF203F6B), Color(0xFF152B4B)],
-    [Color(0xFF7A3151), Color(0xFF54213A), Color(0xFF351529)],
-    [Color(0xFF777B85), Color(0xFF4C515D), Color(0xFF30343D)],
+    [Color(0xFF6D4026), Color(0xFF76502E), Color(0xFF3B2418)], // Royal walnut
+    [Color(0xFF176B55), Color(0xFF0D4B3D), Color(0xFF08352D)], // Emerald
+    [Color(0xFF315A8C), Color(0xFF203F6B), Color(0xFF152B4B)], // Sapphire
+    [Color(0xFF7A3151), Color(0xFF54213A), Color(0xFF351529)], // Ruby
+    [Color(0xFF777B85), Color(0xFF4C515D), Color(0xFF30343D)], // Silver
+    [Color(0xFF2A8886), Color(0xFF17666A), Color(0xFF0C414B)], // Persian turquoise
   ];
-  static const List<String> _boardThemeNames = ['چوب سلطنتی', 'زمردی', 'آبی یاقوتی', 'زرشکی', 'نقره‌ای'];
+  static const List<String> _boardThemeNames = [
+    'چوب سلطنتی',
+    'زمردی',
+    'یاقوت کبود',
+    'یاقوتی',
+    'نقره‌ای',
+    'فیروزه‌ای ایرانی',
+  ];
 
   @override
   void initState() {
@@ -488,8 +498,35 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
                 isExpanded: true,
                 dropdownColor: _boardNavy,
                 style: TextStyle(color: _boardGold, fontSize: compact ? 11 : 13),
-                items: List.generate(_boardThemeNames.length, (i) => DropdownMenuItem(value: i, child: Text(_boardThemeNames[i]))),
-                onChanged: (value) { if (value != null) setState(() => _boardThemeIndex = value); },
+                items: List.generate(
+                  _boardThemeNames.length,
+                  (i) => DropdownMenuItem(
+                    value: i,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 16,
+                          height: 16,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: LinearGradient(
+                              colors: _boardThemes[i],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            border: Border.all(color: _boardGold, width: 0.8),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(_boardThemeNames[i]),
+                      ],
+                    ),
+                  ),
+                ),
+                onChanged: (value) {
+                  if (value != null) setState(() => _boardThemeIndex = value);
+                },
               ))),
             ]),
             if (_vsComputer)
