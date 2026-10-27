@@ -80,6 +80,17 @@ class ChatService {
   ) async =>
       _request('/api/v1/users/$userId/report', body: {'reason': reason});
 
+  static Future<void> edit(String userId, String messageId, String body) async {
+    await _request('/api/v1/chat/$userId/messages/$messageId', body: {'body': body}, method: 'PATCH');
+  }
+
+  static Future<void> deleteMessages(String userId, List<String> messageIds, {required bool forBoth}) async {
+    await _request('/api/v1/chat/$userId/messages', body: {
+      'messageIds': messageIds,
+      'scope': forBoth ? 'both' : 'me',
+    }, method: 'DELETE');
+  }
+
   static Future<void> send(String userId, String body) async {
     await _request('/api/v1/chat/$userId/messages', method: 'POST', body: {'body': body});
   }
