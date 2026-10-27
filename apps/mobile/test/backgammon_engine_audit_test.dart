@@ -84,7 +84,7 @@ void main() {
         dice: [1, 2],
         points: {0: 2, 5: -2, 10: 1, 12: -1, 18: 2, 23: -2},
         bars: [1, 1],
-        off: [12, 10],
+        off: [9, 9],
       );
       for (final move in game.legalMoves()) {
         final clone = BackgammonEngine(random: Random(1));
