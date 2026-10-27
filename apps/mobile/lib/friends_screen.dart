@@ -136,7 +136,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
   }) {
     final username = user['username']?.toString().trim() ?? '';
     final displayName = username.isNotEmpty ? '@$username' : 'کاربر';
-        (fullName.isNotEmpty ? fullName : (username.isNotEmpty ? '@$username' : 'کاربر'));
+    final title = titleOverride ?? displayName;
     final subtitle = subtitleOverride ??
         (username.isNotEmpty ? '@$username' : (user['email']?.toString() ?? ''));
     return Card(
