@@ -799,22 +799,24 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
             child: Column(
               children: [
                 Expanded(child: _scoreRow(compact: true)),
-                const SizedBox(height: 8),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: _reset,
-                    icon: const Icon(Icons.restart_alt, size: 18),
-                    label: const Text('شروع مجدد'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: _boardGold,
-                      side: const BorderSide(color: _boardGold),
-                      padding: const EdgeInsets.symmetric(
-                          vertical: 9, horizontal: 8),
-                      visualDensity: VisualDensity.compact,
+                if (_vsComputer) ...[
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: _reset,
+                      icon: const Icon(Icons.restart_alt, size: 18),
+                      label: const Text('شروع مجدد'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: _boardGold,
+                        side: const BorderSide(color: _boardGold),
+                        padding: const EdgeInsets.symmetric(
+                            vertical: 9, horizontal: 8),
+                        visualDensity: VisualDensity.compact,
+                      ),
                     ),
                   ),
-                ),
+                ],
               ],
             ),
           ),
@@ -1306,69 +1308,173 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
       ? Column(
           children: [
             Expanded(
-                child: _scoreCard(
-                    _profileName(1), _engine.borneOff[1], _engine.bar[1], _boardGold,
-                    active: _engine.currentPlayer == 1, compact: true)),
-            const SizedBox(height: 6),
+              child: _profileCircle(
+                player: 1,
+                color: _boardGold,
+                active: _engine.currentPlayer == 1,
+              ),
+            ),
+            const SizedBox(height: 10),
             Expanded(
-                child: _scoreCard(
-                    _profileName(-1), _engine.borneOff[0], _engine.bar[0], const Color(0xFF111111),
-                    active: _engine.currentPlayer == -1, compact: true)),
+              child: _profileCircle(
+                player: -1,
+                color: _boardLight,
+                active: _engine.currentPlayer == -1,
+              ),
+            ),
           ],
         )
       : Row(
           children: [
             Expanded(
-                child: _scoreCard(
-                    _profileName(1), _engine.borneOff[1], _engine.bar[1], _boardGold,
-                    active: _engine.currentPlayer == 1)),
+              child: _profileCircle(
+                player: 1,
+                color: _boardGold,
+                active: _engine.currentPlayer == 1,
+              ),
+            ),
             const SizedBox(width: 8),
             Expanded(
-                child: _scoreCard(
-                    _profileName(-1), _engine.borneOff[0], _engine.bar[0], _boardLight,
-                    active: _engine.currentPlayer == -1)),
+              child: _profileCircle(
+                player: -1,
+                color: _boardLight,
+                active: _engine.currentPlayer == -1,
+              ),
+            ),
           ],
         );
 
-  Widget _scoreCard(String title, int off, int onBar, Color color,
-          {bool compact = false, bool active = false}) =>
-      Container(
-        width: double.infinity,
-        padding: EdgeInsets.all(compact ? 6 : 10),
+  Widget _profileCircle({
+    required int player,
+    required Color color,
+    required bool active,
+  }) {
+    final name = _profileName(player);
+    final borderColor = active ? _boardGold : Colors.grey.shade600;
+    return InkWell(
+      key: ValueKey('player-profile-$player'),
+      borderRadius: BorderRadius.circular(14),
+      onTap: () => _showPlayerProfile(player),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 220),
+        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 8),
         decoration: BoxDecoration(
-            color: const Color(0xFF1A2540),
-            borderRadius: BorderRadius.circular(10)),
-        child: Row(
+          color: active
+              ? _boardGold.withValues(alpha: .13)
+              : const Color(0xFF1A2540),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: borderColor, width: active ? 2.2 : 1),
+          boxShadow: active
+              ? [BoxShadow(color: _boardGold.withValues(alpha: .22), blurRadius: 9)]
+              : const [],
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            CircleAvatar(
-              radius: compact ? 12 : 16,
-              backgroundColor: color.withValues(alpha: .18),
-              child: Icon(Icons.person_rounded, color: color, size: compact ? 15 : 20),
-            ),
-            SizedBox(width: compact ? 4 : 7),
-            Expanded(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title, style: TextStyle(color: color, fontWeight: FontWeight.w800, fontSize: compact ? 10 : 12)),
-                  Text(
-                    _vsComputer
-                        ? (title == 'هوش مصنوعی' ? 'حریف رایانه‌ای' : 'بازیکن شما')
-                        : 'بازیکن محلی',
-                    style: TextStyle(color: Colors.white54, fontSize: compact ? 8 : 10),
-                    maxLines: 1, overflow: TextOverflow.ellipsis,
-                  ),
-                  Text('خارج: $off · بار: $onBar', style: TextStyle(color: Colors.white70, fontSize: compact ? 9 : 11)),
-                  if (active && !_engine.finished)
-                    Text('نوبت فعلی', style: TextStyle(color: _boardGold, fontSize: compact ? 8 : 10, fontWeight: FontWeight.bold)),
-                ],
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 220),
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: active ? _boardGold : const Color(0xFF303746),
+                border: Border.all(color: borderColor, width: active ? 2.5 : 1.5),
+                boxShadow: active
+                    ? [BoxShadow(color: _boardGold.withValues(alpha: .35), blurRadius: 8)]
+                    : const [],
+              ),
+              child: Icon(
+                player == -1 && _vsComputer ? Icons.smart_toy_rounded : Icons.person_rounded,
+                color: active ? _boardNavy : Colors.grey.shade300,
+                size: 27,
               ),
             ),
-            Text('$off/15', style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: compact ? 10 : 13)),
+            const SizedBox(height: 6),
+            Text(
+              name,
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: active ? _boardGold : Colors.white70,
+                fontSize: compactProfileFont,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            if (active)
+              const Text('نوبت حرکت', style: TextStyle(color: _boardGold, fontSize: 9)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  static const double compactProfileFont = 11;
+
+  void _showPlayerProfile(int player) {
+    final name = _profileName(player);
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: AlertDialog(
+          backgroundColor: const Color(0xFF1A2540),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+            side: const BorderSide(color: _boardGold, width: 1),
+          ),
+          title: Row(
+            children: [
+              CircleAvatar(
+                backgroundColor: _boardGold,
+                foregroundColor: _boardNavy,
+                child: Icon(player == -1 && _vsComputer
+                    ? Icons.smart_toy_rounded
+                    : Icons.person_rounded),
+              ),
+              const SizedBox(width: 10),
+              Expanded(child: Text(name, style: const TextStyle(color: _boardGold))),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _profileStatRow('تعداد بازی', 'هنوز ثبت نشده'),
+              _profileStatRow('امتیاز', 'هنوز ثبت نشده'),
+              _profileStatRow('تعداد برد', 'هنوز ثبت نشده'),
+              _profileStatRow('سطح بازیکن', player == -1 && _vsComputer
+                  ? 'هوش مصنوعی · متوسط'
+                  : 'هنوز تعیین نشده'),
+              const SizedBox(height: 8),
+              const Text(
+                'آمار واقعی پس از اتصال سابقه بازی و رتبه‌بندی نمایش داده می‌شود.',
+                style: TextStyle(color: Colors.white60, fontSize: 12),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('بستن', style: TextStyle(color: _boardGold)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _profileStatRow(String label, String value) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 5),
+        child: Row(
+          children: [
+            Expanded(child: Text(label, style: const TextStyle(color: Colors.white70))),
+            const SizedBox(width: 8),
+            Text(value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
           ],
         ),
       );
+
 }
 
 
