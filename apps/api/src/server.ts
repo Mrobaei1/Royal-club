@@ -256,7 +256,24 @@ app.get('/api/v1/health/db', async (_request, reply) => {
 
 app.post<{ Body: { email?: string; password?: string; fullName?: string; phone?: string; country?: string } }>(
   '/api/v1/auth/register',
-  { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } },
+  {
+    config: {
+      rateLimit: {
+        max: 5,
+        timeWindow: '1 minute',
+        // Parse the body before choosing a key; registration limits follow the
+        // submitted account identity, not the caller's IP or VPN exit node.
+        hook: 'preHandler',
+        keyGenerator: (request) => {
+          const body = request.body as { email?: unknown } | undefined;
+          const email = body?.email;
+          return typeof email === 'string' && email.trim()
+            ? `register:${email.trim().toLowerCase()}`
+            : 'register:missing-email';
+        },
+      },
+    },
+  },
   async (request, reply) => {
     const email = request.body?.email?.trim().toLowerCase();
     const password = request.body?.password;
@@ -317,6 +334,8 @@ app.post<{ Body: { email?: string; password?: string } }>(
       rateLimit: {
         max: 10,
         timeWindow: '1 minute',
+        // Run after body parsing so the key is the account email, never the IP.
+        hook: 'preHandler',
         // Login throttling follows the account, not the network/IP, so VPN changes
         // do not alter the identity or login allowance for a user.
         keyGenerator: (request) => {
