@@ -31,7 +31,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('تخته‌نرد سلطنتی'), findsOneWidget);
-    expect(find.text('بازی با هوش مصنوعی'), findsOneWidget);
+    expect(find.text('بازی با هوش مصنوعی'), findsNothing);
+    expect(find.text('بازی دونفره'), findsNothing);
+    expect(find.text('بازی آفلاین با هوش مصنوعی؛ تاس بریزید.'), findsOneWidget);
     expect(find.text('تم صفحه بازی:'), findsOneWidget);
     await tester.scrollUntilVisible(
       find.text('شروع مجدد'),
