@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:royal_club/backgammon_engine.dart';
 import 'package:royal_club/engine_backgammon_screen.dart';
 
 void main() {
@@ -64,4 +65,70 @@ void main() {
 
     expect(find.text('بازی دونفره محلی؛ تاس بریزید.'), findsOneWidget);
   });
+  testWidgets('tapping a legal destination enters a checker directly from the bar',
+      (tester) async {
+    tester.view.physicalSize = const Size(900, 500);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final engine = BackgammonEngine();
+    await tester.pumpWidget(
+      MaterialApp(home: EngineBackgammonScreen(engineForTesting: engine)),
+    );
+    await tester.tap(find.text('بازی آفلاین با هوش مصنوعی'));
+    await tester.pumpAndSettle();
+
+    engine.points.fillRange(0, 24, 0);
+    engine.bar[0] = 0;
+    engine.bar[1] = 1;
+    engine.borneOff[0] = 14;
+    engine.borneOff[1] = 14;
+    engine.currentPlayer = 1;
+    engine.dice = [1, 2];
+    await tester.pump();
+
+    await tester.tap(find.byKey(const ValueKey('backgammon-point-23')));
+    await tester.pump();
+
+    expect(engine.bar[1], 0);
+    expect(engine.points[23], 1);
+    expect(engine.dice, [2]);
+    expect(engine.currentPlayer, 1);
+  });
+
+  testWidgets('tapping a cumulative destination moves the selected checker with both dice',
+      (tester) async {
+    tester.view.physicalSize = const Size(900, 500);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final engine = BackgammonEngine();
+    await tester.pumpWidget(
+      MaterialApp(home: EngineBackgammonScreen(engineForTesting: engine)),
+    );
+    await tester.tap(find.text('بازی آفلاین با هوش مصنوعی'));
+    await tester.pumpAndSettle();
+
+    engine.points.fillRange(0, 24, 0);
+    engine.points[0] = 1;
+    engine.bar[0] = engine.bar[1] = 0;
+    engine.borneOff[0] = 14;
+    engine.borneOff[1] = 14;
+    engine.currentPlayer = 1;
+    engine.dice = [1, 2];
+    await tester.pump();
+
+    await tester.tap(find.byKey(const ValueKey('backgammon-point-0')));
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('backgammon-point-3')));
+    await tester.pump();
+
+    expect(engine.points[0], 0);
+    expect(engine.points[3], 1);
+    expect(engine.dice, isEmpty);
+    expect(engine.currentPlayer, -1);
+  });
+
 }
