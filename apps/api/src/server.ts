@@ -200,6 +200,8 @@ await pool.query(`
   ALTER TABLE backgammon_matches ADD COLUMN IF NOT EXISTS guest_game_wins INTEGER NOT NULL DEFAULT 0;
   ALTER TABLE backgammon_matches ADD COLUMN IF NOT EXISTS cancellation_proposed_by BIGINT REFERENCES users(id) ON DELETE SET NULL;
   ALTER TABLE backgammon_matches ADD COLUMN IF NOT EXISTS cancellation_accepted_by BIGINT REFERENCES users(id) ON DELETE SET NULL;
+  ALTER TABLE backgammon_matches ADD COLUMN IF NOT EXISTS winner_user_id BIGINT REFERENCES users(id) ON DELETE SET NULL;
+  ALTER TABLE backgammon_matches ADD COLUMN IF NOT EXISTS finish_reason TEXT CHECK (finish_reason IS NULL OR finish_reason IN ('bear_off', 'resignation'));
   CREATE TABLE IF NOT EXISTS backgammon_match_invites (
     id BIGSERIAL PRIMARY KEY,
     match_id BIGINT NOT NULL REFERENCES backgammon_matches(id) ON DELETE CASCADE,
@@ -1123,13 +1125,18 @@ app.get('/api/v1/matches/history', { onRequest: [requireMatchAuth] }, async (req
             m.off_state AS "offState", m.created_at AS "createdAt", m.updated_at AS "finishedAt",
             CASE WHEN m.host_user_id = $1 THEN guest.full_name ELSE host.full_name END AS "opponentName",
             CASE WHEN m.host_user_id = $1 THEN guest.avatar_data_url ELSE host.avatar_data_url END AS "opponentAvatarDataUrl",
-            CASE WHEN COALESCE((m.off_state->>'host')::int, 0) >= 15 THEN m.host_user_id
-                 WHEN COALESCE((m.off_state->>'guest')::int, 0) >= 15 THEN m.guest_user_id
-                 ELSE NULL END AS "winnerUserId",
-            CASE WHEN COALESCE((m.off_state->>'host')::int, 0) >= 15
-                   THEN CASE WHEN m.host_user_id = $1 THEN 'win' ELSE 'loss' END
-                 WHEN COALESCE((m.off_state->>'guest')::int, 0) >= 15
-                   THEN CASE WHEN m.guest_user_id = $1 THEN 'win' ELSE 'loss' END
+            COALESCE(m.winner_user_id,
+              CASE WHEN COALESCE((m.off_state->>'host')::int, 0) >= 15 THEN m.host_user_id
+                   WHEN COALESCE((m.off_state->>'guest')::int, 0) >= 15 THEN m.guest_user_id
+                   ELSE NULL END) AS "winnerUserId",
+            CASE WHEN COALESCE(m.winner_user_id,
+                    CASE WHEN COALESCE((m.off_state->>'host')::int, 0) >= 15 THEN m.host_user_id
+                         WHEN COALESCE((m.off_state->>'guest')::int, 0) >= 15 THEN m.guest_user_id
+                         ELSE NULL END) = $1 THEN 'win'
+                 WHEN COALESCE(m.winner_user_id,
+                    CASE WHEN COALESCE((m.off_state->>'host')::int, 0) >= 15 THEN m.host_user_id
+                         WHEN COALESCE((m.off_state->>'guest')::int, 0) >= 15 THEN m.guest_user_id
+                         ELSE NULL END) IS NOT NULL THEN 'loss'
                  ELSE 'unknown' END AS result
        FROM backgammon_matches m
        JOIN users host ON host.id = m.host_user_id
@@ -1489,6 +1496,66 @@ app.post<{ Params: { id: string }; Body: { accept: boolean } }>(
       return reply.code(500).send({ error: 'Could not process match cancellation.' });
     } finally { client.release(); }
   });
+
+// A player can resign an active online match. The server records the winner and rating atomically.
+app.post<{ Params: { id: string } }>(
+  '/api/v1/matches/:id/resign',
+  { onRequest: [requireMatchAuth] },
+  async (request, reply) => {
+    const claims = request.user as { sub: string };
+    if (!isNumericId(request.params.id)) {
+      return reply.code(400).send({ error: 'Invalid match id.' });
+    }
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const found = await client.query(
+        `SELECT id, status, host_user_id, guest_user_id, winner_user_id
+           FROM backgammon_matches
+          WHERE id = $1 AND expires_at > NOW()
+          FOR UPDATE`,
+        [request.params.id],
+      );
+      const match = found.rows[0] as {
+        id: string; status: string; host_user_id: string;
+        guest_user_id: string | null; winner_user_id: string | null;
+      } | undefined;
+      if (!match || ![match.host_user_id, match.guest_user_id].includes(claims.sub)) {
+        await client.query('ROLLBACK');
+        return reply.code(404).send({ error: 'Match not found.' });
+      }
+      if (match.status !== 'active' || !match.guest_user_id) {
+        await client.query('ROLLBACK');
+        return reply.code(409).send({ error: 'Only an active online match can be resigned.' });
+      }
+      if (match.winner_user_id) {
+        await client.query('ROLLBACK');
+        return reply.code(409).send({ error: 'This match already has a recorded winner.' });
+      }
+      const winnerUserId = match.host_user_id === claims.sub
+        ? match.guest_user_id
+        : match.host_user_id;
+      await client.query(
+        `UPDATE backgammon_matches
+            SET status = 'finished', winner_user_id = $1, finish_reason = 'resignation',
+                dice = '[]'::jsonb, remaining_dice = '[]'::jsonb,
+                cancellation_proposed_by = NULL, cancellation_accepted_by = NULL,
+                state_version = state_version + 1, updated_at = NOW()
+          WHERE id = $2`,
+        [winnerUserId, match.id],
+      );
+      await updateBackgammonRatings(client, winnerUserId, claims.sub);
+      await client.query('COMMIT');
+      return { result: { status: 'finished', winnerUserId, loserUserId: claims.sub, reason: 'resignation' } };
+    } catch (error) {
+      await client.query('ROLLBACK').catch(() => undefined);
+      request.log.error({ err: error }, 'Could not resign online match');
+      return reply.code(500).send({ error: 'Could not resign online match.' });
+    } finally {
+      client.release();
+    }
+  },
+);
 
 // Apply a sequence of die-sized moves atomically. Any invalid step rolls back the entire sequence.
 app.post<{ Params: { id: string }; Body: { moves: Array<{ from: number | null; to: number | null; die: number }>; expectedVersion: number } }>('/api/v1/matches/:id/moves/batch', { onRequest: [requireMatchAuth] }, async (request, reply) => {
