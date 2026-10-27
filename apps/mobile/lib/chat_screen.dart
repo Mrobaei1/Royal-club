@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
 import 'profile_avatar.dart';
 import 'services/auth_service.dart';
 import 'services/chat_service.dart';
@@ -73,6 +74,7 @@ class _ChatThreadScreenState extends State<ChatThreadScreen> {
   final _composer = TextEditingController();
   bool _loading = true;
   bool _sending = false;
+  bool _showEmojiPicker = false;
   String? _error;
   String? _myId;
   List<dynamic> _messages = [];
@@ -180,20 +182,48 @@ class _ChatThreadScreenState extends State<ChatThreadScreen> {
                   margin: const EdgeInsets.symmetric(vertical: 4),
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   decoration: BoxDecoration(
-                    color: mine ? const Color(0xFF253650) : const Color(0xFF17243A),
+                    color: mine ? Theme.of(context).colorScheme.primaryContainer : Theme.of(context).colorScheme.surface,
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: mine ? const Color(0xFFD8B45A).withValues(alpha: .5) : Colors.white12),
+                    border: Border.all(color: mine ? Theme.of(context).colorScheme.primary.withValues(alpha: .5) : Theme.of(context).dividerColor),
                   ),
                   child: Text(message['body']?.toString() ?? ''),
                 ),
               );
             },
           )),
-        SafeArea(child: Padding(padding: const EdgeInsets.all(10), child: Row(children: [
-          Expanded(child: TextField(controller: _composer, minLines: 1, maxLines: 4, maxLength: 2000, decoration: const InputDecoration(hintText: 'پیام بنویسید...', border: OutlineInputBorder(), counterText: ''))),
-          const SizedBox(width: 8),
-          IconButton.filled(onPressed: _sending ? null : _send, icon: const Icon(Icons.send)),
-        ]))),
+        SafeArea(child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Padding(padding: const EdgeInsets.all(10), child: Row(children: [
+            IconButton(
+              tooltip: _showEmojiPicker ? 'بستن ایموجی‌ها' : 'افزودن ایموجی',
+              onPressed: () => setState(() => _showEmojiPicker = !_showEmojiPicker),
+              icon: Icon(_showEmojiPicker ? Icons.keyboard_alt_outlined : Icons.emoji_emotions_outlined),
+            ),
+            Expanded(child: TextField(controller: _composer, minLines: 1, maxLines: 4, maxLength: 2000, decoration: const InputDecoration(hintText: 'پیام بنویسید...', border: OutlineInputBorder(), counterText: ''))),
+            const SizedBox(width: 8),
+            IconButton.filled(onPressed: _sending ? null : _send, icon: const Icon(Icons.send)),
+          ])),
+          if (_showEmojiPicker)
+            SizedBox(
+              height: 260,
+              child: EmojiPicker(
+                onEmojiSelected: (category, emoji) {
+                  final text = _composer.text;
+                  final selection = _composer.selection;
+                  final start = selection.isValid ? selection.start : text.length;
+                  final end = selection.isValid ? selection.end : text.length;
+                  _composer.value = TextEditingValue(
+                    text: text.replaceRange(start, end, emoji.emoji),
+                    selection: TextSelection.collapsed(offset: start + emoji.emoji.length),
+                  );
+                },
+                config: const Config(
+                  height: 260,
+                  checkPlatformCompatibility: true,
+                  emojiViewConfig: EmojiViewConfig(emojiSizeMax: 28),
+                ),
+              ),
+            ),
+        ])),
       ]),
     ),
   );
