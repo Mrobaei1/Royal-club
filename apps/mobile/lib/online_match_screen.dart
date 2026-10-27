@@ -169,7 +169,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
     final scope = await showDialog<String>(
       context: context,
       builder: (dialogContext) => Directionality(
-        textDirection: TextDirection.rtl,
+        textDirection: (Localizations.localeOf(context).languageCode == 'en' ? TextDirection.ltr : TextDirection.rtl),
         child: AlertDialog(
           title: const Text('تسلیم'),
           content: const Text('نوع تسلیم را انتخاب کنید:'),
@@ -195,7 +195,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => Directionality(
-        textDirection: TextDirection.rtl,
+        textDirection: (Localizations.localeOf(context).languageCode == 'en' ? TextDirection.ltr : TextDirection.rtl),
         child: AlertDialog(
           title: Text(scope == 'game' ? 'تأیید شکست این دست' : 'تأیید شکست مسابقه'),
           content: Text(
@@ -450,7 +450,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
     final bar = preview['bar'] as Map<String, int>;
     final ownBar = (bar[_state?['isHost'] == true ? 'host' : 'guest'] ?? 0);
     return Directionality(
-      textDirection: TextDirection.rtl,
+      textDirection: (Localizations.localeOf(context).languageCode == 'en' ? TextDirection.ltr : TextDirection.rtl),
       child: Scaffold(
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         appBar: AppBar(
