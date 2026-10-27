@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'profile_avatar.dart';
+import 'chat_screen.dart';
 import 'services/friends_service.dart';
 
 const _friendsGold = Color(0xFFD8B45A);
@@ -131,6 +132,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
     Widget? trailing,
     String? titleOverride,
     String? subtitleOverride,
+    VoidCallback? onTap,
   }) {
     final username = user['username']?.toString().trim() ?? '';
     final fullName = (user['fullName'] ?? user['name'] ?? user['full_name'])?.toString().trim() ?? '';
@@ -141,6 +143,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
     return Card(
       color: Theme.of(context).colorScheme.surface,
       child: ListTile(
+        onTap: onTap,
         leading: RoyalAvatar(dataUrl: (user['avatarDataUrl'] ?? user['avatar_data_url'] ?? user['profilePhoto'] ?? user['photoUrl'])?.toString(), radius: 22),
         title: Text(title, style: const TextStyle(color: Colors.white)),
         subtitle: subtitle.isEmpty
@@ -153,6 +156,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isEnglish = Localizations.localeOf(context).languageCode == 'en';
     final friends = (_data['friends'] as List? ?? const [])
         .whereType<Map>()
         .map((item) => Map<String, dynamic>.from(item))
@@ -167,18 +171,18 @@ class _FriendsScreenState extends State<FriendsScreen> {
         .toList();
 
     return Directionality(
-      textDirection: TextDirection.rtl,
+      textDirection: isEnglish ? TextDirection.ltr : TextDirection.rtl,
       child: Scaffold(
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         appBar: AppBar(
-          title: const Text('دوستان'),
+          title: Text(isEnglish ? 'Friends' : 'دوستان'),
           backgroundColor: _friendsNavy,
           foregroundColor: Theme.of(context).colorScheme.primary,
           actions: [
             IconButton(
               onPressed: _busy ? null : _refresh,
               icon: const Icon(Icons.refresh),
-              tooltip: 'به‌روزرسانی',
+              tooltip: isEnglish ? 'Refresh' : 'به‌روزرسانی',
             ),
           ],
         ),
@@ -186,14 +190,14 @@ class _FriendsScreenState extends State<FriendsScreen> {
           child: ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              const Text('افزودن دوست',
+              Text(isEnglish ? 'Add a friend' : 'افزودن دوست',
                   style: TextStyle(
                       color: _friendsGold,
                       fontSize: 21,
                       fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
-              const Text(
-                'نام کاربری دقیق دوستتان را وارد کنید؛ نیازی به دانستن ایمیل او نیست.',
+              Text(
+                isEnglish ? 'Enter your friend’s exact username; you do not need their email.' : 'نام کاربری دقیق دوستتان را وارد کنید؛ نیازی به دانستن ایمیل او نیست.',
                 style: TextStyle(color: Colors.white70, height: 1.6),
               ),
               const SizedBox(height: 12),
@@ -201,7 +205,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
                 controller: _username,
                 textDirection: TextDirection.ltr,
                 decoration: const InputDecoration(
-                  labelText: 'نام کاربری',
+                  labelText: isEnglish ? 'Username' : 'نام کاربری',
                   hintText: 'royal_player7',
                   prefixIcon: Icon(Icons.alternate_email),
                   border: OutlineInputBorder(),
@@ -212,7 +216,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
               FilledButton.icon(
                 onPressed: _busy ? null : _search,
                 icon: const Icon(Icons.search),
-                label: const Text('جست‌وجو'),
+                label: Text(isEnglish ? 'Search' : 'جست‌وجو'),
                 style: FilledButton.styleFrom(
                     backgroundColor: _friendsGold,
                     foregroundColor: _friendsNavy),
@@ -246,9 +250,9 @@ class _FriendsScreenState extends State<FriendsScreen> {
                       textAlign: TextAlign.center,
                       style: const TextStyle(color: _friendsGold)),
                 ),
-              _sectionTitle('درخواست‌های دریافتی', incoming.length),
+              _sectionTitle(isEnglish ? 'Incoming requests' : 'درخواست‌های دریافتی', incoming.length),
               if (incoming.isEmpty)
-                const Text('درخواست تازه‌ای ندارید.',
+                Text(isEnglish ? 'No new requests.' : 'درخواست تازه‌ای ندارید.',
                     style: TextStyle(color: Colors.white54)),
               ...incoming.map((user) => _userTile(
                     user,
@@ -261,12 +265,19 @@ class _FriendsScreenState extends State<FriendsScreen> {
                       tooltip: 'پذیرش درخواست',
                     ),
                   )),
-              _sectionTitle('دوستان من', friends.length),
+              _sectionTitle(isEnglish ? 'My friends' : 'دوستان من', friends.length),
               if (friends.isEmpty)
-                const Text('هنوز دوستی اضافه نکرده‌اید.',
+                Text(isEnglish ? 'You have not added any friends yet.' : 'هنوز دوستی اضافه نکرده‌اید.',
                     style: TextStyle(color: Colors.white54)),
               ...friends.map((user) => _userTile(
                     user,
+                    onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => ChatThreadScreen(
+                      userId: (user['userId'] ?? user['id']).toString(),
+                      title: ((user['fullName'] ?? user['name'] ?? user['username'])?.toString().trim().isNotEmpty == true)
+                          ? (user['fullName'] ?? user['name'] ?? user['username']).toString()
+                          : (isEnglish ? 'Friend' : 'دوست'),
+                      avatarDataUrl: (user['avatarDataUrl'] ?? user['avatar_data_url'] ?? user['profilePhoto'] ?? user['photoUrl'])?.toString(),
+                    ))),
                     trailing: IconButton(
                       onPressed: _busy
                           ? null
@@ -276,9 +287,9 @@ class _FriendsScreenState extends State<FriendsScreen> {
                       tooltip: 'حذف دوست',
                     ),
                   )),
-              _sectionTitle('درخواست‌های ارسالی', outgoing.length),
+              _sectionTitle(isEnglish ? 'Sent requests' : 'درخواست‌های ارسالی', outgoing.length),
               if (outgoing.isEmpty)
-                const Text('درخواست در انتظاری ندارید.',
+                Text(isEnglish ? 'No pending requests.' : 'درخواست در انتظاری ندارید.',
                     style: TextStyle(color: Colors.white54)),
               ...outgoing.map((user) => _userTile(
                     user,
