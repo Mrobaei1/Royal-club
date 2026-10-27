@@ -178,9 +178,10 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
   }
 
   void _showHeadToHeadSummary({required bool isHost}) {
+    final isEnglish = _isEnglish;
     final myIsHost = _matchDetails['isHost'] == true;
-    final hostName = _matchDetails['hostName']?.toString() ?? 'میزبان';
-    final guestName = _matchDetails['guestName']?.toString() ?? 'حریف';
+    final hostName = _matchDetails['hostName']?.toString() ?? (isEnglish ? 'Host' : 'میزبان');
+    final guestName = _matchDetails['guestName']?.toString() ?? (isEnglish ? 'Opponent' : 'حریف');
     final hostPoints = (_matchDetails['headToHeadHostPoints'] as num?)?.toInt() ?? 0;
     final guestPoints = (_matchDetails['headToHeadGuestPoints'] as num?)?.toInt() ?? 0;
     final hostWins = (_matchDetails['headToHeadHostWins'] as num?)?.toInt() ?? 0;
@@ -196,7 +197,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: _matchPanel,
-        title: Text('آمار رودررو', style: const TextStyle(color: _matchGold)),
+        title: Text(isEnglish ? 'Head-to-head stats' : 'آمار رودررو', style: const TextStyle(color: _matchGold)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -204,12 +205,12 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
             Text('$viewerName  $viewerPoints  -  $opponentPoints  $opponentName',
               textAlign: TextAlign.center, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
             const SizedBox(height: 14),
-            _headToHeadRow('تعداد مسابقات رودررو', '$matches'),
-            _headToHeadRow('بردهای مسابقه', '$viewerWins - $opponentWins'),
-            _headToHeadRow('امتیاز دست‌ها', '$viewerPoints - $opponentPoints'),
+            _headToHeadRow(isEnglish ? 'Matches played' : 'تعداد مسابقات رودررو', '$matches'),
+            _headToHeadRow(isEnglish ? 'Match wins' : 'بردهای مسابقه', '$viewerWins - $opponentWins'),
+            _headToHeadRow(isEnglish ? 'Game points' : 'امتیاز دست‌ها', '$viewerPoints - $opponentPoints'),
           ],
         ),
-        actions: [TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('بستن'))],
+        actions: [TextButton(onPressed: () => Navigator.of(context).pop(), child: Text(isEnglish ? 'Close' : 'بستن'))],
       ),
     );
   }
@@ -224,26 +225,27 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
 
   Future<void> _resignMatch() async {
     if (_busy || _matchStatus != 'active') return;
+    final isEnglish = _isEnglish;
     final scope = await showDialog<String>(
       context: context,
       builder: (dialogContext) => Directionality(
         textDirection: (Localizations.localeOf(context).languageCode == 'en' ? TextDirection.ltr : TextDirection.rtl),
         child: AlertDialog(
-          title: const Text('تسلیم'),
-          content: const Text('نوع تسلیم را انتخاب کنید:'),
+          title: Text(isEnglish ? 'Resign' : 'تسلیم'),
+          content: Text(isEnglish ? 'Choose what to resign:' : 'نوع تسلیم را انتخاب کنید:'),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(null),
-              child: const Text('انصراف'),
+              child: Text(isEnglish ? 'Cancel' : 'انصراف'),
             ),
             OutlinedButton(
               onPressed: () => Navigator.of(dialogContext).pop('game'),
-              child: const Text('قبول شکست این دست'),
+              child: Text(isEnglish ? 'Resign this game' : 'قبول شکست این دست'),
             ),
             FilledButton(
               style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
               onPressed: () => Navigator.of(dialogContext).pop('match'),
-              child: const Text('قبول شکست مسابقه'),
+              child: Text(isEnglish ? 'Resign the match' : 'قبول شکست مسابقه'),
             ),
           ],
         ),
@@ -255,21 +257,21 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
       builder: (dialogContext) => Directionality(
         textDirection: (Localizations.localeOf(context).languageCode == 'en' ? TextDirection.ltr : TextDirection.rtl),
         child: AlertDialog(
-          title: Text(scope == 'game' ? 'تأیید شکست این دست' : 'تأیید شکست مسابقه'),
+          title: Text(scope == 'game' ? (isEnglish ? 'Confirm game loss' : 'تأیید شکست این دست') : (isEnglish ? 'Confirm match loss' : 'تأیید شکست مسابقه')),
           content: Text(
             scope == 'game'
-              ? 'با تأیید، این دست به حریف واگذار می‌شود. اگر امتیاز حریف به حد نصاب مسابقه برسد، کل مسابقه پایان می‌یابد.'
-              : 'با تأیید، کل مسابقه به حریف واگذار می‌شود و نتیجه و رتبه‌بندی ثبت خواهد شد. این کار قابل بازگشت نیست.',
+              ? (isEnglish ? 'This game will be awarded to your opponent. If they reach the target, the match ends.' : 'با تأیید، این دست به حریف واگذار می‌شود. اگر امتیاز حریف به حد نصاب مسابقه برسد، کل مسابقه پایان می‌یابد.')
+              : (isEnglish ? 'The whole match will be awarded to your opponent and the result and rating will be recorded. This cannot be undone.' : 'با تأیید، کل مسابقه به حریف واگذار می‌شود و نتیجه و رتبه‌بندی ثبت خواهد شد. این کار قابل بازگشت نیست.'),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: const Text('بازگشت'),
+              child: Text(isEnglish ? 'Back' : 'بازگشت'),
             ),
             FilledButton(
               style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
               onPressed: () => Navigator.of(dialogContext).pop(true),
-              child: const Text('تأیید'),
+              child: Text(isEnglish ? 'Confirm' : 'تأیید'),
             ),
           ],
         ),
