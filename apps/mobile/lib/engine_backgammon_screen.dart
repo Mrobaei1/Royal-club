@@ -185,7 +185,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
         maxLines: 1,
         style: TextStyle(
           color: active && seconds <= 5 ? Colors.white : _boardGold,
-          fontSize: compact ? 8 : 10,
+          fontSize: compact ? 7 : 10,
           fontWeight: FontWeight.w800,
         )),
     );
@@ -1073,7 +1073,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
         borderRadius: BorderRadius.circular(8),
         child: Container(
           constraints: BoxConstraints(minHeight: compact ? 82 : 178),
-          padding: EdgeInsets.symmetric(vertical: compact ? 3 : 8, horizontal: 2),
+          padding: EdgeInsets.symmetric(vertical: compact ? 1 : 8, horizontal: 2),
           decoration: BoxDecoration(
             gradient: const LinearGradient(
               begin: Alignment.topLeft,
@@ -1087,16 +1087,16 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
             ),
           ),
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              Icon(Icons.inventory_2_outlined, color: _boardGold, size: compact ? 13 : 16),
+              Icon(Icons.inventory_2_outlined, color: _boardGold, size: compact ? 10 : 16),
               Text(
                 offPlayer == 1 ? 'طلایی' : 'مشکی',
-                style: TextStyle(color: Colors.white70, fontSize: compact ? 7 : 9),
+                style: TextStyle(color: Colors.white70, fontSize: compact ? 6 : 9),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
-              _checker(offPlayer, size: compact ? 26 : 42),
+              _checker(offPlayer, size: compact ? 20 : 42),
               Text(
                 '${_engine.borneOff[offIndex]}/15',
                 style: TextStyle(
@@ -1107,7 +1107,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
               ),
               _turnCountdown(offPlayer, compact: compact),
               if (isCurrentPlayer)
-                Icon(Icons.touch_app_outlined, color: _boardGold, size: compact ? 12 : 15),
+                Icon(Icons.touch_app_outlined, color: _boardGold, size: compact ? 9 : 15),
             ],
           ),
         ),
