@@ -53,7 +53,7 @@ class _ChatScreenState extends State<ChatScreen> {
               onTap: () async {
                 await Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => ChatThreadScreen(
                   userId: item['userId'].toString(),
-                  title: item['username']?.toString().isNotEmpty == true ? '@${item['username']}' : 'دوست',
+                  title: item['username']?.toString().isNotEmpty == true ? '@${item['username']}' : (_isEnglish ? 'Friend' : 'دوست'),
                   avatarDataUrl: item['avatarDataUrl']?.toString(),
                 )));
                 _load();
