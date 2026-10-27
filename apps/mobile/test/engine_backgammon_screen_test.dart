@@ -32,6 +32,15 @@ void main() {
     expect(find.text('تخته‌نرد سلطنتی'), findsOneWidget);
     expect(find.text('بازی با هوش مصنوعی'), findsOneWidget);
     expect(find.text('تم صفحه بازی:'), findsOneWidget);
+
+    // The user can choose any of the six board palettes from the game controls.
+    await tester.tap(find.text('چوب سلطنتی'));
+    await tester.pumpAndSettle();
+    expect(find.text('فیروزه‌ای ایرانی'), findsOneWidget);
+    await tester.tap(find.text('فیروزه‌ای ایرانی').last);
+    await tester.pumpAndSettle();
+    expect(find.text('فیروزه‌ای ایرانی'), findsOneWidget);
+
     await tester.scrollUntilVisible(
       find.text('شروع مجدد'),
       300,
