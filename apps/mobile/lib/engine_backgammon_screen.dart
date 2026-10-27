@@ -845,7 +845,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
-              _checker(offPlayer, size: compact ? 16 : 22),
+              _checker(offPlayer, size: compact ? 18 : 24),
               Text(
                 '${_engine.borneOff[offIndex]}/15',
                 style: TextStyle(
@@ -867,7 +867,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
     final count = _engine.bar[player == 1 ? 1 : 0];
     return Column(
       children: [
-        _checker(player, size: compact ? 16 : 22),
+        _checker(player, size: compact ? 18 : 24),
         Text('$count',
             style: TextStyle(color: Colors.white, fontSize: compact ? 10 : 12)),
       ],
@@ -981,7 +981,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
     }
     final shown = count > 5 ? 5 : count;
     final chips =
-        List.generate(shown, (_) => _checker(player, size: compact ? 10 : 17));
+        List.generate(shown, (_) => _checker(player, size: compact ? 13 : 21));
     return Expanded(
       child: AnimatedAlign(
         duration: const Duration(milliseconds: 220),
