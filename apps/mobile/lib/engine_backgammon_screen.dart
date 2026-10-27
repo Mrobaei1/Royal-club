@@ -783,14 +783,44 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
       );
 
   Widget _landscapeLayout(Set<int> legalTargets, double availableHeight) {
-    // In landscape, give the board the full viewport. The separate vertical
-    // offline-AI/status sidebar is intentionally omitted to keep the board clear.
+    // Keep the vertical side card available for future controls and information.
     final rowHeight =
-        ((availableHeight - 76) / 2).clamp(32.0, 108.0).toDouble();
+        ((availableHeight - 100) / 2).clamp(32.0, 108.0).toDouble();
     return Padding(
       padding: const EdgeInsets.fromLTRB(8, 4, 8, 6),
-      child: SizedBox.expand(
-        child: _board(legalTargets, rowHeight: rowHeight, compact: true),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(
+              child: _board(legalTargets, rowHeight: rowHeight, compact: true)),
+          const SizedBox(width: 10),
+          SizedBox(
+            width: 190,
+            child: Column(
+              children: [
+                Expanded(flex: 3, child: _statusPanel(compact: true)),
+                const SizedBox(height: 8),
+                Expanded(flex: 2, child: _scoreRow(compact: true)),
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: _reset,
+                    icon: const Icon(Icons.restart_alt, size: 18),
+                    label: const Text('شروع مجدد'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: _boardGold,
+                      side: const BorderSide(color: _boardGold),
+                      padding: const EdgeInsets.symmetric(
+                          vertical: 9, horizontal: 8),
+                      visualDensity: VisualDensity.compact,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
