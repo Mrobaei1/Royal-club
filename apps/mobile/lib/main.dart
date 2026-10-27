@@ -700,9 +700,18 @@ class _AuthScreenState extends State<AuthScreen> {
                       autofillHints: const [AutofillHints.name],
                       decoration: InputDecoration(labelText: AppLocalizations.of(context).fullName, border: const OutlineInputBorder(), prefixIcon: const Icon(Icons.person_outline))),
                     const SizedBox(height: 14),
-                    TextField(controller: _phone, keyboardType: TextInputType.phone,
+                    TextField(
+                      controller: _phone,
+                      keyboardType: TextInputType.phone,
                       autofillHints: const [AutofillHints.telephoneNumber],
-                      decoration: InputDecoration(labelText: AppLocalizations.of(context).phone, hintText: 'شماره تلفن بدون کد کشور', border: const OutlineInputBorder(), prefixIcon: const Icon(Icons.phone_outlined))),
+                      decoration: InputDecoration(
+                        labelText: '${AppLocalizations.of(context).phone} (بدون کد کشور)',
+                        hintText: 'مثلاً 09123456789',
+                        helperText: 'فقط شماره تلفن را وارد کنید؛ کد کشور لازم نیست.',
+                        border: const OutlineInputBorder(),
+                        prefixIcon: const Icon(Icons.phone_outlined),
+                      ),
+                    ),
                     const SizedBox(height: 14),
                   ],
                   TextField(
