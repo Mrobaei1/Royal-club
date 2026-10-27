@@ -309,13 +309,13 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        backgroundColor: _boardNavy,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         appBar: MediaQuery.orientationOf(context) == Orientation.landscape
             ? null
             : AppBar(
                 toolbarHeight: 48,
                 backgroundColor: _boardNavy,
-                foregroundColor: _boardGold,
+                foregroundColor: Theme.of(context).colorScheme.primary,
                 title: const Text('تخته‌نرد سلطنتی',
                     style:
                         TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
