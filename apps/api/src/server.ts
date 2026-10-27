@@ -630,7 +630,7 @@ app.get<{ Params: { userId: string } }>('/api/v1/admin/users/:userId/profile', {
   const { userId } = request.params;
   if (!isNumericId(userId)) return reply.code(400).send({ error: 'Invalid user ID.' });
   const result = await pool.query(
-    `SELECT u.id, u.username, u.email, u.full_name AS "fullName",
+    `SELECT u.id, u.username, u.email,
             u.phone, u.country, u.created_at AS "createdAt",
             COALESCE(w.balance, 0)::text AS "walletBalance"
        FROM users u
@@ -799,7 +799,7 @@ app.patch<{ Params: { code: string }; Body: { name?: string; durationDays?: numb
 app.get('/api/v1/chat/conversations', { onRequest: [requireMatchAuth] }, async (request) => {
   const claims = request.user as { sub: string };
   const result = await pool.query(
-    `SELECT u.id AS "userId", u.full_name AS "fullName", u.email,
+    `SELECT u.id AS "userId", u.username,
             u.avatar_data_url AS "avatarDataUrl",
             latest.body AS "lastMessage", latest.created_at AS "lastMessageAt",
             COALESCE(unread.count, 0)::int AS "unreadCount"
@@ -815,7 +815,7 @@ app.get('/api/v1/chat/conversations', { onRequest: [requireMatchAuth] }, async (
           WHERE sender_id = u.id AND recipient_id = $1 AND read_at IS NULL
        ) unread ON TRUE
       WHERE (f.requester_id = $1 OR f.addressee_id = $1) AND f.status = 'accepted'
-      ORDER BY latest.created_at DESC NULLS LAST, u.full_name ASC`,
+      ORDER BY latest.created_at DESC NULLS LAST, LOWER(u.username) ASC`,
     [claims.sub],
   );
   return { conversations: result.rows };
@@ -927,9 +927,7 @@ app.get('/api/v1/friends', { onRequest: [requireMatchAuth] }, async (request) =>
             f.addressee_id AS "addresseeId", f.created_at AS "createdAt",
             requester.username AS "requesterUsername",
             addressee.username AS "addresseeUsername",
-            requester.full_name AS "requesterFullName",
-            addressee.full_name AS "addresseeFullName",
-            requester.avatar_data_url AS "requesterAvatarDataUrl",
+                        requester.avatar_data_url AS "requesterAvatarDataUrl",
             addressee.avatar_data_url AS "addresseeAvatarDataUrl"
        FROM friendships f
        JOIN users requester ON requester.id = f.requester_id
@@ -946,7 +944,6 @@ app.get('/api/v1/friends', { onRequest: [requireMatchAuth] }, async (request) =>
       : String(row.addresseeId) === claims.sub ? 'incoming' : 'outgoing',
     userId: String(row.requesterId) === claims.sub ? row.addresseeId : row.requesterId,
     username: String(row.requesterId) === claims.sub ? row.addresseeUsername : row.requesterUsername,
-    fullName: String(row.requesterId) === claims.sub ? row.addresseeFullName : row.requesterFullName,
     name: String(row.requesterId) === claims.sub ? row.addresseeUsername : row.requesterUsername,
     avatarDataUrl: String(row.requesterId) === claims.sub ? row.addresseeAvatarDataUrl : row.requesterAvatarDataUrl,
     createdAt: row.createdAt,
@@ -1148,7 +1145,7 @@ app.get('/api/v1/matches/history', { onRequest: [requireMatchAuth] }, async (req
     `SELECT m.id, m.room_code AS "roomCode", m.host_user_id AS "hostUserId",
             m.guest_user_id AS "guestUserId", m.status,
             m.off_state AS "offState", m.created_at AS "createdAt", m.updated_at AS "finishedAt",
-            CASE WHEN m.host_user_id = $1 THEN guest.full_name ELSE host.full_name END AS "opponentName",
+            CASE WHEN m.host_user_id = $1 THEN guest.username ELSE host.username END AS "opponentName",
             CASE WHEN m.host_user_id = $1 THEN guest.avatar_data_url ELSE host.avatar_data_url END AS "opponentAvatarDataUrl",
             COALESCE(m.winner_user_id,
               CASE WHEN COALESCE((m.off_state->>'host')::int, 0) >= 15 THEN m.host_user_id
@@ -1177,7 +1174,7 @@ app.get('/api/v1/matches/history', { onRequest: [requireMatchAuth] }, async (req
 app.get('/api/v1/matches/open', { onRequest: [requireMatchAuth] }, async (request, reply) => {
   const claims = request.user as { sub: string };
   const result = await pool.query(
-    `SELECT m.id, m.room_code AS "roomCode", m.status, m.created_at AS "createdAt", u.full_name AS "hostName", u.avatar_data_url AS "hostAvatarDataUrl"
+    `SELECT m.id, m.room_code AS "roomCode", m.status, m.created_at AS "createdAt", u.username AS "hostName", u.avatar_data_url AS "hostAvatarDataUrl"
        FROM backgammon_matches m JOIN users u ON u.id = m.host_user_id
       WHERE m.status = 'waiting' AND m.expires_at > NOW() AND m.host_user_id <> $1
       ORDER BY m.created_at ASC LIMIT 30`, [claims.sub]);
@@ -1234,8 +1231,8 @@ app.post<{ Params: { id: string } }>('/api/v1/matches/:id/join', { onRequest: [r
       [claims.sub, match.id]);
     await client.query('COMMIT');
     const joined = await pool.query(
-      `SELECT m.id, m.room_code AS "roomCode", m.status, host.full_name AS "hostName",
-              guest.full_name AS "guestName", host.avatar_data_url AS "hostAvatarDataUrl",
+      `SELECT m.id, m.room_code AS "roomCode", m.status, host.username AS "hostName",
+              guest.username AS "guestName", host.avatar_data_url AS "hostAvatarDataUrl",
               guest.avatar_data_url AS "guestAvatarDataUrl", m.created_at AS "createdAt"
          FROM backgammon_matches m JOIN users host ON host.id = m.host_user_id
          LEFT JOIN users guest ON guest.id = m.guest_user_id WHERE m.id = $1`, [match.id]);
@@ -1300,7 +1297,7 @@ app.get('/api/v1/match-invites', { onRequest: [requireMatchAuth] }, async (reque
   const result = await pool.query(
     `SELECT i.id, i.match_id AS "matchId", i.status, i.created_at AS "createdAt",
             m.expires_at AS "expiresAt", m.room_code AS "roomCode", m.status AS "matchStatus",
-            inviter.username AS "inviterUsername", inviter.full_name AS "inviterName",
+            inviter.username AS "inviterUsername",
             inviter.avatar_data_url AS "inviterAvatarDataUrl"
        FROM backgammon_match_invites i
        JOIN backgammon_matches m ON m.id = i.match_id
