@@ -256,6 +256,6 @@ class _OnlineLobbyScreenState extends State<OnlineLobbyScreen> {
         }),
       ])),
     ),
-  );    );
+  );
   }
 }
