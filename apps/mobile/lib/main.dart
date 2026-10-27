@@ -16,11 +16,14 @@ import 'services/chat_service.dart';
 import 'services/friends_service.dart';
 
 const List<RoyalTheme> royalThemes = [
-  RoyalTheme('سلطنتی', Color(0xFF10182B), Color(0xFF17243A), Color(0xFFD8B45A)),
-  RoyalTheme('زمردی', Color(0xFF092B27), Color(0xFF12443B), Color(0xFF70D6A4)),
-  RoyalTheme('اقیانوسی', Color(0xFF0B1D35), Color(0xFF15365A), Color(0xFF72C9F8)),
-  RoyalTheme('یاقوتی', Color(0xFF2B1020), Color(0xFF481B32), Color(0xFFFF91B5)),
-  RoyalTheme('روشن', Color(0xFFF1F3F7), Color(0xFFFFFFFF), Color(0xFF8A6420), dark: false),
+  RoyalTheme('کهکشانی', Color(0xFF17112F), Color(0xFF251B45), Color(0xFFB9A0FF)),
+  RoyalTheme('فیروزه‌ای', Color(0xFF082F3A), Color(0xFF104956), Color(0xFF55E6D0)),
+  RoyalTheme('غروب مرجانی', Color(0xFF321C2B), Color(0xFF4B2937), Color(0xFFFF9B83)),
+  RoyalTheme('یاقوت کبود', Color(0xFF0B1D42), Color(0xFF173263), Color(0xFF82B7FF)),
+  RoyalTheme('رزگلد', Color(0xFF301D2B), Color(0xFF493041), Color(0xFFFFC1B8)),
+  RoyalTheme('جنگل زمردی', Color(0xFF092D28), Color(0xFF12463B), Color(0xFF83E6AD)),
+  RoyalTheme('آرکتیک روشن', Color(0xFFF0F5FA), Color(0xFFFFFFFF), Color(0xFF4269A8), dark: false),
+  RoyalTheme('گرافیتی نئونی', Color(0xFF171A20), Color(0xFF252B35), Color(0xFFFFD166)),
 ];
 
 class RoyalTheme {
