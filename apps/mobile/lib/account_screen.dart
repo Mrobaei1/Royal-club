@@ -5,7 +5,6 @@ import 'package:image_picker/image_picker.dart';
 import 'services/auth_service.dart';
 
 const _accountGold = Color(0xFFD8B45A);
-const _accountNavy = Color(0xFF10182B);
 const _accountPanel = Color(0xFF17243A);
 
 class AccountScreen extends StatefulWidget {
