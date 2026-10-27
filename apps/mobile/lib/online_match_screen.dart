@@ -121,13 +121,43 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
 
   Future<void> _resignMatch() async {
     if (_busy || _matchStatus != 'active') return;
+    final scope = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: AlertDialog(
+          title: const Text('تسلیم'),
+          content: const Text('نوع تسلیم را انتخاب کنید:'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(null),
+              child: const Text('انصراف'),
+            ),
+            OutlinedButton(
+              onPressed: () => Navigator.of(dialogContext).pop('game'),
+              child: const Text('قبول شکست این دست'),
+            ),
+            FilledButton(
+              style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
+              onPressed: () => Navigator.of(dialogContext).pop('match'),
+              child: const Text('قبول شکست مسابقه'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (scope == null || !mounted) return;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => Directionality(
         textDirection: TextDirection.rtl,
         child: AlertDialog(
-          title: const Text('تسلیم و قبول شکست'),
-          content: const Text('با تأیید این گزینه، شکست شما ثبت می‌شود، حریف برنده اعلام می‌شود و امتیازهای رتبه‌بندی به‌روزرسانی می‌شوند. این کار قابل بازگشت نیست. ادامه می‌دهید؟'),
+          title: Text(scope == 'game' ? 'تأیید شکست این دست' : 'تأیید شکست مسابقه'),
+          content: Text(
+            scope == 'game'
+              ? 'با تأیید، این دست به حریف واگذار می‌شود. اگر امتیاز حریف به حد نصاب مسابقه برسد، کل مسابقه پایان می‌یابد.'
+              : 'با تأیید، کل مسابقه به حریف واگذار می‌شود و نتیجه و رتبه‌بندی ثبت خواهد شد. این کار قابل بازگشت نیست.',
+          ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(false),
@@ -136,7 +166,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
             FilledButton(
               style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
               onPressed: () => Navigator.of(dialogContext).pop(true),
-              child: const Text('تأیید تسلیم'),
+              child: const Text('تأیید'),
             ),
           ],
         ),
@@ -145,8 +175,10 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
     if (confirmed != true || !mounted) return;
     setState(() { _busy = true; _error = null; });
     try {
-      await MatchService.resign(_id);
-      if (mounted) setState(() => _matchStatus = 'finished');
+      final result = await MatchService.resign(_id, scope: scope);
+      if (mounted) {
+        setState(() => _matchStatus = result['status']?.toString() ?? _matchStatus);
+      }
       await _refresh(silent: true);
     } catch (e) {
       if (mounted) setState(() => _error = e.toString().replaceFirst('Exception: ', ''));
