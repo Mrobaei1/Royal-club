@@ -757,10 +757,27 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
                 child: Column(children: [
                   Text(isEnglish ? 'Server board state' : 'وضعیت تخته از سرور', style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 12),
-                  OnlineBackgammonBoard(
-                    points: board,
-                    selectedPoint: _selectedFrom,
-                    onPointTap: (point) => _tapPoint(point, board, remaining, isMyTurn),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Expanded(
+                        child: OnlineBackgammonBoard(
+                          points: board,
+                          selectedPoint: _selectedFrom,
+                          onPointTap: (point) => _tapPoint(point, board, remaining, isMyTurn),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      IconButton.filled(
+                        tooltip: isEnglish ? 'Roll dice' : 'ریختن تاس',
+                        onPressed: _busy || _matchStatus != 'active' || !isMyTurn || dice.isNotEmpty ? null : _roll,
+                        style: IconButton.styleFrom(
+                          backgroundColor: Theme.of(context).colorScheme.primary,
+                          foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                        ),
+                        icon: const Icon(Icons.casino),
+                      ),
+                    ],
                   ),
                 ]),
               ),
@@ -804,12 +821,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
                     label: Text(isEnglish ? 'End turn (only when no legal move remains)' : 'پایان نوبت (فقط اگر حرکت قانونی نمانده باشد)'),
                   ),
                   const SizedBox(height: 12),
-                  FilledButton.icon(
-                    onPressed: _busy || _matchStatus != 'active' || !isMyTurn || dice.isNotEmpty ? null : _roll,
-                    icon: const Icon(Icons.casino),
-                    label: Text(_busy ? (isEnglish ? 'Submitting…' : 'در حال ثبت...') : (isEnglish ? 'Roll dice' : 'ریختن تاس')),
-                    style: FilledButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary, foregroundColor: Theme.of(context).colorScheme.onPrimary, padding: const EdgeInsets.all(13)),
-                  ),
+
                 ]),
               ),
             ],
