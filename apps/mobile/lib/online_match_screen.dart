@@ -119,6 +119,63 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
     }
   }
 
+  Future<void> _inviteFriend() async {
+    if (_busy || _matchStatus != 'waiting' || _matchDetails['isHost'] != true) return;
+    final isEnglish = Localizations.localeOf(context).languageCode == 'en';
+    try {
+      final friends = await MatchService.friends();
+      if (!mounted) return;
+      if (friends.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(isEnglish
+              ? 'Add an accepted friend before sending an invitation.'
+              : 'برای ارسال دعوت، ابتدا باید یک دوستی پذیرفته‌شده داشته باشید.'),
+        ));
+        return;
+      }
+      final friendId = await showDialog<String>(
+        context: context,
+        builder: (dialogContext) => Directionality(
+          textDirection: isEnglish ? TextDirection.ltr : TextDirection.rtl,
+          child: AlertDialog(
+            title: Text(isEnglish ? 'Invite a friend' : 'دعوت از دوست'),
+            content: SizedBox(
+              width: 360,
+              child: ListView(
+                shrinkWrap: true,
+                children: friends.map((friend) => ListTile(
+                  leading: RoyalAvatar(dataUrl: friend['avatarDataUrl']?.toString(), radius: 20),
+                  title: Text('@${friend['username'] ?? ''}'),
+                  onTap: () => Navigator.of(dialogContext).pop(friend['userId'].toString()),
+                )).toList(),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: Text(isEnglish ? 'Cancel' : 'انصراف'),
+              ),
+            ],
+          ),
+        ),
+      );
+      if (friendId == null || !mounted) return;
+      setState(() { _busy = true; _error = null; });
+      await MatchService.inviteFriend(_id, friendId);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(isEnglish
+              ? 'Invitation sent. It expires in 10 seconds; you can invite again afterward.'
+              : 'دعوت ارسال شد. پس از ۱۰ ثانیه منقضی می‌شود و می‌توانید دوباره دعوت کنید.'),
+        ));
+      }
+    } catch (e) {
+      if (mounted) setState(() => _error = e.toString().replaceFirst('Exception: ', ''));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   void _showHeadToHeadSummary({required bool isHost}) {
     final myIsHost = _matchDetails['isHost'] == true;
     final hostName = _matchDetails['hostName']?.toString() ?? 'میزبان';
@@ -498,6 +555,15 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
                   style: const TextStyle(color: Colors.white54, fontSize: 12)),
               ]),
             ),
+            if (_matchStatus == 'waiting' && _matchDetails['isHost'] == true)
+              Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: OutlinedButton.icon(
+                  onPressed: _busy ? null : _inviteFriend,
+                  icon: const Icon(Icons.person_add_alt_1),
+                  label: Text(isEnglish ? 'Invite / invite again' : 'دعوت یا دعوت مجدد'),
+                ),
+              ),
             const SizedBox(height: 12),
             Card(
               color: _matchPanel,
