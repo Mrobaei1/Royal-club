@@ -67,7 +67,7 @@ void main() {
   });
   testWidgets('tapping a legal destination enters a checker directly from the bar',
       (tester) async {
-    tester.view.physicalSize = const Size(900, 540);
+    tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
@@ -78,7 +78,9 @@ void main() {
     );
     await tester.tap(find.text('بازی آفلاین با هوش مصنوعی'));
     await tester.pumpAndSettle();
-    await tester.tap(find.byWidgetPredicate((widget) => widget is Text && (widget.data == 'بازی دونفره' || widget.data == 'دونفره')));
+    await tester.tap(find.text('بازی دونفره'));
+    await tester.pumpAndSettle();
+    tester.view.physicalSize = const Size(900, 540);
     await tester.pumpAndSettle();
 
     engine.points.fillRange(0, 24, 0);
@@ -101,7 +103,7 @@ void main() {
 
   testWidgets('tapping a cumulative destination moves the selected checker with both dice',
       (tester) async {
-    tester.view.physicalSize = const Size(900, 540);
+    tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
@@ -110,8 +112,11 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(home: EngineBackgammonScreen(engineForTesting: engine)),
     );
-    await tester.pump();
-    await tester.tap(find.byWidgetPredicate((widget) => widget is Text && (widget.data == 'بازی دونفره' || widget.data == 'دونفره')));
+    await tester.tap(find.text('بازی آفلاین با هوش مصنوعی'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('بازی دونفره'));
+    await tester.pumpAndSettle();
+    tester.view.physicalSize = const Size(900, 540);
     await tester.pumpAndSettle();
 
     engine.points.fillRange(0, 24, 0);
@@ -137,7 +142,7 @@ void main() {
 
   testWidgets('shows a 20-second timer for the human and hides the AI timer',
       (tester) async {
-    tester.view.physicalSize = const Size(900, 540);
+    tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
