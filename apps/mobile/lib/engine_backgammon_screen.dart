@@ -117,25 +117,53 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
       return;
     }
     if (_engine.finished || _engine.dice.isEmpty) return;
+
     setState(() {
       final moves = _moves;
+
+      // When a checker is on the bar, the player can simply tap its legal
+      // entry point. No separate, hidden bar-selection step is required.
+      final currentBarCount = _engine.bar[_engine.currentPlayer == 1 ? 1 : 0];
+      if (currentBarCount > 0) {
+        final entry = moves.where((m) => m.fromBar && m.to == point).toList();
+        if (entry.isNotEmpty) {
+          _play(entry.first);
+          return;
+        }
+        _selectedPoint = null;
+        _selectedBar = false;
+        _message = 'مهره در بار است؛ یکی از خانه‌های سبزرنگ برای ورود را انتخاب کنید.';
+        return;
+      }
+
       if (_selectedPoint != null || _selectedBar) {
+        final source = _selectedPoint;
         final sourceMoves = moves
             .where((m) => _selectedBar
                 ? m.fromBar && m.to == point
-                : !m.fromBar && m.from == _selectedPoint && m.to == point)
+                : !m.fromBar && m.from == source && m.to == point)
             .toList();
         if (sourceMoves.isNotEmpty) {
           _play(sourceMoves.first);
           return;
         }
+
+        if (source != null && !_selectedBar) {
+          final sequence = _findCumulativeSequence(source, point);
+          if (sequence != null && sequence.length > 1) {
+            _playSequence(sequence);
+            return;
+          }
+        }
       }
-      final canMoveFromHere = moves.any((m) => !m.fromBar && m.from == point);
+
+      final canMoveFromHere =
+          moves.any((m) => !m.fromBar && m.from == point);
       if (canMoveFromHere &&
           _engine.points[point] * _engine.currentPlayer > 0) {
         _selectedPoint = point;
         _selectedBar = false;
-        _message = 'مقصد یکی از خانه‌های مشخص‌شده را انتخاب کنید.';
+        _message = 'مقصد را انتخاب کنید؛ اگر مسیر قانونی باشد، حرکت تجمعی با تاس‌ها هم انجام می‌شود.';
       } else {
         _selectedPoint = null;
         _selectedBar = false;
@@ -143,6 +171,82 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
     });
   }
 
+  /// Finds a legal sequence that moves the same checker from [from] to
+  /// [destination] using more than one die, while respecting all engine rules.
+  List<BackgammonMove>? _findCumulativeSequence(int from, int destination) {
+    if (destination < 0 || destination >= 24) return null;
+
+    BackgammonEngine copyState(BackgammonEngine source) {
+      final copy = BackgammonEngine();
+      copy.points.setAll(0, source.points);
+      copy.bar.setAll(0, source.bar);
+      copy.borneOff.setAll(0, source.borneOff);
+      copy.dice = List<int>.from(source.dice);
+      copy.currentPlayer = source.currentPlayer;
+      copy.finished = source.finished;
+      copy.winner = source.winner;
+      return copy;
+    }
+
+    List<BackgammonMove>? search(
+      BackgammonEngine state,
+      int checkerPoint,
+      List<BackgammonMove> path,
+    ) {
+      if (path.length >= _engine.dice.length || state.finished) return null;
+      for (final move in state.legalMoves()) {
+        if (move.fromBar || move.from != checkerPoint || move.to == -1) {
+          continue;
+        }
+        final next = copyState(state);
+        if (!next.playMove(move)) continue;
+        final nextPath = [...path, move];
+        if (move.to == destination && nextPath.length > 1) {
+          return nextPath;
+        }
+        if (next.currentPlayer != state.currentPlayer || next.dice.isEmpty) {
+          continue;
+        }
+        final tail = search(next, move.to, nextPath);
+        if (tail != null) return tail;
+      }
+      return null;
+    }
+
+    return search(copyState(_engine), from, const []);
+  }
+
+  void _playSequence(List<BackgammonMove> sequence) {
+    var allPlayed = true;
+    for (final move in sequence) {
+      if (!_engine.playMove(move)) {
+        allPlayed = false;
+        break;
+      }
+      if (_engine.finished || _engine.currentPlayer != playerAtStart) {
+        break;
+      }
+    }
+    _selectedPoint = null;
+    _selectedBar = false;
+    if (!allPlayed) {
+      _message = 'حرکت تجمعی کامل نشد؛ لطفاً دوباره انتخاب کنید.';
+    } else if (_engine.finished) {
+      _message = 'تبریک! بازیکن ${_playerName(_engine.winner!)} برنده شد.';
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _showGameOverDialog();
+      });
+    } else if (_engine.dice.isEmpty) {
+      _message = 'نوبت ${_playerName(_engine.currentPlayer)} است؛ تاس بریزید.';
+    } else {
+      _message = 'حرکت تجمعی انجام شد؛ تاس باقی‌مانده: ${_engine.dice.join('، ')}';
+    }
+    _scheduleComputerTurn();
+  }
+
+  int movePlayer(BackgammonMove move) => move.fromBar
+      ? _engine.currentPlayer
+      : _engine.currentPlayer;
   void _tapBearOff() {
     if (_computerThinking || (_vsComputer && _engine.currentPlayer == -1)) {
       return;
