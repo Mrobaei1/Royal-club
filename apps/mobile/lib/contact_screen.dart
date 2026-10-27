@@ -64,11 +64,11 @@ class _ContactScreenState extends State<ContactScreen> {
   Widget build(BuildContext context) {
     final theme = royalThemeState.current;
     return Directionality(textDirection: (Localizations.localeOf(context).languageCode == 'en' ? TextDirection.ltr : TextDirection.rtl), child: Scaffold(
-      appBar: AppBar(title: const Text('ارتباط با ما')),
+      appBar: AppBar(title: Text(Localizations.localeOf(context).languageCode == 'en' ? 'Contact us' : 'ارتباط با ما')),
       body: _loading ? const Center(child: CircularProgressIndicator())
       : _error != null ? Center(child: Padding(padding: const EdgeInsets.all(24), child: Column(mainAxisSize: MainAxisSize.min, children: [
           Text(_error!, textAlign: TextAlign.center), const SizedBox(height: 12),
-          FilledButton(onPressed: _load, child: const Text('تلاش دوباره')),
+          FilledButton(onPressed: _load, child: Text(Localizations.localeOf(context).languageCode == 'en' ? 'Try again' : 'تلاش دوباره')),
         ])))
       : ListView(padding: const EdgeInsets.all(18), children: [
           Text(_owner ? 'راه‌های ارتباطی رسمی Royal Club را مدیریت کن. تغییرات ذخیره‌شده برای همه کاربران نمایش داده می‌شود.' : 'برای ارتباط با تیم مدیریت، از راه‌های رسمی زیر استفاده کن.',
@@ -88,11 +88,11 @@ class _ContactScreenState extends State<ContactScreen> {
                   subtitle: SelectableText(_rows[i].value.text, style: TextStyle(color: theme.dark ? Colors.white70 : Colors.black87))))),
           if (_owner) ...[
             const SizedBox(height: 8),
-            OutlinedButton.icon(onPressed: _rows.length >= 20 ? null : () => setState(() => _rows.add(_ContactRow('', ''))), icon: const Icon(Icons.add), label: const Text('افزودن راه ارتباطی')),
+            OutlinedButton.icon(onPressed: _rows.length >= 20 ? null : () => setState(() => _rows.add(_ContactRow('', ''))), icon: const Icon(Icons.add), label: Text(Localizations.localeOf(context).languageCode == 'en' ? 'Add contact method' : 'افزودن راه ارتباطی')),
             const SizedBox(height: 8),
             FilledButton.icon(onPressed: _saving ? null : _save,
               icon: _saving ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.save_outlined),
-              label: const Text('ذخیره تغییرات')),
+              label: Text(Localizations.localeOf(context).languageCode == 'en' ? 'Save changes' : 'ذخیره تغییرات')),
           ],
         ]),
     ));
