@@ -11,6 +11,7 @@ import 'services/auth_service.dart';
 import 'online_lobby_screen.dart';
 import 'wallet_screen.dart';
 import 'admin_screen.dart';
+import 'contact_screen.dart';
 import 'chat_screen.dart';
 import 'services/chat_service.dart';
 import 'services/friends_service.dart';
@@ -347,6 +348,7 @@ class _HomeScreenState extends State<HomeScreen> {
       case 'notifications': page = const NotificationsScreen(); break;
       case 'account': page = AccountScreen(onLogout: widget.onLogout ?? () {}); break;
       case 'admin': page = const AdminScreen(); break;
+      case 'contact': page = const ContactScreen(); break;
       case 'wallet': page = const WalletScreen(); break;
       default: page = null;
     }
@@ -406,6 +408,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     PopupMenuItem(value: 'notifications', child: ListTile(dense: true, leading: Icon(Icons.notifications_outlined), title: Text(AppLocalizations.of(context).notifications))),
                     PopupMenuItem(value: 'wallet', child: ListTile(dense: true, leading: Icon(Icons.account_balance_wallet_outlined), title: Text(AppLocalizations.of(context).wallet))),
                     const PopupMenuItem(value: 'admin', child: ListTile(dense: true, leading: Icon(Icons.admin_panel_settings_outlined), title: Text('پنل مدیریت'))),
+                    const PopupMenuItem(value: 'contact', child: ListTile(dense: true, leading: Icon(Icons.contact_support_outlined), title: Text('ارتباط با ما'))),
                     const PopupMenuDivider(),
                     const PopupMenuItem(
                       value: 'languageMenu',
@@ -495,6 +498,9 @@ class _HomeScreenState extends State<HomeScreen> {
               const SizedBox(height: 26),
               const Center(child: Text('ROYAL CLUB  •  PLAY WITH HONOUR',
                 style: TextStyle(color: Color(0xFF77839A), fontSize: 9, letterSpacing: 1.5, fontWeight: FontWeight.w600))),
+              const SizedBox(height: 10),
+              const Center(child: Text('نسخه 1.1.9',
+                style: TextStyle(color: Color(0xFF77839A), fontSize: 11, fontWeight: FontWeight.w600))),
             ],
           ),
         ),
