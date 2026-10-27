@@ -238,6 +238,26 @@ await pool.query(`
     ON backgammon_player_stats (rating DESC, wins DESC, games_played ASC);
 `);
 
+// Waiting rooms have a strict expiry independent of whether a client polls the
+// lobby. Remove expired rooms and their invite notices in the background; the
+// lobby endpoint also performs opportunistic cleanup for recovery after restarts.
+const expiredWaitingRoomCleanup = setInterval(() => {
+  void pool.query(`
+    WITH expired AS (
+      SELECT id FROM backgammon_matches
+       WHERE status = 'waiting' AND expires_at <= NOW()
+    ), notices AS (
+      DELETE FROM notifications
+       WHERE data->>'matchId' IN (SELECT id::text FROM expired)
+       RETURNING id
+    )
+    DELETE FROM backgammon_matches WHERE id IN (SELECT id FROM expired)
+  `).catch((error: unknown) => {
+    app.log.error({ err: error }, 'Expired waiting-room cleanup failed');
+  });
+}, 5_000);
+expiredWaitingRoomCleanup.unref();
+
 app.get('/api/v1/health', async () => ({
   status: 'ok',
   service: 'royal-club-api',
