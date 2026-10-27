@@ -135,8 +135,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
     VoidCallback? onTap,
   }) {
     final username = user['username']?.toString().trim() ?? '';
-    final fullName = (user['fullName'] ?? user['name'] ?? user['full_name'])?.toString().trim() ?? '';
-    final title = titleOverride ??
+    final displayName = username.isNotEmpty ? '@$username' : 'کاربر';
         (fullName.isNotEmpty ? fullName : (username.isNotEmpty ? '@$username' : 'کاربر'));
     final subtitle = subtitleOverride ??
         (username.isNotEmpty ? '@$username' : (user['email']?.toString() ?? ''));
