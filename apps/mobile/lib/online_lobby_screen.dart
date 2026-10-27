@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'profile_avatar.dart';
 import 'services/match_service.dart';
 import 'online_match_screen.dart';
+import 'spectator_match_screen.dart';
 import 'leaderboard_screen.dart';
 
 const _gold = Color(0xFFD8B45A);
@@ -17,6 +18,7 @@ class OnlineLobbyScreen extends StatefulWidget {
 class _OnlineLobbyScreenState extends State<OnlineLobbyScreen> {
   List<Map<String, dynamic>> _matches = [];
   List<Map<String, dynamic>> _history = [];
+  List<Map<String, dynamic>> _liveMatches = [];
   List<Map<String, dynamic>> _invites = [];
   Map<String, dynamic>? _created;
   bool _loading = false;
@@ -111,11 +113,11 @@ class _OnlineLobbyScreenState extends State<OnlineLobbyScreen> {
     if (_loading || _silentRefreshing) return;
     _silentRefreshing = true;
     try {
-      final results = await Future.wait([MatchService.listOpen(), MatchService.pendingInvites()]);
+      final results = await Future.wait([MatchService.listOpen(), MatchService.listLive(), MatchService.pendingInvites()]);
       if (mounted) {
         final previousIds = _invites.map((invite) => invite['id']?.toString()).whereType<String>().toSet();
         final freshInvites = results[1].where((invite) => !_isInviteExpired(invite)).toList();
-        setState(() { _matches = results[0]; _invites = freshInvites; });
+        setState(() { _matches = results[0]; _liveMatches = results[1]; _invites = freshInvites; });
         _notifyNewInvites(freshInvites, previousIds);
       }
     } catch (_) {
@@ -134,11 +136,11 @@ class _OnlineLobbyScreenState extends State<OnlineLobbyScreen> {
   }
 
   Future<void> _refresh() => _run(() async {
-    final results = await Future.wait([MatchService.listOpen(), MatchService.history(), MatchService.pendingInvites()]);
+    final results = await Future.wait([MatchService.listOpen(), MatchService.history(), MatchService.listLive(), MatchService.pendingInvites()]);
     if (mounted) {
       final previousIds = _invites.map((invite) => invite['id']?.toString()).whereType<String>().toSet();
       final freshInvites = results[2].where((invite) => !_isInviteExpired(invite)).toList();
-      setState(() { _matches = results[0]; _history = results[1]; _invites = freshInvites; });
+      setState(() { _matches = results[0]; _history = results[1]; _liveMatches = results[2]; _invites = freshInvites; });
       _notifyNewInvites(freshInvites, previousIds);
     }
   });
@@ -294,6 +296,61 @@ class _OnlineLobbyScreenState extends State<OnlineLobbyScreen> {
           subtitle: Text(isEnglish ? 'Host: @${room['hostName'] ?? 'player'}' : 'میزبان: @${room['hostName'] ?? 'بازیکن'}', style: const TextStyle(color: Colors.white70)),
           trailing: FilledButton(onPressed: _loading ? null : () => _join(room), style: FilledButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary, foregroundColor: _navy), child: Text(isEnglish ? 'Join' : 'پیوستن')),
         ))),
+        const SizedBox(height: 24),
+        Row(
+          children: [
+            const Icon(Icons.visibility_outlined, color: _gold),
+            const SizedBox(width: 8),
+            Expanded(child: Text(isEnglish ? 'Live games to watch' : 'بازی‌های زنده برای تماشا',
+              style: const TextStyle(color: _gold, fontSize: 18, fontWeight: FontWeight.bold))),
+            if (_liveMatches.isNotEmpty)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(color: Colors.redAccent.withValues(alpha: .15), borderRadius: BorderRadius.circular(12)),
+                child: Text('${_liveMatches.length}', style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
+              ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        if (!_loading && _liveMatches.isEmpty)
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Text(
+              isEnglish ? 'No live games are available to you. Only games enabled by a host and shared with accepted friends appear here.'
+                  : 'بازی زنده‌ای برای تماشای شما موجود نیست. فقط بازی‌هایی نمایش داده می‌شوند که میزبان اجازه تماشا داده و شما با یکی از بازیکنان دوست پذیرفته‌شده باشید.',
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.white60),
+            ),
+          ),
+        ..._liveMatches.map((game) => Card(
+          color: Theme.of(context).colorScheme.surface,
+          child: ListTile(
+            leading: const CircleAvatar(
+              backgroundColor: Colors.redAccent,
+              child: Icon(Icons.visibility, color: Colors.white),
+            ),
+            title: Text(
+              isEnglish
+                  ? '@${game['hostName'] ?? 'player'} vs @${game['guestName'] ?? 'player'}'
+                  : '@${game['hostName'] ?? 'بازیکن'} در برابر @${game['guestName'] ?? 'بازیکن'}',
+              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+            ),
+            subtitle: Text(
+              isEnglish ? 'Room ${game['roomCode'] ?? game['id']} · Live'
+                  : 'اتاق ${game['roomCode'] ?? game['id']} · زنده',
+              style: const TextStyle(color: Colors.white70),
+            ),
+            trailing: FilledButton(
+              onPressed: _loading ? null : () {
+                Navigator.of(context).push(MaterialPageRoute<void>(
+                  builder: (_) => SpectatorMatchScreen(match: game),
+                ));
+              },
+              style: FilledButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary, foregroundColor: _navy),
+              child: Text(isEnglish ? 'Watch' : 'تماشا'),
+            ),
+          ),
+        )),
         const SizedBox(height: 24),
         Text(isEnglish ? 'Recent results' : 'نتایج بازی‌های اخیر', style: TextStyle(color: _gold, fontSize: 18, fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
