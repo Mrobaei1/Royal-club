@@ -897,6 +897,14 @@ app.post('/api/v1/notifications/read-all', { onRequest: [requireMatchAuth] }, as
   );
   return { status: 'ok', updated: result.rowCount ?? 0 };
 });
+app.delete('/api/v1/notifications', { onRequest: [requireMatchAuth] }, async (request) => {
+  const claims = request.user as { sub: string };
+  const result = await pool.query(
+    'DELETE FROM notifications WHERE user_id = $1',
+    [claims.sub],
+  );
+  return { deleted: result.rowCount ?? 0 };
+});
 
 // Friend requests are server-owned and capped at 100 accepted friends per account.
 app.get<{ Querystring: { username?: string } }>('/api/v1/users/search', { onRequest: [requireMatchAuth], config: { rateLimit: { max: 20, timeWindow: '1 minute' } } }, async (request) => {
