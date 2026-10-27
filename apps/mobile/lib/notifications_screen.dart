@@ -116,13 +116,15 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     if (_busy || item['readAt'] != null) return;
     setState(() => _busy = true);
     try {
-      await NotificationsService.markRead(item['id'].toString());
+      final cleared = await NotificationsService.markRead(item['id'].toString());
       if (mounted) {
         setState(() {
           final id = item['id'].toString();
-          _items = _items.map((entry) => entry['id'].toString() == id
-              ? {...entry, 'readAt': DateTime.now().toIso8601String()}
-              : entry).toList();
+          _items = cleared
+              ? _items.where((entry) => entry['id'].toString() != id).toList()
+              : _items.map((entry) => entry['id'].toString() == id
+                  ? {...entry, 'readAt': DateTime.now().toIso8601String()}
+                  : entry).toList();
         });
       }
     } catch (error) {
