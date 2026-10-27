@@ -124,7 +124,9 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
 
   void _playTimedOutTurn() {
     if (_timeoutMoveRunning || !mounted || _engine.finished ||
-        (_vsComputer && _engine.currentPlayer == -1)) return;
+        (_vsComputer && _engine.currentPlayer == -1)) {
+      return;
+    }
     _timeoutMoveRunning = true;
     setState(() {
       _selectedPoint = null;
@@ -141,7 +143,9 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
           if (move == null || !_engine.playMove(move)) break;
         }
         if (_engine.finished || _engine.currentPlayer != _timerPlayer ||
-            _engine.dice.isNotEmpty) break;
+            _engine.dice.isNotEmpty) {
+          break;
+        }
         break;
       }
       _message = _engine.finished
