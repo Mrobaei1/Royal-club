@@ -115,7 +115,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
         child: Row(children: [
           Expanded(
             child: Text(title,
-                style: const TextStyle(
+                style: TextStyle(
                     color: Theme.of(context).colorScheme.primary,
                     fontSize: 17,
                     fontWeight: FontWeight.bold)),

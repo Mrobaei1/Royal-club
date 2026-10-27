@@ -134,7 +134,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
                                       Text('${player['rating'] ?? 1000}',
-                                          style: const TextStyle(
+                                          style: TextStyle(
                                             color: Theme.of(context).colorScheme.primary,
                                             fontSize: 18,
                                             fontWeight: FontWeight.bold,
