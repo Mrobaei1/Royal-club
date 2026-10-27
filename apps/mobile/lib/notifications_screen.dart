@@ -69,6 +69,40 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     }
   }
 
+  Future<void> _deleteAll() async {
+    if (_busy || _items.isEmpty) return;
+    final isEnglish = Localizations.localeOf(context).languageCode == 'en';
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(isEnglish ? 'Delete all notifications?' : 'همه اعلان‌ها پاک شوند؟'),
+        content: Text(isEnglish
+            ? 'This action cannot be undone.'
+            : 'این کار قابل بازگشت نیست.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(isEnglish ? 'Cancel' : 'انصراف'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(isEnglish ? 'Delete all' : 'پاک کردن همه'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() { _busy = true; _error = null; });
+    try {
+      await NotificationsService.deleteAll();
+      if (mounted) setState(() => _items = []);
+    } catch (error) {
+      if (mounted) setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   Future<void> _markRead(Map<String, dynamic> item) async {
     if (_busy || item['readAt'] != null) return;
     setState(() => _busy = true);
@@ -93,11 +127,11 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   @override
   Widget build(BuildContext context) => Directionality(
-        textDirection: TextDirection.rtl,
+        textDirection: Localizations.localeOf(context).languageCode == 'en' ? TextDirection.ltr : TextDirection.rtl,
         child: Scaffold(
           backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           appBar: AppBar(
-            title: Text('اعلان‌ها${_unread > 0 ? ' ($_unread)' : ''}'),
+            title: Text(Localizations.localeOf(context).languageCode == 'en' ? 'Notifications${_unread > 0 ? ' ($_unread)' : ''}' : 'اعلان‌ها${_unread > 0 ? ' ($_unread)' : ''}'),
             backgroundColor: Theme.of(context).scaffoldBackgroundColor,
             foregroundColor: Theme.of(context).colorScheme.primary,
             actions: [
@@ -111,14 +145,25 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           body: SafeArea(
             child: Column(
               children: [
-                if (_unread > 0)
+                if (_unread > 0 || _items.isNotEmpty)
                   Align(
                     alignment: Alignment.centerLeft,
-                    child: TextButton.icon(
-                      onPressed: _busy ? null : _markAllRead,
-                      icon: const Icon(Icons.done_all),
-                      label: const Text('خواندن همه'),
-                      style: TextButton.styleFrom(foregroundColor: _noticeGold),
+                    child: Wrap(
+                      spacing: 8,
+                      children: [
+                        if (_unread > 0) TextButton.icon(
+                          onPressed: _busy ? null : _markAllRead,
+                          icon: const Icon(Icons.done_all),
+                          label: Text(Localizations.localeOf(context).languageCode == 'en' ? 'Mark all read' : 'خواندن همه'),
+                          style: TextButton.styleFrom(foregroundColor: _noticeGold),
+                        ),
+                        if (_items.isNotEmpty) TextButton.icon(
+                          onPressed: _busy ? null : _deleteAll,
+                          icon: const Icon(Icons.delete_sweep_outlined),
+                          label: Text(Localizations.localeOf(context).languageCode == 'en' ? 'Delete all' : 'پاک کردن همه'),
+                          style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
+                        ),
+                      ],
                     ),
                   ),
                 if (_error != null)
@@ -133,7 +178,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                           child: CircularProgressIndicator(color: _noticeGold))
                       : _items.isEmpty
                           ? const Center(
-                              child: Text('فعلاً اعلانی ندارید.',
+                              child: Text(Localizations.localeOf(context).languageCode == 'en' ? 'No notifications yet.' : 'فعلاً اعلانی ندارید.',
                                   style: TextStyle(color: Colors.white70)))
                           : ListView.builder(
                               padding: const EdgeInsets.all(14),
