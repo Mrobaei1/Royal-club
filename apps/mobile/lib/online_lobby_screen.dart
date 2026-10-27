@@ -81,7 +81,7 @@ class _OnlineLobbyScreenState extends State<OnlineLobbyScreen> {
       builder: (dialogContext) => Directionality(
         textDirection: TextDirection.rtl,
         child: AlertDialog(
-          backgroundColor: const Color(0xFF17243A),
+          backgroundColor: Theme.of(context).colorScheme.surface,
           title: const Text('دعوت از دوست', style: TextStyle(color: _gold)),
           content: SizedBox(
             width: 360,
@@ -171,7 +171,7 @@ class _OnlineLobbyScreenState extends State<OnlineLobbyScreen> {
         const SizedBox(height: 16),
         FilledButton.icon(onPressed: _loading ? null : _create, icon: const Icon(Icons.add), label: const Text('ساخت اتاق جدید'),
           style: FilledButton.styleFrom(backgroundColor: _gold, foregroundColor: _navy, padding: const EdgeInsets.all(14))),
-        if (_created != null) Card(color: const Color(0xFF17243A), child: Padding(padding: const EdgeInsets.all(14), child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        if (_created != null) Card(color: Theme.of(context).colorScheme.surface, child: Padding(padding: const EdgeInsets.all(14), child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           const Text('اتاق شما ساخته شد', style: TextStyle(color: _gold, fontWeight: FontWeight.bold)),
           const SizedBox(height: 6),
           Text('کد: ${_created!['roomCode'] ?? '—'}   ·   شناسه: ${_created!['id'] ?? '—'}', style: const TextStyle(color: Colors.white)),
@@ -185,7 +185,7 @@ class _OnlineLobbyScreenState extends State<OnlineLobbyScreen> {
           const Text('دعوت‌های دریافتی', style: TextStyle(color: _gold, fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
           ..._invites.map((invite) => Card(
-            color: const Color(0xFF17243A),
+            color: Theme.of(context).colorScheme.surface,
             child: Padding(
               padding: const EdgeInsets.all(10),
               child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
@@ -208,7 +208,7 @@ class _OnlineLobbyScreenState extends State<OnlineLobbyScreen> {
         const Text('اتاق‌های قابل پیوستن', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
         if (!_loading && _matches.isEmpty) const Padding(padding: EdgeInsets.all(18), child: Text('در حال حاضر اتاق بازی آزادی وجود ندارد.', textAlign: TextAlign.center, style: TextStyle(color: Colors.white60))),
-        ..._matches.map((room) => Card(color: const Color(0xFF17243A), child: ListTile(
+        ..._matches.map((room) => Card(color: Theme.of(context).colorScheme.surface, child: ListTile(
           leading: RoyalAvatar(dataUrl: room['hostAvatarDataUrl']?.toString(), radius: 22),
           title: Text('اتاق ${room['roomCode'] ?? room['id']}', style: const TextStyle(color: Colors.white)),
           subtitle: Text('میزبان: ${room['hostName'] ?? 'بازیکن'}', style: const TextStyle(color: Colors.white70)),
@@ -224,7 +224,7 @@ class _OnlineLobbyScreenState extends State<OnlineLobbyScreen> {
           final won = result == 'win';
           final resultLabel = won ? 'پیروزی' : result == 'loss' ? 'شکست' : 'نتیجه نامشخص';
           return Card(
-            color: const Color(0xFF17243A),
+            color: Theme.of(context).colorScheme.surface,
             child: ListTile(
               leading: RoyalAvatar(dataUrl: game['opponentAvatarDataUrl']?.toString(), radius: 22),
               title: Text(resultLabel, style: TextStyle(color: won ? _gold : Colors.white)),
