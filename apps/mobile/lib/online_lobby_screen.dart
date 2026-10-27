@@ -107,7 +107,7 @@ class _OnlineLobbyScreenState extends State<OnlineLobbyScreen> {
               shrinkWrap: true,
               children: friends.map((friend) => ListTile(
                 leading: RoyalAvatar(dataUrl: friend['avatarDataUrl']?.toString(), radius: 20),
-                title: Text(friend['name']?.toString() ?? friend['username']?.toString() ?? 'دوست', style: const TextStyle(color: Colors.white)),
+                title: Text('@${friend['username'] ?? ''}', style: const TextStyle(color: Colors.white)),
                 subtitle: Text('@${friend['username'] ?? ''}', style: const TextStyle(color: Colors.white54)),
                 onTap: () => Navigator.of(dialogContext).pop(friend['userId'].toString()),
               )).toList(),
@@ -212,7 +212,7 @@ class _OnlineLobbyScreenState extends State<OnlineLobbyScreen> {
                 ListTile(
                   contentPadding: EdgeInsets.zero,
                   leading: RoyalAvatar(dataUrl: invite['inviterAvatarDataUrl']?.toString(), radius: 22),
-                  title: Text(invite['inviterName']?.toString() ?? invite['inviterUsername']?.toString() ?? 'دوست', style: const TextStyle(color: Colors.white)),
+                  title: Text('@${invite['inviterUsername'] ?? ''}', style: const TextStyle(color: Colors.white)),
                   subtitle: Text('دعوت به اتاق ${invite['roomCode'] ?? invite['matchId']}', style: const TextStyle(color: Colors.white70)),
                 ),
                 Row(children: [
