@@ -1,6 +1,6 @@
 # Royal Club — starter scaffold
 
-Status: actively developed in `feature/password-min-6`. This branch is not a production deployment; validate the current CI run before merging.
+Status: active development in `feature/chat-ai-invite-ux` (PR #23, not merged). This branch is not a production release. See [Phase 1–3 readiness](docs/PHASE-1-3-READINESS.md) for verified coverage and remaining prerequisites.
 
 ## Contents
 - `apps/mobile`: Flutter/Dart starter source (Android-first UI entry point)
@@ -40,7 +40,7 @@ Never put production secrets in source control. The included credentials are for
 
 ## Hands-on test preview
 
-The latest validated web build is published at: https://mrobaei1.github.io/Royal-club/
+The web preview is published at: https://mrobaei1.github.io/Royal-club/. It is a test preview, not proof of production API health.
 
 ### Quick test checklist
 1. Open the preview in Chrome. On first launch, the app should show the authentication gate rather than the games home.
