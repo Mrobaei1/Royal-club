@@ -1248,8 +1248,8 @@ app.get<{ Params: { id: string } }>('/api/v1/matches/:id', { onRequest: [require
   const claims = request.user as { sub: string };
   if (!isNumericId(request.params.id)) return reply.code(400).send({ error: 'Invalid match id.' });
   const result = await pool.query(
-    `SELECT m.id, m.room_code AS "roomCode", m.status, host.full_name AS "hostName",
-            guest.full_name AS "guestName", host.avatar_data_url AS "hostAvatarDataUrl",
+    `SELECT m.id, m.room_code AS "roomCode", m.status, host.username AS "hostName",
+            guest.username AS "guestName", host.avatar_data_url AS "hostAvatarDataUrl",
             guest.avatar_data_url AS "guestAvatarDataUrl", m.created_at AS "createdAt", m.updated_at AS "updatedAt",
             (m.host_user_id = $2) AS "isHost", m.match_to_win AS "matchToWin",
             m.host_settings_accepted AS "hostSettingsAccepted", m.guest_settings_accepted AS "guestSettingsAccepted",
