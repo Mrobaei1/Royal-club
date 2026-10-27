@@ -840,7 +840,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
             children: [
               Icon(Icons.inventory_2_outlined, color: _boardGold, size: compact ? 13 : 16),
               Text(
-                offPlayer == 1 ? 'طلایی' : 'روشن',
+                offPlayer == 1 ? 'طلایی' : 'مشکی',
                 style: TextStyle(color: Colors.white70, fontSize: compact ? 7 : 9),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -1021,14 +1021,14 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
                     Color(0xFF9B702C)
                   ]
                 : const [
-                    Color(0xFFFFFFFF),
-                    Color(0xFFE7D4B2),
-                    Color(0xFFB4A184)
+                    Color(0xFF4B4B4B),
+                    Color(0xFF171717),
+                    Color(0xFF050505)
                   ],
           ),
           border: Border.all(
             color:
-                player == 1 ? const Color(0xFFFFE7A0) : const Color(0xFF9C8D76),
+                player == 1 ? const Color(0xFFFFE7A0) : const Color(0xFF777777),
             width: 1.2,
           ),
           boxShadow: const [
@@ -1052,7 +1052,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
             const SizedBox(height: 6),
             Expanded(
                 child: _scoreCard(
-                    _profileName(-1), _engine.borneOff[0], _engine.bar[0], _boardLight,
+                    _profileName(-1), _engine.borneOff[0], _engine.bar[0], const Color(0xFF111111),
                     active: _engine.currentPlayer == -1, compact: true)),
           ],
         )
