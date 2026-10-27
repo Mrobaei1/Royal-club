@@ -226,7 +226,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
                 ..._results.map((user) => _userTile(
                       user,
                       titleOverride: '@${user['username'] ?? ''}',
-                      subtitleOverride: user['fullName']?.toString() ?? '',
+                      subtitleOverride: '',
                       trailing: IconButton(
                         onPressed: _busy
                             ? null
@@ -273,8 +273,8 @@ class _FriendsScreenState extends State<FriendsScreen> {
                     user,
                     onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => ChatThreadScreen(
                       userId: (user['userId'] ?? user['id']).toString(),
-                      title: ((user['fullName'] ?? user['name'] ?? user['username'])?.toString().trim().isNotEmpty == true)
-                          ? (user['fullName'] ?? user['name'] ?? user['username']).toString()
+                      title: ((user['username'])?.toString().trim().isNotEmpty == true)
+                          ? '@${user['username']}'
                           : (isEnglish ? 'Friend' : 'دوست'),
                       avatarDataUrl: (user['avatarDataUrl'] ?? user['avatar_data_url'] ?? user['profilePhoto'] ?? user['photoUrl'])?.toString(),
                     ))),
