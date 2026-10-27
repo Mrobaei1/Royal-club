@@ -496,7 +496,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
       context: context,
       barrierDismissible: false,
       builder: (dialogContext) => Directionality(
-        textDirection: TextDirection.rtl,
+        textDirection: (Localizations.localeOf(context).languageCode == 'en' ? TextDirection.ltr : TextDirection.rtl),
         child: AlertDialog(
           backgroundColor: const Color(0xFF1A2540),
           icon: const Icon(Icons.emoji_events, color: _boardGold, size: 42),
@@ -556,7 +556,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
     }
 
     return Directionality(
-      textDirection: TextDirection.rtl,
+      textDirection: (Localizations.localeOf(context).languageCode == 'en' ? TextDirection.ltr : TextDirection.rtl),
       child: Scaffold(
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         appBar: MediaQuery.orientationOf(context) == Orientation.landscape
@@ -638,7 +638,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
   }
 
   Widget _entryScreen() => Directionality(
-        textDirection: TextDirection.rtl,
+        textDirection: (Localizations.localeOf(context).languageCode == 'en' ? TextDirection.ltr : TextDirection.rtl),
         child: Scaffold(
           backgroundColor: _boardNavy,
           appBar: AppBar(
@@ -1420,7 +1420,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
     showDialog<void>(
       context: context,
       builder: (dialogContext) => Directionality(
-        textDirection: TextDirection.rtl,
+        textDirection: (Localizations.localeOf(context).languageCode == 'en' ? TextDirection.ltr : TextDirection.rtl),
         child: AlertDialog(
           backgroundColor: const Color(0xFF1A2540),
           shape: RoundedRectangleBorder(
