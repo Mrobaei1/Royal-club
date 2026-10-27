@@ -4,9 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'services/auth_service.dart';
 
-const _accountGold = Color(0xFFD8B45A);
-const _accountPanel = Color(0xFF17243A);
-
 class AccountScreen extends StatefulWidget {
   final VoidCallback onLogout;
   const AccountScreen({super.key, required this.onLogout});
@@ -52,7 +49,7 @@ class _AccountScreenState extends State<AccountScreen> {
     final picked = await showDialog<String>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        backgroundColor: _accountPanel,
+        backgroundColor: Theme.of(context).colorScheme.surface,
         title: const Text('تغییر نام کاربری'),
         content: TextField(controller: controller, textDirection: TextDirection.ltr, decoration: const InputDecoration(labelText: 'نام کاربری', hintText: 'royal_player7', prefixText: '@', helperText: '۳ تا ۲۴ حرف؛ حروف انگلیسی، عدد، نقطه یا زیرخط')),
         actions: [
@@ -123,10 +120,10 @@ class _AccountScreenState extends State<AccountScreen> {
       children: [
         CircleAvatar(
           radius: 48,
-          backgroundColor: _accountPanel,
+          backgroundColor: Theme.of(context).colorScheme.surface,
           backgroundImage: bytes == null ? null : MemoryImage(bytes),
           child: bytes == null
-              ? const Icon(Icons.account_circle_outlined, color: _accountGold, size: 76)
+              ? Icon(Icons.account_circle_outlined, color: Theme.of(context).colorScheme.primary, size: 76)
               : null,
         ),
         const SizedBox(height: 8),
@@ -136,7 +133,7 @@ class _AccountScreenState extends State<AccountScreen> {
               ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
               : const Icon(Icons.photo_library_outlined),
           label: Text(_avatarSaving ? 'در حال ذخیره تصویر...' : 'انتخاب عکس پروفایل'),
-          style: OutlinedButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.primary, side: const BorderSide(color: _accountGold)),
+          style: OutlinedButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.primary, side: BorderSide(color: Theme.of(context).colorScheme.primary)),
         ),
       ],
     );
@@ -156,7 +153,7 @@ class _AccountScreenState extends State<AccountScreen> {
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (dialogContext, setDialogState) => AlertDialog(
-          backgroundColor: _accountPanel,
+          backgroundColor: Theme.of(context).colorScheme.surface,
           title: const Text('ویرایش اطلاعات حساب'),
           content: SingleChildScrollView(
             child: Column(mainAxisSize: MainAxisSize.min, children: [
@@ -173,7 +170,7 @@ class _AccountScreenState extends State<AccountScreen> {
                 onChanged: (value) { if (value != null) setDialogState(() => country = value); },
               ),
               const SizedBox(height: 10),
-              const Text('ایمیل و شناسه کاربری ثابت‌اند؛ تغییر ایمیل به فرایند امنیتی جداگانه نیاز دارد.', style: TextStyle(color: Colors.white60, fontSize: 12)),
+              Text('ایمیل و شناسه کاربری ثابت‌اند؛ تغییر ایمیل به فرایند امنیتی جداگانه نیاز دارد.', style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6), fontSize: 12)),
             ]),
           ),
           actions: [
@@ -208,11 +205,11 @@ class _AccountScreenState extends State<AccountScreen> {
   Widget _detail(IconData icon, String label, String value) => Card(
         color: Theme.of(context).colorScheme.surface,
         child: ListTile(
-          leading: Icon(icon, color: _accountGold),
+          leading: Icon(icon, color: Theme.of(context).colorScheme.primary),
           title: Text(label,
-              style: const TextStyle(color: Colors.white60, fontSize: 12)),
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6), fontSize: 12)),
           subtitle: Text(value.isEmpty ? 'ثبت نشده' : value,
-              style: const TextStyle(color: Colors.white, fontSize: 15)),
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 15)),
         ),
       );
 
@@ -228,17 +225,17 @@ class _AccountScreenState extends State<AccountScreen> {
           ),
           body: SafeArea(
             child: _loading
-                ? const Center(
-                    child: CircularProgressIndicator(color: _accountGold))
+                ? Center(
+                    child: CircularProgressIndicator(color: Theme.of(context).colorScheme.primary))
                 : ListView(
                     padding: const EdgeInsets.all(18),
                     children: [
                       _avatar(),
                       const SizedBox(height: 10),
-                      const Text('اطلاعات حساب',
+                      Text('اطلاعات حساب',
                           textAlign: TextAlign.center,
                           style: TextStyle(
-                              color: _accountGold,
+                              color: Theme.of(context).colorScheme.primary,
                               fontSize: 22,
                               fontWeight: FontWeight.bold)),
                       const SizedBox(height: 20),
@@ -260,10 +257,10 @@ class _AccountScreenState extends State<AccountScreen> {
                         Card(
                           color: Theme.of(context).colorScheme.surface,
                           child: ListTile(
-                            leading: const Icon(Icons.alternate_email, color: _accountGold),
-                            title: const Text('نام کاربری', style: TextStyle(color: Colors.white60, fontSize: 12)),
-                            subtitle: Text('@${_user!['username']?.toString() ?? 'تنظیم نشده'}', style: const TextStyle(color: Colors.white, fontSize: 16)),
-                            trailing: IconButton(onPressed: _editUsername, icon: const Icon(Icons.edit_outlined, color: _accountGold), tooltip: 'ویرایش نام کاربری'),
+                            leading: Icon(Icons.alternate_email, color: Theme.of(context).colorScheme.primary),
+                            title: Text('نام کاربری', style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6), fontSize: 12)),
+                            subtitle: Text('@${_user!['username']?.toString() ?? 'تنظیم نشده'}', style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 16)),
+                            trailing: IconButton(onPressed: _editUsername, icon: Icon(Icons.edit_outlined, color: Theme.of(context).colorScheme.primary), tooltip: 'ویرایش نام کاربری'),
                           ),
                         ),
                         _detail(Icons.badge_outlined, 'نام کامل',
@@ -287,7 +284,7 @@ class _AccountScreenState extends State<AccountScreen> {
                         label: const Text('خروج از حساب'),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: Theme.of(context).colorScheme.primary,
-                          side: const BorderSide(color: _accountGold),
+                          side: BorderSide(color: Theme.of(context).colorScheme.primary),
                           padding: const EdgeInsets.all(14),
                         ),
                       ),
