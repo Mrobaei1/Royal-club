@@ -6,8 +6,10 @@ on:
     paths:
       - "apps/mobile/lib/backgammon_engine.dart"
       - "apps/mobile/lib/backgammon_ai.dart"
+      - "apps/mobile/lib/engine_backgammon_screen.dart"
       - "apps/mobile/test/backgammon_engine*.dart"
       - "apps/mobile/test/backgammon_ai_test.dart"
+      - "apps/mobile/test/engine_backgammon_screen_test.dart"
       - ".github/workflows/backgammon-engine-audit.yml"
   pull_request:
     branches: [main]
@@ -31,6 +33,6 @@ jobs:
           cache: true
       - run: flutter pub get
       - name: Analyze engine and AI
-        run: dart analyze lib/backgammon_engine.dart lib/backgammon_ai.dart test/backgammon_engine_test.dart test/backgammon_engine_audit_test.dart test/backgammon_ai_test.dart
-      - name: Run engine and AI regression tests
-        run: flutter test test/backgammon_engine_test.dart test/backgammon_engine_audit_test.dart test/backgammon_ai_test.dart
+        run: dart analyze lib/backgammon_engine.dart lib/backgammon_ai.dart test/backgammon_engine_test.dart test/backgammon_engine_audit_test.dart test/backgammon_ai_test.dart test/engine_backgammon_screen_test.dart
+      - name: Run engine, AI and board interaction regression tests
+        run: flutter test test/backgammon_engine_test.dart test/backgammon_engine_audit_test.dart test/backgammon_ai_test.dart test/engine_backgammon_screen_test.dart
