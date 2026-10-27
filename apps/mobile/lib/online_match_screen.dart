@@ -558,7 +558,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
                       : (_state == null
                           ? (isEnglish ? 'Waiting for opponent…' : 'در انتظار ورود حریف...')
                           : (isMyTurn ? (isEnglish ? 'Your turn' : 'نوبت شماست') : (isEnglish ? 'Waiting for opponent' : 'در انتظار حرکت حریف'))),
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: Theme.of(context).colorScheme.primary,
                     fontWeight: FontWeight.bold,
                     fontSize: 18,
