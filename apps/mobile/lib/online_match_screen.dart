@@ -339,10 +339,10 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        backgroundColor: _matchNavy,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         appBar: AppBar(
-          backgroundColor: _matchNavy,
-          foregroundColor: _matchGold,
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+          foregroundColor: Theme.of(context).colorScheme.primary,
           title: Text('اتاق ${widget.match['roomCode'] ?? _id}'),
           actions: [IconButton(onPressed: _busy ? null : _refresh, icon: const Icon(Icons.refresh))],
         ),
@@ -438,7 +438,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
                       ? null : () => _updateSetup(ready: _matchDetails[_matchDetails['isHost'] == true ? 'hostReady' : 'guestReady'] != true),
                     icon: Icon(_matchDetails[_matchDetails['isHost'] == true ? 'hostReady' : 'guestReady'] == true ? Icons.undo : Icons.check_circle),
                     label: Text(_matchDetails[_matchDetails['isHost'] == true ? 'hostReady' : 'guestReady'] == true ? 'لغو آمادگی من' : 'من آماده‌ام'),
-                    style: FilledButton.styleFrom(backgroundColor: _matchGold, foregroundColor: _matchNavy),
+                    style: FilledButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary, foregroundColor: _matchNavy),
                   ),
                   const Text('مسابقه فقط پس از پذیرش تنظیمات و آماده‌شدن هر دو بازیکن آغاز می‌شود. تغییر تعداد برد، آمادگی هر دو نفر را بازنشانی می‌کند.',
                     style: TextStyle(color: Colors.white54, height: 1.5)),
@@ -571,7 +571,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
                     onPressed: _busy || _matchStatus != 'active' || !isMyTurn || dice.isNotEmpty ? null : _roll,
                     icon: const Icon(Icons.casino),
                     label: Text(_busy ? 'در حال ثبت...' : 'ریختن تاس'),
-                    style: FilledButton.styleFrom(backgroundColor: _matchGold, foregroundColor: _matchNavy, padding: const EdgeInsets.all(13)),
+                    style: FilledButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary, foregroundColor: Theme.of(context).colorScheme.onPrimary, padding: const EdgeInsets.all(13)),
                   ),
                 ]),
               ),
