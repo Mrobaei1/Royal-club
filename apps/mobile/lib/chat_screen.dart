@@ -81,6 +81,7 @@ class _ChatThreadScreenState extends State<ChatThreadScreen> {
   String? _error;
   String? _myId;
   List<dynamic> _messages = [];
+  final Set<String> _selectedMessageIds = <String>{};
 
   @override
   void initState() { super.initState(); _load(); }
@@ -96,6 +97,7 @@ class _ChatThreadScreenState extends State<ChatThreadScreen> {
       if (mounted) {
         setState(() {
           _messages = results[0] as List<dynamic>;
+          _selectedMessageIds.clear();
           _myId = user?['id']?.toString();
           _loading = false;
           _error = null;
@@ -145,6 +147,60 @@ class _ChatThreadScreenState extends State<ChatThreadScreen> {
         );
       }
     }
+  }
+
+  bool get _isEnglish => Localizations.localeOf(context).languageCode == 'en';
+
+  void _toggleMessageSelection(String id) {
+    setState(() {
+      if (!_selectedMessageIds.add(id)) _selectedMessageIds.remove(id);
+    });
+  }
+
+  Future<void> _editMessage(Map<String, dynamic> message) async {
+    final id = message['id']?.toString();
+    if (id == null || message['senderId']?.toString() != _myId || message['deletedForAll'] == true ||
+        (message['body']?.toString().startsWith('data:image/') ?? false)) return;
+    final controller = TextEditingController(text: message['body']?.toString() ?? '');
+    final body = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(_isEnglish ? 'Edit message' : 'ویرایش پیام'),
+        content: TextField(controller: controller, autofocus: true, maxLength: 2000, minLines: 1, maxLines: 5),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext), child: Text(_isEnglish ? 'Cancel' : 'انصراف')),
+          FilledButton(onPressed: () => Navigator.pop(dialogContext, controller.text.trim()), child: Text(_isEnglish ? 'Save' : 'ذخیره')),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (body == null || body.isEmpty || !mounted) return;
+    try { await ChatService.edit(widget.userId, id, body); await _load(); }
+    catch (e) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString().replaceFirst('Exception: ', '')))); }
+  }
+
+  Future<void> _deleteSelected({required bool forBoth}) async {
+    final isEnglish = _isEnglish;
+    final selected = _messages.where((m) => _selectedMessageIds.contains(m['id']?.toString())).toList();
+    if (selected.isEmpty) return;
+    if (forBoth && selected.any((m) => m['senderId']?.toString() != _myId)) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(isEnglish ? 'You can delete for everyone only messages you sent.' : 'حذف برای هر دو طرف فقط برای پیام‌های ارسالی خودتان ممکن است.')));
+      return;
+    }
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(forBoth ? (isEnglish ? 'Delete for everyone?' : 'حذف برای هر دو طرف؟') : (isEnglish ? 'Delete for me?' : 'حذف از طرف من؟')),
+        content: Text(isEnglish ? 'Delete selected message(s)?' : 'پیام‌های انتخاب‌شده حذف شوند؟'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: Text(isEnglish ? 'Cancel' : 'انصراف')),
+          FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: Text(isEnglish ? 'Delete' : 'حذف')),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    try { await ChatService.deleteMessages(widget.userId, selected.map((m) => m['id'].toString()).toList(), forBoth: forBoth); await _load(); }
+    catch (e) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString().replaceFirst('Exception: ', '')))); }
   }
 
   Future<void> _send() async {
@@ -197,7 +253,7 @@ class _ChatThreadScreenState extends State<ChatThreadScreen> {
   Widget build(BuildContext context) => Directionality(
     textDirection: (Localizations.localeOf(context).languageCode == 'en' ? TextDirection.ltr : TextDirection.rtl),
     child: Scaffold(
-      appBar: AppBar(title: Row(children: [RoyalAvatar(dataUrl: widget.avatarDataUrl, radius: 16), const SizedBox(width: 8), Expanded(child: Text(widget.title, maxLines: 1, overflow: TextOverflow.ellipsis))]), actions: [IconButton(tooltip: 'گزارش کاربر', onPressed: _reportUser, icon: const Icon(Icons.flag_outlined)), IconButton(onPressed: _load, icon: const Icon(Icons.refresh))]),
+      appBar: AppBar(title: Row(children: [RoyalAvatar(dataUrl: widget.avatarDataUrl, radius: 16), const SizedBox(width: 8), Expanded(child: Text(_selectedMessageIds.isEmpty ? widget.title : (_isEnglish ? '${_selectedMessageIds.length} selected' : '${_selectedMessageIds.length} انتخاب‌شده'), maxLines: 1, overflow: TextOverflow.ellipsis))]), actions: [if (_selectedMessageIds.isNotEmpty) IconButton(tooltip: _isEnglish ? 'Delete for me' : 'حذف برای من', onPressed: () => _deleteSelected(forBoth: false), icon: const Icon(Icons.delete_outline)), if (_selectedMessageIds.isNotEmpty && _messages.where((m) => _selectedMessageIds.contains(m['id']?.toString())).every((m) => m['senderId']?.toString() == _myId)) IconButton(tooltip: _isEnglish ? 'Delete for everyone' : 'حذف برای هر دو طرف', onPressed: () => _deleteSelected(forBoth: true), icon: const Icon(Icons.delete_forever_outlined)), if (_selectedMessageIds.length == 1) IconButton(tooltip: _isEnglish ? 'Edit message' : 'ویرایش پیام', onPressed: () { final m = _messages.firstWhere((m) => m['id']?.toString() == _selectedMessageIds.first); _editMessage(Map<String, dynamic>.from(m as Map)); }, icon: const Icon(Icons.edit_outlined)), IconButton(tooltip: _isEnglish ? 'Report user' : 'گزارش کاربر', onPressed: _reportUser, icon: const Icon(Icons.flag_outlined)), IconButton(onPressed: _load, icon: const Icon(Icons.refresh))]),
       body: Column(children: [
         Expanded(child: _loading ? const Center(child: CircularProgressIndicator())
           : _error != null ? Center(child: Padding(padding: const EdgeInsets.all(20), child: Text(_error!, textAlign: TextAlign.center)))
@@ -209,18 +265,27 @@ class _ChatThreadScreenState extends State<ChatThreadScreen> {
             itemBuilder: (context, index) {
               final message = _messages[index] as Map<String, dynamic>;
               final mine = message['senderId'].toString() == _myId;
+              final messageId = message['id']?.toString() ?? '';
+              final selected = _selectedMessageIds.contains(messageId);
               return Align(
                 alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
-                child: Container(
+                child: GestureDetector(
+                  onLongPress: () => _toggleMessageSelection(messageId),
+                  onTap: _selectedMessageIds.isNotEmpty ? () => _toggleMessageSelection(messageId) : null,
+                  child: Container(
                   constraints: BoxConstraints(maxWidth: MediaQuery.sizeOf(context).width * .78),
                   margin: const EdgeInsets.symmetric(vertical: 4),
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   decoration: BoxDecoration(
-                    color: mine ? Theme.of(context).colorScheme.primaryContainer : Theme.of(context).colorScheme.surface,
+                    color: selected ? Theme.of(context).colorScheme.secondaryContainer : (mine ? Theme.of(context).colorScheme.primaryContainer : Theme.of(context).colorScheme.surface),
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(color: mine ? Theme.of(context).colorScheme.primary.withValues(alpha: .5) : Theme.of(context).dividerColor),
                   ),
-                  child: _messageContent(message['body']?.toString() ?? ''),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                    _messageContent(message['body']?.toString() ?? ''),
+                    if (message['editedAt'] != null) Text(_isEnglish ? 'edited' : 'ویرایش‌شده', style: const TextStyle(fontSize: 10, color: Colors.white54)),
+                  ]),
+                ),
                 ),
               );
             },
