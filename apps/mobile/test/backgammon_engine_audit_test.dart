@@ -49,7 +49,7 @@ void main() {
       expect(move.to, 0);
       expect(game.playMove(move), isTrue);
       expect(game.bar, [1, 0]);
-      expect(game.points[23], 1);
+      expect(game.points[0], 1);
     });
 
     test('does not allow a move when every bar entry is blocked', () {
