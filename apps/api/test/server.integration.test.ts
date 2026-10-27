@@ -411,7 +411,8 @@ test('registered players can join an online match and history does not expose op
   });
   assert.equal(invitedMatch.statusCode, 200, invitedMatch.body);
   assert.equal(invitedMatch.json().match.status, 'waiting');
-  assert.equal(invitedMatch.json().match.guestName, 'Guest Integration');
+  assert.equal(invitedMatch.json().match.guestName, guest.user.username);
+  assert.notEqual(invitedMatch.json().match.guestName, guest.user.fullName);
 
   const seriesRoom = await app.inject({
     method: 'POST',
