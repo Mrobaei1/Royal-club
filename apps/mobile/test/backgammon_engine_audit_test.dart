@@ -54,7 +54,7 @@ void main() {
 
     test('does not allow a move when every bar entry is blocked', () {
       position(player: 1, dice: [1, 2], bars: [0, 1]);
-      for (var p = 18; p < 24; p++) {
+      for (var p = 0; p < 6; p++) {
         game.points[p] = -2;
       }
       expect(game.legalMoves(), isEmpty);
