@@ -3,9 +3,6 @@ import 'profile_avatar.dart';
 import 'chat_screen.dart';
 import 'services/friends_service.dart';
 
-const _friendsGold = Color(0xFFD8B45A);
-const _friendsNavy = Color(0xFF10182B);
-
 class FriendsScreen extends StatefulWidget {
   const FriendsScreen({super.key});
 
@@ -119,11 +116,11 @@ class _FriendsScreenState extends State<FriendsScreen> {
           Expanded(
             child: Text(title,
                 style: const TextStyle(
-                    color: _friendsGold,
+                    color: Theme.of(context).colorScheme.primary,
                     fontSize: 17,
                     fontWeight: FontWeight.bold)),
           ),
-          Text('$count', style: const TextStyle(color: Colors.white60)),
+          Text('$count', style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6))),
         ]),
       );
 
@@ -144,10 +141,10 @@ class _FriendsScreenState extends State<FriendsScreen> {
       child: ListTile(
         onTap: onTap,
         leading: RoyalAvatar(dataUrl: (user['avatarDataUrl'] ?? user['avatar_data_url'] ?? user['profilePhoto'] ?? user['photoUrl'])?.toString(), radius: 22),
-        title: Text(title, style: const TextStyle(color: Colors.white)),
+        title: Text(title, style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
         subtitle: subtitle.isEmpty
             ? null
-            : Text(subtitle, style: const TextStyle(color: Colors.white60)),
+            : Text(subtitle, style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6))),
         trailing: trailing,
       ),
     );
@@ -175,7 +172,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         appBar: AppBar(
           title: Text(isEnglish ? 'Friends' : 'دوستان'),
-          backgroundColor: _friendsNavy,
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           foregroundColor: Theme.of(context).colorScheme.primary,
           actions: [
             IconButton(
@@ -191,13 +188,13 @@ class _FriendsScreenState extends State<FriendsScreen> {
             children: [
               Text(isEnglish ? 'Add a friend' : 'افزودن دوست',
                   style: TextStyle(
-                      color: _friendsGold,
+                      color: Theme.of(context).colorScheme.primary,
                       fontSize: 21,
                       fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
               Text(
                 isEnglish ? 'Enter your friend’s exact username; you do not need their email.' : 'نام کاربری دقیق دوستتان را وارد کنید؛ نیازی به دانستن ایمیل او نیست.',
-                style: TextStyle(color: Colors.white70, height: 1.6),
+                style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7), height: 1.6),
               ),
               const SizedBox(height: 12),
               TextField(
@@ -217,8 +214,8 @@ class _FriendsScreenState extends State<FriendsScreen> {
                 icon: const Icon(Icons.search),
                 label: Text(isEnglish ? 'Search' : 'جست‌وجو'),
                 style: FilledButton.styleFrom(
-                    backgroundColor: _friendsGold,
-                    foregroundColor: _friendsNavy),
+                    backgroundColor: Theme.of(context).colorScheme.primary,
+                    foregroundColor: Theme.of(context).colorScheme.onPrimary),
               ),
               if (_results.isNotEmpty) ...[
                 const SizedBox(height: 8),
@@ -230,44 +227,44 @@ class _FriendsScreenState extends State<FriendsScreen> {
                         onPressed: _busy
                             ? null
                             : () => _sendRequest(user['id'].toString()),
-                        icon: const Icon(Icons.person_add_alt_1,
-                            color: _friendsGold),
+                        icon: Icon(Icons.person_add_alt_1,
+                            color: Theme.of(context).colorScheme.primary),
                         tooltip: 'ارسال درخواست',
                       ),
                     )),
               ],
               if (_busy)
-                const Padding(
-                  padding: EdgeInsets.all(12),
+                Padding(
+                  padding: const EdgeInsets.all(12),
                   child: Center(
-                      child: CircularProgressIndicator(color: _friendsGold)),
+                      child: CircularProgressIndicator(color: Theme.of(context).colorScheme.primary)),
                 ),
               if (_message != null)
                 Padding(
                   padding: const EdgeInsets.only(top: 10),
                   child: Text(_message!,
                       textAlign: TextAlign.center,
-                      style: const TextStyle(color: _friendsGold)),
+                      style: TextStyle(color: Theme.of(context).colorScheme.primary)),
                 ),
               _sectionTitle(isEnglish ? 'Incoming requests' : 'درخواست‌های دریافتی', incoming.length),
               if (incoming.isEmpty)
                 Text(isEnglish ? 'No new requests.' : 'درخواست تازه‌ای ندارید.',
-                    style: TextStyle(color: Colors.white54)),
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.54))),
               ...incoming.map((user) => _userTile(
                     user,
                     trailing: IconButton(
                       onPressed: _busy
                           ? null
                           : () => _accept(user['userId'].toString()),
-                      icon: const Icon(Icons.check_circle_outline,
-                          color: _friendsGold),
+                      icon: Icon(Icons.check_circle_outline,
+                          color: Theme.of(context).colorScheme.primary),
                       tooltip: 'پذیرش درخواست',
                     ),
                   )),
               _sectionTitle(isEnglish ? 'My friends' : 'دوستان من', friends.length),
               if (friends.isEmpty)
                 Text(isEnglish ? 'You have not added any friends yet.' : 'هنوز دوستی اضافه نکرده‌اید.',
-                    style: TextStyle(color: Colors.white54)),
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.54))),
               ...friends.map((user) => _userTile(
                     user,
                     onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => ChatThreadScreen(
@@ -281,22 +278,22 @@ class _FriendsScreenState extends State<FriendsScreen> {
                       onPressed: _busy
                           ? null
                           : () => _remove(user['userId'].toString()),
-                      icon: const Icon(Icons.person_remove_alt_1,
-                          color: Colors.white60),
+                      icon: Icon(Icons.person_remove_alt_1,
+                          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6)),
                       tooltip: 'حذف دوست',
                     ),
                   )),
               _sectionTitle(isEnglish ? 'Sent requests' : 'درخواست‌های ارسالی', outgoing.length),
               if (outgoing.isEmpty)
                 Text(isEnglish ? 'No pending requests.' : 'درخواست در انتظاری ندارید.',
-                    style: TextStyle(color: Colors.white54)),
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.54))),
               ...outgoing.map((user) => _userTile(
                     user,
                     trailing: IconButton(
                       onPressed: _busy
                           ? null
                           : () => _remove(user['userId'].toString()),
-                      icon: const Icon(Icons.close, color: Colors.white60),
+                      icon: Icon(Icons.close, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6)),
                       tooltip: 'لغو درخواست',
                     ),
                   )),
