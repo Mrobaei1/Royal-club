@@ -213,4 +213,10 @@ class MatchService {
     return Map<String, dynamic>.from((await _postJson('/matches/$id/cancellation', {'accept': accept}))['cancellation'] as Map);
   }
 
+  static Future<Map<String, dynamic>> resign(String id) async {
+    return Map<String, dynamic>.from(
+      (await _postJson('/matches/$id/resign', const {}))['result'] as Map,
+    );
+  }
+
 }
