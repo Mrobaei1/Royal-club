@@ -156,8 +156,16 @@ await pool.query(`
     body TEXT NOT NULL CHECK (char_length(body) BETWEEN 1 AND 2000),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     read_at TIMESTAMPTZ,
+    edited_at TIMESTAMPTZ,
+    deleted_for_all BOOLEAN NOT NULL DEFAULT FALSE,
+    hidden_for_sender BOOLEAN NOT NULL DEFAULT FALSE,
+    hidden_for_recipient BOOLEAN NOT NULL DEFAULT FALSE,
     CHECK (sender_id <> recipient_id)
   );
+  ALTER TABLE private_messages ADD COLUMN IF NOT EXISTS edited_at TIMESTAMPTZ;
+  ALTER TABLE private_messages ADD COLUMN IF NOT EXISTS deleted_for_all BOOLEAN NOT NULL DEFAULT FALSE;
+  ALTER TABLE private_messages ADD COLUMN IF NOT EXISTS hidden_for_sender BOOLEAN NOT NULL DEFAULT FALSE;
+  ALTER TABLE private_messages ADD COLUMN IF NOT EXISTS hidden_for_recipient BOOLEAN NOT NULL DEFAULT FALSE;
   CREATE INDEX IF NOT EXISTS private_messages_thread_idx
     ON private_messages (sender_id, recipient_id, created_at DESC);
   CREATE INDEX IF NOT EXISTS private_messages_inbox_idx
@@ -831,10 +839,13 @@ app.get<{ Params: { userId: string } }>('/api/v1/chat/:userId/messages', { onReq
   );
   if (!friendship.rowCount) return reply.code(403).send({ error: 'Chat is available only between accepted friends.' });
   const messages = await pool.query(
-    `SELECT id, sender_id AS "senderId", recipient_id AS "recipientId", body,
+    `SELECT id, sender_id AS "senderId", recipient_id AS "recipientId",
+            CASE WHEN deleted_for_all THEN '[پیام حذف شده]' ELSE body END AS body,
+            deleted_for_all AS "deletedForAll", edited_at AS "editedAt",
             created_at AS "createdAt", read_at AS "readAt"
        FROM private_messages
-      WHERE (sender_id = $1 AND recipient_id = $2) OR (sender_id = $2 AND recipient_id = $1)
+      WHERE ((sender_id = $1 AND recipient_id = $2 AND hidden_for_sender = FALSE)
+         OR (sender_id = $2 AND recipient_id = $1 AND hidden_for_recipient = FALSE))
       ORDER BY created_at DESC LIMIT 100`,
     [claims.sub, userId],
   );
@@ -858,10 +869,56 @@ app.post<{ Params: { userId: string }; Body: { body?: string } }>('/api/v1/chat/
   const inserted = await pool.query(
     `INSERT INTO private_messages (sender_id, recipient_id, body)
      VALUES ($1, $2, $3)
-     RETURNING id, sender_id AS "senderId", recipient_id AS "recipientId", body, created_at AS "createdAt", read_at AS "readAt"`,
+     RETURNING id, sender_id AS "senderId", recipient_id AS "recipientId", body,
+       deleted_for_all AS "deletedForAll", edited_at AS "editedAt", created_at AS "createdAt", read_at AS "readAt"`,
     [claims.sub, userId, body],
   );
   return reply.code(201).send({ message: inserted.rows[0] });
+});
+
+app.patch<{ Params: { userId: string; messageId: string }; Body: { body?: string } }>('/api/v1/chat/:userId/messages/:messageId', { onRequest: [requireMatchAuth] }, async (request, reply) => {
+  const claims = request.user as { sub: string };
+  const { userId, messageId } = request.params;
+  const body = typeof request.body?.body === 'string' ? request.body.body.trim() : '';
+  if (!isNumericId(userId) || !isNumericId(messageId) || !body || body.length > 2000 || body.startsWith('data:image/')) {
+    return reply.code(400).send({ error: 'Provide a valid text message up to 2000 characters.' });
+  }
+  const result = await pool.query(
+    `UPDATE private_messages SET body = $1, edited_at = NOW()
+      WHERE id = $2 AND sender_id = $3 AND recipient_id = $4 AND deleted_for_all = FALSE
+      RETURNING id, sender_id AS "senderId", recipient_id AS "recipientId", body, edited_at AS "editedAt", deleted_for_all AS "deletedForAll", created_at AS "createdAt", read_at AS "readAt"`,
+    [body, messageId, claims.sub, userId],
+  );
+  if (!result.rowCount) return reply.code(404).send({ error: 'Message not found or cannot be edited.' });
+  return { message: result.rows[0] };
+});
+
+app.delete<{ Params: { userId: string }; Body: { messageIds?: string[]; scope?: 'me' | 'both' } }>('/api/v1/chat/:userId/messages', { onRequest: [requireMatchAuth] }, async (request, reply) => {
+  const claims = request.user as { sub: string };
+  const { userId } = request.params;
+  const ids = Array.isArray(request.body?.messageIds) ? [...new Set(request.body.messageIds.filter((id) => isNumericId(id)))] : [];
+  const scope = request.body?.scope;
+  if (!isNumericId(userId) || userId === claims.sub || ids.length < 1 || ids.length > 100 || !['me', 'both'].includes(String(scope))) {
+    return reply.code(400).send({ error: 'Provide message IDs and a valid deletion scope.' });
+  }
+  if (scope === 'both') {
+    const result = await pool.query(
+      `UPDATE private_messages SET deleted_for_all = TRUE, body = '[پیام حذف شده]'
+        WHERE id = ANY($1::bigint[]) AND sender_id = $2 AND recipient_id = $3 AND deleted_for_all = FALSE
+        RETURNING id`,
+      [ids, claims.sub, userId],
+    );
+    return { deleted: result.rowCount ?? 0, scope };
+  }
+  const result = await pool.query(
+    `UPDATE private_messages
+        SET hidden_for_sender = CASE WHEN sender_id = $2 THEN TRUE ELSE hidden_for_sender END,
+            hidden_for_recipient = CASE WHEN recipient_id = $2 THEN TRUE ELSE hidden_for_recipient END
+      WHERE id = ANY($1::bigint[]) AND ((sender_id = $2 AND recipient_id = $3) OR (sender_id = $3 AND recipient_id = $2))
+      RETURNING id`,
+    [ids, claims.sub, userId],
+  );
+  return { deleted: result.rowCount ?? 0, scope };
 });
 
 app.get('/api/v1/notifications', { onRequest: [requireMatchAuth] }, async (request) => {
