@@ -175,19 +175,19 @@ class _AuthGateState extends State<AuthGate> {
   @override
   Widget build(BuildContext context) {
     if (_checking) {
-      return const Scaffold(
-        backgroundColor: navy,
+      return Scaffold(
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         body: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.workspace_premium_rounded, color: gold, size: 64),
+              Icon(Icons.workspace_premium_rounded, color: Theme.of(context).colorScheme.primary, size: 64),
               SizedBox(height: 18),
               Text('ROYAL CLUB',
                   style: TextStyle(
-                      color: gold, fontSize: 22, fontWeight: FontWeight.w900)),
+                      color: Theme.of(context).colorScheme.primary, fontSize: 22, fontWeight: FontWeight.w900)),
               SizedBox(height: 20),
-              CircularProgressIndicator(color: gold),
+              CircularProgressIndicator(color: Theme.of(context).colorScheme.primary),
               SizedBox(height: 12),
               Text('در حال بررسی نشست قبلی...',
                   style: TextStyle(color: Colors.white70)),
