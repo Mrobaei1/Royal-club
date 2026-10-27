@@ -1495,6 +1495,9 @@ app.post<{ Params: { id: string }; Body: { accept: boolean } }>(
         `UPDATE backgammon_match_invites SET status = CASE WHEN id = $1 THEN 'accepted' ELSE 'rejected' END,
            responded_at = NOW() WHERE match_id = $2 AND status = 'pending'`,
         [request.params.id, invite.match_id]);
+      // Remove the in-app invitation notice as soon as it is accepted.
+      await client.query(`DELETE FROM notifications WHERE data->>'inviteId' = $1 OR data->>'matchId' = $2`,
+        [request.params.id, invite.match_id.toString()]);
       await client.query('COMMIT');
       const match = await pool.query(
         `SELECT m.id, m.room_code AS "roomCode", m.status, host.username AS "hostName",
