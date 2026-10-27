@@ -45,6 +45,7 @@ async function register(fullName: string) {
     user: { id: string; email: string; username: string; fullName: string };
   };
   assert.ok(body.accessToken);
+  assert.ok(body.user.username, 'Every account must receive a public username at registration.');
   return { token: body.accessToken, user: body.user };
 }
 
@@ -59,6 +60,18 @@ test('registered players can join an online match and history does not expose op
 
   const host = await register('Host Integration');
   const guest = await register('Guest Integration');
+
+  const usernameSearch = await app.inject({
+    method: 'GET',
+    url: `/api/v1/users/search?username=${encodeURIComponent(guest.user.username)}`,
+    headers: auth(host.token),
+  });
+  assert.equal(usernameSearch.statusCode, 200, usernameSearch.body);
+  const publicProfile = (usernameSearch.json().users as Array<Record<string, unknown>>)[0];
+  assert.equal(publicProfile.username, guest.user.username);
+  assert.equal(Object.hasOwn(publicProfile, 'fullName'), false);
+  assert.equal(Object.hasOwn(publicProfile, 'email'), false);
+  assert.equal(JSON.stringify(publicProfile).includes(guest.user.fullName), false);
 
   const login = await app.inject({
     method: 'POST',
