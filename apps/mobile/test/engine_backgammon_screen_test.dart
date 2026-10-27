@@ -76,7 +76,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(home: EngineBackgammonScreen(engineForTesting: engine)),
     );
-    await tester.tap(find.text('بازی دونفره').or(find.text('دونفره')));
+    await tester.tap(find.byWidgetPredicate((widget) => widget is Text && (widget.data == 'بازی دونفره' || widget.data == 'دونفره')));
     await tester.pumpAndSettle();
 
     engine.points.fillRange(0, 24, 0);
