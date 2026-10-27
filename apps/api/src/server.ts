@@ -242,15 +242,15 @@ app.post<{ Body: { email?: string; password?: string; fullName?: string; phone?:
     const password = request.body?.password;
     const fullName = request.body?.fullName?.trim();
     const phone = request.body?.phone?.trim();
-    const country = request.body?.country?.trim();
+    const country = typeof request.body?.country === 'string' ? request.body.country.trim() : '';
 
     if (!fullName || fullName.length > 120 || !phone || phone.length > 32 ||
-        !/^[+0-9() .-]{6,32}$/.test(phone) || !country || country.length > 80 ||
+        !/^[+0-9() .-]{6,32}$/.test(phone) || country.length > 80 ||
         !email || email.length > 254 ||
         !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ||
         !isValidRegistrationPassword(password)) {
       return reply.code(400).send({
-        error: 'Enter a name, valid phone, country, valid email, and a password of at least 6 characters (maximum 128 UTF-8 bytes).'
+        error: 'Enter a name, valid phone number, valid email, and a password of at least 6 characters (maximum 128 UTF-8 bytes).'
       });
     }
 
@@ -786,8 +786,9 @@ app.post<{ Params: { userId: string }; Body: { body?: string } }>('/api/v1/chat/
   const claims = request.user as { sub: string };
   const { userId } = request.params;
   const body = typeof request.body?.body === 'string' ? request.body.body.trim() : '';
-  if (!isNumericId(userId) || userId === claims.sub || !body || body.length > 2000) {
-    return reply.code(400).send({ error: 'Message must contain 1 to 2000 characters and a valid recipient.' });
+  const isImage = /^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/]+={0,2}$/.test(body);
+  if (!isNumericId(userId) || userId === claims.sub || !body || (isImage ? body.length > 680000 : body.length > 2000)) {
+    return reply.code(400).send({ error: 'Message must be text up to 2000 characters or a supported image up to 500 KB.' });
   }
   const friendship = await pool.query(
     'SELECT 1 FROM friendships WHERE status = $1 AND ((requester_id = $2 AND addressee_id = $3) OR (requester_id = $3 AND addressee_id = $2)) LIMIT 1',
