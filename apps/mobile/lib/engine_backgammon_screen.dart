@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -663,7 +664,10 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
                           _modeChosen = true;
                           _engine.reset();
                           _message = 'بازی آفلاین با هوش مصنوعی؛ تاس بریزید.';
+                          _timerPlayer = _engine.currentPlayer;
+                          _secondsLeft = _turnLimitSeconds;
                         });
+                        _startTurnTimer(reset: true);
                       },
                       icon: const Icon(Icons.psychology),
                       label: const Text('بازی آفلاین با هوش مصنوعی'),
