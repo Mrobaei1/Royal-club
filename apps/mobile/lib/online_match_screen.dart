@@ -374,10 +374,10 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
     final ownBar = bar[hostTurn ? 'host' : 'guest'] ?? 0;
     if (ownBar > 0) {
       final expected = hostTurn ? 24 - die : die - 1;
-      if (from != null || to != expected) { setState(() => _error = 'ابتدا باید مهره را با تاس انتخاب‌شده از بار وارد کنید.'); return; }
-      if (board[expected] * sign <= -2) { setState(() => _error = 'خانهٔ ورود با دو مهرهٔ حریف بسته است.'); return; }
+      if (from != null || to != expected) { setState(() => _error = _isEnglish ? 'Enter a checker from the bar first using the selected die.' : 'ابتدا باید مهره را با تاس انتخاب‌شده از بار وارد کنید.'); return; }
+      if (board[expected] * sign <= -2) { setState(() => _error = _isEnglish ? 'The entry point is blocked by two opponent checkers.' : 'خانهٔ ورود با دو مهرهٔ حریف بسته است.'); return; }
     } else if (from == null) {
-      setState(() => _error = 'مهره‌ای روی بار ندارید.'); return;
+      setState(() => _error = _isEnglish ? 'You have no checkers on the bar.' : 'مهره‌ای روی بار ندارید.'); return;
     } else if (to == null) {
       final inHome = hostTurn ? from <= 5 : from >= 18;
       final allHome = board.asMap().entries.every((e) => hostTurn ? e.key <= 5 || e.value <= 0 : e.key >= 18 || e.value >= 0);
@@ -386,12 +386,12 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
           ? !board.asMap().entries.any((e) => e.key > from && e.key <= 5 && e.value > 0)
           : !board.asMap().entries.any((e) => e.key < from && e.key >= 18 && e.value < 0);
       if (board[from] * sign <= 0 || !inHome || !allHome || die < distance || (die > distance && !clear)) {
-        setState(() => _error = 'این مهره با این تاس قابل خارج‌کردن نیست.'); return;
+        setState(() => _error = _isEnglish ? 'This checker cannot be borne off with that die.' : 'این مهره با این تاس قابل خارج‌کردن نیست.'); return;
       }
     } else {
       final expected = hostTurn ? from - die : from + die;
       if (board[from] * sign <= 0 || expected != to || to < 0 || to > 23 || board[to] * sign <= -2) {
-        setState(() => _error = 'این حرکت با تاس انتخاب‌شده قانونی نیست.'); return;
+        setState(() => _error = _isEnglish ? 'That move is not legal for the selected die.' : 'این حرکت با تاس انتخاب‌شده قانونی نیست.'); return;
       }
     }
     setState(() {
@@ -446,7 +446,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
   Future<void> _tapPoint(int point, List<num> board, List<num> remaining, bool isMyTurn) async {
     if (!isMyTurn || _busy) return;
     if (_selectedDie == null || !remaining.contains(_selectedDie)) {
-      setState(() => _error = 'ابتدا یکی از تاس‌های باقی‌مانده را انتخاب کنید.');
+      setState(() => _error = _isEnglish ? 'Choose one of the remaining dice first.' : 'ابتدا یکی از تاس‌های باقی‌مانده را انتخاب کنید.');
       return;
     }
     if (_fromBar) {
@@ -456,7 +456,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
     if (_selectedFrom == null) {
       final sign = _state?['isHost'] == true ? 1 : -1;
       if (board[point].toInt() * sign <= 0) {
-        setState(() => _error = 'مهره‌ای از خودتان را انتخاب کنید.');
+        setState(() => _error = _isEnglish ? 'Select one of your own checkers.' : 'مهره‌ای از خودتان را انتخاب کنید.');
         return;
       }
       setState(() { _selectedFrom = point; _error = null; });
