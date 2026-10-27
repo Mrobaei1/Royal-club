@@ -1410,8 +1410,26 @@ app.post<{ Params: { id: string }; Body: { inviteeId?: string } }>(
         await client.query('ROLLBACK');
         return reply.code(403).send({ error: 'You can invite accepted friends only.' });
       }
-      // A direct invitation is valid for 60 seconds. The room and invite are
-      // physically deleted by the lobby cleanup once the deadline passes.
+      // Expire this friend's old invitation before inserting a replacement.
+      // This lets the host re-invite after the 10-second card timeout even if
+      // the invitee has not reopened the lobby to trigger its cleanup endpoint.
+      await client.query(
+        `UPDATE backgammon_match_invites
+            SET status = 'rejected', responded_at = NOW()
+          WHERE match_id = $1 AND invitee_id = $2 AND status = 'pending'
+            AND created_at <= NOW() - INTERVAL '10 seconds'`,
+        [request.params.id, inviteeId]);
+      await client.query(
+        `DELETE FROM notifications
+          WHERE user_id = $1 AND data->>'inviteId' IN (
+            SELECT id::text FROM backgammon_match_invites
+             WHERE match_id = $2 AND invitee_id = $1 AND status = 'rejected'
+               AND responded_at >= NOW() - INTERVAL '1 minute'
+          )`,
+        [inviteeId, request.params.id]);
+
+      // Keep the waiting room available for 60 seconds, while each invitation
+      // card itself remains valid for only 10 seconds.
       await client.query(
         `UPDATE backgammon_matches SET expires_at = NOW() + INTERVAL '60 seconds', updated_at = NOW()
           WHERE id = $1`,
