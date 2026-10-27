@@ -453,6 +453,41 @@ test('registered players can join an online match and history does not expose op
   });
   assert.equal(guestRoll.statusCode, 409);
 
+  // Apply two dice in one atomic online turn (the same 2+3 cumulative move
+  // the board UI supports) and assert the server owns the resulting position.
+  const batchBoard = Array<number>(24).fill(0);
+  batchBoard[5] = 1;
+  batchBoard[3] = 1;
+  batchBoard[12] = -2;
+  await testPool.query(
+    `UPDATE backgammon_matches
+        SET status = 'active', board_state = $1::jsonb,
+            bar_state = $2::jsonb, off_state = $3::jsonb,
+            current_turn_user_id = host_user_id, dice = '[2,3]'::jsonb,
+            remaining_dice = '[2,3]'::jsonb, state_version = 99,
+            match_to_win = 3, host_game_wins = 0, guest_game_wins = 0,
+            expires_at = NOW() + INTERVAL '30 minutes', updated_at = NOW()
+      WHERE id = $4`,
+    [JSON.stringify(batchBoard), JSON.stringify({ host: 0, guest: 0 }),
+     JSON.stringify({ host: 13, guest: 13 }), matchId],
+  );
+  const batchMove = await app.inject({
+    method: 'POST',
+    url: `/api/v1/matches/${matchId}/moves/batch`,
+    headers: auth(host.token),
+    payload: {
+      expectedVersion: 99,
+      moves: [{ from: 5, to: 3, die: 2 }, { from: 3, to: 0, die: 3 }],
+    },
+  });
+  assert.equal(batchMove.statusCode, 200, batchMove.body);
+  assert.equal(batchMove.json().appliedMoves, 2);
+  assert.equal(batchMove.json().state.board[5], 0);
+  assert.equal(batchMove.json().state.board[3], 1);
+  assert.equal(batchMove.json().state.board[0], 1);
+  assert.deepEqual(batchMove.json().state.remainingDice, []);
+  assert.equal(batchMove.json().state.currentTurnUserId, guest.user.id);
+
   // Mark a test match as finished to exercise the real history endpoint without
   // having to simulate 15 bear-offs. This database is disposable and CI-only.
   await testPool.query(
