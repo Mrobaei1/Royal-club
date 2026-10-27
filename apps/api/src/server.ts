@@ -1233,8 +1233,25 @@ app.get<{ Params: { id: string } }>('/api/v1/matches/:id', { onRequest: [require
             m.host_settings_accepted AS "hostSettingsAccepted", m.guest_settings_accepted AS "guestSettingsAccepted",
             m.host_ready AS "hostReady", m.guest_ready AS "guestReady",
             m.host_game_wins AS "hostGameWins", m.guest_game_wins AS "guestGameWins",
+            COALESCE(h2h.matches_played, 0)::int AS "headToHeadMatches",
+            COALESCE(h2h.host_game_points, 0)::int AS "headToHeadHostPoints",
+            COALESCE(h2h.guest_game_points, 0)::int AS "headToHeadGuestPoints",
+            COALESCE(h2h.host_match_wins, 0)::int AS "headToHeadHostWins",
+            COALESCE(h2h.guest_match_wins, 0)::int AS "headToHeadGuestWins",
             m.cancellation_proposed_by AS "cancellationProposedBy", (m.cancellation_proposed_by = $2) AS "cancellationProposedByMe"
        FROM backgammon_matches m JOIN users host ON host.id = m.host_user_id
+       LEFT JOIN LATERAL (
+         SELECT COUNT(*) AS matches_played,
+                COALESCE(SUM(CASE WHEN h.host_user_id = m.host_user_id THEN h.host_game_wins ELSE h.guest_game_wins END), 0) AS host_game_points,
+                COALESCE(SUM(CASE WHEN h.host_user_id = m.host_user_id THEN h.guest_game_wins ELSE h.host_game_wins END), 0) AS guest_game_points,
+                COALESCE(SUM(CASE WHEN h.winner_user_id = m.host_user_id THEN 1 ELSE 0 END), 0) AS host_match_wins,
+                COALESCE(SUM(CASE WHEN h.winner_user_id = m.guest_user_id THEN 1 ELSE 0 END), 0) AS guest_match_wins
+           FROM backgammon_matches h
+          WHERE m.guest_user_id IS NOT NULL AND h.status = 'finished'
+            AND h.guest_user_id IS NOT NULL
+            AND ((h.host_user_id = m.host_user_id AND h.guest_user_id = m.guest_user_id)
+              OR (h.host_user_id = m.guest_user_id AND h.guest_user_id = m.host_user_id))
+       ) h2h ON TRUE
        LEFT JOIN users guest ON guest.id = m.guest_user_id
       WHERE m.id = $1 AND (m.host_user_id = $2 OR m.guest_user_id = $2) AND m.expires_at > NOW()`,
     [request.params.id, claims.sub]);
