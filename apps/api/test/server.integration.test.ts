@@ -548,7 +548,8 @@ test('registered players can join an online match and history does not expose op
             bar_state = '{"host":0,"guest":0}'::jsonb,
             off_state = $2::jsonb, current_turn_user_id = host_user_id,
             dice = '[1,2]'::jsonb, remaining_dice = '[1]'::jsonb,
-            state_version = 100, updated_at = NOW()
+            state_version = 100, match_to_win = 1, host_game_wins = 0,
+            guest_game_wins = 0, updated_at = NOW()
       WHERE id = $3`,
     [JSON.stringify(nearWinBoard), JSON.stringify({ host: 14, guest: 0 }), matchId],
   );
