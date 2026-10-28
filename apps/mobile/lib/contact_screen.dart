@@ -41,7 +41,7 @@ class _ContactScreenState extends State<ContactScreen> {
         _loading = false; _error = null;
       });
     } catch (e) {
-      if (mounted) setState(() { _error = e.toString().replaceFirst('Exception: ', ''); _loading = false; });
+      if (mounted) setState(() { _error = appError(context, e); _loading = false; });
     }
   }
 
@@ -55,7 +55,7 @@ class _ContactScreenState extends State<ContactScreen> {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(Localizations.localeOf(context).languageCode == 'en' ? 'Contact methods saved.' : 'راه‌های ارتباطی ذخیره شد.')));
       await _load();
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appError(context, e))));
     } finally {
       if (mounted) setState(() => _saving = false);
     }
