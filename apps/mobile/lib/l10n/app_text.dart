@@ -37,6 +37,26 @@ String appError(BuildContext context, Object? error) {
         'Please log in first.',
     'درخواست ناموفق بود.':
         'The request failed.',
+    'پاسخ سرور قابل‌خواندن نیست. آدرس API و دسترسی Codespaces را بررسی کنید.':
+        'The server response could not be read. Check the API address and Codespaces access.',
+    'اتصال به سرور برقرار نشد. لطفاً اتصال اینترنت را بررسی کنید.':
+        'Could not connect to the server. Check your internet connection.',
+    'پاسخ فهرست دوستان قابل‌خواندن نیست.':
+        'The friends list response could not be read.',
+    'دریافت فهرست دوستان ناموفق بود.':
+        'Could not load the friends list.',
+    'پاسخ دعوت‌های بازی قابل‌خواندن نیست.':
+        'The game invitations response could not be read.',
+    'دریافت دعوت‌های بازی ناموفق بود.':
+        'Could not load game invitations.',
+    'پاسخ سرور رتبه‌بندی بیش از حد طول کشید.':
+        'The leaderboard server response timed out.',
+    'اتصال به سرور رتبه‌بندی برقرار نشد.':
+        'Could not connect to the leaderboard server.',
+    'پاسخ سرور رتبه‌بندی قابل‌خواندن نیست.':
+        'The leaderboard server response could not be read.',
+    'پاسخ سرور رتبه‌بندی نامعتبر است.':
+        'The leaderboard server returned an invalid response.',
     'شناسه کاربر معتبر نیست. لطفاً دوباره نام کاربری را جست‌وجو کنید.':
         'Invalid user ID. Please search for the username again.',
   };
