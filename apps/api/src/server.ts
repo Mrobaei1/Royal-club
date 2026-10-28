@@ -5,17 +5,81 @@ import cors from '@fastify/cors';
 import rateLimit from '@fastify/rate-limit';
 import jwt from '@fastify/jwt';
 import { Pool, type PoolClient } from 'pg';
-import { randomBytes, randomInt, scrypt as scryptCallback, timingSafeEqual } from 'node:crypto';
+import { createCipheriv, createDecipheriv, createHmac, randomBytes, randomInt, scrypt as scryptCallback, timingSafeEqual } from 'node:crypto';
 import { isNumericId, isValidRegistrationPassword } from './validation.js';
+import { createOtpCode, digestOtp, normalizeIranianMobile, verifyOtpDigest } from './otp-security.js';
+import { createKavenegarProvider } from './sms-provider.js';
 import { getAllowedCorsOrigins } from './cors-config.js';
 import { INITIAL_BACKGAMMON_BOARD, applyBackgammonMove, hasLegalMove, maxPlayableDiceCount, mustPlayHigherDie } from './backgammon-rules.js';
 import { calculateEloRatings } from './backgammon-rating.js';
+import { hasRoyalPermission, isRoyalPermission } from './permissions.js';
 import { promisify } from 'node:util';
 
 const scrypt = promisify(scryptCallback);
+
+function decryptSmsApiKey(encrypted: string): string | null {
+  const keyText = process.env.SMS_CREDENTIALS_ENCRYPTION_KEY?.trim() ?? '';
+  const key = Buffer.from(keyText, 'base64');
+  const [ivText, tagText, ciphertextText] = encrypted.split('.');
+  if (key.length !== 32 || !ivText || !tagText || !ciphertextText) return null;
+  try {
+    const decipher = createDecipheriv('aes-256-gcm', key, Buffer.from(ivText, 'base64'));
+    decipher.setAuthTag(Buffer.from(tagText, 'base64'));
+    return Buffer.concat([
+      decipher.update(Buffer.from(ciphertextText, 'base64')),
+      decipher.final(),
+    ]).toString('utf8');
+  } catch {
+    return null;
+  }
+}
 const secret = process.env.JWT_SECRET;
 if (!secret || secret.length < 32) {
   throw new Error('JWT_SECRET must contain at least 32 characters.');
+}
+// Derive a domain-separated OTP pepper so OTP digests do not reuse the JWT key directly.
+const otpPepper = secret ? createHmac('sha256', secret).update('royal-club:otp-pepper:v1').digest('hex') : '';
+
+function otpRuntimeAllowed(settings: { enabled?: boolean; delivery_mode?: string; provider?: string } | undefined): { simulator: boolean; live: boolean } {
+  const development = ['development', 'test'].includes(process.env.NODE_ENV ?? '');
+  const simulator = development && settings?.delivery_mode === 'development_simulator';
+  const live = process.env.NODE_ENV === 'production' &&
+    settings?.enabled === true &&
+    settings?.delivery_mode === 'real_provider' &&
+    settings?.provider === 'kavenegar';
+  return { simulator, live };
+}
+
+async function consumeOtpChallenge(
+  client: PoolClient,
+  phone: string,
+  code: string,
+  purpose: 'verify' | 'register' | 'login' | 'link',
+): Promise<boolean> {
+  const found = await client.query(
+    `SELECT id, otp_salt, otp_digest, attempts, max_attempts, expires_at, consumed_at
+       FROM sms_otp_challenges
+      WHERE phone_e164 = $1 AND purpose = $2 AND consumed_at IS NULL
+      ORDER BY created_at DESC LIMIT 1 FOR UPDATE`,
+    [phone, purpose],
+  );
+  const challenge = found.rows[0];
+  if (!challenge) return false;
+  if (new Date(challenge.expires_at).getTime() <= Date.now() ||
+      Number(challenge.attempts) >= Number(challenge.max_attempts)) {
+    await client.query('UPDATE sms_otp_challenges SET consumed_at = NOW() WHERE id = $1', [challenge.id]);
+    return false;
+  }
+  if (!verifyOtpDigest(code, { salt: challenge.otp_salt, digest: challenge.otp_digest }, otpPepper)) {
+    const nextAttempts = Number(challenge.attempts) + 1;
+    await client.query(
+      'UPDATE sms_otp_challenges SET attempts = $1, consumed_at = CASE WHEN $1 >= max_attempts THEN NOW() ELSE consumed_at END WHERE id = $2',
+      [nextAttempts, challenge.id],
+    );
+    return false;
+  }
+  await client.query('UPDATE sms_otp_challenges SET consumed_at = NOW() WHERE id = $1', [challenge.id]);
+  return true;
 }
 
 const app = Fastify({ logger: true, trustProxy: false });
@@ -55,6 +119,99 @@ await pool.query(`
   ALTER TABLE users ADD COLUMN IF NOT EXISTS full_name TEXT NOT NULL DEFAULT '';
   ALTER TABLE users ADD COLUMN IF NOT EXISTS phone TEXT NOT NULL DEFAULT '';
   ALTER TABLE users ADD COLUMN IF NOT EXISTS country TEXT NOT NULL DEFAULT '';
+  ALTER TABLE users ADD COLUMN IF NOT EXISTS phone_e164 TEXT;
+  CREATE UNIQUE INDEX IF NOT EXISTS users_phone_e164_unique_idx ON users (phone_e164) WHERE phone_e164 IS NOT NULL;
+
+
+
+  CREATE TABLE IF NOT EXISTS sms_otp_settings (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    enabled BOOLEAN NOT NULL DEFAULT FALSE,
+    delivery_mode TEXT NOT NULL DEFAULT 'disabled' CHECK (delivery_mode IN ('disabled', 'development_simulator', 'real_provider')),
+    provider TEXT NOT NULL DEFAULT '',
+    sender_id TEXT NOT NULL DEFAULT '',
+    template_id TEXT NOT NULL DEFAULT '',
+    encrypted_api_key TEXT NOT NULL DEFAULT '',
+    otp_ttl_seconds INTEGER NOT NULL DEFAULT 120 CHECK (otp_ttl_seconds BETWEEN 60 AND 600),
+    resend_cooldown_seconds INTEGER NOT NULL DEFAULT 60 CHECK (resend_cooldown_seconds BETWEEN 30 AND 600),
+    max_attempts INTEGER NOT NULL DEFAULT 5 CHECK (max_attempts BETWEEN 3 AND 10),
+    daily_limit INTEGER NOT NULL DEFAULT 100 CHECK (daily_limit BETWEEN 0 AND 100000),
+    updated_by BIGINT REFERENCES users(id) ON DELETE SET NULL,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+  INSERT INTO sms_otp_settings (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
+  CREATE TABLE IF NOT EXISTS sms_otp_audit_log (
+    id BIGSERIAL PRIMARY KEY,
+    actor_user_id BIGINT REFERENCES users(id) ON DELETE SET NULL,
+    action TEXT NOT NULL,
+    details JSONB NOT NULL DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+  CREATE INDEX IF NOT EXISTS sms_otp_audit_log_created_idx ON sms_otp_audit_log (created_at DESC);
+
+  CREATE TABLE IF NOT EXISTS sms_otp_challenges (
+    id BIGSERIAL PRIMARY KEY,
+    phone_e164 TEXT NOT NULL,
+    purpose TEXT NOT NULL DEFAULT 'verify' CHECK (purpose IN ('verify', 'register', 'login', 'link')),
+    otp_salt TEXT NOT NULL,
+    otp_digest TEXT NOT NULL,
+    attempts INTEGER NOT NULL DEFAULT 0,
+    max_attempts INTEGER NOT NULL CHECK (max_attempts BETWEEN 3 AND 10),
+    expires_at TIMESTAMPTZ NOT NULL,
+    consumed_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+  ALTER TABLE sms_otp_challenges ADD COLUMN IF NOT EXISTS purpose TEXT NOT NULL DEFAULT 'verify';
+  CREATE INDEX IF NOT EXISTS sms_otp_challenges_phone_created_idx
+    ON sms_otp_challenges (phone_e164, created_at DESC);
+  CREATE INDEX IF NOT EXISTS sms_otp_challenges_expiry_idx
+    ON sms_otp_challenges (expires_at) WHERE consumed_at IS NULL;
+
+  -- Dormant delegated permissions: no grants are seeded and all grant management
+  -- remains protected by the existing owner identity until explicitly assigned.
+  CREATE TABLE IF NOT EXISTS admin_permission_settings (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    enabled BOOLEAN NOT NULL DEFAULT FALSE,
+    updated_by BIGINT REFERENCES users(id) ON DELETE SET NULL,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+  INSERT INTO admin_permission_settings (id, enabled) VALUES (1, FALSE) ON CONFLICT (id) DO NOTHING;
+
+  CREATE TABLE IF NOT EXISTS admin_permission_grants (
+    id BIGSERIAL PRIMARY KEY,
+    grantee_user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    permission TEXT NOT NULL,
+    scope JSONB,
+    reason TEXT NOT NULL,
+    approval_reference TEXT NOT NULL DEFAULT '',
+    granted_by BIGINT REFERENCES users(id) ON DELETE SET NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    revoked_by BIGINT REFERENCES users(id) ON DELETE SET NULL,
+    revoked_at TIMESTAMPTZ
+  );
+  CREATE UNIQUE INDEX IF NOT EXISTS admin_permission_grants_active_unique_idx
+    ON admin_permission_grants (grantee_user_id, permission) WHERE revoked_at IS NULL;
+  CREATE INDEX IF NOT EXISTS admin_permission_grants_user_idx
+    ON admin_permission_grants (grantee_user_id, permission) WHERE revoked_at IS NULL;
+  CREATE TABLE IF NOT EXISTS admin_permission_audit_log (
+    id BIGSERIAL PRIMARY KEY,
+    actor_user_id BIGINT REFERENCES users(id) ON DELETE SET NULL,
+    target_user_id BIGINT REFERENCES users(id) ON DELETE SET NULL,
+    grant_id BIGINT,
+    action TEXT NOT NULL CHECK (action IN ('grant_created', 'grant_revoked', 'grant_rejected')),
+    permission TEXT NOT NULL DEFAULT '',
+    result TEXT NOT NULL CHECK (result IN ('success', 'denied', 'error')),
+    reason TEXT NOT NULL DEFAULT '',
+    approval_reference TEXT NOT NULL DEFAULT '',
+    details JSONB NOT NULL DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+  CREATE INDEX IF NOT EXISTS admin_permission_audit_time_idx
+    ON admin_permission_audit_log (created_at DESC);
+  ALTER TABLE admin_permission_audit_log DROP CONSTRAINT IF EXISTS admin_permission_audit_log_action_check;
+  ALTER TABLE admin_permission_audit_log ADD CONSTRAINT admin_permission_audit_log_action_check
+    CHECK (action IN ('grant_created', 'grant_revoked', 'grant_rejected', 'kill_switch_changed'));
+
 
   CREATE TABLE IF NOT EXISTS app_contact_methods (
     id BIGSERIAL PRIMARY KEY,
@@ -162,6 +319,10 @@ await pool.query(`
     hidden_for_recipient BOOLEAN NOT NULL DEFAULT FALSE,
     CHECK (sender_id <> recipient_id)
   );
+  -- Image messages are data URLs; the API separately enforces 2,000 characters
+  -- for text and a bounded image payload. Widen the legacy table constraint so
+  -- valid image messages are not rejected by PostgreSQL.
+  -- Image body constraint is migrated idempotently after schema setup.
   ALTER TABLE private_messages ADD COLUMN IF NOT EXISTS edited_at TIMESTAMPTZ;
   ALTER TABLE private_messages ADD COLUMN IF NOT EXISTS deleted_for_all BOOLEAN NOT NULL DEFAULT FALSE;
   ALTER TABLE private_messages ADD COLUMN IF NOT EXISTS hidden_for_sender BOOLEAN NOT NULL DEFAULT FALSE;
@@ -210,6 +371,7 @@ await pool.query(`
   ALTER TABLE backgammon_matches ADD COLUMN IF NOT EXISTS cancellation_proposed_by BIGINT REFERENCES users(id) ON DELETE SET NULL;
   ALTER TABLE backgammon_matches ADD COLUMN IF NOT EXISTS cancellation_accepted_by BIGINT REFERENCES users(id) ON DELETE SET NULL;
   ALTER TABLE backgammon_matches ADD COLUMN IF NOT EXISTS winner_user_id BIGINT REFERENCES users(id) ON DELETE SET NULL;
+  ALTER TABLE backgammon_matches ADD COLUMN IF NOT EXISTS spectators_enabled BOOLEAN NOT NULL DEFAULT FALSE;
   ALTER TABLE backgammon_matches ADD COLUMN IF NOT EXISTS finish_reason TEXT CHECK (finish_reason IS NULL OR finish_reason IN ('bear_off', 'resignation'));
   CREATE TABLE IF NOT EXISTS backgammon_match_invites (
     id BIGSERIAL PRIMARY KEY,
@@ -237,6 +399,48 @@ await pool.query(`
     ON backgammon_player_stats (rating DESC, wins DESC, games_played ASC);
 `);
 
+const messageBodyConstraint = await pool.query(
+  'SELECT pg_get_constraintdef(oid) AS definition FROM pg_constraint WHERE conrelid = \'private_messages\'::regclass AND conname = \'private_messages_body_check\'',
+);
+if (!String(messageBodyConstraint.rows[0]?.definition ?? '').includes('680000')) {
+  await pool.query('ALTER TABLE private_messages DROP CONSTRAINT IF EXISTS private_messages_body_check');
+  await pool.query('ALTER TABLE private_messages ADD CONSTRAINT private_messages_body_check CHECK (char_length(body) BETWEEN 1 AND 680000)');
+}
+
+
+// Waiting rooms expire even if the lobby is never reopened. The timer is
+// useful on persistent hosts; the request hook provides best-effort cleanup in
+// warm/serverless runtimes where background timers may be suspended.
+let lastExpiredRoomCleanupAt = 0;
+const cleanupExpiredWaitingRooms = async () => {
+  const now = Date.now();
+  if (now - lastExpiredRoomCleanupAt < 5_000) return;
+  lastExpiredRoomCleanupAt = now;
+  try {
+    await pool.query(`
+      WITH expired AS (
+        SELECT id FROM backgammon_matches
+         WHERE status = 'waiting' AND guest_user_id IS NULL AND expires_at <= NOW()
+      ), notices AS (
+        DELETE FROM notifications
+         WHERE data->>'matchId' IN (SELECT id::text FROM expired)
+         RETURNING id
+      )
+      DELETE FROM backgammon_matches WHERE id IN (SELECT id FROM expired)
+    `);
+  } catch (error: unknown) {
+    lastExpiredRoomCleanupAt = 0;
+    app.log.error({ err: error }, 'Expired waiting-room cleanup failed');
+  }
+};
+const expiredWaitingRoomCleanup = setInterval(() => {
+  void cleanupExpiredWaitingRooms();
+}, 5_000);
+expiredWaitingRoomCleanup.unref();
+app.addHook('onRequest', async () => {
+  await cleanupExpiredWaitingRooms();
+});
+
 app.get('/api/v1/health', async () => ({
   status: 'ok',
   service: 'royal-club-api',
@@ -255,7 +459,24 @@ app.get('/api/v1/health/db', async (_request, reply) => {
 
 app.post<{ Body: { email?: string; password?: string; fullName?: string; phone?: string; country?: string } }>(
   '/api/v1/auth/register',
-  { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } },
+  {
+    config: {
+      rateLimit: {
+        max: 5,
+        timeWindow: '1 minute',
+        // Parse the body before choosing a key; registration limits follow the
+        // submitted account identity, not the caller's IP or VPN exit node.
+        hook: 'preHandler',
+        keyGenerator: (request) => {
+          const body = request.body as { email?: unknown } | undefined;
+          const email = body?.email;
+          return typeof email === 'string' && email.trim()
+            ? `register:${email.trim().toLowerCase()}`
+            : 'register:missing-email';
+        },
+      },
+    },
+  },
   async (request, reply) => {
     const email = request.body?.email?.trim().toLowerCase();
     const password = request.body?.password;
@@ -316,6 +537,8 @@ app.post<{ Body: { email?: string; password?: string } }>(
       rateLimit: {
         max: 10,
         timeWindow: '1 minute',
+        // Run after body parsing so the key is the account email, never the IP.
+        hook: 'preHandler',
         // Login throttling follows the account, not the network/IP, so VPN changes
         // do not alter the identity or login allowance for a user.
         keyGenerator: (request) => {
@@ -445,9 +668,16 @@ app.patch<{ Body: { fullName?: string; phone?: string; country?: string } }>('/a
   if (!fullName || fullName.length > 120 || !phone || !/^[+0-9() .-]{6,32}$/.test(phone) || !country || country.length > 80) {
     return reply.code(400).send({ error: 'نام، شماره تلفن معتبر و کشور را وارد کنید.' });
   }
+  const current = await pool.query('SELECT phone_e164 FROM users WHERE id = $1 LIMIT 1', [claims.sub]);
+  if (!current.rowCount) return reply.code(404).send({ error: 'Account not found.' });
+  const verifiedPhone = current.rows[0].phone_e164 as string | null;
+  if (verifiedPhone && normalizeIranianMobile(phone) !== verifiedPhone) {
+    return reply.code(409).send({ error: 'Verify the new phone number with an OTP before changing the linked phone.' });
+  }
+  const storedPhone = verifiedPhone ?? phone;
   const result = await pool.query(
     'UPDATE users SET full_name = $1, phone = $2, country = $3 WHERE id = $4 RETURNING id, username, email, full_name AS "fullName", phone, country',
-    [fullName, phone, country, claims.sub],
+    [fullName, storedPhone, country, claims.sub],
   );
   if (!result.rowCount) return reply.code(404).send({ error: 'Account not found.' });
   return { user: result.rows[0] };
@@ -601,6 +831,227 @@ const requireOwnerAuth = async (request: any, reply: any) => {
   }
 };
 
+// Delegated grants are dormant until explicitly created by the configured owner.
+// Sensitive owner-only endpoints (wallet credit, SMS configuration, role management)
+// are intentionally not reachable through delegated grants.
+const requirePermission = (
+  permission: string,
+  resourceIdOf?: (request: any) => string | undefined | Promise<string | undefined>,
+) => async (request: any, reply: any) => {
+  await requireMatchAuth(request, reply);
+  if (reply.sent) return;
+  const claims = request.user as { sub?: string };
+  if (!claims.sub || !isRoyalPermission(permission)) {
+    return reply.code(403).send({ error: 'Permission denied.' });
+  }
+  const switchResult = await pool.query('SELECT enabled FROM admin_permission_settings WHERE id = 1');
+  if (switchResult.rows[0]?.enabled !== true) {
+    return reply.code(403).send({ error: 'Delegated permissions are disabled by the owner.' });
+  }
+  const result = await pool.query(
+    'SELECT permission, scope, revoked_at FROM admin_permission_grants WHERE grantee_user_id = $1 AND permission = $2 AND revoked_at IS NULL',
+    [claims.sub, permission],
+  );
+  const grants = result.rows.map((row) => ({
+    permission: String(row.permission),
+    active: row.revoked_at === null,
+    scope: row.scope,
+  }));
+  const resourceId = await resourceIdOf?.(request);
+  if (!hasRoyalPermission(grants, permission, resourceId)) {
+    return reply.code(403).send({ error: 'Permission denied.' });
+  }
+};
+
+const requireOwnerOrPermission = (
+  permission: string,
+  resourceIdOf?: (request: any) => string | undefined | Promise<string | undefined>,
+) => async (request: any, reply: any) => {
+  await requireMatchAuth(request, reply);
+  if (reply.sent) return;
+  const ownerUserId = process.env.OWNER_USER_ID?.trim();
+  const claims = request.user as { sub?: string };
+  if (ownerUserId && isNumericId(ownerUserId) && claims.sub === ownerUserId) return;
+  await requirePermission(permission, resourceIdOf)(request, reply);
+};
+
+app.get('/api/v1/admin/permissions/settings', { onRequest: [requireOwnerAuth] }, async () => {
+  const result = await pool.query(
+    'SELECT enabled, updated_at AS "updatedAt", u.username AS "updatedBy" FROM admin_permission_settings s LEFT JOIN users u ON u.id = s.updated_by WHERE s.id = 1',
+  );
+  return { settings: result.rows[0] ?? { enabled: false } };
+});
+
+app.patch<{ Body: { enabled?: boolean } }>('/api/v1/admin/permissions/settings', { onRequest: [requireOwnerAuth] }, async (request, reply) => {
+  const enabled = request.body?.enabled;
+  if (typeof enabled !== 'boolean') return reply.code(400).send({ error: 'Provide an enabled boolean.' });
+  const claims = request.user as { sub?: string };
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const result = await client.query(
+      'UPDATE admin_permission_settings SET enabled = $1, updated_by = $2, updated_at = NOW() WHERE id = 1 RETURNING enabled, updated_at AS "updatedAt"',
+      [enabled, claims.sub ?? null],
+    );
+    await client.query(
+      `INSERT INTO admin_permission_audit_log (actor_user_id, action, permission, result, reason, details)
+       VALUES ($1, 'kill_switch_changed', '*', 'success', $2, $3::jsonb)`,
+      [claims.sub ?? null, enabled ? 'Owner enabled delegated permissions' : 'Owner disabled delegated permissions', JSON.stringify({ enabled })],
+    );
+    await client.query('COMMIT');
+    return { ok: true, settings: result.rows[0] };
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    request.log.error({ err: error }, 'Could not update delegated permission switch');
+    return reply.code(500).send({ error: 'Could not update delegated permission settings.' });
+  } finally {
+    client.release();
+  }
+});
+
+app.get('/api/v1/admin/permissions/grants', { onRequest: [requireOwnerAuth] }, async () => {
+  const result = await pool.query(`
+    SELECT g.id, g.grantee_user_id AS "userId", u.username,
+           g.permission, g.scope, g.reason, g.approval_reference AS "approvalReference",
+           g.created_at AS "createdAt", grantor.username AS "grantedBy"
+      FROM admin_permission_grants g
+      JOIN users u ON u.id = g.grantee_user_id
+      LEFT JOIN users grantor ON grantor.id = g.granted_by
+     WHERE g.revoked_at IS NULL
+     ORDER BY g.created_at DESC, g.id DESC
+     LIMIT 500
+  `);
+  return { grants: result.rows };
+});
+
+app.post<{ Body: { userId?: string; permission?: string; scope?: unknown; reason?: string; approvalReference?: string } }>(
+  '/api/v1/admin/permissions/grants',
+  { onRequest: [requireOwnerAuth], config: { rateLimit: { max: 20, timeWindow: '1 minute' } } },
+  async (request, reply) => {
+    const body = request.body ?? {};
+    const userId = body.userId;
+    const permission = body.permission;
+    const reason = typeof body.reason === 'string' ? body.reason.trim() : '';
+    const approvalReference = typeof body.approvalReference === 'string' ? body.approvalReference.trim() : '';
+    let scope: { resourceIds: string[] } | null = null;
+    if (body.scope !== undefined && body.scope !== null) {
+      const value = body.scope as { resourceIds?: unknown };
+      if (typeof value !== 'object' || Array.isArray(value) || !Array.isArray(value.resourceIds) ||
+          value.resourceIds.length < 1 || value.resourceIds.length > 100 ||
+          !value.resourceIds.every((id) => typeof id === 'string' && id.trim().length > 0 && id.length <= 100)) {
+        return reply.code(400).send({ error: 'Scope must contain 1-100 valid resource IDs.' });
+      }
+      scope = { resourceIds: [...new Set(value.resourceIds as string[])] };
+    }
+    if (!isNumericId(userId) || !isRoyalPermission(permission) ||
+        reason.length < 5 || reason.length > 500 || approvalReference.length > 200 || (permission === 'reports.manage' && !scope)) {
+      return reply.code(400).send({ error: 'Provide a valid user ID, allowlisted permission, reason, and optional approval reference.' });
+    }
+
+    const claims = request.user as { sub?: string };
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      // Serialize the ceiling check so concurrent grants cannot exceed 50 distinct delegates.
+      await client.query('SELECT pg_advisory_xact_lock($1)', [721005]);
+      const user = await client.query('SELECT id FROM users WHERE id = $1', [userId]);
+      if (!user.rowCount) {
+        await client.query('ROLLBACK');
+        return reply.code(404).send({ error: 'User not found.' });
+      }
+      const existing = await client.query(
+        'SELECT id FROM admin_permission_grants WHERE grantee_user_id = $1 AND permission = $2 AND revoked_at IS NULL',
+        [userId, permission],
+      );
+      if (existing.rowCount) {
+        await client.query('ROLLBACK');
+        return reply.code(409).send({ error: 'An active grant for this permission already exists.' });
+      }
+      const count = await client.query(
+        'SELECT COUNT(DISTINCT grantee_user_id)::int AS count FROM admin_permission_grants WHERE revoked_at IS NULL',
+      );
+      const alreadyHasGrant = await client.query(
+        'SELECT 1 FROM admin_permission_grants WHERE grantee_user_id = $1 AND revoked_at IS NULL LIMIT 1',
+        [userId],
+      );
+      if (!alreadyHasGrant.rowCount && Number(count.rows[0]?.count ?? 0) >= 50) {
+        await client.query('ROLLBACK');
+        return reply.code(409).send({ error: 'The planned limit of 50 delegated users has been reached.' });
+      }
+      const inserted = await client.query(
+        `INSERT INTO admin_permission_grants
+          (grantee_user_id, permission, scope, reason, approval_reference, granted_by)
+         VALUES ($1, $2, $3::jsonb, $4, $5, $6)
+         RETURNING id, grantee_user_id AS "userId", permission, scope,
+                   reason, approval_reference AS "approvalReference", created_at AS "createdAt"`,
+        [userId, permission, scope ? JSON.stringify(scope) : null, reason, approvalReference, claims.sub ?? null],
+      );
+      await client.query(
+        `INSERT INTO admin_permission_audit_log
+          (actor_user_id, target_user_id, grant_id, action, permission, result, reason, approval_reference)
+         VALUES ($1, $2, $3, 'grant_created', $4, 'success', $5, $6)`,
+        [claims.sub ?? null, userId, inserted.rows[0].id, permission, reason, approvalReference],
+      );
+      await client.query('COMMIT');
+      return reply.code(201).send({ grant: inserted.rows[0] });
+    } catch (error) {
+      await client.query('ROLLBACK').catch(() => undefined);
+      request.log.error({ err: error }, 'Could not create permission grant');
+      return reply.code(500).send({ error: 'Could not create permission grant.' });
+    } finally {
+      client.release();
+    }
+  },
+);
+
+app.delete<{ Params: { id: string } }>('/api/v1/admin/permissions/grants/:id', { onRequest: [requireOwnerAuth] }, async (request, reply) => {
+  if (!isNumericId(request.params.id)) return reply.code(400).send({ error: 'Invalid grant ID.' });
+  const claims = request.user as { sub?: string };
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const revoked = await client.query(
+      `UPDATE admin_permission_grants SET revoked_at = NOW(), revoked_by = $1
+        WHERE id = $2 AND revoked_at IS NULL
+        RETURNING id, grantee_user_id AS "userId", permission, reason, approval_reference AS "approvalReference"`,
+      [claims.sub ?? null, request.params.id],
+    );
+    if (!revoked.rowCount) {
+      await client.query('ROLLBACK');
+      return reply.code(404).send({ error: 'Active permission grant not found.' });
+    }
+    const grant = revoked.rows[0];
+    await client.query(
+      `INSERT INTO admin_permission_audit_log
+        (actor_user_id, target_user_id, grant_id, action, permission, result, reason, approval_reference)
+       VALUES ($1, $2, $3, 'grant_revoked', $4, 'success', $5, $6)`,
+      [claims.sub ?? null, grant.userId, grant.id, grant.permission, grant.reason, grant.approvalReference],
+    );
+    await client.query('COMMIT');
+    return { ok: true, revokedGrantId: grant.id };
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    request.log.error({ err: error }, 'Could not revoke permission grant');
+    return reply.code(500).send({ error: 'Could not revoke permission grant.' });
+  } finally {
+    client.release();
+  }
+});
+
+app.get('/api/v1/admin/permissions/audit', { onRequest: [requireOwnerAuth] }, async () => {
+  const result = await pool.query(`
+    SELECT a.id, a.actor_user_id AS "actorUserId", actor.username AS "actorUsername",
+           a.target_user_id AS "targetUserId", target.username AS "targetUsername",
+           a.grant_id AS "grantId", a.action, a.permission, a.result, a.reason,
+           a.approval_reference AS "approvalReference", a.details, a.created_at AS "createdAt"
+      FROM admin_permission_audit_log a
+      LEFT JOIN users actor ON actor.id = a.actor_user_id
+      LEFT JOIN users target ON target.id = a.target_user_id
+     ORDER BY a.created_at DESC, a.id DESC LIMIT 200
+  `);
+  return { entries: result.rows };
+});
+
 app.get('/api/v1/contact-methods', { onRequest: [requireMatchAuth] }, async () => {
   const result = await pool.query('SELECT id, label, value FROM app_contact_methods ORDER BY sort_order ASC, id ASC');
   return { methods: result.rows };
@@ -715,10 +1166,465 @@ app.post<{ Params: { userId: string }; Body: { reason?: string } }>('/api/v1/use
   });
 });
 
-app.get('/api/v1/admin/reports', { onRequest: [requireOwnerAuth] }, async () => {
+
+
+// SMS OTP configuration is owner-only and disabled by default. This endpoint only
+// manages settings; it deliberately does not send messages or switch authentication flows.
+app.get('/api/v1/admin/security/sms-otp', { onRequest: [requireOwnerAuth] }, async () => {
+  const result = await pool.query(`SELECT enabled, delivery_mode AS "deliveryMode", provider, sender_id AS "senderId",
+      template_id AS "templateId", (encrypted_api_key <> '') AS "apiKeyConfigured",
+      otp_ttl_seconds AS "otpTtlSeconds", resend_cooldown_seconds AS "resendCooldownSeconds",
+      max_attempts AS "maxAttempts", daily_limit AS "dailyLimit", updated_at AS "updatedAt"
+    FROM sms_otp_settings WHERE id = 1`);
+  return { settings: result.rows[0] ?? { enabled: false, deliveryMode: 'disabled', provider: '', senderId: '', templateId: '', apiKeyConfigured: false, otpTtlSeconds: 120, resendCooldownSeconds: 60, maxAttempts: 5, dailyLimit: 100 } };
+});
+
+app.patch<{ Body: { enabled?: boolean; deliveryMode?: string; provider?: string; senderId?: string; templateId?: string; apiKey?: string; clearApiKey?: boolean; otpTtlSeconds?: number; resendCooldownSeconds?: number; maxAttempts?: number; dailyLimit?: number } }>('/api/v1/admin/security/sms-otp', { onRequest: [requireOwnerAuth] }, async (request, reply) => {
+  const body = request.body ?? {};
+  const currentResult = await pool.query('SELECT * FROM sms_otp_settings WHERE id = 1');
+  const current = currentResult.rows[0];
+  const mode = body.deliveryMode ?? current.delivery_mode;
+  const provider = typeof body.provider === 'string' ? body.provider.trim() : current.provider;
+  const senderId = typeof body.senderId === 'string' ? body.senderId.trim() : current.sender_id;
+  const templateId = typeof body.templateId === 'string' ? body.templateId.trim() : current.template_id;
+  const ttl = body.otpTtlSeconds ?? current.otp_ttl_seconds;
+  const cooldown = body.resendCooldownSeconds ?? current.resend_cooldown_seconds;
+  const attempts = body.maxAttempts ?? current.max_attempts;
+  const dailyLimit = body.dailyLimit ?? current.daily_limit;
+  if (typeof mode !== 'string' || !['disabled', 'development_simulator', 'real_provider'].includes(mode) ||
+      (body.enabled !== undefined && typeof body.enabled !== 'boolean') || provider.length > 80 || senderId.length > 120 || templateId.length > 120 ||
+      !Number.isInteger(ttl) || ttl < 60 || ttl > 600 || !Number.isInteger(cooldown) || cooldown < 30 || cooldown > 600 ||
+      !Number.isInteger(attempts) || attempts < 3 || attempts > 10 || !Number.isInteger(dailyLimit) || dailyLimit < 0 || dailyLimit > 100000 ||
+      (body.apiKey !== undefined && (typeof body.apiKey !== 'string' || body.apiKey.length > 2048))) {
+    return reply.code(400).send({ error: 'Invalid SMS OTP settings.' });
+  }
+  // Activation is a separate owner decision. Provider configuration may be saved
+  // while delivery remains off, so connection checks can be performed without
+  // enabling OTP authentication or automatically sending a message.
+  if (body.enabled === true) {
+    return reply.code(409).send({ error: 'SMS delivery remains disabled. Enabling OTP authentication is not available through this configuration endpoint.' });
+  }
+  if (mode === 'real_provider' && provider !== 'kavenegar') {
+    return reply.code(400).send({ error: 'The selected SMS provider is not supported.' });
+  }
+  let encryptedKey = body.clearApiKey === true ? '' : current.encrypted_api_key;
+  if (body.apiKey) {
+    const keyText = process.env.SMS_CREDENTIALS_ENCRYPTION_KEY?.trim() ?? '';
+    let key: Buffer;
+    try { key = Buffer.from(keyText, 'base64'); } catch { key = Buffer.alloc(0); }
+    if (key.length !== 32) return reply.code(503).send({ error: 'Server-side SMS credentials encryption is not configured.' });
+    const iv = randomBytes(12);
+    const cipher = createCipheriv('aes-256-gcm', key, iv);
+    const ciphertext = Buffer.concat([cipher.update(body.apiKey, 'utf8'), cipher.final()]);
+    encryptedKey = [iv.toString('base64'), cipher.getAuthTag().toString('base64'), ciphertext.toString('base64')].join('.');
+  }
+  const claims = request.user as { sub?: string };
+  await pool.query(`UPDATE sms_otp_settings SET enabled = FALSE, delivery_mode = $1, provider = $2, sender_id = $3,
+      template_id = $4, encrypted_api_key = $5, otp_ttl_seconds = $6, resend_cooldown_seconds = $7,
+      max_attempts = $8, daily_limit = $9, updated_by = $10, updated_at = NOW() WHERE id = 1`,
+    [mode, provider, senderId, templateId, encryptedKey, ttl, cooldown, attempts, dailyLimit, claims.sub ?? null]);
+  await pool.query('INSERT INTO sms_otp_audit_log (actor_user_id, action, details) VALUES ($1, $2, $3::jsonb)',
+    [claims.sub ?? null, 'settings_updated', JSON.stringify({ enabled: false, deliveryMode: mode, provider, apiKeyChanged: Boolean(body.apiKey) || body.clearApiKey === true })]);
+  return { ok: true, settings: { enabled: false, deliveryMode: mode, provider, senderId, templateId,
+    apiKeyConfigured: Boolean(encryptedKey), otpTtlSeconds: ttl, resendCooldownSeconds: cooldown, maxAttempts: attempts, dailyLimit } };
+});
+
+
+app.post('/api/v1/admin/security/sms-otp/test-connection', { onRequest: [requireOwnerAuth] }, async (request, reply) => {
+  const settings = await pool.query(
+    'SELECT delivery_mode, provider, encrypted_api_key FROM sms_otp_settings WHERE id = 1',
+  );
+  const current = settings.rows[0];
+  if (current?.delivery_mode !== 'real_provider' || current.provider !== 'kavenegar') {
+    return reply.code(409).send({ ok: false, error: 'Configure the Kavenegar provider in disabled mode before testing the connection.' });
+  }
+  const apiKey = decryptSmsApiKey(String(current.encrypted_api_key ?? ''));
+  if (!apiKey) return reply.code(409).send({ ok: false, error: 'Provider credentials are not configured or could not be decrypted.' });
+  const result = await createKavenegarProvider().checkConnection(apiKey);
+  const claims = request.user as { sub?: string };
+  await pool.query(
+    'INSERT INTO sms_otp_audit_log (actor_user_id, action, details) VALUES ($1, $2, $3::jsonb)',
+    [claims.sub ?? null, 'connection_check', JSON.stringify({ provider: 'kavenegar', result: result.ok ? 'success' : 'failed' })],
+  );
+  return { ok: result.ok, checkedAt: new Date().toISOString(), message: result.ok ? 'Provider connection succeeded.' : 'Provider connection failed. Check configuration in the provider dashboard.' };
+});
+
+app.post<{ Body: { phone?: string; confirmCost?: boolean } }>('/api/v1/admin/security/sms-otp/test-message', {
+  onRequest: [requireOwnerAuth],
+  config: { rateLimit: { max: 5, timeWindow: '1 hour' } },
+}, async (request, reply) => {
+  const phone = normalizeIranianMobile(request.body?.phone);
+  if (!phone || request.body?.confirmCost !== true) {
+    return reply.code(400).send({ error: 'Provide a valid Iranian test number and explicitly confirm that a real SMS may incur a charge.' });
+  }
+  const settings = await pool.query(
+    'SELECT delivery_mode, provider, template_id, encrypted_api_key FROM sms_otp_settings WHERE id = 1',
+  );
+  const current = settings.rows[0];
+  if (current?.delivery_mode !== 'real_provider' || current.provider !== 'kavenegar' || !String(current.template_id ?? '').trim()) {
+    return reply.code(409).send({ error: 'Configure a supported provider and approved verification template before testing.' });
+  }
+  const apiKey = decryptSmsApiKey(String(current.encrypted_api_key ?? ''));
+  if (!apiKey) return reply.code(409).send({ error: 'Provider credentials are not configured or could not be decrypted.' });
+  const code = createOtpCode();
+  const result = await createKavenegarProvider().sendOtp({
+    apiKey,
+    phoneE164: phone,
+    code,
+    template: String(current.template_id),
+  });
+  const claims = request.user as { sub?: string };
+  const maskedPhone = `***${phone.slice(-4)}`;
+  await pool.query(
+    'INSERT INTO sms_otp_audit_log (actor_user_id, action, details) VALUES ($1, $2, $3::jsonb)',
+    [claims.sub ?? null, 'test_message', JSON.stringify({ provider: 'kavenegar', phone: maskedPhone, result: result.ok ? 'success' : 'failed' })],
+  );
+  if (!result.ok) return reply.code(502).send({ ok: false, error: 'The provider did not accept the test message. Provider details were withheld from logs.' });
+  return { ok: true, message: 'The provider accepted the test message. No OTP value was returned by the API.' };
+});
+
+app.get('/api/v1/admin/security/sms-otp/audit', { onRequest: [requireOwnerAuth] }, async () => {
+  const result = await pool.query(`SELECT l.id, l.action, l.details, l.created_at AS "createdAt", u.username AS "actorUsername"
+    FROM sms_otp_audit_log l LEFT JOIN users u ON u.id = l.actor_user_id ORDER BY l.created_at DESC LIMIT 100`);
+  return { entries: result.rows };
+});
+
+
+app.get('/api/v1/auth/phone-otp/status', async () => {
+  const settings = await pool.query('SELECT enabled, delivery_mode, provider FROM sms_otp_settings WHERE id = 1');
+  const runtime = otpRuntimeAllowed(settings.rows[0]);
+  return { available: runtime.simulator || runtime.live, simulator: runtime.simulator };
+});
+
+/**
+ * Development-only OTP simulator. It deliberately does not authenticate users,
+ * issue JWTs, or send real SMS. Production requests are rejected even if the
+ * database settings are accidentally changed.
+ */
+app.post<{ Body: { phone?: string; purpose?: string } }>('/api/v1/auth/phone-otp/request', {
+  config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
+}, async (request, reply) => {
+  const phone = normalizeIranianMobile(request.body?.phone);
+  const purpose = request.body?.purpose ?? 'verify';
+  if (!phone) return reply.code(400).send({ error: 'Enter a valid Iranian mobile number.' });
+  if (!['verify', 'register', 'login', 'link'].includes(purpose)) {
+    return reply.code(400).send({ error: 'Invalid verification purpose.' });
+  }
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    // Serialize concurrent sends for the same normalized phone so requests cannot
+    // race around the cooldown/daily-limit checks.
+    await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [phone]);
+    await client.query(
+      `DELETE FROM sms_otp_challenges
+        WHERE phone_e164 = $1
+          AND (created_at < NOW() - INTERVAL '2 days'
+               OR (consumed_at IS NOT NULL AND consumed_at < NOW() - INTERVAL '1 day'))`,
+      [phone],
+    );
+    const settingsResult = await client.query(
+      'SELECT enabled, delivery_mode, provider, template_id, encrypted_api_key, otp_ttl_seconds, resend_cooldown_seconds, max_attempts, daily_limit FROM sms_otp_settings WHERE id = 1',
+    );
+    const settings = settingsResult.rows[0];
+    const runtime = otpRuntimeAllowed(settings);
+    if (!runtime.simulator && !runtime.live) {
+      await client.query('ROLLBACK');
+      return reply.code(503).send({ error: 'Phone OTP is not available.' });
+    }
+    if (runtime.live && !String(settings.template_id ?? '').trim()) {
+      await client.query('ROLLBACK');
+      return reply.code(503).send({ error: 'Phone verification provider is not fully configured.' });
+    }
+    const usage = await client.query(
+      `SELECT COUNT(*)::int AS global_daily_count,
+              COUNT(*) FILTER (WHERE phone_e164 = $1)::int AS phone_daily_count,
+              MAX(created_at) FILTER (WHERE phone_e164 = $1) AS last_created_at
+         FROM sms_otp_challenges
+        WHERE created_at >= NOW() - INTERVAL '1 day'`,
+      [phone],
+    );
+    const row = usage.rows[0] ?? {};
+    const dailyLimit = Number(settings.daily_limit ?? 0);
+    if (Number(row.global_daily_count ?? 0) >= dailyLimit ||
+        Number(row.phone_daily_count ?? 0) >= dailyLimit) {
+      await client.query('ROLLBACK');
+      return reply.code(429).send({ error: 'OTP request limit reached. Try again later.' });
+    }
+    if (row.last_created_at &&
+        Date.now() - new Date(row.last_created_at).getTime() < Number(settings.resend_cooldown_seconds) * 1000) {
+      await client.query('ROLLBACK');
+      return reply.code(429).send({ error: 'Please wait before requesting another code.' });
+    }
+
+    // Supersede every previous outstanding challenge before issuing a new one.
+    await client.query(
+      'UPDATE sms_otp_challenges SET consumed_at = NOW() WHERE phone_e164 = $1 AND consumed_at IS NULL',
+      [phone],
+    );
+    const code = createOtpCode();
+    const digest = digestOtp(code, otpPepper);
+    const inserted = await client.query(
+      `INSERT INTO sms_otp_challenges
+         (phone_e164, purpose, otp_salt, otp_digest, max_attempts, expires_at)
+       VALUES ($1, $2, $3, $4, $5, NOW() + ($6 * INTERVAL '1 second'))
+       RETURNING id`,
+      [phone, purpose, digest.salt, digest.digest, settings.max_attempts, settings.otp_ttl_seconds],
+    );
+    const challengeId = inserted.rows[0].id;
+    await client.query('COMMIT');
+
+    if (runtime.live) {
+      const apiKey = decryptSmsApiKey(String(settings.encrypted_api_key ?? ''));
+      if (!apiKey) {
+        await pool.query('UPDATE sms_otp_challenges SET consumed_at = NOW() WHERE id = $1', [challengeId]);
+        return reply.code(503).send({ error: 'Phone verification provider credentials are unavailable.' });
+      }
+      const delivery = await createKavenegarProvider().sendOtp({
+        apiKey,
+        phoneE164: phone,
+        code,
+        template: String(settings.template_id),
+      });
+      await pool.query(
+        'INSERT INTO sms_otp_audit_log (action, details) VALUES ($1, $2::jsonb)',
+        ['otp_delivery', JSON.stringify({ purpose, phone: `***${phone.slice(-4)}`, result: delivery.ok ? 'accepted' : 'failed' })],
+      );
+      if (!delivery.ok) {
+        await pool.query('UPDATE sms_otp_challenges SET consumed_at = NOW() WHERE id = $1', [challengeId]);
+        return reply.code(502).send({ error: 'The verification message could not be delivered.' });
+      }
+      return reply.code(202).send({ ok: true, message: 'If the number is eligible, a verification code has been sent.' });
+    }
+
+    // The test code is only returned by the non-production simulator.
+    return reply.code(202).send({
+      ok: true,
+      message: 'If the number is eligible, a verification code is available in the development simulator.',
+      testCode: code,
+    });
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    request.log.error({ err: error }, 'Phone OTP simulator request failed');
+    return reply.code(500).send({ error: 'Could not request a verification code.' });
+  } finally {
+    client.release();
+  }
+});
+
+app.post<{ Body: { phone?: string; code?: string } }>('/api/v1/auth/phone-otp/verify', {
+  config: { rateLimit: { max: 15, timeWindow: '1 minute' } },
+}, async (request, reply) => {
+  const phone = normalizeIranianMobile(request.body?.phone);
+  const code = typeof request.body?.code === 'string' ? request.body.code.trim() : '';
+  if (!phone || !/^\d{6}$/.test(code)) {
+    return reply.code(400).send({ error: 'Enter a valid Iranian mobile number and six-digit code.' });
+  }
+  const settingsResult = await pool.query(
+    'SELECT enabled, delivery_mode, provider FROM sms_otp_settings WHERE id = 1',
+  );
+  const runtime = otpRuntimeAllowed(settingsResult.rows[0]);
+  if (!runtime.simulator && !runtime.live) {
+    return reply.code(503).send({ error: 'Phone OTP is not available.' });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const verified = await consumeOtpChallenge(client, phone, code, 'verify');
+    await client.query('COMMIT');
+    if (!verified) return reply.code(400).send({ error: 'The verification code is invalid or expired.' });
+    return { verified: true };
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    request.log.error({ err: error }, 'Phone OTP verification failed');
+    return reply.code(500).send({ error: 'Could not verify the code.' });
+  } finally {
+    client.release();
+  }
+});
+
+
+app.post<{ Body: { phone?: string; code?: string; email?: string; password?: string; fullName?: string; country?: string } }>(
+  '/api/v1/auth/phone-otp/register',
+  { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } },
+  async (request, reply) => {
+    const phone = normalizeIranianMobile(request.body?.phone);
+    const code = typeof request.body?.code === 'string' ? request.body.code.trim() : '';
+    const email = typeof request.body?.email === 'string' ? request.body.email.trim().toLowerCase() : '';
+    const fullName = typeof request.body?.fullName === 'string' ? request.body.fullName.trim() : '';
+    const country = typeof request.body?.country === 'string' ? request.body.country.trim() : '';
+    const password = request.body?.password;
+    if (!phone || !/^\d{6}$/.test(code) || !email || email.length > 254 ||
+        !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ||
+        !fullName || fullName.length > 120 || country.length > 80 ||
+        !isValidRegistrationPassword(password)) {
+      return reply.code(400).send({ error: 'Provide a valid Iranian phone, verification code, name, email, and password of at least six characters.' });
+    }
+    const settingsResult = await pool.query('SELECT enabled, delivery_mode, provider FROM sms_otp_settings WHERE id = 1');
+    const runtime = otpRuntimeAllowed(settingsResult.rows[0]);
+    if (!runtime.simulator && !runtime.live) return reply.code(503).send({ error: 'Phone OTP registration is not available.' });
+
+    const salt = randomBytes(16);
+    const derived = await scrypt(password, salt, 64) as Buffer;
+    const passwordHash = `${salt.toString('hex')}:${derived.toString('hex')}`;
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const verified = await consumeOtpChallenge(client, phone, code, 'register');
+      if (!verified) {
+        await client.query('COMMIT');
+        return reply.code(400).send({ error: 'The verification code is invalid or expired.' });
+      }
+      const existing = await client.query(
+        'SELECT id FROM users WHERE LOWER(email) = $1 OR phone_e164 = $2 LIMIT 1',
+        [email, phone],
+      );
+      if (existing.rowCount) {
+        await client.query('COMMIT');
+        return reply.code(409).send({ error: 'An account with this email or verified phone already exists.' });
+      }
+      const created = await client.query(
+        'INSERT INTO users (email, password_hash, full_name, phone, phone_e164, country) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, email, full_name, phone, phone_e164, country, created_at',
+        [email, passwordHash, fullName, phone, phone, country],
+      );
+      const userId = String(created.rows[0].id);
+      const usernameResult = await client.query(
+        'UPDATE users SET username = $1 WHERE id = $2 RETURNING username',
+        [`p${userId}${randomInt(1000, 9999)}`, userId],
+      );
+      const user = { ...created.rows[0], username: usernameResult.rows[0]?.username ?? null };
+      const accessToken = app.jwt.sign({ sub: userId, email }, { expiresIn: '1h' });
+      await client.query('COMMIT');
+      return reply.code(201).send({
+        user: { id: userId, username: user.username, email: user.email, fullName: user.full_name, phone: user.phone, country: user.country, createdAt: user.created_at },
+        accessToken,
+        tokenType: 'Bearer',
+        expiresIn: 3600,
+      });
+    } catch (error) {
+      await client.query('ROLLBACK').catch(() => undefined);
+      if (typeof error === 'object' && error !== null && 'code' in error && error.code === '23505') {
+        await pool.query(
+          'UPDATE sms_otp_challenges SET consumed_at = NOW() WHERE phone_e164 = $1 AND purpose = $2 AND consumed_at IS NULL',
+          [phone, 'register'],
+        ).catch(() => undefined);
+        return reply.code(409).send({ error: 'An account with this email or verified phone already exists.' });
+      }
+      request.log.error({ err: error }, 'Phone OTP registration failed');
+      return reply.code(500).send({ error: 'Could not create account.' });
+    } finally {
+      client.release();
+    }
+  },
+);
+
+app.post<{ Body: { phone?: string; code?: string } }>(
+  '/api/v1/auth/phone-otp/login',
+  { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } },
+  async (request, reply) => {
+    const phone = normalizeIranianMobile(request.body?.phone);
+    const code = typeof request.body?.code === 'string' ? request.body.code.trim() : '';
+    if (!phone || !/^\d{6}$/.test(code)) {
+      return reply.code(400).send({ error: 'Enter a valid Iranian mobile number and six-digit code.' });
+    }
+    const settingsResult = await pool.query('SELECT enabled, delivery_mode, provider FROM sms_otp_settings WHERE id = 1');
+    const runtime = otpRuntimeAllowed(settingsResult.rows[0]);
+    if (!runtime.simulator && !runtime.live) return reply.code(503).send({ error: 'Phone OTP login is not available.' });
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const verified = await consumeOtpChallenge(client, phone, code, 'login');
+      if (!verified) {
+        await client.query('COMMIT');
+        return reply.code(400).send({ error: 'The verification code is invalid or expired.' });
+      }
+      const found = await client.query(
+        'SELECT id, email, username, full_name, phone, country, created_at FROM users WHERE phone_e164 = $1 LIMIT 1',
+        [phone],
+      );
+      if (!found.rowCount) {
+        await client.query('COMMIT');
+        return reply.code(401).send({ error: 'Phone number or verification code is invalid.' });
+      }
+      const user = found.rows[0];
+      const accessToken = app.jwt.sign({ sub: String(user.id), email: user.email }, { expiresIn: '1h' });
+      await client.query('COMMIT');
+      return {
+        user: { id: String(user.id), username: user.username, email: user.email, fullName: user.full_name, phone: user.phone, country: user.country, createdAt: user.created_at },
+        accessToken,
+        tokenType: 'Bearer',
+        expiresIn: 3600,
+      };
+    } catch (error) {
+      await client.query('ROLLBACK').catch(() => undefined);
+      request.log.error({ err: error }, 'Phone OTP login failed');
+      return reply.code(500).send({ error: 'Could not log in with phone.' });
+    } finally {
+      client.release();
+    }
+  },
+);
+
+app.post<{ Body: { phone?: string; code?: string } }>(
+  '/api/v1/auth/phone-otp/link',
+  { onRequest: [requireMatchAuth], config: { rateLimit: { max: 5, timeWindow: '1 minute' } } },
+  async (request, reply) => {
+    const claims = request.user as { sub: string };
+    const phone = normalizeIranianMobile(request.body?.phone);
+    const code = typeof request.body?.code === 'string' ? request.body.code.trim() : '';
+    if (!phone || !/^\d{6}$/.test(code)) {
+      return reply.code(400).send({ error: 'Enter a valid Iranian mobile number and six-digit code.' });
+    }
+    const settingsResult = await pool.query('SELECT enabled, delivery_mode, provider FROM sms_otp_settings WHERE id = 1');
+    const runtime = otpRuntimeAllowed(settingsResult.rows[0]);
+    if (!runtime.simulator && !runtime.live) return reply.code(503).send({ error: 'Phone verification is not available.' });
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const verified = await consumeOtpChallenge(client, phone, code, 'link');
+      if (!verified) {
+        await client.query('COMMIT');
+        return reply.code(400).send({ error: 'The verification code is invalid or expired.' });
+      }
+      const existing = await client.query('SELECT id FROM users WHERE phone_e164 = $1 AND id <> $2 LIMIT 1', [phone, claims.sub]);
+      if (existing.rowCount) {
+        await client.query('COMMIT');
+        return reply.code(409).send({ error: 'This verified phone number is already linked to another account.' });
+      }
+      const updated = await client.query(
+        'UPDATE users SET phone = $1, phone_e164 = $1 WHERE id = $2 RETURNING id, phone_e164 AS "phoneE164"',
+        [phone, claims.sub],
+      );
+      if (!updated.rowCount) {
+        await client.query('COMMIT');
+        return reply.code(404).send({ error: 'Account not found.' });
+      }
+      await client.query('COMMIT');
+      return { ok: true, phoneE164: updated.rows[0].phoneE164 };
+    } catch (error) {
+      await client.query('ROLLBACK').catch(() => undefined);
+      if (typeof error === 'object' && error !== null && 'code' in error && error.code === '23505') {
+        await pool.query(
+          'UPDATE sms_otp_challenges SET consumed_at = NOW() WHERE phone_e164 = $1 AND purpose = $2 AND consumed_at IS NULL',
+          [phone, 'link'],
+        ).catch(() => undefined);
+        return reply.code(409).send({ error: 'This verified phone number is already linked to another account.' });
+      }
+      request.log.error({ err: error }, 'Phone verification linking failed');
+      return reply.code(500).send({ error: 'Could not link phone number.' });
+    } finally {
+      client.release();
+    }
+  },
+);
+
+app.get('/api/v1/admin/reports', { onRequest: [requireOwnerOrPermission('reports.read')] }, async () => {
   const result = await pool.query(
-    `SELECT r.id, r.reported_user_id AS "reportedUserId", target.email AS "reportedEmail",
-            r.reporter_id AS "reporterId", reporter.email AS "reporterEmail",
+    `SELECT r.id, r.reported_user_id AS "reportedUserId", target.username AS "reportedUsername",
+            r.reporter_id AS "reporterId", reporter.username AS "reporterUsername",
             r.reason, r.status, r.created_at AS "createdAt", r.reviewed_at AS "reviewedAt",
             (SELECT COUNT(DISTINCT recent.reporter_id)::int FROM user_reports recent
               WHERE recent.reported_user_id = r.reported_user_id
@@ -735,7 +1641,11 @@ app.get('/api/v1/admin/reports', { onRequest: [requireOwnerAuth] }, async () => 
   return { reports: result.rows };
 });
 
-app.patch<{ Params: { id: string }; Body: { status?: string } }>('/api/v1/admin/reports/:id', { onRequest: [requireOwnerAuth] }, async (request, reply) => {
+app.patch<{ Params: { id: string }; Body: { status?: string } }>('/api/v1/admin/reports/:id', { onRequest: [requireOwnerOrPermission('reports.manage', async (request) => {
+  if (!isNumericId(request.params?.id)) return undefined;
+  const target = await pool.query('SELECT reported_user_id::text AS id FROM user_reports WHERE id = $1', [request.params.id]);
+  return target.rows[0]?.id;
+})] }, async (request, reply) => {
   const { id } = request.params;
   const { status } = request.body ?? {};
   if (!isNumericId(id) || !['reviewed', 'dismissed', 'actioned'].includes(status ?? '')) {
@@ -809,12 +1719,13 @@ app.get('/api/v1/chat/conversations', { onRequest: [requireMatchAuth] }, async (
   const result = await pool.query(
     `SELECT u.id AS "userId", u.username,
             u.avatar_data_url AS "avatarDataUrl",
-            latest.body AS "lastMessage", latest.created_at AS "lastMessageAt",
+            latest.body AS "lastMessage", latest.deleted_for_all AS "lastMessageDeleted",
+            latest.created_at AS "lastMessageAt",
             COALESCE(unread.count, 0)::int AS "unreadCount"
        FROM friendships f
        JOIN users u ON u.id = CASE WHEN f.requester_id = $1 THEN f.addressee_id ELSE f.requester_id END
        LEFT JOIN LATERAL (
-         SELECT body, created_at FROM private_messages
+         SELECT body, deleted_for_all, created_at FROM private_messages
           WHERE (sender_id = $1 AND recipient_id = u.id) OR (sender_id = u.id AND recipient_id = $1)
           ORDER BY created_at DESC LIMIT 1
        ) latest ON TRUE
@@ -923,6 +1834,14 @@ app.delete<{ Params: { userId: string }; Body: { messageIds?: string[]; scope?: 
 
 app.get('/api/v1/notifications', { onRequest: [requireMatchAuth] }, async (request) => {
   const claims = request.user as { sub: string };
+  // Invite notifications are intentionally ephemeral: clear expired cards even
+  // when the user visits Notifications rather than the game lobby.
+  await pool.query(
+    `DELETE FROM notifications
+      WHERE user_id = $1 AND data ? 'inviteId'
+        AND created_at <= NOW() - INTERVAL '10 seconds'`,
+    [claims.sub],
+  );
   const result = await pool.query(
     `SELECT id, type, title, body, data, created_at AS "createdAt",
             read_at AS "readAt", actor_user_id AS "actorUserId"
@@ -939,12 +1858,21 @@ app.post<{ Params: { id: string } }>('/api/v1/notifications/:id/read', { onReque
   const claims = request.user as { sub: string };
   const id = request.params.id;
   if (!isNumericId(id)) return reply.code(400).send({ error: 'Invalid notification id.' });
+  const clearedInvite = await pool.query(
+    `DELETE FROM notifications
+      WHERE id = $1 AND user_id = $2 AND data ? 'inviteId'
+      RETURNING id`,
+    [id, claims.sub],
+  );
+  if (clearedInvite.rowCount) {
+    return { notification: { id: clearedInvite.rows[0].id, readAt: new Date().toISOString() }, cleared: true };
+  }
   const result = await pool.query(
     'UPDATE notifications SET read_at = COALESCE(read_at, NOW()) WHERE id = $1 AND user_id = $2 RETURNING id, read_at AS "readAt"',
     [id, claims.sub],
   );
   if (!result.rowCount) return reply.code(404).send({ error: 'Notification not found.' });
-  return { notification: result.rows[0] };
+  return { notification: result.rows[0], cleared: false };
 });
 
 app.post('/api/v1/notifications/read-all', { onRequest: [requireMatchAuth] }, async (request) => {
@@ -1182,10 +2110,13 @@ app.delete<{ Params: { id: string } }>('/api/v1/friends/:id', { onRequest: [requ
 // Lobby API pairs two authenticated players. It does not accept client-supplied board state.
 
 
+// Backgammon level is derived from Elo rating: level 1 below 1100,
+// then one level per 100 rating points, capped at level 10 from 1900 onward.
 app.get('/api/v1/leaderboard', { onRequest: [requireMatchAuth] }, async (request) => {
   const claims = request.user as { sub: string };
   const result = await pool.query(
     `SELECT s.user_id AS "userId", u.username, u.avatar_data_url AS "avatarDataUrl", s.rating,
+            GREATEST(1, LEAST(10, FLOOR((s.rating - 1000) / 100.0)::int + 1))::int AS level,
             s.games_played AS "gamesPlayed", s.wins, s.losses
        FROM backgammon_player_stats s
        JOIN users u ON u.id = s.user_id
@@ -1194,6 +2125,42 @@ app.get('/api/v1/leaderboard', { onRequest: [requireMatchAuth] }, async (request
       LIMIT 50`,
   );
   return { leaderboard: result.rows, currentUserId: claims.sub };
+});
+
+app.get('/api/v1/leaderboard/weekly', { onRequest: [requireMatchAuth] }, async (request) => {
+  const claims = request.user as { sub: string };
+  const result = await pool.query(
+    `WITH completed AS (
+       SELECT id, host_user_id, guest_user_id,
+              COALESCE(winner_user_id,
+                CASE WHEN COALESCE((off_state->>'host')::int, 0) >= 15 THEN host_user_id
+                     WHEN COALESCE((off_state->>'guest')::int, 0) >= 15 THEN guest_user_id
+                     ELSE NULL END) AS winner_user_id
+         FROM backgammon_matches
+        WHERE status = 'finished' AND updated_at >= NOW() - INTERVAL '7 days'
+     ), participants AS (
+       SELECT host_user_id AS user_id, winner_user_id
+         FROM completed WHERE winner_user_id IS NOT NULL
+       UNION ALL
+       SELECT guest_user_id AS user_id, winner_user_id
+         FROM completed WHERE winner_user_id IS NOT NULL
+     )
+     SELECT p.user_id AS "userId", u.username,
+            u.avatar_data_url AS "avatarDataUrl",
+            COALESCE(s.rating, 1000)::int AS rating,
+            GREATEST(1, LEAST(10, FLOOR((COALESCE(s.rating, 1000) - 1000) / 100.0)::int + 1))::int AS level,
+            COUNT(*)::int AS "gamesPlayed",
+            COUNT(*) FILTER (WHERE p.winner_user_id = p.user_id)::int AS wins,
+            COUNT(*) FILTER (WHERE p.winner_user_id <> p.user_id)::int AS losses,
+            (COUNT(*) FILTER (WHERE p.winner_user_id = p.user_id) * 3)::int AS score
+       FROM participants p
+       JOIN users u ON u.id = p.user_id
+       LEFT JOIN backgammon_player_stats s ON s.user_id = p.user_id
+      GROUP BY p.user_id, u.username, u.avatar_data_url, s.rating
+      ORDER BY score DESC, wins DESC, "gamesPlayed" ASC, LOWER(u.username) ASC
+      LIMIT 50`,
+  );
+  return { leaderboard: result.rows, currentUserId: claims.sub, period: '7d', pointsPerWin: 3 };
 });
 
 app.get('/api/v1/matches/history', { onRequest: [requireMatchAuth] }, async (request) => {
@@ -1228,6 +2195,46 @@ app.get('/api/v1/matches/history', { onRequest: [requireMatchAuth] }, async (req
   return { matches: result.rows };
 });
 
+app.get('/api/v1/matches/live', { onRequest: [requireMatchAuth] }, async (request) => {
+  const claims = request.user as { sub: string };
+  const result = await pool.query(
+    `SELECT m.id, m.room_code AS "roomCode", m.status, m.updated_at AS "updatedAt",
+            host.username AS "hostName", host.avatar_data_url AS "hostAvatarDataUrl",
+            guest.username AS "guestName", guest.avatar_data_url AS "guestAvatarDataUrl"
+       FROM backgammon_matches m
+       JOIN users host ON host.id = m.host_user_id
+       JOIN users guest ON guest.id = m.guest_user_id
+      WHERE m.status = 'active' AND m.spectators_enabled = TRUE
+        AND $1 NOT IN (m.host_user_id, m.guest_user_id)
+        AND (
+          EXISTS (SELECT 1 FROM friendships f WHERE f.status = 'accepted'
+            AND LEAST(f.requester_id, f.addressee_id) = LEAST($1::bigint, m.host_user_id)
+            AND GREATEST(f.requester_id, f.addressee_id) = GREATEST($1::bigint, m.host_user_id))
+          OR EXISTS (SELECT 1 FROM friendships f WHERE f.status = 'accepted'
+            AND LEAST(f.requester_id, f.addressee_id) = LEAST($1::bigint, m.guest_user_id)
+            AND GREATEST(f.requester_id, f.addressee_id) = GREATEST($1::bigint, m.guest_user_id))
+        )
+      ORDER BY m.updated_at DESC LIMIT 30`,
+    [claims.sub],
+  );
+  return { matches: result.rows };
+});
+
+app.post<{ Params: { id: string }; Body: { enabled?: boolean } }>('/api/v1/matches/:id/spectators', { onRequest: [requireMatchAuth] }, async (request, reply) => {
+  const claims = request.user as { sub: string };
+  if (!isNumericId(request.params.id) || typeof request.body?.enabled !== 'boolean') {
+    return reply.code(400).send({ error: 'A valid match id and enabled flag are required.' });
+  }
+  const result = await pool.query(
+    `UPDATE backgammon_matches
+        SET spectators_enabled = $3, updated_at = NOW()
+      WHERE id = $1 AND host_user_id = $2 AND status IN ('waiting', 'active')
+      RETURNING id, spectators_enabled AS "spectatorsEnabled"`,
+    [request.params.id, claims.sub, request.body.enabled],
+  );
+  if (!result.rowCount) return reply.code(404).send({ error: 'Only the host can change spectator access for an available match.' });
+  return { settings: result.rows[0] };
+});
 app.get('/api/v1/matches/open', { onRequest: [requireMatchAuth] }, async (request, reply) => {
   const claims = request.user as { sub: string };
   const result = await pool.query(
@@ -1283,7 +2290,7 @@ app.post<{ Params: { id: string } }>('/api/v1/matches/:id/join', { onRequest: [r
       `UPDATE backgammon_matches SET guest_user_id = $1, status = 'waiting',
               guest_settings_accepted = FALSE, host_ready = FALSE, guest_ready = FALSE,
               cancellation_proposed_by = NULL, cancellation_accepted_by = NULL,
-              updated_at = NOW()
+              expires_at = NOW() + INTERVAL '30 minutes', updated_at = NOW()
          WHERE id = $2`,
       [claims.sub, match.id]);
     await client.query('COMMIT');
@@ -1317,7 +2324,8 @@ app.get<{ Params: { id: string } }>('/api/v1/matches/:id', { onRequest: [require
             COALESCE(h2h.guest_game_points, 0)::int AS "headToHeadGuestPoints",
             COALESCE(h2h.host_match_wins, 0)::int AS "headToHeadHostWins",
             COALESCE(h2h.guest_match_wins, 0)::int AS "headToHeadGuestWins",
-            m.cancellation_proposed_by AS "cancellationProposedBy", (m.cancellation_proposed_by = $2) AS "cancellationProposedByMe"
+            m.cancellation_proposed_by AS "cancellationProposedBy", (m.cancellation_proposed_by = $2) AS "cancellationProposedByMe",
+            m.spectators_enabled AS "spectatorsEnabled"
        FROM backgammon_matches m JOIN users host ON host.id = m.host_user_id
        LEFT JOIN LATERAL (
          SELECT COUNT(*) AS matches_played,
@@ -1343,7 +2351,7 @@ app.get('/api/v1/match-invites', { onRequest: [requireMatchAuth] }, async (reque
   // Hard-delete expired waiting rooms, their invitation rows, and invitation notices.
   await pool.query(`
     WITH expired AS (
-      SELECT id FROM backgammon_matches WHERE status = 'waiting' AND expires_at <= NOW()
+      SELECT id FROM backgammon_matches WHERE status = 'waiting' AND guest_user_id IS NULL AND expires_at <= NOW()
     ), notices AS (
       DELETE FROM notifications
        WHERE data->>'matchId' IN (SELECT id::text FROM expired)
@@ -1410,8 +2418,26 @@ app.post<{ Params: { id: string }; Body: { inviteeId?: string } }>(
         await client.query('ROLLBACK');
         return reply.code(403).send({ error: 'You can invite accepted friends only.' });
       }
-      // A direct invitation is valid for 60 seconds. The room and invite are
-      // physically deleted by the lobby cleanup once the deadline passes.
+      // Expire this friend's old invitation before inserting a replacement.
+      // This lets the host re-invite after the 10-second card timeout even if
+      // the invitee has not reopened the lobby to trigger its cleanup endpoint.
+      await client.query(
+        `UPDATE backgammon_match_invites
+            SET status = 'rejected', responded_at = NOW()
+          WHERE match_id = $1 AND invitee_id = $2 AND status = 'pending'
+            AND created_at <= NOW() - INTERVAL '10 seconds'`,
+        [request.params.id, inviteeId]);
+      await client.query(
+        `DELETE FROM notifications
+          WHERE user_id = $1 AND data->>'inviteId' IN (
+            SELECT id::text FROM backgammon_match_invites
+             WHERE match_id = $2 AND invitee_id = $1 AND status = 'rejected'
+               AND responded_at >= NOW() - INTERVAL '1 minute'
+          )`,
+        [inviteeId, request.params.id]);
+
+      // Keep the waiting room available for 60 seconds, while each invitation
+      // card itself remains valid for only 10 seconds.
       await client.query(
         `UPDATE backgammon_matches SET expires_at = NOW() + INTERVAL '60 seconds', updated_at = NOW()
           WHERE id = $1`,
@@ -2137,6 +3163,48 @@ app.post<{ Params: { id: string }; Body: { expectedVersion: number } }>('/api/v1
 });
 
 // Server-owned game snapshot. Clients can read state but cannot submit a replacement board.
+app.get<{ Params: { id: string } }>('/api/v1/matches/:id/spectate', { onRequest: [requireMatchAuth] }, async (request, reply) => {
+  const claims = request.user as { sub: string };
+  if (!isNumericId(request.params.id)) return reply.code(400).send({ error: 'Invalid match id.' });
+  const result = await pool.query(
+    `SELECT m.id, m.room_code AS "roomCode", m.status,
+            host.username AS "hostName", host.avatar_data_url AS "hostAvatarDataUrl",
+            guest.username AS "guestName", guest.avatar_data_url AS "guestAvatarDataUrl",
+            m.board_state AS board, m.bar_state AS bar, m.off_state AS off,
+            m.current_turn_user_id AS "currentTurnUserId",
+            m.dice, m.remaining_dice AS "remainingDice", m.state_version AS version,
+            m.updated_at AS "updatedAt", m.spectators_enabled AS "spectatorsEnabled"
+       FROM backgammon_matches m
+       JOIN users host ON host.id = m.host_user_id
+       JOIN users guest ON guest.id = m.guest_user_id
+      WHERE m.id = $1 AND m.status = 'active' AND m.spectators_enabled = TRUE
+        AND $2::bigint NOT IN (m.host_user_id, m.guest_user_id)
+        AND (
+          EXISTS (SELECT 1 FROM friendships f WHERE f.status = 'accepted'
+            AND LEAST(f.requester_id, f.addressee_id) = LEAST($2::bigint, m.host_user_id)
+            AND GREATEST(f.requester_id, f.addressee_id) = GREATEST($2::bigint, m.host_user_id))
+          OR EXISTS (SELECT 1 FROM friendships f WHERE f.status = 'accepted'
+            AND LEAST(f.requester_id, f.addressee_id) = LEAST($2::bigint, m.guest_user_id)
+            AND GREATEST(f.requester_id, f.addressee_id) = GREATEST($2::bigint, m.guest_user_id))
+        ) AND m.expires_at > NOW()`,
+    [request.params.id, claims.sub],
+  );
+  if (!result.rowCount) return reply.code(404).send({ error: 'This match is not available for your spectator access.' });
+  const row = result.rows[0];
+  return {
+    match: {
+      id: row.id, roomCode: row.roomCode, status: row.status,
+      hostName: row.hostName, hostAvatarDataUrl: row.hostAvatarDataUrl,
+      guestName: row.guestName, guestAvatarDataUrl: row.guestAvatarDataUrl,
+      spectatorsEnabled: row.spectatorsEnabled,
+    },
+    state: {
+      id: row.id, status: row.status, board: row.board, bar: row.bar, off: row.off,
+      currentTurnUserId: row.currentTurnUserId, isMyTurn: false, isHost: false,
+      dice: row.dice, remainingDice: row.remainingDice, version: row.version, updatedAt: row.updatedAt,
+    },
+  };
+});
 app.get<{ Params: { id: string } }>('/api/v1/matches/:id/state', { onRequest: [requireMatchAuth] }, async (request, reply) => {
   const claims = request.user as { sub: string };
   if (!isNumericId(request.params.id)) return reply.code(400).send({ error: 'Invalid match id.' });

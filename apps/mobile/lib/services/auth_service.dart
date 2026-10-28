@@ -72,6 +72,63 @@ class AuthService {
   static Future<Map<String, dynamic>> login(String email, String password) =>
       _post('/api/v1/auth/login', {'email': email.trim(), 'password': password});
 
+  static Future<Map<String, dynamic>> phoneOtpStatus() async {
+    final base = baseUrl.trim().replaceFirst(RegExp(r'/+$'), '');
+    return _decode(await _send(
+      () => http.get(Uri.parse('$base/api/v1/auth/phone-otp/status')),
+    ));
+  }
+
+  static Future<Map<String, dynamic>> requestPhoneOtp({
+    required String phone,
+    required String purpose,
+  }) => _post('/api/v1/auth/phone-otp/request', {
+        'phone': phone.trim(),
+        'purpose': purpose,
+      });
+
+  static Future<Map<String, dynamic>> registerWithPhoneOtp({
+    required String phone,
+    required String code,
+    required String email,
+    required String password,
+    required String fullName,
+    String country = '',
+  }) => _post('/api/v1/auth/phone-otp/register', {
+        'phone': phone.trim(),
+        'code': code.trim(),
+        'email': email.trim(),
+        'password': password,
+        'fullName': fullName.trim(),
+        'country': country.trim(),
+      });
+
+  static Future<Map<String, dynamic>> loginWithPhoneOtp({
+    required String phone,
+    required String code,
+  }) => _post('/api/v1/auth/phone-otp/login', {
+        'phone': phone.trim(),
+        'code': code.trim(),
+      });
+
+  static Future<Map<String, dynamic>> linkPhoneWithOtp({
+    required String phone,
+    required String code,
+  }) async {
+    final token = await _storage.read(key: 'royal_club_token');
+    if (token == null || token.isEmpty) throw Exception('ابتدا وارد حساب شوید.');
+    final base = baseUrl.trim().replaceFirst(RegExp(r'/+$'), '');
+    final response = await _send(() => http.post(
+      Uri.parse('$base/api/v1/auth/phone-otp/link'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({'phone': phone.trim(), 'code': code.trim()}),
+    ));
+    return _decode(response);
+  }
+
   static Future<Map<String, dynamic>> me() async {
     final token = await _storage.read(key: 'royal_club_token');
     if (token == null || token.isEmpty) throw Exception('ابتدا وارد حساب شوید.');

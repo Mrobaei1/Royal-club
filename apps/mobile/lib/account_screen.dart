@@ -1,11 +1,9 @@
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'l10n/app_text.dart';
 import 'package:image_picker/image_picker.dart';
 import 'services/auth_service.dart';
-
-const _accountGold = Color(0xFFD8B45A);
-const _accountPanel = Color(0xFF17243A);
 
 class AccountScreen extends StatefulWidget {
   final VoidCallback onLogout;
@@ -20,6 +18,7 @@ class _AccountScreenState extends State<AccountScreen> {
   bool _loading = true;
   String? _error;
   bool _avatarSaving = false;
+  bool _phoneOtpAvailable = false;
   final ImagePicker _imagePicker = ImagePicker();
 
   @override
@@ -37,10 +36,16 @@ class _AccountScreenState extends State<AccountScreen> {
           _loading = false;
         });
       }
+      try {
+        final status = await AuthService.phoneOtpStatus();
+        if (mounted) setState(() => _phoneOtpAvailable = status['available'] == true);
+      } catch (_) {
+        if (mounted) setState(() => _phoneOtpAvailable = false);
+      }
     } catch (error) {
       if (mounted) {
         setState(() {
-          _error = error.toString().replaceFirst('Exception: ', '');
+          _error = appError(context, error);
           _loading = false;
         });
       }
@@ -52,12 +57,12 @@ class _AccountScreenState extends State<AccountScreen> {
     final picked = await showDialog<String>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        backgroundColor: _accountPanel,
-        title: const Text('تغییر نام کاربری'),
-        content: TextField(controller: controller, textDirection: TextDirection.ltr, decoration: const InputDecoration(labelText: 'نام کاربری', hintText: 'royal_player7', prefixText: '@', helperText: '۳ تا ۲۴ حرف؛ حروف انگلیسی، عدد، نقطه یا زیرخط')),
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        title: Text(appText(context, 'تغییر نام کاربری', 'Change username')),
+        content: TextField(controller: controller, textDirection: TextDirection.ltr, decoration: InputDecoration(labelText: appText(context, 'نام کاربری', 'Username'), hintText: 'royal_player7', prefixText: '@', helperText: appText(context, '۳ تا ۲۴ حرف؛ حروف انگلیسی، عدد، نقطه یا زیرخط', '3–24 characters; English letters, numbers, dots or underscores'))),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('انصراف')),
-          FilledButton(onPressed: () => Navigator.pop(dialogContext, controller.text.trim()), child: const Text('ذخیره')),
+          TextButton(onPressed: () => Navigator.pop(dialogContext), child: Text(appText(context, 'انصراف', 'Cancel'))),
+          FilledButton(onPressed: () => Navigator.pop(dialogContext, controller.text.trim()), child: Text(appText(context, 'ذخیره', 'Save'))),
         ],
       ),
     );
@@ -68,9 +73,82 @@ class _AccountScreenState extends State<AccountScreen> {
       final updated = await AuthService.updateUsername(picked);
       if (mounted) setState(() { _user?['username'] = updated['username']; _loading = false; });
     } catch (error) {
-      if (mounted) setState(() { _error = error.toString().replaceFirst('Exception: ', ''); _loading = false; });
+      if (mounted) setState(() { _error = appError(context, error); _loading = false; });
     }
   }
+  Future<void> _linkPhoneWithOtp() async {
+    if (!_phoneOtpAvailable || _loading) return;
+    final phoneController = TextEditingController(text: _user?['phone']?.toString() ?? '');
+    final phone = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(appText(context, 'تأیید شماره موبایل', 'Verify mobile number')),
+        content: TextField(
+          controller: phoneController,
+          keyboardType: TextInputType.phone,
+          decoration: InputDecoration(
+            labelText: appText(context, 'شماره موبایل ایران', 'Iranian mobile number'),
+            hintText: '09123456789',
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext), child: Text(appText(context, 'انصراف', 'Cancel'))),
+          FilledButton(onPressed: () => Navigator.pop(dialogContext, phoneController.text.trim()), child: Text(appText(context, 'دریافت کد', 'Send code'))),
+        ],
+      ),
+    );
+    phoneController.dispose();
+    if (phone == null || phone.trim().isEmpty || !mounted) return;
+
+    setState(() { _loading = true; _error = null; });
+    try {
+      final requested = await AuthService.requestPhoneOtp(phone: phone, purpose: 'link');
+      if (!mounted) return;
+      final testCode = requested['testCode']?.toString();
+      final codeController = TextEditingController(text: testCode ?? '');
+      final code = await showDialog<String>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: Text(appText(context, 'کد تأیید تلفن', 'Phone verification code')),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (testCode != null)
+                Text(appText(context, 'کد آزمایشی توسعه: $testCode', 'Development test code: $testCode')),
+              TextField(
+                controller: codeController,
+                keyboardType: TextInputType.number,
+                maxLength: 6,
+                decoration: InputDecoration(labelText: appText(context, 'کد شش‌رقمی', 'Six-digit code')),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(dialogContext), child: Text(appText(context, 'انصراف', 'Cancel'))),
+            FilledButton(onPressed: () => Navigator.pop(dialogContext, codeController.text.trim()), child: Text(appText(context, 'تأیید و پیوند', 'Verify and link'))),
+          ],
+        ),
+      );
+      codeController.dispose();
+      if (code == null || code.isEmpty || !mounted) return;
+      final linked = await AuthService.linkPhoneWithOtp(phone: phone, code: code);
+      if (mounted) {
+        setState(() {
+          _user?['phone'] = linked['phoneE164'] ?? phone;
+          _error = null;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(appText(context, 'شماره تلفن با موفقیت تأیید و پیوند شد.', 'Phone number verified and linked successfully.')),
+        ));
+      }
+    } catch (error) {
+      if (mounted) setState(() => _error = appError(context, error));
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
   Future<void> _pickAvatar() async {
     if (_avatarSaving) return;
     try {
@@ -83,7 +161,7 @@ class _AccountScreenState extends State<AccountScreen> {
       if (image == null || !mounted) return;
       final bytes = await image.readAsBytes();
       if (bytes.length > 650 * 1024) {
-        setState(() => _error = 'حجم تصویر انتخابی زیاد است؛ لطفاً تصویر کوچک‌تری انتخاب کنید.');
+        setState(() => _error = appText(context, 'حجم تصویر انتخابی زیاد است؛ لطفاً تصویر کوچک‌تری انتخاب کنید.', 'The selected image is too large. Please choose a smaller image.'));
         return;
       }
       final extension = image.name.toLowerCase().split('.').last;
@@ -103,7 +181,7 @@ class _AccountScreenState extends State<AccountScreen> {
     } catch (error) {
       if (mounted) {
         setState(() {
-          _error = error.toString().replaceFirst('Exception: ', '');
+          _error = appError(context, error);
           _avatarSaving = false;
         });
       }
@@ -123,10 +201,10 @@ class _AccountScreenState extends State<AccountScreen> {
       children: [
         CircleAvatar(
           radius: 48,
-          backgroundColor: _accountPanel,
+          backgroundColor: Theme.of(context).colorScheme.surface,
           backgroundImage: bytes == null ? null : MemoryImage(bytes),
           child: bytes == null
-              ? const Icon(Icons.account_circle_outlined, color: _accountGold, size: 76)
+              ? Icon(Icons.account_circle_outlined, color: Theme.of(context).colorScheme.primary, size: 76)
               : null,
         ),
         const SizedBox(height: 8),
@@ -135,8 +213,8 @@ class _AccountScreenState extends State<AccountScreen> {
           icon: _avatarSaving
               ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
               : const Icon(Icons.photo_library_outlined),
-          label: Text(_avatarSaving ? 'در حال ذخیره تصویر...' : 'انتخاب عکس پروفایل'),
-          style: OutlinedButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.primary, side: const BorderSide(color: _accountGold)),
+          label: Text(_avatarSaving ? appText(context, 'در حال ذخیره تصویر...', 'Saving image...') : appText(context, 'انتخاب عکس پروفایل', 'Choose profile photo')),
+          style: OutlinedButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.primary, side: BorderSide(color: Theme.of(context).colorScheme.primary)),
         ),
       ],
     );
@@ -147,40 +225,41 @@ class _AccountScreenState extends State<AccountScreen> {
     final nameController = TextEditingController(text: _user?['fullName']?.toString() ?? '');
     final phoneController = TextEditingController(text: _user?['phone']?.toString() ?? '');
     String country = _user?['country']?.toString() ?? 'Germany';
-    const countries = <String, String>{
-      'Germany': 'آلمان', 'Iran': 'ایران', 'United States': 'ایالات متحده',
-      'United Kingdom': 'بریتانیا', 'Turkey': 'ترکیه',
-      'United Arab Emirates': 'امارات متحده عربی', 'Other': 'سایر کشورها',
+    final isEnglish = Localizations.localeOf(context).languageCode == 'en';
+    final countries = <String, String>{
+      'Germany': isEnglish ? 'Germany' : 'آلمان', 'Iran': isEnglish ? 'Iran' : 'ایران', 'United States': isEnglish ? 'United States' : 'ایالات متحده',
+      'United Kingdom': isEnglish ? 'United Kingdom' : 'بریتانیا', 'Turkey': isEnglish ? 'Turkey' : 'ترکیه',
+      'United Arab Emirates': isEnglish ? 'United Arab Emirates' : 'امارات متحده عربی', 'Other': isEnglish ? 'Other' : 'سایر کشورها',
     };
     final picked = await showDialog<Map<String, String>>(
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (dialogContext, setDialogState) => AlertDialog(
-          backgroundColor: _accountPanel,
-          title: const Text('ویرایش اطلاعات حساب'),
+          backgroundColor: Theme.of(context).colorScheme.surface,
+          title: Text(appText(context, 'ویرایش اطلاعات حساب', 'Edit account details')),
           content: SingleChildScrollView(
             child: Column(mainAxisSize: MainAxisSize.min, children: [
               TextField(controller: nameController, textCapitalization: TextCapitalization.words,
-                decoration: const InputDecoration(labelText: 'نام کامل', border: OutlineInputBorder())),
+                decoration: InputDecoration(labelText: appText(context, 'نام کامل', 'Full name'), border: const OutlineInputBorder())),
               const SizedBox(height: 14),
               TextField(controller: phoneController, keyboardType: TextInputType.phone,
-                decoration: const InputDecoration(labelText: 'شماره تلفن', border: OutlineInputBorder())),
+                decoration: InputDecoration(labelText: appText(context, 'شماره تلفن', 'Phone number'), border: const OutlineInputBorder())),
               const SizedBox(height: 14),
               DropdownButtonFormField<String>(
                 initialValue: countries.containsKey(country) ? country : 'Other',
-                decoration: const InputDecoration(labelText: 'کشور', border: OutlineInputBorder()),
+                decoration: InputDecoration(labelText: appText(context, 'کشور', 'Country'), border: const OutlineInputBorder()),
                 items: countries.entries.map((entry) => DropdownMenuItem<String>(value: entry.key, child: Text(entry.value))).toList(),
                 onChanged: (value) { if (value != null) setDialogState(() => country = value); },
               ),
               const SizedBox(height: 10),
-              const Text('ایمیل و شناسه کاربری ثابت‌اند؛ تغییر ایمیل به فرایند امنیتی جداگانه نیاز دارد.', style: TextStyle(color: Colors.white60, fontSize: 12)),
+              Text(appText(context, 'ایمیل و شناسه کاربری ثابت‌اند؛ تغییر ایمیل به فرایند امنیتی جداگانه نیاز دارد.', 'Email and username are fixed; changing the email requires a separate security process.'), style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6), fontSize: 12)),
             ]),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('انصراف')),
+            TextButton(onPressed: () => Navigator.pop(dialogContext), child: Text(appText(context, 'انصراف', 'Cancel'))),
             FilledButton(onPressed: () => Navigator.pop(dialogContext, {
               'fullName': nameController.text.trim(), 'phone': phoneController.text.trim(), 'country': country,
-            }), child: const Text('ذخیره تغییرات')),
+            }), child: Text(appText(context, 'ذخیره تغییرات', 'Save changes'))),
           ],
         ),
       ),
@@ -201,18 +280,18 @@ class _AccountScreenState extends State<AccountScreen> {
         _loading = false;
       });
     } catch (error) {
-      if (mounted) setState(() { _error = error.toString().replaceFirst('Exception: ', ''); _loading = false; });
+      if (mounted) setState(() { _error = appError(context, error); _loading = false; });
     }
   }
 
   Widget _detail(IconData icon, String label, String value) => Card(
         color: Theme.of(context).colorScheme.surface,
         child: ListTile(
-          leading: Icon(icon, color: _accountGold),
+          leading: Icon(icon, color: Theme.of(context).colorScheme.primary),
           title: Text(label,
-              style: const TextStyle(color: Colors.white60, fontSize: 12)),
-          subtitle: Text(value.isEmpty ? 'ثبت نشده' : value,
-              style: const TextStyle(color: Colors.white, fontSize: 15)),
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6), fontSize: 12)),
+          subtitle: Text(value.isEmpty ? appText(context, 'ثبت نشده', 'Not set') : value,
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 15)),
         ),
       );
 
@@ -222,28 +301,28 @@ class _AccountScreenState extends State<AccountScreen> {
         child: Scaffold(
           backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           appBar: AppBar(
-            title: const Text('حساب کاربری'),
+            title: Text(appText(context, 'حساب کاربری', 'Account')),
             backgroundColor: Theme.of(context).scaffoldBackgroundColor,
             foregroundColor: Theme.of(context).colorScheme.primary,
           ),
           body: SafeArea(
             child: _loading
-                ? const Center(
-                    child: CircularProgressIndicator(color: _accountGold))
+                ? Center(
+                    child: CircularProgressIndicator(color: Theme.of(context).colorScheme.primary))
                 : ListView(
                     padding: const EdgeInsets.all(18),
                     children: [
                       _avatar(),
                       const SizedBox(height: 10),
-                      const Text('اطلاعات حساب',
+                      Text(appText(context, 'اطلاعات حساب', 'Account information'),
                           textAlign: TextAlign.center,
                           style: TextStyle(
-                              color: _accountGold,
+                              color: Theme.of(context).colorScheme.primary,
                               fontSize: 22,
                               fontWeight: FontWeight.bold)),
                       const SizedBox(height: 20),
                       if (_error != null)
-                        Text(_error!,
+                        Text(appError(context, _error),
                             textAlign: TextAlign.center,
                             style: const TextStyle(color: Colors.redAccent)),
                       if (_user != null)
@@ -252,7 +331,7 @@ class _AccountScreenState extends State<AccountScreen> {
                           child: FilledButton.icon(
                             onPressed: _editProfile,
                             icon: const Icon(Icons.edit_outlined),
-                            label: const Text('ویرایش اطلاعات حساب'),
+                            label: Text(appText(context, 'ویرایش اطلاعات حساب', 'Edit account details')),
                             style: FilledButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary, foregroundColor: Theme.of(context).colorScheme.onPrimary, padding: const EdgeInsets.all(14)),
                           ),
                         ),
@@ -260,21 +339,27 @@ class _AccountScreenState extends State<AccountScreen> {
                         Card(
                           color: Theme.of(context).colorScheme.surface,
                           child: ListTile(
-                            leading: const Icon(Icons.alternate_email, color: _accountGold),
-                            title: const Text('نام کاربری', style: TextStyle(color: Colors.white60, fontSize: 12)),
-                            subtitle: Text('@${_user!['username']?.toString() ?? 'تنظیم نشده'}', style: const TextStyle(color: Colors.white, fontSize: 16)),
-                            trailing: IconButton(onPressed: _editUsername, icon: const Icon(Icons.edit_outlined, color: _accountGold), tooltip: 'ویرایش نام کاربری'),
+                            leading: Icon(Icons.alternate_email, color: Theme.of(context).colorScheme.primary),
+                            title: Text(appText(context, 'نام کاربری', 'Username'), style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6), fontSize: 12)),
+                            subtitle: Text('@${_user!['username']?.toString() ?? appText(context, 'تنظیم نشده', 'Not set')}', style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 16)),
+                            trailing: IconButton(onPressed: _editUsername, icon: Icon(Icons.edit_outlined, color: Theme.of(context).colorScheme.primary), tooltip: appText(context, 'ویرایش نام کاربری', 'Edit username')),
                           ),
                         ),
-                        _detail(Icons.badge_outlined, 'نام کامل',
+                        _detail(Icons.badge_outlined, appText(context, 'نام کامل', 'Full name'),
                             _user!['fullName']?.toString() ?? ''),
-                        _detail(Icons.email_outlined, 'ایمیل',
+                        _detail(Icons.email_outlined, appText(context, 'ایمیل', 'Email'),
                             _user!['email']?.toString() ?? ''),
-                        _detail(Icons.phone_outlined, 'تلفن',
+                        _detail(Icons.phone_outlined, appText(context, 'تلفن', 'Phone'),
                             _user!['phone']?.toString() ?? ''),
-                        _detail(Icons.public_outlined, 'کشور',
+                        if (_phoneOtpAvailable)
+                          OutlinedButton.icon(
+                            onPressed: _loading ? null : _linkPhoneWithOtp,
+                            icon: const Icon(Icons.verified_user_outlined),
+                            label: Text(appText(context, 'تأیید یا تغییر شماره تلفن', 'Verify or change phone number')),
+                          ),
+                        _detail(Icons.public_outlined, appText(context, 'کشور', 'Country'),
                             _user!['country']?.toString() ?? ''),
-                        _detail(Icons.numbers, 'شناسه کاربری',
+                        _detail(Icons.numbers, appText(context, 'شناسه کاربری', 'User ID'),
                             _user!['id']?.toString() ?? ''),
                       ],
                       const SizedBox(height: 24),
@@ -284,10 +369,10 @@ class _AccountScreenState extends State<AccountScreen> {
                           Navigator.of(context).pop();
                         },
                         icon: const Icon(Icons.logout),
-                        label: const Text('خروج از حساب'),
+                        label: Text(appText(context, 'خروج از حساب', 'Log out')),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: Theme.of(context).colorScheme.primary,
-                          side: const BorderSide(color: _accountGold),
+                          side: BorderSide(color: Theme.of(context).colorScheme.primary),
                           padding: const EdgeInsets.all(14),
                         ),
                       ),

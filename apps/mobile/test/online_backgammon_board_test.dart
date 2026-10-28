@@ -22,9 +22,17 @@ void main() {
       ),
     ));
 
-    expect(find.byType(CustomPaint), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(OnlineBackgammonBoard),
+        matching: find.byType(CustomPaint),
+      ),
+      findsOneWidget,
+    );
     expect(find.byType(GridView), findsNothing);
-    await tester.tapAt(const Offset(10, 35));
+    final boardFinder = find.byType(OnlineBackgammonBoard);
+    final boardTopLeft = tester.getTopLeft(boardFinder);
+    await tester.tapAt(boardTopLeft + const Offset(10, 35));
     await tester.pump();
     expect(tapped, [11]);
   });

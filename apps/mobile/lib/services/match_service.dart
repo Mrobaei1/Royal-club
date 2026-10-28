@@ -53,6 +53,10 @@ class MatchService {
   static Future<List<Map<String, dynamic>>> listOpen() async =>
       ((await _request('GET', '/open'))['matches'] as List? ?? const [])
           .whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
+  static Future<List<Map<String, dynamic>>> listLive() async =>
+      ((await _request('GET', '/live'))['matches'] as List? ?? const [])
+          .whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
+
   static Future<List<Map<String, dynamic>>> history() async =>
       ((await _request('GET', '/history'))['matches'] as List? ?? const [])
           .whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
@@ -66,6 +70,12 @@ class MatchService {
 
   static Future<Map<String, dynamic>> getState(String id) async =>
       Map<String, dynamic>.from((await _request('GET', '/$id/state'))['state'] as Map);
+
+  static Future<Map<String, dynamic>> spectate(String id) async =>
+      await _request('GET', '/$id/spectate');
+
+  static Future<bool> setSpectatorsEnabled(String id, bool enabled) async =>
+      ((await _postJson('/matches/$id/spectators', {'enabled': enabled}))['settings'] as Map)['spectatorsEnabled'] == true;
 
   static Future<Map<String, dynamic>> endTurn(String id, int expectedVersion) async {
     final headers = await _headers();

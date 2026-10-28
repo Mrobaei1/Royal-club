@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'l10n/app_text.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'backgammon_engine.dart';
@@ -13,11 +14,14 @@ const _boardDark = Color(0xFF352B2A);
 
 /// Engine-connected local backgammon screen. No network or account required.
 class EngineBackgammonScreen extends StatefulWidget {
-  const EngineBackgammonScreen({super.key, this.engineForTesting});
+  const EngineBackgammonScreen({super.key, this.engineForTesting, this.vsComputerForTesting = true});
 
   /// Optional engine injection keeps rule-driven UI tests deterministic.
   @visibleForTesting
   final BackgammonEngine? engineForTesting;
+
+  @visibleForTesting
+  final bool vsComputerForTesting;
 
   @override
   State<EngineBackgammonScreen> createState() => _EngineBackgammonScreenState();
@@ -44,11 +48,20 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
     [Color(0xFF7A3151), Color(0xFF54213A), Color(0xFF351529)],
     [Color(0xFF777B85), Color(0xFF4C515D), Color(0xFF30343D)],
   ];
-  static const List<String> _boardThemeNames = ['چوب سلطنتی', 'زمردی', 'آبی یاقوتی', 'زرشکی', 'نقره‌ای'];
+  List<String> get _boardThemeNames => Localizations.localeOf(context).languageCode == 'en' ? ['Royal wood', 'Emerald', 'Sapphire blue', 'Burgundy', 'Silver'] : ['چوب سلطنتی', 'زمردی', 'آبی یاقوتی', 'زرشکی', 'نقره‌ای'];
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_message.isEmpty) {
+      _message = appText(context, 'برای شروع، تاس بریزید.', 'Roll the dice to begin.');
+    }
+  }
 
   @override
   void initState() {
     super.initState();
+    _vsComputer = widget.vsComputerForTesting;
     _timerPlayer = _engine.currentPlayer;
     _lockLandscapeOnMobile();
   }
@@ -77,7 +90,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
 
   int? _selectedPoint;
   bool _selectedBar = false;
-  String _message = 'برای شروع، تاس بریزید.';
+  String _message = '';
   bool _gameOverDialogShown = false;
 
   List<BackgammonMove> get _moves => _engine.legalMoves();
@@ -122,41 +135,56 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
     });
   }
 
-  void _playTimedOutTurn() {
+  Future<void> _playTimedOutTurn() async {
     if (_timeoutMoveRunning || !mounted || _engine.finished ||
         (_vsComputer && _engine.currentPlayer == -1)) {
       return;
     }
     _timeoutMoveRunning = true;
-    setState(() {
-      _selectedPoint = null;
-      _selectedBar = false;
-      var safety = 0;
-      while (!_engine.finished && safety++ < 8) {
-        if (_engine.dice.isEmpty) {
-          final rolled = _engine.rollDice();
-          if (rolled.isEmpty || _engine.finished) {
-            break;
-          }
-        }
-        var moveSafety = 0;
-        while (!_engine.finished && _engine.dice.isNotEmpty && moveSafety++ < 4) {
-          final move = _ai.chooseMove(_engine, difficulty: _difficulty);
-          if (move == null || !_engine.playMove(move)) {
-            break;
-          }
-        }
-        if (_engine.finished || _engine.currentPlayer != _timerPlayer ||
-            _engine.dice.isNotEmpty) {
-          break;
-        }
-        break;
+    _selectedPoint = null;
+    _selectedBar = false;
+
+    // Keep the timeout substitute readable too: reveal a fresh roll, wait three
+    // seconds, then animate each legal move with the same three-second cadence
+    // used by the regular computer turn.
+    if (_engine.dice.isEmpty) {
+      setState(() {
+        final rolled = _engine.rollDice();
+        _message = rolled.isEmpty
+            ? appText(context, 'زمان تمام شد؛ حرکت خودکار آغاز نشد.', 'Time is up; no automatic move was made.')
+            : appText(context, 'زمان تمام شد؛ تاس‌ها: ${_engine.dice.join('، ')}', 'Time is up; dice: ${_engine.dice.join(', ')}');
+      });
+      if (_engine.dice.isNotEmpty) {
+        await Future<void>.delayed(const Duration(seconds: 3));
       }
-      _message = _engine.finished
-          ? 'بازی با پایان زمان و حرکت خودکار تمام شد.'
-          : 'زمان تمام شد؛ هوش مصنوعی حرکت‌های مجاز این نوبت را انجام داد.';
-    });
+    }
+
+    var safety = 0;
+    while (mounted && !_engine.finished && _engine.dice.isNotEmpty && safety++ < 4) {
+      await Future<void>.delayed(const Duration(seconds: 3));
+      if (!mounted || _engine.finished) break;
+      var moved = false;
+      setState(() {
+        final move = _ai.chooseMove(_engine, difficulty: _difficulty);
+        if (move != null) moved = _engine.playMove(move);
+        _message = _engine.finished
+            ? appText(context, 'بازی با پایان زمان و حرکت خودکار تمام شد.', 'The game ended after the timer and automatic move.')
+            : moved
+                ? appText(context, 'حرکت خودکار انجام شد؛ تاس باقی‌مانده: ${_engine.dice.join('، ')}', 'Automatic move made; remaining dice: ${_engine.dice.join(', ')}')
+                : appText(context, 'حرکت قانونی دیگری باقی نمانده است.', 'No legal moves remain.');
+      });
+      if (!moved) break;
+    }
+
+    if (mounted && !_engine.finished) {
+      setState(() {
+        if (_engine.dice.isEmpty) {
+          _message = appText(context, 'زمان تمام شد؛ حرکت‌های مجاز این نوبت انجام شد.', 'Time is up; legal moves for this turn were completed.');
+        }
+      });
+    }
     _timeoutMoveRunning = false;
+    if (!mounted) return;
     if (_engine.finished) {
       _turnTimer?.cancel();
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -177,14 +205,14 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
     return Container(
       padding: EdgeInsets.symmetric(horizontal: compact ? 3 : 5, vertical: 2),
       decoration: BoxDecoration(
-        color: active && seconds <= 5 ? Colors.red.shade900 : _boardNavy,
+        color: active && seconds <= 5 ? Colors.red.shade900 : Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(5),
-        border: Border.all(color: active ? _boardGold : Colors.white24),
+        border: Border.all(color: active ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.24)),
       ),
       child: Text('⏱ $seconds',
         maxLines: 1,
         style: TextStyle(
-          color: active && seconds <= 5 ? Colors.white : _boardGold,
+          color: active && seconds <= 5 ? Theme.of(context).colorScheme.onSurface : Theme.of(context).colorScheme.primary,
           fontSize: compact ? 7 : 10,
           fontWeight: FontWeight.w800,
         )),
@@ -202,16 +230,16 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
       final before = _engine.currentPlayer;
       final dice = _engine.rollDice();
       if (_engine.finished) {
-        _message = 'بازی تمام شده است.';
+        _message = appText(context, 'بازی تمام شده است.', 'The game is over.');
       } else if (dice.isEmpty) {
-        _message = 'حرکت مجاز وجود نداشت؛ نوبت عوض شد.';
+        _message = appText(context, 'حرکت مجاز وجود نداشت؛ نوبت عوض شد.', 'No legal move was available; the turn changed.');
       } else {
         _message =
-            'نوبت ${_playerName(_engine.currentPlayer)} · تاس: ${dice.join('، ')}';
+            appText(context, 'نوبت ${_playerName(_engine.currentPlayer)} · تاس: ${dice.join('، ')}', 'Turn: ${_playerName(_engine.currentPlayer)} · Dice: ${dice.join(', ')}');
       }
       if (before != _engine.currentPlayer && dice.isEmpty) {
         _message =
-            'حرکتی نبود؛ نوبت ${_playerName(_engine.currentPlayer)} است.';
+            appText(context, 'حرکتی نبود؛ نوبت ${_playerName(_engine.currentPlayer)} است.', 'No move was available; it is ${_playerName(_engine.currentPlayer)}’s turn.');
       }
     });
     _startTurnTimer();
@@ -225,18 +253,18 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
       _computerThinking = false;
       _selectedPoint = null;
       _selectedBar = false;
-      _message = 'بازی از ابتدا شروع شد. تاس بریزید.';
+      _message = appText(context, 'بازی از ابتدا شروع شد. تاس بریزید.', 'Game restarted. Roll the dice.');
       _timerPlayer = _engine.currentPlayer;
       _secondsLeft = _turnLimitSeconds;
     });
     _startTurnTimer(reset: true);
   }
 
-  String _playerName(int player) => player == 1 ? 'طلایی' : 'روشن';
+  String _playerName(int player) => player == 1 ? appText(context, 'طلایی', 'Gold') : appText(context, 'روشن', 'Light');
 
   String _profileName(int player) => _vsComputer
-      ? (player == 1 ? 'شما' : 'هوش مصنوعی')
-      : (player == 1 ? 'بازیکن ۱' : 'بازیکن ۲');
+      ? (player == 1 ? appText(context, 'شما', 'You') : appText(context, 'هوش مصنوعی', 'AI'))
+      : (player == 1 ? appText(context, 'بازیکن ۱', 'Player 1') : appText(context, 'بازیکن ۲', 'Player 2'));
 
   void _tapPoint(int point) {
     if (_computerThinking || (_vsComputer && _engine.currentPlayer == -1)) {
@@ -258,7 +286,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
         }
         _selectedPoint = null;
         _selectedBar = false;
-        _message = 'مهره در بار است؛ یکی از خانه‌های سبزرنگ برای ورود را انتخاب کنید.';
+        _message = appText(context, 'مهره در بار است؛ یکی از خانه‌های سبزرنگ برای ورود را انتخاب کنید.', 'A checker is on the bar; select a green point to re-enter.');
         return;
       }
 
@@ -289,7 +317,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
           _engine.points[point] * _engine.currentPlayer > 0) {
         _selectedPoint = point;
         _selectedBar = false;
-        _message = 'مقصد را انتخاب کنید؛ اگر مسیر قانونی باشد، حرکت تجمعی با تاس‌ها هم انجام می‌شود.';
+        _message = appText(context, 'مقصد را انتخاب کنید؛ اگر مسیر قانونی باشد، حرکت تجمعی با تاس‌ها هم انجام می‌شود.', 'Choose a destination. If the route is legal, the dice can be combined for a cumulative move.');
       } else {
         _selectedPoint = null;
         _selectedBar = false;
@@ -357,16 +385,16 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
     _selectedPoint = null;
     _selectedBar = false;
     if (!allPlayed) {
-      _message = 'حرکت تجمعی کامل نشد؛ لطفاً دوباره انتخاب کنید.';
+      _message = appText(context, 'حرکت تجمعی کامل نشد؛ لطفاً دوباره انتخاب کنید.', 'The cumulative move could not be completed. Please choose again.');
     } else if (_engine.finished) {
-      _message = 'تبریک! بازیکن ${_playerName(_engine.winner!)} برنده شد.';
+      _message = appText(context, 'تبریک! بازیکن ${_playerName(_engine.winner!)} برنده شد.', 'Congratulations! ${_playerName(_engine.winner!)} won the game.');
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _showGameOverDialog();
       });
     } else if (_engine.dice.isEmpty) {
-      _message = 'نوبت ${_playerName(_engine.currentPlayer)} است؛ تاس بریزید.';
+      _message = appText(context, 'نوبت ${_playerName(_engine.currentPlayer)} است؛ تاس بریزید.', 'It is ${_playerName(_engine.currentPlayer)}’s turn. Roll the dice.');
     } else {
-      _message = 'حرکت تجمعی انجام شد؛ تاس باقی‌مانده: ${_engine.dice.join('، ')}';
+      _message = appText(context, 'حرکت تجمعی انجام شد؛ تاس باقی‌مانده: ${_engine.dice.join('، ')}', 'Cumulative move completed; remaining dice: ${_engine.dice.join(', ')}');
     }
     _startTurnTimer();
     _scheduleComputerTurn();
@@ -379,14 +407,14 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
     if (_engine.finished || _engine.dice.isEmpty) return;
     setState(() {
       if (_selectedPoint == null || _selectedBar) {
-        _message = 'ابتدا مهره‌ای را که می‌خواهید خارج کنید انتخاب کنید.';
+        _message = appText(context, 'ابتدا مهره‌ای را که می‌خواهید خارج کنید انتخاب کنید.', 'Select the checker you want to bear off first.');
         return;
       }
       final candidates = _moves
           .where((m) => !m.fromBar && m.from == _selectedPoint && m.to == -1)
           .toList();
       if (candidates.isEmpty) {
-        _message = 'با تاس فعلی، خارج کردن این مهره مجاز نیست.';
+        _message = appText(context, 'با تاس فعلی، خارج کردن این مهره مجاز نیست.', 'This checker cannot be borne off with the current dice.');
         return;
       }
       _play(candidates.first);
@@ -398,18 +426,18 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
     _selectedPoint = null;
     _selectedBar = false;
     if (!ok) {
-      _message = 'این حرکت مجاز نیست.';
+      _message = appText(context, 'این حرکت مجاز نیست.', 'That move is not legal.');
       return;
     }
     if (_engine.finished) {
-      _message = 'تبریک! بازیکن ${_playerName(_engine.winner!)} برنده شد.';
+      _message = appText(context, 'تبریک! بازیکن ${_playerName(_engine.winner!)} برنده شد.', 'Congratulations! ${_playerName(_engine.winner!)} won the game.');
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _showGameOverDialog();
       });
     } else if (_engine.dice.isEmpty) {
-      _message = 'نوبت ${_playerName(_engine.currentPlayer)} است؛ تاس بریزید.';
+      _message = appText(context, 'نوبت ${_playerName(_engine.currentPlayer)} است؛ تاس بریزید.', 'It is ${_playerName(_engine.currentPlayer)}’s turn. Roll the dice.');
     } else {
-      _message = 'حرکت انجام شد؛ تاس باقی‌مانده: ${_engine.dice.join('، ')}';
+      _message = appText(context, 'حرکت انجام شد؛ تاس باقی‌مانده: ${_engine.dice.join('، ')}', 'Move completed; remaining dice: ${_engine.dice.join(', ')}');
     }
     _startTurnTimer();
     _scheduleComputerTurn();
@@ -433,25 +461,25 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
         if (_engine.dice.isEmpty) {
           final rolled = _engine.rollDice();
           if (rolled.isEmpty) {
-            _message = 'نوبت کامپیوتر بدون حرکت تمام شد.';
+            _message = appText(context, 'نوبت کامپیوتر بدون حرکت تمام شد.', 'The computer turn ended without a move.');
             _computerThinking = false;
             return;
           }
           // Show the rolled dice for a full three seconds before the first move.
           _computerThinking = false;
-          _message = 'تاس کامپیوتر: ${_engine.dice.join('، ')}';
+          _message = appText(context, 'تاس کامپیوتر: ${_engine.dice.join('، ')}', 'Computer dice: ${_engine.dice.join(', ')}');
           return;
         }
         final move = _ai.chooseMove(_engine, difficulty: _difficulty);
         if (move != null) _engine.playMove(move);
         _computerThinking = false;
         if (_engine.finished) {
-          _message = 'کامپیوتر برنده شد.';
+          _message = appText(context, 'کامپیوتر برنده شد.', 'The computer won.');
         } else if (_engine.currentPlayer == 1) {
-          _message = 'نوبت شماست؛ تاس بریزید.';
+          _message = appText(context, 'نوبت شماست؛ تاس بریزید.', 'Your turn. Roll the dice.');
         } else {
           _message =
-              'نوبت کامپیوتر است؛ تاس باقی‌مانده: ${_engine.dice.join('، ')}';
+              appText(context, 'نوبت کامپیوتر است؛ تاس باقی‌مانده: ${_engine.dice.join('، ')}', 'Computer turn; remaining dice: ${_engine.dice.join(', ')}');
         }
       });
       if (!_engine.finished && _engine.currentPlayer != _timerPlayer) {
@@ -468,23 +496,6 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
     });
   }
 
-  void _changeMode(bool vsComputer) {
-    setState(() {
-      _vsComputer = vsComputer;
-      _engine.reset();
-      _gameOverDialogShown = false;
-      _computerThinking = false;
-      _selectedPoint = null;
-      _selectedBar = false;
-      _message = vsComputer
-          ? 'بازی با هوش مصنوعی؛ تاس بریزید.'
-          : 'بازی دونفره محلی؛ تاس بریزید.';
-      _timerPlayer = _engine.currentPlayer;
-      _secondsLeft = _turnLimitSeconds;
-    });
-    _startTurnTimer(reset: true);
-  }
-
   void _showGameOverDialog() {
     if (_gameOverDialogShown || !mounted || !_engine.finished) return;
     _gameOverDialogShown = true;
@@ -496,13 +507,13 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
       builder: (dialogContext) => Directionality(
         textDirection: (Localizations.localeOf(context).languageCode == 'en' ? TextDirection.ltr : TextDirection.rtl),
         child: AlertDialog(
-          backgroundColor: const Color(0xFF1A2540),
-          icon: const Icon(Icons.emoji_events, color: _boardGold, size: 42),
-          title: const Text('پایان بازی',
-              style: TextStyle(color: _boardGold, fontWeight: FontWeight.bold)),
-          content: Text('تبریک! بازیکن $winner برنده شد 🎉',
+          backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+          icon: Icon(Icons.emoji_events, color: Theme.of(context).colorScheme.primary, size: 42),
+          title: Text(appText(context, 'پایان بازی', 'Game over'),
+              style: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.bold)),
+          content: Text(appText(context, 'تبریک! بازیکن $winner برنده شد 🎉', 'Congratulations! $winner won 🎉'),
               textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.white, fontSize: 17)),
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 17)),
           actionsAlignment: MainAxisAlignment.center,
           actions: [
             FilledButton.icon(
@@ -511,9 +522,9 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
                 _reset();
               },
               icon: const Icon(Icons.refresh),
-              label: const Text('بازی مجدد'),
+              label: Text(appText(context, 'بازی مجدد', 'Play again')),
               style: FilledButton.styleFrom(
-                  backgroundColor: _boardGold, foregroundColor: _boardNavy),
+                  backgroundColor: Theme.of(context).colorScheme.primary, foregroundColor: Theme.of(context).colorScheme.onPrimary),
             ),
             OutlinedButton.icon(
               onPressed: () {
@@ -521,10 +532,10 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
                 navigator.maybePop();
               },
               icon: const Icon(Icons.exit_to_app),
-              label: const Text('خروج از بازی'),
+              label: Text(appText(context, 'خروج از بازی', 'Exit game')),
               style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.white,
-                  side: const BorderSide(color: _boardGold)),
+                  foregroundColor: Theme.of(context).colorScheme.onSurface,
+                  side: BorderSide(color: Theme.of(context).colorScheme.primary)),
             ),
           ],
         ),
@@ -561,14 +572,14 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
             ? null
             : AppBar(
                 toolbarHeight: 48,
-                backgroundColor: _boardNavy,
+                backgroundColor: Theme.of(context).colorScheme.surface,
                 foregroundColor: Theme.of(context).colorScheme.primary,
-                title: const Text('تخته‌نرد سلطنتی',
+                title: Text(appText(context, 'تخته‌نرد سلطنتی', 'Royal Backgammon'),
                     style:
                         TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                 actions: [
                   IconButton(
-                    tooltip: 'شروع مجدد',
+                    tooltip: appText(context, 'شروع مجدد', 'Restart'),
                     onPressed: _reset,
                     icon: const Icon(Icons.refresh),
                   ),
@@ -611,20 +622,20 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
                     child: OutlinedButton.icon(
                       onPressed: _reset,
                       icon: const Icon(Icons.restart_alt),
-                      label: const Text('شروع مجدد'),
+                      label: Text(appText(context, 'شروع مجدد', 'Restart')),
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: _boardGold,
-                        side: const BorderSide(color: _boardGold),
+                        foregroundColor: Theme.of(context).colorScheme.primary,
+                        side: BorderSide(color: Theme.of(context).colorScheme.primary),
                         padding: const EdgeInsets.symmetric(
                             vertical: 12, horizontal: 20),
                       ),
                     ),
                   ),
                   const SizedBox(height: 10),
-                  const Text(
-                    'نسخه آزمایشی محلی · بازی با هوش مصنوعی یا دونفره روی یک دستگاه',
+                  Text(
+                    appText(context, 'نسخه آزمایشی محلی · تمرین با هوش مصنوعی', 'Local test version · practice with AI'),
                     textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.white54, fontSize: 12),
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.54), fontSize: 12),
                   ),
                 ],
               );
@@ -638,11 +649,11 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
   Widget _entryScreen() => Directionality(
         textDirection: (Localizations.localeOf(context).languageCode == 'en' ? TextDirection.ltr : TextDirection.rtl),
         child: Scaffold(
-          backgroundColor: _boardNavy,
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           appBar: AppBar(
-            backgroundColor: _boardNavy,
-            foregroundColor: _boardGold,
-            title: const Text('تخته‌نرد سلطنتی'),
+            backgroundColor: Theme.of(context).colorScheme.surface,
+            foregroundColor: Theme.of(context).colorScheme.primary,
+            title: Text(appText(context, 'تخته‌نرد سلطنتی', 'Royal Backgammon')),
           ),
           body: Center(
             child: ConstrainedBox(
@@ -653,31 +664,30 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const Icon(Icons.workspace_premium, color: _boardGold, size: 64),
+                    Icon(Icons.workspace_premium, color: Theme.of(context).colorScheme.primary, size: 64),
                     const SizedBox(height: 16),
-                    const Text('روش بازی را انتخاب کنید',
+                    Text(appText(context, 'روش بازی را انتخاب کنید', 'Choose a game mode'),
                       textAlign: TextAlign.center,
-                      style: TextStyle(color: _boardGold, fontSize: 24, fontWeight: FontWeight.bold)),
+                      style: TextStyle(color: Theme.of(context).colorScheme.primary, fontSize: 24, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 10),
-                    const Text('بازی آفلاین برای تمرین به اینترنت نیاز ندارد. برای رقابت با بازیکنان دیگر، بازی آنلاین را انتخاب کنید.',
+                    Text(appText(context, 'بازی آفلاین برای تمرین به اینترنت نیاز ندارد. برای رقابت با بازیکنان دیگر، بازی آنلاین را انتخاب کنید.', 'Offline practice does not require internet. Choose online play to compete with other players.'),
                       textAlign: TextAlign.center,
-                      style: TextStyle(color: Colors.white70, height: 1.5)),
+                      style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7), height: 1.5)),
                     const SizedBox(height: 24),
                     FilledButton.icon(
                       onPressed: () {
                         setState(() {
-                          _vsComputer = true;
                           _modeChosen = true;
                           _engine.reset();
-                          _message = 'بازی آفلاین با هوش مصنوعی؛ تاس بریزید.';
+                          _message = appText(context, 'بازی آفلاین با هوش مصنوعی؛ تاس بریزید.', 'Offline game with AI; roll the dice.');
                           _timerPlayer = _engine.currentPlayer;
                           _secondsLeft = _turnLimitSeconds;
                         });
                         _startTurnTimer(reset: true);
                       },
                       icon: const Icon(Icons.psychology),
-                      label: const Text('بازی آفلاین با هوش مصنوعی'),
-                      style: FilledButton.styleFrom(backgroundColor: _boardGold, foregroundColor: _boardNavy, padding: const EdgeInsets.symmetric(vertical: 16)),
+                      label: Text(appText(context, 'بازی آفلاین با هوش مصنوعی', 'Offline vs AI')),
+                      style: FilledButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary, foregroundColor: Theme.of(context).colorScheme.onPrimary, padding: const EdgeInsets.symmetric(vertical: 16)),
                     ),
                     const SizedBox(height: 12),
                     OutlinedButton.icon(
@@ -685,8 +695,8 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
                         Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const OnlineLobbyScreen()));
                       },
                       icon: const Icon(Icons.public),
-                      label: const Text('بازی آنلاین'),
-                      style: OutlinedButton.styleFrom(foregroundColor: _boardGold, side: const BorderSide(color: _boardGold), padding: const EdgeInsets.symmetric(vertical: 16)),
+                      label: Text(appText(context, 'بازی آنلاین', 'Online game')),
+                      style: OutlinedButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.primary, side: BorderSide(color: Theme.of(context).colorScheme.primary), padding: const EdgeInsets.symmetric(vertical: 16)),
                     ),
                   ],
                 ),
@@ -700,71 +710,48 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
         padding: EdgeInsets.symmetric(
             horizontal: compact ? 6 : 10, vertical: compact ? 4 : 8),
         decoration: BoxDecoration(
-          color: const Color(0xFF1A2540),
+          color: Theme.of(context).colorScheme.surfaceContainerHighest,
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: _boardGold.withValues(alpha: .4)),
+          border: Border.all(color: Theme.of(context).colorScheme.primary.withValues(alpha: .4)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Wrap(alignment: WrapAlignment.center, spacing: 6, children: [
-              ChoiceChip(
-                label: Text(compact ? 'با هوش مصنوعی' : 'بازی با هوش مصنوعی',
-                    style: TextStyle(fontSize: compact ? 10 : 12)),
-                selected: _vsComputer,
-                onSelected: _computerThinking ? null : (_) => _changeMode(true),
-                selectedColor: _boardGold,
-                labelStyle:
-                    TextStyle(color: _vsComputer ? _boardNavy : Colors.white),
-                visualDensity: VisualDensity.compact,
-              ),
-              ChoiceChip(
-                label: Text(compact ? 'دونفره' : 'بازی دونفره',
-                    style: TextStyle(fontSize: compact ? 10 : 12)),
-                selected: !_vsComputer,
-                onSelected:
-                    _computerThinking ? null : (_) => _changeMode(false),
-                selectedColor: _boardGold,
-                labelStyle:
-                    TextStyle(color: !_vsComputer ? _boardNavy : Colors.white),
-                visualDensity: VisualDensity.compact,
-              ),
-            ]),
             Row(children: [
-              Text('تم صفحه بازی:', style: TextStyle(color: Colors.white70, fontSize: compact ? 10 : 12)),
+              Text(appText(context, 'تم صفحه بازی:', 'Board theme:'), style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7), fontSize: compact ? 10 : 12)),
               const SizedBox(width: 8),
               Expanded(child: DropdownButtonHideUnderline(child: DropdownButton<int>(
                 value: _boardThemeIndex,
                 isExpanded: true,
-                dropdownColor: _boardNavy,
-                style: TextStyle(color: _boardGold, fontSize: compact ? 11 : 13),
+                dropdownColor: Theme.of(context).colorScheme.surface,
+                style: TextStyle(color: Theme.of(context).colorScheme.primary, fontSize: compact ? 11 : 13),
                 items: List.generate(_boardThemeNames.length, (i) => DropdownMenuItem(value: i, child: Text(_boardThemeNames[i]))),
                 onChanged: (value) { if (value != null) setState(() => _boardThemeIndex = value); },
               ))),
             ]),
             if (_vsComputer)
               Row(children: [
-                Text('سختی:',
+                Text(appText(context, 'سختی:', 'Difficulty:'),
                     style: TextStyle(
-                        color: Colors.white70, fontSize: compact ? 10 : 12)),
+                        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7), fontSize: compact ? 10 : 12)),
                 const SizedBox(width: 8),
                 Expanded(
                     child: DropdownButtonHideUnderline(
                   child: DropdownButton<BackgammonDifficulty>(
                     value: _difficulty,
                     isExpanded: true,
-                    dropdownColor: _boardNavy,
+                    dropdownColor: Theme.of(context).colorScheme.surface,
                     style: TextStyle(
-                        color: _boardGold, fontSize: compact ? 11 : 13),
-                    items: const [
+                        color: Theme.of(context).colorScheme.primary, fontSize: compact ? 11 : 13),
+                    items: [
                       DropdownMenuItem(
                           value: BackgammonDifficulty.easy,
-                          child: Text('آسان')),
+                          child: Text(appText(context, 'آسان', 'Easy'))),
                       DropdownMenuItem(
                           value: BackgammonDifficulty.medium,
-                          child: Text('متوسط')),
+                          child: Text(appText(context, 'متوسط', 'Medium'))),
                       DropdownMenuItem(
-                          value: BackgammonDifficulty.hard, child: Text('سخت')),
+                          value: BackgammonDifficulty.hard, child: Text(appText(context, 'سخت', 'Hard'))),
                     ],
                     onChanged: _computerThinking
                         ? null
@@ -804,10 +791,10 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
                     child: OutlinedButton.icon(
                       onPressed: _reset,
                       icon: const Icon(Icons.restart_alt, size: 18),
-                      label: const Text('شروع مجدد'),
+                      label: Text(appText(context, 'شروع مجدد', 'Restart')),
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: _boardGold,
-                        side: const BorderSide(color: _boardGold),
+                        foregroundColor: Theme.of(context).colorScheme.primary,
+                        side: BorderSide(color: Theme.of(context).colorScheme.primary),
                         padding: const EdgeInsets.symmetric(
                             vertical: 9, horizontal: 8),
                         visualDensity: VisualDensity.compact,
@@ -976,14 +963,14 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
 
   Widget _diceTray({bool compact = false}) {
     if (_engine.dice.isEmpty) {
-      return const Row(
+      return Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.casino_outlined, color: Colors.white54, size: 21),
-          SizedBox(width: 4),
+          const Icon(Icons.casino_outlined, color: Colors.white54, size: 21),
+          const SizedBox(width: 4),
           Flexible(
             child: Text(
-              'تاس‌های بازی',
+              appText(context, 'تاس‌های بازی', 'Game dice'),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(color: Colors.white60, fontSize: 10),
@@ -1049,7 +1036,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
               ? _roll
               : null,
           icon: Icon(Icons.casino, size: compact ? 17 : 21),
-          label: Text('ریختن تاس', style: TextStyle(fontSize: compact ? 12 : 15)),
+          label: Text(appText(context, 'ریختن تاس', 'Roll dice'), style: TextStyle(fontSize: compact ? 12 : 15)),
           style: FilledButton.styleFrom(
             backgroundColor: _boardGold,
             foregroundColor: _boardNavy,
@@ -1092,7 +1079,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
               children: [
               Icon(Icons.inventory_2_outlined, color: _boardGold, size: compact ? 10 : 16),
               Text(
-                offPlayer == 1 ? 'طلایی' : 'مشکی',
+                offPlayer == 1 ? appText(context, 'طلایی', 'Gold') : appText(context, 'مشکی', 'Black'),
                 style: TextStyle(color: Colors.white70, fontSize: compact ? 6 : 9),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -1404,7 +1391,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
               ),
             ),
             if (active)
-              const Text('نوبت حرکت', style: TextStyle(color: _boardGold, fontSize: 9)),
+              Text(appText(context, 'نوبت حرکت', 'Move turn'), style: TextStyle(color: _boardGold, fontSize: 9)),
           ],
         ),
       ),
@@ -1442,15 +1429,15 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _profileStatRow('تعداد بازی', 'هنوز ثبت نشده'),
-              _profileStatRow('امتیاز', 'هنوز ثبت نشده'),
-              _profileStatRow('تعداد برد', 'هنوز ثبت نشده'),
-              _profileStatRow('سطح بازیکن', player == -1 && _vsComputer
-                  ? 'هوش مصنوعی · متوسط'
-                  : 'هنوز تعیین نشده'),
+              _profileStatRow(appText(context, 'تعداد بازی', 'Games played'), appText(context, 'هنوز ثبت نشده', 'Not recorded yet')),
+              _profileStatRow(appText(context, 'امتیاز', 'Rating'), appText(context, 'هنوز ثبت نشده', 'Not recorded yet')),
+              _profileStatRow(appText(context, 'تعداد برد', 'Wins'), appText(context, 'هنوز ثبت نشده', 'Not recorded yet')),
+              _profileStatRow(appText(context, 'سطح بازیکن', 'Player level'), player == -1 && _vsComputer
+                  ? appText(context, 'هوش مصنوعی · متوسط', 'AI · Medium')
+                  : appText(context, 'هنوز تعیین نشده', 'Not set yet')),
               const SizedBox(height: 8),
-              const Text(
-                'آمار واقعی پس از اتصال سابقه بازی و رتبه‌بندی نمایش داده می‌شود.',
+              Text(
+                appText(context, 'آمار واقعی پس از اتصال سابقه بازی و رتبه‌بندی نمایش داده می‌شود.', 'Real statistics will appear after game history and ranking are connected.'),
                 style: TextStyle(color: Colors.white60, fontSize: 12),
               ),
             ],
@@ -1458,7 +1445,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('بستن', style: TextStyle(color: _boardGold)),
+              child: Text(appText(context, 'بستن', 'Close'), style: TextStyle(color: _boardGold)),
             ),
           ],
         ),

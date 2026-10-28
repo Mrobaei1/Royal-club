@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:royal_club/backgammon_engine.dart';
@@ -24,14 +25,17 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    await tester.pumpWidget(const MaterialApp(home: EngineBackgammonScreen()));
+    await tester.pumpWidget(const MaterialApp(locale: Locale('fa'), localizationsDelegates: GlobalMaterialLocalizations.delegates,
+      supportedLocales: [Locale('fa'), Locale('en')], home: EngineBackgammonScreen()));
     await tester.pump();
     expect(find.text('روش بازی را انتخاب کنید'), findsOneWidget);
     await tester.tap(find.text('بازی آفلاین با هوش مصنوعی'));
     await tester.pumpAndSettle();
 
     expect(find.text('تخته‌نرد سلطنتی'), findsOneWidget);
-    expect(find.text('بازی با هوش مصنوعی'), findsOneWidget);
+    expect(find.text('بازی با هوش مصنوعی'), findsNothing);
+    expect(find.text('بازی دونفره'), findsNothing);
+    expect(find.text('بازی آفلاین با هوش مصنوعی؛ تاس بریزید.'), findsOneWidget);
     expect(find.text('تم صفحه بازی:'), findsOneWidget);
     await tester.scrollUntilVisible(
       find.text('شروع مجدد'),
@@ -40,31 +44,48 @@ void main() {
     );
     expect(find.text('شروع مجدد'), findsOneWidget);
     await tester.scrollUntilVisible(
-      find.text('نسخه آزمایشی محلی · بازی با هوش مصنوعی یا دونفره روی یک دستگاه'),
+      find.text('نسخه آزمایشی محلی · تمرین با هوش مصنوعی'),
       300,
       scrollable: find.byType(Scrollable).first,
     );
-    expect(find.text('نسخه آزمایشی محلی · بازی با هوش مصنوعی یا دونفره روی یک دستگاه'),
+    expect(find.text('نسخه آزمایشی محلی · تمرین با هوش مصنوعی'),
         findsOneWidget);
   });
 
-  testWidgets('switching to local two-player mode updates the game status',
+  testWidgets('English locale renders backgammon setup and controls in English',
       (tester) async {
-    tester.view.physicalSize = const Size(390, 844);
+    tester.view.physicalSize = const Size(900, 540);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-
-    await tester.pumpWidget(const MaterialApp(home: EngineBackgammonScreen()));
-    await tester.pump();
-    await tester.tap(find.text('بازی آفلاین با هوش مصنوعی'));
+    await tester.pumpWidget(const MaterialApp(
+      locale: Locale('en'),
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
+      supportedLocales: [Locale('fa'), Locale('en')],
+      home: EngineBackgammonScreen(),
+    ));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('بازی دونفره'));
-    await tester.pump();
+    expect(find.text('Choose a game mode'), findsOneWidget);
+    expect(find.text('Royal Backgammon'), findsOneWidget);
+    await tester.tap(find.text('Offline vs AI'));
+    await tester.pumpAndSettle();
 
-    expect(find.text('بازی دونفره محلی؛ تاس بریزید.'), findsOneWidget);
+
+    expect(find.text('Restart'), findsWidgets);
+    expect(find.text('Roll dice'), findsOneWidget);
   });
+
+  testWidgets('offline game does not expose a local two-player mode selector',
+      (tester) async {
+    await tester.pumpWidget(const MaterialApp(locale: Locale('fa'), localizationsDelegates: GlobalMaterialLocalizations.delegates,
+      supportedLocales: [Locale('fa'), Locale('en')], home: EngineBackgammonScreen()));
+    await tester.tap(find.text('بازی آفلاین با هوش مصنوعی'));
+    await tester.pumpAndSettle();
+    expect(find.text('بازی دونفره'), findsNothing);
+    expect(find.text('بازی با هوش مصنوعی'), findsNothing);
+  });
+
   testWidgets('tapping a legal destination enters a checker directly from the bar',
       (tester) async {
     tester.view.physicalSize = const Size(390, 844);
@@ -74,11 +95,10 @@ void main() {
 
     final engine = BackgammonEngine();
     await tester.pumpWidget(
-      MaterialApp(home: EngineBackgammonScreen(engineForTesting: engine)),
+      MaterialApp(locale: const Locale('fa'), localizationsDelegates: GlobalMaterialLocalizations.delegates,
+      supportedLocales: [Locale('fa'), Locale('en')], home: EngineBackgammonScreen(engineForTesting: engine, vsComputerForTesting: false)),
     );
     await tester.tap(find.text('بازی آفلاین با هوش مصنوعی'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('بازی دونفره'));
     await tester.pumpAndSettle();
     tester.view.physicalSize = const Size(900, 540);
     await tester.pumpAndSettle();
@@ -110,11 +130,10 @@ void main() {
 
     final engine = BackgammonEngine();
     await tester.pumpWidget(
-      MaterialApp(home: EngineBackgammonScreen(engineForTesting: engine)),
+      MaterialApp(locale: const Locale('fa'), localizationsDelegates: GlobalMaterialLocalizations.delegates,
+      supportedLocales: [Locale('fa'), Locale('en')], home: EngineBackgammonScreen(engineForTesting: engine, vsComputerForTesting: false)),
     );
     await tester.tap(find.text('بازی آفلاین با هوش مصنوعی'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('بازی دونفره'));
     await tester.pumpAndSettle();
     tester.view.physicalSize = const Size(900, 540);
     await tester.pumpAndSettle();
@@ -147,16 +166,14 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    await tester.pumpWidget(const MaterialApp(home: EngineBackgammonScreen()));
+    await tester.pumpWidget(const MaterialApp(locale: Locale('fa'), localizationsDelegates: GlobalMaterialLocalizations.delegates,
+      supportedLocales: [Locale('fa'), Locale('en')], home: EngineBackgammonScreen()));
     await tester.tap(find.text('بازی آفلاین با هوش مصنوعی'));
     await tester.pumpAndSettle();
 
     expect(find.text('⏱ 20'), findsOneWidget);
 
-    await tester.tap(find.byWidgetPredicate((widget) => widget is Text && (widget.data == 'بازی دونفره' || widget.data == 'دونفره')));
-    await tester.pumpAndSettle();
-
-    expect(find.text('⏱ 20'), findsNWidgets(2));
+    expect(find.text('⏱ 20'), findsOneWidget);
   });
 
 

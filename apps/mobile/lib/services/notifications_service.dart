@@ -54,8 +54,9 @@ class NotificationsService {
         .toList();
   }
 
-  static Future<void> markRead(String id) async {
-    await _send('/api/v1/notifications/$id/read');
+  static Future<bool> markRead(String id) async {
+    final result = await _send('/api/v1/notifications/$id/read');
+    return result['cleared'] == true;
   }
 
   static Future<void> markAllRead() async {

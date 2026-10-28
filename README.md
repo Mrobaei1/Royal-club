@@ -1,6 +1,6 @@
 # Royal Club — starter scaffold
 
-Status: actively developed in `feature/password-min-6`. This branch is not a production deployment; validate the current CI run before merging.
+Status: active development in `feature/chat-ai-invite-ux` (PR #23, not merged). This branch is not a production release. See [Phase 1–3 readiness](docs/PHASE-1-3-READINESS.md) for verified coverage and remaining prerequisites.
 
 ## Contents
 - `apps/mobile`: Flutter/Dart starter source (Android-first UI entry point)
@@ -22,6 +22,9 @@ Set `OWNER_USER_ID` in the API environment to the numeric `users.id` of the owne
 - Set `DATABASE_URL` to the managed PostgreSQL connection string and `JWT_SECRET` to a random secret of at least 32 characters.
 - Set `CORS_ORIGINS` to the exact comma-separated HTTPS origins serving the web app. Do not use `*` for a production deployment.
 - Set `OWNER_USER_ID` only after confirming the owner's numeric database user ID; leave it blank to disable owner-only routes.
+- For the manual Neon deployment workflow, add `ROYAL_CLUB_OWNER_USER_ID` only after confirming the owner's numeric `users.id`. If absent, owner-only routes remain disabled.
+- `ROYAL_CLUB_SMS_CREDENTIALS_ENCRYPTION_KEY` is optional and must decode from base64 to exactly 32 bytes. Configure it only when the owner approves provider configuration; it does not enable SMS delivery. Never commit this secret.
+- The Neon deployment workflow is manual-only; a push or merge must not deploy production automatically. Keep real SMS disabled until the owner separately approves activation and account-linking behavior.
 - Build the Flutter app with `--dart-define=API_BASE_URL=https://YOUR-API-HOST` so it does not depend on the temporary Codespaces API URL.
 - Verify database backups, restore procedures, TLS, monitoring, and a real deployed health check before inviting users. GitHub Actions passing is a build/test signal, not proof of a production deployment.
 
@@ -40,7 +43,7 @@ Never put production secrets in source control. The included credentials are for
 
 ## Hands-on test preview
 
-The latest validated web build is published at: https://mrobaei1.github.io/Royal-club/
+The web preview is published at: https://mrobaei1.github.io/Royal-club/. It is a test preview, not proof of production API health.
 
 ### Quick test checklist
 1. Open the preview in Chrome. On first launch, the app should show the authentication gate rather than the games home.

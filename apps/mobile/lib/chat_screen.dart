@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'l10n/app_text.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
 import 'profile_avatar.dart';
@@ -25,18 +26,20 @@ class _ChatScreenState extends State<ChatScreen> {
       final items = await ChatService.conversations();
       if (mounted) setState(() { _conversations = items; _loading = false; _error = null; });
     } catch (e) {
-      if (mounted) setState(() { _error = e.toString().replaceFirst('Exception: ', ''); _loading = false; });
+      if (mounted) setState(() { _error = appError(context, e); _loading = false; });
     }
   }
 
+  bool get _isEnglish => Localizations.localeOf(context).languageCode == 'en';
+
   @override
   Widget build(BuildContext context) => Directionality(
-    textDirection: (Localizations.localeOf(context).languageCode == 'en' ? TextDirection.ltr : TextDirection.rtl),
+    textDirection: (_isEnglish ? TextDirection.ltr : TextDirection.rtl),
     child: Scaffold(
-      appBar: AppBar(title: const Text('گفت‌وگوهای خصوصی'), actions: [IconButton(onPressed: _load, icon: const Icon(Icons.refresh))]),
+      appBar: AppBar(title: Text(appText(context, 'گفت‌وگوهای خصوصی', 'Private chats')), actions: [IconButton(tooltip: appText(context, 'به‌روزرسانی', 'Refresh'), onPressed: _load, icon: const Icon(Icons.refresh))]),
       body: _loading ? const Center(child: CircularProgressIndicator())
-        : _error != null ? Center(child: Padding(padding: const EdgeInsets.all(24), child: Text(_error!, textAlign: TextAlign.center)))
-        : _conversations.isEmpty ? const Center(child: Padding(padding: EdgeInsets.all(24), child: Text('برای شروع گفت‌وگو، ابتدا یک دوست اضافه کنید.')))
+        : _error != null ? Center(child: Padding(padding: const EdgeInsets.all(24), child: Text(appError(context, _error), textAlign: TextAlign.center)))
+        : _conversations.isEmpty ? Center(child: Padding(padding: const EdgeInsets.all(24), child: Text(appText(context, 'برای شروع گفت‌وگو، ابتدا یک دوست اضافه کنید.', 'Add a friend to start a conversation.'))))
         : RefreshIndicator(onRefresh: _load, child: ListView.separated(
           itemCount: _conversations.length,
           separatorBuilder: (_, __) => const Divider(height: 1),
@@ -45,13 +48,18 @@ class _ChatScreenState extends State<ChatScreen> {
             final unread = (item['unreadCount'] as num?)?.toInt() ?? 0;
             return ListTile(
               leading: RoyalAvatar(dataUrl: item['avatarDataUrl']?.toString(), radius: 22),
-              title: Text(item['username']?.toString().isNotEmpty == true ? '@${item['username']}' : 'دوست'),
-              subtitle: Text(item['lastMessage']?.toString() ?? 'برای شروع گفت‌وگو لمس کنید', maxLines: 1, overflow: TextOverflow.ellipsis),
+              title: Text(item['username']?.toString().isNotEmpty == true ? '@${item['username']}' : (appText(context, 'دوست', 'Friend'))),
+              subtitle: Text(
+                item['lastMessageDeleted'] == true
+                    ? (appText(context, 'پیام حذف شده', 'Message deleted'))
+                    : (item['lastMessage']?.toString() ?? (appText(context, 'برای شروع گفت‌وگو لمس کنید', 'Tap to start chatting'))),
+                maxLines: 1, overflow: TextOverflow.ellipsis,
+              ),
               trailing: unread > 0 ? CircleAvatar(radius: 12, child: Text('$unread', style: const TextStyle(fontSize: 11))) : const Icon(Icons.chevron_left),
               onTap: () async {
                 await Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => ChatThreadScreen(
                   userId: item['userId'].toString(),
-                  title: item['username']?.toString().isNotEmpty == true ? '@${item['username']}' : 'دوست',
+                  title: item['username']?.toString().isNotEmpty == true ? '@${item['username']}' : (_isEnglish ? 'Friend' : 'دوست'),
                   avatarDataUrl: item['avatarDataUrl']?.toString(),
                 )));
                 _load();
@@ -104,7 +112,7 @@ class _ChatThreadScreenState extends State<ChatThreadScreen> {
         });
       }
     } catch (e) {
-      if (mounted) setState(() { _error = e.toString().replaceFirst('Exception: ', ''); _loading = false; });
+      if (mounted) setState(() { _error = appError(context, e); _loading = false; });
     }
   }
 
@@ -113,21 +121,21 @@ class _ChatThreadScreenState extends State<ChatThreadScreen> {
     final reason = await showDialog<String>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('گزارش کاربر'),
+        title: Text(_isEnglish ? 'Report user' : 'گزارش کاربر'),
         content: TextField(
           controller: reasonController,
           autofocus: true,
           minLines: 2,
           maxLines: 5,
           maxLength: 1000,
-          decoration: const InputDecoration(
-            hintText: 'دلیل گزارش را توضیح دهید (حداقل ۳ نویسه)',
-            border: OutlineInputBorder(),
+          decoration: InputDecoration(
+            hintText: _isEnglish ? 'Describe the reason (at least 3 characters)' : 'دلیل گزارش را توضیح دهید (حداقل ۳ نویسه)',
+            border: const OutlineInputBorder(),
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('انصراف')),
-          FilledButton(onPressed: () => Navigator.pop(dialogContext, reasonController.text.trim()), child: const Text('ارسال گزارش')),
+          TextButton(onPressed: () => Navigator.pop(dialogContext), child: Text(_isEnglish ? 'Cancel' : 'انصراف')),
+          FilledButton(onPressed: () => Navigator.pop(dialogContext, reasonController.text.trim()), child: Text(_isEnglish ? 'Submit report' : 'ارسال گزارش')),
         ],
       ),
     );
@@ -137,13 +145,13 @@ class _ChatThreadScreenState extends State<ChatThreadScreen> {
       final result = await ChatService.report(widget.userId, reason.trim());
       if (!mounted) return;
       final review = result['moderationReviewTriggered'] == true
-          ? ' گزارش برای بررسی مدیر در صف قرار گرفت.'
+          ? (_isEnglish ? ' The report was queued for moderator review.' : ' گزارش برای بررسی مدیر در صف قرار گرفت.')
           : '';
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('گزارش ثبت شد.$review')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text((_isEnglish ? 'Report submitted.$review' : 'گزارش ثبت شد.$review'))));
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+          SnackBar(content: Text(appError(context, e))),
         );
       }
     }
@@ -160,7 +168,9 @@ class _ChatThreadScreenState extends State<ChatThreadScreen> {
   Future<void> _editMessage(Map<String, dynamic> message) async {
     final id = message['id']?.toString();
     if (id == null || message['senderId']?.toString() != _myId || message['deletedForAll'] == true ||
-        (message['body']?.toString().startsWith('data:image/') ?? false)) return;
+        (message['body']?.toString().startsWith('data:image/') ?? false)) {
+      return;
+    }
     final controller = TextEditingController(text: message['body']?.toString() ?? '');
     final body = await showDialog<String>(
       context: context,
@@ -176,7 +186,7 @@ class _ChatThreadScreenState extends State<ChatThreadScreen> {
     controller.dispose();
     if (body == null || body.isEmpty || !mounted) { return; }
     try { await ChatService.edit(widget.userId, id, body); await _load(); }
-    catch (e) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString().replaceFirst('Exception: ', '')))); }
+    catch (e) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appError(context, e)))); }
   }
 
   Future<void> _deleteSelected({required bool forBoth}) async {
@@ -200,7 +210,7 @@ class _ChatThreadScreenState extends State<ChatThreadScreen> {
     );
     if (confirmed != true || !mounted) return;
     try { await ChatService.deleteMessages(widget.userId, selected.map((m) => m['id'].toString()).toList(), forBoth: forBoth); await _load(); }
-    catch (e) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString().replaceFirst('Exception: ', '')))); }
+    catch (e) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appError(context, e)))); }
   }
 
   Future<void> _send() async {
@@ -212,7 +222,7 @@ class _ChatThreadScreenState extends State<ChatThreadScreen> {
       _composer.clear();
       await _load();
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appError(context, e))));
     } finally {
       if (mounted) setState(() => _sending = false);
     }
@@ -228,14 +238,14 @@ class _ChatThreadScreenState extends State<ChatThreadScreen> {
       final mimeType = picked.mimeType == 'image/png' ? 'image/png' : 'image/jpeg';
       final encoded = 'data:$mimeType;base64,${base64Encode(bytes)}';
       if (encoded.length > 680000) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('حجم تصویر زیاد است؛ لطفاً تصویر کوچک‌تری انتخاب کنید.')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_isEnglish ? 'The image is too large. Please choose a smaller image.' : 'حجم تصویر زیاد است؛ لطفاً تصویر کوچک‌تری انتخاب کنید.')));
         return;
       }
       setState(() => _sending = true);
       await ChatService.send(widget.userId, encoded);
       await _load();
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appError(context, e))));
     } finally {
       if (mounted) setState(() => _sending = false);
     }
@@ -245,8 +255,8 @@ class _ChatThreadScreenState extends State<ChatThreadScreen> {
     if (!body.startsWith('data:image/') || !body.contains(';base64,')) return Text(body);
     try {
       final encoded = body.substring(body.indexOf(';base64,') + 8);
-      return ClipRRect(borderRadius: BorderRadius.circular(10), child: Image.memory(base64Decode(encoded), width: 230, fit: BoxFit.contain, errorBuilder: (_, __, ___) => const Text('نمایش تصویر ممکن نیست.')));
-    } catch (_) { return const Text('تصویر نامعتبر است.'); }
+      return ClipRRect(borderRadius: BorderRadius.circular(10), child: Image.memory(base64Decode(encoded), width: 230, fit: BoxFit.contain, errorBuilder: (_, __, ___) => Text(_isEnglish ? 'Unable to display image.' : 'نمایش تصویر ممکن نیست.')));
+    } catch (_) { return Text(_isEnglish ? 'Invalid image.' : 'تصویر نامعتبر است.'); }
   }
 
   @override
@@ -256,8 +266,8 @@ class _ChatThreadScreenState extends State<ChatThreadScreen> {
       appBar: AppBar(title: Row(children: [RoyalAvatar(dataUrl: widget.avatarDataUrl, radius: 16), const SizedBox(width: 8), Expanded(child: Text(_selectedMessageIds.isEmpty ? widget.title : (_isEnglish ? '${_selectedMessageIds.length} selected' : '${_selectedMessageIds.length} انتخاب‌شده'), maxLines: 1, overflow: TextOverflow.ellipsis))]), actions: [if (_selectedMessageIds.isNotEmpty) IconButton(tooltip: _isEnglish ? 'Delete for me' : 'حذف برای من', onPressed: () => _deleteSelected(forBoth: false), icon: const Icon(Icons.delete_outline)), if (_selectedMessageIds.isNotEmpty && _messages.where((m) => _selectedMessageIds.contains(m['id']?.toString())).every((m) => m['senderId']?.toString() == _myId)) IconButton(tooltip: _isEnglish ? 'Delete for everyone' : 'حذف برای هر دو طرف', onPressed: () => _deleteSelected(forBoth: true), icon: const Icon(Icons.delete_forever_outlined)), if (_selectedMessageIds.length == 1 && _messages.any((m) => m['id']?.toString() == _selectedMessageIds.first && m['senderId']?.toString() == _myId && m['deletedForAll'] != true && !(m['body']?.toString().startsWith('data:image/') ?? false))) IconButton(tooltip: _isEnglish ? 'Edit message' : 'ویرایش پیام', onPressed: () { final m = _messages.firstWhere((m) => m['id']?.toString() == _selectedMessageIds.first); _editMessage(Map<String, dynamic>.from(m as Map)); }, icon: const Icon(Icons.edit_outlined)), IconButton(tooltip: _isEnglish ? 'Report user' : 'گزارش کاربر', onPressed: _reportUser, icon: const Icon(Icons.flag_outlined)), IconButton(onPressed: _load, icon: const Icon(Icons.refresh))]),
       body: Column(children: [
         Expanded(child: _loading ? const Center(child: CircularProgressIndicator())
-          : _error != null ? Center(child: Padding(padding: const EdgeInsets.all(20), child: Text(_error!, textAlign: TextAlign.center)))
-          : _messages.isEmpty ? const Center(child: Text('هنوز پیامی ارسال نشده است.'))
+          : _error != null ? Center(child: Padding(padding: const EdgeInsets.all(20), child: Text(appError(context, _error), textAlign: TextAlign.center)))
+          : _messages.isEmpty ? Center(child: Text(_isEnglish ? 'No messages yet.' : 'هنوز پیامی ارسال نشده است.'))
           : ListView.builder(
             reverse: false,
             padding: const EdgeInsets.all(12),
@@ -282,8 +292,10 @@ class _ChatThreadScreenState extends State<ChatThreadScreen> {
                     border: Border.all(color: mine ? Theme.of(context).colorScheme.primary.withValues(alpha: .5) : Theme.of(context).dividerColor),
                   ),
                   child: Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                    _messageContent(message['body']?.toString() ?? ''),
-                    if (message['editedAt'] != null) Text(_isEnglish ? 'edited' : 'ویرایش‌شده', style: const TextStyle(fontSize: 10, color: Colors.white54)),
+                    _messageContent(message['deletedForAll'] == true
+                        ? (_isEnglish ? 'Message deleted' : 'پیام حذف شده')
+                        : (message['body']?.toString() ?? '')),
+                    if (message['editedAt'] != null) Text(_isEnglish ? 'edited' : 'ویرایش‌شده', style: TextStyle(fontSize: 10, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.54))),
                   ]),
                 ),
                 ),
@@ -293,16 +305,16 @@ class _ChatThreadScreenState extends State<ChatThreadScreen> {
         SafeArea(child: Column(mainAxisSize: MainAxisSize.min, children: [
           Padding(padding: const EdgeInsets.all(10), child: Row(children: [
             IconButton(
-              tooltip: 'ارسال تصویر',
+              tooltip: _isEnglish ? 'Send image' : 'ارسال تصویر',
               onPressed: _sending ? null : _sendImage,
               icon: const Icon(Icons.image_outlined),
             ),
             IconButton(
-              tooltip: _showEmojiPicker ? 'بستن ایموجی‌ها' : 'افزودن ایموجی',
+              tooltip: _showEmojiPicker ? (_isEnglish ? 'Close emoji picker' : 'بستن ایموجی‌ها') : (_isEnglish ? 'Add emoji' : 'افزودن ایموجی'),
               onPressed: () => setState(() => _showEmojiPicker = !_showEmojiPicker),
               icon: Icon(_showEmojiPicker ? Icons.keyboard_alt_outlined : Icons.emoji_emotions_outlined),
             ),
-            Expanded(child: TextField(controller: _composer, minLines: 1, maxLines: 4, maxLength: 2000, decoration: const InputDecoration(hintText: 'پیام بنویسید...', border: OutlineInputBorder(), counterText: ''))),
+            Expanded(child: TextField(controller: _composer, minLines: 1, maxLines: 4, maxLength: 2000, decoration: InputDecoration(hintText: _isEnglish ? 'Write a message...' : 'پیام بنویسید...', border: const OutlineInputBorder(), counterText: ''))),
             const SizedBox(width: 8),
             IconButton.filled(onPressed: _sending ? null : _send, icon: const Icon(Icons.send)),
           ])),

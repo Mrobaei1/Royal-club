@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'l10n/app_localizations.dart';
+import 'l10n/app_text.dart';
 import 'friends_screen.dart';
 import 'account_screen.dart';
 import 'notifications_screen.dart';
@@ -148,8 +149,8 @@ class _AuthGateState extends State<AuthGate> {
               SizedBox(height: 20),
               CircularProgressIndicator(color: Theme.of(context).colorScheme.primary),
               SizedBox(height: 12),
-              Text('در حال بررسی نشست قبلی...',
-                  style: TextStyle(color: Colors.white70)),
+              Text(appText(context, 'در حال بررسی نشست قبلی...', 'Checking previous session...'),
+                  style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7))),
             ],
           ),
         ),
@@ -225,10 +226,10 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (sheetContext) => SafeArea(
         child: SizedBox(height: MediaQuery.sizeOf(sheetContext).height * 0.72,
           child: Column(children: [
-            const Padding(padding: EdgeInsets.fromLTRB(20, 4, 20, 12), child: Text('پوسته برنامه', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800))),
+            Padding(padding: const EdgeInsets.fromLTRB(20, 4, 20, 12), child: Text(appText(context, 'پوسته برنامه', 'App theme'), style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800))),
             Expanded(child: ListView.builder(itemCount: royalThemes.length, itemBuilder: (context, i) => ListTile(
               leading: Icon(Icons.palette_outlined, color: royalThemes[i].accent),
-              title: Text(royalThemes[i].name, style: TextStyle(color: royalThemes[i].dark ? Colors.white : Colors.black)),
+              title: Text(royalThemes[i].localizedName(context), style: TextStyle(color: royalThemes[i].dark ? Colors.white : Colors.black)),
               trailing: i == royalThemeState.index ? Icon(Icons.check_circle, color: royalThemes[i].accent) : Icon(Icons.circle_outlined, color: royalThemeState.current.dark ? Colors.white70 : Colors.black54),
               onTap: () { royalThemeState.select(i); Navigator.of(sheetContext).pop(); },
             ))),
@@ -248,10 +249,10 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Padding(
-              padding: EdgeInsets.fromLTRB(20, 4, 20, 12),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
               child: Text(
-                'زبان برنامه / App language',
+                appText(context, 'زبان برنامه', 'App language'),
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
               ),
             ),
@@ -352,7 +353,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     children: [
                       Text('ROYAL CLUB', style: TextStyle(color: theme.accent, fontSize: 19, fontWeight: FontWeight.w900, letterSpacing: 2.2)),
                       const SizedBox(height: 3),
-                      Text('THE ART OF STRATEGY', style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: .65), fontSize: 9, letterSpacing: 2, fontWeight: FontWeight.w600)),
+                      Text(AppLocalizations.of(context).strategyTagline, style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: .65), fontSize: 9, letterSpacing: 2, fontWeight: FontWeight.w600)),
                     ],
                   ),
                 ),
@@ -366,27 +367,27 @@ class _HomeScreenState extends State<HomeScreen> {
                     PopupMenuItem(value: 'chat', child: ListTile(dense: true, leading: Icon(Icons.chat_bubble_outline), title: Text(AppLocalizations.of(context).privateChat, style: TextStyle(color: _unreadMessages > 0 ? Colors.redAccent : null)))),
                     PopupMenuItem(value: 'notifications', child: ListTile(dense: true, leading: Icon(Icons.notifications_outlined), title: Text(AppLocalizations.of(context).notifications))),
                     PopupMenuItem(value: 'wallet', child: ListTile(dense: true, leading: Icon(Icons.account_balance_wallet_outlined), title: Text(AppLocalizations.of(context).wallet))),
-                    const PopupMenuItem(value: 'admin', child: ListTile(dense: true, leading: Icon(Icons.admin_panel_settings_outlined), title: Text('پنل مدیریت'))),
-                    const PopupMenuItem(value: 'contact', child: ListTile(dense: true, leading: Icon(Icons.contact_support_outlined), title: Text('ارتباط با ما'))),
+                    PopupMenuItem(value: 'admin', child: ListTile(dense: true, leading: Icon(Icons.admin_panel_settings_outlined), title: Text(appText(context, 'پنل مدیریت', 'Admin panel')))),
+                    PopupMenuItem(value: 'contact', child: ListTile(dense: true, leading: Icon(Icons.contact_support_outlined), title: Text(appText(context, 'ارتباط با ما', 'Contact us')))),
                     const PopupMenuDivider(),
-                    const PopupMenuItem(
+                    PopupMenuItem(
                       value: 'languageMenu',
                       child: ListTile(
                         dense: true,
                         contentPadding: EdgeInsets.zero,
                         leading: Icon(Icons.language_rounded),
-                        title: Text('زبان برنامه / Language'),
+                        title: Text(appText(context, 'زبان برنامه', 'App language')),
                         trailing: Icon(Icons.chevron_left_rounded),
                       ),
                     ),
                     const PopupMenuDivider(),
-                    const PopupMenuItem(
+                    PopupMenuItem(
                       value: 'themeMenu',
                       child: ListTile(
                         dense: true,
                         contentPadding: EdgeInsets.zero,
                         leading: Icon(Icons.palette_outlined),
-                        title: Text('پوسته برنامه'),
+                        title: Text(appText(context, 'پوسته برنامه', 'App theme')),
                         trailing: Icon(Icons.chevron_left_rounded),
                       ),
                     ),
@@ -409,13 +410,13 @@ class _HomeScreenState extends State<HomeScreen> {
                     builder: (dialogContext) => Directionality(
                       textDirection: isEnglish ? TextDirection.ltr : TextDirection.rtl,
                       child: AlertDialog(
-                        backgroundColor: const Color(0xFF17243A),
-                        title: Text(isEnglish ? 'Choose backgammon mode' : 'انتخاب حالت تخته‌نرد', style: const TextStyle(color: Color(0xFFD8B45A), fontWeight: FontWeight.bold)),
+                        backgroundColor: Theme.of(dialogContext).colorScheme.surface,
+                        title: Text(appText(dialogContext, 'انتخاب حالت تخته‌نرد', 'Choose backgammon mode'), style: TextStyle(color: Theme.of(dialogContext).colorScheme.primary, fontWeight: FontWeight.bold)),
                         content: Column(
                           mainAxisSize: MainAxisSize.min,
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            Text(isEnglish ? 'Choose how you want to play.' : 'روش بازی را انتخاب کنید.', style: const TextStyle(color: Colors.white70)),
+                            Text(appText(dialogContext, 'روش بازی را انتخاب کنید.', 'Choose how you want to play.'), style: TextStyle(color: Theme.of(dialogContext).colorScheme.onSurface.withValues(alpha: 0.7))),
                             const SizedBox(height: 14),
                             FilledButton.icon(
                               onPressed: () => Navigator.pop(dialogContext, 'offline'),
@@ -427,7 +428,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               onPressed: () => Navigator.pop(dialogContext, 'online'),
                               icon: const Icon(Icons.public_rounded),
                               label: Text(isEnglish ? 'Online game' : 'بازی آنلاین'),
-                              style: OutlinedButton.styleFrom(foregroundColor: const Color(0xFFD8B45A)),
+                              style: OutlinedButton.styleFrom(foregroundColor: Theme.of(dialogContext).colorScheme.primary),
                             ),
                           ],
                         ),
@@ -444,14 +445,14 @@ class _HomeScreenState extends State<HomeScreen> {
                 },
               ),
               const SizedBox(height: 12),
-              GameTile(title: AppLocalizations.of(context).chess, subtitle: royalLocaleState.locale.languageCode == 'fa' ? 'به‌زودی' : 'Coming soon', icon: Icons.grid_4x4_rounded, comingSoon: true),
+              GameTile(title: AppLocalizations.of(context).chess, subtitle: AppLocalizations.of(context).comingSoon, icon: Icons.grid_4x4_rounded, comingSoon: true),
               const SizedBox(height: 12),
               GameTile(title: AppLocalizations.of(context).cardGames, subtitle: royalLocaleState.locale.languageCode == 'fa' ? 'به‌زودی' : 'Coming soon', icon: Icons.style_rounded, comingSoon: true),
               const SizedBox(height: 26),
-              const Center(child: Text('ROYAL CLUB  •  PLAY WITH HONOUR',
+              Center(child: Text('${AppLocalizations.of(context).appTitle}  •  ${AppLocalizations.of(context).playWithHonour}',
                 style: TextStyle(color: Color(0xFF77839A), fontSize: 9, letterSpacing: 1.5, fontWeight: FontWeight.w600))),
               const SizedBox(height: 10),
-              const Center(child: Text('نسخه 1.1.9',
+              Center(child: Text(appText(context, 'نسخه 1.1.9', 'Version 1.1.9'),
                 style: TextStyle(color: Color(0xFF77839A), fontSize: 11, fontWeight: FontWeight.w600))),
             ],
           ),
@@ -510,18 +511,18 @@ class GameTile extends StatelessWidget {
                   Text(title,
                       textDirection: TextDirection.rtl,
                       style: TextStyle(
-                          color: selectedTheme.dark ? Colors.white : const Color(0xFF182033),
+                          color: selectedTheme.dark ? Colors.white : Colors.black,
                           fontSize: 16,
                           fontWeight: FontWeight.w800)),
                   const SizedBox(height: 5),
                   Text(subtitle,
                       textDirection: TextDirection.rtl,
-                      style: const TextStyle(
-                          color: Color(0xFFAEB9CB), fontSize: 12)),
+                      style: TextStyle(
+                          color: selectedTheme.dark ? Colors.white70 : Colors.black54, fontSize: 12)),
                 ],
               )),
               if (comingSoon)
-                Text('SOON',
+                Text(AppLocalizations.of(context).comingSoon.toUpperCase(),
                     style: TextStyle(
                         color: selectedTheme.accent,
                         fontSize: 9,
@@ -556,7 +557,11 @@ class _AuthScreenState extends State<AuthScreen> {
   final _password = TextEditingController();
   final _fullName = TextEditingController();
   final _phone = TextEditingController();
+  final _otpCode = TextEditingController();
   late bool _register = widget.initialRegister;
+  bool _phoneOtpAvailable = false;
+  bool _usePhoneOtp = false;
+  bool _otpRequested = false;
   bool _busy = false;
   bool _rememberMe = true;
   bool _checkingSession = true;
@@ -566,6 +571,7 @@ class _AuthScreenState extends State<AuthScreen> {
   void initState() {
     super.initState();
     _loadRememberedEmail();
+    _loadPhoneOtpStatus();
   }
 
   Future<void> _loadRememberedEmail() async {
@@ -595,28 +601,113 @@ class _AuthScreenState extends State<AuthScreen> {
     _password.dispose();
     _fullName.dispose();
     _phone.dispose();
+    _otpCode.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadPhoneOtpStatus() async {
+    try {
+      final status = await AuthService.phoneOtpStatus();
+      if (mounted) setState(() => _phoneOtpAvailable = status['available'] == true);
+    } catch (_) {
+      if (mounted) setState(() => _phoneOtpAvailable = false);
+    }
+  }
+
+  Future<void> _requestPhoneOtp() async {
+    if (_phone.text.trim().isEmpty) {
+      setState(() => _message = appText(context, 'شماره موبایل ایران را وارد کنید.', 'Enter an Iranian mobile number.'));
+      return;
+    }
+    if (_register && (_email.text.trim().isEmpty || _password.text.isEmpty || _fullName.text.trim().isEmpty)) {
+      setState(() => _message = appText(context, 'نام، ایمیل و رمز عبور را قبل از دریافت کد وارد کنید.', 'Enter your name, email, and password before requesting a code.'));
+      return;
+    }
+    if (_register && (_password.text.runes.length < 6 || utf8.encode(_password.text).length > 128)) {
+      setState(() => _message = appText(context, 'رمز عبور باید حداقل ۶ کاراکتر و حداکثر ۱۲۸ بایت باشد.', 'Password must be at least 6 characters and at most 128 bytes.'));
+      return;
+    }
+    setState(() { _busy = true; _message = null; });
+    try {
+      final result = await AuthService.requestPhoneOtp(
+        phone: _phone.text,
+        purpose: _register ? 'register' : 'login',
+      );
+      if (!mounted) return;
+      setState(() {
+        _otpRequested = true;
+        final testCode = result['testCode']?.toString();
+        _message = testCode == null
+            ? appText(context, 'اگر شماره قابل تأیید باشد، کد ارسال می‌شود.', 'If the number is eligible, a verification code will be sent.')
+            : appText(context, 'کد آزمایشی توسعه: $testCode', 'Development test code: $testCode');
+      });
+    } catch (e) {
+      if (mounted) setState(() => _message = appError(context, e));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _submitPhoneOtp() async {
+    if (!_otpRequested) {
+      await _requestPhoneOtp();
+      return;
+    }
+    if (!RegExp(r'^\d{6}$').hasMatch(_otpCode.text.trim())) {
+      setState(() => _message = appText(context, 'کد شش‌رقمی را وارد کنید.', 'Enter the six-digit verification code.'));
+      return;
+    }
+    setState(() { _busy = true; _message = null; });
+    try {
+      final wasRegister = _register;
+      final result = wasRegister
+          ? await AuthService.registerWithPhoneOtp(
+              phone: _phone.text,
+              code: _otpCode.text,
+              email: _email.text,
+              password: _password.text,
+              fullName: _fullName.text,
+              country: '',
+            )
+          : await AuthService.loginWithPhoneOtp(phone: _phone.text, code: _otpCode.text);
+      if (!mounted) return;
+      if (wasRegister) {
+        await AuthService.setRememberedCredentials(_email.text, _password.text, _rememberMe);
+      } else {
+        await AuthService.setRememberedCredentials('', '', false);
+      }
+      if (!mounted) return;
+      if (result['token'] is String && (result['token'] as String).isNotEmpty) {
+        widget.onAuthenticated();
+      } else {
+        setState(() => _message = appText(context, 'ورود موفق بود، اما توکن دریافت نشد.', 'Authentication succeeded, but no token was received.'));
+      }
+    } catch (e) {
+      if (mounted) setState(() => _message = appError(context, e));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   Future<void> _submit() async {
     if (_email.text.trim().isEmpty || _password.text.isEmpty) {
-      setState(() => _message = 'ایمیل و رمز عبور را وارد کن.');
+      setState(() => _message = appText(context, 'ایمیل و رمز عبور را وارد کن.', 'Enter your email and password.'));
       return;
     }
     if (_register && _fullName.text.trim().isEmpty) {
-      setState(() => _message = 'نام کاربر را وارد کن.');
+      setState(() => _message = appText(context, 'نام کاربر را وارد کن.', 'Enter your name.'));
       return;
     }
     if (_register && _phone.text.trim().isEmpty) {
-      setState(() => _message = 'شماره تلفن را وارد کن.');
+      setState(() => _message = appText(context, 'شماره تلفن را وارد کن.', 'Enter your phone number.'));
       return;
     }
     if (_register && _password.text.runes.length < 6) {
-      setState(() => _message = 'رمز عبور باید حداقل ۶ کاراکتر باشد.');
+      setState(() => _message = appText(context, 'رمز عبور باید حداقل ۶ کاراکتر باشد.', 'Password must be at least 6 characters.'));
       return;
     }
     if (_register && utf8.encode(_password.text).length > 128) {
-      setState(() => _message = 'رمز عبور نباید بیشتر از ۱۲۸ بایت باشد.');
+      setState(() => _message = appText(context, 'رمز عبور نباید بیشتر از ۱۲۸ بایت باشد.', 'Password must not exceed 128 bytes.'));
       return;
     }
 
@@ -624,33 +715,28 @@ class _AuthScreenState extends State<AuthScreen> {
       _busy = true;
       _message = null;
     });
-
     final wasRegister = _register;
     try {
       final result = wasRegister
           ? await AuthService.register(_email.text, _password.text,
               fullName: _fullName.text, phone: _phone.text, country: '')
           : await AuthService.login(_email.text, _password.text);
-
       if (!mounted) return;
-
-      if (result['token'] is String &&
-          (result['token'] as String).isNotEmpty) {
-        await AuthService.setRememberedCredentials(
-            _email.text, _password.text, _rememberMe);
+      if (result['token'] is String && (result['token'] as String).isNotEmpty) {
+        await AuthService.setRememberedCredentials(_email.text, _password.text, _rememberMe);
         if (!mounted) return;
         widget.onAuthenticated();
       } else if (wasRegister) {
         setState(() {
           _register = false;
-          _message = 'ثبت‌نام انجام شد. برای ورود، رمز عبور را دوباره وارد کنید.';
+          _message = appText(context, 'ثبت‌نام انجام شد. برای ورود، رمز عبور را دوباره وارد کنید.', 'Registration complete. Enter your password again to log in.');
         });
       } else {
-        setState(() => _message = 'ورود انجام شد، اما توکن دریافت نشد.');
+        setState(() => _message = appText(context, 'ورود انجام شد، اما توکن دریافت نشد.', 'Login succeeded, but no token was received.'));
       }
     } catch (e) {
       if (!mounted) return;
-      setState(() => _message = e.toString().replaceFirst('Exception: ', ''));
+      setState(() => _message = appError(context, e));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -685,9 +771,25 @@ class _AuthScreenState extends State<AuthScreen> {
                     selected: {_register},
                     onSelectionChanged: (v) => setState(() {
                       _register = v.first;
+                      _otpRequested = false;
+                      _otpCode.clear();
                       _message = null;
                     }),
                   ),
+                  if (_phoneOtpAvailable) ...[
+                    const SizedBox(height: 8),
+                    TextButton(
+                      onPressed: _busy ? null : () => setState(() {
+                        _usePhoneOtp = !_usePhoneOtp;
+                        _otpRequested = false;
+                        _otpCode.clear();
+                        _message = null;
+                      }),
+                      child: Text(_usePhoneOtp
+                          ? appText(context, 'استفاده از ایمیل و رمز عبور', 'Use email and password')
+                          : appText(context, 'ورود یا ثبت‌نام با کد پیامکی', 'Use phone verification code')),
+                    ),
+                  ],
                   const SizedBox(height: 20),
                   if (_register) ...[
                     TextField(controller: _fullName, textCapitalization: TextCapitalization.words,
@@ -698,17 +800,37 @@ class _AuthScreenState extends State<AuthScreen> {
                       controller: _phone,
                       keyboardType: TextInputType.phone,
                       autofillHints: const [AutofillHints.telephoneNumber],
+                      onChanged: (_) {
+                        if (_otpRequested) setState(() { _otpRequested = false; _otpCode.clear(); });
+                      },
                       decoration: InputDecoration(
-                        labelText: '${AppLocalizations.of(context).phone} (بدون کد کشور)',
-                        hintText: 'مثلاً 09123456789',
-                        helperText: 'فقط شماره تلفن را وارد کنید؛ کد کشور لازم نیست.',
+                        labelText: '${AppLocalizations.of(context).phone} (${appText(context, 'بدون کد کشور', 'no country code')})',
+                        hintText: appText(context, 'مثلاً 09123456789', 'e.g. 09123456789'),
+                        helperText: appText(context, 'فقط شماره تلفن ایران را وارد کنید؛ کد کشور لازم نیست.', 'Enter an Iranian mobile number; no country code is needed.'),
                         border: const OutlineInputBorder(),
                         prefixIcon: const Icon(Icons.phone_outlined),
                       ),
                     ),
                     const SizedBox(height: 14),
                   ],
-                  TextField(
+                  if (_usePhoneOtp && !_register) ...[
+                    TextField(
+                      controller: _phone,
+                      keyboardType: TextInputType.phone,
+                      autofillHints: const [AutofillHints.telephoneNumber],
+                      onChanged: (_) {
+                        if (_otpRequested) setState(() { _otpRequested = false; _otpCode.clear(); });
+                      },
+                      decoration: InputDecoration(
+                        labelText: appText(context, 'شماره موبایل ایران', 'Iranian mobile number'),
+                        hintText: appText(context, 'مثلاً 09123456789', 'e.g. 09123456789'),
+                        border: const OutlineInputBorder(),
+                        prefixIcon: const Icon(Icons.phone_outlined),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                  ],
+                  if (!_usePhoneOtp || _register) TextField(
                     controller: _email,
                     keyboardType: TextInputType.emailAddress,
                     autofillHints: const [AutofillHints.email],
@@ -719,7 +841,7 @@ class _AuthScreenState extends State<AuthScreen> {
                     ),
                   ),
                   const SizedBox(height: 14),
-                  TextField(
+                  if (!_usePhoneOtp || _register) TextField(
                     controller: _password,
                     obscureText: true,
                     autofillHints: const [AutofillHints.password],
@@ -729,14 +851,14 @@ class _AuthScreenState extends State<AuthScreen> {
                       prefixIcon: Icon(Icons.lock_outline),
                     ),
                   ),
-                  if (!_register) ...[
+                  if (!_register && !_usePhoneOtp) ...[
                     CheckboxListTile(
                       contentPadding: EdgeInsets.zero,
                       value: _rememberMe,
                       controlAffinity: ListTileControlAffinity.leading,
                       title: Text(AppLocalizations.of(context).rememberMe),
-                      subtitle: const Text(
-                          'نام کاربری و رمز عبور به‌صورت امن روی دستگاه ذخیره می‌شوند.'),
+                      subtitle: Text(
+                          appText(context, 'نام کاربری و رمز عبور به‌صورت امن روی دستگاه ذخیره می‌شوند.', 'Your username and password are stored securely on this device.')),
                       onChanged: _busy
                           ? null
                           : (value) =>
@@ -750,8 +872,27 @@ class _AuthScreenState extends State<AuthScreen> {
                       child: Center(child: CircularProgressIndicator()),
                     ),
                   const SizedBox(height: 12),
+                  if (_usePhoneOtp) ...[
+                    if (_otpRequested) TextField(
+                      controller: _otpCode,
+                      keyboardType: TextInputType.number,
+                      maxLength: 6,
+                      decoration: InputDecoration(
+                        labelText: appText(context, 'کد تأیید شش‌رقمی', 'Six-digit verification code'),
+                        border: const OutlineInputBorder(),
+                        prefixIcon: const Icon(Icons.password_outlined),
+                      ),
+                    ),
+                    OutlinedButton.icon(
+                      onPressed: _busy || _checkingSession ? null : _requestPhoneOtp,
+                      icon: const Icon(Icons.sms_outlined),
+                      label: Text(_otpRequested
+                          ? appText(context, 'ارسال دوباره کد', 'Resend code')
+                          : appText(context, 'دریافت کد تأیید', 'Send verification code')),
+                    ),
+                  ],
                   FilledButton(
-                    onPressed: _busy || _checkingSession ? null : _submit,
+                    onPressed: _busy || _checkingSession ? null : (_usePhoneOtp ? _submitPhoneOtp : _submit),
                     child: Padding(
                       padding: const EdgeInsets.all(12),
                       child: _busy
@@ -759,7 +900,7 @@ class _AuthScreenState extends State<AuthScreen> {
                               height: 22,
                               width: 22,
                               child: CircularProgressIndicator(strokeWidth: 2))
-                          : Text(_register ? 'ایجاد حساب' : 'ورود به حساب'),
+                          : Text(_usePhoneOtp ? (_register ? appText(context, 'تأیید کد و ایجاد حساب', 'Verify code and create account') : appText(context, 'تأیید کد و ورود', 'Verify code and log in')) : (_register ? appText(context, 'ایجاد حساب', 'Create account') : appText(context, 'ورود به حساب', 'Log in'))),
                     ),
                   ),
                   if (_message != null) ...[

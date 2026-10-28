@@ -1,8 +1,49 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'l10n/app_text.dart';
 import 'services/notifications_service.dart';
 
-const _noticeGold = Color(0xFFD8B45A);
-const _noticePanel = Color(0xFF17243A);
+String localizedNotificationTitle(Map<String, dynamic> item, bool isEnglish) {
+  final data = item['data'] is Map
+      ? Map<String, dynamic>.from(item['data'] as Map)
+      : <String, dynamic>{};
+  if (data.containsKey('inviteId')) {
+    return isEnglish ? 'Backgammon invitation' : 'دعوت به تخته‌نرد';
+  }
+  switch (item['type']?.toString()) {
+    case 'friend_request':
+      return isEnglish ? 'New friend request' : 'درخواست دوستی جدید';
+    case 'friend_accepted':
+      final established = item['title']?.toString() == 'دوستی برقرار شد';
+      if (isEnglish) return established ? 'Friend added' : 'Friend request accepted';
+      return established ? 'دوستی برقرار شد' : 'درخواست دوستی پذیرفته شد';
+    default:
+      return item['title']?.toString() ?? (isEnglish ? 'Notification' : 'اعلان');
+  }
+}
+
+String localizedNotificationBody(Map<String, dynamic> item, bool isEnglish) {
+  final data = item['data'] is Map
+      ? Map<String, dynamic>.from(item['data'] as Map)
+      : <String, dynamic>{};
+  if (data.containsKey('inviteId')) {
+    return isEnglish
+        ? 'A friend invited you to a backgammon match. Accept within 10 seconds to join.'
+        : 'دوست شما را به مسابقه تخته‌نرد دعوت کرده است. برای ورود، تا ۱۰ ثانیه دعوت را بپذیرید.';
+  }
+  switch (item['type']?.toString()) {
+    case 'friend_request':
+      return isEnglish
+          ? 'A user sent you a friend request.'
+          : 'یک کاربر برای شما درخواست دوستی فرستاده است.';
+    case 'friend_accepted':
+      return isEnglish
+          ? 'Your friend request was accepted.'
+          : 'درخواست دوستی شما پذیرفته شد.';
+    default:
+      return item['body']?.toString() ?? '';
+  }
+}
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
@@ -16,20 +57,15 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   bool _loading = true;
   bool _busy = false;
   String? _error;
+  Timer? _inviteExpiryTimer;
 
   int get _unread => _items.where((item) => item['readAt'] == null).length;
 
-  String _localizedTitle(Map<String, dynamic> item, bool isEnglish) {
-    final data = item['data'] is Map ? Map<String, dynamic>.from(item['data'] as Map) : <String, dynamic>{};
-    if (data.containsKey('inviteId')) return isEnglish ? 'Backgammon invitation' : 'دعوت به تخته‌نرد';
-    return item['title']?.toString() ?? (isEnglish ? 'Notification' : 'اعلان');
-  }
+  String _localizedTitle(Map<String, dynamic> item, bool isEnglish) =>
+      localizedNotificationTitle(item, isEnglish);
 
-  String _localizedBody(Map<String, dynamic> item, bool isEnglish) {
-    final data = item['data'] is Map ? Map<String, dynamic>.from(item['data'] as Map) : <String, dynamic>{};
-    if (data.containsKey('inviteId')) return isEnglish ? 'A friend invited you to a backgammon match. Accept within 10 seconds to join.' : 'دوست شما را به مسابقه تخته‌نرد دعوت کرده است. برای ورود، تا ۱۰ ثانیه دعوت را بپذیرید.';
-    return item['body']?.toString() ?? '';
-  }
+  String _localizedBody(Map<String, dynamic> item, bool isEnglish) =>
+      localizedNotificationBody(item, isEnglish);
 
   @override
   void initState() {
@@ -37,22 +73,49 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     _refresh();
   }
 
-  Future<void> _refresh() async {
-    setState(() {
-      _loading = true;
-      _error = null;
+  @override
+  void dispose() {
+    _inviteExpiryTimer?.cancel();
+    super.dispose();
+  }
+
+  void _scheduleInviteExpiry() {
+    _inviteExpiryTimer?.cancel();
+    DateTime? nextExpiry;
+    for (final item in _items) {
+      final data = item['data'];
+      if (data is! Map || !data.containsKey('inviteId')) continue;
+      final createdAt = DateTime.tryParse(item['createdAt']?.toString() ?? '');
+      if (createdAt == null) continue;
+      final expiresAt = createdAt.add(const Duration(seconds: 10));
+      if (nextExpiry == null || expiresAt.isBefore(nextExpiry)) nextExpiry = expiresAt;
+    }
+    if (nextExpiry == null) return;
+    final remaining = nextExpiry.difference(DateTime.now());
+    _inviteExpiryTimer = Timer(remaining.isNegative ? Duration.zero : remaining, () {
+      if (mounted) _refresh(silent: true);
     });
+  }
+
+  Future<void> _refresh({bool silent = false}) async {
+    if (!silent) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
     try {
       final items = await NotificationsService.list();
       if (mounted) {
         setState(() => _items = items);
+        _scheduleInviteExpiry();
       }
     } catch (error) {
       if (mounted) {
-        setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
+        setState(() => _error = appError(context, error));
       }
     } finally {
-      if (mounted) {
+      if (mounted && !silent) {
         setState(() => _loading = false);
       }
     }
@@ -72,7 +135,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       }
     } catch (error) {
       if (mounted) {
-        setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
+        setState(() => _error = appError(context, error));
       }
     } finally {
       if (mounted) {
@@ -87,18 +150,18 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: Text(isEnglish ? 'Delete all notifications?' : 'همه اعلان‌ها پاک شوند؟'),
+        title: Text(appText(context, 'همه اعلان‌ها پاک شوند؟', 'Delete all notifications?')),
         content: Text(isEnglish
             ? 'This action cannot be undone.'
-            : 'این کار قابل بازگشت نیست.'),
+            : appText(context, 'این کار قابل بازگشت نیست.', 'This action cannot be undone.')),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
-            child: Text(isEnglish ? 'Cancel' : 'انصراف'),
+            child: Text(appText(context, 'انصراف', 'Cancel')),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(dialogContext, true),
-            child: Text(isEnglish ? 'Delete all' : 'پاک کردن همه'),
+            child: Text(appText(context, 'پاک کردن همه', 'Delete all')),
           ),
         ],
       ),
@@ -107,9 +170,12 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     setState(() { _busy = true; _error = null; });
     try {
       await NotificationsService.deleteAll();
-      if (mounted) setState(() => _items = []);
+      if (mounted) {
+        setState(() => _items = []);
+        _scheduleInviteExpiry();
+      }
     } catch (error) {
-      if (mounted) setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
+      if (mounted) setState(() => _error = appError(context, error));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -119,18 +185,21 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     if (_busy || item['readAt'] != null) return;
     setState(() => _busy = true);
     try {
-      await NotificationsService.markRead(item['id'].toString());
+      final cleared = await NotificationsService.markRead(item['id'].toString());
       if (mounted) {
         setState(() {
           final id = item['id'].toString();
-          _items = _items.map((entry) => entry['id'].toString() == id
-              ? {...entry, 'readAt': DateTime.now().toIso8601String()}
-              : entry).toList();
+          _items = cleared
+              ? _items.where((entry) => entry['id'].toString() != id).toList()
+              : _items.map((entry) => entry['id'].toString() == id
+                  ? {...entry, 'readAt': DateTime.now().toIso8601String()}
+                  : entry).toList();
         });
+        _scheduleInviteExpiry();
       }
     } catch (error) {
       if (mounted) {
-        setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
+        setState(() => _error = appError(context, error));
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -143,14 +212,14 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         child: Scaffold(
           backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           appBar: AppBar(
-            title: Text(Localizations.localeOf(context).languageCode == 'en' ? 'Notifications${_unread > 0 ? ' ($_unread)' : ''}' : 'اعلان‌ها${_unread > 0 ? ' ($_unread)' : ''}'),
+            title: Text('${appText(context, "اعلان‌ها", "Notifications")}${_unread > 0 ? " ($_unread)" : ""}'),
             backgroundColor: Theme.of(context).scaffoldBackgroundColor,
             foregroundColor: Theme.of(context).colorScheme.primary,
             actions: [
               IconButton(
                 onPressed: _loading ? null : _refresh,
                 icon: const Icon(Icons.refresh),
-                tooltip: 'به‌روزرسانی',
+                tooltip: appText(context, 'به‌روزرسانی', 'Refresh'),
               ),
             ],
           ),
@@ -166,13 +235,13 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                         if (_unread > 0) TextButton.icon(
                           onPressed: _busy ? null : _markAllRead,
                           icon: const Icon(Icons.done_all),
-                          label: Text(Localizations.localeOf(context).languageCode == 'en' ? 'Mark all read' : 'خواندن همه'),
-                          style: TextButton.styleFrom(foregroundColor: _noticeGold),
+                          label: Text(appText(context, 'خواندن همه', 'Mark all read')),
+                          style: TextButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.primary),
                         ),
                         if (_items.isNotEmpty) TextButton.icon(
                           onPressed: _busy ? null : _deleteAll,
                           icon: const Icon(Icons.delete_sweep_outlined),
-                          label: Text(Localizations.localeOf(context).languageCode == 'en' ? 'Delete all' : 'پاک کردن همه'),
+                          label: Text(appText(context, 'پاک کردن همه', 'Delete all')),
                           style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
                         ),
                       ],
@@ -181,17 +250,17 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 if (_error != null)
                   Padding(
                     padding: const EdgeInsets.all(12),
-                    child: Text(_error!,
+                    child: Text(appError(context, _error),
                         style: const TextStyle(color: Colors.redAccent)),
                   ),
                 Expanded(
                   child: _loading
-                      ? const Center(
-                          child: CircularProgressIndicator(color: _noticeGold))
+                      ? Center(
+                          child: CircularProgressIndicator(color: Theme.of(context).colorScheme.primary))
                       : _items.isEmpty
                           ? Center(
-                              child: Text(Localizations.localeOf(context).languageCode == 'en' ? 'No notifications yet.' : 'فعلاً اعلانی ندارید.',
-                                  style: const TextStyle(color: Colors.white70)))
+                              child: Text(appText(context, 'فعلاً اعلانی ندارید.', 'No notifications yet.'),
+                                  style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7))))
                           : ListView.builder(
                               padding: const EdgeInsets.all(14),
                               itemCount: _items.length,
@@ -200,20 +269,20 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                 final unread = item['readAt'] == null;
                                 return Card(
                                   color: unread
-                                      ? const Color(0xFF26334A)
-                                      : _noticePanel,
+                                      ? Theme.of(context).colorScheme.surfaceContainerHighest
+                                      : Theme.of(context).colorScheme.surface,
                                   child: ListTile(
                                     onTap: _busy ? null : () => _markRead(item),
                                     leading: Icon(
                                       unread
                                           ? Icons.notifications_active_outlined
                                           : Icons.notifications_none_rounded,
-                                      color: _noticeGold,
+                                      color: Theme.of(context).colorScheme.primary,
                                     ),
                                     title: Text(
                                       _localizedTitle(item, Localizations.localeOf(context).languageCode == 'en'),
                                       style: TextStyle(
-                                        color: Colors.white,
+                                        color: Theme.of(context).colorScheme.onSurface,
                                         fontWeight: unread
                                             ? FontWeight.bold
                                             : FontWeight.normal,
@@ -223,15 +292,15 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                       padding: const EdgeInsets.only(top: 5),
                                       child: Text(
                                         _localizedBody(item, Localizations.localeOf(context).languageCode == 'en'),
-                                        style: const TextStyle(
-                                            color: Colors.white70, height: 1.5),
+                                        style: TextStyle(
+                                            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7), height: 1.5),
                                       ),
                                     ),
                                     trailing: unread
-                                        ? const Icon(Icons.circle,
-                                            color: _noticeGold, size: 9)
-                                        : const Icon(Icons.check,
-                                            color: Colors.white38),
+                                        ? Icon(Icons.circle,
+                                            color: Theme.of(context).colorScheme.primary, size: 9)
+                                        : Icon(Icons.check,
+                                            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.38)),
                                   ),
                                 );
                               },

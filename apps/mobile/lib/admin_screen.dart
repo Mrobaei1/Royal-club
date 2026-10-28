@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'l10n/app_text.dart';
 import 'package:flutter/services.dart';
 import 'services/admin_service.dart';
 
@@ -14,6 +15,9 @@ class _AdminScreenState extends State<AdminScreen> {
   String? _error;
   List<dynamic> _plans = [];
   List<dynamic> _reports = [];
+  List<dynamic> _permissionGrants = [];
+  List<dynamic> _permissionAudit = [];
+  bool _delegatedPermissionsEnabled = false;
   final _email = TextEditingController();
   final _amount = TextEditingController(text: '100');
   final _description = TextEditingController();
@@ -22,6 +26,17 @@ class _AdminScreenState extends State<AdminScreen> {
   final _notificationBody = TextEditingController();
   List<dynamic> _users = [];
   bool _busy = false;
+  Map<String, dynamic> _smsSettings = {};
+  String _smsMode = 'disabled';
+  String _smsProvider = 'kavenegar';
+  final _smsSender = TextEditingController();
+  final _smsTemplate = TextEditingController();
+  final _smsApiKey = TextEditingController();
+  final _smsTestPhone = TextEditingController();
+  final _smsTtl = TextEditingController(text: '120');
+  final _smsCooldown = TextEditingController(text: '60');
+  final _smsAttempts = TextEditingController(text: '5');
+  final _smsDailyLimit = TextEditingController(text: '100');
 
   @override
   void initState() {
@@ -37,6 +52,7 @@ class _AdminScreenState extends State<AdminScreen> {
     _price.dispose();
     _notificationTitle.dispose();
     _notificationBody.dispose();
+    _smsSender.dispose(); _smsTemplate.dispose(); _smsApiKey.dispose(); _smsTestPhone.dispose(); _smsTtl.dispose(); _smsCooldown.dispose(); _smsAttempts.dispose(); _smsDailyLimit.dispose();
     super.dispose();
   }
 
@@ -47,11 +63,243 @@ class _AdminScreenState extends State<AdminScreen> {
         if (mounted) setState(() { _owner = false; _loading = false; _error = null; });
         return;
       }
-      final results = await Future.wait([AdminService.plans(), AdminService.reports()]);
+      final results = await Future.wait([AdminService.plans(), AdminService.reports(), AdminService.smsOtpSettings(), AdminService.permissionSettings(), AdminService.permissionGrants(), AdminService.permissionAudit()]);
       if (!mounted) return;
-      setState(() { _owner = true; _plans = results[0]; _reports = results[1]; _loading = false; _error = null; });
+      final sms = results[2] as Map<String, dynamic>;
+      _smsSettings = sms; _smsMode = sms['deliveryMode']?.toString() ?? 'disabled';
+      _smsProvider = 'kavenegar';
+      _smsSender.text = sms['senderId']?.toString() ?? ''; _smsTemplate.text = sms['templateId']?.toString() ?? '';
+      _smsTtl.text = (sms['otpTtlSeconds'] ?? 120).toString(); _smsCooldown.text = (sms['resendCooldownSeconds'] ?? 60).toString();
+      _smsAttempts.text = (sms['maxAttempts'] ?? 5).toString(); _smsDailyLimit.text = (sms['dailyLimit'] ?? 100).toString();
+      final plans = results[0] as List<dynamic>;
+      final reports = results[1] as List<dynamic>;
+      final permissionSettings = results[3] as Map<String, dynamic>;
+      final grants = results[4] as List<dynamic>;
+      final audit = results[5] as List<dynamic>;
+      setState(() { _owner = true; _plans = plans; _reports = reports; _delegatedPermissionsEnabled = permissionSettings['enabled'] == true; _permissionGrants = grants; _permissionAudit = audit; _loading = false; _error = null; });
     } catch (e) {
-      if (mounted) setState(() { _loading = false; _error = e.toString().replaceFirst('Exception: ', ''); });
+      if (mounted) setState(() { _loading = false; _error = appError(context, e); });
+    }
+  }
+
+
+  Future<void> _saveSmsSettings() async {
+    setState(() => _busy = true);
+    try {
+      final saved = await AdminService.saveSmsOtpSettings({
+        'enabled': false, 'deliveryMode': _smsMode, 'provider': _smsProvider,
+        'senderId': _smsSender.text.trim(), 'templateId': _smsTemplate.text.trim(),
+        if (_smsApiKey.text.isNotEmpty) 'apiKey': _smsApiKey.text,
+        'otpTtlSeconds': int.tryParse(_smsTtl.text) ?? 120,
+        'resendCooldownSeconds': int.tryParse(_smsCooldown.text) ?? 60,
+        'maxAttempts': int.tryParse(_smsAttempts.text) ?? 5,
+        'dailyLimit': int.tryParse(_smsDailyLimit.text) ?? 100,
+      });
+      _smsApiKey.clear();
+      if (!mounted) return;
+      setState(() => _smsSettings = saved);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appText(context, 'تنظیمات ذخیره شد؛ ارسال واقعی همچنان غیرفعال است.', 'Settings saved; real SMS sending remains disabled.'))));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appError(context, e))));
+    } finally { if (mounted) setState(() => _busy = false); }
+  }
+
+  Future<void> _testSmsConnection() async {
+    setState(() => _busy = true);
+    try {
+      final result = await AdminService.testSmsConnection();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(result['ok'] == true
+          ? appText(context, 'اتصال ارائه‌دهنده پیامک موفق بود.', 'SMS provider connection succeeded.')
+          : appText(context, 'اتصال برقرار نشد؛ تنظیمات ارائه‌دهنده را بررسی کنید.', 'Connection failed; check provider settings.')),
+      ));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appError(context, e))));
+    } finally { if (mounted) setState(() => _busy = false); }
+  }
+
+  Future<void> _testSmsMessage() async {
+    final phone = _smsTestPhone.text.trim();
+    if (phone.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(appText(context, 'ابتدا شماره موبایل آزمایشی ایران را وارد کنید.', 'Enter an Iranian test mobile number first.')),
+      ));
+      return;
+    }
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(appText(dialogContext, 'ارسال پیامک آزمایشی', 'Send test SMS')),
+        content: Text(appText(
+          dialogContext,
+          'این عملیات یک پیامک واقعی به شماره واردشده می‌فرستد و ممکن است هزینه داشته باشد. فقط در صورت تأیید مالک ادامه دهید.',
+          'This sends a real SMS to the entered number and may incur a charge. Continue only if the owner confirms.',
+        )),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: Text(appText(dialogContext, 'انصراف', 'Cancel'))),
+          FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: Text(appText(dialogContext, 'تأیید هزینه و ارسال', 'Confirm cost and send'))),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() => _busy = true);
+    try {
+      final result = await AdminService.testSmsMessage(phone: phone, confirmCost: true);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(result['ok'] == true
+          ? appText(context, 'ارائه‌دهنده پیامک آزمایشی را پذیرفت.', 'Provider accepted the test SMS.')
+          : appText(context, 'ارسال پیامک آزمایشی ناموفق بود.', 'Test SMS failed.')),
+      ));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appError(context, e))));
+    } finally { if (mounted) setState(() => _busy = false); }
+  }
+
+  Future<void> _setDelegatedPermissionsEnabled(bool enabled) async {
+    if (enabled) {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text(appText(context, 'فعال‌سازی مجوزهای تفویض‌شده', 'Enable delegated permissions')),
+          content: Text(appText(context, 'با این کار مجوزهای ثبت‌شده می‌توانند به مسیرهای سرور متصل‌شده دسترسی بدهند. فقط در صورت بررسی مجوزها ادامه دهید.', 'Existing grants may access server routes wired to delegated permissions. Continue only after reviewing the grants.')),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context, false), child: Text(appText(context, 'انصراف', 'Cancel'))),
+            FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(appText(context, 'فعال‌سازی', 'Enable'))),
+          ],
+        ),
+      );
+      if (confirmed != true) { return; }
+    }
+    setState(() => _busy = true);
+    try {
+      final saved = await AdminService.setDelegatedPermissionsEnabled(enabled);
+      if (!mounted) return;
+      setState(() => _delegatedPermissionsEnabled = saved['enabled'] == true);
+      await _load();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(enabled
+            ? appText(context, 'مجوزهای تفویض‌شده فعال شدند.', 'Delegated permissions enabled.')
+            : appText(context, 'کلید قطع اضطراری فعال شد؛ مجوزهای تفویض‌شده غیرفعال‌اند.', 'Kill switch engaged; delegated permissions are disabled.')),
+        ));
+      }
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appError(context, e))));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _grantPermission(dynamic user) async {
+    String selected = 'reports.read';
+    final reason = TextEditingController();
+    final reference = TextEditingController();
+    final scopeIds = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+    const choices = <String>['reports.read', 'reports.manage'];
+    final result = await showDialog<Map<String, String>>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(builder: (context, setDialogState) => AlertDialog(
+        title: Text(appText(context, 'اعطای مجوز محدود', 'Grant scoped permission')),
+        content: Form(key: formKey, child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Text('@${user['username'] ?? appText(context, 'کاربر', 'user')}'),
+          const SizedBox(height: 10),
+          DropdownButtonFormField<String>(
+            initialValue: selected,
+            isExpanded: true,
+            decoration: InputDecoration(labelText: appText(context, 'مجوز', 'Permission')),
+            items: choices.map((value) => DropdownMenuItem(value: value, child: Text(value))).toList(),
+            onChanged: (value) { if (value != null) setDialogState(() => selected = value); },
+          ),
+          const SizedBox(height: 10),
+          TextFormField(
+            controller: reason,
+            maxLength: 500,
+            decoration: InputDecoration(labelText: appText(context, 'دلیل اعطای مجوز (الزامی)', 'Reason (required)')),
+            validator: (value) => (value == null || value.trim().length < 5) ? appText(context, 'دلیل باید حداقل ۵ نویسه باشد.', 'Reason must be at least 5 characters.') : null,
+          ),
+          if (selected == 'reports.manage')
+            TextFormField(
+              controller: scopeIds,
+              maxLength: 1200,
+              decoration: InputDecoration(
+                labelText: appText(context, 'شناسه کاربرهای هدف برای reports.manage', 'Target user IDs for reports.manage'),
+                helperText: appText(context, 'برای مدیریت گزارش، حداکثر ۱۰۰ شناسه عددی را با ویرگول وارد کنید.', 'For report management, enter up to 100 numeric target user IDs separated by commas.'),
+              ),
+              validator: (value) {
+                if (selected != 'reports.manage') return null;
+                final ids = (value ?? '').split(',').map((id) => id.trim()).where((id) => id.isNotEmpty).toList();
+                if (ids.isEmpty || ids.length > 100 || ids.any((id) => !RegExp(r'^[1-9][0-9]*$').hasMatch(id))) {
+                  return appText(context, 'برای این مجوز حداکثر ۱۰۰ شناسه عددی معتبر وارد کنید.', 'Enter up to 100 valid numeric IDs for this permission.');
+                }
+                return null;
+              },
+            ),
+          TextField(
+            controller: reference,
+            maxLength: 200,
+            decoration: InputDecoration(labelText: appText(context, 'شناسه تأیید (اختیاری)', 'Approval reference (optional)')),
+          ),
+          Text(appText(context, 'این کار فقط مجوز را ثبت می‌کند؛ تا زمان اتصال به مسیرهای مجازشده، دسترسی عملیاتی ایجاد نمی‌شود. هیچ مجوزی خودکار ایجاد نمی‌شود.', 'This only records the grant; it does not enable operational access until protected routes are wired to it. No grants are created automatically.'), style: const TextStyle(fontSize: 12)),
+        ]))),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext), child: Text(appText(context, 'انصراف', 'Cancel'))),
+          FilledButton(onPressed: () {
+            if (formKey.currentState?.validate() == true) {
+              Navigator.pop(dialogContext, {'permission': selected, 'reason': reason.text.trim(), 'reference': reference.text.trim(), 'resourceIds': scopeIds.text.trim()});
+            }
+          }, child: Text(appText(context, 'ثبت مجوز', 'Create grant'))),
+        ],
+      )),
+    );
+    reason.dispose();
+    reference.dispose();
+    scopeIds.dispose();
+    if (result == null) return;
+    setState(() => _busy = true);
+    try {
+      await AdminService.createPermissionGrant(
+        userId: user['id'].toString(),
+        permission: result['permission']!,
+        reason: result['reason']!,
+        approvalReference: result['reference'],
+        resourceIds: result['permission'] == 'reports.manage'
+          ? (result['resourceIds'] ?? '').split(',').map((id) => id.trim()).where((id) => id.isNotEmpty).toList()
+          : null,
+      );
+      await _load();
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appText(context, 'مجوز ثبت شد.', 'Permission grant created.'))));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appError(context, e))));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _revokePermission(dynamic grant) async {
+    final accepted = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(appText(context, 'لغو مجوز', 'Revoke permission')),
+        content: Text(appText(context, 'مجوز ${grant['permission']} لغو شود؟', 'Revoke ${grant['permission']}?')),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(appText(context, 'انصراف', 'Cancel'))),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(appText(context, 'لغو مجوز', 'Revoke grant'))),
+        ],
+      ),
+    );
+    if (accepted != true) return;
+    setState(() => _busy = true);
+    try {
+      await AdminService.revokePermissionGrant(grant['id'].toString());
+      await _load();
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appText(context, 'مجوز لغو شد.', 'Permission revoked.'))));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appError(context, e))));
+    } finally {
+      if (mounted) setState(() => _busy = false);
     }
   }
 
@@ -61,7 +309,7 @@ class _AdminScreenState extends State<AdminScreen> {
       final users = await AdminService.findUser(_email.text);
       if (mounted) setState(() { _users = users; });
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appError(context, e))));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -71,37 +319,37 @@ class _AdminScreenState extends State<AdminScreen> {
     setState(() => _busy = true);
     try {
       final profile = await AdminService.exportUserProfile(user['id'].toString());
-      final lines = <String>[
-        'شناسه کاربر: ${profile['id'] ?? ''}',
-        'نام کاربری: ${profile['username'] ?? ''}',
-        'ایمیل: ${profile['email'] ?? ''}',
-        'تلفن: ${profile['phone'] ?? ''}',
-        'کشور: ${profile['country'] ?? ''}',
-        'موجودی اعتبار: ${profile['walletBalance'] ?? '0'}',
-        'تاریخ ثبت‌نام: ${profile['createdAt'] ?? ''}',
-      ];
       if (!mounted) return;
+      final lines = <String>[
+        appText(context, 'شناسه کاربر: ${profile['id'] ?? ''}', 'User ID: ${profile['id'] ?? ''}'),
+        appText(context, 'نام کاربری: ${profile['username'] ?? ''}', 'Username: ${profile['username'] ?? ''}'),
+        appText(context, 'ایمیل: ${profile['email'] ?? ''}', 'Email: ${profile['email'] ?? ''}'),
+        appText(context, 'تلفن: ${profile['phone'] ?? ''}', 'Phone: ${profile['phone'] ?? ''}'),
+        appText(context, 'کشور: ${profile['country'] ?? ''}', 'Country: ${profile['country'] ?? ''}'),
+        appText(context, 'موجودی اعتبار: ${profile['walletBalance'] ?? '0'}', 'Credit balance: ${profile['walletBalance'] ?? '0'}'),
+        appText(context, 'تاریخ ثبت‌نام: ${profile['createdAt'] ?? ''}', 'Registration date: ${profile['createdAt'] ?? ''}'),
+      ];
       await showDialog<void>(
         context: context,
         builder: (dialogContext) => AlertDialog(
-          title: const Text('مشخصات کاربر'),
+          title: Text(appText(context, 'مشخصات کاربر', 'User details')),
           content: SingleChildScrollView(child: SelectableText(lines.join('\\n'))),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('بستن')),
+            TextButton(onPressed: () => Navigator.pop(dialogContext), child: Text(appText(context, 'بستن', 'Close'))),
             FilledButton.icon(
               onPressed: () async {
                 await Clipboard.setData(ClipboardData(text: lines.join('\\n')));
                 if (dialogContext.mounted) Navigator.pop(dialogContext);
-                if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('مشخصات در کلیپ‌بورد کپی شد.')));
+                if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appText(context, 'مشخصات در کلیپ‌بورد کپی شد.', 'User details copied to clipboard.'))));
               },
               icon: const Icon(Icons.copy),
-              label: const Text('کپی برای استخراج'),
+              label: Text(appText(context, 'کپی برای استخراج', 'Copy for export')),
             ),
           ],
         ),
       );
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appError(context, e))));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -110,18 +358,18 @@ class _AdminScreenState extends State<AdminScreen> {
   Future<void> _credit(dynamic user) async {
     final amount = int.tryParse(_amount.text.trim());
     if (amount == null || amount <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('مقدار اعتبار باید عدد مثبت باشد.')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appText(context, 'مقدار اعتبار باید عدد مثبت باشد.', 'Credit amount must be a positive number.'))));
       return;
     }
     setState(() => _busy = true);
     try {
       await AdminService.credit(user['id'].toString(), amount, _description.text.trim());
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('اعتبار با موفقیت ثبت شد.')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appText(context, 'اعتبار با موفقیت ثبت شد.', 'Credits added successfully.'))));
         await _search();
       }
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appError(context, e))));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -131,19 +379,19 @@ class _AdminScreenState extends State<AdminScreen> {
     final title = _notificationTitle.text.trim();
     final body = _notificationBody.text.trim();
     if (title.isEmpty || title.length > 120 || body.length > 1000) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('عنوان الزامی است؛ عنوان حداکثر ۱۲۰ و متن حداکثر ۱۰۰۰ نویسه.')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appText(context, 'عنوان الزامی است؛ عنوان حداکثر ۱۲۰ و متن حداکثر ۱۰۰۰ نویسه.', 'A title is required; title must be at most 120 characters and message at most 1,000 characters.'))));
       return;
     }
     setState(() => _busy = true);
     try {
       final count = await AdminService.sendNotification(userId: userId, title: title, body: body);
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('اعلان برای $count کاربر ارسال شد.')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appText(context, 'اعلان برای $count کاربر ارسال شد.', 'Notification sent to $count users.'))));
       if (mounted && userId == null) {
         _notificationTitle.clear();
         _notificationBody.clear();
       }
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appError(context, e))));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -154,9 +402,9 @@ class _AdminScreenState extends State<AdminScreen> {
     try {
       await AdminService.updateReport(report['id'].toString(), status);
       await _load();
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('وضعیت گزارش به‌روزرسانی شد.')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appText(context, 'وضعیت گزارش به‌روزرسانی شد.', 'Report status updated.'))));
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appError(context, e))));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -169,13 +417,13 @@ class _AdminScreenState extends State<AdminScreen> {
       await _load();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(active ? 'اشتراک فعال شد.' : 'اشتراک غیرفعال شد.')),
+          SnackBar(content: Text(active ? appText(context, 'اشتراک فعال شد.', 'Subscription enabled.') : appText(context, 'اشتراک غیرفعال شد.', 'Subscription disabled.'))),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+          SnackBar(content: Text(appError(context, e))),
         );
       }
     } finally {
@@ -189,24 +437,24 @@ class _AdminScreenState extends State<AdminScreen> {
     final price = TextEditingController(text: plan['priceCredits']?.toString() ?? '0');
     final formKey = GlobalKey<FormState>();
     final accepted = await showDialog<bool>(context: context, builder: (context) => AlertDialog(
-      title: const Text('ویرایش اشتراک'),
+      title: Text(appText(context, 'ویرایش اشتراک', 'Edit subscription')),
       content: Form(key: formKey, child: Column(mainAxisSize: MainAxisSize.min, children: [
-        TextFormField(controller: name, decoration: const InputDecoration(labelText: 'نام اشتراک'), validator: (v) => v == null || v.trim().isEmpty ? 'نام الزامی است' : null),
-        TextFormField(controller: days, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'مدت (روز)'), validator: (v) => int.tryParse(v ?? '') == null || int.parse(v!) < 1 ? 'مدت نامعتبر است' : null),
-        TextFormField(controller: price, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'قیمت (اعتبار)'), validator: (v) => int.tryParse(v ?? '') == null || int.parse(v!) < 0 ? 'قیمت نامعتبر است' : null),
+        TextFormField(controller: name, decoration: InputDecoration(labelText: appText(context, 'نام اشتراک', 'Subscription name')), validator: (v) => v == null || v.trim().isEmpty ? appText(context, 'نام الزامی است', 'Name is required') : null),
+        TextFormField(controller: days, keyboardType: TextInputType.number, decoration: InputDecoration(labelText: appText(context, 'مدت (روز)', 'Duration (days)')), validator: (v) => int.tryParse(v ?? '') == null || int.parse(v!) < 1 ? appText(context, 'مدت نامعتبر است', 'Invalid duration') : null),
+        TextFormField(controller: price, keyboardType: TextInputType.number, decoration: InputDecoration(labelText: appText(context, 'قیمت (اعتبار)', 'Price (credits)')), validator: (v) => int.tryParse(v ?? '') == null || int.parse(v!) < 0 ? appText(context, 'قیمت نامعتبر است', 'Invalid price') : null),
       ])),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('انصراف')),
-        FilledButton(onPressed: () { if (formKey.currentState!.validate()) Navigator.pop(context, true); }, child: const Text('ذخیره')),
+        TextButton(onPressed: () => Navigator.pop(context, false), child: Text(appText(context, 'انصراف', 'Cancel'))),
+        FilledButton(onPressed: () { if (formKey.currentState!.validate()) Navigator.pop(context, true); }, child: Text(appText(context, 'ذخیره', 'Save'))),
       ],
     ));
     if (accepted != true) { name.dispose(); days.dispose(); price.dispose(); return; }
     try {
       await AdminService.updatePlan(plan['code'].toString(), name: name.text.trim(), durationDays: int.parse(days.text), priceCredits: int.parse(price.text));
       await _load();
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('اشتراک به‌روزرسانی شد.')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appText(context, 'اشتراک به‌روزرسانی شد.', 'Subscription updated.'))));
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appError(context, e))));
     } finally {
       name.dispose(); days.dispose(); price.dispose();
     }
@@ -216,74 +464,142 @@ class _AdminScreenState extends State<AdminScreen> {
   Widget build(BuildContext context) => Directionality(
     textDirection: (Localizations.localeOf(context).languageCode == 'en' ? TextDirection.ltr : TextDirection.rtl),
     child: Scaffold(
-      appBar: AppBar(title: const Text('پنل مدیریت'), actions: [IconButton(onPressed: _load, icon: const Icon(Icons.refresh))]),
+      appBar: AppBar(title: Text(appText(context, 'پنل مدیریت', 'Admin panel')), actions: [IconButton(onPressed: _load, icon: const Icon(Icons.refresh))]),
       body: _loading ? const Center(child: CircularProgressIndicator()) : _error != null
-        ? Center(child: Padding(padding: const EdgeInsets.all(24), child: Text(_error!, textAlign: TextAlign.center)))
+        ? Center(child: Padding(padding: const EdgeInsets.all(24), child: Text(appError(context, _error), textAlign: TextAlign.center)))
         : !_owner
-          ? const Center(child: Padding(padding: EdgeInsets.all(28), child: Column(mainAxisSize: MainAxisSize.min, children: [
+          ? Center(child: Padding(padding: const EdgeInsets.all(28), child: Column(mainAxisSize: MainAxisSize.min, children: [
               Icon(Icons.lock_outline, size: 54), SizedBox(height: 14),
-              Text('دسترسی مدیر فعال نیست', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-              SizedBox(height: 8), Text('این بخش فقط برای شناسه مالک تعریف‌شده در تنظیمات سرور قابل استفاده است.', textAlign: TextAlign.center),
+              Text(appText(context, 'دسترسی مدیر فعال نیست', 'Administrator access is not enabled'), style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+              SizedBox(height: 8), Text(appText(context, 'این بخش فقط برای شناسه مالک تعریف‌شده در تنظیمات سرور قابل استفاده است.', 'This section is available only to the owner ID configured on the server.'), textAlign: TextAlign.center),
             ])))
           : ListView(padding: const EdgeInsets.all(16), children: [
-              const Text('اعتباردهی به کاربر', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 10),
-              TextField(controller: _email, keyboardType: TextInputType.emailAddress, decoration: const InputDecoration(labelText: 'ایمیل دقیق کاربر', border: OutlineInputBorder())),
-              const SizedBox(height: 8),
-              FilledButton(onPressed: _busy ? null : _search, child: const Text('جستجوی کاربر')),
-              for (final user in _users) Card(child: Padding(padding: const EdgeInsets.all(12), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('@${user['username'] ?? 'کاربر'}', style: const TextStyle(fontWeight: FontWeight.bold)),
-                Text(user['email']?.toString() ?? ''),
-                TextField(controller: _amount, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'مقدار اعتبار')),
-                TextField(controller: _description, decoration: const InputDecoration(labelText: 'توضیح تراکنش')),
+
+              Card(child: Padding(padding: const EdgeInsets.all(14), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(appText(context, 'امنیت و احراز هویت — پیامک / OTP', 'Security & authentication — SMS / OTP'), style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 6),
+                Text(appText(context, 'ارسال واقعی ورود با OTP تا یکپارچه‌سازی احراز هویت و تصمیم مدیر قفل است.', 'Real SMS delivery and OTP login remain locked until authentication integration is complete and the owner decides.'), style: TextStyle(color: Colors.orange)),
+                SwitchListTile(contentPadding: EdgeInsets.zero, title: Text(appText(context, 'فعال‌سازی OTP پیامکی', 'Enable SMS OTP')), subtitle: Text(appText(context, 'فعلاً غیرفعال و غیرقابل فعال‌سازی', 'Currently disabled and cannot be enabled')), value: false, onChanged: null),
+                DropdownButtonFormField<String>(initialValue: ['disabled', 'development_simulator', 'real_provider'].contains(_smsMode) ? _smsMode : 'disabled', decoration: InputDecoration(labelText: appText(context, 'حالت ارسال', 'Delivery mode')), items: [
+                  DropdownMenuItem(value: 'disabled', child: Text(appText(context, 'غیرفعال (پیش‌فرض)', 'Disabled (default)'))),
+                  DropdownMenuItem(value: 'development_simulator', child: Text(appText(context, 'شبیه‌ساز توسعه، بدون پیامک واقعی', 'Development simulator, no real SMS'))),
+                  DropdownMenuItem(value: 'real_provider', child: Text(appText(context, 'ارائه‌دهنده واقعی؛ ورود OTP همچنان خاموش', 'Real provider configured; OTP login remains off'))),
+                ], onChanged: _busy ? null : (v) => setState(() => _smsMode = v ?? 'disabled')),
                 const SizedBox(height: 8),
-                FilledButton(onPressed: _busy ? null : () => _credit(user), child: const Text('ثبت اعتبار')),
-                OutlinedButton(onPressed: _busy ? null : () => _notify(userId: user['id'].toString()), child: const Text('ارسال اعلان به این کاربر')),
-                OutlinedButton.icon(onPressed: _busy ? null : () => _exportUser(user), icon: const Icon(Icons.person_search_outlined), label: const Text('استخراج مشخصات کاربر')),
+                DropdownButtonFormField<String>(initialValue: 'kavenegar', decoration: InputDecoration(labelText: appText(context, 'ارائه‌دهنده', 'Provider')), items: [
+                  const DropdownMenuItem(value: 'kavenegar', child: Text('KaveNegar')),
+                ], onChanged: _busy ? null : (v) => setState(() => _smsProvider = v ?? 'kavenegar')),
+                Text(appText(context, 'در حال حاضر فقط آداپتور کاوه‌نگار پیاده‌سازی شده است.', 'Only the Kavenegar adapter is implemented currently.'), style: const TextStyle(fontSize: 12)),
+                const SizedBox(height: 8),
+                TextField(controller: _smsApiKey, obscureText: true, decoration: InputDecoration(labelText: appText(context, 'کلید API (اختیاری)', 'API key (optional)'), helperText: _smsSettings['apiKeyConfigured'] == true ? appText(context, 'کلید ذخیره شده و مخفی است.', 'The saved key is hidden.') : appText(context, 'ذخیره امن نیازمند کلید رمزنگاری سمت سرور است.', 'Secure storage requires a server-side encryption key.'), border: const OutlineInputBorder())),
+                const SizedBox(height: 8),
+                TextField(controller: _smsSender, decoration: InputDecoration(labelText: appText(context, 'شناسه فرستنده', 'Sender ID'), border: const OutlineInputBorder())),
+                const SizedBox(height: 8),
+                TextField(controller: _smsTemplate, decoration: InputDecoration(labelText: appText(context, 'شناسه الگوی پیامک', 'SMS template ID'), border: const OutlineInputBorder())),
+                Row(children: [Expanded(child: TextField(controller: _smsTtl, keyboardType: TextInputType.number, decoration: InputDecoration(labelText: appText(context, 'اعتبار کد (ثانیه)', 'Code validity (seconds)')))), const SizedBox(width: 8), Expanded(child: TextField(controller: _smsCooldown, keyboardType: TextInputType.number, decoration: InputDecoration(labelText: appText(context, 'فاصله ارسال مجدد', 'Resend cooldown (seconds)'))))]),
+                Row(children: [Expanded(child: TextField(controller: _smsAttempts, keyboardType: TextInputType.number, decoration: InputDecoration(labelText: appText(context, 'حداکثر تلاش', 'Maximum attempts')))), const SizedBox(width: 8), Expanded(child: TextField(controller: _smsDailyLimit, keyboardType: TextInputType.number, decoration: InputDecoration(labelText: appText(context, 'سقف روزانه', 'Daily limit'))))]),
+                const SizedBox(height: 10),
+                FilledButton.icon(onPressed: _busy ? null : _saveSmsSettings, icon: const Icon(Icons.save_outlined), label: Text(appText(context, 'ذخیره تنظیمات غیرفعال', 'Save disabled settings'))),
+                const SizedBox(height: 8),
+                OutlinedButton.icon(onPressed: _busy || _smsMode != 'real_provider' ? null : _testSmsConnection, icon: const Icon(Icons.link), label: Text(appText(context, 'بررسی اتصال ارائه‌دهنده', 'Test provider connection'))),
+                TextField(controller: _smsTestPhone, keyboardType: TextInputType.phone, decoration: InputDecoration(labelText: appText(context, 'شماره آزمایشی ایران', 'Iranian test phone'), hintText: '09123456789', border: const OutlineInputBorder())),
+                const SizedBox(height: 8),
+                OutlinedButton.icon(onPressed: _busy || _smsMode != 'real_provider' ? null : _testSmsMessage, icon: const Icon(Icons.sms_outlined), label: Text(appText(context, 'ارسال پیامک آزمایشی با تأیید هزینه', 'Send test SMS with cost confirmation'))),
+                Text(appText(context, 'ورود OTP همچنان خاموش است. پیامک آزمایشی فقط پس از تأیید جداگانه ارسال می‌شود.', 'OTP login remains off. A test SMS is sent only after separate confirmation.'), style: const TextStyle(fontSize: 12)),
+                Text(appText(context, 'کلید ذخیره شده: ${_smsSettings['apiKeyConfigured'] == true ? 'بله (مخفی)' : 'خیر'}', 'Saved key: ${_smsSettings['apiKeyConfigured'] == true ? 'yes (hidden)' : 'no'}'), style: const TextStyle(fontSize: 12)),
               ]))),
               const SizedBox(height: 22),
-              const Text('ارسال اعلان', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+              Text(appText(context, 'مجوزهای دستیاران و ایجنت‌ها', 'Assistant and agent permissions'), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 6),
+              Text(appText(context, 'هیچ حساب یا مجوزی خودکار فعال نمی‌شود. این مجوزها فعلاً ثبت و ممیزی می‌شوند؛ تا اتصال کامل مسیرها، دسترسی عملیاتی اعطا نمی‌کنند.', 'No account or permission is activated automatically. Grants are currently recorded and audited; they do not yet enable operational access.'), style: const TextStyle(fontSize: 12)),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(appText(context, 'کلید قطع اضطراری مجوزها', 'Delegated-permission kill switch')),
+                subtitle: Text(_delegatedPermissionsEnabled
+                  ? appText(context, 'فعال — مجوزهای ثبت‌شده قابل استفاده‌اند.', 'Enabled — recorded grants may be used.')
+                  : appText(context, 'خاموش — تمام دسترسی‌های تفویض‌شده مسدود است.', 'Off — all delegated access is blocked.')),
+                value: _delegatedPermissionsEnabled,
+                onChanged: _busy ? null : _setDelegatedPermissionsEnabled,
+              ),
               const SizedBox(height: 8),
-              TextField(controller: _notificationTitle, maxLength: 120, decoration: const InputDecoration(labelText: 'عنوان اعلان', border: OutlineInputBorder())),
+              if (_permissionGrants.isEmpty) Text(appText(context, 'مجوز فعالی ثبت نشده است.', 'No active permission grants.')),
+              for (final grant in _permissionGrants) Card(child: ListTile(
+                leading: const Icon(Icons.verified_user_outlined),
+                title: Text('@${grant['username'] ?? grant['userId']} · ${grant['permission']}'),
+                subtitle: Text('${grant['reason'] ?? ''}'),
+                trailing: IconButton(tooltip: appText(context, 'لغو مجوز', 'Revoke grant'), onPressed: _busy ? null : () => _revokePermission(grant), icon: const Icon(Icons.remove_circle_outline)),
+              )),
+              if (_permissionAudit.isNotEmpty) ExpansionTile(
+                title: Text(appText(context, 'گزارش ممیزی مجوزها', 'Permission audit log')),
+                children: [
+                  for (final entry in _permissionAudit.take(20))
+                    ListTile(
+                      dense: true,
+                      title: Text('${entry['action']} · ${entry['permission']}'),
+                      subtitle: Text('${entry['actorUsername'] ?? entry['actorUserId'] ?? appText(context, 'سامانه', 'system')} → ${entry['targetUsername'] ?? entry['targetUserId'] ?? appText(context, 'نامشخص', 'unknown')} · ${entry['createdAt']}'),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 22),
+              Text(appText(context, 'اعتباردهی به کاربر', 'Credit a user'), style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 10),
+              TextField(controller: _email, keyboardType: TextInputType.emailAddress, decoration: InputDecoration(labelText: appText(context, 'ایمیل دقیق کاربر', 'Exact user email'), border: const OutlineInputBorder())),
               const SizedBox(height: 8),
-              TextField(controller: _notificationBody, maxLines: 3, maxLength: 1000, decoration: const InputDecoration(labelText: 'متن اعلان', border: OutlineInputBorder())),
+              FilledButton(onPressed: _busy ? null : _search, child: Text(appText(context, 'جستجوی کاربر', 'Search user'))),
+              for (final user in _users) Card(child: Padding(padding: const EdgeInsets.all(12), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('@${user['username'] ?? appText(context, 'کاربر', 'User')}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                Text(user['email']?.toString() ?? ''),
+                TextField(controller: _amount, keyboardType: TextInputType.number, decoration: InputDecoration(labelText: appText(context, 'مقدار اعتبار', 'Credit amount'))),
+                TextField(controller: _description, decoration: InputDecoration(labelText: appText(context, 'توضیح تراکنش', 'Transaction description'))),
+                const SizedBox(height: 8),
+                FilledButton(onPressed: _busy ? null : () => _credit(user), child: Text(appText(context, 'ثبت اعتبار', 'Add credits'))),
+                OutlinedButton.icon(onPressed: _busy ? null : () => _grantPermission(user), icon: const Icon(Icons.admin_panel_settings_outlined), label: Text(appText(context, 'اعطای مجوز محدود', 'Grant scoped permission'))),
+                OutlinedButton(onPressed: _busy ? null : () => _notify(userId: user['id'].toString()), child: Text(appText(context, 'ارسال اعلان به این کاربر', 'Send notification to this user'))),
+                OutlinedButton.icon(onPressed: _busy ? null : () => _exportUser(user), icon: const Icon(Icons.person_search_outlined), label: Text(appText(context, 'استخراج مشخصات کاربر', 'Export user details'))),
+              ]))),
+              const SizedBox(height: 22),
+              Text(appText(context, 'ارسال اعلان', 'Send notification'), style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
-              FilledButton.icon(onPressed: _busy ? null : () => _notify(), icon: const Icon(Icons.campaign_outlined), label: const Text('ارسال اعلان به همه کاربران')),
+              TextField(controller: _notificationTitle, maxLength: 120, decoration: InputDecoration(labelText: appText(context, 'عنوان اعلان', 'Notification title'), border: const OutlineInputBorder())),
+              const SizedBox(height: 8),
+              TextField(controller: _notificationBody, maxLines: 3, maxLength: 1000, decoration: InputDecoration(labelText: appText(context, 'متن اعلان', 'Notification message'), border: const OutlineInputBorder())),
+              const SizedBox(height: 8),
+              FilledButton.icon(onPressed: _busy ? null : () => _notify(), icon: const Icon(Icons.campaign_outlined), label: Text(appText(context, 'ارسال اعلان به همه کاربران', 'Send notification to all users'))),
               const SizedBox(height: 22),
               Row(children: [
-                const Expanded(child: Text('گزارش‌های کاربران', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold))),
-                IconButton(onPressed: _busy ? null : _load, tooltip: 'تازه‌سازی گزارش‌ها', icon: const Icon(Icons.refresh)),
+                Expanded(child: Text(appText(context, 'گزارش‌های کاربران', 'User reports'), style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold))),
+                IconButton(onPressed: _busy ? null : _load, tooltip: appText(context, 'تازه‌سازی گزارش‌ها', 'Refresh reports'), icon: const Icon(Icons.refresh)),
               ]),
-              const Text('گزارش‌های باز با حداقل ۲ گزارشگر یکتا در ۷ روز برجسته می‌شوند.', style: TextStyle(fontSize: 12)),
+              Text(appText(context, 'گزارش‌های باز با حداقل ۲ گزارشگر یکتا در ۷ روز برجسته می‌شوند.', 'Open reports with at least 2 unique reporters in 7 days are highlighted.'), style: TextStyle(fontSize: 12)),
               const SizedBox(height: 8),
-              if (_reports.isEmpty) const Text('گزارش ثبت‌شده‌ای وجود ندارد.'),
+              if (_reports.isEmpty) Text(appText(context, 'گزارش ثبت‌شده‌ای وجود ندارد.', 'No reports have been submitted.')),
               for (final report in _reports) Card(
                 child: Padding(
                   padding: const EdgeInsets.all(12),
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(report['reportedEmail']?.toString() ?? 'کاربر', style: const TextStyle(fontWeight: FontWeight.bold)),
-                    Text('گزارشگر: ${report['reporterEmail'] ?? report['reporterId']}'),
-                    Text('گزارش‌های ۷ روز اخیر: ${report['uniqueReportsLast7Days']} گزارشگر یکتا از ${report['reportsLast7Days']} گزارش'),
+                    Text('@${report['reportedUsername'] ?? report['reportedUserId'] ?? appText(context, 'کاربر', 'User')}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                    Text(appText(context, 'گزارشگر: @${report['reporterUsername'] ?? report['reporterId']}', 'Reporter: @${report['reporterUsername'] ?? report['reporterId']}')),
+                    Text(appText(context, 'گزارش‌های ۷ روز اخیر: ${report['uniqueReportsLast7Days']} گزارشگر یکتا از ${report['reportsLast7Days']} گزارش', 'Last 7 days: ${report['uniqueReportsLast7Days']} unique reporters across ${report['reportsLast7Days']} reports')),
                     if ((report['uniqueReportsLast7Days'] as num?)?.toInt() != null && ((report['uniqueReportsLast7Days'] as num).toInt() >= 2))
-                      const Chip(label: Text('نیازمند بررسی مدیر')),
+                      Chip(label: Text(appText(context, 'نیازمند بررسی مدیر', 'Needs admin review'))),
                     const SizedBox(height: 4),
                     Text(report['reason']?.toString() ?? ''),
-                    Text('وضعیت: ${report['status']}'),
+                    Text(appText(context, 'وضعیت: ${report['status']}', 'Status: ${report['status']}')),
                     if (report['status'] == 'open') Wrap(spacing: 8, children: [
-                      OutlinedButton(onPressed: _busy ? null : () => _updateReport(report, 'reviewed'), child: const Text('بررسی شد')),
-                      OutlinedButton(onPressed: _busy ? null : () => _updateReport(report, 'dismissed'), child: const Text('رد گزارش')),
-                      FilledButton.tonal(onPressed: _busy ? null : () => _updateReport(report, 'actioned'), child: const Text('اقدام شد')),
+                      OutlinedButton(onPressed: _busy ? null : () => _updateReport(report, 'reviewed'), child: Text(appText(context, 'بررسی شد', 'Reviewed'))),
+                      OutlinedButton(onPressed: _busy ? null : () => _updateReport(report, 'dismissed'), child: Text(appText(context, 'رد گزارش', 'Dismiss report'))),
+                      FilledButton.tonal(onPressed: _busy ? null : () => _updateReport(report, 'actioned'), child: Text(appText(context, 'اقدام شد', 'Action taken'))),
                     ]),
                   ]),
                 ),
               ),
               const SizedBox(height: 22),
-              const Text('مدیریت اشتراک‌ها', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+              Text(appText(context, 'مدیریت اشتراک‌ها', 'Subscription management'), style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
               for (final plan in _plans) Card(child: ListTile(
                 leading: const Icon(Icons.workspace_premium),
                 title: Text(plan['name']?.toString() ?? ''),
-                subtitle: Text('${plan['durationDays']} روز • ${plan['priceCredits']} اعتبار'),
+                subtitle: Text(appText(context, '${plan['durationDays']} روز • ${plan['priceCredits']} اعتبار', '${plan['durationDays']} days • ${plan['priceCredits']} credits')),
                 trailing: Row(mainAxisSize: MainAxisSize.min, children: [
                   Switch(
                     value: plan['active'] == true,
