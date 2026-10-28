@@ -987,3 +987,91 @@ test('subscription purchases debit the wallet atomically and record a ledger ent
   assert.ok((walletAfter.json().transactions as Array<Record<string, unknown>>)
     .some((transaction) => Number(transaction.amount) === -300 && Number(transaction.balanceAfter) === 200));
 });
+
+
+test('delegated report permissions are owner-granted, resource-scoped, audited, and revocable', async () => {
+  const previousOwnerId = process.env.OWNER_USER_ID;
+  const owner = await register('Permission Owner');
+  const assistant = await register('Permission Assistant');
+  const targetA = await register('Permission Target A');
+  const targetB = await register('Permission Target B');
+  process.env.OWNER_USER_ID = owner.user.id;
+
+  try {
+    const deniedList = await app.inject({
+      method: 'GET',
+      url: '/api/v1/admin/permissions/grants',
+      headers: auth(assistant.token),
+    });
+    assert.equal(deniedList.statusCode, 403, deniedList.body);
+
+    const createdA = await testPool.query(
+      'INSERT INTO user_reports (reporter_id, reported_user_id, reason) VALUES ($1, $2, $3) RETURNING id',
+      [assistant.user.id, targetA.user.id, 'Integration test report for scoped permission A'],
+    );
+    const createdB = await testPool.query(
+      'INSERT INTO user_reports (reporter_id, reported_user_id, reason) VALUES ($1, $2, $3) RETURNING id',
+      [assistant.user.id, targetB.user.id, 'Integration test report for scoped permission B'],
+    );
+    const reportAId = String(createdA.rows[0].id);
+    const reportBId = String(createdB.rows[0].id);
+
+    const grant = await app.inject({
+      method: 'POST',
+      url: '/api/v1/admin/permissions/grants',
+      headers: auth(owner.token),
+      payload: {
+        userId: assistant.user.id,
+        permission: 'reports.manage',
+        scope: { resourceIds: [targetA.user.id] },
+        reason: 'Review reports for the assigned user only',
+        approvalReference: 'phase1-integration-test',
+      },
+    });
+    assert.equal(grant.statusCode, 201, grant.body);
+    const grantId = String(grant.json().grant.id);
+
+    const allowed = await app.inject({
+      method: 'PATCH',
+      url: `/api/v1/admin/reports/${reportAId}`,
+      headers: auth(assistant.token),
+      payload: { status: 'reviewed' },
+    });
+    assert.equal(allowed.statusCode, 200, allowed.body);
+
+    const outsideScope = await app.inject({
+      method: 'PATCH',
+      url: `/api/v1/admin/reports/${reportBId}`,
+      headers: auth(assistant.token),
+      payload: { status: 'dismissed' },
+    });
+    assert.equal(outsideScope.statusCode, 403, outsideScope.body);
+
+    const audit = await app.inject({
+      method: 'GET',
+      url: '/api/v1/admin/permissions/audit',
+      headers: auth(owner.token),
+    });
+    assert.equal(audit.statusCode, 200, audit.body);
+    assert.ok((audit.json().entries as Array<Record<string, unknown>>)
+      .some((entry) => entry.action === 'grant_created' && entry.permission === 'reports.manage'));
+
+    const revoked = await app.inject({
+      method: 'DELETE',
+      url: `/api/v1/admin/permissions/grants/${grantId}`,
+      headers: auth(owner.token),
+    });
+    assert.equal(revoked.statusCode, 200, revoked.body);
+
+    const afterRevocation = await app.inject({
+      method: 'PATCH',
+      url: `/api/v1/admin/reports/${reportAId}`,
+      headers: auth(assistant.token),
+      payload: { status: 'actioned' },
+    });
+    assert.equal(afterRevocation.statusCode, 403, afterRevocation.body);
+  } finally {
+    if (previousOwnerId === undefined) delete process.env.OWNER_USER_ID;
+    else process.env.OWNER_USER_ID = previousOwnerId;
+  }
+});
