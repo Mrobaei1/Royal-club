@@ -12,7 +12,7 @@ import { createKavenegarProvider } from './sms-provider.js';
 import { getAllowedCorsOrigins } from './cors-config.js';
 import { INITIAL_BACKGAMMON_BOARD, applyBackgammonMove, hasLegalMove, maxPlayableDiceCount, mustPlayHigherDie } from './backgammon-rules.js';
 import { calculateEloRatings } from './backgammon-rating.js';
-import { nextProgressionState, type ProgressionOutcome } from './player-progression.js';
+import { nextProgressionState } from './player-progression.js';
 import { hasRoyalPermission, isRoyalPermission } from './permissions.js';
 import { promisify } from 'node:util';
 
@@ -2799,6 +2799,7 @@ app.post<{ Params: { id: string }; Body: { scope?: 'game' | 'match' } }>(
             WHERE id = $2`,
           [winnerUserId, match.id],
         );
+        await awardProgression(client, match.id, 'match-resignation', winnerUserId, claims.sub, 'quit');
         await updateBackgammonRatings(client, winnerUserId, claims.sub);
         await client.query('COMMIT');
         return { result: { status: 'finished', scope, winnerUserId, loserUserId: claims.sub, reason: 'resignation' } };
@@ -2825,6 +2826,8 @@ app.post<{ Params: { id: string }; Body: { scope?: 'game' | 'match' } }>(
         [matchFinished ? 'finished' : 'active', winnerUserId, nextHostWins, nextGuestWins,
          JSON.stringify(INITIAL_BACKGAMMON_BOARD), winnerUserId, match.id],
       );
+      const gameNumber = Number(match.host_game_wins ?? 0) + Number(match.guest_game_wins ?? 0) + 1;
+      await awardProgression(client, match.id, `game:${gameNumber}`, winnerUserId, claims.sub, 'quit');
       if (matchFinished) {
         await updateBackgammonRatings(client, winnerUserId, claims.sub);
       }
@@ -2964,10 +2967,12 @@ app.post<{ Params: { id: string }; Body: { moves: Array<{ from: number | null; t
        gameFinished ? game.host_user_id : nextTurn, JSON.stringify(gameFinished ? [] : nextDice),
        JSON.stringify(gameFinished ? [] : nextRemaining), matchFinished ? 'finished' : 'active',
        nextHostWins, nextGuestWins, game.id]);
-    if (matchFinished && game.guest_user_id) {
-      const winnerId = nextHostWins >= Number(game.match_to_win ?? 1) ? game.host_user_id : game.guest_user_id;
+    if (gameFinished && game.guest_user_id) {
+      const winnerId = nextOff.host >= 15 ? game.host_user_id : game.guest_user_id;
       const loserId = winnerId === game.host_user_id ? game.guest_user_id : game.host_user_id;
-      await updateBackgammonRatings(client, winnerId, loserId);
+      const gameNumber = Number(game.host_game_wins ?? 0) + Number(game.guest_game_wins ?? 0) + 1;
+      await awardProgression(client, game.id, `game:${gameNumber}`, winnerId, loserId, 'loss');
+      if (matchFinished) await updateBackgammonRatings(client, winnerId, loserId);
     }
     await client.query('COMMIT');
     return { state: updated.rows[0], appliedMoves: body.moves.length };
@@ -3153,10 +3158,12 @@ app.post<{ Params: { id: string }; Body: { from: number | null; to: number | nul
        gameFinished ? game.host_user_id : nextTurn, JSON.stringify(gameFinished ? [] : nextDice),
        JSON.stringify(gameFinished ? [] : nextRemaining), matchFinished ? 'finished' : 'active',
        nextHostWins, nextGuestWins, game.id]);
-    if (matchFinished && game.guest_user_id) {
-      const winnerId = nextHostWins >= Number(game.match_to_win ?? 1) ? game.host_user_id : game.guest_user_id;
+    if (gameFinished && game.guest_user_id) {
+      const winnerId = nextOff.host >= 15 ? game.host_user_id : game.guest_user_id;
       const loserId = winnerId === game.host_user_id ? game.guest_user_id : game.host_user_id;
-      await updateBackgammonRatings(client, winnerId, loserId);
+      const gameNumber = Number(game.host_game_wins ?? 0) + Number(game.guest_game_wins ?? 0) + 1;
+      await awardProgression(client, game.id, `game:${gameNumber}`, winnerId, loserId, 'loss');
+      if (matchFinished) await updateBackgammonRatings(client, winnerId, loserId);
     }
     await client.query('COMMIT');
     return { state: updated.rows[0] };
