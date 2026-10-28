@@ -306,13 +306,13 @@ class _AccountScreenState extends State<AccountScreen> {
 
   Widget _progressionCard() {
     final xp = (_user?['xpPoints'] as num?)?.toInt() ?? 0;
-    final level = ((_user?['level'] as num?)?.toInt() ?? 1).clamp(1, 100);
+    final level = ((_user?['level'] as num?)?.toInt() ?? 1).clamp(1, 100).toInt();
     final atMaxLevel = level >= 100;
     final currentThreshold = _xpThresholdForLevel(level);
     final nextThreshold = atMaxLevel ? currentThreshold : _xpThresholdForLevel(level + 1);
     final needed = atMaxLevel ? 0 : (nextThreshold - xp).clamp(0, nextThreshold);
     final span = nextThreshold - currentThreshold;
-    final progress = atMaxLevel || span <= 0 ? 1.0 : ((xp - currentThreshold) / span).clamp(0.0, 1.0);
+    final double progress = atMaxLevel || span <= 0 ? 1.0 : ((xp - currentThreshold) / span).clamp(0.0, 1.0).toDouble();
     final accent = Theme.of(context).colorScheme.primary;
     final onSurface = Theme.of(context).colorScheme.onSurface;
     return Card(
