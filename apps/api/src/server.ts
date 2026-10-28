@@ -5,7 +5,7 @@ import cors from '@fastify/cors';
 import rateLimit from '@fastify/rate-limit';
 import jwt from '@fastify/jwt';
 import { Pool, type PoolClient } from 'pg';
-import { randomBytes, randomInt, scrypt as scryptCallback, timingSafeEqual } from 'node:crypto';
+import { createCipheriv, randomBytes, randomInt, scrypt as scryptCallback, timingSafeEqual } from 'node:crypto';
 import { isNumericId, isValidRegistrationPassword } from './validation.js';
 import { getAllowedCorsOrigins } from './cors-config.js';
 import { INITIAL_BACKGAMMON_BOARD, applyBackgammonMove, hasLegalMove, maxPlayableDiceCount, mustPlayHigherDie } from './backgammon-rules.js';
@@ -55,6 +55,33 @@ await pool.query(`
   ALTER TABLE users ADD COLUMN IF NOT EXISTS full_name TEXT NOT NULL DEFAULT '';
   ALTER TABLE users ADD COLUMN IF NOT EXISTS phone TEXT NOT NULL DEFAULT '';
   ALTER TABLE users ADD COLUMN IF NOT EXISTS country TEXT NOT NULL DEFAULT '';
+
+
+
+  CREATE TABLE IF NOT EXISTS sms_otp_settings (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    enabled BOOLEAN NOT NULL DEFAULT FALSE,
+    delivery_mode TEXT NOT NULL DEFAULT 'disabled' CHECK (delivery_mode IN ('disabled', 'development_simulator', 'real_provider')),
+    provider TEXT NOT NULL DEFAULT '',
+    sender_id TEXT NOT NULL DEFAULT '',
+    template_id TEXT NOT NULL DEFAULT '',
+    encrypted_api_key TEXT NOT NULL DEFAULT '',
+    otp_ttl_seconds INTEGER NOT NULL DEFAULT 120 CHECK (otp_ttl_seconds BETWEEN 60 AND 600),
+    resend_cooldown_seconds INTEGER NOT NULL DEFAULT 60 CHECK (resend_cooldown_seconds BETWEEN 30 AND 600),
+    max_attempts INTEGER NOT NULL DEFAULT 5 CHECK (max_attempts BETWEEN 3 AND 10),
+    daily_limit INTEGER NOT NULL DEFAULT 100 CHECK (daily_limit BETWEEN 0 AND 100000),
+    updated_by BIGINT REFERENCES users(id) ON DELETE SET NULL,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+  INSERT INTO sms_otp_settings (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
+  CREATE TABLE IF NOT EXISTS sms_otp_audit_log (
+    id BIGSERIAL PRIMARY KEY,
+    actor_user_id BIGINT REFERENCES users(id) ON DELETE SET NULL,
+    action TEXT NOT NULL,
+    details JSONB NOT NULL DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+  CREATE INDEX IF NOT EXISTS sms_otp_audit_log_created_idx ON sms_otp_audit_log (created_at DESC);
 
   CREATE TABLE IF NOT EXISTS app_contact_methods (
     id BIGSERIAL PRIMARY KEY,
@@ -779,6 +806,71 @@ app.post<{ Params: { userId: string }; Body: { reason?: string } }>('/api/v1/use
     report: inserted.rows[0],
     moderationReviewTriggered: Number(threshold.rows[0]?.uniqueReporters ?? 0) >= 2,
   });
+});
+
+
+
+// SMS OTP configuration is owner-only and disabled by default. This endpoint only
+// manages settings; it deliberately does not send messages or switch authentication flows.
+app.get('/api/v1/admin/security/sms-otp', { onRequest: [requireOwnerAuth] }, async () => {
+  const result = await pool.query(`SELECT enabled, delivery_mode AS "deliveryMode", provider, sender_id AS "senderId",
+      template_id AS "templateId", (encrypted_api_key <> '') AS "apiKeyConfigured",
+      otp_ttl_seconds AS "otpTtlSeconds", resend_cooldown_seconds AS "resendCooldownSeconds",
+      max_attempts AS "maxAttempts", daily_limit AS "dailyLimit", updated_at AS "updatedAt"
+    FROM sms_otp_settings WHERE id = 1`);
+  return { settings: result.rows[0] ?? { enabled: false, deliveryMode: 'disabled', provider: '', senderId: '', templateId: '', apiKeyConfigured: false, otpTtlSeconds: 120, resendCooldownSeconds: 60, maxAttempts: 5, dailyLimit: 100 } };
+});
+
+app.patch<{ Body: { enabled?: boolean; deliveryMode?: string; provider?: string; senderId?: string; templateId?: string; apiKey?: string; clearApiKey?: boolean; otpTtlSeconds?: number; resendCooldownSeconds?: number; maxAttempts?: number; dailyLimit?: number } }>('/api/v1/admin/security/sms-otp', { onRequest: [requireOwnerAuth] }, async (request, reply) => {
+  const body = request.body ?? {};
+  const currentResult = await pool.query('SELECT * FROM sms_otp_settings WHERE id = 1');
+  const current = currentResult.rows[0];
+  const mode = body.deliveryMode ?? current.delivery_mode;
+  const provider = typeof body.provider === 'string' ? body.provider.trim() : current.provider;
+  const senderId = typeof body.senderId === 'string' ? body.senderId.trim() : current.sender_id;
+  const templateId = typeof body.templateId === 'string' ? body.templateId.trim() : current.template_id;
+  const ttl = body.otpTtlSeconds ?? current.otp_ttl_seconds;
+  const cooldown = body.resendCooldownSeconds ?? current.resend_cooldown_seconds;
+  const attempts = body.maxAttempts ?? current.max_attempts;
+  const dailyLimit = body.dailyLimit ?? current.daily_limit;
+  if (typeof mode !== 'string' || !['disabled', 'development_simulator', 'real_provider'].includes(mode) ||
+      (body.enabled !== undefined && typeof body.enabled !== 'boolean') || provider.length > 80 || senderId.length > 120 || templateId.length > 120 ||
+      !Number.isInteger(ttl) || ttl < 60 || ttl > 600 || !Number.isInteger(cooldown) || cooldown < 30 || cooldown > 600 ||
+      !Number.isInteger(attempts) || attempts < 3 || attempts > 10 || !Number.isInteger(dailyLimit) || dailyLimit < 0 || dailyLimit > 100000 ||
+      (body.apiKey !== undefined && (typeof body.apiKey !== 'string' || body.apiKey.length > 2048))) {
+    return reply.code(400).send({ error: 'Invalid SMS OTP settings.' });
+  }
+  // Enabling real delivery is intentionally blocked until a provider adapter and
+  // connection/test workflow are implemented and reviewed.
+  if (body.enabled === true || mode === 'real_provider') {
+    return reply.code(409).send({ error: 'SMS delivery remains disabled. Real-provider activation is not available yet.' });
+  }
+  let encryptedKey = body.clearApiKey === true ? '' : current.encrypted_api_key;
+  if (body.apiKey) {
+    const keyText = process.env.SMS_CREDENTIALS_ENCRYPTION_KEY?.trim() ?? '';
+    let key: Buffer;
+    try { key = Buffer.from(keyText, 'base64'); } catch { key = Buffer.alloc(0); }
+    if (key.length !== 32) return reply.code(503).send({ error: 'Server-side SMS credentials encryption is not configured.' });
+    const iv = randomBytes(12);
+    const cipher = createCipheriv('aes-256-gcm', key, iv);
+    const ciphertext = Buffer.concat([cipher.update(body.apiKey, 'utf8'), cipher.final()]);
+    encryptedKey = [iv.toString('base64'), cipher.getAuthTag().toString('base64'), ciphertext.toString('base64')].join('.');
+  }
+  const claims = request.user as { sub?: string };
+  await pool.query(`UPDATE sms_otp_settings SET enabled = FALSE, delivery_mode = $1, provider = $2, sender_id = $3,
+      template_id = $4, encrypted_api_key = $5, otp_ttl_seconds = $6, resend_cooldown_seconds = $7,
+      max_attempts = $8, daily_limit = $9, updated_by = $10, updated_at = NOW() WHERE id = 1`,
+    [mode === 'real_provider' ? 'disabled' : mode, provider, senderId, templateId, encryptedKey, ttl, cooldown, attempts, dailyLimit, claims.sub ?? null]);
+  await pool.query('INSERT INTO sms_otp_audit_log (actor_user_id, action, details) VALUES ($1, $2, $3::jsonb)',
+    [claims.sub ?? null, 'settings_updated', JSON.stringify({ enabled: false, deliveryMode: mode === 'real_provider' ? 'disabled' : mode, provider, apiKeyChanged: Boolean(body.apiKey) || body.clearApiKey === true })]);
+  return { ok: true, settings: { enabled: false, deliveryMode: mode === 'real_provider' ? 'disabled' : mode, provider, senderId, templateId,
+    apiKeyConfigured: Boolean(encryptedKey), otpTtlSeconds: ttl, resendCooldownSeconds: cooldown, maxAttempts: attempts, dailyLimit } };
+});
+
+app.get('/api/v1/admin/security/sms-otp/audit', { onRequest: [requireOwnerAuth] }, async () => {
+  const result = await pool.query(`SELECT l.id, l.action, l.details, l.created_at AS "createdAt", u.username AS "actorUsername"
+    FROM sms_otp_audit_log l LEFT JOIN users u ON u.id = l.actor_user_id ORDER BY l.created_at DESC LIMIT 100`);
+  return { entries: result.rows };
 });
 
 app.get('/api/v1/admin/reports', { onRequest: [requireOwnerAuth] }, async () => {
