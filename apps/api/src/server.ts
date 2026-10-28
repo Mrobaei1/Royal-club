@@ -749,7 +749,10 @@ const requireOwnerAuth = async (request: any, reply: any) => {
 // Delegated grants are dormant until explicitly created by the configured owner.
 // Sensitive owner-only endpoints (wallet credit, SMS configuration, role management)
 // are intentionally not reachable through delegated grants.
-const requirePermission = (permission: string) => async (request: any, reply: any) => {
+const requirePermission = (
+  permission: string,
+  resourceIdOf?: (request: any) => string | undefined,
+) => async (request: any, reply: any) => {
   await requireMatchAuth(request, reply);
   if (reply.sent) return;
   const claims = request.user as { sub?: string };
@@ -765,7 +768,8 @@ const requirePermission = (permission: string) => async (request: any, reply: an
     active: row.revoked_at === null,
     scope: row.scope,
   }));
-  if (!hasRoyalPermission(grants, permission)) {
+  const resourceId = resourceIdOf?.(request);
+  if (!hasRoyalPermission(grants, permission, resourceId)) {
     return reply.code(403).send({ error: 'Permission denied.' });
   }
 };
