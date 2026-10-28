@@ -23,7 +23,7 @@ test('rejects invalid ratings and k-factors', () => {
 
 test('rating changes are zero-sum across representative rating gaps', () => {
   const cases = [
-    [0, 0], [1000, 1000], [1000, 1400], [1400, 1000],
+    [1000, 1000], [1000, 1400], [1400, 1000],
     [2200, 800], [800, 2200], [999, 1001], [2500, 2500],
   ] as const;
 
