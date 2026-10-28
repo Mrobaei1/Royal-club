@@ -635,6 +635,23 @@ test('registered players can join an online match and history does not expose op
       WHERE id = $3`,
     [JSON.stringify(nearWinBoard), JSON.stringify({ host: 14, guest: 0 }), matchId],
   );
+  // A live match must not affect rating/win/loss statistics before its result is authoritative.
+  const preFinishLeaderboard = await app.inject({
+    method: 'GET',
+    url: '/api/v1/leaderboard',
+    headers: auth(host.token),
+  });
+  assert.equal(preFinishLeaderboard.statusCode, 200, preFinishLeaderboard.body);
+  const preFinishRows = preFinishLeaderboard.json().leaderboard as Array<Record<string, unknown>>;
+  const hostBeforeFinish = preFinishRows.find((player) => String(player.userId) === String(host.user.id));
+  const guestBeforeFinish = preFinishRows.find((player) => String(player.userId) === String(guest.user.id));
+  assert.ok(hostBeforeFinish);
+  assert.ok(guestBeforeFinish);
+  assert.equal(hostBeforeFinish.rating, 1000);
+  assert.equal(hostBeforeFinish.gamesPlayed, 0);
+  assert.equal(guestBeforeFinish.rating, 1000);
+  assert.equal(guestBeforeFinish.gamesPlayed, 0);
+
   const winningMove = await app.inject({
     method: 'POST',
     url: `/api/v1/matches/${matchId}/moves`,
