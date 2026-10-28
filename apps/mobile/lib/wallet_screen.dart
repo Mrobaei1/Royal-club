@@ -43,7 +43,7 @@ class _WalletScreenState extends State<WalletScreen> {
     } catch (error) {
       if (!mounted) return;
       setState(() {
-        _error = error.toString().replaceFirst('Exception: ', '');
+        _error = appError(context, error);
         _loading = false;
       });
     }
@@ -62,7 +62,7 @@ class _WalletScreenState extends State<WalletScreen> {
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(error.toString().replaceFirst('Exception: ', ''))),
+          SnackBar(content: Text(appError(context, error))),
         );
       }
     } finally {
