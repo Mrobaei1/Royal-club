@@ -171,13 +171,13 @@ class _AdminScreenState extends State<AdminScreen> {
     final title = _notificationTitle.text.trim();
     final body = _notificationBody.text.trim();
     if (title.isEmpty || title.length > 120 || body.length > 1000) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('عنوان الزامی است؛ عنوان حداکثر ۱۲۰ و متن حداکثر ۱۰۰۰ نویسه.')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appText(context, 'عنوان الزامی است؛ عنوان حداکثر ۱۲۰ و متن حداکثر ۱۰۰۰ نویسه.', 'A title is required; title must be at most 120 characters and message at most 1,000 characters.'))));
       return;
     }
     setState(() => _busy = true);
     try {
       final count = await AdminService.sendNotification(userId: userId, title: title, body: body);
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('اعلان برای $count کاربر ارسال شد.')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appText(context, 'اعلان برای $count کاربر ارسال شد.', 'Notification sent to $count users.'))));
       if (mounted && userId == null) {
         _notificationTitle.clear();
         _notificationBody.clear();
@@ -209,7 +209,7 @@ class _AdminScreenState extends State<AdminScreen> {
       await _load();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(active ? 'اشتراک فعال شد.' : 'اشتراک غیرفعال شد.')),
+          SnackBar(content: Text(active ? appText(context, 'اشتراک فعال شد.', 'Subscription enabled.') : appText(context, 'اشتراک غیرفعال شد.', 'Subscription disabled.'))),
         );
       }
     } catch (e) {
@@ -244,7 +244,7 @@ class _AdminScreenState extends State<AdminScreen> {
     try {
       await AdminService.updatePlan(plan['code'].toString(), name: name.text.trim(), durationDays: int.parse(days.text), priceCredits: int.parse(price.text));
       await _load();
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('اشتراک به‌روزرسانی شد.')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appText(context, 'اشتراک به‌روزرسانی شد.', 'Subscription updated.'))));
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))));
     } finally {
