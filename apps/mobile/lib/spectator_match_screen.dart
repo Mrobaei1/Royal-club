@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'l10n/app_text.dart';
 import 'online_match_screen.dart';
 import 'profile_avatar.dart';
 import 'services/match_service.dart';
@@ -69,13 +70,13 @@ class _SpectatorMatchScreenState extends State<SpectatorMatchScreen> {
       child: Scaffold(
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         appBar: AppBar(
-          title: Text(isEnglish ? 'Live spectator' : 'تماشای زنده'),
+          title: Text(appText(context, 'تماشای زنده', 'Live spectator')),
           backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           foregroundColor: Theme.of(context).colorScheme.primary,
           actions: [
             IconButton(
               onPressed: () => _refresh(),
-              tooltip: isEnglish ? 'Refresh' : 'به‌روزرسانی',
+              tooltip: appText(context, 'به‌روزرسانی', 'Refresh'),
               icon: const Icon(Icons.refresh),
             ),
           ],
@@ -102,7 +103,7 @@ class _SpectatorMatchScreenState extends State<SpectatorMatchScreen> {
                               ],
                             ),
                           ),
-                          Text(isEnglish ? 'VS' : 'در برابر', style: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.bold)),
+                          Text(appText(context, 'در برابر', 'VS'), style: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.bold)),
                           Expanded(
                             child: Column(
                               children: [
@@ -149,7 +150,7 @@ class _SpectatorMatchScreenState extends State<SpectatorMatchScreen> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Text(isEnglish ? 'LIVE' : 'زنده', style: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.bold)),
+                          Text(appText(context, 'زنده', 'LIVE'), style: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.bold)),
                           const SizedBox(width: 12),
                           ...List.generate(2, (index) => Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 5),
