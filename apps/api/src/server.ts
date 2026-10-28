@@ -935,9 +935,11 @@ app.post<{
   }
   const startsAt = body.startsAt ?? null;
   const endsAt = body.endsAt ?? null;
-  if ((startsAt !== null && (!Number.isFinite(Date.parse(startsAt))) ||
+  if (
+      (startsAt !== null && !Number.isFinite(Date.parse(startsAt))) ||
       (endsAt !== null && !Number.isFinite(Date.parse(endsAt))) ||
-      (startsAt !== null && endsAt !== null && Date.parse(endsAt) <= Date.parse(startsAt))) {
+      (startsAt !== null && endsAt !== null && Date.parse(endsAt) <= Date.parse(startsAt))
+  ) {
     return reply.code(400).send({ error: 'Invalid league schedule.' });
   }
   const claims = request.user as { sub: string };
