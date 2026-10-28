@@ -76,7 +76,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       }
     } catch (error) {
       if (mounted) {
-        setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
+        setState(() => _error = appError(context, error));
       }
     } finally {
       if (mounted && !silent) {
@@ -99,7 +99,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       }
     } catch (error) {
       if (mounted) {
-        setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
+        setState(() => _error = appError(context, error));
       }
     } finally {
       if (mounted) {
@@ -139,7 +139,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         _scheduleInviteExpiry();
       }
     } catch (error) {
-      if (mounted) setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
+      if (mounted) setState(() => _error = appError(context, error));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -163,7 +163,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       }
     } catch (error) {
       if (mounted) {
-        setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
+        setState(() => _error = appError(context, error));
       }
     } finally {
       if (mounted) setState(() => _busy = false);
