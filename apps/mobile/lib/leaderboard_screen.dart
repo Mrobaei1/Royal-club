@@ -139,7 +139,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                                   subtitle: Text(
                                     isEnglish
                                       ? 'Level ${player['level'] ?? 1} · Wins: ${player['wins'] ?? 0} · Losses: ${player['losses'] ?? 0} · Games: ${player['gamesPlayed'] ?? 0}'
-                                      : 'سطح ${player['level'] ?? 1}  ·  برد: ${player['wins'] ?? 0}  ·  باخت: ${player['losses'] ?? 0}  ·  بازی: ${player['gamesPlayed'] ?? 0}',
+                                      : appText(context, 'سطح ${player['level'] ?? 1}  ·  برد: ${player['wins'] ?? 0}  ·  باخت: ${player['losses'] ?? 0}  ·  بازی: ${player['gamesPlayed'] ?? 0}', 'Level ${player['level'] ?? 1}  ·  Wins: ${player['wins'] ?? 0}  ·  Losses: ${player['losses'] ?? 0}  ·  Games: ${player['gamesPlayed'] ?? 0}'),
                                     style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6), fontSize: 12),
                                   ),
                                   trailing: Column(
