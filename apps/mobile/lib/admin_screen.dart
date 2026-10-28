@@ -150,14 +150,14 @@ class _AdminScreenState extends State<AdminScreen> {
   Future<void> _credit(dynamic user) async {
     final amount = int.tryParse(_amount.text.trim());
     if (amount == null || amount <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('مقدار اعتبار باید عدد مثبت باشد.')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appText(context, 'مقدار اعتبار باید عدد مثبت باشد.', 'Credit amount must be a positive number.'))));
       return;
     }
     setState(() => _busy = true);
     try {
       await AdminService.credit(user['id'].toString(), amount, _description.text.trim());
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('اعتبار با موفقیت ثبت شد.')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appText(context, 'اعتبار با موفقیت ثبت شد.', 'Credits added successfully.'))));
         await _search();
       }
     } catch (e) {
@@ -194,7 +194,7 @@ class _AdminScreenState extends State<AdminScreen> {
     try {
       await AdminService.updateReport(report['id'].toString(), status);
       await _load();
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('وضعیت گزارش به‌روزرسانی شد.')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appText(context, 'وضعیت گزارش به‌روزرسانی شد.', 'Report status updated.'))));
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))));
     } finally {
