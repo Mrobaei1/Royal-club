@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'l10n/app_text.dart';
 import 'services/notifications_service.dart';
 
 class NotificationsScreen extends StatefulWidget {
@@ -113,18 +114,18 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: Text(isEnglish ? 'Delete all notifications?' : 'همه اعلان‌ها پاک شوند؟'),
+        title: Text(appText(context, 'همه اعلان‌ها پاک شوند؟', 'Delete all notifications?')),
         content: Text(isEnglish
             ? 'This action cannot be undone.'
-            : 'این کار قابل بازگشت نیست.'),
+            : appText(context, 'این کار قابل بازگشت نیست.', 'This action cannot be undone.')),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
-            child: Text(isEnglish ? 'Cancel' : 'انصراف'),
+            child: Text(appText(context, 'انصراف', 'Cancel')),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(dialogContext, true),
-            child: Text(isEnglish ? 'Delete all' : 'پاک کردن همه'),
+            child: Text(appText(context, 'پاک کردن همه', 'Delete all')),
           ),
         ],
       ),
@@ -175,14 +176,14 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         child: Scaffold(
           backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           appBar: AppBar(
-            title: Text(Localizations.localeOf(context).languageCode == 'en' ? 'Notifications${_unread > 0 ? ' ($_unread)' : ''}' : 'اعلان‌ها${_unread > 0 ? ' ($_unread)' : ''}'),
+            title: Text(appText(context, 'اعلان‌ها${_unread > 0 ? ' ($_unread)' : ''}', 'Notifications${_unread > 0 ? ' ($_unread)' : ''}')'),
             backgroundColor: Theme.of(context).scaffoldBackgroundColor,
             foregroundColor: Theme.of(context).colorScheme.primary,
             actions: [
               IconButton(
                 onPressed: _loading ? null : _refresh,
                 icon: const Icon(Icons.refresh),
-                tooltip: 'به‌روزرسانی',
+                tooltip: appText(context, 'به‌روزرسانی', 'Refresh'),
               ),
             ],
           ),
@@ -198,13 +199,13 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                         if (_unread > 0) TextButton.icon(
                           onPressed: _busy ? null : _markAllRead,
                           icon: const Icon(Icons.done_all),
-                          label: Text(Localizations.localeOf(context).languageCode == 'en' ? 'Mark all read' : 'خواندن همه'),
+                          label: Text(appText(context, 'خواندن همه', 'Mark all read')),
                           style: TextButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.primary),
                         ),
                         if (_items.isNotEmpty) TextButton.icon(
                           onPressed: _busy ? null : _deleteAll,
                           icon: const Icon(Icons.delete_sweep_outlined),
-                          label: Text(Localizations.localeOf(context).languageCode == 'en' ? 'Delete all' : 'پاک کردن همه'),
+                          label: Text(appText(context, 'پاک کردن همه', 'Delete all')),
                           style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
                         ),
                       ],
@@ -222,7 +223,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                           child: CircularProgressIndicator(color: Theme.of(context).colorScheme.primary))
                       : _items.isEmpty
                           ? Center(
-                              child: Text(Localizations.localeOf(context).languageCode == 'en' ? 'No notifications yet.' : 'فعلاً اعلانی ندارید.',
+                              child: Text(appText(context, 'فعلاً اعلانی ندارید.', 'No notifications yet.'),
                                   style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7))))
                           : ListView.builder(
                               padding: const EdgeInsets.all(14),
