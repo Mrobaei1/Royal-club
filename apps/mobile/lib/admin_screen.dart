@@ -31,6 +31,7 @@ class _AdminScreenState extends State<AdminScreen> {
   final _smsSender = TextEditingController();
   final _smsTemplate = TextEditingController();
   final _smsApiKey = TextEditingController();
+  final _smsTestPhone = TextEditingController();
   final _smsTtl = TextEditingController(text: '120');
   final _smsCooldown = TextEditingController(text: '60');
   final _smsAttempts = TextEditingController(text: '5');
@@ -50,7 +51,7 @@ class _AdminScreenState extends State<AdminScreen> {
     _price.dispose();
     _notificationTitle.dispose();
     _notificationBody.dispose();
-    _smsSender.dispose(); _smsTemplate.dispose(); _smsApiKey.dispose(); _smsTtl.dispose(); _smsCooldown.dispose(); _smsAttempts.dispose(); _smsDailyLimit.dispose();
+    _smsSender.dispose(); _smsTemplate.dispose(); _smsApiKey.dispose(); _smsTestPhone.dispose(); _smsTtl.dispose(); _smsCooldown.dispose(); _smsAttempts.dispose(); _smsDailyLimit.dispose();
     super.dispose();
   }
 
@@ -96,6 +97,59 @@ class _AdminScreenState extends State<AdminScreen> {
       if (!mounted) return;
       setState(() => _smsSettings = saved);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appText(context, 'تنظیمات ذخیره شد؛ ارسال واقعی همچنان غیرفعال است.', 'Settings saved; real SMS sending remains disabled.'))));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appError(context, e))));
+    } finally { if (mounted) setState(() => _busy = false); }
+  }
+
+  Future<void> _testSmsConnection() async {
+    setState(() => _busy = true);
+    try {
+      final result = await AdminService.testSmsConnection();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(result['ok'] == true
+          ? appText(context, 'اتصال ارائه‌دهنده پیامک موفق بود.', 'SMS provider connection succeeded.')
+          : appText(context, 'اتصال برقرار نشد؛ تنظیمات ارائه‌دهنده را بررسی کنید.', 'Connection failed; check provider settings.')),
+      ));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appError(context, e))));
+    } finally { if (mounted) setState(() => _busy = false); }
+  }
+
+  Future<void> _testSmsMessage() async {
+    final phone = _smsTestPhone.text.trim();
+    if (phone.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(appText(context, 'ابتدا شماره موبایل آزمایشی ایران را وارد کنید.', 'Enter an Iranian test mobile number first.')),
+      ));
+      return;
+    }
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(appText(dialogContext, 'ارسال پیامک آزمایشی', 'Send test SMS')),
+        content: Text(appText(
+          dialogContext,
+          'این عملیات یک پیامک واقعی به شماره واردشده می‌فرستد و ممکن است هزینه داشته باشد. فقط در صورت تأیید مالک ادامه دهید.',
+          'This sends a real SMS to the entered number and may incur a charge. Continue only if the owner confirms.',
+        )),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: Text(appText(dialogContext, 'انصراف', 'Cancel'))),
+          FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: Text(appText(dialogContext, 'تأیید هزینه و ارسال', 'Confirm cost and send'))),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() => _busy = true);
+    try {
+      final result = await AdminService.testSmsMessage(phone: phone, confirmCost: true);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(result['ok'] == true
+          ? appText(context, 'ارائه‌دهنده پیامک آزمایشی را پذیرفت.', 'Provider accepted the test SMS.')
+          : appText(context, 'ارسال پیامک آزمایشی ناموفق بود.', 'Test SMS failed.')),
+      ));
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appError(context, e))));
     } finally { if (mounted) setState(() => _busy = false); }
@@ -380,9 +434,10 @@ class _AdminScreenState extends State<AdminScreen> {
                 const SizedBox(height: 6),
                 Text(appText(context, 'ارسال واقعی پیامک و ورود با OTP تا تصمیم مدیر و تکمیل آداپتور قفل است.', 'Real SMS delivery and OTP login remain locked until the owner decides and the provider adapter is complete.'), style: TextStyle(color: Colors.orange)),
                 SwitchListTile(contentPadding: EdgeInsets.zero, title: Text(appText(context, 'فعال‌سازی OTP پیامکی', 'Enable SMS OTP')), subtitle: Text(appText(context, 'فعلاً غیرفعال و غیرقابل فعال‌سازی', 'Currently disabled and cannot be enabled')), value: false, onChanged: null),
-                DropdownButtonFormField<String>(initialValue: _smsMode == 'development_simulator' ? 'development_simulator' : 'disabled', decoration: InputDecoration(labelText: appText(context, 'حالت ارسال', 'Delivery mode')), items: [
+                DropdownButtonFormField<String>(initialValue: ['disabled', 'development_simulator', 'real_provider'].contains(_smsMode) ? _smsMode : 'disabled', decoration: InputDecoration(labelText: appText(context, 'حالت ارسال', 'Delivery mode')), items: [
                   DropdownMenuItem(value: 'disabled', child: Text(appText(context, 'غیرفعال (پیش‌فرض)', 'Disabled (default)'))),
                   DropdownMenuItem(value: 'development_simulator', child: Text(appText(context, 'شبیه‌ساز توسعه، بدون پیامک واقعی', 'Development simulator, no real SMS'))),
+                  DropdownMenuItem(value: 'real_provider', child: Text(appText(context, 'ارائه‌دهنده واقعی؛ ارسال ورود همچنان خاموش', 'Real provider configured; OTP login remains off'))),
                 ], onChanged: _busy ? null : (v) => setState(() => _smsMode = v ?? 'disabled')),
                 const SizedBox(height: 8),
                 DropdownButtonFormField<String>(initialValue: _smsProvider, decoration: InputDecoration(labelText: appText(context, 'ارائه‌دهنده (قابل تغییر در آینده)', 'Provider (replaceable later)')), items: [
@@ -400,6 +455,12 @@ class _AdminScreenState extends State<AdminScreen> {
                 Row(children: [Expanded(child: TextField(controller: _smsAttempts, keyboardType: TextInputType.number, decoration: InputDecoration(labelText: appText(context, 'حداکثر تلاش', 'Maximum attempts')))), const SizedBox(width: 8), Expanded(child: TextField(controller: _smsDailyLimit, keyboardType: TextInputType.number, decoration: InputDecoration(labelText: appText(context, 'سقف روزانه', 'Daily limit'))))]),
                 const SizedBox(height: 10),
                 FilledButton.icon(onPressed: _busy ? null : _saveSmsSettings, icon: const Icon(Icons.save_outlined), label: Text(appText(context, 'ذخیره تنظیمات غیرفعال', 'Save disabled settings'))),
+                const SizedBox(height: 8),
+                OutlinedButton.icon(onPressed: _busy || _smsMode != 'real_provider' ? null : _testSmsConnection, icon: const Icon(Icons.link), label: Text(appText(context, 'بررسی اتصال ارائه‌دهنده', 'Test provider connection'))),
+                TextField(controller: _smsTestPhone, keyboardType: TextInputType.phone, decoration: InputDecoration(labelText: appText(context, 'شماره آزمایشی ایران', 'Iranian test phone'), hintText: '09123456789', border: const OutlineInputBorder())),
+                const SizedBox(height: 8),
+                OutlinedButton.icon(onPressed: _busy || _smsMode != 'real_provider' ? null : _testSmsMessage, icon: const Icon(Icons.sms_outlined), label: Text(appText(context, 'ارسال پیامک آزمایشی با تأیید هزینه', 'Send test SMS with cost confirmation'))),
+                Text(appText(context, 'ورود OTP همچنان خاموش است. پیامک آزمایشی فقط پس از تأیید جداگانه ارسال می‌شود.', 'OTP login remains off. A test SMS is sent only after separate confirmation.'), style: const TextStyle(fontSize: 12)),
                 Text(appText(context, 'کلید ذخیره شده: ${_smsSettings['apiKeyConfigured'] == true ? 'بله (مخفی)' : 'خیر'}', 'Saved key: ${_smsSettings['apiKeyConfigured'] == true ? 'yes (hidden)' : 'no'}'), style: const TextStyle(fontSize: 12)),
               ]))),
               const SizedBox(height: 22),
