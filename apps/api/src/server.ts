@@ -1283,6 +1283,12 @@ app.get('/api/v1/admin/security/sms-otp/audit', { onRequest: [requireOwnerAuth] 
 });
 
 
+app.get('/api/v1/auth/phone-otp/status', async () => {
+  const settings = await pool.query('SELECT enabled, delivery_mode, provider FROM sms_otp_settings WHERE id = 1');
+  const runtime = otpRuntimeAllowed(settings.rows[0]);
+  return { available: runtime.simulator || runtime.live, simulator: runtime.simulator };
+});
+
 /**
  * Development-only OTP simulator. It deliberately does not authenticate users,
  * issue JWTs, or send real SMS. Production requests are rejected even if the
