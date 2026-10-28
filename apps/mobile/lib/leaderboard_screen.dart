@@ -38,7 +38,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
         });
       }
     } catch (error) {
-      if (mounted) setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
+      if (mounted) setState(() => _error = appError(context, error));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
