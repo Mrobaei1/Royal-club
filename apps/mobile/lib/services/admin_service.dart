@@ -29,6 +29,12 @@ class AdminService {
     return decoded;
   }
 
+  static Future<Map<String, dynamic>> smsOtpSettings() async =>
+      (await _request('GET', '/api/v1/admin/security/sms-otp'))['settings'] as Map<String, dynamic>;
+
+  static Future<Map<String, dynamic>> saveSmsOtpSettings(Map<String, dynamic> settings) async =>
+      (await _request('PATCH', '/api/v1/admin/security/sms-otp', body: settings))['settings'] as Map<String, dynamic>;
+
   static Future<bool> isOwner() async => (await _request('GET', '/api/v1/admin/status'))['isOwner'] == true;
   static Future<List<dynamic>> plans() async => (await _request('GET', '/api/v1/admin/subscription-plans'))['plans'] as List<dynamic>? ?? [];
   static Future<List<dynamic>> findUser(String email) async =>
