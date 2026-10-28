@@ -1404,7 +1404,7 @@ app.post<{ Body: { phone?: string; code?: string } }>('/api/v1/auth/phone-otp/ve
 }, async (request, reply) => {
   const phone = normalizeIranianMobile(request.body?.phone);
   const code = typeof request.body?.code === 'string' ? request.body.code.trim() : '';
-  if (!phone || !/^\\d{6}$/.test(code)) {
+  if (!phone || !/^\d{6}$/.test(code)) {
     return reply.code(400).send({ error: 'Enter a valid Iranian mobile number and six-digit code.' });
   }
   const settingsResult = await pool.query(
@@ -1442,7 +1442,7 @@ app.post<{ Body: { phone?: string; code?: string; email?: string; password?: str
     const fullName = typeof request.body?.fullName === 'string' ? request.body.fullName.trim() : '';
     const country = typeof request.body?.country === 'string' ? request.body.country.trim() : '';
     const password = request.body?.password;
-    if (!phone || !/^\\d{6}$/.test(code) || !email || email.length > 254 ||
+    if (!phone || !/^\d{6}$/.test(code) || !email || email.length > 254 ||
         !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email) ||
         !fullName || fullName.length > 120 || country.length > 80 ||
         !isValidRegistrationPassword(password)) {
@@ -1512,7 +1512,7 @@ app.post<{ Body: { phone?: string; code?: string } }>(
   async (request, reply) => {
     const phone = normalizeIranianMobile(request.body?.phone);
     const code = typeof request.body?.code === 'string' ? request.body.code.trim() : '';
-    if (!phone || !/^\\d{6}$/.test(code)) {
+    if (!phone || !/^\d{6}$/.test(code)) {
       return reply.code(400).send({ error: 'Enter a valid Iranian mobile number and six-digit code.' });
     }
     const settingsResult = await pool.query('SELECT enabled, delivery_mode, provider FROM sms_otp_settings WHERE id = 1');
@@ -1561,7 +1561,7 @@ app.post<{ Body: { phone?: string; code?: string } }>(
     const claims = request.user as { sub: string };
     const phone = normalizeIranianMobile(request.body?.phone);
     const code = typeof request.body?.code === 'string' ? request.body.code.trim() : '';
-    if (!phone || !/^\\d{6}$/.test(code)) {
+    if (!phone || !/^\d{6}$/.test(code)) {
       return reply.code(400).send({ error: 'Enter a valid Iranian mobile number and six-digit code.' });
     }
     const settingsResult = await pool.query('SELECT enabled, delivery_mode, provider FROM sms_otp_settings WHERE id = 1');
