@@ -56,12 +56,12 @@ class _CountPanel extends StatelessWidget {
   const _CountPanel({required this.label, required this.count, required this.white, this.onTap, required this.themeColors});
   final String label; final int count; final bool white; final VoidCallback? onTap; final List<Color> themeColors;
   @override
-  Widget build(BuildContext context) => GestureDetector(onTap: label == 'آف' ? onTap : null,
+  Widget build(BuildContext context) => GestureDetector(onTap: onTap,
     child: Container(width: double.infinity, margin: const EdgeInsets.symmetric(vertical: 3),
       padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
       decoration: BoxDecoration(borderRadius: BorderRadius.circular(7),
         border: Border.all(color: const Color(0xFFE2B253), width: 1.2),
-        gradient: const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter,
+        gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter,
           colors: [themeColors[1], themeColors[2]])),
       child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
         FittedBox(child: Text(label, style: const TextStyle(color: Color(0xFFE2B253), fontSize: 11, fontWeight: FontWeight.w700))),
@@ -92,7 +92,7 @@ void _checker(Canvas c, Offset o, double r, bool white) {
 }
 
 class _RoyalBoardPainter extends CustomPainter {
-  _RoyalBoardPainter({required this.points, required this.selected, required this.targets, required this.dice});
+  _RoyalBoardPainter({required this.points, required this.selected, required this.targets, required this.dice, required this.themeColors});
   final List<num> points; final int? selected; final Set<int> targets; final List<int> dice; final List<Color> themeColors;
   static const gold = Color(0xFFE2B253);
 
@@ -175,7 +175,8 @@ class _RoyalBoardPainter extends CustomPainter {
     c.drawPath(crown,Paint()..color=col);c.drawRect(Rect.fromLTRB(o.dx-u,o.dy+u*.6,o.dx+u,o.dy+u*.8),Paint()..color=col);
   }
   @override bool shouldRepaint(covariant _RoyalBoardPainter old){
-    if(old.selected!=selected||old.points.length!=points.length||old.dice.length!=dice.length||old.targets.length!=targets.length)return true;
+    if(old.selected!=selected||old.points.length!=points.length||old.dice.length!=dice.length||old.targets.length!=targets.length||old.themeColors.length!=themeColors.length)return true;
+    for(var i=0;i<themeColors.length;i++){if(old.themeColors[i]!=themeColors[i])return true;}
     for(var i=0;i<points.length;i++){if(old.points[i]!=points[i])return true;}
     for(var i=0;i<dice.length;i++){if(old.dice[i]!=dice[i])return true;}
     return !old.targets.containsAll(targets)||!targets.containsAll(old.targets);
