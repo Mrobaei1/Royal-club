@@ -13,6 +13,8 @@ The Royal Club system manager is the decision-maker for:
 
 Until that decision is made, no new identity or permission is to be activated merely because it appears in this planning document.
 
+The detailed future permission matrix, deposit-verification state machine, implementation sequence, and security acceptance tests are documented in [`FUTURE-AGENT-PERMISSION-MATRIX.md`](./FUTURE-AGENT-PERMISSION-MATRIX.md). This is still a preparation specification, not a live grant of authority.
+
 ## Potential responsibility domains
 
 The eventual team may cover the following domains. These are responsibility areas, not pre-approved grants of access.
