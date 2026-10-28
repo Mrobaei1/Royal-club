@@ -19,7 +19,7 @@ This checklist is the release gate before starting Phase 4. A green CI run prove
 ### Phase 1 — account, security, language
 
 - [ ] Email verification is not implemented in the current registration/login API. Before enabling it, select/configure the transactional sender, verify the sending domain, add deployment secrets, implement expiring one-time codes and resend/rate-limit behavior, and test the complete email loop. Do not treat a registered email as verified today.
-- [ ] Only Persian and English are currently registered as supported locales. The original six-language requirement is Persian, English, Chinese, French, Spanish, and Arabic. The additional four languages and full-screen translations/RTL behavior remain unfinished.
+- [ ] Persian and English are the only required languages. Verify both languages across all screens, menus, notifications, dialogs, errors, and nested flows; confirm Persian RTL layout and English LTR layout. No additional languages are in the current scope.
 - [ ] Run a full security review of token expiry, credential handling, owner configuration, and production CORS/secret configuration.
 - [ ] Owner-only operations use the numeric `OWNER_USER_ID` environment setting. Assistant roles/permissions and the planned limit of up to 50 assistants are not implemented as a complete role-management system. Do not grant a new primary-admin role without the owner's explicit decision.
 
@@ -41,15 +41,16 @@ This checklist is the release gate before starting Phase 4. A green CI run prove
 
 ### Final release gate
 
-- [ ] Latest CI for the final candidate passes all API build/unit/integration tests, Flutter analysis/tests, backgammon engine audit, and web build.
+- [x] Latest CI for commit `390104d2e8655b8b82a296a45c36e30d794cbb2b` passed API build/unit tests, API integration tests, Flutter analysis/tests, backgammon engine audit, and web preview build.
 - [ ] Production API/database health is checked against the actual deployment, not a mocked or skipped step.
 - [ ] Manual end-to-end acceptance checklist is signed off.
 - [ ] No APK is built until the owner explicitly authorizes the final build after the above criteria are met.
 
 ## Latest automated verification
 
-- Commit `ef0cf75e66e24653a82318069e0ba003ac0a1a6a`: API build/unit tests, API integration tests, Flutter analyze/tests, backgammon engine audit, and Android workflow guard all passed. The Android workflow skipped deployed API health verification and APK build/upload as intended. Web preview was still running at the time of this update.
+- Commit `390104d2e8655b8b82a296a45c36e30d794cbb2b`: API build/unit tests, API integration tests, Flutter analyze/tests, backgammon engine audit, and web preview build all passed. Web deployment was skipped; this is a preview build, not proof of production API/database health.
+- Android workflow remains gated: production API health verification and APK build/upload are skipped unless a manual workflow dispatch explicitly requests an APK.
 
 ## Current decision
 
-**Not ready for Phase 4.** Several core capabilities exist and are covered by tests, but email verification, four required locales, assistant-role management, monetization-policy acceptance, live VPN/device testing, and final end-to-end acceptance remain open. This file should be updated only when each item has concrete evidence.
+**Not ready for Phase 4.** Several core capabilities exist and are covered by tests, but email verification, assistant-role management, monetization-policy acceptance, live VPN/device testing, and final end-to-end acceptance remain open. This file should be updated only when each item has concrete evidence.
