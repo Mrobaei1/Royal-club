@@ -119,7 +119,7 @@ class _SpectatorMatchScreenState extends State<SpectatorMatchScreen> {
                       const SizedBox(height: 8),
                       Text(
                         isEnglish ? 'Room ${_match['roomCode'] ?? _id} · Read-only live view'
-                            : 'اتاق ${_match['roomCode'] ?? _id} · تماشای زنده بدون امکان حرکت',
+                            : appText(context, 'اتاق ${_match['roomCode'] ?? _id} · تماشای زنده بدون امکان حرکت', 'Room ${_match['roomCode'] ?? _id} · live view only'),
                         textAlign: TextAlign.center,
                         style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6)),
                       ),
@@ -182,7 +182,7 @@ class _SpectatorMatchScreenState extends State<SpectatorMatchScreen> {
                     child: Text(
                       isEnglish
                           ? 'Bar — host: ${bar['host'] ?? 0}, guest: ${bar['guest'] ?? 0}   ·   Off — host: ${off['host'] ?? 0}, guest: ${off['guest'] ?? 0}'
-                          : 'مهره‌های خارج از بازی — میزبان: ${bar['host'] ?? 0}، مهمان: ${bar['guest'] ?? 0}   ·   خارج‌شده: میزبان: ${off['host'] ?? 0}، مهمان: ${off['guest'] ?? 0}',
+                          : appText(context, 'مهره‌های خارج از بازی — میزبان: ${bar['host'] ?? 0}، مهمان: ${bar['guest'] ?? 0}   ·   خارج‌شده: میزبان: ${off['host'] ?? 0}، مهمان: ${off['guest'] ?? 0}', 'On bar — host: ${bar['host'] ?? 0}, guest: ${bar['guest'] ?? 0} · borne off — host: ${off['host'] ?? 0}, guest: ${off['guest'] ?? 0}'),
                       textAlign: TextAlign.center,
                       style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7)),
                     ),
@@ -193,7 +193,7 @@ class _SpectatorMatchScreenState extends State<SpectatorMatchScreen> {
               Text(
                 isEnglish
                     ? 'Spectators cannot roll dice, move checkers, resign, or change the match.'
-                    : 'تماشاگر نمی‌تواند تاس بریزد، مهره حرکت دهد، تسلیم شود یا وضعیت مسابقه را تغییر دهد.',
+                    : appText(context, 'تماشاگر نمی‌تواند تاس بریزد، مهره حرکت دهد، تسلیم شود یا وضعیت مسابقه را تغییر دهد.', 'Spectators cannot roll dice, move checkers, resign, or change match state.'),
                 textAlign: TextAlign.center,
                 style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.54)),
               ),
