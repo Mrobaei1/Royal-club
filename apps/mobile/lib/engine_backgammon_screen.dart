@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'backgammon_engine.dart';
 import 'backgammon_ai.dart';
 import 'online_lobby_screen.dart';
+import 'royal_backgammon_board.dart';
 
 const _boardNavy = Color(0xFF10182B);
 const _boardGold = Color(0xFFD8B45A);
@@ -811,130 +812,18 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
   }
 
   Widget _board(Set<int> legalTargets,
-          {required double rowHeight, bool compact = false}) {
-    final sideWidth = compact || rowHeight < 120 ? 36.0 : 48.0;
-    final barWidth = compact || rowHeight < 120 ? 32.0 : 42.0;
-    final topLeft = List.generate(6, (i) => 11 - i);
-    final topRight = List.generate(6, (i) => 5 - i);
-    final bottomLeft = List.generate(6, (i) => 12 + i);
-    final bottomRight = List.generate(6, (i) => 18 + i);
-
-    Widget points(List<int> indexes, {required bool top}) => Expanded(
-          child: SizedBox(
-            height: rowHeight,
-            child: _pointRow(indexes, legalTargets, top: top, compact: compact),
-          ),
-        );
-
-    Widget barCount(int player) => SizedBox(
-          width: barWidth,
-          child: Container(
-            margin: const EdgeInsets.symmetric(horizontal: 1),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [_boardDark, Color(0xFF211814), _boardDark],
-              ),
-              border: Border.symmetric(
-                vertical: BorderSide(color: _boardGold.withValues(alpha: .8), width: 1.2),
-              ),
-            ),
-            alignment: Alignment.center,
-            child: _barCount(player, compact: compact || rowHeight < 120),
-          ),
-        );
-
-    return Container(
-      padding: const EdgeInsets.all(6),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: _boardThemes[_boardThemeIndex],
-        ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _boardGold, width: 2),
-        boxShadow: const [
-          BoxShadow(color: Colors.black45, blurRadius: 12, offset: Offset(0, 5)),
-          BoxShadow(color: Color(0x337D5A27), blurRadius: 2, spreadRadius: 1),
-        ],
-      ),
-      child: CustomPaint(
-        painter: _WoodGrainPainter(),
-        child: Column(
-        children: [
-          Expanded(
-            child: Row(
-              children: [
-                _barPanel(compact: compact || rowHeight < 120, offPlayer: -1),
-                const SizedBox(width: 4),
-                points(topLeft, top: true),
-                barCount(-1),
-                points(topRight, top: true),
-              ],
-            ),
-          ),
-          Container(
-            height: compact || rowHeight < 120 ? 26 : 44,
-            margin: const EdgeInsets.symmetric(vertical: 3),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [_boardNavy, Color(0xFF202D46), _boardNavy],
-              ),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: _boardGold.withValues(alpha: .85)),
-              boxShadow: const [
-                BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(0, 2)),
-              ],
-            ),
-            child: Row(
-              children: [
-                SizedBox(width: sideWidth + 4),
-                Expanded(
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Center(
-                          child: _rollControl(compact: true),
-                        ),
-                      ),
-                      Container(
-                        width: 2,
-                        height: double.infinity,
-                        decoration: BoxDecoration(
-                          color: _boardGold,
-                          boxShadow: [
-                            BoxShadow(
-                              color: _boardGold.withValues(alpha: .55),
-                              blurRadius: 4,
-                            ),
-                          ],
-                        ),
-                      ),
-                      Expanded(
-                        child: Center(child: _diceTray(compact: true)),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Expanded(
-            child: Row(
-              children: [
-                _barPanel(compact: compact || rowHeight < 120, offPlayer: 1),
-                const SizedBox(width: 4),
-                points(bottomLeft, top: false),
-                barCount(1),
-                points(bottomRight, top: false),
-              ],
-            ),
-          ),
-        ],
-        ),
-      ),
+      {required double rowHeight, bool compact = false}) {
+    return RoyalBackgammonBoard(
+      points: _engine.points,
+      selectedPoint: _selectedPoint,
+      legalTargets: legalTargets,
+      barWhite: _engine.bar[1],
+      barBlack: _engine.bar[0],
+      offWhite: _engine.borneOff[1],
+      offBlack: _engine.borneOff[0],
+      dice: _engine.dice,
+      onPointTap: _tapPoint,
+      onBearOff: _tapBearOff,
     );
   }
 
