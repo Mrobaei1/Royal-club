@@ -204,7 +204,7 @@ class _AdminScreenState extends State<AdminScreen> {
       builder: (dialogContext) => StatefulBuilder(builder: (context, setDialogState) => AlertDialog(
         title: Text(appText(context, 'اعطای مجوز محدود', 'Grant scoped permission')),
         content: Form(key: formKey, child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Text('@${user['username'] ?? 'user'}'),
+          Text('@${user['username'] ?? appText(context, 'کاربر', 'user')}'),
           const SizedBox(height: 10),
           DropdownButtonFormField<String>(
             initialValue: selected,
@@ -536,7 +536,7 @@ class _AdminScreenState extends State<AdminScreen> {
                     ListTile(
                       dense: true,
                       title: Text('${entry['action']} · ${entry['permission']}'),
-                      subtitle: Text('${entry['actorUsername'] ?? entry['actorUserId'] ?? 'system'} → ${entry['targetUsername'] ?? entry['targetUserId'] ?? 'unknown'} · ${entry['createdAt']}'),
+                      subtitle: Text('${entry['actorUsername'] ?? entry['actorUserId'] ?? appText(context, 'سامانه', 'system')} → ${entry['targetUsername'] ?? entry['targetUserId'] ?? appText(context, 'نامشخص', 'unknown')} · ${entry['createdAt']}'),
                     ),
                 ],
               ),
