@@ -51,11 +51,11 @@ class _AccountScreenState extends State<AccountScreen> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: Theme.of(context).colorScheme.surface,
-        title: const Text('تغییر نام کاربری'),
+        title: Text(appText(context, 'تغییر نام کاربری', 'Change username')),
         content: TextField(controller: controller, textDirection: TextDirection.ltr, decoration: const InputDecoration(labelText: 'نام کاربری', hintText: 'royal_player7', prefixText: '@', helperText: '۳ تا ۲۴ حرف؛ حروف انگلیسی، عدد، نقطه یا زیرخط')),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('انصراف')),
-          FilledButton(onPressed: () => Navigator.pop(dialogContext, controller.text.trim()), child: const Text('ذخیره')),
+          TextButton(onPressed: () => Navigator.pop(dialogContext), child: Text(appText(context, 'انصراف', 'Cancel'))),
+          FilledButton(onPressed: () => Navigator.pop(dialogContext, controller.text.trim()), child: Text(appText(context, 'ذخیره', 'Save'))),
         ],
       ),
     );
@@ -155,14 +155,14 @@ class _AccountScreenState extends State<AccountScreen> {
       builder: (dialogContext) => StatefulBuilder(
         builder: (dialogContext, setDialogState) => AlertDialog(
           backgroundColor: Theme.of(context).colorScheme.surface,
-          title: const Text('ویرایش اطلاعات حساب'),
+          title: Text(appText(context, 'ویرایش اطلاعات حساب', 'Edit account details')),
           content: SingleChildScrollView(
             child: Column(mainAxisSize: MainAxisSize.min, children: [
               TextField(controller: nameController, textCapitalization: TextCapitalization.words,
-                decoration: const InputDecoration(labelText: 'نام کامل', border: OutlineInputBorder())),
+                decoration: const InputDecoration(labelText: appText(context, 'نام کامل', 'Full name'), border: OutlineInputBorder())),
               const SizedBox(height: 14),
               TextField(controller: phoneController, keyboardType: TextInputType.phone,
-                decoration: const InputDecoration(labelText: 'شماره تلفن', border: OutlineInputBorder())),
+                decoration: const InputDecoration(labelText: appText(context, 'شماره تلفن', 'Phone number'), border: OutlineInputBorder())),
               const SizedBox(height: 14),
               DropdownButtonFormField<String>(
                 initialValue: countries.containsKey(country) ? country : 'Other',
