@@ -751,7 +751,7 @@ const requireOwnerAuth = async (request: any, reply: any) => {
 // are intentionally not reachable through delegated grants.
 const requirePermission = (
   permission: string,
-  resourceIdOf?: (request: any) => string | undefined,
+  resourceIdOf?: (request: any) => string | undefined | Promise<string | undefined>,
 ) => async (request: any, reply: any) => {
   await requireMatchAuth(request, reply);
   if (reply.sent) return;
@@ -768,10 +768,22 @@ const requirePermission = (
     active: row.revoked_at === null,
     scope: row.scope,
   }));
-  const resourceId = resourceIdOf?.(request);
+  const resourceId = await resourceIdOf?.(request);
   if (!hasRoyalPermission(grants, permission, resourceId)) {
     return reply.code(403).send({ error: 'Permission denied.' });
   }
+};
+
+const requireOwnerOrPermission = (
+  permission: string,
+  resourceIdOf?: (request: any) => string | undefined | Promise<string | undefined>,
+) => async (request: any, reply: any) => {
+  await requireMatchAuth(request, reply);
+  if (reply.sent) return;
+  const ownerUserId = process.env.OWNER_USER_ID?.trim();
+  const claims = request.user as { sub?: string };
+  if (ownerUserId && isNumericId(ownerUserId) && claims.sub === ownerUserId) return;
+  await requirePermission(permission, resourceIdOf)(request, reply);
 };
 
 app.get('/api/v1/admin/permissions/grants', { onRequest: [requireOwnerAuth] }, async () => {
@@ -1231,7 +1243,7 @@ app.post<{ Body: { phone?: string; code?: string } }>('/api/v1/auth/phone-otp/ve
   }
 });
 
-app.get('/api/v1/admin/reports', { onRequest: [requireOwnerAuth] }, async () => {
+app.get('/api/v1/admin/reports', { onRequest: [requireOwnerOrPermission('reports.read')] }, async () => {
   const result = await pool.query(
     `SELECT r.id, r.reported_user_id AS "reportedUserId", target.email AS "reportedEmail",
             r.reporter_id AS "reporterId", reporter.email AS "reporterEmail",
@@ -1251,7 +1263,11 @@ app.get('/api/v1/admin/reports', { onRequest: [requireOwnerAuth] }, async () => 
   return { reports: result.rows };
 });
 
-app.patch<{ Params: { id: string }; Body: { status?: string } }>('/api/v1/admin/reports/:id', { onRequest: [requireOwnerAuth] }, async (request, reply) => {
+app.patch<{ Params: { id: string }; Body: { status?: string } }>('/api/v1/admin/reports/:id', { onRequest: [requireOwnerOrPermission('reports.manage', async (request) => {
+  if (!isNumericId(request.params?.id)) return undefined;
+  const target = await pool.query('SELECT reported_user_id::text AS id FROM user_reports WHERE id = $1', [request.params.id]);
+  return target.rows[0]?.id;
+})] }, async (request, reply) => {
   const { id } = request.params;
   const { status } = request.body ?? {};
   if (!isNumericId(id) || !['reviewed', 'dismissed', 'actioned'].includes(status ?? '')) {
