@@ -1404,54 +1404,27 @@ app.post<{ Body: { phone?: string; code?: string } }>('/api/v1/auth/phone-otp/ve
 }, async (request, reply) => {
   const phone = normalizeIranianMobile(request.body?.phone);
   const code = typeof request.body?.code === 'string' ? request.body.code.trim() : '';
-  if (!phone || !/^\d{6}$/.test(code)) {
+  if (!phone || !/^\\d{6}$/.test(code)) {
     return reply.code(400).send({ error: 'Enter a valid Iranian mobile number and six-digit code.' });
   }
-  if (!['development', 'test'].includes(process.env.NODE_ENV ?? '')) {
+  const settingsResult = await pool.query(
+    'SELECT enabled, delivery_mode, provider FROM sms_otp_settings WHERE id = 1',
+  );
+  const runtime = otpRuntimeAllowed(settingsResult.rows[0]);
+  if (!runtime.simulator && !runtime.live) {
     return reply.code(503).send({ error: 'Phone OTP is not available.' });
-  }
-  const settingsResult = await pool.query('SELECT delivery_mode FROM sms_otp_settings WHERE id = 1');
-  if (settingsResult.rows[0]?.delivery_mode !== 'development_simulator') {
-    return reply.code(503).send({ error: 'Phone OTP simulator is disabled.' });
   }
 
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    const found = await client.query(
-      `SELECT id, otp_salt, otp_digest, attempts, max_attempts, expires_at, consumed_at
-         FROM sms_otp_challenges
-        WHERE phone_e164 = $1 AND consumed_at IS NULL
-        ORDER BY created_at DESC LIMIT 1 FOR UPDATE`,
-      [phone],
-    );
-    const challenge = found.rows[0];
-    if (!challenge || new Date(challenge.expires_at).getTime() <= Date.now() ||
-        Number(challenge.attempts) >= Number(challenge.max_attempts)) {
-      if (challenge) {
-        await client.query('UPDATE sms_otp_challenges SET consumed_at = NOW() WHERE id = $1', [challenge.id]);
-      }
-      await client.query('COMMIT');
-      return reply.code(400).send({ error: 'The verification code is invalid or expired.' });
-    }
-    const matches = verifyOtpDigest(code, { salt: challenge.otp_salt, digest: challenge.otp_digest }, otpPepper);
-    if (!matches) {
-      const nextAttempts = Number(challenge.attempts) + 1;
-      await client.query(
-        'UPDATE sms_otp_challenges SET attempts = $1, consumed_at = CASE WHEN $1 >= max_attempts THEN NOW() ELSE consumed_at END WHERE id = $2',
-        [nextAttempts, challenge.id],
-      );
-      await client.query('COMMIT');
-      return reply.code(400).send({ error: 'The verification code is invalid or expired.' });
-    }
-    await client.query('UPDATE sms_otp_challenges SET consumed_at = NOW() WHERE id = $1', [challenge.id]);
+    const verified = await consumeOtpChallenge(client, phone, code, 'verify');
     await client.query('COMMIT');
-    // This endpoint proves only possession of the simulator code. It does not
-    // create/link an account or issue an access token.
+    if (!verified) return reply.code(400).send({ error: 'The verification code is invalid or expired.' });
     return { verified: true };
   } catch (error) {
     await client.query('ROLLBACK').catch(() => undefined);
-    request.log.error({ err: error }, 'Phone OTP simulator verification failed');
+    request.log.error({ err: error }, 'Phone OTP verification failed');
     return reply.code(500).send({ error: 'Could not verify the code.' });
   } finally {
     client.release();
