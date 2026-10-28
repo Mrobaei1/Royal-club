@@ -121,6 +121,14 @@ await pool.query(`
 
   -- Dormant delegated permissions: no grants are seeded and all grant management
   -- remains protected by the existing owner identity until explicitly assigned.
+  CREATE TABLE IF NOT EXISTS admin_permission_settings (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    enabled BOOLEAN NOT NULL DEFAULT FALSE,
+    updated_by BIGINT REFERENCES users(id) ON DELETE SET NULL,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+  INSERT INTO admin_permission_settings (id, enabled) VALUES (1, FALSE) ON CONFLICT (id) DO NOTHING;
+
   CREATE TABLE IF NOT EXISTS admin_permission_grants (
     id BIGSERIAL PRIMARY KEY,
     grantee_user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -152,6 +160,10 @@ await pool.query(`
   );
   CREATE INDEX IF NOT EXISTS admin_permission_audit_time_idx
     ON admin_permission_audit_log (created_at DESC);
+  ALTER TABLE admin_permission_audit_log DROP CONSTRAINT IF EXISTS admin_permission_audit_log_action_check;
+  ALTER TABLE admin_permission_audit_log ADD CONSTRAINT admin_permission_audit_log_action_check
+    CHECK (action IN ('grant_created', 'grant_revoked', 'grant_rejected', 'kill_switch_changed'));
+
 
   CREATE TABLE IF NOT EXISTS app_contact_methods (
     id BIGSERIAL PRIMARY KEY,
@@ -777,6 +789,10 @@ const requirePermission = (
   if (!claims.sub || !isRoyalPermission(permission)) {
     return reply.code(403).send({ error: 'Permission denied.' });
   }
+  const switchResult = await pool.query('SELECT enabled FROM admin_permission_settings WHERE id = 1');
+  if (switchResult.rows[0]?.enabled !== true) {
+    return reply.code(403).send({ error: 'Delegated permissions are disabled by the owner.' });
+  }
   const result = await pool.query(
     'SELECT permission, scope, revoked_at FROM admin_permission_grants WHERE grantee_user_id = $1 AND permission = $2 AND revoked_at IS NULL',
     [claims.sub, permission],
@@ -803,6 +819,40 @@ const requireOwnerOrPermission = (
   if (ownerUserId && isNumericId(ownerUserId) && claims.sub === ownerUserId) return;
   await requirePermission(permission, resourceIdOf)(request, reply);
 };
+
+app.get('/api/v1/admin/permissions/settings', { onRequest: [requireOwnerAuth] }, async () => {
+  const result = await pool.query(
+    'SELECT enabled, updated_at AS "updatedAt", u.username AS "updatedBy" FROM admin_permission_settings s LEFT JOIN users u ON u.id = s.updated_by WHERE s.id = 1',
+  );
+  return { settings: result.rows[0] ?? { enabled: false } };
+});
+
+app.patch<{ Body: { enabled?: boolean } }>('/api/v1/admin/permissions/settings', { onRequest: [requireOwnerAuth] }, async (request, reply) => {
+  const enabled = request.body?.enabled;
+  if (typeof enabled !== 'boolean') return reply.code(400).send({ error: 'Provide an enabled boolean.' });
+  const claims = request.user as { sub?: string };
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const result = await client.query(
+      'UPDATE admin_permission_settings SET enabled = $1, updated_by = $2, updated_at = NOW() WHERE id = 1 RETURNING enabled, updated_at AS "updatedAt"',
+      [enabled, claims.sub ?? null],
+    );
+    await client.query(
+      `INSERT INTO admin_permission_audit_log (actor_user_id, action, permission, result, reason, details)
+       VALUES ($1, 'kill_switch_changed', '*', 'success', $2, $3::jsonb)`,
+      [claims.sub ?? null, enabled ? 'Owner enabled delegated permissions' : 'Owner disabled delegated permissions', JSON.stringify({ enabled })],
+    );
+    await client.query('COMMIT');
+    return { ok: true, settings: result.rows[0] };
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    request.log.error({ err: error }, 'Could not update delegated permission switch');
+    return reply.code(500).send({ error: 'Could not update delegated permission settings.' });
+  } finally {
+    client.release();
+  }
+});
 
 app.get('/api/v1/admin/permissions/grants', { onRequest: [requireOwnerAuth] }, async () => {
   const result = await pool.query(`
