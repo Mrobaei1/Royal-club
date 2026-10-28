@@ -636,7 +636,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
                   else
                     Text(
                       isEnglish ? 'Match: first to ${_matchDetails['matchToWin'] ?? 1} win${(_matchDetails['matchToWin'] ?? 1) == 1 ? '' : 's'}'
-                        : 'خلاصه: ${_matchDetails['matchToWin'] ?? 1} برد',
+                        : appText(context, 'خلاصه: ${_matchDetails['matchToWin'] ?? 1} برد', 'Best of ${_matchDetails['matchToWin'] ?? 1}'),
                       style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
                     ),
                   if (_matchDetails['isHost'] != true && _matchDetails['guestSettingsAccepted'] != true)
@@ -678,7 +678,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
                   subtitle: Text(
                     _isEnglish
                         ? 'Only accepted friends of either player can watch. Spectators are read-only.'
-                        : 'فقط دوستان پذیرفته‌شدهٔ یکی از دو بازیکن می‌توانند تماشا کنند؛ تماشاگر فقط امکان مشاهده دارد.',
+                        : appText(context, 'فقط دوستان پذیرفته‌شدهٔ یکی از دو بازیکن می‌توانند تماشا کنند؛ تماشاگر فقط امکان مشاهده دارد.', 'Only accepted friends of either player may watch; spectators can only observe.'),
                     style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6)),
                   ),
                 ),
