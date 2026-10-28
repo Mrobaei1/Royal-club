@@ -1469,6 +1469,9 @@ test('delegated permission ceiling limits grants to 50 distinct users and permit
   const previousEnabled = previousSwitch.rows[0]?.enabled === true;
   process.env.OWNER_USER_ID = owner.user.id;
   try {
+    // Earlier integration cases may have left active grants in the shared test DB.
+    // Clear them first so this case tests exactly 50 distinct active delegates.
+    await testPool.query('UPDATE admin_permission_grants SET revoked_at = NOW(), revoked_by = $1 WHERE revoked_at IS NULL', [owner.user.id]);
     await testPool.query('UPDATE admin_permission_settings SET enabled = TRUE WHERE id = 1');
     for (const userId of userIds.slice(0, 50)) {
       await testPool.query(
