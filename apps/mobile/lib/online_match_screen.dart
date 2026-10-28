@@ -826,7 +826,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
                 ]),
               ),
             ],
-            if (_error != null) Padding(padding: const EdgeInsets.only(top: 12), child: Text(_error!, style: const TextStyle(color: Colors.redAccent))),
+            if (_error != null) Padding(padding: const EdgeInsets.only(top: 12), child: Text(appError(context, _error), style: const TextStyle(color: Colors.redAccent))),
             const SizedBox(height: 10),
           ],
         )),
