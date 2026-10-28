@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:royal_club/l10n/app_text.dart';
 
@@ -30,6 +31,11 @@ void main() {
     Widget localized(String language) => MaterialApp(
       locale: Locale(language),
       supportedLocales: const [Locale('fa'), Locale('en')],
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
       home: Builder(
         builder: (context) => Text(appText(context, 'آزمایش', 'Test')),
       ),
