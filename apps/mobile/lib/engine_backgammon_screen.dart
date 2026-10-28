@@ -572,7 +572,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
                         TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                 actions: [
                   IconButton(
-                    tooltip: 'شروع مجدد',
+                    tooltip: appText(context, 'شروع مجدد', 'Restart'),
                     onPressed: _reset,
                     icon: const Icon(Icons.refresh),
                   ),
@@ -615,7 +615,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
                     child: OutlinedButton.icon(
                       onPressed: _reset,
                       icon: const Icon(Icons.restart_alt),
-                      label: Text('شروع مجدد'),
+                      label: Text(appText(context, 'شروع مجدد', 'Restart')),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: Theme.of(context).colorScheme.primary,
                         side: BorderSide(color: Theme.of(context).colorScheme.primary),
@@ -626,7 +626,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
                   ),
                   const SizedBox(height: 10),
                   Text(
-                    'نسخه آزمایشی محلی · تمرین با هوش مصنوعی',
+                    appText(context, 'نسخه آزمایشی محلی · تمرین با هوش مصنوعی', 'Local test version · practice with AI'),
                     textAlign: TextAlign.center,
                     style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.54), fontSize: 12),
                   ),
@@ -646,7 +646,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
           appBar: AppBar(
             backgroundColor: Theme.of(context).colorScheme.surface,
             foregroundColor: Theme.of(context).colorScheme.primary,
-            title: Text('تخته‌نرد سلطنتی'),
+            title: Text(appText(context, 'تخته‌نرد سلطنتی', 'Royal Backgammon')),
           ),
           body: Center(
             child: ConstrainedBox(
@@ -659,11 +659,11 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
                   children: [
                     Icon(Icons.workspace_premium, color: Theme.of(context).colorScheme.primary, size: 64),
                     const SizedBox(height: 16),
-                    Text('روش بازی را انتخاب کنید',
+                    Text(appText(context, 'روش بازی را انتخاب کنید', 'Choose a game mode'),
                       textAlign: TextAlign.center,
                       style: TextStyle(color: Theme.of(context).colorScheme.primary, fontSize: 24, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 10),
-                    Text('بازی آفلاین برای تمرین به اینترنت نیاز ندارد. برای رقابت با بازیکنان دیگر، بازی آنلاین را انتخاب کنید.',
+                    Text(appText(context, 'بازی آفلاین برای تمرین به اینترنت نیاز ندارد. برای رقابت با بازیکنان دیگر، بازی آنلاین را انتخاب کنید.', 'Offline practice does not require internet. Choose online play to compete with other players.'),
                       textAlign: TextAlign.center,
                       style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7), height: 1.5)),
                     const SizedBox(height: 24),
@@ -672,14 +672,14 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
                         setState(() {
                           _modeChosen = true;
                           _engine.reset();
-                          _message = 'بازی آفلاین با هوش مصنوعی؛ تاس بریزید.';
+                          _message = appText(context, 'بازی آفلاین با هوش مصنوعی؛ تاس بریزید.', 'Offline game with AI; roll the dice.');
                           _timerPlayer = _engine.currentPlayer;
                           _secondsLeft = _turnLimitSeconds;
                         });
                         _startTurnTimer(reset: true);
                       },
                       icon: const Icon(Icons.psychology),
-                      label: Text('بازی آفلاین با هوش مصنوعی'),
+                      label: Text(appText(context, 'بازی آفلاین با هوش مصنوعی', 'Offline vs AI')),
                       style: FilledButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary, foregroundColor: Theme.of(context).colorScheme.onPrimary, padding: const EdgeInsets.symmetric(vertical: 16)),
                     ),
                     const SizedBox(height: 12),
@@ -688,7 +688,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
                         Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const OnlineLobbyScreen()));
                       },
                       icon: const Icon(Icons.public),
-                      label: Text('بازی آنلاین'),
+                      label: Text(appText(context, 'بازی آنلاین', 'Online game')),
                       style: OutlinedButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.primary, side: BorderSide(color: Theme.of(context).colorScheme.primary), padding: const EdgeInsets.symmetric(vertical: 16)),
                     ),
                   ],
@@ -711,7 +711,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Row(children: [
-              Text('تم صفحه بازی:', style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7), fontSize: compact ? 10 : 12)),
+              Text(appText(context, 'تم صفحه بازی:', 'Board theme:'), style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7), fontSize: compact ? 10 : 12)),
               const SizedBox(width: 8),
               Expanded(child: DropdownButtonHideUnderline(child: DropdownButton<int>(
                 value: _boardThemeIndex,
@@ -724,7 +724,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
             ]),
             if (_vsComputer)
               Row(children: [
-                Text('سختی:',
+                Text(appText(context, 'سختی:', 'Difficulty:'),
                     style: TextStyle(
                         color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7), fontSize: compact ? 10 : 12)),
                 const SizedBox(width: 8),
@@ -739,12 +739,12 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
                     items: const [
                       DropdownMenuItem(
                           value: BackgammonDifficulty.easy,
-                          child: Text('آسان')),
+                          child: Text(appText(context, 'آسان', 'Easy'))),
                       DropdownMenuItem(
                           value: BackgammonDifficulty.medium,
-                          child: Text('متوسط')),
+                          child: Text(appText(context, 'متوسط', 'Medium'))),
                       DropdownMenuItem(
-                          value: BackgammonDifficulty.hard, child: Text('سخت')),
+                          value: BackgammonDifficulty.hard, child: Text(appText(context, 'سخت', 'Hard'))),
                     ],
                     onChanged: _computerThinking
                         ? null
@@ -963,7 +963,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
           SizedBox(width: 4),
           Flexible(
             child: Text(
-              'تاس‌های بازی',
+              appText(context, 'تاس‌های بازی', 'Game dice'),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(color: Colors.white60, fontSize: 10),
@@ -1029,7 +1029,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
               ? _roll
               : null,
           icon: Icon(Icons.casino, size: compact ? 17 : 21),
-          label: Text('ریختن تاس', style: TextStyle(fontSize: compact ? 12 : 15)),
+          label: Text(appText(context, 'ریختن تاس', 'Roll dice'), style: TextStyle(fontSize: compact ? 12 : 15)),
           style: FilledButton.styleFrom(
             backgroundColor: _boardGold,
             foregroundColor: _boardNavy,
@@ -1072,7 +1072,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
               children: [
               Icon(Icons.inventory_2_outlined, color: _boardGold, size: compact ? 10 : 16),
               Text(
-                offPlayer == 1 ? 'طلایی' : 'مشکی',
+                offPlayer == 1 ? appText(context, 'طلایی', 'Gold') : appText(context, 'مشکی', 'Black'),
                 style: TextStyle(color: Colors.white70, fontSize: compact ? 6 : 9),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -1384,7 +1384,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
               ),
             ),
             if (active)
-              const Text('نوبت حرکت', style: TextStyle(color: _boardGold, fontSize: 9)),
+              Text(appText(context, 'نوبت حرکت', 'Move turn'), style: TextStyle(color: _boardGold, fontSize: 9)),
           ],
         ),
       ),
@@ -1422,15 +1422,15 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _profileStatRow('تعداد بازی', 'هنوز ثبت نشده'),
-              _profileStatRow('امتیاز', 'هنوز ثبت نشده'),
-              _profileStatRow('تعداد برد', 'هنوز ثبت نشده'),
+              _profileStatRow(appText(context, 'تعداد بازی', 'Games played'), appText(context, 'هنوز ثبت نشده', 'Not recorded yet')),
+              _profileStatRow(appText(context, 'امتیاز', 'Rating'), appText(context, 'هنوز ثبت نشده', 'Not recorded yet')),
+              _profileStatRow(appText(context, 'تعداد برد', 'Wins'), appText(context, 'هنوز ثبت نشده', 'Not recorded yet')),
               _profileStatRow('سطح بازیکن', player == -1 && _vsComputer
-                  ? 'هوش مصنوعی · متوسط'
-                  : 'هنوز تعیین نشده'),
+                  ? appText(context, 'هوش مصنوعی · متوسط', 'AI · Medium')
+                  : appText(context, 'هنوز تعیین نشده', 'Not set yet')),
               const SizedBox(height: 8),
               const Text(
-                'آمار واقعی پس از اتصال سابقه بازی و رتبه‌بندی نمایش داده می‌شود.',
+                appText(context, 'آمار واقعی پس از اتصال سابقه بازی و رتبه‌بندی نمایش داده می‌شود.', 'Real statistics will appear after game history and ranking are connected.'),
                 style: TextStyle(color: Colors.white60, fontSize: 12),
               ),
             ],
@@ -1438,7 +1438,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('بستن', style: TextStyle(color: _boardGold)),
+              child: Text(appText(context, 'بستن', 'Close'), style: TextStyle(color: _boardGold)),
             ),
           ],
         ),
