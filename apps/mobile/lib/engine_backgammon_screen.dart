@@ -736,7 +736,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
                     dropdownColor: Theme.of(context).colorScheme.surface,
                     style: TextStyle(
                         color: Theme.of(context).colorScheme.primary, fontSize: compact ? 11 : 13),
-                    items: const [
+                    items: [
                       DropdownMenuItem(
                           value: BackgammonDifficulty.easy,
                           child: Text(appText(context, 'آسان', 'Easy'))),
@@ -956,11 +956,11 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
 
   Widget _diceTray({bool compact = false}) {
     if (_engine.dice.isEmpty) {
-      return const Row(
+      return Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.casino_outlined, color: Colors.white54, size: 21),
-          SizedBox(width: 4),
+          const Icon(Icons.casino_outlined, color: Colors.white54, size: 21),
+          const SizedBox(width: 4),
           Flexible(
             child: Text(
               appText(context, 'تاس‌های بازی', 'Game dice'),
