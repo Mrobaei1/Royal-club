@@ -784,7 +784,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
                     child: OutlinedButton.icon(
                       onPressed: _reset,
                       icon: const Icon(Icons.restart_alt, size: 18),
-                      label: Text('شروع مجدد'),
+                      label: Text(appText(context, 'شروع مجدد', 'Restart')),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: Theme.of(context).colorScheme.primary,
                         side: BorderSide(color: Theme.of(context).colorScheme.primary),
@@ -1425,11 +1425,11 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
               _profileStatRow(appText(context, 'تعداد بازی', 'Games played'), appText(context, 'هنوز ثبت نشده', 'Not recorded yet')),
               _profileStatRow(appText(context, 'امتیاز', 'Rating'), appText(context, 'هنوز ثبت نشده', 'Not recorded yet')),
               _profileStatRow(appText(context, 'تعداد برد', 'Wins'), appText(context, 'هنوز ثبت نشده', 'Not recorded yet')),
-              _profileStatRow('سطح بازیکن', player == -1 && _vsComputer
+              _profileStatRow(appText(context, 'سطح بازیکن', 'Player level'), player == -1 && _vsComputer
                   ? appText(context, 'هوش مصنوعی · متوسط', 'AI · Medium')
                   : appText(context, 'هنوز تعیین نشده', 'Not set yet')),
               const SizedBox(height: 8),
-              const Text(
+              Text(
                 appText(context, 'آمار واقعی پس از اتصال سابقه بازی و رتبه‌بندی نمایش داده می‌شود.', 'Real statistics will appear after game history and ranking are connected.'),
                 style: TextStyle(color: Colors.white60, fontSize: 12),
               ),
