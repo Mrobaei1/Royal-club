@@ -178,11 +178,13 @@ class _AdminScreenState extends State<AdminScreen> {
       if (!mounted) return;
       setState(() => _delegatedPermissionsEnabled = saved['enabled'] == true);
       await _load();
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(enabled
-          ? appText(context, 'مجوزهای تفویض‌شده فعال شدند.', 'Delegated permissions enabled.')
-          : appText(context, 'کلید قطع اضطراری فعال شد؛ مجوزهای تفویض‌شده غیرفعال‌اند.', 'Kill switch engaged; delegated permissions are disabled.'),
-      )));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(enabled
+            ? appText(context, 'مجوزهای تفویض‌شده فعال شدند.', 'Delegated permissions enabled.')
+            : appText(context, 'کلید قطع اضطراری فعال شد؛ مجوزهای تفویض‌شده غیرفعال‌اند.', 'Kill switch engaged; delegated permissions are disabled.')),
+        ));
+      }
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appError(context, e))));
     } finally {
