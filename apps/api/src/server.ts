@@ -1195,7 +1195,7 @@ app.post<{ Body: { phone?: string } }>('/api/v1/auth/phone-otp/request', {
 }, async (request, reply) => {
   const phone = normalizeIranianMobile(request.body?.phone);
   if (!phone) return reply.code(400).send({ error: 'Enter a valid Iranian mobile number.' });
-  if (process.env.NODE_ENV === 'production') {
+  if (!['development', 'test'].includes(process.env.NODE_ENV ?? '')) {
     return reply.code(503).send({ error: 'Phone OTP is not available.' });
   }
   const client = await pool.connect();
@@ -1268,7 +1268,7 @@ app.post<{ Body: { phone?: string; code?: string } }>('/api/v1/auth/phone-otp/ve
   if (!phone || !/^\d{6}$/.test(code)) {
     return reply.code(400).send({ error: 'Enter a valid Iranian mobile number and six-digit code.' });
   }
-  if (process.env.NODE_ENV === 'production') {
+  if (!['development', 'test'].includes(process.env.NODE_ENV ?? '')) {
     return reply.code(503).send({ error: 'Phone OTP is not available.' });
   }
   const settingsResult = await pool.query('SELECT delivery_mode FROM sms_otp_settings WHERE id = 1');
