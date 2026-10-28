@@ -52,13 +52,22 @@ This checklist is the release gate before starting Phase 4. A green CI run prove
 
 ## Latest automated verification
 
-The following GitHub Actions runs completed successfully for PR #23 head `ea97530af955bccf6d3a8af9ae8597066c8dbb61`:
+The following GitHub Actions runs completed successfully for merged `main` commit `ed3bc671435a350605d81a2cb87211899d5c4084` on 2026-10-28:
 
-- [`Royal Club validation`](https://github.com/Mrobaei1/Royal-club/actions/runs/40649094399): API build/unit/integration tests and Flutter analyze/tests — passed.
-- [`Backgammon engine audit`](https://github.com/Mrobaei1/Royal-club/actions/runs/40649094340): engine/AI tests and board interaction regression tests — passed.
-- `Royal Club Web Preview` and `Validate Royal Club` were cancelled after subsequent commits; no successful web-preview result is claimed for this head.
+- [Validate Royal Club](https://github.com/Mrobaei1/Royal-club/actions/runs/40650172452): API build/unit/integration tests and Flutter analyze/tests — passed.
+- [Royal Club validation](https://github.com/Mrobaei1/Royal-club/actions/runs/40650172451): API build/unit tests and Flutter analyze/tests — passed.
+- [Backgammon engine audit](https://github.com/Mrobaei1/Royal-club/actions/runs/40650172614): engine/AI and board-interaction regression tests — passed.
+- [Royal Club Web Preview](https://github.com/Mrobaei1/Royal-club/actions/runs/40650172578): API build/tests, Flutter analyze/tests, web release build, Pages artifact upload, and GitHub Pages deployment — passed. The build log confirms it injected the configured API endpoint.
 
-A subsequent documentation-only update also passed API build/unit/integration tests and Flutter analyze/tests in `Royal Club validation` run 557. These results establish automated checks only. They do not establish production API/database health, real SMS delivery, real VPN switching, or multi-device manual acceptance. APK workflow is now manual-dispatch only; no APK was built.
+### Production API status — distinguish deployed from merged code
+
+- The Neon Function `royalclubapi` is deployed at `https://br-misty-flower-bavs47dm-royalclubapi.compute.c-8.eu-central-1.aws.neon.tech`, deployment ID `79`, status `completed`.
+- [Deploy run 40570281878](https://github.com/Mrobaei1/Royal-club/actions/runs/40570281878) passed the deployed API health check and the six-character registration/login smoke test on 2026-10-27.
+- The merged web build uses that same API endpoint; it no longer relies on the temporary GitHub Codespaces URL.
+- The merged API source in commit `ed3bc671` has **not** been deployed to Neon yet. The production API deployment workflow is intentionally manual-only. Therefore the CI-tested OTP/phone-auth and other newly added server routes are not claimed as production-live until that release workflow is explicitly dispatched and its health/integration smoke tests pass.
+- No APK was built. Android APK generation remains manual-only and requires explicit build approval.
+
+These results prove automated checks and the recorded previous production smoke test only. They do not establish real SMS delivery, real VPN switching, multi-device acceptance, or that the newest merged API source is live in production.
 
 ## Current decision
 
