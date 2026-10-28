@@ -31,8 +31,9 @@ This checklist is the release gate before starting Phase 4. A green CI run prove
 
 - [x] CI integration test passed for wallet debit, insufficient balance, subscription activation, active-subscription lookup, and ledger consistency.
 - [x] Integration test passed for denying a normal user permission to credit a wallet. Owner plan/credit controls still need broader end-to-end acceptance testing.
-- [ ] Confirm the initial monetization policy end-to-end: games and social features remain free unless the owner explicitly enables charges. Verify that subscription and league-entry rules match the configured product policy; league-entry/subscription-day behavior still needs acceptance testing.
-- [ ] Verify ranking/weekly score behavior against agreed examples, including draws/unfinished games and rating updates.
+- [ ] Confirm the initial monetization policy end-to-end: games and social features remain free unless the owner explicitly enables charges. Verify that subscription and league-entry rules match the configured product policy.
+- [ ] **Implementation gap:** no league-entry API or subscription-day entitlement ledger was found in the current `main` server source. Track implementation in [Issue #26](https://github.com/Mrobaei1/Royal-club/issues/26): configurable server-side league rules, eligibility checks, transactional single-use subscription-day consumption, duplicate/concurrent retry protection, audit history, and integration tests. Do not charge wallet credits for league entry or enable paid behavior without explicit owner approval.
+- [ ] Verify ranking/weekly score behavior against the agreed scoring model. Current weekly leaderboard code awards 3 points per completed win, counts losses for display, excludes matches without a determinable winner, and sorts by score/wins/games played/username. Confirm that this matches the owner's intended model before changing point values; add explicit regression cases for ties, unfinished matches, and rating/level progression.
 
 ### Phase 3 — game and social experience
 
