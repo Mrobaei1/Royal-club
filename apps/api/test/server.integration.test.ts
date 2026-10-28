@@ -1075,3 +1075,69 @@ test('delegated report permissions are owner-granted, resource-scoped, audited, 
     else process.env.OWNER_USER_ID = previousOwnerId;
   }
 });
+
+test('development phone OTP simulator hashes, expires by policy, limits attempts, and consumes codes once', async () => {
+  const prior = await testPool.query('SELECT delivery_mode FROM sms_otp_settings WHERE id = 1');
+  const previousMode = prior.rows[0]?.delivery_mode ?? 'disabled';
+  await testPool.query(
+    `UPDATE sms_otp_settings
+        SET delivery_mode = 'development_simulator', enabled = FALSE,
+            otp_ttl_seconds = 120, resend_cooldown_seconds = 30,
+            max_attempts = 3, daily_limit = 100
+      WHERE id = 1`,
+  );
+  const phone = `09${String(Math.floor(Math.random() * 1_000_000_000)).padStart(9, '0')}`;
+  try {
+    const invalidPhone = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/phone-otp/request',
+      payload: { phone: '+12025550123' },
+    });
+    assert.equal(invalidPhone.statusCode, 400);
+
+    const issued = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/phone-otp/request',
+      payload: { phone },
+    });
+    assert.equal(issued.statusCode, 202, issued.body);
+    const issuedBody = issued.json() as { testCode?: string; accessToken?: string };
+    assert.match(issuedBody.testCode ?? '', /^\\d{6}$/);
+    assert.equal(Object.hasOwn(issuedBody, 'accessToken'), false);
+
+    const wrongCode = issuedBody.testCode === '000000' ? '000001' : '000000';
+    const wrong = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/phone-otp/verify',
+      payload: { phone, code: wrongCode },
+    });
+    assert.equal(wrong.statusCode, 400);
+
+    const verified = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/phone-otp/verify',
+      payload: { phone, code: issuedBody.testCode },
+    });
+    assert.equal(verified.statusCode, 200, verified.body);
+    assert.equal(verified.json().verified, true);
+    assert.equal(Object.hasOwn(verified.json(), 'accessToken'), false);
+
+    const reused = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/phone-otp/verify',
+      payload: { phone, code: issuedBody.testCode },
+    });
+    assert.equal(reused.statusCode, 400);
+
+    const stored = await testPool.query(
+      'SELECT otp_digest, otp_salt, consumed_at FROM sms_otp_challenges WHERE phone_e164 = $1 ORDER BY id DESC LIMIT 1',
+      [`+98${phone.slice(1)}`],
+    );
+    assert.equal(stored.rowCount, 1);
+    assert.notEqual(stored.rows[0].otp_digest, issuedBody.testCode);
+    assert.ok(stored.rows[0].consumed_at);
+  } finally {
+    await testPool.query('UPDATE sms_otp_settings SET delivery_mode = $1, enabled = FALSE WHERE id = 1', [previousMode]);
+  }
+});
+
