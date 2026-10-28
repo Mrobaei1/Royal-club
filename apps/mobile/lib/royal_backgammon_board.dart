@@ -112,7 +112,7 @@ class _RoyalBoardPainter extends CustomPainter {
     double colX(int col)=>col<6?m+col*pw:m+hw+bw+(col-6)*pw;
     final bounds=Offset.zero&s;
     final frame=RRect.fromRectAndRadius(bounds,Radius.circular(w*.022));
-    c.drawRRect(frame,Paint()..shader=const LinearGradient(begin:Alignment.topCenter,end:Alignment.bottomCenter,
+    c.drawRRect(frame,Paint()..shader=LinearGradient(begin:Alignment.topCenter,end:Alignment.bottomCenter,
       colors:themeColors).createShader(bounds));
     c.save(); c.clipRRect(frame); final random=math.Random(7);
     for(var j=0;j<90;j++){final x=random.nextDouble()*w;c.drawLine(Offset(x,0),Offset(x+(random.nextDouble()-.5)*12,h),
