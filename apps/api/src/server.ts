@@ -1142,6 +1142,11 @@ app.post<{ Body: { phone?: string } }>('/api/v1/auth/phone-otp/request', {
       return reply.code(429).send({ error: 'Please wait before requesting another code.' });
     }
 
+    // Supersede every previous outstanding challenge before issuing a new one.
+    await client.query(
+      'UPDATE sms_otp_challenges SET consumed_at = NOW() WHERE phone_e164 = $1 AND consumed_at IS NULL',
+      [phone],
+    );
     const code = createOtpCode();
     const digest = digestOtp(code);
     await client.query(
