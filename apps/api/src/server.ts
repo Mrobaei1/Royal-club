@@ -1288,13 +1288,14 @@ app.get('/api/v1/admin/security/sms-otp/audit', { onRequest: [requireOwnerAuth] 
  * issue JWTs, or send real SMS. Production requests are rejected even if the
  * database settings are accidentally changed.
  */
-app.post<{ Body: { phone?: string } }>('/api/v1/auth/phone-otp/request', {
+app.post<{ Body: { phone?: string; purpose?: string } }>('/api/v1/auth/phone-otp/request', {
   config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
 }, async (request, reply) => {
   const phone = normalizeIranianMobile(request.body?.phone);
+  const purpose = request.body?.purpose ?? 'verify';
   if (!phone) return reply.code(400).send({ error: 'Enter a valid Iranian mobile number.' });
-  if (!['development', 'test'].includes(process.env.NODE_ENV ?? '')) {
-    return reply.code(503).send({ error: 'Phone OTP is not available.' });
+  if (!['verify', 'register', 'login', 'link'].includes(purpose)) {
+    return reply.code(400).send({ error: 'Invalid verification purpose.' });
   }
   const client = await pool.connect();
   try {
@@ -1310,12 +1311,17 @@ app.post<{ Body: { phone?: string } }>('/api/v1/auth/phone-otp/request', {
       [phone],
     );
     const settingsResult = await client.query(
-      'SELECT delivery_mode, otp_ttl_seconds, resend_cooldown_seconds, max_attempts, daily_limit FROM sms_otp_settings WHERE id = 1',
+      'SELECT enabled, delivery_mode, provider, template_id, encrypted_api_key, otp_ttl_seconds, resend_cooldown_seconds, max_attempts, daily_limit FROM sms_otp_settings WHERE id = 1',
     );
     const settings = settingsResult.rows[0];
-    if (settings?.delivery_mode !== 'development_simulator') {
+    const runtime = otpRuntimeAllowed(settings);
+    if (!runtime.simulator && !runtime.live) {
       await client.query('ROLLBACK');
-      return reply.code(503).send({ error: 'Phone OTP simulator is disabled.' });
+      return reply.code(503).send({ error: 'Phone OTP is not available.' });
+    }
+    if (runtime.live && !String(settings.template_id ?? '').trim()) {
+      await client.query('ROLLBACK');
+      return reply.code(503).send({ error: 'Phone verification provider is not fully configured.' });
     }
     const usage = await client.query(
       `SELECT COUNT(*)::int AS global_daily_count,
@@ -1347,13 +1353,38 @@ app.post<{ Body: { phone?: string } }>('/api/v1/auth/phone-otp/request', {
     const digest = digestOtp(code, otpPepper);
     await client.query(
       `INSERT INTO sms_otp_challenges
-         (phone_e164, otp_salt, otp_digest, max_attempts, expires_at)
-       VALUES ($1, $2, $3, $4, NOW() + ($5 * INTERVAL '1 second'))`,
-      [phone, digest.salt, digest.digest, settings.max_attempts, settings.otp_ttl_seconds],
+         (phone_e164, purpose, otp_salt, otp_digest, max_attempts, expires_at)
+       VALUES ($1, $2, $3, $4, $5, NOW() + ($6 * INTERVAL '1 second'))
+       RETURNING id`,
+      [phone, purpose, digest.salt, digest.digest, settings.max_attempts, settings.otp_ttl_seconds],
     );
+    const challengeId = inserted.rows[0].id;
     await client.query('COMMIT');
-    // Do not log the phone number or OTP. The code is exposed only by this
-    // development-only simulator response and can never be returned in production.
+
+    if (runtime.live) {
+      const apiKey = decryptSmsApiKey(String(settings.encrypted_api_key ?? ''));
+      if (!apiKey) {
+        await pool.query('UPDATE sms_otp_challenges SET consumed_at = NOW() WHERE id = $1', [challengeId]);
+        return reply.code(503).send({ error: 'Phone verification provider credentials are unavailable.' });
+      }
+      const delivery = await createKavenegarProvider().sendOtp({
+        apiKey,
+        phoneE164: phone,
+        code,
+        template: String(settings.template_id),
+      });
+      await pool.query(
+        'INSERT INTO sms_otp_audit_log (action, details) VALUES ($1, $2::jsonb)',
+        ['otp_delivery', JSON.stringify({ purpose, phone: `***${phone.slice(-4)}`, result: delivery.ok ? 'accepted' : 'failed' })],
+      );
+      if (!delivery.ok) {
+        await pool.query('UPDATE sms_otp_challenges SET consumed_at = NOW() WHERE id = $1', [challengeId]);
+        return reply.code(502).send({ error: 'The verification message could not be delivered.' });
+      }
+      return reply.code(202).send({ ok: true, message: 'If the number is eligible, a verification code has been sent.' });
+    }
+
+    // The test code is only returned by the non-production simulator.
     return reply.code(202).send({
       ok: true,
       message: 'If the number is eligible, a verification code is available in the development simulator.',
