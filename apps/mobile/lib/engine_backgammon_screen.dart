@@ -51,9 +51,16 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
   List<String> get _boardThemeNames => Localizations.localeOf(context).languageCode == 'en' ? ['Royal wood', 'Emerald', 'Sapphire blue', 'Burgundy', 'Silver'] : ['چوب سلطنتی', 'زمردی', 'آبی یاقوتی', 'زرشکی', 'نقره‌ای'];
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_message.isEmpty) {
+      _message = appText(context, 'برای شروع، تاس بریزید.', 'Roll the dice to begin.');
+    }
+  }
+
+  @override
   void initState() {
     super.initState();
-    _message = appText(context, 'برای شروع، تاس بریزید.', 'Roll the dice to begin.');
     _vsComputer = widget.vsComputerForTesting;
     _timerPlayer = _engine.currentPlayer;
     _lockLandscapeOnMobile();
@@ -83,7 +90,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
 
   int? _selectedPoint;
   bool _selectedBar = false;
-  String _message = 'برای شروع، تاس بریزید.';
+  String _message = '';
   bool _gameOverDialogShown = false;
 
   List<BackgammonMove> get _moves => _engine.legalMoves();
