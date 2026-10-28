@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'l10n/app_text.dart';
 import 'profile_avatar.dart';
 import 'chat_screen.dart';
 import 'services/friends_service.dart';
