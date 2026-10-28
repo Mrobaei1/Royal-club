@@ -1515,3 +1515,80 @@ test('delegated permission ceiling limits grants to 50 distinct users and permit
   }
 });
 
+test('owner SMS settings keep provider credentials encrypted and refuse activation', async () => {
+  const previousOwnerId = process.env.OWNER_USER_ID;
+  const previousEncryptionKey = process.env.SMS_CREDENTIALS_ENCRYPTION_KEY;
+  const oldSettingsResult = await testPool.query(
+    'SELECT enabled, delivery_mode, provider, sender_id, template_id, encrypted_api_key, otp_ttl_seconds, resend_cooldown_seconds, max_attempts, daily_limit FROM sms_otp_settings WHERE id = 1',
+  );
+  const oldSettings = oldSettingsResult.rows[0];
+  const owner = await register('SMS Settings Security Owner');
+  process.env.OWNER_USER_ID = owner.user.id;
+  process.env.SMS_CREDENTIALS_ENCRYPTION_KEY = Buffer.alloc(32, 7).toString('base64');
+  try {
+    const saved = await app.inject({
+      method: 'PATCH',
+      url: '/api/v1/admin/security/sms-otp',
+      headers: auth(owner.token),
+      payload: {
+        enabled: false,
+        deliveryMode: 'real_provider',
+        provider: 'kavenegar',
+        senderId: '',
+        templateId: 'test-template',
+        apiKey: 'test-provider-secret-do-not-return',
+        otpTtlSeconds: 120,
+        resendCooldownSeconds: 60,
+        maxAttempts: 5,
+        dailyLimit: 100,
+      },
+    });
+    assert.equal(saved.statusCode, 200, saved.body);
+    assert.equal(saved.json().settings.enabled, false);
+    assert.equal(saved.json().settings.apiKeyConfigured, true);
+    assert.equal(JSON.stringify(saved.json()).includes('test-provider-secret-do-not-return'), false);
+    assert.equal(JSON.stringify(saved.json()).includes('encrypted_api_key'), false);
+
+    const stored = await testPool.query(
+      'SELECT enabled, encrypted_api_key FROM sms_otp_settings WHERE id = 1',
+    );
+    assert.equal(stored.rows[0].enabled, false);
+    assert.notEqual(stored.rows[0].encrypted_api_key, 'test-provider-secret-do-not-return');
+    assert.ok(String(stored.rows[0].encrypted_api_key).length > 30);
+
+    const getSettings = await app.inject({
+      method: 'GET',
+      url: '/api/v1/admin/security/sms-otp',
+      headers: auth(owner.token),
+    });
+    assert.equal(getSettings.statusCode, 200, getSettings.body);
+    assert.equal(getSettings.json().settings.apiKeyConfigured, true);
+    assert.equal(JSON.stringify(getSettings.json()).includes('test-provider-secret-do-not-return'), false);
+    assert.equal(JSON.stringify(getSettings.json()).includes('encrypted_api_key'), false);
+
+    const enable = await app.inject({
+      method: 'PATCH',
+      url: '/api/v1/admin/security/sms-otp',
+      headers: auth(owner.token),
+      payload: { enabled: true },
+    });
+    assert.equal(enable.statusCode, 409, enable.body);
+    const stillDisabled = await testPool.query('SELECT enabled FROM sms_otp_settings WHERE id = 1');
+    assert.equal(stillDisabled.rows[0].enabled, false);
+  } finally {
+    if (previousOwnerId === undefined) delete process.env.OWNER_USER_ID;
+    else process.env.OWNER_USER_ID = previousOwnerId;
+    if (previousEncryptionKey === undefined) delete process.env.SMS_CREDENTIALS_ENCRYPTION_KEY;
+    else process.env.SMS_CREDENTIALS_ENCRYPTION_KEY = previousEncryptionKey;
+    await testPool.query(
+      `UPDATE sms_otp_settings SET enabled = $1, delivery_mode = $2, provider = $3,
+        sender_id = $4, template_id = $5, encrypted_api_key = $6,
+        otp_ttl_seconds = $7, resend_cooldown_seconds = $8, max_attempts = $9, daily_limit = $10
+        WHERE id = 1`,
+      [oldSettings.enabled, oldSettings.delivery_mode, oldSettings.provider, oldSettings.sender_id,
+       oldSettings.template_id, oldSettings.encrypted_api_key, oldSettings.otp_ttl_seconds,
+       oldSettings.resend_cooldown_seconds, oldSettings.max_attempts, oldSettings.daily_limit],
+    );
+  }
+});
+
