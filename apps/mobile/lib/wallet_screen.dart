@@ -141,7 +141,14 @@ class _WalletScreenState extends State<WalletScreen> {
                 Card(
                   color: Theme.of(context).colorScheme.surface,
                   child: ListTile(
-                    title: Text(tx['description']?.toString() ?? tx['type']?.toString() ?? appText(context, 'تراکنش', 'Transaction'), style: TextStyle(color: colors.onSurface)),
+                    title: Text(
+                      tx['description']?.toString() == 'اعتباردهی مدیر'
+                          ? appText(context, 'اعتباردهی مدیر', 'Administrator credit')
+                          : ((tx['description']?.toString().trim().isNotEmpty ?? false)
+                              ? tx['description'].toString()
+                              : (tx['type']?.toString() ?? appText(context, 'تراکنش', 'Transaction'))),
+                      style: TextStyle(color: colors.onSurface),
+                    ),
                     subtitle: Text(tx['createdAt']?.toString() ?? '', style: TextStyle(color: colors.onSurface.withValues(alpha: 0.54), fontSize: 11)),
                     trailing: Text('${(tx['amount'] as num?)?.toInt() ?? 0}', style: TextStyle(color: ((tx['amount'] as num?)?.toInt() ?? 0) >= 0 ? colors.primary : colors.error, fontWeight: FontWeight.bold)),
                   ),
