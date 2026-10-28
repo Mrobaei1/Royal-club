@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'l10n/app_text.dart';
 import 'profile_avatar.dart';
 import 'services/match_service.dart';
 
