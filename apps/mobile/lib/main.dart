@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'l10n/app_localizations.dart';
+import 'l10n/app_text.dart';
 import 'friends_screen.dart';
 import 'account_screen.dart';
 import 'notifications_screen.dart';
