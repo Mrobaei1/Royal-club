@@ -112,13 +112,13 @@ class _AdminScreenState extends State<AdminScreen> {
     try {
       final profile = await AdminService.exportUserProfile(user['id'].toString());
       final lines = <String>[
-        'شناسه کاربر: ${profile['id'] ?? ''}',
-        'نام کاربری: ${profile['username'] ?? ''}',
-        'ایمیل: ${profile['email'] ?? ''}',
-        'تلفن: ${profile['phone'] ?? ''}',
-        'کشور: ${profile['country'] ?? ''}',
-        'موجودی اعتبار: ${profile['walletBalance'] ?? '0'}',
-        'تاریخ ثبت‌نام: ${profile['createdAt'] ?? ''}',
+        appText(context, 'شناسه کاربر: ${profile['id'] ?? ''}', 'User ID: ${profile['id'] ?? ''}'),
+        appText(context, 'نام کاربری: ${profile['username'] ?? ''}', 'Username: ${profile['username'] ?? ''}'),
+        appText(context, 'ایمیل: ${profile['email'] ?? ''}', 'Email: ${profile['email'] ?? ''}'),
+        appText(context, 'تلفن: ${profile['phone'] ?? ''}', 'Phone: ${profile['phone'] ?? ''}'),
+        appText(context, 'کشور: ${profile['country'] ?? ''}', 'Country: ${profile['country'] ?? ''}'),
+        appText(context, 'موجودی اعتبار: ${profile['walletBalance'] ?? '0'}', 'Credit balance: ${profile['walletBalance'] ?? '0'}'),
+        appText(context, 'تاریخ ثبت‌نام: ${profile['createdAt'] ?? ''}', 'Registration date: ${profile['createdAt'] ?? ''}'),
       ];
       if (!mounted) return;
       await showDialog<void>(
