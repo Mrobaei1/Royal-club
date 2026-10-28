@@ -5,7 +5,7 @@ import cors from '@fastify/cors';
 import rateLimit from '@fastify/rate-limit';
 import jwt from '@fastify/jwt';
 import { Pool, type PoolClient } from 'pg';
-import { createCipheriv, createDecipheriv, randomBytes, randomInt, scrypt as scryptCallback, timingSafeEqual } from 'node:crypto';
+import { createCipheriv, createDecipheriv, createHmac, randomBytes, randomInt, scrypt as scryptCallback, timingSafeEqual } from 'node:crypto';
 import { isNumericId, isValidRegistrationPassword } from './validation.js';
 import { createOtpCode, digestOtp, normalizeIranianMobile, verifyOtpDigest } from './otp-security.js';
 import { createKavenegarProvider } from './sms-provider.js';
@@ -37,6 +37,8 @@ const secret = process.env.JWT_SECRET;
 if (!secret || secret.length < 32) {
   throw new Error('JWT_SECRET must contain at least 32 characters.');
 }
+// Derive a domain-separated OTP pepper so OTP digests do not reuse the JWT key directly.
+const otpPepper = secret ? createHmac('sha256', secret).update('royal-club:otp-pepper:v1').digest('hex') : '';
 
 const app = Fastify({ logger: true, trustProxy: false });
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
@@ -1296,7 +1298,7 @@ app.post<{ Body: { phone?: string } }>('/api/v1/auth/phone-otp/request', {
       [phone],
     );
     const code = createOtpCode();
-    const digest = digestOtp(code, secret);
+    const digest = digestOtp(code, otpPepper);
     await client.query(
       `INSERT INTO sms_otp_challenges
          (phone_e164, otp_salt, otp_digest, max_attempts, expires_at)
@@ -1355,7 +1357,7 @@ app.post<{ Body: { phone?: string; code?: string } }>('/api/v1/auth/phone-otp/ve
       await client.query('COMMIT');
       return reply.code(400).send({ error: 'The verification code is invalid or expired.' });
     }
-    const matches = verifyOtpDigest(code, { salt: challenge.otp_salt, digest: challenge.otp_digest }, secret);
+    const matches = verifyOtpDigest(code, { salt: challenge.otp_salt, digest: challenge.otp_digest }, otpPepper);
     if (!matches) {
       const nextAttempts = Number(challenge.attempts) + 1;
       await client.query(
