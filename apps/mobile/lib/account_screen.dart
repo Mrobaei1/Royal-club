@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'l10n/app_text.dart';
 import 'package:image_picker/image_picker.dart';
 import 'services/auth_service.dart';
 
