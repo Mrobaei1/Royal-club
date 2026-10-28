@@ -1110,44 +1110,61 @@ app.post<{ Body: { phone?: string } }>('/api/v1/auth/phone-otp/request', {
   if (process.env.NODE_ENV === 'production') {
     return reply.code(503).send({ error: 'Phone OTP is not available.' });
   }
-  const settingsResult = await pool.query(
-    'SELECT delivery_mode, otp_ttl_seconds, resend_cooldown_seconds, max_attempts, daily_limit FROM sms_otp_settings WHERE id = 1',
-  );
-  const settings = settingsResult.rows[0];
-  if (settings?.delivery_mode !== 'development_simulator') {
-    return reply.code(503).send({ error: 'Phone OTP simulator is disabled.' });
-  }
-  const usage = await pool.query(
-    `SELECT COUNT(*)::int AS daily_count,
-            MAX(created_at) AS last_created_at
-       FROM sms_otp_challenges
-      WHERE phone_e164 = $1 AND created_at >= NOW() - INTERVAL '1 day'`,
-    [phone],
-  );
-  const row = usage.rows[0] ?? {};
-  if (Number(row.daily_count ?? 0) >= Number(settings.daily_limit ?? 0)) {
-    return reply.code(429).send({ error: 'OTP request limit reached. Try again later.' });
-  }
-  if (row.last_created_at &&
-      Date.now() - new Date(row.last_created_at).getTime() < Number(settings.resend_cooldown_seconds) * 1000) {
-    return reply.code(429).send({ error: 'Please wait before requesting another code.' });
-  }
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    // Serialize concurrent sends for the same normalized phone so requests cannot
+    // race around the cooldown/daily-limit checks.
+    await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [phone]);
+    const settingsResult = await client.query(
+      'SELECT delivery_mode, otp_ttl_seconds, resend_cooldown_seconds, max_attempts, daily_limit FROM sms_otp_settings WHERE id = 1',
+    );
+    const settings = settingsResult.rows[0];
+    if (settings?.delivery_mode !== 'development_simulator') {
+      await client.query('ROLLBACK');
+      return reply.code(503).send({ error: 'Phone OTP simulator is disabled.' });
+    }
+    const usage = await client.query(
+      `SELECT COUNT(*)::int AS daily_count,
+              MAX(created_at) AS last_created_at
+         FROM sms_otp_challenges
+        WHERE phone_e164 = $1 AND created_at >= NOW() - INTERVAL '1 day'`,
+      [phone],
+    );
+    const row = usage.rows[0] ?? {};
+    if (Number(row.daily_count ?? 0) >= Number(settings.daily_limit ?? 0)) {
+      await client.query('ROLLBACK');
+      return reply.code(429).send({ error: 'OTP request limit reached. Try again later.' });
+    }
+    if (row.last_created_at &&
+        Date.now() - new Date(row.last_created_at).getTime() < Number(settings.resend_cooldown_seconds) * 1000) {
+      await client.query('ROLLBACK');
+      return reply.code(429).send({ error: 'Please wait before requesting another code.' });
+    }
 
-  const code = createOtpCode();
-  const digest = digestOtp(code);
-  await pool.query(
-    `INSERT INTO sms_otp_challenges
-       (phone_e164, otp_salt, otp_digest, max_attempts, expires_at)
-     VALUES ($1, $2, $3, $4, NOW() + ($5 * INTERVAL '1 second'))`,
-    [phone, digest.salt, digest.digest, settings.max_attempts, settings.otp_ttl_seconds],
-  );
-  // Do not log the phone number or OTP. The code is exposed only by this
-  // development-only simulator response and can never be returned in production.
-  return reply.code(202).send({
-    ok: true,
-    message: 'If the number is eligible, a verification code is available in the development simulator.',
-    ...(process.env.NODE_ENV === 'production' ? {} : { testCode: code }),
-  });
+    const code = createOtpCode();
+    const digest = digestOtp(code);
+    await client.query(
+      `INSERT INTO sms_otp_challenges
+         (phone_e164, otp_salt, otp_digest, max_attempts, expires_at)
+       VALUES ($1, $2, $3, $4, NOW() + ($5 * INTERVAL '1 second'))`,
+      [phone, digest.salt, digest.digest, settings.max_attempts, settings.otp_ttl_seconds],
+    );
+    await client.query('COMMIT');
+    // Do not log the phone number or OTP. The code is exposed only by this
+    // development-only simulator response and can never be returned in production.
+    return reply.code(202).send({
+      ok: true,
+      message: 'If the number is eligible, a verification code is available in the development simulator.',
+      testCode: code,
+    });
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    request.log.error({ err: error }, 'Phone OTP simulator request failed');
+    return reply.code(500).send({ error: 'Could not request a verification code.' });
+  } finally {
+    client.release();
+  }
 });
 
 app.post<{ Body: { phone?: string; code?: string } }>('/api/v1/auth/phone-otp/verify', {
