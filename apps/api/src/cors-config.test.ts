@@ -51,3 +51,21 @@ test('rejects wildcard and non-HTTPS origins', () => {
     /only HTTPS origins/,
   );
 });
+
+
+test('rejects CORS entries containing paths, credentials, queries, fragments, or unsupported schemes', () => {
+  for (const corsOrigins of [
+    'https://royal.example/path',
+    'https://royal.example/?x=1',
+    'https://royal.example/#fragment',
+    'https://user:pass@royal.example',
+    'ftp://royal.example',
+    'not a url',
+  ]) {
+    assert.throws(
+      () => getAllowedCorsOrigins({ nodeEnv: 'production', corsOrigins }),
+      /valid origin-only URLs|only HTTPS origins/,
+      corsOrigins,
+    );
+  }
+});
