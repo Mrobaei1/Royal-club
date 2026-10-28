@@ -258,7 +258,7 @@ class _AdminScreenState extends State<AdminScreen> {
     child: Scaffold(
       appBar: AppBar(title: Text(appText(context, 'پنل مدیریت', 'Admin panel')), actions: [IconButton(onPressed: _load, icon: const Icon(Icons.refresh))]),
       body: _loading ? const Center(child: CircularProgressIndicator()) : _error != null
-        ? Center(child: Padding(padding: const EdgeInsets.all(24), child: Text(_error!, textAlign: TextAlign.center)))
+        ? Center(child: Padding(padding: const EdgeInsets.all(24), child: Text(appError(context, _error), textAlign: TextAlign.center)))
         : !_owner
           ? Center(child: Padding(padding: const EdgeInsets.all(28), child: Column(mainAxisSize: MainAxisSize.min, children: [
               Icon(Icons.lock_outline, size: 54), SizedBox(height: 14),
