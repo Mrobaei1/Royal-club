@@ -60,6 +60,14 @@ String appErrorForLanguage(String languageCode, Object? error) {
         'The leaderboard server returned an invalid response.',
     'شناسه کاربر معتبر نیست. لطفاً دوباره نام کاربری را جست‌وجو کنید.':
         'Invalid user ID. Please search for the username again.',
+    'نام، شماره تلفن معتبر و کشور را وارد کنید.':
+        'Enter a name, valid phone number, and country.',
+    'تصویر باید JPG یا PNG یا WebP و کمتر از 650 کیلوبایت باشد.':
+        'The image must be JPG, PNG, or WebP and smaller than 650 KB.',
+    'نام کاربری باید ۳ تا ۲۴ حرف و فقط شامل حروف انگلیسی، عدد، نقطه یا زیرخط باشد.':
+        'Username must be 3–24 characters and contain only English letters, numbers, dots, or underscores.',
+    'این نام کاربری قبلاً انتخاب شده است.':
+        'This username is already taken.',
   };
   final exact = translations[message];
   if (exact != null) return exact;
