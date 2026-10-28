@@ -149,7 +149,7 @@ class _AuthGateState extends State<AuthGate> {
               SizedBox(height: 20),
               CircularProgressIndicator(color: Theme.of(context).colorScheme.primary),
               SizedBox(height: 12),
-              Text('در حال بررسی نشست قبلی...',
+              Text(appText(context, 'در حال بررسی نشست قبلی...', 'Checking previous session...'),
                   style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7))),
             ],
           ),
@@ -226,7 +226,7 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (sheetContext) => SafeArea(
         child: SizedBox(height: MediaQuery.sizeOf(sheetContext).height * 0.72,
           child: Column(children: [
-            const Padding(padding: EdgeInsets.fromLTRB(20, 4, 20, 12), child: Text('پوسته برنامه', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800))),
+            const Padding(padding: EdgeInsets.fromLTRB(20, 4, 20, 12), child: Text(appText(context, 'پوسته برنامه', 'App theme'), style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800))),
             Expanded(child: ListView.builder(itemCount: royalThemes.length, itemBuilder: (context, i) => ListTile(
               leading: Icon(Icons.palette_outlined, color: royalThemes[i].accent),
               title: Text(royalThemes[i].name, style: TextStyle(color: royalThemes[i].dark ? Colors.white : Colors.black)),
@@ -252,7 +252,7 @@ class _HomeScreenState extends State<HomeScreen> {
             const Padding(
               padding: EdgeInsets.fromLTRB(20, 4, 20, 12),
               child: Text(
-                'زبان برنامه / App language',
+                appText(context, 'زبان برنامه', 'App language'),
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
               ),
             ),
@@ -367,8 +367,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     PopupMenuItem(value: 'chat', child: ListTile(dense: true, leading: Icon(Icons.chat_bubble_outline), title: Text(AppLocalizations.of(context).privateChat, style: TextStyle(color: _unreadMessages > 0 ? Colors.redAccent : null)))),
                     PopupMenuItem(value: 'notifications', child: ListTile(dense: true, leading: Icon(Icons.notifications_outlined), title: Text(AppLocalizations.of(context).notifications))),
                     PopupMenuItem(value: 'wallet', child: ListTile(dense: true, leading: Icon(Icons.account_balance_wallet_outlined), title: Text(AppLocalizations.of(context).wallet))),
-                    const PopupMenuItem(value: 'admin', child: ListTile(dense: true, leading: Icon(Icons.admin_panel_settings_outlined), title: Text('پنل مدیریت'))),
-                    const PopupMenuItem(value: 'contact', child: ListTile(dense: true, leading: Icon(Icons.contact_support_outlined), title: Text('ارتباط با ما'))),
+                    const PopupMenuItem(value: 'admin', child: ListTile(dense: true, leading: Icon(Icons.admin_panel_settings_outlined), title: Text(appText(context, 'پنل مدیریت', 'Admin panel')))),
+                    const PopupMenuItem(value: 'contact', child: ListTile(dense: true, leading: Icon(Icons.contact_support_outlined), title: Text(appText(context, 'ارتباط با ما', 'Contact us')))),
                     const PopupMenuDivider(),
                     const PopupMenuItem(
                       value: 'languageMenu',
@@ -376,7 +376,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         dense: true,
                         contentPadding: EdgeInsets.zero,
                         leading: Icon(Icons.language_rounded),
-                        title: Text('زبان برنامه / Language'),
+                        title: Text(appText(context, 'زبان برنامه', 'App language')),
                         trailing: Icon(Icons.chevron_left_rounded),
                       ),
                     ),
@@ -387,7 +387,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         dense: true,
                         contentPadding: EdgeInsets.zero,
                         leading: Icon(Icons.palette_outlined),
-                        title: Text('پوسته برنامه'),
+                        title: Text(appText(context, 'پوسته برنامه', 'App theme')),
                         trailing: Icon(Icons.chevron_left_rounded),
                       ),
                     ),
@@ -411,12 +411,12 @@ class _HomeScreenState extends State<HomeScreen> {
                       textDirection: isEnglish ? TextDirection.ltr : TextDirection.rtl,
                       child: AlertDialog(
                         backgroundColor: Theme.of(dialogContext).colorScheme.surface,
-                        title: Text(isEnglish ? 'Choose backgammon mode' : 'انتخاب حالت تخته‌نرد', style: TextStyle(color: Theme.of(dialogContext).colorScheme.primary, fontWeight: FontWeight.bold)),
+                        title: Text(appText(dialogContext, 'انتخاب حالت تخته‌نرد', 'Choose backgammon mode'), style: TextStyle(color: Theme.of(dialogContext).colorScheme.primary, fontWeight: FontWeight.bold)),
                         content: Column(
                           mainAxisSize: MainAxisSize.min,
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            Text(isEnglish ? 'Choose how you want to play.' : 'روش بازی را انتخاب کنید.', style: TextStyle(color: Theme.of(dialogContext).colorScheme.onSurface.withValues(alpha: 0.7))),
+                            Text(appText(dialogContext, 'روش بازی را انتخاب کنید.', 'Choose how you want to play.'), style: TextStyle(color: Theme.of(dialogContext).colorScheme.onSurface.withValues(alpha: 0.7))),
                             const SizedBox(height: 14),
                             FilledButton.icon(
                               onPressed: () => Navigator.pop(dialogContext, 'offline'),
