@@ -41,7 +41,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
     } catch (error) {
       if (mounted) {
         setState(() {
-          _message = error.toString().replaceFirst('Exception: ', '');
+          _message = appError(context, error);
         });
       }
     } finally {
