@@ -103,7 +103,7 @@ class _AdminScreenState extends State<AdminScreen> {
       final users = await AdminService.findUser(_email.text);
       if (mounted) setState(() { _users = users; });
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appError(context, e))));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
