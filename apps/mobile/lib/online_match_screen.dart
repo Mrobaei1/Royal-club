@@ -336,7 +336,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
       }
       await _refresh(silent: true);
     } catch (e) {
-      final message = appError(context, e);
+      final message = appErrorForLanguage(languageCode, e);
       await _refresh(silent: true);
       if (mounted) setState(() => _error = message);
     } finally {
@@ -438,7 +438,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
       }
       await _refresh(silent: true);
     } catch (e) {
-      final message = appError(context, e);
+      final message = appErrorForLanguage(languageCode, e);
       await _refresh(silent: true);
       if (mounted) setState(() => _error = message);
     } finally {
@@ -502,7 +502,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
       }
       await _refresh(silent: true);
     } catch (e) {
-      final message = appError(context, e);
+      final message = appErrorForLanguage(languageCode, e);
       await _refresh(silent: true);
       if (mounted) setState(() => _error = message);
     } finally {
