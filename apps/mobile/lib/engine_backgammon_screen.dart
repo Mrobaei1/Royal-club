@@ -10,6 +10,7 @@ import 'royal_backgammon_board.dart';
 
 const _boardNavy = Color(0xFF10182B);
 const _boardGold = Color(0xFFD8B45A);
+const _boardLight = Color(0xFFE7D4B2);
 
 /// Engine-connected local backgammon screen. No network or account required.
 class EngineBackgammonScreen extends StatefulWidget {
@@ -1025,68 +1026,3 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
 
 
 
-
-/// Draws the alternating, pointed inlays that define a traditional backgammon
-/// board. The top row points down; the bottom row points up.
-class _RoyalPointPainter extends CustomPainter {
-  const _RoyalPointPainter({
-    required this.color,
-    required this.top,
-    required this.highlight,
-  });
-
-  final Color color;
-  final bool top;
-  final Color highlight;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final inset = size.width * 0.08;
-    final tipY = top ? size.height * 0.78 : size.height * 0.22;
-    final baseY = top ? 0.0 : size.height;
-    final path = Path()
-      ..moveTo(inset, baseY)
-      ..lineTo(size.width - inset, baseY)
-      ..lineTo(size.width / 2, tipY)
-      ..close();
-
-    canvas.drawPath(
-      path,
-      Paint()
-        ..shader = LinearGradient(
-          begin: top ? Alignment.topCenter : Alignment.bottomCenter,
-          end: top ? Alignment.bottomCenter : Alignment.topCenter,
-          colors: [
-            color,
-            Color.lerp(color, Colors.black, 0.18)!,
-          ],
-        ).createShader(Offset.zero & size),
-    );
-    canvas.drawPath(
-      path,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 0.7
-        ..color = _boardGold.withValues(alpha: 0.48),
-    );
-
-    if (highlight != Colors.transparent) {
-      canvas.drawPath(path, Paint()..color = highlight);
-    }
-
-    final sheen = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 0.8
-      ..color = Colors.white.withValues(alpha: 0.15);
-    final sheenPath = Path()
-      ..moveTo(inset + 1, baseY)
-      ..lineTo(size.width / 2, tipY + (top ? 3 : -3));
-    canvas.drawPath(sheenPath, sheen);
-  }
-
-  @override
-  bool shouldRepaint(covariant _RoyalPointPainter oldDelegate) =>
-      oldDelegate.color != color ||
-      oldDelegate.top != top ||
-      oldDelegate.highlight != highlight;
-}
