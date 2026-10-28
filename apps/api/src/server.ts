@@ -1254,6 +1254,13 @@ app.post<{ Body: { phone?: string } }>('/api/v1/auth/phone-otp/request', {
     // Serialize concurrent sends for the same normalized phone so requests cannot
     // race around the cooldown/daily-limit checks.
     await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [phone]);
+    await client.query(
+      `DELETE FROM sms_otp_challenges
+        WHERE phone_e164 = $1
+          AND (created_at < NOW() - INTERVAL '2 days'
+               OR (consumed_at IS NOT NULL AND consumed_at < NOW() - INTERVAL '1 day'))`,
+      [phone],
+    );
     const settingsResult = await client.query(
       'SELECT delivery_mode, otp_ttl_seconds, resend_cooldown_seconds, max_attempts, daily_limit FROM sms_otp_settings WHERE id = 1',
     );
