@@ -1334,6 +1334,23 @@ test('OTP simulator enforces cooldown, expiry, attempt exhaustion, daily limits,
       payload: { phone: phone(), code: '123456' },
     });
     assert.equal(productionVerify.statusCode, 503, productionVerify.body);
+
+    const productionRegister = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/phone-otp/register',
+      payload: {
+        phone: phone(), code: '123456', email: `blocked-${randomUUID()}@example.test`,
+        password: 'IntegrationPass123!', fullName: 'Blocked OTP Registration',
+      },
+    });
+    assert.equal(productionRegister.statusCode, 503, productionRegister.body);
+
+    const productionLogin = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/phone-otp/login',
+      payload: { phone: phone(), code: '123456' },
+    });
+    assert.equal(productionLogin.statusCode, 503, productionLogin.body);
   } finally {
     if (previousNodeEnv === undefined) delete process.env.NODE_ENV;
     else process.env.NODE_ENV = previousNodeEnv;
