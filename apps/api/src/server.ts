@@ -1431,6 +1431,183 @@ app.post<{ Body: { phone?: string; code?: string } }>('/api/v1/auth/phone-otp/ve
   }
 });
 
+
+app.post<{ Body: { phone?: string; code?: string; email?: string; password?: string; fullName?: string; country?: string } }>(
+  '/api/v1/auth/phone-otp/register',
+  { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } },
+  async (request, reply) => {
+    const phone = normalizeIranianMobile(request.body?.phone);
+    const code = typeof request.body?.code === 'string' ? request.body.code.trim() : '';
+    const email = typeof request.body?.email === 'string' ? request.body.email.trim().toLowerCase() : '';
+    const fullName = typeof request.body?.fullName === 'string' ? request.body.fullName.trim() : '';
+    const country = typeof request.body?.country === 'string' ? request.body.country.trim() : '';
+    const password = request.body?.password;
+    if (!phone || !/^\\d{6}$/.test(code) || !email || email.length > 254 ||
+        !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email) ||
+        !fullName || fullName.length > 120 || country.length > 80 ||
+        !isValidRegistrationPassword(password)) {
+      return reply.code(400).send({ error: 'Provide a valid Iranian phone, verification code, name, email, and password of at least six characters.' });
+    }
+    const settingsResult = await pool.query('SELECT enabled, delivery_mode, provider FROM sms_otp_settings WHERE id = 1');
+    const runtime = otpRuntimeAllowed(settingsResult.rows[0]);
+    if (!runtime.simulator && !runtime.live) return reply.code(503).send({ error: 'Phone OTP registration is not available.' });
+
+    const salt = randomBytes(16);
+    const derived = await scrypt(password, salt, 64) as Buffer;
+    const passwordHash = `${salt.toString('hex')}:${derived.toString('hex')}`;
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const verified = await consumeOtpChallenge(client, phone, code, 'register');
+      if (!verified) {
+        await client.query('COMMIT');
+        return reply.code(400).send({ error: 'The verification code is invalid or expired.' });
+      }
+      const existing = await client.query(
+        'SELECT id FROM users WHERE LOWER(email) = $1 OR phone_e164 = $2 LIMIT 1',
+        [email, phone],
+      );
+      if (existing.rowCount) {
+        await client.query('COMMIT');
+        return reply.code(409).send({ error: 'An account with this email or verified phone already exists.' });
+      }
+      const created = await client.query(
+        'INSERT INTO users (email, password_hash, full_name, phone, phone_e164, country) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, email, full_name, phone, phone_e164, country, created_at',
+        [email, passwordHash, fullName, phone, phone, country],
+      );
+      const userId = String(created.rows[0].id);
+      const usernameResult = await client.query(
+        'UPDATE users SET username = $1 WHERE id = $2 RETURNING username',
+        [`p${userId}${randomInt(1000, 9999)}`, userId],
+      );
+      const user = { ...created.rows[0], username: usernameResult.rows[0]?.username ?? null };
+      const accessToken = app.jwt.sign({ sub: userId, email }, { expiresIn: '1h' });
+      await client.query('COMMIT');
+      return reply.code(201).send({
+        user: { id: userId, username: user.username, email: user.email, fullName: user.full_name, phone: user.phone, country: user.country, createdAt: user.created_at },
+        accessToken,
+        tokenType: 'Bearer',
+        expiresIn: 3600,
+      });
+    } catch (error) {
+      await client.query('ROLLBACK').catch(() => undefined);
+      if (typeof error === 'object' && error !== null && 'code' in error && error.code === '23505') {
+        await pool.query(
+          'UPDATE sms_otp_challenges SET consumed_at = NOW() WHERE phone_e164 = $1 AND purpose = $2 AND consumed_at IS NULL',
+          [phone, 'register'],
+        ).catch(() => undefined);
+        return reply.code(409).send({ error: 'An account with this email or verified phone already exists.' });
+      }
+      request.log.error({ err: error }, 'Phone OTP registration failed');
+      return reply.code(500).send({ error: 'Could not create account.' });
+    } finally {
+      client.release();
+    }
+  },
+);
+
+app.post<{ Body: { phone?: string; code?: string } }>(
+  '/api/v1/auth/phone-otp/login',
+  { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } },
+  async (request, reply) => {
+    const phone = normalizeIranianMobile(request.body?.phone);
+    const code = typeof request.body?.code === 'string' ? request.body.code.trim() : '';
+    if (!phone || !/^\\d{6}$/.test(code)) {
+      return reply.code(400).send({ error: 'Enter a valid Iranian mobile number and six-digit code.' });
+    }
+    const settingsResult = await pool.query('SELECT enabled, delivery_mode, provider FROM sms_otp_settings WHERE id = 1');
+    const runtime = otpRuntimeAllowed(settingsResult.rows[0]);
+    if (!runtime.simulator && !runtime.live) return reply.code(503).send({ error: 'Phone OTP login is not available.' });
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const verified = await consumeOtpChallenge(client, phone, code, 'login');
+      if (!verified) {
+        await client.query('COMMIT');
+        return reply.code(400).send({ error: 'The verification code is invalid or expired.' });
+      }
+      const found = await client.query(
+        'SELECT id, email, username, full_name, phone, country, created_at FROM users WHERE phone_e164 = $1 LIMIT 1',
+        [phone],
+      );
+      if (!found.rowCount) {
+        await client.query('COMMIT');
+        return reply.code(401).send({ error: 'Phone number or verification code is invalid.' });
+      }
+      const user = found.rows[0];
+      const accessToken = app.jwt.sign({ sub: String(user.id), email: user.email }, { expiresIn: '1h' });
+      await client.query('COMMIT');
+      return {
+        user: { id: String(user.id), username: user.username, email: user.email, fullName: user.full_name, phone: user.phone, country: user.country, createdAt: user.created_at },
+        accessToken,
+        tokenType: 'Bearer',
+        expiresIn: 3600,
+      };
+    } catch (error) {
+      await client.query('ROLLBACK').catch(() => undefined);
+      request.log.error({ err: error }, 'Phone OTP login failed');
+      return reply.code(500).send({ error: 'Could not log in with phone.' });
+    } finally {
+      client.release();
+    }
+  },
+);
+
+app.post<{ Body: { phone?: string; code?: string } }>(
+  '/api/v1/auth/phone-otp/link',
+  { onRequest: [requireMatchAuth], config: { rateLimit: { max: 5, timeWindow: '1 minute' } } },
+  async (request, reply) => {
+    const claims = request.user as { sub: string };
+    const phone = normalizeIranianMobile(request.body?.phone);
+    const code = typeof request.body?.code === 'string' ? request.body.code.trim() : '';
+    if (!phone || !/^\\d{6}$/.test(code)) {
+      return reply.code(400).send({ error: 'Enter a valid Iranian mobile number and six-digit code.' });
+    }
+    const settingsResult = await pool.query('SELECT enabled, delivery_mode, provider FROM sms_otp_settings WHERE id = 1');
+    const runtime = otpRuntimeAllowed(settingsResult.rows[0]);
+    if (!runtime.simulator && !runtime.live) return reply.code(503).send({ error: 'Phone verification is not available.' });
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const verified = await consumeOtpChallenge(client, phone, code, 'link');
+      if (!verified) {
+        await client.query('COMMIT');
+        return reply.code(400).send({ error: 'The verification code is invalid or expired.' });
+      }
+      const existing = await client.query('SELECT id FROM users WHERE phone_e164 = $1 AND id <> $2 LIMIT 1', [phone, claims.sub]);
+      if (existing.rowCount) {
+        await client.query('COMMIT');
+        return reply.code(409).send({ error: 'This verified phone number is already linked to another account.' });
+      }
+      const updated = await client.query(
+        'UPDATE users SET phone = $1, phone_e164 = $1 WHERE id = $2 RETURNING id, phone_e164 AS "phoneE164"',
+        [phone, claims.sub],
+      );
+      if (!updated.rowCount) {
+        await client.query('COMMIT');
+        return reply.code(404).send({ error: 'Account not found.' });
+      }
+      await client.query('COMMIT');
+      return { ok: true, phoneE164: updated.rows[0].phoneE164 };
+    } catch (error) {
+      await client.query('ROLLBACK').catch(() => undefined);
+      if (typeof error === 'object' && error !== null && 'code' in error && error.code === '23505') {
+        await pool.query(
+          'UPDATE sms_otp_challenges SET consumed_at = NOW() WHERE phone_e164 = $1 AND purpose = $2 AND consumed_at IS NULL',
+          [phone, 'link'],
+        ).catch(() => undefined);
+        return reply.code(409).send({ error: 'This verified phone number is already linked to another account.' });
+      }
+      request.log.error({ err: error }, 'Phone verification linking failed');
+      return reply.code(500).send({ error: 'Could not link phone number.' });
+    } finally {
+      client.release();
+    }
+  },
+);
+
 app.get('/api/v1/admin/reports', { onRequest: [requireOwnerOrPermission('reports.read')] }, async () => {
   const result = await pool.query(
     `SELECT r.id, r.reported_user_id AS "reportedUserId", target.username AS "reportedUsername",
