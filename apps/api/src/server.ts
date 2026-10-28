@@ -40,6 +40,48 @@ if (!secret || secret.length < 32) {
 // Derive a domain-separated OTP pepper so OTP digests do not reuse the JWT key directly.
 const otpPepper = secret ? createHmac('sha256', secret).update('royal-club:otp-pepper:v1').digest('hex') : '';
 
+function otpRuntimeAllowed(settings: { enabled?: boolean; delivery_mode?: string; provider?: string } | undefined): { simulator: boolean; live: boolean } {
+  const development = ['development', 'test'].includes(process.env.NODE_ENV ?? '');
+  const simulator = development && settings?.delivery_mode === 'development_simulator';
+  const live = process.env.NODE_ENV === 'production' &&
+    settings?.enabled === true &&
+    settings?.delivery_mode === 'real_provider' &&
+    settings?.provider === 'kavenegar';
+  return { simulator, live };
+}
+
+async function consumeOtpChallenge(
+  client: PoolClient,
+  phone: string,
+  code: string,
+  purpose: 'verify' | 'register' | 'login' | 'link',
+): Promise<boolean> {
+  const found = await client.query(
+    `SELECT id, otp_salt, otp_digest, attempts, max_attempts, expires_at, consumed_at
+       FROM sms_otp_challenges
+      WHERE phone_e164 = $1 AND purpose = $2 AND consumed_at IS NULL
+      ORDER BY created_at DESC LIMIT 1 FOR UPDATE`,
+    [phone, purpose],
+  );
+  const challenge = found.rows[0];
+  if (!challenge) return false;
+  if (new Date(challenge.expires_at).getTime() <= Date.now() ||
+      Number(challenge.attempts) >= Number(challenge.max_attempts)) {
+    await client.query('UPDATE sms_otp_challenges SET consumed_at = NOW() WHERE id = $1', [challenge.id]);
+    return false;
+  }
+  if (!verifyOtpDigest(code, { salt: challenge.otp_salt, digest: challenge.otp_digest }, otpPepper)) {
+    const nextAttempts = Number(challenge.attempts) + 1;
+    await client.query(
+      'UPDATE sms_otp_challenges SET attempts = $1, consumed_at = CASE WHEN $1 >= max_attempts THEN NOW() ELSE consumed_at END WHERE id = $2',
+      [nextAttempts, challenge.id],
+    );
+    return false;
+  }
+  await client.query('UPDATE sms_otp_challenges SET consumed_at = NOW() WHERE id = $1', [challenge.id]);
+  return true;
+}
+
 const app = Fastify({ logger: true, trustProxy: false });
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
@@ -77,6 +119,8 @@ await pool.query(`
   ALTER TABLE users ADD COLUMN IF NOT EXISTS full_name TEXT NOT NULL DEFAULT '';
   ALTER TABLE users ADD COLUMN IF NOT EXISTS phone TEXT NOT NULL DEFAULT '';
   ALTER TABLE users ADD COLUMN IF NOT EXISTS country TEXT NOT NULL DEFAULT '';
+  ALTER TABLE users ADD COLUMN IF NOT EXISTS phone_e164 TEXT;
+  CREATE UNIQUE INDEX IF NOT EXISTS users_phone_e164_unique_idx ON users (phone_e164) WHERE phone_e164 IS NOT NULL;
 
 
 
@@ -108,6 +152,7 @@ await pool.query(`
   CREATE TABLE IF NOT EXISTS sms_otp_challenges (
     id BIGSERIAL PRIMARY KEY,
     phone_e164 TEXT NOT NULL,
+    purpose TEXT NOT NULL DEFAULT 'verify' CHECK (purpose IN ('verify', 'register', 'login', 'link')),
     otp_salt TEXT NOT NULL,
     otp_digest TEXT NOT NULL,
     attempts INTEGER NOT NULL DEFAULT 0,
@@ -116,6 +161,7 @@ await pool.query(`
     consumed_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   );
+  ALTER TABLE sms_otp_challenges ADD COLUMN IF NOT EXISTS purpose TEXT NOT NULL DEFAULT 'verify';
   CREATE INDEX IF NOT EXISTS sms_otp_challenges_phone_created_idx
     ON sms_otp_challenges (phone_e164, created_at DESC);
   CREATE INDEX IF NOT EXISTS sms_otp_challenges_expiry_idx
