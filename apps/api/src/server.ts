@@ -5,9 +5,10 @@ import cors from '@fastify/cors';
 import rateLimit from '@fastify/rate-limit';
 import jwt from '@fastify/jwt';
 import { Pool, type PoolClient } from 'pg';
-import { createCipheriv, randomBytes, randomInt, scrypt as scryptCallback, timingSafeEqual } from 'node:crypto';
+import { createCipheriv, createDecipheriv, randomBytes, randomInt, scrypt as scryptCallback, timingSafeEqual } from 'node:crypto';
 import { isNumericId, isValidRegistrationPassword } from './validation.js';
 import { createOtpCode, digestOtp, normalizeIranianMobile, verifyOtpDigest } from './otp-security.js';
+import { createKavenegarProvider } from './sms-provider.js';
 import { getAllowedCorsOrigins } from './cors-config.js';
 import { INITIAL_BACKGAMMON_BOARD, applyBackgammonMove, hasLegalMove, maxPlayableDiceCount, mustPlayHigherDie } from './backgammon-rules.js';
 import { calculateEloRatings } from './backgammon-rating.js';
@@ -15,6 +16,23 @@ import { hasRoyalPermission, isRoyalPermission } from './permissions.js';
 import { promisify } from 'node:util';
 
 const scrypt = promisify(scryptCallback);
+
+function decryptSmsApiKey(encrypted: string): string | null {
+  const keyText = process.env.SMS_CREDENTIALS_ENCRYPTION_KEY?.trim() ?? '';
+  const key = Buffer.from(keyText, 'base64');
+  const [ivText, tagText, ciphertextText] = encrypted.split('.');
+  if (key.length !== 32 || !ivText || !tagText || !ciphertextText) return null;
+  try {
+    const decipher = createDecipheriv('aes-256-gcm', key, Buffer.from(ivText, 'base64'));
+    decipher.setAuthTag(Buffer.from(tagText, 'base64'));
+    return Buffer.concat([
+      decipher.update(Buffer.from(ciphertextText, 'base64')),
+      decipher.final(),
+    ]).toString('utf8');
+  } catch {
+    return null;
+  }
+}
 const secret = process.env.JWT_SECRET;
 if (!secret || secret.length < 32) {
   throw new Error('JWT_SECRET must contain at least 32 characters.');
@@ -1075,10 +1093,14 @@ app.patch<{ Body: { enabled?: boolean; deliveryMode?: string; provider?: string;
       (body.apiKey !== undefined && (typeof body.apiKey !== 'string' || body.apiKey.length > 2048))) {
     return reply.code(400).send({ error: 'Invalid SMS OTP settings.' });
   }
-  // Enabling real delivery is intentionally blocked until a provider adapter and
-  // connection/test workflow are implemented and reviewed.
-  if (body.enabled === true || mode === 'real_provider') {
-    return reply.code(409).send({ error: 'SMS delivery remains disabled. Real-provider activation is not available yet.' });
+  // Activation is a separate owner decision. Provider configuration may be saved
+  // while delivery remains off, so connection checks can be performed without
+  // enabling OTP authentication or automatically sending a message.
+  if (body.enabled === true) {
+    return reply.code(409).send({ error: 'SMS delivery remains disabled. Enabling OTP authentication is not available through this configuration endpoint.' });
+  }
+  if (mode === 'real_provider' && provider !== 'kavenegar') {
+    return reply.code(400).send({ error: 'The selected SMS provider is not supported.' });
   }
   let encryptedKey = body.clearApiKey === true ? '' : current.encrypted_api_key;
   if (body.apiKey) {
@@ -1095,11 +1117,65 @@ app.patch<{ Body: { enabled?: boolean; deliveryMode?: string; provider?: string;
   await pool.query(`UPDATE sms_otp_settings SET enabled = FALSE, delivery_mode = $1, provider = $2, sender_id = $3,
       template_id = $4, encrypted_api_key = $5, otp_ttl_seconds = $6, resend_cooldown_seconds = $7,
       max_attempts = $8, daily_limit = $9, updated_by = $10, updated_at = NOW() WHERE id = 1`,
-    [mode === 'real_provider' ? 'disabled' : mode, provider, senderId, templateId, encryptedKey, ttl, cooldown, attempts, dailyLimit, claims.sub ?? null]);
+    [mode, provider, senderId, templateId, encryptedKey, ttl, cooldown, attempts, dailyLimit, claims.sub ?? null]);
   await pool.query('INSERT INTO sms_otp_audit_log (actor_user_id, action, details) VALUES ($1, $2, $3::jsonb)',
-    [claims.sub ?? null, 'settings_updated', JSON.stringify({ enabled: false, deliveryMode: mode === 'real_provider' ? 'disabled' : mode, provider, apiKeyChanged: Boolean(body.apiKey) || body.clearApiKey === true })]);
-  return { ok: true, settings: { enabled: false, deliveryMode: mode === 'real_provider' ? 'disabled' : mode, provider, senderId, templateId,
+    [claims.sub ?? null, 'settings_updated', JSON.stringify({ enabled: false, deliveryMode: mode, provider, apiKeyChanged: Boolean(body.apiKey) || body.clearApiKey === true })]);
+  return { ok: true, settings: { enabled: false, deliveryMode: mode, provider, senderId, templateId,
     apiKeyConfigured: Boolean(encryptedKey), otpTtlSeconds: ttl, resendCooldownSeconds: cooldown, maxAttempts: attempts, dailyLimit } };
+});
+
+
+app.post('/api/v1/admin/security/sms-otp/test-connection', { onRequest: [requireOwnerAuth] }, async (request, reply) => {
+  const settings = await pool.query(
+    'SELECT delivery_mode, provider, encrypted_api_key FROM sms_otp_settings WHERE id = 1',
+  );
+  const current = settings.rows[0];
+  if (current?.delivery_mode !== 'real_provider' || current.provider !== 'kavenegar') {
+    return reply.code(409).send({ ok: false, error: 'Configure the Kavenegar provider in disabled mode before testing the connection.' });
+  }
+  const apiKey = decryptSmsApiKey(String(current.encrypted_api_key ?? ''));
+  if (!apiKey) return reply.code(409).send({ ok: false, error: 'Provider credentials are not configured or could not be decrypted.' });
+  const result = await createKavenegarProvider().checkConnection(apiKey);
+  const claims = request.user as { sub?: string };
+  await pool.query(
+    'INSERT INTO sms_otp_audit_log (actor_user_id, action, details) VALUES ($1, $2, $3::jsonb)',
+    [claims.sub ?? null, 'connection_check', JSON.stringify({ provider: 'kavenegar', result: result.ok ? 'success' : 'failed' })],
+  );
+  return { ok: result.ok, checkedAt: new Date().toISOString(), message: result.ok ? 'Provider connection succeeded.' : 'Provider connection failed. Check configuration in the provider dashboard.' };
+});
+
+app.post<{ Body: { phone?: string; confirmCost?: boolean } }>('/api/v1/admin/security/sms-otp/test-message', {
+  onRequest: [requireOwnerAuth],
+  config: { rateLimit: { max: 2, timeWindow: '1 hour' } },
+}, async (request, reply) => {
+  const phone = normalizeIranianMobile(request.body?.phone);
+  if (!phone || request.body?.confirmCost !== true) {
+    return reply.code(400).send({ error: 'Provide a valid Iranian test number and explicitly confirm that a real SMS may incur a charge.' });
+  }
+  const settings = await pool.query(
+    'SELECT delivery_mode, provider, template_id, encrypted_api_key FROM sms_otp_settings WHERE id = 1',
+  );
+  const current = settings.rows[0];
+  if (current?.delivery_mode !== 'real_provider' || current.provider !== 'kavenegar' || !String(current.template_id ?? '').trim()) {
+    return reply.code(409).send({ error: 'Configure a supported provider and approved verification template before testing.' });
+  }
+  const apiKey = decryptSmsApiKey(String(current.encrypted_api_key ?? ''));
+  if (!apiKey) return reply.code(409).send({ error: 'Provider credentials are not configured or could not be decrypted.' });
+  const code = createOtpCode();
+  const result = await createKavenegarProvider().sendOtp({
+    apiKey,
+    phoneE164: phone,
+    code,
+    template: String(current.template_id),
+  });
+  const claims = request.user as { sub?: string };
+  const maskedPhone = `***${phone.slice(-4)}`;
+  await pool.query(
+    'INSERT INTO sms_otp_audit_log (actor_user_id, action, details) VALUES ($1, $2, $3::jsonb)',
+    [claims.sub ?? null, 'test_message', JSON.stringify({ provider: 'kavenegar', phone: maskedPhone, result: result.ok ? 'success' : 'failed' })],
+  );
+  if (!result.ok) return reply.code(502).send({ ok: false, error: 'The provider did not accept the test message. Provider details were withheld from logs.' });
+  return { ok: true, message: 'The provider accepted the test message. No OTP value was returned by the API.' };
 });
 
 app.get('/api/v1/admin/security/sms-otp/audit', { onRequest: [requireOwnerAuth] }, async () => {
