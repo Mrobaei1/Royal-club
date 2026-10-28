@@ -3,6 +3,48 @@ import 'package:flutter/material.dart';
 import 'l10n/app_text.dart';
 import 'services/notifications_service.dart';
 
+String localizedNotificationTitle(Map<String, dynamic> item, bool isEnglish) {
+  final data = item['data'] is Map
+      ? Map<String, dynamic>.from(item['data'] as Map)
+      : <String, dynamic>{};
+  if (data.containsKey('inviteId')) {
+    return isEnglish ? 'Backgammon invitation' : 'دعوت به تخته‌نرد';
+  }
+  switch (item['type']?.toString()) {
+    case 'friend_request':
+      return isEnglish ? 'New friend request' : 'درخواست دوستی جدید';
+    case 'friend_accepted':
+      final established = item['title']?.toString() == 'دوستی برقرار شد';
+      if (isEnglish) return established ? 'Friend added' : 'Friend request accepted';
+      return established ? 'دوستی برقرار شد' : 'درخواست دوستی پذیرفته شد';
+    default:
+      return item['title']?.toString() ?? (isEnglish ? 'Notification' : 'اعلان');
+  }
+}
+
+String localizedNotificationBody(Map<String, dynamic> item, bool isEnglish) {
+  final data = item['data'] is Map
+      ? Map<String, dynamic>.from(item['data'] as Map)
+      : <String, dynamic>{};
+  if (data.containsKey('inviteId')) {
+    return isEnglish
+        ? 'A friend invited you to a backgammon match. Accept within 10 seconds to join.'
+        : 'دوست شما را به مسابقه تخته‌نرد دعوت کرده است. برای ورود، تا ۱۰ ثانیه دعوت را بپذیرید.';
+  }
+  switch (item['type']?.toString()) {
+    case 'friend_request':
+      return isEnglish
+          ? 'A user sent you a friend request.'
+          : 'یک کاربر برای شما درخواست دوستی فرستاده است.';
+    case 'friend_accepted':
+      return isEnglish
+          ? 'Your friend request was accepted.'
+          : 'درخواست دوستی شما پذیرفته شد.';
+    default:
+      return item['body']?.toString() ?? '';
+  }
+}
+
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
 
@@ -19,17 +61,11 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   int get _unread => _items.where((item) => item['readAt'] == null).length;
 
-  String _localizedTitle(Map<String, dynamic> item, bool isEnglish) {
-    final data = item['data'] is Map ? Map<String, dynamic>.from(item['data'] as Map) : <String, dynamic>{};
-    if (data.containsKey('inviteId')) return isEnglish ? 'Backgammon invitation' : 'دعوت به تخته‌نرد';
-    return item['title']?.toString() ?? (isEnglish ? 'Notification' : 'اعلان');
-  }
+  String _localizedTitle(Map<String, dynamic> item, bool isEnglish) =>
+      localizedNotificationTitle(item, isEnglish);
 
-  String _localizedBody(Map<String, dynamic> item, bool isEnglish) {
-    final data = item['data'] is Map ? Map<String, dynamic>.from(item['data'] as Map) : <String, dynamic>{};
-    if (data.containsKey('inviteId')) return isEnglish ? 'A friend invited you to a backgammon match. Accept within 10 seconds to join.' : 'دوست شما را به مسابقه تخته‌نرد دعوت کرده است. برای ورود، تا ۱۰ ثانیه دعوت را بپذیرید.';
-    return item['body']?.toString() ?? '';
-  }
+  String _localizedBody(Map<String, dynamic> item, bool isEnglish) =>
+      localizedNotificationBody(item, isEnglish);
 
   @override
   void initState() {
