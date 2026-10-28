@@ -119,7 +119,7 @@ class _AdminScreenState extends State<AdminScreen> {
           Text('@${user['username'] ?? 'user'}'),
           const SizedBox(height: 10),
           DropdownButtonFormField<String>(
-            value: selected,
+            initialValue: selected,
             isExpanded: true,
             decoration: InputDecoration(labelText: appText(context, 'مجوز', 'Permission')),
             items: choices.map((value) => DropdownMenuItem(value: value, child: Text(value))).toList(),
