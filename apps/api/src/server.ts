@@ -1383,8 +1383,8 @@ app.post<{ Body: { phone?: string; code?: string } }>('/api/v1/auth/phone-otp/ve
 
 app.get('/api/v1/admin/reports', { onRequest: [requireOwnerOrPermission('reports.read')] }, async () => {
   const result = await pool.query(
-    `SELECT r.id, r.reported_user_id AS "reportedUserId", target.email AS "reportedEmail",
-            r.reporter_id AS "reporterId", reporter.email AS "reporterEmail",
+    `SELECT r.id, r.reported_user_id AS "reportedUserId", target.username AS "reportedUsername",
+            r.reporter_id AS "reporterId", reporter.username AS "reporterUsername",
             r.reason, r.status, r.created_at AS "createdAt", r.reviewed_at AS "reviewedAt",
             (SELECT COUNT(DISTINCT recent.reporter_id)::int FROM user_reports recent
               WHERE recent.reported_user_id = r.reported_user_id
