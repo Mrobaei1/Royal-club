@@ -229,15 +229,15 @@ class _AdminScreenState extends State<AdminScreen> {
     final price = TextEditingController(text: plan['priceCredits']?.toString() ?? '0');
     final formKey = GlobalKey<FormState>();
     final accepted = await showDialog<bool>(context: context, builder: (context) => AlertDialog(
-      title: const Text('ویرایش اشتراک'),
+      title: Text(appText(context, 'ویرایش اشتراک', 'Edit subscription')),
       content: Form(key: formKey, child: Column(mainAxisSize: MainAxisSize.min, children: [
-        TextFormField(controller: name, decoration: const InputDecoration(labelText: 'نام اشتراک'), validator: (v) => v == null || v.trim().isEmpty ? 'نام الزامی است' : null),
-        TextFormField(controller: days, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'مدت (روز)'), validator: (v) => int.tryParse(v ?? '') == null || int.parse(v!) < 1 ? 'مدت نامعتبر است' : null),
-        TextFormField(controller: price, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'قیمت (اعتبار)'), validator: (v) => int.tryParse(v ?? '') == null || int.parse(v!) < 0 ? 'قیمت نامعتبر است' : null),
+        TextFormField(controller: name, decoration: InputDecoration(labelText: appText(context, 'نام اشتراک', 'Subscription name')), validator: (v) => v == null || v.trim().isEmpty ? appText(context, 'نام الزامی است', 'Name is required') : null),
+        TextFormField(controller: days, keyboardType: TextInputType.number, decoration: InputDecoration(labelText: appText(context, 'مدت (روز)', 'Duration (days)')), validator: (v) => int.tryParse(v ?? '') == null || int.parse(v!) < 1 ? appText(context, 'مدت نامعتبر است', 'Invalid duration') : null),
+        TextFormField(controller: price, keyboardType: TextInputType.number, decoration: InputDecoration(labelText: appText(context, 'قیمت (اعتبار)', 'Price (credits)')), validator: (v) => int.tryParse(v ?? '') == null || int.parse(v!) < 0 ? appText(context, 'قیمت نامعتبر است', 'Invalid price') : null),
       ])),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('انصراف')),
-        FilledButton(onPressed: () { if (formKey.currentState!.validate()) Navigator.pop(context, true); }, child: const Text('ذخیره')),
+        TextButton(onPressed: () => Navigator.pop(context, false), child: Text(appText(context, 'انصراف', 'Cancel'))),
+        FilledButton(onPressed: () { if (formKey.currentState!.validate()) Navigator.pop(context, true); }, child: Text(appText(context, 'ذخیره', 'Save'))),
       ],
     ));
     if (accepted != true) { name.dispose(); days.dispose(); price.dispose(); return; }
