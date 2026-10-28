@@ -1269,3 +1269,56 @@ test('OTP simulator enforces cooldown, expiry, attempt exhaustion, daily limits,
   }
 });
 
+test('owner SMS test actions fail closed without credentials and require explicit cost confirmation', async () => {
+  const previousOwnerId = process.env.OWNER_USER_ID;
+  const previous = await testPool.query(
+    'SELECT enabled, delivery_mode, provider, template_id, encrypted_api_key FROM sms_otp_settings WHERE id = 1',
+  );
+  const oldSettings = previous.rows[0];
+  const owner = await register('SMS Test Owner');
+  process.env.OWNER_USER_ID = owner.user.id;
+  await testPool.query(
+    `UPDATE sms_otp_settings
+        SET enabled = FALSE, delivery_mode = 'real_provider', provider = 'kavenegar',
+            template_id = 'test-template', encrypted_api_key = ''
+      WHERE id = 1`,
+  );
+  try {
+    const connection = await app.inject({
+      method: 'POST',
+      url: '/api/v1/admin/security/sms-otp/test-connection',
+      headers: auth(owner.token),
+      payload: {},
+    });
+    assert.equal(connection.statusCode, 409, connection.body);
+    assert.equal(connection.json().ok, false);
+
+    const unconfirmed = await app.inject({
+      method: 'POST',
+      url: '/api/v1/admin/security/sms-otp/test-message',
+      headers: auth(owner.token),
+      payload: { phone: '09123456789', confirmCost: false },
+    });
+    assert.equal(unconfirmed.statusCode, 400, unconfirmed.body);
+
+    const noCredentials = await app.inject({
+      method: 'POST',
+      url: '/api/v1/admin/security/sms-otp/test-message',
+      headers: auth(owner.token),
+      payload: { phone: '09123456789', confirmCost: true },
+    });
+    assert.equal(noCredentials.statusCode, 409, noCredentials.body);
+    assert.equal(JSON.stringify(noCredentials.json()).includes('encrypted_api_key'), false);
+  } finally {
+    if (previousOwnerId === undefined) delete process.env.OWNER_USER_ID;
+    else process.env.OWNER_USER_ID = previousOwnerId;
+    await testPool.query(
+      `UPDATE sms_otp_settings
+          SET enabled = $1, delivery_mode = $2, provider = $3,
+              template_id = $4, encrypted_api_key = $5
+        WHERE id = 1`,
+      [oldSettings.enabled, oldSettings.delivery_mode, oldSettings.provider, oldSettings.template_id, oldSettings.encrypted_api_key],
+    );
+  }
+});
+
