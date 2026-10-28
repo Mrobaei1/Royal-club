@@ -134,14 +134,14 @@ class _WalletScreenState extends State<WalletScreen> {
                   ),
                 ),
               const SizedBox(height: 22),
-              Text('تراکنش‌های اخیر', style: TextStyle(color: colors.onSurface, fontSize: 20, fontWeight: FontWeight.bold)),
+              Text(appText(context, 'تراکنش‌های اخیر', 'Recent transactions'), style: TextStyle(color: colors.onSurface, fontSize: 20, fontWeight: FontWeight.bold)),
               if (_transactions.isEmpty)
-                Padding(padding: const EdgeInsets.all(12), child: Text('هنوز تراکنشی ثبت نشده است.', style: TextStyle(color: colors.onSurface.withValues(alpha: 0.7)))),
+                Padding(padding: const EdgeInsets.all(12), child: Text(appText(context, 'هنوز تراکنشی ثبت نشده است.', 'No transactions yet.'), style: TextStyle(color: colors.onSurface.withValues(alpha: 0.7)))),
               for (final tx in _transactions.take(20))
                 Card(
                   color: Theme.of(context).colorScheme.surface,
                   child: ListTile(
-                    title: Text(tx['description']?.toString() ?? tx['type']?.toString() ?? 'تراکنش', style: TextStyle(color: colors.onSurface)),
+                    title: Text(tx['description']?.toString() ?? tx['type']?.toString() ?? appText(context, 'تراکنش', 'Transaction'), style: TextStyle(color: colors.onSurface)),
                     subtitle: Text(tx['createdAt']?.toString() ?? '', style: TextStyle(color: colors.onSurface.withValues(alpha: 0.54), fontSize: 11)),
                     trailing: Text('${(tx['amount'] as num?)?.toInt() ?? 0}', style: TextStyle(color: ((tx['amount'] as num?)?.toInt() ?? 0) >= 0 ? colors.primary : colors.error, fontWeight: FontWeight.bold)),
                   ),
