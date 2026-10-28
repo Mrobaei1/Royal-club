@@ -1168,7 +1168,7 @@ test('development phone OTP simulator hashes, expires by policy, limits attempts
     });
     assert.equal(issued.statusCode, 202, issued.body);
     const issuedBody = issued.json() as { testCode?: string; accessToken?: string };
-    assert.match(issuedBody.testCode ?? '', /^\\d{6}$/);
+    assert.match(issuedBody.testCode ?? '', /^\d{6}$/);
     assert.equal(Object.hasOwn(issuedBody, 'accessToken'), false);
 
     const wrongCode = issuedBody.testCode === '000000' ? '000001' : '000000';
