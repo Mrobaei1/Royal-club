@@ -986,6 +986,116 @@ test('subscription purchases debit the wallet atomically and record a ledger ent
   assert.equal(walletAfter.json().balance, 200);
   assert.ok((walletAfter.json().transactions as Array<Record<string, unknown>>)
     .some((transaction) => Number(transaction.amount) === -300 && Number(transaction.balanceAfter) === 200));
+
+  // League configuration is owner-only; league entry defaults to free and never debits wallet credits.
+  const previousOwnerId = process.env.OWNER_USER_ID;
+  const leagueOwner = await register('League Owner');
+  process.env.OWNER_USER_ID = String(leagueOwner.user.id);
+  try {
+    const deniedLeagueAdmin = await app.inject({
+      method: 'POST',
+      url: '/api/v1/admin/leagues',
+      headers: auth(buyer.token),
+      payload: { code: 'not-owner', name: 'Unauthorized League' },
+    });
+    assert.equal(deniedLeagueAdmin.statusCode, 403);
+
+    const freeLeagueResponse = await app.inject({
+      method: 'POST',
+      url: '/api/v1/admin/leagues',
+      headers: auth(leagueOwner.token),
+      payload: { code: 'free_weekly', name: 'Free Weekly League', enabled: true },
+    });
+    assert.equal(freeLeagueResponse.statusCode, 201, freeLeagueResponse.body);
+    const freeLeagueId = String(freeLeagueResponse.json().league.id);
+    assert.equal(freeLeagueResponse.json().league.entryMode, 'free');
+    assert.equal(freeLeagueResponse.json().league.subscriptionDaysCost, 0);
+
+    const freeEntry = await app.inject({
+      method: 'POST',
+      url: `/api/v1/leagues/${freeLeagueId}/entries`,
+      headers: auth(buyer.token),
+      payload: { idempotencyKey: `free-entry-${randomUUID()}` },
+    });
+    assert.equal(freeEntry.statusCode, 201, freeEntry.body);
+    const duplicateFreeEntry = await app.inject({
+      method: 'POST',
+      url: `/api/v1/leagues/${freeLeagueId}/entries`,
+      headers: auth(buyer.token),
+      payload: { idempotencyKey: `free-entry-${randomUUID()}` },
+    });
+    assert.equal(duplicateFreeEntry.statusCode, 200, duplicateFreeEntry.body);
+    assert.equal(duplicateFreeEntry.json().alreadyEntered, true);
+
+    const subscriptionLeagueResponse = await app.inject({
+      method: 'POST',
+      url: '/api/v1/admin/leagues',
+      headers: auth(leagueOwner.token),
+      payload: {
+        code: 'subscription_weekly',
+        name: 'Subscription Weekly League',
+        enabled: true,
+        entryMode: 'subscription_days',
+        subscriptionDaysCost: 2,
+      },
+    });
+    assert.equal(subscriptionLeagueResponse.statusCode, 201, subscriptionLeagueResponse.body);
+    const subscriptionLeagueId = String(subscriptionLeagueResponse.json().league.id);
+    const beforeConsumption = await testPool.query(
+      `SELECT ends_at FROM user_subscriptions
+        WHERE user_id = $1 AND status = 'active' AND ends_at > NOW()
+        ORDER BY ends_at DESC LIMIT 1`,
+      [buyer.user.id],
+    );
+    assert.ok(beforeConsumption.rowCount);
+
+    const concurrentEntries = await Promise.all([
+      app.inject({
+        method: 'POST',
+        url: `/api/v1/leagues/${subscriptionLeagueId}/entries`,
+        headers: auth(buyer.token),
+        payload: { idempotencyKey: `subscription-entry-a-${randomUUID()}` },
+      }),
+      app.inject({
+        method: 'POST',
+        url: `/api/v1/leagues/${subscriptionLeagueId}/entries`,
+        headers: auth(buyer.token),
+        payload: { idempotencyKey: `subscription-entry-b-${randomUUID()}` },
+      }),
+    ]);
+    assert.ok(concurrentEntries.every((response) => [200, 201].includes(response.statusCode)),
+      concurrentEntries.map((response) => response.body).join('\n'));
+    assert.equal(concurrentEntries.filter((response) => response.statusCode === 201).length, 1);
+    assert.equal(concurrentEntries.filter((response) => response.statusCode === 200).length, 1);
+    const afterConsumption = await testPool.query(
+      `SELECT ends_at FROM user_subscriptions
+        WHERE user_id = $1 AND status = 'active' AND ends_at > NOW()
+        ORDER BY ends_at DESC LIMIT 1`,
+      [buyer.user.id],
+    );
+    const consumedMs = new Date(beforeConsumption.rows[0].ends_at).getTime() -
+      new Date(afterConsumption.rows[0].ends_at).getTime();
+    assert.ok(consumedMs >= 2 * 86400000 - 2000 && consumedMs <= 2 * 86400000 + 2000,
+      `Expected exactly two subscription days consumed, got ${consumedMs}ms.`);
+    const entitlementLedger = await testPool.query(
+      'SELECT days_consumed FROM league_entitlement_ledger WHERE user_id = $1 AND league_id = $2',
+      [buyer.user.id, subscriptionLeagueId],
+    );
+    assert.equal(entitlementLedger.rowCount, 1);
+    assert.equal(Number(entitlementLedger.rows[0].days_consumed), 2);
+
+    const walletAfterLeagueEntry = await app.inject({
+      method: 'GET',
+      url: '/api/v1/wallet',
+      headers: auth(buyer.token),
+    });
+    assert.equal(walletAfterLeagueEntry.statusCode, 200, walletAfterLeagueEntry.body);
+    assert.equal(walletAfterLeagueEntry.json().balance, 200,
+      'League entry must not debit wallet credits.');
+  } finally {
+    if (previousOwnerId === undefined) delete process.env.OWNER_USER_ID;
+    else process.env.OWNER_USER_ID = previousOwnerId;
+  }
 });
 
 
