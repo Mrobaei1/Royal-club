@@ -295,6 +295,63 @@ class _AccountScreenState extends State<AccountScreen> {
         ),
       );
 
+  int _xpThresholdForLevel(int level) {
+    var total = 0;
+    for (var current = 1; current < level; current++) {
+      final n = current - 1;
+      total += (300 + 5 * n + 0.08 * n * n).round();
+    }
+    return total;
+  }
+
+  Widget _progressionCard() {
+    final xp = (_user?['xpPoints'] as num?)?.toInt() ?? 0;
+    final level = ((_user?['level'] as num?)?.toInt() ?? 1).clamp(1, 100);
+    final atMaxLevel = level >= 100;
+    final currentThreshold = _xpThresholdForLevel(level);
+    final nextThreshold = atMaxLevel ? currentThreshold : _xpThresholdForLevel(level + 1);
+    final needed = atMaxLevel ? 0 : (nextThreshold - xp).clamp(0, nextThreshold);
+    final span = nextThreshold - currentThreshold;
+    final progress = atMaxLevel || span <= 0 ? 1.0 : ((xp - currentThreshold) / span).clamp(0.0, 1.0);
+    final accent = Theme.of(context).colorScheme.primary;
+    final onSurface = Theme.of(context).colorScheme.onSurface;
+    return Card(
+      color: Theme.of(context).colorScheme.surface,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(children: [
+              Icon(Icons.workspace_premium_outlined, color: accent, size: 28),
+              const SizedBox(width: 10),
+              Expanded(child: Text(appText(context, 'سطح و امتیاز تجربه', 'Level and experience'),
+                style: TextStyle(color: onSurface, fontSize: 17, fontWeight: FontWeight.bold))),
+              Text(appText(context, 'سطح $level', 'Level $level'),
+                style: TextStyle(color: accent, fontWeight: FontWeight.bold, fontSize: 16)),
+            ]),
+            const SizedBox(height: 12),
+            Text(appText(context, 'امتیاز تجربه: $xp XP', 'Experience: $xp XP'),
+              style: TextStyle(color: onSurface, fontSize: 15)),
+            const SizedBox(height: 10),
+            LinearProgressIndicator(value: progress, minHeight: 8, borderRadius: BorderRadius.circular(8)),
+            const SizedBox(height: 8),
+            Text(
+              atMaxLevel
+                ? appText(context, 'به بالاترین سطح رسیده‌اید.', 'You have reached the maximum level.')
+                : appText(context, 'تا سطح بعدی: $needed امتیاز تجربه', 'XP to next level: $needed'),
+              style: TextStyle(color: onSurface.withValues(alpha: 0.7), fontSize: 12),
+            ),
+            const SizedBox(height: 4),
+            Text(appText(context, 'سطح‌های به‌دست‌آمده دائمی هستند؛ بازی آفلاین امتیاز ندارد.',
+              'Earned levels are permanent; offline practice gives no XP.'),
+              style: TextStyle(color: onSurface.withValues(alpha: 0.65), fontSize: 11)),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) => Directionality(
         textDirection: (Localizations.localeOf(context).languageCode == 'en' ? TextDirection.ltr : TextDirection.rtl),
@@ -336,6 +393,7 @@ class _AccountScreenState extends State<AccountScreen> {
                           ),
                         ),
                       if (_user != null) ...[
+                        _progressionCard(),
                         Card(
                           color: Theme.of(context).colorScheme.surface,
                           child: ListTile(
