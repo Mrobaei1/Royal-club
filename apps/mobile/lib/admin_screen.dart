@@ -14,6 +14,12 @@ class _AdminScreenState extends State<AdminScreen> {
   bool _owner = false;
   String? _error;
   List<dynamic> _plans = [];
+  List<dynamic> _leagues = [];
+  final _leagueCode = TextEditingController();
+  final _leagueName = TextEditingController();
+  final _leagueDays = TextEditingController(text: '1');
+  String _leagueEntryMode = 'free';
+  bool _leagueEnabled = false;
   List<dynamic> _reports = [];
   List<dynamic> _permissionGrants = [];
   List<dynamic> _permissionAudit = [];
@@ -47,6 +53,9 @@ class _AdminScreenState extends State<AdminScreen> {
   @override
   void dispose() {
     _email.dispose();
+    _leagueCode.dispose();
+    _leagueName.dispose();
+    _leagueDays.dispose();
     _amount.dispose();
     _description.dispose();
     _price.dispose();
@@ -63,7 +72,7 @@ class _AdminScreenState extends State<AdminScreen> {
         if (mounted) setState(() { _owner = false; _loading = false; _error = null; });
         return;
       }
-      final results = await Future.wait([AdminService.plans(), AdminService.reports(), AdminService.smsOtpSettings(), AdminService.permissionSettings(), AdminService.permissionGrants(), AdminService.permissionAudit()]);
+      final results = await Future.wait([AdminService.plans(), AdminService.reports(), AdminService.smsOtpSettings(), AdminService.permissionSettings(), AdminService.permissionGrants(), AdminService.permissionAudit(), AdminService.leagues()]);
       if (!mounted) return;
       final sms = results[2] as Map<String, dynamic>;
       _smsSettings = sms; _smsMode = sms['deliveryMode']?.toString() ?? 'disabled';
@@ -76,12 +85,120 @@ class _AdminScreenState extends State<AdminScreen> {
       final permissionSettings = results[3] as Map<String, dynamic>;
       final grants = results[4] as List<dynamic>;
       final audit = results[5] as List<dynamic>;
-      setState(() { _owner = true; _plans = plans; _reports = reports; _delegatedPermissionsEnabled = permissionSettings['enabled'] == true; _permissionGrants = grants; _permissionAudit = audit; _loading = false; _error = null; });
+      final leagues = results[6] as List<dynamic>;
+      setState(() { _owner = true; _plans = plans; _reports = reports; _delegatedPermissionsEnabled = permissionSettings['enabled'] == true; _permissionGrants = grants; _permissionAudit = audit; _leagues = leagues; _loading = false; _error = null; });
     } catch (e) {
       if (mounted) setState(() { _loading = false; _error = appError(context, e); });
     }
   }
 
+
+  Future<void> _createLeague() async {
+    final code = _leagueCode.text.trim().toLowerCase();
+    final name = _leagueName.text.trim();
+    final days = int.tryParse(_leagueDays.text) ?? 1;
+    if (code.length < 2 || name.isEmpty ||
+        (_leagueEntryMode == 'subscription_days' && (days < 1 || days > 30))) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(appText(context, 'کد، نام و تعداد روز معتبر وارد کنید.', 'Enter a valid code, name, and day count.')),
+      ));
+      return;
+    }
+    setState(() => _busy = true);
+    try {
+      await AdminService.createLeague(
+        code: code,
+        name: name,
+        enabled: _leagueEnabled,
+        entryMode: _leagueEntryMode,
+        subscriptionDaysCost: _leagueEntryMode == 'free' ? 0 : days,
+      );
+      _leagueCode.clear();
+      _leagueName.clear();
+      await _load();
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(appText(context, 'لیگ ثبت شد. هیچ لیگ اشتراکی خودکار فعال نمی‌شود.', 'League saved. No subscription league is enabled automatically.')),
+      ));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appError(context, e))));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _editLeague(dynamic league) async {
+    final nameController = TextEditingController(text: league['name']?.toString() ?? '');
+    final daysController = TextEditingController(text: (league['subscriptionDaysCost'] ?? 1).toString());
+    var mode = league['entryMode']?.toString() == 'subscription_days' ? 'subscription_days' : 'free';
+    var enabled = league['enabled'] == true;
+    final result = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text(appText(context, 'تنظیم قوانین لیگ', 'Edit league rules')),
+          content: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
+            TextField(controller: nameController, decoration: InputDecoration(labelText: appText(context, 'نام لیگ', 'League name'))),
+            const SizedBox(height: 10),
+            DropdownButtonFormField<String>(
+              initialValue: mode,
+              decoration: InputDecoration(labelText: appText(context, 'قانون ورود', 'Entry rule')),
+              items: [
+                DropdownMenuItem(value: 'free', child: Text(appText(context, 'رایگان', 'Free'))),
+                DropdownMenuItem(value: 'subscription_days', child: Text(appText(context, 'مصرف روز اشتراک', 'Consume subscription days'))),
+              ],
+              onChanged: (value) => setDialogState(() => mode = value ?? 'free'),
+            ),
+            if (mode == 'subscription_days') TextField(
+              controller: daysController,
+              keyboardType: TextInputType.number,
+              decoration: InputDecoration(labelText: appText(context, 'روزهای مصرفی (۱ تا ۳۰)', 'Days consumed (1–30)')),
+            ),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text(appText(context, 'فعال بودن لیگ', 'League enabled')),
+              subtitle: Text(appText(context, 'لیگ فعال در فهرست بازیکنان دیده می‌شود.', 'Enabled leagues appear in the player list.')),
+              value: enabled,
+              onChanged: (value) => setDialogState(() => enabled = value),
+            ),
+            Text(appText(context, 'ورود به لیگ هرگز از کیف پول اعتبار کم نمی‌کند.', 'League entry never debits wallet credits.')),
+          ])),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(dialogContext), child: Text(appText(dialogContext, 'انصراف', 'Cancel'))),
+            FilledButton(onPressed: () {
+              final name = nameController.text.trim();
+              final days = int.tryParse(daysController.text) ?? 0;
+              if (name.isEmpty || (mode == 'subscription_days' && (days < 1 || days > 30))) return;
+              Navigator.pop(dialogContext, {
+                'name': name, 'enabled': enabled, 'entryMode': mode,
+                'subscriptionDaysCost': mode == 'free' ? 0 : days,
+              });
+            }, child: Text(appText(context, 'ذخیره', 'Save'))),
+          ],
+        ),
+      ),
+    );
+    nameController.dispose();
+    daysController.dispose();
+    if (result == null || !mounted) return;
+    setState(() => _busy = true);
+    try {
+      await AdminService.updateLeague(
+        league['id'].toString(),
+        name: result['name'] as String,
+        enabled: result['enabled'] as bool,
+        entryMode: result['entryMode'] as String,
+        subscriptionDaysCost: result['subscriptionDaysCost'] as int,
+      );
+      await _load();
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(appText(context, 'قوانین لیگ ذخیره شد.', 'League rules saved.')),
+      ));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appError(context, e))));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
 
   Future<void> _saveSmsSettings() async {
     setState(() => _busy = true);
@@ -508,6 +625,57 @@ class _AdminScreenState extends State<AdminScreen> {
                 Text(appText(context, 'ورود OTP همچنان خاموش است. پیامک آزمایشی فقط پس از تأیید جداگانه ارسال می‌شود.', 'OTP login remains off. A test SMS is sent only after separate confirmation.'), style: const TextStyle(fontSize: 12)),
                 Text(appText(context, 'کلید ذخیره شده: ${_smsSettings['apiKeyConfigured'] == true ? 'بله (مخفی)' : 'خیر'}', 'Saved key: ${_smsSettings['apiKeyConfigured'] == true ? 'yes (hidden)' : 'no'}'), style: const TextStyle(fontSize: 12)),
               ]))),
+              const SizedBox(height: 22),
+              Text(appText(context, 'مدیریت لیگ‌ها', 'League management'), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 6),
+              Text(appText(context, 'لیگ جدید به‌طور پیش‌فرض غیرفعال و رایگان است. مصرف روز اشتراک فقط با تنظیم صریح مالک فعال می‌شود؛ اعتبار کیف پول کسر نمی‌شود.', 'New leagues default to disabled and free. Subscription-day entry requires explicit owner configuration; wallet credits are never charged.'), style: const TextStyle(fontSize: 12)),
+              const SizedBox(height: 8),
+              TextField(controller: _leagueCode, decoration: InputDecoration(labelText: appText(context, 'کد یکتای لیگ (حروف انگلیسی)', 'Unique league code (English letters)'), border: const OutlineInputBorder())),
+              const SizedBox(height: 8),
+              TextField(controller: _leagueName, decoration: InputDecoration(labelText: appText(context, 'نام لیگ', 'League name'), border: const OutlineInputBorder())),
+              const SizedBox(height: 8),
+              DropdownButtonFormField<String>(
+                initialValue: _leagueEntryMode,
+                decoration: InputDecoration(labelText: appText(context, 'قانون ورود', 'Entry rule')),
+                items: [
+                  DropdownMenuItem(value: 'free', child: Text(appText(context, 'رایگان', 'Free'))),
+                  DropdownMenuItem(value: 'subscription_days', child: Text(appText(context, 'مصرف روز اشتراک', 'Consume subscription days'))),
+                ],
+                onChanged: _busy ? null : (value) => setState(() => _leagueEntryMode = value ?? 'free'),
+              ),
+              if (_leagueEntryMode == 'subscription_days') TextField(
+                controller: _leagueDays,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(labelText: appText(context, 'روزهای مصرفی (۱ تا ۳۰)', 'Days consumed (1–30)'), border: const OutlineInputBorder()),
+              ),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(appText(context, 'فعال‌سازی لیگ هنگام ایجاد', 'Enable league on creation')),
+                subtitle: Text(appText(context, 'خاموش بودن پیش‌فرض امن‌تر است.', 'Disabled by default is safer.')),
+                value: _leagueEnabled,
+                onChanged: _busy ? null : (value) => setState(() => _leagueEnabled = value),
+              ),
+              FilledButton.icon(
+                onPressed: _busy ? null : _createLeague,
+                icon: const Icon(Icons.add_circle_outline),
+                label: Text(appText(context, 'ایجاد لیگ', 'Create league')),
+              ),
+              if (_leagues.isEmpty) Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Text(appText(context, 'لیگی ثبت نشده است.', 'No leagues configured.')),
+              ),
+              for (final league in _leagues) Card(
+                child: ListTile(
+                  leading: Icon(league['entryMode'] == 'subscription_days' ? Icons.workspace_premium_outlined : Icons.sports_esports_outlined),
+                  title: Text(league['name']?.toString() ?? ''),
+                  subtitle: Text('@${league['code']} · ${league['entryMode'] == 'subscription_days' ? appText(context, '${league['subscriptionDaysCost']} روز اشتراک', '${league['subscriptionDaysCost']} subscription days') : appText(context, 'رایگان', 'Free')} · ${league['enabled'] == true ? appText(context, 'فعال', 'Enabled') : appText(context, 'غیرفعال', 'Disabled')}'),
+                  trailing: IconButton(
+                    tooltip: appText(context, 'ویرایش قوانین', 'Edit rules'),
+                    onPressed: _busy ? null : () => _editLeague(league),
+                    icon: const Icon(Icons.edit_outlined),
+                  ),
+                ),
+              ),
               const SizedBox(height: 22),
               Text(appText(context, 'مجوزهای دستیاران و ایجنت‌ها', 'Assistant and agent permissions'), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
               const SizedBox(height: 6),
