@@ -74,13 +74,13 @@ class _OnlineLobbyScreenState extends State<OnlineLobbyScreen> {
       context: context,
       barrierDismissible: true,
       builder: (dialogContext) => AlertDialog(
-        title: Text(isEnglish ? 'Backgammon invitation' : 'دعوت بازی تخته‌نرد'),
+        title: Text(appText(context, 'دعوت بازی تخته‌نرد', 'Backgammon invitation')),
         content: Text(isEnglish
             ? '@${invite['inviterUsername'] ?? 'friend'} invited you to play. This invitation expires in 10 seconds.'
             : '@${invite['inviterUsername'] ?? 'دوست'} شما را به بازی دعوت کرده است. این دعوت تا ۱۰ ثانیه دیگر منقضی می‌شود.'),
         actions: [
-          TextButton(onPressed: () => Navigator.of(dialogContext).pop('decline'), child: Text(isEnglish ? 'Decline' : 'رد دعوت')),
-          FilledButton(onPressed: () => Navigator.of(dialogContext).pop('accept'), child: Text(isEnglish ? 'Accept & join' : 'پذیرش و ورود')),
+          TextButton(onPressed: () => Navigator.of(dialogContext).pop('decline'), child: Text(appText(context, 'رد دعوت', 'Decline'))),
+          FilledButton(onPressed: () => Navigator.of(dialogContext).pop('accept'), child: Text(appText(context, 'پذیرش و ورود', 'Accept & join'))),
         ],
       ),
     );
@@ -160,7 +160,7 @@ class _OnlineLobbyScreenState extends State<OnlineLobbyScreen> {
         textDirection: isEnglish ? TextDirection.ltr : TextDirection.rtl,
         child: AlertDialog(
           backgroundColor: Theme.of(context).colorScheme.surface,
-          title: Text(isEnglish ? 'Invite a friend' : 'دعوت از دوست', style: TextStyle(color: Theme.of(context).colorScheme.primary)),
+          title: Text(appText(context, 'دعوت از دوست', 'Invite a friend'), style: TextStyle(color: Theme.of(context).colorScheme.primary)),
           content: SizedBox(
             width: 360,
             child: ListView(
@@ -173,7 +173,7 @@ class _OnlineLobbyScreenState extends State<OnlineLobbyScreen> {
               )).toList(),
             ),
           ),
-          actions: [TextButton(onPressed: () => Navigator.of(dialogContext).pop(), child: Text(isEnglish ? 'Later' : 'بعداً'))],
+          actions: [TextButton(onPressed: () => Navigator.of(dialogContext).pop(), child: Text(appText(context, 'بعداً', 'Later')))],
         ),
       ),
     );
@@ -231,7 +231,7 @@ class _OnlineLobbyScreenState extends State<OnlineLobbyScreen> {
     textDirection: isEnglish ? TextDirection.ltr : TextDirection.rtl,
     child: Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      appBar: AppBar(title: Text(isEnglish ? 'Online backgammon' : 'بازی آنلاین'), backgroundColor: Theme.of(context).scaffoldBackgroundColor, foregroundColor: Theme.of(context).colorScheme.primary,
+      appBar: AppBar(title: Text(appText(context, 'بازی آنلاین', 'Online backgammon')), backgroundColor: Theme.of(context).scaffoldBackgroundColor, foregroundColor: Theme.of(context).colorScheme.primary,
         actions: [
           IconButton(
             onPressed: _loading ? null : () {
@@ -240,9 +240,9 @@ class _OnlineLobbyScreenState extends State<OnlineLobbyScreen> {
               ));
             },
             icon: const Icon(Icons.leaderboard_outlined),
-            tooltip: isEnglish ? 'Leaderboard' : 'رتبه‌بندی',
+            tooltip: appText(context, 'رتبه‌بندی', 'Leaderboard'),
           ),
-          IconButton(onPressed: _loading ? null : _refresh, icon: const Icon(Icons.refresh), tooltip: isEnglish ? 'Refresh' : 'به‌روزرسانی'),
+          IconButton(onPressed: _loading ? null : _refresh, icon: const Icon(Icons.refresh), tooltip: appText(context, 'به‌روزرسانی', 'Refresh')),
         ]),
       body: SafeArea(child: ListView(padding: const EdgeInsets.all(16), children: [
         Text(isEnglish ? 'Backgammon rooms' : 'اتاق‌های تخته‌نرد', style: TextStyle(color: Theme.of(context).colorScheme.primary, fontSize: 22, fontWeight: FontWeight.bold)),
