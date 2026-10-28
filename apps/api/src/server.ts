@@ -1351,7 +1351,7 @@ app.post<{ Body: { phone?: string; purpose?: string } }>('/api/v1/auth/phone-otp
     );
     const code = createOtpCode();
     const digest = digestOtp(code, otpPepper);
-    await client.query(
+    const inserted = await client.query(
       `INSERT INTO sms_otp_challenges
          (phone_e164, purpose, otp_salt, otp_digest, max_attempts, expires_at)
        VALUES ($1, $2, $3, $4, $5, NOW() + ($6 * INTERVAL '1 second'))
