@@ -1449,3 +1449,69 @@ test('expired and malformed JWTs are denied and missing owner configuration fail
     else process.env.OWNER_USER_ID = previousOwnerId;
   }
 });
+
+test('delegated permission ceiling limits grants to 50 distinct users and permits replacement after revocation', async () => {
+  const previousOwnerId = process.env.OWNER_USER_ID;
+  const owner = await register('Permission Ceiling Owner');
+  const suffix = `${Date.now()}-${Math.floor(Math.random() * 1_000_000)}`;
+  const inserted = await testPool.query(
+    `INSERT INTO users (email, password_hash, username, full_name)
+     SELECT 'phase1-ceiling-' || $1 || '-' || n || '@example.test',
+            'test-only-password-hash',
+            'phase1ceiling' || $1 || 'x' || n,
+            ''
+       FROM generate_series(1, 51) AS n
+       RETURNING id`,
+    [suffix],
+  );
+  const userIds = inserted.rows.map((row) => String(row.id));
+  const previousSwitch = await testPool.query('SELECT enabled FROM admin_permission_settings WHERE id = 1');
+  const previousEnabled = previousSwitch.rows[0]?.enabled === true;
+  process.env.OWNER_USER_ID = owner.user.id;
+  try {
+    await testPool.query('UPDATE admin_permission_settings SET enabled = TRUE WHERE id = 1');
+    for (const userId of userIds.slice(0, 50)) {
+      await testPool.query(
+        `INSERT INTO admin_permission_grants
+          (grantee_user_id, permission, scope, reason, granted_by)
+         VALUES ($1, 'reports.read', NULL, 'Integration test for delegate ceiling', $2)`,
+        [userId, owner.user.id],
+      );
+    }
+    const denied = await app.inject({
+      method: 'POST',
+      url: '/api/v1/admin/permissions/grants',
+      headers: auth(owner.token),
+      payload: {
+        userId: userIds[50],
+        permission: 'reports.read',
+        reason: 'Verify ceiling rejects delegate 51',
+      },
+    });
+    assert.equal(denied.statusCode, 409, denied.body);
+
+    const revoked = await testPool.query(
+      `UPDATE admin_permission_grants SET revoked_at = NOW(), revoked_by = $1
+        WHERE grantee_user_id = $2 AND permission = 'reports.read' AND revoked_at IS NULL
+        RETURNING id`,
+      [owner.user.id, userIds[0]],
+    );
+    assert.equal(revoked.rowCount, 1);
+    const allowedAfterRevocation = await app.inject({
+      method: 'POST',
+      url: '/api/v1/admin/permissions/grants',
+      headers: auth(owner.token),
+      payload: {
+        userId: userIds[50],
+        permission: 'reports.read',
+        reason: 'Replace revoked delegate within ceiling',
+      },
+    });
+    assert.equal(allowedAfterRevocation.statusCode, 201, allowedAfterRevocation.body);
+  } finally {
+    if (previousOwnerId === undefined) delete process.env.OWNER_USER_ID;
+    else process.env.OWNER_USER_ID = previousOwnerId;
+    await testPool.query('UPDATE admin_permission_settings SET enabled = $1 WHERE id = 1', [previousEnabled]);
+  }
+});
+
