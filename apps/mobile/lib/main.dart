@@ -226,7 +226,7 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (sheetContext) => SafeArea(
         child: SizedBox(height: MediaQuery.sizeOf(sheetContext).height * 0.72,
           child: Column(children: [
-            const Padding(padding: EdgeInsets.fromLTRB(20, 4, 20, 12), child: Text(appText(context, 'پوسته برنامه', 'App theme'), style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800))),
+            Padding(padding: const EdgeInsets.fromLTRB(20, 4, 20, 12), child: Text(appText(context, 'پوسته برنامه', 'App theme'), style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800))),
             Expanded(child: ListView.builder(itemCount: royalThemes.length, itemBuilder: (context, i) => ListTile(
               leading: Icon(Icons.palette_outlined, color: royalThemes[i].accent),
               title: Text(royalThemes[i].name, style: TextStyle(color: royalThemes[i].dark ? Colors.white : Colors.black)),
@@ -367,8 +367,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     PopupMenuItem(value: 'chat', child: ListTile(dense: true, leading: Icon(Icons.chat_bubble_outline), title: Text(AppLocalizations.of(context).privateChat, style: TextStyle(color: _unreadMessages > 0 ? Colors.redAccent : null)))),
                     PopupMenuItem(value: 'notifications', child: ListTile(dense: true, leading: Icon(Icons.notifications_outlined), title: Text(AppLocalizations.of(context).notifications))),
                     PopupMenuItem(value: 'wallet', child: ListTile(dense: true, leading: Icon(Icons.account_balance_wallet_outlined), title: Text(AppLocalizations.of(context).wallet))),
-                    const PopupMenuItem(value: 'admin', child: ListTile(dense: true, leading: Icon(Icons.admin_panel_settings_outlined), title: Text(appText(context, 'پنل مدیریت', 'Admin panel')))),
-                    const PopupMenuItem(value: 'contact', child: ListTile(dense: true, leading: Icon(Icons.contact_support_outlined), title: Text(appText(context, 'ارتباط با ما', 'Contact us')))),
+                    PopupMenuItem(value: 'admin', child: ListTile(dense: true, leading: Icon(Icons.admin_panel_settings_outlined), title: Text(appText(context, 'پنل مدیریت', 'Admin panel')))),
+                    PopupMenuItem(value: 'contact', child: ListTile(dense: true, leading: Icon(Icons.contact_support_outlined), title: Text(appText(context, 'ارتباط با ما', 'Contact us')))),
                     const PopupMenuDivider(),
                     const PopupMenuItem(
                       value: 'languageMenu',
