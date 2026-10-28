@@ -102,16 +102,6 @@ class _RoyalBoardPainter extends CustomPainter {
     return Rect.fromLTWH(left, top?0:s.height/2, pw, s.height/2);
   }
 
-  static int? pointAt(Offset p, Size s) {
-    final m=s.width*.025, bw=s.width*.032, hw=(s.width-2*m-bw)/2, pw=hw/6;
-    final topBase=s.width*.025*.35+s.height*.061;
-    if(p.dx<m || p.dx>s.width-m || p.dy<0 || p.dy>s.height) return null;
-    final x=p.dx-m;
-    if(x>=hw && x<=hw+bw && p.dy>=topBase && p.dy<=s.height-topBase) return null;
-    if(x<hw) { final col=(x/pw).floor().clamp(0,5).toInt(); return p.dy<s.height/2?11-col:12+col; }
-    final col=((x-hw-bw)/pw).floor().clamp(0,5).toInt();
-    return p.dy<s.height/2?5-col:18+col;
-  }
 
   @override
   void paint(Canvas c, Size s) {
