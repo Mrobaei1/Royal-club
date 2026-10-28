@@ -305,13 +305,14 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
 
   Future<void> _roll() async {
     if (_busy || _state == null) return;
+    final languageCode = Localizations.localeOf(context).languageCode;
     setState(() { _busy = true; _error = null; });
     try {
       final next = await MatchService.roll(_id, (_state!['version'] as num).toInt());
       if (mounted) setState(() => _state = {...?_state, ...next});
       await _refresh(silent: true);
     } catch (e) {
-      final message = appError(context, e);
+      final message = appErrorForLanguage(languageCode, e);
       await _refresh(silent: true);
       if (mounted) setState(() => _error = message);
     } finally {
@@ -321,6 +322,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
 
   Future<void> _endTurn() async {
     if (_busy || _state == null) return;
+    final languageCode = Localizations.localeOf(context).languageCode;
     setState(() { _busy = true; _error = null; });
     try {
       final next = await MatchService.endTurn(_id, (_state!['version'] as num).toInt());
@@ -416,6 +418,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
 
   Future<void> _submitBatch() async {
     if (_busy || _state == null || _pendingMoves.isEmpty) return;
+    final languageCode = Localizations.localeOf(context).languageCode;
     setState(() { _busy = true; _error = null; });
     try {
       final next = await MatchService.batchMove(
@@ -482,6 +485,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
 
   Future<void> _submitMove({required int? from, required int? to, required int die}) async {
     if (_busy || _state == null) return;
+    final languageCode = Localizations.localeOf(context).languageCode;
     setState(() { _busy = true; _error = null; });
     try {
       final next = await MatchService.move(
