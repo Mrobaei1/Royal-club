@@ -20,6 +20,11 @@ void main() {
         reason: 'Persian-only message keys must be translated into English.');
     expect(enKeys.difference(faKeys), isEmpty,
         reason: 'English-only message keys must be translated into Persian.');
-    expect(faKeys, isNotEmpty);
+    expect(faKeys, containsAll([
+      'appTitle',
+      'comingSoon',
+      'strategyTagline',
+      'playWithHonour',
+    ]));
   });
 }
