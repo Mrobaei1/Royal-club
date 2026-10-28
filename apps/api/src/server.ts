@@ -10,6 +10,7 @@ import { isNumericId, isValidRegistrationPassword } from './validation.js';
 import { getAllowedCorsOrigins } from './cors-config.js';
 import { INITIAL_BACKGAMMON_BOARD, applyBackgammonMove, hasLegalMove, maxPlayableDiceCount, mustPlayHigherDie } from './backgammon-rules.js';
 import { calculateEloRatings } from './backgammon-rating.js';
+import { hasRoyalPermission, isRoyalPermission } from './permissions.js';
 import { promisify } from 'node:util';
 
 const scrypt = promisify(scryptCallback);
@@ -82,6 +83,40 @@ await pool.query(`
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   );
   CREATE INDEX IF NOT EXISTS sms_otp_audit_log_created_idx ON sms_otp_audit_log (created_at DESC);
+
+  -- Dormant delegated permissions: no grants are seeded and all grant management
+  -- remains protected by the existing owner identity until explicitly assigned.
+  CREATE TABLE IF NOT EXISTS admin_permission_grants (
+    id BIGSERIAL PRIMARY KEY,
+    grantee_user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    permission TEXT NOT NULL,
+    scope JSONB,
+    reason TEXT NOT NULL,
+    approval_reference TEXT NOT NULL DEFAULT '',
+    granted_by BIGINT REFERENCES users(id) ON DELETE SET NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    revoked_by BIGINT REFERENCES users(id) ON DELETE SET NULL,
+    revoked_at TIMESTAMPTZ
+  );
+  CREATE UNIQUE INDEX IF NOT EXISTS admin_permission_grants_active_unique_idx
+    ON admin_permission_grants (grantee_user_id, permission) WHERE revoked_at IS NULL;
+  CREATE INDEX IF NOT EXISTS admin_permission_grants_user_idx
+    ON admin_permission_grants (grantee_user_id, permission) WHERE revoked_at IS NULL;
+  CREATE TABLE IF NOT EXISTS admin_permission_audit_log (
+    id BIGSERIAL PRIMARY KEY,
+    actor_user_id BIGINT REFERENCES users(id) ON DELETE SET NULL,
+    target_user_id BIGINT REFERENCES users(id) ON DELETE SET NULL,
+    grant_id BIGINT,
+    action TEXT NOT NULL CHECK (action IN ('grant_created', 'grant_revoked', 'grant_rejected')),
+    permission TEXT NOT NULL DEFAULT '',
+    result TEXT NOT NULL CHECK (result IN ('success', 'denied', 'error')),
+    reason TEXT NOT NULL DEFAULT '',
+    approval_reference TEXT NOT NULL DEFAULT '',
+    details JSONB NOT NULL DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+  CREATE INDEX IF NOT EXISTS admin_permission_audit_time_idx
+    ON admin_permission_audit_log (created_at DESC);
 
   CREATE TABLE IF NOT EXISTS app_contact_methods (
     id BIGSERIAL PRIMARY KEY,
@@ -693,6 +728,173 @@ const requireOwnerAuth = async (request: any, reply: any) => {
     return reply.code(403).send({ error: 'Owner access is not configured or is not permitted.' });
   }
 };
+
+// Delegated grants are dormant until explicitly created by the configured owner.
+// Sensitive owner-only endpoints (wallet credit, SMS configuration, role management)
+// are intentionally not reachable through delegated grants.
+const requirePermission = (permission: string) => async (request: any, reply: any) => {
+  await requireMatchAuth(request, reply);
+  if (reply.sent) return;
+  const claims = request.user as { sub?: string };
+  if (!claims.sub || !isRoyalPermission(permission)) {
+    return reply.code(403).send({ error: 'Permission denied.' });
+  }
+  const result = await pool.query(
+    'SELECT permission, scope, revoked_at FROM admin_permission_grants WHERE grantee_user_id = $1 AND permission = $2 AND revoked_at IS NULL',
+    [claims.sub, permission],
+  );
+  const grants = result.rows.map((row) => ({
+    permission: String(row.permission),
+    active: row.revoked_at === null,
+    scope: row.scope,
+  }));
+  if (!hasRoyalPermission(grants, permission)) {
+    return reply.code(403).send({ error: 'Permission denied.' });
+  }
+};
+
+app.get('/api/v1/admin/permissions/grants', { onRequest: [requireOwnerAuth] }, async () => {
+  const result = await pool.query(`
+    SELECT g.id, g.grantee_user_id AS "userId", u.username,
+           g.permission, g.scope, g.reason, g.approval_reference AS "approvalReference",
+           g.created_at AS "createdAt", grantor.username AS "grantedBy"
+      FROM admin_permission_grants g
+      JOIN users u ON u.id = g.grantee_user_id
+      LEFT JOIN users grantor ON grantor.id = g.granted_by
+     WHERE g.revoked_at IS NULL
+     ORDER BY g.created_at DESC, g.id DESC
+     LIMIT 500
+  `);
+  return { grants: result.rows };
+});
+
+app.post<{ Body: { userId?: string; permission?: string; scope?: unknown; reason?: string; approvalReference?: string } }>(
+  '/api/v1/admin/permissions/grants',
+  { onRequest: [requireOwnerAuth], config: { rateLimit: { max: 20, timeWindow: '1 minute' } } },
+  async (request, reply) => {
+    const body = request.body ?? {};
+    const userId = body.userId;
+    const permission = body.permission;
+    const reason = typeof body.reason === 'string' ? body.reason.trim() : '';
+    const approvalReference = typeof body.approvalReference === 'string' ? body.approvalReference.trim() : '';
+    let scope: { resourceIds: string[] } | null = null;
+    if (body.scope !== undefined && body.scope !== null) {
+      const value = body.scope as { resourceIds?: unknown };
+      if (typeof value !== 'object' || Array.isArray(value) || !Array.isArray(value.resourceIds) ||
+          value.resourceIds.length < 1 || value.resourceIds.length > 100 ||
+          !value.resourceIds.every((id) => typeof id === 'string' && id.trim().length > 0 && id.length <= 100)) {
+        return reply.code(400).send({ error: 'Scope must contain 1-100 valid resource IDs.' });
+      }
+      scope = { resourceIds: [...new Set(value.resourceIds as string[])] };
+    }
+    if (!isNumericId(userId) || !isRoyalPermission(permission) ||
+        reason.length < 5 || reason.length > 500 || approvalReference.length > 200) {
+      return reply.code(400).send({ error: 'Provide a valid user ID, allowlisted permission, reason, and optional approval reference.' });
+    }
+
+    const claims = request.user as { sub?: string };
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      // Serialize the ceiling check so concurrent grants cannot exceed 50 distinct delegates.
+      await client.query('SELECT pg_advisory_xact_lock($1)', [721005]);
+      const user = await client.query('SELECT id FROM users WHERE id = $1', [userId]);
+      if (!user.rowCount) {
+        await client.query('ROLLBACK');
+        return reply.code(404).send({ error: 'User not found.' });
+      }
+      const existing = await client.query(
+        'SELECT id FROM admin_permission_grants WHERE grantee_user_id = $1 AND permission = $2 AND revoked_at IS NULL',
+        [userId, permission],
+      );
+      if (existing.rowCount) {
+        await client.query('ROLLBACK');
+        return reply.code(409).send({ error: 'An active grant for this permission already exists.' });
+      }
+      const count = await client.query(
+        'SELECT COUNT(DISTINCT grantee_user_id)::int AS count FROM admin_permission_grants WHERE revoked_at IS NULL',
+      );
+      const alreadyHasGrant = await client.query(
+        'SELECT 1 FROM admin_permission_grants WHERE grantee_user_id = $1 AND revoked_at IS NULL LIMIT 1',
+        [userId],
+      );
+      if (!alreadyHasGrant.rowCount && Number(count.rows[0]?.count ?? 0) >= 50) {
+        await client.query('ROLLBACK');
+        return reply.code(409).send({ error: 'The planned limit of 50 delegated users has been reached.' });
+      }
+      const inserted = await client.query(
+        `INSERT INTO admin_permission_grants
+          (grantee_user_id, permission, scope, reason, approval_reference, granted_by)
+         VALUES ($1, $2, $3::jsonb, $4, $5, $6)
+         RETURNING id, grantee_user_id AS "userId", permission, scope,
+                   reason, approval_reference AS "approvalReference", created_at AS "createdAt"`,
+        [userId, permission, scope ? JSON.stringify(scope) : null, reason, approvalReference, claims.sub ?? null],
+      );
+      await client.query(
+        `INSERT INTO admin_permission_audit_log
+          (actor_user_id, target_user_id, grant_id, action, permission, result, reason, approval_reference)
+         VALUES ($1, $2, $3, 'grant_created', $4, 'success', $5, $6)`,
+        [claims.sub ?? null, userId, inserted.rows[0].id, permission, reason, approvalReference],
+      );
+      await client.query('COMMIT');
+      return reply.code(201).send({ grant: inserted.rows[0] });
+    } catch (error) {
+      await client.query('ROLLBACK').catch(() => undefined);
+      request.log.error({ err: error }, 'Could not create permission grant');
+      return reply.code(500).send({ error: 'Could not create permission grant.' });
+    } finally {
+      client.release();
+    }
+  },
+);
+
+app.delete<{ Params: { id: string } }>('/api/v1/admin/permissions/grants/:id', { onRequest: [requireOwnerAuth] }, async (request, reply) => {
+  if (!isNumericId(request.params.id)) return reply.code(400).send({ error: 'Invalid grant ID.' });
+  const claims = request.user as { sub?: string };
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const revoked = await client.query(
+      `UPDATE admin_permission_grants SET revoked_at = NOW(), revoked_by = $1
+        WHERE id = $2 AND revoked_at IS NULL
+        RETURNING id, grantee_user_id AS "userId", permission, reason, approval_reference AS "approvalReference"`,
+      [claims.sub ?? null, request.params.id],
+    );
+    if (!revoked.rowCount) {
+      await client.query('ROLLBACK');
+      return reply.code(404).send({ error: 'Active permission grant not found.' });
+    }
+    const grant = revoked.rows[0];
+    await client.query(
+      `INSERT INTO admin_permission_audit_log
+        (actor_user_id, target_user_id, grant_id, action, permission, result, reason, approval_reference)
+       VALUES ($1, $2, $3, 'grant_revoked', $4, 'success', $5, $6)`,
+      [claims.sub ?? null, grant.userId, grant.id, grant.permission, grant.reason, grant.approvalReference],
+    );
+    await client.query('COMMIT');
+    return { ok: true, revokedGrantId: grant.id };
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    request.log.error({ err: error }, 'Could not revoke permission grant');
+    return reply.code(500).send({ error: 'Could not revoke permission grant.' });
+  } finally {
+    client.release();
+  }
+});
+
+app.get('/api/v1/admin/permissions/audit', { onRequest: [requireOwnerAuth] }, async () => {
+  const result = await pool.query(`
+    SELECT a.id, a.actor_user_id AS "actorUserId", actor.username AS "actorUsername",
+           a.target_user_id AS "targetUserId", target.username AS "targetUsername",
+           a.grant_id AS "grantId", a.action, a.permission, a.result, a.reason,
+           a.approval_reference AS "approvalReference", a.details, a.created_at AS "createdAt"
+      FROM admin_permission_audit_log a
+      LEFT JOIN users actor ON actor.id = a.actor_user_id
+      LEFT JOIN users target ON target.id = a.target_user_id
+     ORDER BY a.created_at DESC, a.id DESC LIMIT 200
+  `);
+  return { entries: result.rows };
+});
 
 app.get('/api/v1/contact-methods', { onRequest: [requireMatchAuth] }, async () => {
   const result = await pool.query('SELECT id, label, value FROM app_contact_methods ORDER BY sort_order ASC, id ASC');
