@@ -258,7 +258,7 @@ class _OnlineLobbyScreenState extends State<OnlineLobbyScreen> {
           const SizedBox(height: 8),
           OutlinedButton.icon(onPressed: _loading ? null : _cancelCreated, icon: const Icon(Icons.cancel_outlined), label: Text(isEnglish ? 'Cancel waiting room' : 'لغو اتاق در انتظار')),
         ]))),
-        if (_error != null) Container(margin: const EdgeInsets.only(top: 12), padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: Colors.red.withValues(alpha: .12), borderRadius: BorderRadius.circular(10)), child: Text(_error!, style: const TextStyle(color: Colors.redAccent))),
+        if (_error != null) Container(margin: const EdgeInsets.only(top: 12), padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: Colors.red.withValues(alpha: .12), borderRadius: BorderRadius.circular(10)), child: Text(appError(context, _error), style: const TextStyle(color: Colors.redAccent))),
         if (_loading) Padding(padding: const EdgeInsets.all(16), child: Center(child: CircularProgressIndicator(color: Theme.of(context).colorScheme.primary))),
         if (_invites.isNotEmpty) ...[
           const SizedBox(height: 20),
