@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -13,6 +16,20 @@ Widget _localizedApp(Locale locale, String Function(BuildContext) text) {
 }
 
 void main() {
+  test('Persian and English ARB resources have matching translation keys', () {
+    final english = jsonDecode(File('lib/l10n/app_en.arb').readAsStringSync())
+        as Map<String, dynamic>;
+    final persian = jsonDecode(File('lib/l10n/app_fa.arb').readAsStringSync())
+        as Map<String, dynamic>;
+
+    expect(english['@@locale'], 'en');
+    expect(persian['@@locale'], 'fa');
+    final englishKeys = english.keys.where((key) => !key.startsWith('@')).toSet();
+    final persianKeys = persian.keys.where((key) => !key.startsWith('@')).toSet();
+    expect(persianKeys, equals(englishKeys));
+    expect(englishKeys, containsAll(['appTitle', 'login', 'register', 'save']));
+  });
+
   testWidgets('shared UI text follows English app locale', (tester) async {
     await tester.pumpWidget(
       _localizedApp(const Locale('en'), (context) {
