@@ -256,43 +256,43 @@ class _AdminScreenState extends State<AdminScreen> {
   Widget build(BuildContext context) => Directionality(
     textDirection: (Localizations.localeOf(context).languageCode == 'en' ? TextDirection.ltr : TextDirection.rtl),
     child: Scaffold(
-      appBar: AppBar(title: const Text('پنل مدیریت'), actions: [IconButton(onPressed: _load, icon: const Icon(Icons.refresh))]),
+      appBar: AppBar(title: Text(appText(context, 'پنل مدیریت', 'Admin panel')), actions: [IconButton(onPressed: _load, icon: const Icon(Icons.refresh))]),
       body: _loading ? const Center(child: CircularProgressIndicator()) : _error != null
         ? Center(child: Padding(padding: const EdgeInsets.all(24), child: Text(_error!, textAlign: TextAlign.center)))
         : !_owner
-          ? const Center(child: Padding(padding: EdgeInsets.all(28), child: Column(mainAxisSize: MainAxisSize.min, children: [
+          ? Center(child: Padding(padding: const EdgeInsets.all(28), child: Column(mainAxisSize: MainAxisSize.min, children: [
               Icon(Icons.lock_outline, size: 54), SizedBox(height: 14),
-              Text('دسترسی مدیر فعال نیست', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-              SizedBox(height: 8), Text('این بخش فقط برای شناسه مالک تعریف‌شده در تنظیمات سرور قابل استفاده است.', textAlign: TextAlign.center),
+              Text(appText(context, 'دسترسی مدیر فعال نیست', 'Administrator access is not enabled'), style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+              SizedBox(height: 8), Text(appText(context, 'این بخش فقط برای شناسه مالک تعریف‌شده در تنظیمات سرور قابل استفاده است.', 'This section is available only to the owner ID configured on the server.'), textAlign: TextAlign.center),
             ])))
           : ListView(padding: const EdgeInsets.all(16), children: [
 
               Card(child: Padding(padding: const EdgeInsets.all(14), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                const Text('امنیت و احراز هویت — پیامک / OTP', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                Text(appText(context, 'امنیت و احراز هویت — پیامک / OTP', 'Security & authentication — SMS / OTP'), style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 6),
-                const Text('ارسال واقعی پیامک و ورود با OTP تا تصمیم مدیر و تکمیل آداپتور قفل است.', style: TextStyle(color: Colors.orange)),
-                const SwitchListTile(contentPadding: EdgeInsets.zero, title: Text('فعال‌سازی OTP پیامکی'), subtitle: Text('فعلاً غیرفعال و غیرقابل فعال‌سازی'), value: false, onChanged: null),
-                DropdownButtonFormField<String>(value: _smsMode == 'development_simulator' ? 'development_simulator' : 'disabled', decoration: const InputDecoration(labelText: 'حالت ارسال'), items: const [
-                  DropdownMenuItem(value: 'disabled', child: Text('غیرفعال (پیش‌فرض)')),
-                  DropdownMenuItem(value: 'development_simulator', child: Text('شبیه‌ساز توسعه، بدون پیامک واقعی')),
+                Text(appText(context, 'ارسال واقعی پیامک و ورود با OTP تا تصمیم مدیر و تکمیل آداپتور قفل است.', 'Real SMS delivery and OTP login remain locked until the owner decides and the provider adapter is complete.'), style: TextStyle(color: Colors.orange)),
+                SwitchListTile(contentPadding: EdgeInsets.zero, title: Text(appText(context, 'فعال‌سازی OTP پیامکی', 'Enable SMS OTP')), subtitle: Text(appText(context, 'فعلاً غیرفعال و غیرقابل فعال‌سازی', 'Currently disabled and cannot be enabled')), value: false, onChanged: null),
+                DropdownButtonFormField<String>(value: _smsMode == 'development_simulator' ? 'development_simulator' : 'disabled', decoration: InputDecoration(labelText: appText(context, 'حالت ارسال', 'Delivery mode')), items: [
+                  DropdownMenuItem(value: 'disabled', child: Text(appText(context, 'غیرفعال (پیش‌فرض)', 'Disabled (default)'))),
+                  DropdownMenuItem(value: 'development_simulator', child: Text(appText(context, 'شبیه‌ساز توسعه، بدون پیامک واقعی', 'Development simulator, no real SMS'))),
                 ], onChanged: _busy ? null : (v) => setState(() => _smsMode = v ?? 'disabled')),
                 const SizedBox(height: 8),
-                DropdownButtonFormField<String>(value: _smsProvider, decoration: const InputDecoration(labelText: 'ارائه‌دهنده (قابل تغییر در آینده)'), items: const [
-                  DropdownMenuItem(value: 'kavenegar', child: Text('کاوه‌نگار')),
+                DropdownButtonFormField<String>(value: _smsProvider, decoration: InputDecoration(labelText: appText(context, 'ارائه‌دهنده (قابل تغییر در آینده)', 'Provider (replaceable later)')), items: [
+                  DropdownMenuItem(value: 'kavenegar', child: Text('KaveNegar')),
                   DropdownMenuItem(value: 'ippanel', child: Text('IPPanel')),
-                  DropdownMenuItem(value: 'other', child: Text('سایر')),
+                  DropdownMenuItem(value: 'other', child: Text(appText(context, 'سایر', 'Other'))),
                 ], onChanged: _busy ? null : (v) => setState(() => _smsProvider = v ?? 'kavenegar')),
                 const SizedBox(height: 8),
-                TextField(controller: _smsApiKey, obscureText: true, decoration: InputDecoration(labelText: 'کلید API (اختیاری)', helperText: _smsSettings['apiKeyConfigured'] == true ? 'کلید ذخیره شده و مخفی است.' : 'ذخیره امن نیازمند کلید رمزنگاری سمت سرور است.', border: const OutlineInputBorder())),
+                TextField(controller: _smsApiKey, obscureText: true, decoration: InputDecoration(labelText: appText(context, 'کلید API (اختیاری)', 'API key (optional)'), helperText: _smsSettings['apiKeyConfigured'] == true ? appText(context, 'کلید ذخیره شده و مخفی است.', 'The saved key is hidden.') : appText(context, 'ذخیره امن نیازمند کلید رمزنگاری سمت سرور است.', 'Secure storage requires a server-side encryption key.'), border: const OutlineInputBorder())),
                 const SizedBox(height: 8),
-                TextField(controller: _smsSender, decoration: const InputDecoration(labelText: 'شناسه فرستنده', border: OutlineInputBorder())),
+                TextField(controller: _smsSender, decoration: InputDecoration(labelText: appText(context, 'شناسه فرستنده', 'Sender ID'), border: const OutlineInputBorder())),
                 const SizedBox(height: 8),
-                TextField(controller: _smsTemplate, decoration: const InputDecoration(labelText: 'شناسه الگوی پیامک', border: OutlineInputBorder())),
-                Row(children: [Expanded(child: TextField(controller: _smsTtl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'اعتبار کد (ثانیه)'))), const SizedBox(width: 8), Expanded(child: TextField(controller: _smsCooldown, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'فاصله ارسال مجدد')))]),
-                Row(children: [Expanded(child: TextField(controller: _smsAttempts, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'حداکثر تلاش'))), const SizedBox(width: 8), Expanded(child: TextField(controller: _smsDailyLimit, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'سقف روزانه')))]),
+                TextField(controller: _smsTemplate, decoration: InputDecoration(labelText: appText(context, 'شناسه الگوی پیامک', 'SMS template ID'), border: const OutlineInputBorder())),
+                Row(children: [Expanded(child: TextField(controller: _smsTtl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: appText(context, 'اعتبار کد (ثانیه)', 'Code validity (seconds)')))), const SizedBox(width: 8), Expanded(child: TextField(controller: _smsCooldown, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: appText(context, 'فاصله ارسال مجدد', 'Resend cooldown (seconds)'))))]),
+                Row(children: [Expanded(child: TextField(controller: _smsAttempts, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: appText(context, 'حداکثر تلاش', 'Maximum attempts')))), const SizedBox(width: 8), Expanded(child: TextField(controller: _smsDailyLimit, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: appText(context, 'سقف روزانه', 'Daily limit'))))]),
                 const SizedBox(height: 10),
-                FilledButton.icon(onPressed: _busy ? null : _saveSmsSettings, icon: const Icon(Icons.save_outlined), label: const Text('ذخیره تنظیمات غیرفعال')),
-                Text('کلید ذخیره شده: ${_smsSettings['apiKeyConfigured'] == true ? 'بله (مخفی)' : 'خیر'}', style: const TextStyle(fontSize: 12)),
+                FilledButton.icon(onPressed: _busy ? null : _saveSmsSettings, icon: const Icon(Icons.save_outlined), label: Text(appText(context, 'ذخیره تنظیمات غیرفعال', 'Save disabled settings'))),
+                Text(appText(context, 'کلید ذخیره شده: ${_smsSettings['apiKeyConfigured'] == true ? 'بله (مخفی)' : 'خیر'}', 'Saved key: ${_smsSettings['apiKeyConfigured'] == true ? 'yes (hidden)' : 'no'}'), style: const TextStyle(fontSize: 12)),
               ]))),
               const SizedBox(height: 22),
               const Text('اعتباردهی به کاربر', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
