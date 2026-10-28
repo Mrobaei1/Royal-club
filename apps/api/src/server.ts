@@ -1236,7 +1236,7 @@ app.post<{ Body: { phone?: string } }>('/api/v1/auth/phone-otp/request', {
       [phone],
     );
     const code = createOtpCode();
-    const digest = digestOtp(code);
+    const digest = digestOtp(code, secret);
     await client.query(
       `INSERT INTO sms_otp_challenges
          (phone_e164, otp_salt, otp_digest, max_attempts, expires_at)
@@ -1295,7 +1295,7 @@ app.post<{ Body: { phone?: string; code?: string } }>('/api/v1/auth/phone-otp/ve
       await client.query('COMMIT');
       return reply.code(400).send({ error: 'The verification code is invalid or expired.' });
     }
-    const matches = verifyOtpDigest(code, { salt: challenge.otp_salt, digest: challenge.otp_digest });
+    const matches = verifyOtpDigest(code, { salt: challenge.otp_salt, digest: challenge.otp_digest }, secret);
     if (!matches) {
       const nextAttempts = Number(challenge.attempts) + 1;
       await client.query(
