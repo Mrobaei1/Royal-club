@@ -145,10 +145,11 @@ class _AccountScreenState extends State<AccountScreen> {
     final nameController = TextEditingController(text: _user?['fullName']?.toString() ?? '');
     final phoneController = TextEditingController(text: _user?['phone']?.toString() ?? '');
     String country = _user?['country']?.toString() ?? 'Germany';
-    const countries = <String, String>{
-      'Germany': 'آلمان', 'Iran': 'ایران', 'United States': 'ایالات متحده',
-      'United Kingdom': 'بریتانیا', 'Turkey': 'ترکیه',
-      'United Arab Emirates': 'امارات متحده عربی', 'Other': 'سایر کشورها',
+    final isEnglish = Localizations.localeOf(context).languageCode == 'en';
+    final countries = <String, String>{
+      'Germany': isEnglish ? 'Germany' : 'آلمان', 'Iran': isEnglish ? 'Iran' : 'ایران', 'United States': isEnglish ? 'United States' : 'ایالات متحده',
+      'United Kingdom': isEnglish ? 'United Kingdom' : 'بریتانیا', 'Turkey': isEnglish ? 'Turkey' : 'ترکیه',
+      'United Arab Emirates': isEnglish ? 'United Arab Emirates' : 'امارات متحده عربی', 'Other': isEnglish ? 'Other' : 'سایر کشورها',
     };
     final picked = await showDialog<Map<String, String>>(
       context: context,
@@ -166,19 +167,19 @@ class _AccountScreenState extends State<AccountScreen> {
               const SizedBox(height: 14),
               DropdownButtonFormField<String>(
                 initialValue: countries.containsKey(country) ? country : 'Other',
-                decoration: const InputDecoration(labelText: 'کشور', border: OutlineInputBorder()),
+                decoration: InputDecoration(labelText: appText(context, 'کشور', 'Country'), border: const OutlineInputBorder()),
                 items: countries.entries.map((entry) => DropdownMenuItem<String>(value: entry.key, child: Text(entry.value))).toList(),
                 onChanged: (value) { if (value != null) setDialogState(() => country = value); },
               ),
               const SizedBox(height: 10),
-              Text('ایمیل و شناسه کاربری ثابت‌اند؛ تغییر ایمیل به فرایند امنیتی جداگانه نیاز دارد.', style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6), fontSize: 12)),
+              Text(appText(context, 'ایمیل و شناسه کاربری ثابت‌اند؛ تغییر ایمیل به فرایند امنیتی جداگانه نیاز دارد.', 'Email and username are fixed; changing the email requires a separate security process.'), style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6), fontSize: 12)),
             ]),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('انصراف')),
+            TextButton(onPressed: () => Navigator.pop(dialogContext), child: Text(appText(context, 'انصراف', 'Cancel'))),
             FilledButton(onPressed: () => Navigator.pop(dialogContext, {
               'fullName': nameController.text.trim(), 'phone': phoneController.text.trim(), 'country': country,
-            }), child: const Text('ذخیره تغییرات')),
+            }), child: Text(appText(context, 'ذخیره تغییرات', 'Save changes'))),
           ],
         ),
       ),
