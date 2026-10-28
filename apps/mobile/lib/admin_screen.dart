@@ -107,9 +107,7 @@ class _AdminScreenState extends State<AdminScreen> {
     final reference = TextEditingController();
     final formKey = GlobalKey<FormState>();
     final choices = const <String>[
-      'users.read', 'users.moderate', 'reports.read', 'reports.manage',
-      'notifications.send', 'leagues.read', 'leagues.manage',
-      'marketing.read', 'marketing.manage', 'operations.read',
+      'reports.read', 'reports.manage',
     ];
     final result = await showDialog<Map<String, String>>(
       context: context,
@@ -396,7 +394,7 @@ class _AdminScreenState extends State<AdminScreen> {
               const SizedBox(height: 22),
               Text(appText(context, 'مجوزهای دستیاران و ایجنت‌ها', 'Assistant and agent permissions'), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
               const SizedBox(height: 6),
-              Text(appText(context, 'هیچ حساب یا مجوزی خودکار فعال نمی‌شود. این مجوزها فعلاً ثبت و ممیزی می‌شوند؛ تا اتصال کامل مسیرها، دسترسی عملیاتی اعطا نمی‌کنند.', 'No account or permission is activated automatically. Grants are currently recorded and audited; they do not yet enable operational access.'), style: const TextStyle(fontSize: 12)),
+              Text(appText(context, 'فقط مجوزهای گزارش‌خوانی و مدیریت گزارش که مسیرهای سرور آن‌ها کنترل می‌شود قابل اعطا هستند. هیچ مجوزی خودکار ایجاد نمی‌شود.', 'Only report-reading and report-management permissions with enforced server routes can be granted. No permission is created automatically.'), style: const TextStyle(fontSize: 12)),
               const SizedBox(height: 8),
               if (_permissionGrants.isEmpty) Text(appText(context, 'مجوز فعالی ثبت نشده است.', 'No active permission grants.')),
               for (final grant in _permissionGrants) Card(child: ListTile(
