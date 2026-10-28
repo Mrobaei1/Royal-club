@@ -28,11 +28,27 @@ export function getAllowedCorsOrigins(config: CorsConfig): string[] {
   if (origins.some((origin) => origin === '*')) {
     throw new Error('CORS_ORIGINS must contain explicit origins; wildcard origins are not allowed.');
   }
-  if (
-    config.nodeEnv === 'production' &&
-    origins.some((origin) => !/^https:\/\//i.test(origin))
-  ) {
-    throw new Error('Production CORS_ORIGINS must contain only HTTPS origins.');
+  for (const origin of origins) {
+    let parsed: URL;
+    try {
+      parsed = new URL(origin);
+    } catch {
+      throw new Error('CORS_ORIGINS must contain valid origin-only URLs.');
+    }
+    // The CORS header is an origin, not a URL path. Reject credentials,
+    // path/query/fragment suffixes and unsupported schemes instead of silently
+    // normalizing potentially surprising operator configuration.
+    if (
+      (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') ||
+      parsed.origin !== origin ||
+      parsed.username !== '' ||
+      parsed.password !== ''
+    ) {
+      throw new Error('CORS_ORIGINS must contain valid origin-only URLs.');
+    }
+    if (config.nodeEnv === 'production' && parsed.protocol !== 'https:') {
+      throw new Error('Production CORS_ORIGINS must contain only HTTPS origins.');
+    }
   }
   return [...new Set(origins)];
 }
