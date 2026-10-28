@@ -21,8 +21,8 @@ This is a source/configuration review of the repository branch, not a penetratio
 ## Open findings — Phase 1 is not security-cleared
 
 1. **Production configuration is not verifiable from source.** Confirm actual `JWT_SECRET`, `CORS_ORIGINS`, `OWNER_USER_ID`, `DATABASE_URL`, encryption key, host access controls, and secret rotation in the deployment environment. Never put secret values in this document or Git.
-2. **Owner authorization is a single numeric-ID gate, not a role system.** Assistant/admin/agent RBAC, scoped permissions, revocation, and auditable permission changes remain unimplemented. Do not grant roles or activate identities based on planning docs.
-3. **OTP is not implemented end-to-end.** No challenge issue/verify lifecycle, phone/IP abuse controls, development-only simulator lifecycle, provider health/test workflow, or production provider adapter is wired into authentication. Keep real SMS disabled and existing email/password authentication available.
+2. **Owner authorization is a single numeric-ID gate, not a role system.** A dormant delegated-permission API/schema now supports allowlisted grants, resource scopes, revocation, a 50-delegate ceiling, and audit records, with integration coverage for scope and revocation. An owner-facing management UI, full permission-matrix acceptance, and broader negative tests remain open. No grants are seeded; do not grant permissions or activate identities based on planning docs.
+3. **OTP is not implemented end-to-end.** A development-only hashed challenge lifecycle, Iranian phone normalization, per-phone cooldown/daily limits, per-IP route limits, Kavenegar adapter, owner-only connection check, and explicitly confirmed test-message endpoint exist. Phone OTP is not wired into account registration/login; the new flows still need comprehensive integration tests and owner UI. Keep real SMS disabled and existing email/password authentication available.
 4. **Localization is incomplete.** ARB parity does not establish that all visible labels/errors are localized, nor does it prove RTL/LTR behavior. Complete the source audit and device review.
 5. **No live deployment verification was possible.** The code's health routes and CI cannot prove that the production API/database is healthy or that deployed CORS/secrets match repository guidance.
 
@@ -31,10 +31,10 @@ This is a source/configuration review of the repository branch, not a penetratio
 - [ ] Inspect deployed secret/configuration *without exposing values*; verify production CORS and database access configuration.
 - [ ] Add and pass negative tests for expired/malformed JWTs, unauthenticated and non-owner administrative calls, secret redaction, and missing owner configuration.
 - [ ] Implement and test role/permission storage and server enforcement before creating or activating any additional privileged identity.
-- [ ] Implement OTP challenge lifecycle and security tests while real SMS remains off by default.
+- [ ] Complete OTP integration tests and account-registration/login integration while real SMS remains off by default.
 - [ ] Complete localization parity/string audit and test Persian RTL plus English LTR on actual Android devices.
 - [ ] Record successful health checks against the actual production API and database, plus manual acceptance evidence.
 
 ## Decision
 
-**Open — not cleared for Phase 1 sign-off.** Source-level controls are present, but production configuration, complete RBAC, OTP, localization, and live/manual evidence remain open. This review must not be represented as a completed penetration test.
+**Open — not cleared for Phase 1 sign-off.** Source-level controls and initial RBAC/OTP foundations are present, but production configuration, full RBAC acceptance, OTP authentication integration, localization, and live/manual evidence remain open. This review must not be represented as a completed penetration test.
