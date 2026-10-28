@@ -18,6 +18,7 @@ class _AccountScreenState extends State<AccountScreen> {
   bool _loading = true;
   String? _error;
   bool _avatarSaving = false;
+  bool _phoneOtpAvailable = false;
   final ImagePicker _imagePicker = ImagePicker();
 
   @override
@@ -34,6 +35,12 @@ class _AccountScreenState extends State<AccountScreen> {
           _user = Map<String, dynamic>.from(result['user'] as Map? ?? {});
           _loading = false;
         });
+      }
+      try {
+        final status = await AuthService.phoneOtpStatus();
+        if (mounted) setState(() => _phoneOtpAvailable = status['available'] == true);
+      } catch (_) {
+        if (mounted) setState(() => _phoneOtpAvailable = false);
       }
     } catch (error) {
       if (mounted) {
@@ -69,6 +76,79 @@ class _AccountScreenState extends State<AccountScreen> {
       if (mounted) setState(() { _error = appError(context, error); _loading = false; });
     }
   }
+  Future<void> _linkPhoneWithOtp() async {
+    if (!_phoneOtpAvailable || _loading) return;
+    final phoneController = TextEditingController(text: _user?['phone']?.toString() ?? '');
+    final phone = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(appText(context, 'تأیید شماره موبایل', 'Verify mobile number')),
+        content: TextField(
+          controller: phoneController,
+          keyboardType: TextInputType.phone,
+          decoration: InputDecoration(
+            labelText: appText(context, 'شماره موبایل ایران', 'Iranian mobile number'),
+            hintText: '09123456789',
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext), child: Text(appText(context, 'انصراف', 'Cancel'))),
+          FilledButton(onPressed: () => Navigator.pop(dialogContext, phoneController.text.trim()), child: Text(appText(context, 'دریافت کد', 'Send code'))),
+        ],
+      ),
+    );
+    phoneController.dispose();
+    if (phone == null || phone.trim().isEmpty || !mounted) return;
+
+    setState(() { _loading = true; _error = null; });
+    try {
+      final requested = await AuthService.requestPhoneOtp(phone: phone, purpose: 'link');
+      if (!mounted) return;
+      final testCode = requested['testCode']?.toString();
+      final codeController = TextEditingController(text: testCode ?? '');
+      final code = await showDialog<String>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: Text(appText(context, 'کد تأیید تلفن', 'Phone verification code')),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (testCode != null)
+                Text(appText(context, 'کد آزمایشی توسعه: $testCode', 'Development test code: $testCode')),
+              TextField(
+                controller: codeController,
+                keyboardType: TextInputType.number,
+                maxLength: 6,
+                decoration: InputDecoration(labelText: appText(context, 'کد شش‌رقمی', 'Six-digit code')),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(dialogContext), child: Text(appText(context, 'انصراف', 'Cancel'))),
+            FilledButton(onPressed: () => Navigator.pop(dialogContext, codeController.text.trim()), child: Text(appText(context, 'تأیید و پیوند', 'Verify and link'))),
+          ],
+        ),
+      );
+      codeController.dispose();
+      if (code == null || code.isEmpty || !mounted) return;
+      final linked = await AuthService.linkPhoneWithOtp(phone: phone, code: code);
+      if (mounted) {
+        setState(() {
+          _user?['phone'] = linked['phoneE164'] ?? phone;
+          _error = null;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(appText(context, 'شماره تلفن با موفقیت تأیید و پیوند شد.', 'Phone number verified and linked successfully.')),
+        ));
+      }
+    } catch (error) {
+      if (mounted) setState(() => _error = appError(context, error));
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
   Future<void> _pickAvatar() async {
     if (_avatarSaving) return;
     try {
@@ -271,6 +351,12 @@ class _AccountScreenState extends State<AccountScreen> {
                             _user!['email']?.toString() ?? ''),
                         _detail(Icons.phone_outlined, appText(context, 'تلفن', 'Phone'),
                             _user!['phone']?.toString() ?? ''),
+                        if (_phoneOtpAvailable)
+                          OutlinedButton.icon(
+                            onPressed: _loading ? null : _linkPhoneWithOtp,
+                            icon: const Icon(Icons.verified_user_outlined),
+                            label: Text(appText(context, 'تأیید یا تغییر شماره تلفن', 'Verify or change phone number')),
+                          ),
                         _detail(Icons.public_outlined, appText(context, 'کشور', 'Country'),
                             _user!['country']?.toString() ?? ''),
                         _detail(Icons.numbers, appText(context, 'شناسه کاربری', 'User ID'),
