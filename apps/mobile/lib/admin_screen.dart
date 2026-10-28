@@ -116,9 +116,11 @@ class _AdminScreenState extends State<AdminScreen> {
       _leagueCode.clear();
       _leagueName.clear();
       await _load();
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(appText(context, 'لیگ ثبت شد. هیچ لیگ اشتراکی خودکار فعال نمی‌شود.', 'League saved. No subscription league is enabled automatically.')),
-      ));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(appText(context, 'لیگ ثبت شد. هیچ لیگ اشتراکی خودکار فعال نمی‌شود.', 'League saved. No subscription league is enabled automatically.')),
+        ));
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appError(context, e))));
@@ -192,9 +194,11 @@ class _AdminScreenState extends State<AdminScreen> {
         subscriptionDaysCost: result['subscriptionDaysCost'] as int,
       );
       await _load();
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(appText(context, 'قوانین لیگ ذخیره شد.', 'League rules saved.')),
-      ));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(appText(context, 'قوانین لیگ ذخیره شد.', 'League rules saved.')),
+        ));
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appError(context, e))));
