@@ -651,7 +651,7 @@ class _AuthScreenState extends State<AuthScreen> {
       }
     } catch (e) {
       if (!mounted) return;
-      setState(() => _message = e.toString().replaceFirst('Exception: ', ''));
+      setState(() => _message = appError(context, e));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
