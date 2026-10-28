@@ -67,20 +67,20 @@ class _FriendsScreenState extends State<FriendsScreen> {
         if (mounted) {
           setState(() {
             _results = results;
-            _message = results.isEmpty ? 'این نام کاربری پیدا نشد.' : null;
+            _message = results.isEmpty ? appText(context, 'این نام کاربری پیدا نشد.', 'This username was not found.') : null;
           });
         }
       });
 
   Future<void> _sendRequest(String id) => _run(() async {
         if (!RegExp(r'^[1-9]\d*$').hasMatch(id)) {
-          throw Exception('شناسه کاربر معتبر نیست. لطفاً دوباره نام کاربری را جست‌وجو کنید.');
+          throw Exception(appText(context, 'شناسه کاربر معتبر نیست. لطفاً دوباره نام کاربری را جست‌وجو کنید.', 'Invalid user ID. Please search for the username again.'));
         }
         await FriendsService.requestFriend(id);
         if (!mounted) return;
         setState(() {
           _results.removeWhere((user) => user['id'].toString() == id);
-          _message = 'درخواست دوستی ارسال شد.';
+          _message = appText(context, 'درخواست دوستی ارسال شد.', 'Friend request sent.');
         });
         // Refresh is best-effort: a failed refresh must not hide a successful request.
         try {
@@ -95,7 +95,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
         if (mounted) {
           setState(() {
             _data = data;
-            _message = 'درخواست پذیرفته شد.';
+            _message = appText(context, 'درخواست پذیرفته شد.', 'Request accepted.');
           });
         }
       });
@@ -106,7 +106,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
         if (mounted) {
           setState(() {
             _data = data;
-            _message = 'رابطه حذف شد.';
+            _message = appText(context, 'رابطه حذف شد.', 'Connection removed.');
           });
         }
       });
