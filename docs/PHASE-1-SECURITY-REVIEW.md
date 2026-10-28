@@ -30,7 +30,7 @@ This is a source/configuration review of the repository branch, not a penetratio
 
 - [ ] Inspect deployed secret/configuration *without exposing values*; verify production CORS and database access configuration, and review whether a Neon IP allowlist is feasible for the hosting architecture.
 - [x] Add integration coverage for expired/malformed JWTs, unauthenticated and non-owner administrative calls, and missing owner configuration.
-- [ ] Verify secret redaction across all logs/error paths and review remaining negative authorization cases on the latest CI commit.
+- [ ] Verify secret redaction across all logs/error paths and review remaining negative authorization cases on the latest verified code commit `ea97530af955bccf6d3a8af9ae8597066c8dbb61`.
 - [x] Implement dormant permission storage, owner-only grant/revocation/audit endpoints, fail-closed scoped enforcement, and kill switch; test scope, revocation, kill switch, and the 50-delegate ceiling.
 - [ ] Complete the approved role/permission matrix and owner-facing management workflows before creating or activating any additional privileged identity.
 - [x] Add OTP simulator/provider unit and API integration tests while real SMS remains off by default (latest API CI run must remain green).
