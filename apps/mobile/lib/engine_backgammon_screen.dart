@@ -423,12 +423,12 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
       return;
     }
     if (_engine.finished) {
-      _message = 'تبریک! بازیکن ${_playerName(_engine.winner!)} برنده شد.';
+      _message = appText(context, 'تبریک! بازیکن ${_playerName(_engine.winner!)} برنده شد.', 'Congratulations! ${_playerName(_engine.winner!)} won the game.');
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _showGameOverDialog();
       });
     } else if (_engine.dice.isEmpty) {
-      _message = 'نوبت ${_playerName(_engine.currentPlayer)} است؛ تاس بریزید.';
+      _message = appText(context, 'نوبت ${_playerName(_engine.currentPlayer)} است؛ تاس بریزید.', 'It is ${_playerName(_engine.currentPlayer)}’s turn. Roll the dice.');
     } else {
       _message = appText(context, 'حرکت انجام شد؛ تاس باقی‌مانده: ${_engine.dice.join('، ')}', 'Move completed; remaining dice: ${_engine.dice.join(', ')}');
     }
@@ -467,12 +467,12 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
         if (move != null) _engine.playMove(move);
         _computerThinking = false;
         if (_engine.finished) {
-          _message = 'کامپیوتر برنده شد.';
+          _message = appText(context, 'کامپیوتر برنده شد.', 'The computer won.');
         } else if (_engine.currentPlayer == 1) {
-          _message = 'نوبت شماست؛ تاس بریزید.';
+          _message = appText(context, 'نوبت شماست؛ تاس بریزید.', 'Your turn. Roll the dice.');
         } else {
           _message =
-              'نوبت کامپیوتر است؛ تاس باقی‌مانده: ${_engine.dice.join('، ')}';
+              appText(context, 'نوبت کامپیوتر است؛ تاس باقی‌مانده: ${_engine.dice.join('، ')}', 'Computer turn; remaining dice: ${_engine.dice.join(', ')}');
         }
       });
       if (!_engine.finished && _engine.currentPlayer != _timerPlayer) {
@@ -502,9 +502,9 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
         child: AlertDialog(
           backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
           icon: Icon(Icons.emoji_events, color: Theme.of(context).colorScheme.primary, size: 42),
-          title: Text('پایان بازی',
+          title: Text(appText(context, 'پایان بازی', 'Game over'),
               style: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.bold)),
-          content: Text('تبریک! بازیکن $winner برنده شد 🎉',
+          content: Text(appText(context, 'تبریک! بازیکن $winner برنده شد 🎉', 'Congratulations! $winner won 🎉'),
               textAlign: TextAlign.center,
               style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 17)),
           actionsAlignment: MainAxisAlignment.center,
@@ -515,7 +515,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
                 _reset();
               },
               icon: const Icon(Icons.refresh),
-              label: Text('بازی مجدد'),
+              label: Text(appText(context, 'بازی مجدد', 'Play again')),
               style: FilledButton.styleFrom(
                   backgroundColor: Theme.of(context).colorScheme.primary, foregroundColor: Theme.of(context).colorScheme.onPrimary),
             ),
@@ -525,7 +525,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
                 navigator.maybePop();
               },
               icon: const Icon(Icons.exit_to_app),
-              label: Text('خروج از بازی'),
+              label: Text(appText(context, 'خروج از بازی', 'Exit game')),
               style: OutlinedButton.styleFrom(
                   foregroundColor: Theme.of(context).colorScheme.onSurface,
                   side: BorderSide(color: Theme.of(context).colorScheme.primary)),
@@ -567,7 +567,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
                 toolbarHeight: 48,
                 backgroundColor: Theme.of(context).colorScheme.surface,
                 foregroundColor: Theme.of(context).colorScheme.primary,
-                title: Text('تخته‌نرد سلطنتی',
+                title: Text(appText(context, 'تخته‌نرد سلطنتی', 'Royal Backgammon'),
                     style:
                         TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                 actions: [
