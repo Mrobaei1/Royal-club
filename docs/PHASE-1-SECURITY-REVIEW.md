@@ -5,7 +5,7 @@ Branch: `feature/chat-ai-invite-ux`
 
 ## Scope and limits
 
-This is a source/configuration review of the repository branch, not a penetration test or a verification of the live deployment. No production database, host environment, secret store, SMS provider, or device session was changed or queried during this review. Runtime claims below are limited to what repository code demonstrates.
+This is a source/configuration review of the repository branch, not a penetration test or a full verification of the live deployment. No production state was changed. A read-only Neon project metadata and table-list query was performed on 2026-10-28; it confirmed the production project's allowed-IP list is empty and the new OTP/RBAC tables are not present. No secret values were read. Other host environment, secret-store, SMS-provider, and device-session settings remain unverified. Runtime claims below are limited to source evidence and the specific read-only metadata checks noted here.
 
 ## Controls confirmed in source
 
