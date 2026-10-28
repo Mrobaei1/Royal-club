@@ -1157,3 +1157,99 @@ test('development phone OTP simulator hashes, expires by policy, limits attempts
   }
 });
 
+test('OTP simulator enforces cooldown, expiry, attempt exhaustion, daily limits, and production lock', async () => {
+  const prior = await testPool.query('SELECT delivery_mode, daily_limit FROM sms_otp_settings WHERE id = 1');
+  const previousMode = prior.rows[0]?.delivery_mode ?? 'disabled';
+  const previousDailyLimit = Number(prior.rows[0]?.daily_limit ?? 100);
+  const previousNodeEnv = process.env.NODE_ENV;
+  await testPool.query(
+    `UPDATE sms_otp_settings
+        SET delivery_mode = 'development_simulator', enabled = FALSE,
+            otp_ttl_seconds = 120, resend_cooldown_seconds = 30,
+            max_attempts = 3, daily_limit = 100
+      WHERE id = 1`,
+  );
+  const phone = () => `09${String(Math.floor(Math.random() * 1_000_000_000)).padStart(9, '0')}`;
+  const requestCode = async (number: string) => {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/phone-otp/request',
+      payload: { phone: number },
+    });
+    assert.equal(response.statusCode, 202, response.body);
+    return String(response.json().testCode);
+  };
+
+  try {
+    const cooldownPhone = phone();
+    await requestCode(cooldownPhone);
+    const cooldown = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/phone-otp/request',
+      payload: { phone: cooldownPhone },
+    });
+    assert.equal(cooldown.statusCode, 429, cooldown.body);
+
+    const expiredPhone = phone();
+    const expiredCode = await requestCode(expiredPhone);
+    await testPool.query(
+      `UPDATE sms_otp_challenges SET expires_at = NOW() - INTERVAL '1 second'
+        WHERE phone_e164 = $1 AND consumed_at IS NULL`,
+      [`+98${expiredPhone.slice(1)}`],
+    );
+    const expired = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/phone-otp/verify',
+      payload: { phone: expiredPhone, code: expiredCode },
+    });
+    assert.equal(expired.statusCode, 400, expired.body);
+
+    const exhaustedPhone = phone();
+    const correctCode = await requestCode(exhaustedPhone);
+    const wrongCode = correctCode === '000000' ? '000001' : '000000';
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const wrong = await app.inject({
+        method: 'POST',
+        url: '/api/v1/auth/phone-otp/verify',
+        payload: { phone: exhaustedPhone, code: wrongCode },
+      });
+      assert.equal(wrong.statusCode, 400, wrong.body);
+    }
+    const exhausted = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/phone-otp/verify',
+      payload: { phone: exhaustedPhone, code: correctCode },
+    });
+    assert.equal(exhausted.statusCode, 400, exhausted.body);
+
+    await testPool.query('UPDATE sms_otp_settings SET daily_limit = 0 WHERE id = 1');
+    const dailyLimited = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/phone-otp/request',
+      payload: { phone: phone() },
+    });
+    assert.equal(dailyLimited.statusCode, 429, dailyLimited.body);
+
+    process.env.NODE_ENV = 'production';
+    const productionRequest = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/phone-otp/request',
+      payload: { phone: phone() },
+    });
+    assert.equal(productionRequest.statusCode, 503, productionRequest.body);
+    const productionVerify = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/phone-otp/verify',
+      payload: { phone: phone(), code: '123456' },
+    });
+    assert.equal(productionVerify.statusCode, 503, productionVerify.body);
+  } finally {
+    if (previousNodeEnv === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = previousNodeEnv;
+    await testPool.query(
+      'UPDATE sms_otp_settings SET delivery_mode = $1, daily_limit = $2, enabled = FALSE WHERE id = 1',
+      [previousMode, previousDailyLimit],
+    );
+  }
+});
+
