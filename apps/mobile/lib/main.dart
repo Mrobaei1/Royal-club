@@ -601,23 +601,23 @@ class _AuthScreenState extends State<AuthScreen> {
 
   Future<void> _submit() async {
     if (_email.text.trim().isEmpty || _password.text.isEmpty) {
-      setState(() => _message = 'ایمیل و رمز عبور را وارد کن.');
+      setState(() => _message = appText(context, 'ایمیل و رمز عبور را وارد کن.', 'Enter your email and password.'));
       return;
     }
     if (_register && _fullName.text.trim().isEmpty) {
-      setState(() => _message = 'نام کاربر را وارد کن.');
+      setState(() => _message = appText(context, 'نام کاربر را وارد کن.', 'Enter your name.'));
       return;
     }
     if (_register && _phone.text.trim().isEmpty) {
-      setState(() => _message = 'شماره تلفن را وارد کن.');
+      setState(() => _message = appText(context, 'شماره تلفن را وارد کن.', 'Enter your phone number.'));
       return;
     }
     if (_register && _password.text.runes.length < 6) {
-      setState(() => _message = 'رمز عبور باید حداقل ۶ کاراکتر باشد.');
+      setState(() => _message = appText(context, 'رمز عبور باید حداقل ۶ کاراکتر باشد.', 'Password must be at least 6 characters.'));
       return;
     }
     if (_register && utf8.encode(_password.text).length > 128) {
-      setState(() => _message = 'رمز عبور نباید بیشتر از ۱۲۸ بایت باشد.');
+      setState(() => _message = appText(context, 'رمز عبور نباید بیشتر از ۱۲۸ بایت باشد.', 'Password must not exceed 128 bytes.'));
       return;
     }
 
@@ -644,10 +644,10 @@ class _AuthScreenState extends State<AuthScreen> {
       } else if (wasRegister) {
         setState(() {
           _register = false;
-          _message = 'ثبت‌نام انجام شد. برای ورود، رمز عبور را دوباره وارد کنید.';
+          _message = appText(context, 'ثبت‌نام انجام شد. برای ورود، رمز عبور را دوباره وارد کنید.', 'Registration complete. Enter your password again to log in.');
         });
       } else {
-        setState(() => _message = 'ورود انجام شد، اما توکن دریافت نشد.');
+        setState(() => _message = appText(context, 'ورود انجام شد، اما توکن دریافت نشد.', 'Login succeeded, but no token was received.'));
       }
     } catch (e) {
       if (!mounted) return;
@@ -700,9 +700,9 @@ class _AuthScreenState extends State<AuthScreen> {
                       keyboardType: TextInputType.phone,
                       autofillHints: const [AutofillHints.telephoneNumber],
                       decoration: InputDecoration(
-                        labelText: '${AppLocalizations.of(context).phone} (بدون کد کشور)',
-                        hintText: 'مثلاً 09123456789',
-                        helperText: 'فقط شماره تلفن را وارد کنید؛ کد کشور لازم نیست.',
+                        labelText: '${AppLocalizations.of(context).phone} (${appText(context, 'بدون کد کشور', 'no country code')})',
+                        hintText: appText(context, 'مثلاً 09123456789', 'e.g. 09123456789'),
+                        helperText: appText(context, 'فقط شماره تلفن را وارد کنید؛ کد کشور لازم نیست.', 'Enter only the phone number; no country code is needed.'),
                         border: const OutlineInputBorder(),
                         prefixIcon: const Icon(Icons.phone_outlined),
                       ),
@@ -737,7 +737,7 @@ class _AuthScreenState extends State<AuthScreen> {
                       controlAffinity: ListTileControlAffinity.leading,
                       title: Text(AppLocalizations.of(context).rememberMe),
                       subtitle: const Text(
-                          'نام کاربری و رمز عبور به‌صورت امن روی دستگاه ذخیره می‌شوند.'),
+                          appText(context, 'نام کاربری و رمز عبور به‌صورت امن روی دستگاه ذخیره می‌شوند.', 'Your username and password are stored securely on this device.')),
                       onChanged: _busy
                           ? null
                           : (value) =>
@@ -760,7 +760,7 @@ class _AuthScreenState extends State<AuthScreen> {
                               height: 22,
                               width: 22,
                               child: CircularProgressIndicator(strokeWidth: 2))
-                          : Text(_register ? 'ایجاد حساب' : 'ورود به حساب'),
+                          : Text(_register ? appText(context, 'ایجاد حساب', 'Create account') : appText(context, 'ورود به حساب', 'Log in')),
                     ),
                   ),
                   if (_message != null) ...[
