@@ -306,6 +306,62 @@ await pool.query(`
   );
   CREATE INDEX IF NOT EXISTS user_subscriptions_current_idx
     ON user_subscriptions (user_id, status, ends_at DESC);
+
+  -- League entry is free by default. Subscription-day consumption is opt-in per league
+  -- and is kept separate from the wallet-credit ledger.
+  CREATE TABLE IF NOT EXISTS leagues (
+    id BIGSERIAL PRIMARY KEY,
+    code TEXT NOT NULL UNIQUE,
+    name TEXT NOT NULL,
+    enabled BOOLEAN NOT NULL DEFAULT FALSE,
+    entry_mode TEXT NOT NULL DEFAULT 'free'
+      CHECK (entry_mode IN ('free', 'subscription_days')),
+    subscription_days_cost INTEGER NOT NULL DEFAULT 0
+      CHECK (subscription_days_cost BETWEEN 0 AND 30),
+    starts_at TIMESTAMPTZ,
+    ends_at TIMESTAMPTZ,
+    created_by BIGINT REFERENCES users(id) ON DELETE SET NULL,
+    updated_by BIGINT REFERENCES users(id) ON DELETE SET NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CHECK (
+      (entry_mode = 'free' AND subscription_days_cost = 0) OR
+      (entry_mode = 'subscription_days' AND subscription_days_cost BETWEEN 1 AND 30)
+    ),
+    CHECK (ends_at IS NULL OR starts_at IS NULL OR ends_at > starts_at)
+  );
+  CREATE TABLE IF NOT EXISTS league_entries (
+    id BIGSERIAL PRIMARY KEY,
+    league_id BIGINT NOT NULL REFERENCES leagues(id) ON DELETE CASCADE,
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    idempotency_key TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (league_id, user_id),
+    UNIQUE (user_id, idempotency_key)
+  );
+  CREATE INDEX IF NOT EXISTS league_entries_league_created_idx
+    ON league_entries (league_id, created_at DESC);
+  CREATE TABLE IF NOT EXISTS league_entitlement_ledger (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    subscription_id BIGINT NOT NULL REFERENCES user_subscriptions(id),
+    league_id BIGINT NOT NULL REFERENCES leagues(id) ON DELETE CASCADE,
+    entry_id BIGINT NOT NULL UNIQUE REFERENCES league_entries(id) ON DELETE CASCADE,
+    days_consumed INTEGER NOT NULL CHECK (days_consumed BETWEEN 1 AND 30),
+    ends_at_before TIMESTAMPTZ NOT NULL,
+    ends_at_after TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+  CREATE INDEX IF NOT EXISTS league_entitlement_ledger_user_created_idx
+    ON league_entitlement_ledger (user_id, created_at DESC);
+  CREATE TABLE IF NOT EXISTS league_admin_audit_log (
+    id BIGSERIAL PRIMARY KEY,
+    actor_user_id BIGINT REFERENCES users(id) ON DELETE SET NULL,
+    league_id BIGINT REFERENCES leagues(id) ON DELETE SET NULL,
+    action TEXT NOT NULL,
+    details JSONB NOT NULL DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
   CREATE TABLE IF NOT EXISTS private_messages (
     id BIGSERIAL PRIMARY KEY,
     sender_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
