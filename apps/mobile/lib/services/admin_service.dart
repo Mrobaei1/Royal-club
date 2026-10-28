@@ -47,6 +47,12 @@ class AdminService {
         'confirmCost': confirmCost,
       });
 
+  static Future<Map<String, dynamic>> permissionSettings() async =>
+      (await _request('GET', '/api/v1/admin/permissions/settings'))['settings'] as Map<String, dynamic>;
+
+  static Future<Map<String, dynamic>> setDelegatedPermissionsEnabled(bool enabled) async =>
+      (await _request('PATCH', '/api/v1/admin/permissions/settings', body: {'enabled': enabled}))['settings'] as Map<String, dynamic>;
+
   static Future<List<dynamic>> permissionGrants() async =>
       (await _request('GET', '/api/v1/admin/permissions/grants'))['grants'] as List<dynamic>? ?? [];
 
