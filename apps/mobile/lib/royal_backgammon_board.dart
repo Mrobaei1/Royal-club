@@ -143,7 +143,9 @@ class _RoyalBoardPainter extends CustomPainter {
     }
     final bar=Rect.fromLTWH(m+hw,0,bw,h);
     c.drawRect(bar,Paint()..shader=const LinearGradient(colors:[Color(0xFF2E190B),Color(0xFF5A3419),Color(0xFF2E190B)]).createShader(bar));
-    for(final yy in [h*.26,h*.67]) c.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(w/2-bw*.12,yy,bw*.24,h*.07),const Radius.circular(2)),Paint()..color=const Color(0xFF8E7A55));
+    for (final yy in [h*.26,h*.67]) {
+      c.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(w/2-bw*.12,yy,bw*.24,h*.07),const Radius.circular(2)),Paint()..color=const Color(0xFF8E7A55));
+    }
     for(var half=0;half<2;half++){final cx=(half==0?m:m+hw+bw)+hw/2;_crown(c,Offset(cx,h/2),w*.065);}
     for(var half=0;half<2;half++){final left=half==0?m:m+hw+bw;for(final isTop in [true,false]){
       final yy=isTop?y0:h-y0-lh;c.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(left,yy,hw,lh),Radius.circular(lh*.35)),
@@ -163,7 +165,9 @@ class _RoyalBoardPainter extends CustomPainter {
     const pips=<int,List<Offset>>{1:[Offset(0,0)],2:[Offset(-1,-1),Offset(1,1)],3:[Offset(-1,-1),Offset(0,0),Offset(1,1)],
       4:[Offset(-1,-1),Offset(1,-1),Offset(-1,1),Offset(1,1)],5:[Offset(-1,-1),Offset(1,-1),Offset(0,0),Offset(-1,1),Offset(1,1)],
       6:[Offset(-1,-1),Offset(1,-1),Offset(-1,0),Offset(1,0),Offset(-1,1),Offset(1,1)]};
-    for(final p in pips[v.clamp(1,6)]!)c.drawCircle(o+Offset(p.dx*s*.27,p.dy*s*.27),s*.075,Paint()..color=const Color(0xFF1A1A1A));
+    for (final p in pips[v.clamp(1,6)]!) {
+      c.drawCircle(o+Offset(p.dx*s*.27,p.dy*s*.27),s*.075,Paint()..color=const Color(0xFF1A1A1A));
+    }
   }
   static void _crown(Canvas c,Offset o,double s){
     final col=const Color(0xFFE2B253).withValues(alpha:.28);final star=Path();
