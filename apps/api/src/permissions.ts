@@ -1,14 +1,7 @@
 export const permissionCatalog = [
-  'users.read',
-  'users.moderate',
+  // Only capabilities with currently enforced API routes belong in this list.
   'reports.read',
   'reports.manage',
-  'notifications.send',
-  'leagues.read',
-  'leagues.manage',
-  'marketing.read',
-  'marketing.manage',
-  'operations.read',
 ] as const;
 
 export type RoyalPermission = (typeof permissionCatalog)[number];
