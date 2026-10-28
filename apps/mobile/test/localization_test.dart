@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:royal_club/l10n/app_text.dart';
 
@@ -6,6 +7,7 @@ Widget _localizedApp(Locale locale, String Function(BuildContext) text) {
   return MaterialApp(
     locale: locale,
     supportedLocales: const [Locale('fa'), Locale('en')],
+    localizationsDelegates: GlobalMaterialLocalizations.delegates,
     home: Builder(builder: (context) => Text(text(context))),
   );
 }
