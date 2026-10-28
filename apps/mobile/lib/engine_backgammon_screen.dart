@@ -53,6 +53,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
   @override
   void initState() {
     super.initState();
+    _message = appText(context, 'برای شروع، تاس بریزید.', 'Roll the dice to begin.');
     _vsComputer = widget.vsComputerForTesting;
     _timerPlayer = _engine.currentPlayer;
     _lockLandscapeOnMobile();
