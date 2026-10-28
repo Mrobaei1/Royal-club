@@ -120,7 +120,9 @@ class _AdminScreenState extends State<AdminScreen> {
         content: Text(appText(context, 'لیگ ثبت شد. هیچ لیگ اشتراکی خودکار فعال نمی‌شود.', 'League saved. No subscription league is enabled automatically.')),
       ));
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appError(context, e))));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appError(context, e))));
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -194,7 +196,9 @@ class _AdminScreenState extends State<AdminScreen> {
         content: Text(appText(context, 'قوانین لیگ ذخیره شد.', 'League rules saved.')),
       ));
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appError(context, e))));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appError(context, e))));
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
