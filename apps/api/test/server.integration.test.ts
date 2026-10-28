@@ -1222,6 +1222,22 @@ test('OTP simulator enforces cooldown, expiry, attempt exhaustion, daily limits,
     });
     assert.equal(exhausted.statusCode, 400, exhausted.body);
 
+    // The configured daily ceiling applies globally as well as per phone.
+    await testPool.query("DELETE FROM sms_otp_challenges WHERE created_at >= NOW() - INTERVAL '1 day'");
+    await testPool.query('UPDATE sms_otp_settings SET daily_limit = 1 WHERE id = 1');
+    const globalFirst = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/phone-otp/request',
+      payload: { phone: phone() },
+    });
+    assert.equal(globalFirst.statusCode, 202, globalFirst.body);
+    const globalSecond = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/phone-otp/request',
+      payload: { phone: phone() },
+    });
+    assert.equal(globalSecond.statusCode, 429, globalSecond.body);
+
     await testPool.query('UPDATE sms_otp_settings SET daily_limit = 0 WHERE id = 1');
     const dailyLimited = await app.inject({
       method: 'POST',
