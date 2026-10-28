@@ -130,7 +130,7 @@ class _SpectatorMatchScreenState extends State<SpectatorMatchScreen> {
               if (_error != null)
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 8),
-                  child: Text(_error!, style: const TextStyle(color: Colors.redAccent)),
+                  child: Text(appError(context, _error), style: const TextStyle(color: Colors.redAccent)),
                 ),
               if (_loading)
                 Padding(
