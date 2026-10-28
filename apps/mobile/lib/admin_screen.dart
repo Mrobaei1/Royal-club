@@ -137,7 +137,7 @@ class _AdminScreenState extends State<AdminScreen> {
             maxLength: 200,
             decoration: InputDecoration(labelText: appText(context, 'شناسه تأیید (اختیاری)', 'Approval reference (optional)')),
           ),
-          Text(appText(context, 'این کار مجوز را برای حساب انتخاب‌شده ثبت می‌کند. هیچ مجوزی به‌طور خودکار ایجاد نمی‌شود.', 'This records a grant for the selected account. No grants are created automatically.'), style: const TextStyle(fontSize: 12)),
+          Text(appText(context, 'این کار فقط مجوز را ثبت می‌کند؛ تا زمان اتصال به مسیرهای مجازشده، دسترسی عملیاتی ایجاد نمی‌شود. هیچ مجوزی خودکار ایجاد نمی‌شود.', 'This only records the grant; it does not enable operational access until protected routes are wired to it. No grants are created automatically.'), style: const TextStyle(fontSize: 12)),
         ]))),
         actions: [
           TextButton(onPressed: () => Navigator.pop(dialogContext), child: Text(appText(context, 'انصراف', 'Cancel'))),
@@ -149,8 +149,6 @@ class _AdminScreenState extends State<AdminScreen> {
         ],
       )),
     );
-    final reasonText = reason.text.trim();
-    final referenceText = reference.text.trim();
     reason.dispose();
     reference.dispose();
     if (result == null) return;
@@ -398,7 +396,7 @@ class _AdminScreenState extends State<AdminScreen> {
               const SizedBox(height: 22),
               Text(appText(context, 'مجوزهای دستیاران و ایجنت‌ها', 'Assistant and agent permissions'), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
               const SizedBox(height: 6),
-              Text(appText(context, 'هیچ حساب یا مجوزی خودکار فعال نمی‌شود. ابتدا کاربر را با ایمیل جست‌وجو کنید و سپس فقط مجوز ضروری را اعطا کنید.', 'No account or permission is activated automatically. Search for an account by email, then grant only the required permission.'), style: const TextStyle(fontSize: 12)),
+              Text(appText(context, 'هیچ حساب یا مجوزی خودکار فعال نمی‌شود. این مجوزها فعلاً ثبت و ممیزی می‌شوند؛ تا اتصال کامل مسیرها، دسترسی عملیاتی اعطا نمی‌کنند.', 'No account or permission is activated automatically. Grants are currently recorded and audited; they do not yet enable operational access.'), style: const TextStyle(fontSize: 12)),
               const SizedBox(height: 8),
               if (_permissionGrants.isEmpty) Text(appText(context, 'مجوز فعالی ثبت نشده است.', 'No active permission grants.')),
               for (final grant in _permissionGrants) Card(child: ListTile(
