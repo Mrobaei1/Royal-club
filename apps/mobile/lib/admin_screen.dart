@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'l10n/app_text.dart';
 import 'package:flutter/services.dart';
 import 'services/admin_service.dart';
 
