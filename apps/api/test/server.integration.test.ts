@@ -1031,6 +1031,18 @@ test('delegated report permissions are owner-granted, resource-scoped, audited, 
     });
     assert.equal(enableDelegation.statusCode, 200, enableDelegation.body);
 
+    const readGrant = await app.inject({
+      method: 'POST',
+      url: '/api/v1/admin/permissions/grants',
+      headers: auth(owner.token),
+      payload: {
+        userId: assistant.user.id,
+        permission: 'reports.read',
+        reason: 'Read reports without exposing account email addresses',
+      },
+    });
+    assert.equal(readGrant.statusCode, 201, readGrant.body);
+
     const createdA = await testPool.query(
       'INSERT INTO user_reports (reporter_id, reported_user_id, reason) VALUES ($1, $2, $3) RETURNING id',
       [assistant.user.id, targetA.user.id, 'Integration test report for scoped permission A'],
@@ -1041,6 +1053,19 @@ test('delegated report permissions are owner-granted, resource-scoped, audited, 
     );
     const reportAId = String(createdA.rows[0].id);
     const reportBId = String(createdB.rows[0].id);
+
+    const reportList = await app.inject({
+      method: 'GET',
+      url: '/api/v1/admin/reports',
+      headers: auth(assistant.token),
+    });
+    assert.equal(reportList.statusCode, 200, reportList.body);
+    const reportListJson = JSON.stringify(reportList.json());
+    assert.equal(reportListJson.includes(assistant.user.email), false);
+    assert.equal(reportListJson.includes(targetA.user.email), false);
+    assert.equal(reportListJson.includes(targetB.user.email), false);
+    assert.equal(reportListJson.includes('reportedEmail'), false);
+    assert.equal(reportListJson.includes('reporterEmail'), false);
 
     const unscopedManageGrant = await app.inject({
       method: 'POST',
