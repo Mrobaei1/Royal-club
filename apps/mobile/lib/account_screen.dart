@@ -52,7 +52,7 @@ class _AccountScreenState extends State<AccountScreen> {
       builder: (dialogContext) => AlertDialog(
         backgroundColor: Theme.of(context).colorScheme.surface,
         title: Text(appText(context, 'تغییر نام کاربری', 'Change username')),
-        content: TextField(controller: controller, textDirection: TextDirection.ltr, decoration: const InputDecoration(labelText: 'نام کاربری', hintText: 'royal_player7', prefixText: '@', helperText: '۳ تا ۲۴ حرف؛ حروف انگلیسی، عدد، نقطه یا زیرخط')),
+        content: TextField(controller: controller, textDirection: TextDirection.ltr, decoration: InputDecoration(labelText: appText(context, 'نام کاربری', 'Username'), hintText: 'royal_player7', prefixText: '@', helperText: appText(context, '۳ تا ۲۴ حرف؛ حروف انگلیسی، عدد، نقطه یا زیرخط', '3–24 characters; English letters, numbers, dots or underscores'))),
         actions: [
           TextButton(onPressed: () => Navigator.pop(dialogContext), child: Text(appText(context, 'انصراف', 'Cancel'))),
           FilledButton(onPressed: () => Navigator.pop(dialogContext, controller.text.trim()), child: Text(appText(context, 'ذخیره', 'Save'))),
@@ -81,7 +81,7 @@ class _AccountScreenState extends State<AccountScreen> {
       if (image == null || !mounted) return;
       final bytes = await image.readAsBytes();
       if (bytes.length > 650 * 1024) {
-        setState(() => _error = 'حجم تصویر انتخابی زیاد است؛ لطفاً تصویر کوچک‌تری انتخاب کنید.');
+        setState(() => _error = appText(context, 'حجم تصویر انتخابی زیاد است؛ لطفاً تصویر کوچک‌تری انتخاب کنید.', 'The selected image is too large. Please choose a smaller image.'));
         return;
       }
       final extension = image.name.toLowerCase().split('.').last;
@@ -133,7 +133,7 @@ class _AccountScreenState extends State<AccountScreen> {
           icon: _avatarSaving
               ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
               : const Icon(Icons.photo_library_outlined),
-          label: Text(_avatarSaving ? 'در حال ذخیره تصویر...' : 'انتخاب عکس پروفایل'),
+          label: Text(_avatarSaving ? appText(context, 'در حال ذخیره تصویر...', 'Saving image...') : appText(context, 'انتخاب عکس پروفایل', 'Choose profile photo')),
           style: OutlinedButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.primary, side: BorderSide(color: Theme.of(context).colorScheme.primary)),
         ),
       ],
@@ -159,10 +159,10 @@ class _AccountScreenState extends State<AccountScreen> {
           content: SingleChildScrollView(
             child: Column(mainAxisSize: MainAxisSize.min, children: [
               TextField(controller: nameController, textCapitalization: TextCapitalization.words,
-                decoration: const InputDecoration(labelText: appText(context, 'نام کامل', 'Full name'), border: OutlineInputBorder())),
+                decoration: InputDecoration(labelText: appText(context, 'نام کامل', 'Full name'), border: const OutlineInputBorder())),
               const SizedBox(height: 14),
               TextField(controller: phoneController, keyboardType: TextInputType.phone,
-                decoration: const InputDecoration(labelText: appText(context, 'شماره تلفن', 'Phone number'), border: OutlineInputBorder())),
+                decoration: InputDecoration(labelText: appText(context, 'شماره تلفن', 'Phone number'), border: const OutlineInputBorder())),
               const SizedBox(height: 14),
               DropdownButtonFormField<String>(
                 initialValue: countries.containsKey(country) ? country : 'Other',
