@@ -1146,7 +1146,7 @@ app.post('/api/v1/admin/security/sms-otp/test-connection', { onRequest: [require
 
 app.post<{ Body: { phone?: string; confirmCost?: boolean } }>('/api/v1/admin/security/sms-otp/test-message', {
   onRequest: [requireOwnerAuth],
-  config: { rateLimit: { max: 2, timeWindow: '1 hour' } },
+  config: { rateLimit: { max: 5, timeWindow: '1 hour' } },
 }, async (request, reply) => {
   const phone = normalizeIranianMobile(request.body?.phone);
   if (!phone || request.body?.confirmCost !== true) {
