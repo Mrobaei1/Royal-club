@@ -353,7 +353,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     children: [
                       Text('ROYAL CLUB', style: TextStyle(color: theme.accent, fontSize: 19, fontWeight: FontWeight.w900, letterSpacing: 2.2)),
                       const SizedBox(height: 3),
-                      Text('THE ART OF STRATEGY', style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: .65), fontSize: 9, letterSpacing: 2, fontWeight: FontWeight.w600)),
+                      Text(AppLocalizations.of(context).strategyTagline, style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: .65), fontSize: 9, letterSpacing: 2, fontWeight: FontWeight.w600)),
                     ],
                   ),
                 ),
@@ -445,11 +445,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 },
               ),
               const SizedBox(height: 12),
-              GameTile(title: AppLocalizations.of(context).chess, subtitle: royalLocaleState.locale.languageCode == 'fa' ? 'به‌زودی' : 'Coming soon', icon: Icons.grid_4x4_rounded, comingSoon: true),
+              GameTile(title: AppLocalizations.of(context).chess, subtitle: AppLocalizations.of(context).comingSoon, icon: Icons.grid_4x4_rounded, comingSoon: true),
               const SizedBox(height: 12),
               GameTile(title: AppLocalizations.of(context).cardGames, subtitle: royalLocaleState.locale.languageCode == 'fa' ? 'به‌زودی' : 'Coming soon', icon: Icons.style_rounded, comingSoon: true),
               const SizedBox(height: 26),
-              const Center(child: Text('ROYAL CLUB  •  PLAY WITH HONOUR',
+              Center(child: Text('${AppLocalizations.of(context).appTitle}  •  ${AppLocalizations.of(context).playWithHonour}',
                 style: TextStyle(color: Color(0xFF77839A), fontSize: 9, letterSpacing: 1.5, fontWeight: FontWeight.w600))),
               const SizedBox(height: 10),
               Center(child: Text(appText(context, 'نسخه 1.1.9', 'Version 1.1.9'),
@@ -522,7 +522,7 @@ class GameTile extends StatelessWidget {
                 ],
               )),
               if (comingSoon)
-                Text('SOON',
+                Text(AppLocalizations.of(context).comingSoon.toUpperCase(),
                     style: TextStyle(
                         color: selectedTheme.accent,
                         fontSize: 9,
