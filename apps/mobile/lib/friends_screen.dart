@@ -133,7 +133,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
     VoidCallback? onTap,
   }) {
     final username = user['username']?.toString().trim() ?? '';
-    final displayName = username.isNotEmpty ? '@$username' : 'کاربر';
+    final displayName = username.isNotEmpty ? '@$username' : appText(context, 'کاربر', 'User');
     final title = titleOverride ?? displayName;
     final subtitle = subtitleOverride ??
         (username.isNotEmpty ? '@$username' : '');
@@ -179,7 +179,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
             IconButton(
               onPressed: _busy ? null : _refresh,
               icon: const Icon(Icons.refresh),
-              tooltip: isEnglish ? 'Refresh' : 'به‌روزرسانی',
+              tooltip: appText(context, 'به‌روزرسانی', 'Refresh'),
             ),
           ],
         ),
