@@ -20,9 +20,9 @@ test('OTP generation always produces a six-digit decimal code', () => {
 });
 
 test('OTP digest verifies only the matching code and validates stored format', () => {
-  const digest = digestOtp('123456', '0123456789abcdef0123456789abcdef');
-  assert.equal(verifyOtpDigest('123456', digest), true);
-  assert.equal(verifyOtpDigest('123457', digest), false);
-  assert.equal(verifyOtpDigest('12345', digest), false);
-  assert.equal(verifyOtpDigest('123456', { salt: 'bad', digest: digest.digest }), false);
+  const digest = digestOtp('123456', 'integration-test-pepper-that-is-at-least-32-characters', '0123456789abcdef0123456789abcdef');
+  assert.equal(verifyOtpDigest('123456', digest, 'integration-test-pepper-that-is-at-least-32-characters'), true);
+  assert.equal(verifyOtpDigest('123457', digest, 'integration-test-pepper-that-is-at-least-32-characters'), false);
+  assert.equal(verifyOtpDigest('12345', digest, 'integration-test-pepper-that-is-at-least-32-characters'), false);
+  assert.equal(verifyOtpDigest('123456', { salt: 'bad', digest: digest.digest }, 'integration-test-pepper-that-is-at-least-32-characters'), false);
 });
