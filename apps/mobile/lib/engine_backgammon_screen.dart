@@ -143,8 +143,8 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
       setState(() {
         final rolled = _engine.rollDice();
         _message = rolled.isEmpty
-            ? 'زمان تمام شد؛ حرکت خودکار آغاز نشد.'
-            : 'زمان تمام شد؛ تاس‌ها: ${_engine.dice.join('، ')}';
+            ? appText(context, 'زمان تمام شد؛ حرکت خودکار آغاز نشد.', 'Time is up; no automatic move was made.')
+            : appText(context, 'زمان تمام شد؛ تاس‌ها: ${_engine.dice.join('، ')}', 'Time is up; dice: ${_engine.dice.join(', ')}');
       });
       if (_engine.dice.isNotEmpty) {
         await Future<void>.delayed(const Duration(seconds: 3));
@@ -160,10 +160,10 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
         final move = _ai.chooseMove(_engine, difficulty: _difficulty);
         if (move != null) moved = _engine.playMove(move);
         _message = _engine.finished
-            ? 'بازی با پایان زمان و حرکت خودکار تمام شد.'
+            ? appText(context, 'بازی با پایان زمان و حرکت خودکار تمام شد.', 'The game ended after the timer and automatic move.')
             : moved
-                ? 'حرکت خودکار انجام شد؛ تاس باقی‌مانده: ${_engine.dice.join('، ')}'
-                : 'حرکت قانونی دیگری باقی نمانده است.';
+                ? appText(context, 'حرکت خودکار انجام شد؛ تاس باقی‌مانده: ${_engine.dice.join('، ')}', 'Automatic move made; remaining dice: ${_engine.dice.join(', ')}')
+                : appText(context, 'حرکت قانونی دیگری باقی نمانده است.', 'No legal moves remain.');
       });
       if (!moved) break;
     }
@@ -171,7 +171,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
     if (mounted && !_engine.finished) {
       setState(() {
         if (_engine.dice.isEmpty) {
-          _message = 'زمان تمام شد؛ حرکت‌های مجاز این نوبت انجام شد.';
+          _message = appText(context, 'زمان تمام شد؛ حرکت‌های مجاز این نوبت انجام شد.', 'Time is up; legal moves for this turn were completed.');
         }
       });
     }
@@ -227,11 +227,11 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
         _message = appText(context, 'حرکت مجاز وجود نداشت؛ نوبت عوض شد.', 'No legal move was available; the turn changed.');
       } else {
         _message =
-            'نوبت ${_playerName(_engine.currentPlayer)} · تاس: ${dice.join('، ')}';
+            appText(context, 'نوبت ${_playerName(_engine.currentPlayer)} · تاس: ${dice.join('، ')}', 'Turn: ${_playerName(_engine.currentPlayer)} · Dice: ${dice.join(', ')}');
       }
       if (before != _engine.currentPlayer && dice.isEmpty) {
         _message =
-            'حرکتی نبود؛ نوبت ${_playerName(_engine.currentPlayer)} است.';
+            appText(context, 'حرکتی نبود؛ نوبت ${_playerName(_engine.currentPlayer)} است.', 'No move was available; it is ${_playerName(_engine.currentPlayer)}’s turn.');
       }
     });
     _startTurnTimer();
