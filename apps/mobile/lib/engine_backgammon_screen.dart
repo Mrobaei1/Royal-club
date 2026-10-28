@@ -802,6 +802,11 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
       onPointTap: _tapPoint,
       onBearOff: _tapBearOff,
       themeColors: _boardThemes[_boardThemeIndex],
+      onRoll: _engine.dice.isEmpty && !_engine.finished && !_computerThinking &&
+              !(_vsComputer && _engine.currentPlayer == -1) ? _roll : null,
+      rollLabel: appText(context, 'ریختن تاس', 'Roll dice'),
+      timerText: _vsComputer && _engine.currentPlayer == -1 ? null : '⏱ $_secondsLeft',
+      timerWhite: _engine.currentPlayer == 1,
     );
   }
 
