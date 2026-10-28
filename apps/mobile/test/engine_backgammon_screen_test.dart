@@ -72,8 +72,8 @@ void main() {
     await tester.pumpAndSettle();
 
 
-    expect(find.text('Board theme:'), findsOneWidget);
     expect(find.text('Restart'), findsWidgets);
+    expect(find.text('Roll dice'), findsOneWidget);
   });
 
   testWidgets('offline game does not expose a local two-player mode selector',
