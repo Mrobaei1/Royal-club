@@ -1674,3 +1674,97 @@ test('delegated permission grants enforce the 50-user ceiling under owner author
   }
 });
 
+test('purpose-bound OTP can register a new phone account, log it in, and link a verified phone', async () => {
+  const prior = await testPool.query(
+    'SELECT delivery_mode, enabled, daily_limit, resend_cooldown_seconds FROM sms_otp_settings WHERE id = 1',
+  );
+  const old = prior.rows[0] ?? {};
+  await testPool.query(
+    `UPDATE sms_otp_settings
+        SET delivery_mode = 'development_simulator', enabled = FALSE,
+            daily_limit = 100, resend_cooldown_seconds = 30,
+            otp_ttl_seconds = 120, max_attempts = 3
+      WHERE id = 1`,
+  );
+  const phone = () => `09${String(Math.floor(Math.random() * 1_000_000_000)).padStart(9, '0')}`;
+  const requestCode = async (number: string, purpose: string) => {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/phone-otp/request',
+      payload: { phone: number, purpose },
+    });
+    assert.equal(response.statusCode, 202, response.body);
+    return String(response.json().testCode);
+  };
+
+  try {
+    const newPhone = phone();
+    const registerCode = await requestCode(newPhone, 'register');
+    const crossPurpose = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/phone-otp/verify',
+      payload: { phone: newPhone, code: registerCode },
+    });
+    assert.equal(crossPurpose.statusCode, 400, 'A registration code must not be usable as a generic verification code.');
+
+    const email = `otp-register-${randomUUID()}@example.test`;
+    const registered = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/phone-otp/register',
+      payload: {
+        phone: newPhone,
+        code: registerCode,
+        email,
+        password: 'IntegrationPass123!',
+        fullName: 'OTP Registered Player',
+        country: 'Iran',
+      },
+    });
+    assert.equal(registered.statusCode, 201, registered.body);
+    assert.ok(registered.json().accessToken);
+    const registeredId = String(registered.json().user.id);
+    const storedPhone = await testPool.query('SELECT phone_e164 FROM users WHERE id = $1', [registeredId]);
+    assert.equal(storedPhone.rows[0].phone_e164, `+98${newPhone.slice(1)}`);
+
+    await testPool.query(
+      'UPDATE sms_otp_challenges SET created_at = NOW() - INTERVAL \'1 minute\' WHERE phone_e164 = $1',
+      [`+98${newPhone.slice(1)}`],
+    );
+    const loginCode = await requestCode(newPhone, 'login');
+    const loggedIn = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/phone-otp/login',
+      payload: { phone: newPhone, code: loginCode },
+    });
+    assert.equal(loggedIn.statusCode, 200, loggedIn.body);
+    assert.equal(String(loggedIn.json().user.id), registeredId);
+    assert.ok(loggedIn.json().accessToken);
+
+    const account = await register('OTP Phone Link Account');
+    const linkPhone = phone();
+    const linkCode = await requestCode(linkPhone, 'link');
+    const linked = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/phone-otp/link',
+      headers: auth(account.token),
+      payload: { phone: linkPhone, code: linkCode },
+    });
+    assert.equal(linked.statusCode, 200, linked.body);
+    assert.equal(linked.json().phoneE164, `+98${linkPhone.slice(1)}`);
+
+    const duplicateCode = await requestCode(linkPhone, 'link');
+    const duplicateLink = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/phone-otp/link',
+      headers: auth(registered.json().accessToken),
+      payload: { phone: linkPhone, code: duplicateCode },
+    });
+    assert.equal(duplicateLink.statusCode, 409, duplicateLink.body);
+  } finally {
+    await testPool.query(
+      'UPDATE sms_otp_settings SET delivery_mode = $1, enabled = $2, daily_limit = $3, resend_cooldown_seconds = $4 WHERE id = 1',
+      [old.delivery_mode ?? 'disabled', old.enabled ?? false, old.daily_limit ?? 100, old.resend_cooldown_seconds ?? 60],
+    );
+  }
+});
+
