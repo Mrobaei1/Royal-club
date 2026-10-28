@@ -1839,7 +1839,7 @@ app.get('/api/v1/notifications', { onRequest: [requireMatchAuth] }, async (reque
   await pool.query(
     `DELETE FROM notifications
       WHERE user_id = $1 AND data ? 'inviteId'
-        AND created_at <= NOW() - INTERVAL '10 seconds'`,
+        AND created_at <= NOW() - INTERVAL '60 seconds'`,
     [claims.sub],
   );
   const result = await pool.query(
@@ -2359,12 +2359,12 @@ app.get('/api/v1/match-invites', { onRequest: [requireMatchAuth] }, async (reque
     )
     DELETE FROM backgammon_matches WHERE id IN (SELECT id FROM expired)
   `);
-  // Invitation cards expire after 10 seconds. Mark them responded without
+  // Invitation cards expire after 60 seconds. Mark them responded without
   // deleting the waiting room, so the host can invite the same friend again.
   await pool.query(
     `UPDATE backgammon_match_invites SET status = 'rejected', responded_at = NOW()
       WHERE invitee_id = $1 AND status = 'pending'
-        AND created_at <= NOW() - INTERVAL '10 seconds'`,
+        AND created_at <= NOW() - INTERVAL '60 seconds'`,
     [claims.sub]);
   await pool.query(
     `DELETE FROM notifications
@@ -2377,7 +2377,7 @@ app.get('/api/v1/match-invites', { onRequest: [requireMatchAuth] }, async (reque
     [claims.sub]);
   const result = await pool.query(
     `SELECT i.id, i.match_id AS "matchId", i.status, i.created_at AS "createdAt",
-            (i.created_at + INTERVAL '10 seconds') AS "expiresAt",
+            (i.created_at + INTERVAL '60 seconds') AS "expiresAt",
             m.room_code AS "roomCode", m.status AS "matchStatus",
             inviter.username AS "inviterUsername",
             inviter.avatar_data_url AS "inviterAvatarDataUrl"
@@ -2386,7 +2386,7 @@ app.get('/api/v1/match-invites', { onRequest: [requireMatchAuth] }, async (reque
        JOIN users inviter ON inviter.id = i.inviter_id
       WHERE i.invitee_id = $1 AND i.status = 'pending' AND m.status = 'waiting'
         AND m.guest_user_id IS NULL AND m.expires_at > NOW()
-        AND i.created_at > NOW() - INTERVAL '10 seconds'
+        AND i.created_at > NOW() - INTERVAL '60 seconds'
       ORDER BY i.created_at DESC LIMIT 50`,
     [claims.sub]);
   return { invites: result.rows };
@@ -2419,13 +2419,13 @@ app.post<{ Params: { id: string }; Body: { inviteeId?: string } }>(
         return reply.code(403).send({ error: 'You can invite accepted friends only.' });
       }
       // Expire this friend's old invitation before inserting a replacement.
-      // This lets the host re-invite after the 10-second card timeout even if
+      // This lets the host re-invite after the 10-second 60-second card timeout even if
       // the invitee has not reopened the lobby to trigger its cleanup endpoint.
       await client.query(
         `UPDATE backgammon_match_invites
             SET status = 'rejected', responded_at = NOW()
           WHERE match_id = $1 AND invitee_id = $2 AND status = 'pending'
-            AND created_at <= NOW() - INTERVAL '10 seconds'`,
+            AND created_at <= NOW() - INTERVAL '60 seconds'`,
         [request.params.id, inviteeId]);
       await client.query(
         `DELETE FROM notifications
@@ -2437,7 +2437,7 @@ app.post<{ Params: { id: string }; Body: { inviteeId?: string } }>(
         [inviteeId, request.params.id]);
 
       // Keep the waiting room available for 60 seconds, while each invitation
-      // card itself remains valid for only 10 seconds.
+      // card itself remains valid for 60 seconds.
       await client.query(
         `UPDATE backgammon_matches SET expires_at = NOW() + INTERVAL '60 seconds', updated_at = NOW()
           WHERE id = $1`,
@@ -2481,7 +2481,7 @@ app.post<{ Params: { id: string }; Body: { accept: boolean } }>(
         return reply.code(404).send({ error: 'Pending invitation not found.' });
       }
       const freshInvite = await client.query(
-        `SELECT created_at > NOW() - INTERVAL '10 seconds' AS fresh
+        `SELECT created_at > NOW() - INTERVAL '60 seconds' AS fresh
            FROM backgammon_match_invites WHERE id = $1`,
         [request.params.id]);
       if (!freshInvite.rows[0]?.fresh) {
