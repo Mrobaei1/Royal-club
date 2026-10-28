@@ -1595,3 +1595,57 @@ test('owner SMS settings keep provider credentials encrypted and refuse activati
   }
 });
 
+test('delegated permission grants enforce the 50-user ceiling under owner authorization', async () => {
+  const previousOwnerId = process.env.OWNER_USER_ID;
+  const owner = await register('Delegate Cap Owner');
+  process.env.OWNER_USER_ID = owner.user.id;
+  const prefix = `delegate-cap-${randomUUID()}`;
+  const createdIds: string[] = [];
+  try {
+    const activeCountResult = await testPool.query(
+      'SELECT COUNT(DISTINCT grantee_user_id)::int AS count FROM admin_permission_grants WHERE revoked_at IS NULL',
+    );
+    const activeCount = Number(activeCountResult.rows[0]?.count ?? 0);
+    assert.ok(activeCount <= 50, `Existing active delegated users unexpectedly exceed 50: ${activeCount}`);
+
+    const users = await testPool.query(
+      `INSERT INTO users (email, password_hash, full_name, phone, country, username)
+       SELECT $1 || '-' || n::text || '@example.test', 'test-only-hash', 'Delegate Cap Test', '', '', NULL
+         FROM generate_series(1, 51) AS n
+       RETURNING id`,
+      [prefix],
+    );
+    createdIds.push(...users.rows.map((row) => String(row.id)));
+    const slotsToFill = 50 - activeCount;
+    if (slotsToFill > 0) {
+      await testPool.query(
+        `INSERT INTO admin_permission_grants
+           (grantee_user_id, permission, scope, reason, approval_reference, granted_by)
+         SELECT user_id, 'reports.read', NULL, 'Test fixture for 50-delegate ceiling', 'integration-test', $2
+           FROM unnest($1::bigint[]) AS user_id`,
+        [createdIds.slice(0, slotsToFill), owner.user.id],
+      );
+    }
+
+    const overLimit = await app.inject({
+      method: 'POST',
+      url: '/api/v1/admin/permissions/grants',
+      headers: auth(owner.token),
+      payload: {
+        userId: createdIds[slotsToFill],
+        permission: 'reports.read',
+        reason: 'Verify delegate ceiling rejects user 51',
+        approvalReference: 'phase1-cap-test',
+      },
+    });
+    assert.equal(overLimit.statusCode, 409, overLimit.body);
+    assert.match(overLimit.json().error, /50 delegated users/);
+  } finally {
+    if (createdIds.length) {
+      await testPool.query('DELETE FROM users WHERE id = ANY($1::bigint[])', [createdIds]);
+    }
+    if (previousOwnerId === undefined) delete process.env.OWNER_USER_ID;
+    else process.env.OWNER_USER_ID = previousOwnerId;
+  }
+});
+
