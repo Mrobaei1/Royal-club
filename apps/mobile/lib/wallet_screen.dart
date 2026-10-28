@@ -56,7 +56,7 @@ class _WalletScreenState extends State<WalletScreen> {
       await _load();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text(appText(context, 'اشتراک با موفقیت فعال شد.', 'Subscription activated successfully.'))),
+          SnackBar(content: Text(appText(context, 'اشتراک با موفقیت فعال شد.', 'Subscription activated successfully.')))),
         );
       }
     } catch (error) {
