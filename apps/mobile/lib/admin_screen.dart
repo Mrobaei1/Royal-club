@@ -22,6 +22,16 @@ class _AdminScreenState extends State<AdminScreen> {
   final _notificationBody = TextEditingController();
   List<dynamic> _users = [];
   bool _busy = false;
+  Map<String, dynamic> _smsSettings = {};
+  String _smsMode = 'disabled';
+  String _smsProvider = 'kavenegar';
+  final _smsSender = TextEditingController();
+  final _smsTemplate = TextEditingController();
+  final _smsApiKey = TextEditingController();
+  final _smsTtl = TextEditingController(text: '120');
+  final _smsCooldown = TextEditingController(text: '60');
+  final _smsAttempts = TextEditingController(text: '5');
+  final _smsDailyLimit = TextEditingController(text: '100');
 
   @override
   void initState() {
@@ -37,6 +47,7 @@ class _AdminScreenState extends State<AdminScreen> {
     _price.dispose();
     _notificationTitle.dispose();
     _notificationBody.dispose();
+    _smsSender.dispose(); _smsTemplate.dispose(); _smsApiKey.dispose(); _smsTtl.dispose(); _smsCooldown.dispose(); _smsAttempts.dispose(); _smsDailyLimit.dispose();
     super.dispose();
   }
 
@@ -47,12 +58,40 @@ class _AdminScreenState extends State<AdminScreen> {
         if (mounted) setState(() { _owner = false; _loading = false; _error = null; });
         return;
       }
-      final results = await Future.wait([AdminService.plans(), AdminService.reports()]);
+      final results = await Future.wait([AdminService.plans(), AdminService.reports(), AdminService.smsOtpSettings()]);
       if (!mounted) return;
+      final sms = results[2] as Map<String, dynamic>;
+      _smsSettings = sms; _smsMode = sms['deliveryMode']?.toString() ?? 'disabled';
+      _smsProvider = sms['provider']?.toString().isNotEmpty == true ? sms['provider'].toString() : 'kavenegar';
+      _smsSender.text = sms['senderId']?.toString() ?? ''; _smsTemplate.text = sms['templateId']?.toString() ?? '';
+      _smsTtl.text = (sms['otpTtlSeconds'] ?? 120).toString(); _smsCooldown.text = (sms['resendCooldownSeconds'] ?? 60).toString();
+      _smsAttempts.text = (sms['maxAttempts'] ?? 5).toString(); _smsDailyLimit.text = (sms['dailyLimit'] ?? 100).toString();
       setState(() { _owner = true; _plans = results[0]; _reports = results[1]; _loading = false; _error = null; });
     } catch (e) {
       if (mounted) setState(() { _loading = false; _error = e.toString().replaceFirst('Exception: ', ''); });
     }
+  }
+
+
+  Future<void> _saveSmsSettings() async {
+    setState(() => _busy = true);
+    try {
+      final saved = await AdminService.saveSmsOtpSettings({
+        'enabled': false, 'deliveryMode': _smsMode, 'provider': _smsProvider,
+        'senderId': _smsSender.text.trim(), 'templateId': _smsTemplate.text.trim(),
+        if (_smsApiKey.text.isNotEmpty) 'apiKey': _smsApiKey.text,
+        'otpTtlSeconds': int.tryParse(_smsTtl.text) ?? 120,
+        'resendCooldownSeconds': int.tryParse(_smsCooldown.text) ?? 60,
+        'maxAttempts': int.tryParse(_smsAttempts.text) ?? 5,
+        'dailyLimit': int.tryParse(_smsDailyLimit.text) ?? 100,
+      });
+      _smsApiKey.clear();
+      if (!mounted) return;
+      setState(() => _smsSettings = saved);
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تنظیمات ذخیره شد؛ ارسال واقعی همچنان غیرفعال است.')));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))));
+    } finally { if (mounted) setState(() => _busy = false); }
   }
 
   Future<void> _search() async {
@@ -226,6 +265,35 @@ class _AdminScreenState extends State<AdminScreen> {
               SizedBox(height: 8), Text('این بخش فقط برای شناسه مالک تعریف‌شده در تنظیمات سرور قابل استفاده است.', textAlign: TextAlign.center),
             ])))
           : ListView(padding: const EdgeInsets.all(16), children: [
+
+              Card(child: Padding(padding: const EdgeInsets.all(14), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Text('امنیت و احراز هویت — پیامک / OTP', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 6),
+                const Text('ارسال واقعی پیامک و ورود با OTP تا تصمیم مدیر و تکمیل آداپتور قفل است.', style: TextStyle(color: Colors.orange)),
+                const SwitchListTile(contentPadding: EdgeInsets.zero, title: Text('فعال‌سازی OTP پیامکی'), subtitle: Text('فعلاً غیرفعال و غیرقابل فعال‌سازی'), value: false, onChanged: null),
+                DropdownButtonFormField<String>(value: _smsMode == 'development_simulator' ? 'development_simulator' : 'disabled', decoration: const InputDecoration(labelText: 'حالت ارسال'), items: const [
+                  DropdownMenuItem(value: 'disabled', child: Text('غیرفعال (پیش‌فرض)')),
+                  DropdownMenuItem(value: 'development_simulator', child: Text('شبیه‌ساز توسعه، بدون پیامک واقعی')),
+                ], onChanged: _busy ? null : (v) => setState(() => _smsMode = v ?? 'disabled')),
+                const SizedBox(height: 8),
+                DropdownButtonFormField<String>(value: _smsProvider, decoration: const InputDecoration(labelText: 'ارائه‌دهنده (قابل تغییر در آینده)'), items: const [
+                  DropdownMenuItem(value: 'kavenegar', child: Text('کاوه‌نگار')),
+                  DropdownMenuItem(value: 'ippanel', child: Text('IPPanel')),
+                  DropdownMenuItem(value: 'other', child: Text('سایر')),
+                ], onChanged: _busy ? null : (v) => setState(() => _smsProvider = v ?? 'kavenegar')),
+                const SizedBox(height: 8),
+                TextField(controller: _smsApiKey, obscureText: true, decoration: InputDecoration(labelText: 'کلید API (اختیاری)', helperText: _smsSettings['apiKeyConfigured'] == true ? 'کلید ذخیره شده و مخفی است.' : 'ذخیره امن نیازمند کلید رمزنگاری سمت سرور است.', border: const OutlineInputBorder())),
+                const SizedBox(height: 8),
+                TextField(controller: _smsSender, decoration: const InputDecoration(labelText: 'شناسه فرستنده', border: OutlineInputBorder())),
+                const SizedBox(height: 8),
+                TextField(controller: _smsTemplate, decoration: const InputDecoration(labelText: 'شناسه الگوی پیامک', border: OutlineInputBorder())),
+                Row(children: [Expanded(child: TextField(controller: _smsTtl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'اعتبار کد (ثانیه)'))), const SizedBox(width: 8), Expanded(child: TextField(controller: _smsCooldown, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'فاصله ارسال مجدد')))]),
+                Row(children: [Expanded(child: TextField(controller: _smsAttempts, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'حداکثر تلاش'))), const SizedBox(width: 8), Expanded(child: TextField(controller: _smsDailyLimit, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'سقف روزانه')))]),
+                const SizedBox(height: 10),
+                FilledButton.icon(onPressed: _busy ? null : _saveSmsSettings, icon: const Icon(Icons.save_outlined), label: const Text('ذخیره تنظیمات غیرفعال')),
+                Text('کلید ذخیره شده: ${_smsSettings['apiKeyConfigured'] == true ? 'بله (مخفی)' : 'خیر'}', style: const TextStyle(fontSize: 12)),
+              ]))),
+              const SizedBox(height: 22),
               const Text('اعتباردهی به کاربر', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
               const SizedBox(height: 10),
               TextField(controller: _email, keyboardType: TextInputType.emailAddress, decoration: const InputDecoration(labelText: 'ایمیل دقیق کاربر', border: OutlineInputBorder())),
