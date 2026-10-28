@@ -76,14 +76,14 @@ The following server-side foundation is present on the development branch:
 - Per-route IP rate limits and a per-phone database advisory lock protect simulator requests against flooding and concurrent cooldown races.
 - A provider interface and Kavenegar adapter support account-info connection checks and verification-template sends. Requests have a five-second timeout; provider errors, response bodies, API keys, and raw OTPs are not returned to clients.
 - Owner-only connection-check and test-message UI/API actions exist. A test message requires explicit confirmation that it may incur cost, is rate-limited, and records a redacted audit entry. **No test SMS has been sent as part of this work.**
-- SMS remains disabled by default. The settings API intentionally rejects attempts to enable OTP authentication; saving provider configuration does not send a message. Production OTP request/register/login/link routes require both `enabled=true` and `delivery_mode=real_provider`, so they remain unavailable while the current owner activation guard is in place. No real SMS delivery or phone-based login has been activated.
+- The mobile login/register screen exposes OTP only when the non-secret status endpoint reports availability; the account screen includes verified-phone linking. Production OTP request/register/login/link routes require both `enabled=true` and `delivery_mode=real_provider`. The settings API intentionally rejects activation, so production OTP remains unavailable until the owner explicitly approves and performs the activation workflow. No real SMS delivery has been activated.
 - Automated integration coverage now exercises simulator rejection of non-Iranian phones, wrong/valid/reused codes, stored digest behavior, cooldown, expiry, attempt exhaustion, daily limits, production-mode rejection, and denial of non-owner access to provider test endpoints.
 
 **Still not complete / not production-ready:**
 
 1. Review the owner-approved production activation/migration plan and manually validate account registration, phone login, and account-phone linking before any production activation. Existing email/password authentication remains available.
-2. Run and pass the complete API build, unit, integration, Flutter analyze, and Flutter test suites on the exact latest commit, then review any failures.
-3. Validate provider configuration against a real owner-controlled account; a real test message incurs cost and has not been sent.
+2. API build/unit/integration tests and Flutter analyze/tests passed on PR code commit `ea97530af955bccf6d3a8af9ae8597066c8dbb61`; rerun them after any subsequent code change and review any failures.
+3. Manually review OTP registration/login/link UI on Android in Persian RTL and English LTR. Validate provider configuration against a real owner-controlled account only after explicit approval; a real test message may incur cost and has not been sent.
 4. Do not configure production credentials, send a real test SMS, enable production delivery, or migrate users without the owner's explicit approval.
 
 Kavenegar API endpoints are based on its published REST examples: [account information and REST API](https://kavenegar.github.io/kavenegar_en/) and [verification lookup example](https://github.com/kavenegar/kavenegar-node).
