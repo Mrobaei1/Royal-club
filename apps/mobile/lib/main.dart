@@ -249,8 +249,8 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Padding(
-              padding: EdgeInsets.fromLTRB(20, 4, 20, 12),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
               child: Text(
                 appText(context, 'زبان برنامه', 'App language'),
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
@@ -736,7 +736,7 @@ class _AuthScreenState extends State<AuthScreen> {
                       value: _rememberMe,
                       controlAffinity: ListTileControlAffinity.leading,
                       title: Text(AppLocalizations.of(context).rememberMe),
-                      subtitle: const Text(
+                      subtitle: Text(
                           appText(context, 'نام کاربری و رمز عبور به‌صورت امن روی دستگاه ذخیره می‌شوند.', 'Your username and password are stored securely on this device.')),
                       onChanged: _busy
                           ? null
