@@ -82,7 +82,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                           children: [
                             Icon(Icons.cloud_off, color: Theme.of(context).colorScheme.primary, size: 42),
                             const SizedBox(height: 12),
-                            Text(_error!, textAlign: TextAlign.center,
+                            Text(appError(context, _error), textAlign: TextAlign.center,
                                 style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7))),
                             const SizedBox(height: 12),
                             FilledButton.icon(
