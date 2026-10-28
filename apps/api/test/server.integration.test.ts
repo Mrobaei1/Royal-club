@@ -719,6 +719,44 @@ test('registered players can join an online match and history does not expose op
     .some((notice) => String(notice.id) === String(expiredInviteNotice.rows[0].id)), false,
     'Invite notices older than sixty seconds must be removed from the notifications inbox.');
 
+  const staleRoomResponse = await app.inject({
+    method: 'POST',
+    url: '/api/v1/matches',
+    headers: auth(host.token),
+  });
+  assert.equal(staleRoomResponse.statusCode, 201, staleRoomResponse.body);
+  const staleRoomId = String(staleRoomResponse.json().match.id);
+  const staleInviteResponse = await app.inject({
+    method: 'POST',
+    url: `/api/v1/matches/${staleRoomId}/invites`,
+    headers: auth(host.token),
+    payload: { inviteeId: String(guest.user.id) },
+  });
+  assert.equal(staleInviteResponse.statusCode, 201, staleInviteResponse.body);
+  await testPool.query(
+    `UPDATE backgammon_matches SET expires_at = NOW() - INTERVAL '1 second' WHERE id = $1`,
+    [staleRoomId],
+  );
+  const staleInbox = await app.inject({
+    method: 'GET',
+    url: '/api/v1/match-invites',
+    headers: auth(guest.token),
+  });
+  assert.equal(staleInbox.statusCode, 200, staleInbox.body);
+  const staleRoomAfterCleanup = await testPool.query(
+    'SELECT id FROM backgammon_matches WHERE id = $1',
+    [staleRoomId],
+  );
+  assert.equal(staleRoomAfterCleanup.rowCount, 0,
+    'An unaccepted invitation room must be removed after its sixty-second expiry.');
+  const staleRoomNotifications = await testPool.query(
+    'SELECT id FROM notifications WHERE user_id = $1 AND data->>\'matchId\' = $2',
+    [guest.user.id, staleRoomId],
+  );
+  assert.equal(staleRoomNotifications.rowCount, 0,
+    'Deleting an expired invitation room must clear its notification.');
+
+
 
 
   const seriesRoom = await app.inject({
