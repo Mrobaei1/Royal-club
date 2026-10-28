@@ -575,6 +575,51 @@ test('registered players can join an online match and history does not expose op
   assert.equal(weeklyHost.level, 1);
   assert.equal(Object.hasOwn(weeklyHost, 'fullName'), false);
 
+  // Weekly rankings must ignore unfinished rooms and finished records with no
+  // authoritative winner (for example, an abandoned or unresolved match).
+  const unfinishedRoom = await app.inject({
+    method: 'POST',
+    url: '/api/v1/matches',
+    headers: auth(host.token),
+  });
+  assert.equal(unfinishedRoom.statusCode, 201, unfinishedRoom.body);
+  const unfinishedRoomId = String(unfinishedRoom.json().match.id);
+  await testPool.query(
+    `UPDATE backgammon_matches
+        SET status = 'active', off_state = '{"host":14,"guest":14}'::jsonb,
+            winner_user_id = NULL, updated_at = NOW()
+      WHERE id = $1`,
+    [unfinishedRoomId],
+  );
+
+  const unresolvedRoom = await app.inject({
+    method: 'POST',
+    url: '/api/v1/matches',
+    headers: auth(host.token),
+  });
+  assert.equal(unresolvedRoom.statusCode, 201, unresolvedRoom.body);
+  const unresolvedRoomId = String(unresolvedRoom.json().match.id);
+  await testPool.query(
+    `UPDATE backgammon_matches
+        SET status = 'finished', off_state = '{"host":14,"guest":14}'::jsonb,
+            winner_user_id = NULL, updated_at = NOW()
+      WHERE id = $1`,
+    [unresolvedRoomId],
+  );
+
+  const weeklyAfterUnresolved = await app.inject({
+    method: 'GET',
+    url: '/api/v1/leaderboard/weekly',
+    headers: auth(host.token),
+  });
+  assert.equal(weeklyAfterUnresolved.statusCode, 200, weeklyAfterUnresolved.body);
+  const hostAfterUnresolved = (weeklyAfterUnresolved.json().leaderboard as Array<Record<string, unknown>>)
+    .find((player) => String(player.userId) === String(host.user.id));
+  assert.ok(hostAfterUnresolved);
+  assert.equal(hostAfterUnresolved.score, 3, 'Unfinished/unresolved matches must not add weekly points.');
+  assert.equal(hostAfterUnresolved.gamesPlayed, 1, 'Unfinished/unresolved matches must not count as weekly games.');
+  assert.equal(hostAfterUnresolved.wins, 1);
+
   // Prepare a single legal bear-off in the disposable DB so the real move route
   // finishes a game and exercises atomic rating updates without a 15-checker simulation.
   const nearWinBoard = Array<number>(24).fill(0);
