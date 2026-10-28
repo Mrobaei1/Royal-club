@@ -19,6 +19,7 @@ class AdminService {
       'GET' => await http.get(uri, headers: headers),
       'POST' => await http.post(uri, headers: headers, body: jsonEncode(body ?? {})),
       'PATCH' => await http.patch(uri, headers: headers, body: jsonEncode(body ?? {})),
+      'DELETE' => await http.delete(uri, headers: headers),
       _ => throw ArgumentError('Unsupported request method'),
     };
     final decoded = jsonDecode(response.body);
@@ -34,6 +35,32 @@ class AdminService {
 
   static Future<Map<String, dynamic>> saveSmsOtpSettings(Map<String, dynamic> settings) async =>
       (await _request('PATCH', '/api/v1/admin/security/sms-otp', body: settings))['settings'] as Map<String, dynamic>;
+
+  static Future<List<dynamic>> permissionGrants() async =>
+      (await _request('GET', '/api/v1/admin/permissions/grants'))['grants'] as List<dynamic>? ?? [];
+
+  static Future<List<dynamic>> permissionAudit() async =>
+      (await _request('GET', '/api/v1/admin/permissions/audit'))['entries'] as List<dynamic>? ?? [];
+
+  static Future<Map<String, dynamic>> createPermissionGrant({
+    required String userId,
+    required String permission,
+    required String reason,
+    String? approvalReference,
+    List<String>? resourceIds,
+  }) async => (await _request('POST', '/api/v1/admin/permissions/grants', body: {
+        'userId': userId,
+        'permission': permission,
+        'reason': reason,
+        if (approvalReference != null && approvalReference.trim().isNotEmpty)
+          'approvalReference': approvalReference.trim(),
+        if (resourceIds != null && resourceIds.isNotEmpty)
+          'scope': {'resourceIds': resourceIds},
+      }))['grant'] as Map<String, dynamic>;
+
+  static Future<void> revokePermissionGrant(String grantId) async {
+    await _request('DELETE', '/api/v1/admin/permissions/grants/$grantId');
+  }
 
   static Future<bool> isOwner() async => (await _request('GET', '/api/v1/admin/status'))['isOwner'] == true;
   static Future<List<dynamic>> plans() async => (await _request('GET', '/api/v1/admin/subscription-plans'))['plans'] as List<dynamic>? ?? [];
