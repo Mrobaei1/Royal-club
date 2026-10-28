@@ -100,7 +100,7 @@ class _WalletScreenState extends State<WalletScreen> {
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text(appText(context, 'موجودی اعتبار', 'Credit balance'), style: TextStyle(color: colors.onSurface.withValues(alpha: 0.7))),
                   const SizedBox(height: 8),
-                  Text('$_balance اعتبار', style: TextStyle(color: colors.primary, fontSize: 30, fontWeight: FontWeight.w900)),
+                  Text(appText(context, '$_balance اعتبار', '$_balance credits'), style: TextStyle(color: colors.primary, fontSize: 30, fontWeight: FontWeight.w900)),
                   const SizedBox(height: 8),
                   Text(appText(context, 'اعتبارها قابل انتقال نیستند؛ شارژ فقط توسط مدیر مجاز انجام می‌شود.', 'Credits are non-transferable; only an authorized administrator can add credits.'), style: TextStyle(color: colors.onSurface.withValues(alpha: 0.7), fontSize: 12)),
                 ]),
