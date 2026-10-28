@@ -1005,6 +1005,22 @@ test('delegated report permissions are owner-granted, resource-scoped, audited, 
     });
     assert.equal(deniedList.statusCode, 403, deniedList.body);
 
+    const deniedSmsConnectionTest = await app.inject({
+      method: 'POST',
+      url: '/api/v1/admin/security/sms-otp/test-connection',
+      headers: auth(assistant.token),
+      payload: {},
+    });
+    assert.equal(deniedSmsConnectionTest.statusCode, 403, deniedSmsConnectionTest.body);
+
+    const deniedSmsMessageTest = await app.inject({
+      method: 'POST',
+      url: '/api/v1/admin/security/sms-otp/test-message',
+      headers: auth(assistant.token),
+      payload: { phone: '09123456789', confirmCost: true },
+    });
+    assert.equal(deniedSmsMessageTest.statusCode, 403, deniedSmsMessageTest.body);
+
     const createdA = await testPool.query(
       'INSERT INTO user_reports (reporter_id, reported_user_id, reason) VALUES ($1, $2, $3) RETURNING id',
       [assistant.user.id, targetA.user.id, 'Integration test report for scoped permission A'],
