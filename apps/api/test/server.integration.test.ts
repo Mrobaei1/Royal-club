@@ -1778,6 +1778,14 @@ test('purpose-bound OTP can register a new phone account, log it in, and link a 
     assert.equal(linked.statusCode, 200, linked.body);
     assert.equal(linked.json().phoneE164, `+98${linkPhone.slice(1)}`);
 
+    const unverifiedPhoneEdit = await app.inject({
+      method: 'PATCH',
+      url: '/api/v1/me/profile',
+      headers: auth(account.token),
+      payload: { fullName: 'OTP Phone Link Account', phone: '09111111111', country: 'Iran' },
+    });
+    assert.equal(unverifiedPhoneEdit.statusCode, 409, unverifiedPhoneEdit.body);
+
     await testPool.query(
       'UPDATE sms_otp_challenges SET created_at = NOW() - INTERVAL \'1 minute\' WHERE phone_e164 = $1',
       [`+98${linkPhone.slice(1)}`],
