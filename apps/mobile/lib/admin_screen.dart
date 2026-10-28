@@ -161,16 +161,16 @@ class _AdminScreenState extends State<AdminScreen> {
     if (enabled) {
       final confirmed = await showDialog<bool>(
         context: context,
-        builder: (context) => AlertDialog(
-          title: Text(appText(context, 'فعال‌سازی مجوزهای تفویض‌شده', 'Enable delegated permissions')),
-          content: Text(appText(context, 'با این کار مجوزهای ثبت‌شده می‌توانند به مسیرهای سرور متصل‌شده دسترسی بدهند. فقط در صورت بررسی مجوزها ادامه دهید.', 'Existing grants may access server routes wired to delegated permissions. Continue only after reviewing the grants.')),
+        builder: (dialogContext) => AlertDialog(
+          title: Text(appText(dialogContext, 'فعال‌سازی مجوزهای تفویض‌شده', 'Enable delegated permissions')),
+          content: Text(appText(dialogContext, 'با این کار مجوزهای ثبت‌شده می‌توانند به مسیرهای سرور متصل‌شده دسترسی بدهند. فقط پس از بررسی مجوزها ادامه دهید.', 'Existing grants may access server routes wired to delegated permissions. Continue only after reviewing the grants.')),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context, false), child: Text(appText(context, 'انصراف', 'Cancel'))),
-            FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(appText(context, 'فعال‌سازی', 'Enable'))),
+            TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: Text(appText(dialogContext, 'انصراف', 'Cancel'))),
+            FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: Text(appText(dialogContext, 'فعال‌سازی', 'Enable'))),
           ],
         ),
       );
-      if (confirmed != true) { return; }
+      if (confirmed != true) return;
     }
     setState(() => _busy = true);
     try {
@@ -178,11 +178,13 @@ class _AdminScreenState extends State<AdminScreen> {
       if (!mounted) return;
       setState(() => _delegatedPermissionsEnabled = saved['enabled'] == true);
       await _load();
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(enabled
-          ? appText(context, 'مجوزهای تفویض‌شده فعال شدند.', 'Delegated permissions enabled.')
-          : appText(context, 'کلید قطع اضطراری فعال شد؛ مجوزهای تفویض‌شده غیرفعال‌اند.', 'Kill switch engaged; delegated permissions are disabled.'),
-      )));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(enabled
+            ? appText(context, 'مجوزهای تفویض‌شده فعال شدند.', 'Delegated permissions enabled.')
+            : appText(context, 'کلید قطع اضطراری فعال شد؛ مجوزهای تفویض‌شده غیرفعال‌اند.', 'Kill switch engaged; delegated permissions are disabled.')),
+        ));
+      }
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appError(context, e))));
     } finally {
@@ -191,63 +193,108 @@ class _AdminScreenState extends State<AdminScreen> {
   }
 
   Future<void> _grantPermission(dynamic user) async {
-    String selected = 'users.read';
+    String selected = 'reports.read';
     final reason = TextEditingController();
     final reference = TextEditingController();
+    final scopeIds = TextEditingController();
     final formKey = GlobalKey<FormState>();
-    final choices = const <String>[
-      'users.read', 'users.moderate', 'reports.read', 'reports.manage',
-      'notifications.send', 'leagues.read', 'leagues.manage',
-      'marketing.read', 'marketing.manage', 'operations.read',
-    ];
+    const choices = <String>['reports.read', 'reports.manage'];
     final result = await showDialog<Map<String, String>>(
       context: context,
-      builder: (dialogContext) => StatefulBuilder(builder: (context, setDialogState) => AlertDialog(
-        title: Text(appText(context, 'اعطای مجوز محدود', 'Grant scoped permission')),
-        content: Form(key: formKey, child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Text('@${user['username'] ?? 'user'}'),
-          const SizedBox(height: 10),
-          DropdownButtonFormField<String>(
-            initialValue: selected,
-            isExpanded: true,
-            decoration: InputDecoration(labelText: appText(context, 'مجوز', 'Permission')),
-            items: choices.map((value) => DropdownMenuItem(value: value, child: Text(value))).toList(),
-            onChanged: (value) { if (value != null) setDialogState(() => selected = value); },
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text(appText(context, 'اعطای مجوز محدود', 'Grant scoped permission')),
+          content: Form(
+            key: formKey,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('@${user['username'] ?? 'user'}'),
+                  const SizedBox(height: 10),
+                  DropdownButtonFormField<String>(
+                    initialValue: selected,
+                    isExpanded: true,
+                    decoration: InputDecoration(labelText: appText(context, 'مجوز', 'Permission')),
+                    items: choices.map((value) => DropdownMenuItem(value: value, child: Text(value))).toList(),
+                    onChanged: (value) {
+                      if (value != null) setDialogState(() => selected = value);
+                    },
+                  ),
+                  const SizedBox(height: 10),
+                  TextFormField(
+                    controller: reason,
+                    maxLength: 500,
+                    decoration: InputDecoration(labelText: appText(context, 'دلیل اعطای مجوز (الزامی)', 'Reason (required)')),
+                    validator: (value) => value == null || value.trim().length < 5
+                      ? appText(context, 'دلیل باید حداقل ۵ نویسه باشد.', 'Reason must be at least 5 characters.')
+                      : null,
+                  ),
+                  TextFormField(
+                    controller: scopeIds,
+                    decoration: InputDecoration(
+                      labelText: appText(context, 'شناسه کاربرهای هدف برای reports.manage', 'Target user IDs for reports.manage'),
+                      helperText: appText(context, 'برای مدیریت گزارش، شناسه‌های عددی کاربران را با ویرگول وارد کنید.', 'For report management, enter numeric target user IDs separated by commas.'),
+                    ),
+                    validator: (value) {
+                      if (selected != 'reports.manage') return null;
+                      final ids = (value ?? '').split(',').map((id) => id.trim()).where((id) => id.isNotEmpty).toList();
+                      if (ids.isEmpty || ids.any((id) => !RegExp(r'^[1-9][0-9]*$').hasMatch(id))) {
+                        return appText(context, 'برای این مجوز محدوده معتبر الزامی است.', 'A valid resource scope is required for this permission.');
+                      }
+                      return null;
+                    },
+                  ),
+                  TextField(
+                    controller: reference,
+                    maxLength: 200,
+                    decoration: InputDecoration(labelText: appText(context, 'شناسه تأیید (اختیاری)', 'Approval reference (optional)')),
+                  ),
+                  Text(
+                    appText(context, 'فقط مجوزهای دارای مسیر سرور کنترل‌شده قابل استفاده‌اند. هیچ مجوزی خودکار ایجاد نمی‌شود.', 'Only permissions with enforced server routes can be used. No grants are created automatically.'),
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
           ),
-          const SizedBox(height: 10),
-          TextFormField(
-            controller: reason,
-            maxLength: 500,
-            decoration: InputDecoration(labelText: appText(context, 'دلیل اعطای مجوز (الزامی)', 'Reason (required)')),
-            validator: (value) => (value == null || value.trim().length < 5) ? appText(context, 'دلیل باید حداقل ۵ نویسه باشد.', 'Reason must be at least 5 characters.') : null,
-          ),
-          TextField(
-            controller: reference,
-            maxLength: 200,
-            decoration: InputDecoration(labelText: appText(context, 'شناسه تأیید (اختیاری)', 'Approval reference (optional)')),
-          ),
-          Text(appText(context, 'این کار فقط مجوز را ثبت می‌کند؛ تا زمان اتصال به مسیرهای مجازشده، دسترسی عملیاتی ایجاد نمی‌شود. هیچ مجوزی خودکار ایجاد نمی‌شود.', 'This only records the grant; it does not enable operational access until protected routes are wired to it. No grants are created automatically.'), style: const TextStyle(fontSize: 12)),
-        ]))),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext), child: Text(appText(context, 'انصراف', 'Cancel'))),
-          FilledButton(onPressed: () {
-            if (formKey.currentState?.validate() == true) {
-              Navigator.pop(dialogContext, {'permission': selected, 'reason': reason.text.trim(), 'reference': reference.text.trim()});
-            }
-          }, child: Text(appText(context, 'ثبت مجوز', 'Create grant'))),
-        ],
-      )),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(dialogContext), child: Text(appText(context, 'انصراف', 'Cancel'))),
+            FilledButton(
+              onPressed: () {
+                if (formKey.currentState?.validate() == true) {
+                  Navigator.pop(dialogContext, {
+                    'permission': selected,
+                    'reason': reason.text.trim(),
+                    'reference': reference.text.trim(),
+                    'resourceIds': scopeIds.text.trim(),
+                  });
+                }
+              },
+              child: Text(appText(context, 'ثبت مجوز', 'Create grant')),
+            ),
+          ],
+        ),
+      ),
     );
     reason.dispose();
     reference.dispose();
+    scopeIds.dispose();
     if (result == null) return;
     setState(() => _busy = true);
     try {
+      final resourceIds = result['resourceIds']!
+        .split(',')
+        .map((id) => id.trim())
+        .where((id) => id.isNotEmpty)
+        .toSet()
+        .toList();
       await AdminService.createPermissionGrant(
         userId: user['id'].toString(),
         permission: result['permission']!,
         reason: result['reason']!,
         approvalReference: result['reference'],
+        resourceIds: resourceIds.isEmpty ? null : resourceIds,
       );
       await _load();
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appText(context, 'مجوز ثبت شد.', 'Permission grant created.'))));
