@@ -24,16 +24,16 @@ This is a source/configuration review of the repository branch, not a penetratio
 2. **Owner authorization is a single numeric-ID gate, not a role system.** A dormant delegated-permission API/schema now supports allowlisted grants, resource scopes, revocation, a 50-delegate ceiling, and audit records, with integration coverage for scope and revocation. The owner UI supports grant listing/revocation and currently only exposes report-reading/report-management grants; full permission-matrix acceptance and broader negative tests remain open. No grants are seeded; do not grant permissions or activate identities based on planning docs.
 3. **OTP is not implemented end-to-end.** A development-only hashed challenge lifecycle, Iranian phone normalization, per-phone cooldown/daily limits, per-IP route limits, Kavenegar adapter, owner-only connection check, cost-confirmed test-message endpoint, and matching owner UI controls exist. Phone OTP is not wired into account registration/login; the new flows still need comprehensive integration tests and manual UI review. Keep real SMS disabled and existing email/password authentication available.
 4. **Localization is incomplete.** ARB parity does not establish that all visible labels/errors are localized, nor does it prove RTL/LTR behavior. Complete the source audit and device review.
-5. **No live deployment verification was possible.** The code's health routes and CI cannot prove that the production API/database is healthy or that deployed CORS/secrets match repository guidance.
+5. **Production deployment/schema is behind this branch.** A read-only Neon query on 2026-10-28 confirmed the `Royal-Club-API` production database is reachable (PostgreSQL 18.6), but `sms_otp_settings`, `sms_otp_challenges`, `admin_permission_grants`, and `admin_permission_audit_log` do not exist there. The deployed API health endpoint could not be verified through the available HTTP check. The production project currently has no Neon IP allowlist configured. Do not apply migrations or deploy the branch without explicit release approval; production CORS/secrets and runtime health still need verification.
 
 ## Required closure evidence
 
-- [ ] Inspect deployed secret/configuration *without exposing values*; verify production CORS and database access configuration.
+- [ ] Inspect deployed secret/configuration *without exposing values*; verify production CORS and database access configuration, and review whether a Neon IP allowlist is feasible for the hosting architecture.
 - [ ] Add and pass negative tests for expired/malformed JWTs, unauthenticated and non-owner administrative calls, secret redaction, and missing owner configuration.
 - [ ] Implement and test role/permission storage and server enforcement before creating or activating any additional privileged identity.
 - [ ] Complete OTP integration tests and account-registration/login integration while real SMS remains off by default.
 - [ ] Complete localization parity/string audit and test Persian RTL plus English LTR on actual Android devices.
-- [ ] Record successful health checks against the actual production API and database, plus manual acceptance evidence.
+- [ ] Deploy only after explicit release approval, then verify actual API/database health and expected schema on the deployed branch; also capture manual acceptance evidence.
 
 ## Decision
 
