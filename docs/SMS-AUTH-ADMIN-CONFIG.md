@@ -71,19 +71,19 @@ The following server-side foundation is present on the development branch:
 
 - The API creates a singleton settings row with SMS disabled and safe default OTP policy values.
 - Owner-only API endpoints expose non-secret settings and a bounded audit history. Provider API keys are encrypted with AES-256-GCM; the encryption key is supplied only through `SMS_CREDENTIALS_ENCRYPTION_KEY` as a base64-encoded 32-byte key.
-- Iranian mobile normalization, six-digit cryptographically generated codes, salted OTP digests, expiration, maximum attempts, resend cooldown, daily per-phone limits, superseded-challenge invalidation, and one-time consumption are implemented.
-- Development simulator request/verify endpoints work only outside production and only when the delivery mode is explicitly set to `development_simulator`. The test code is returned only by this development-only endpoint. Verification does not create an account, link a phone, or issue an access token.
-- Per-route IP rate limits and a per-phone database advisory lock protect simulator requests against simple flooding and concurrent cooldown races.
-- A provider interface and Kavenegar adapter are present for account-info connection checks and verification-template sends. Requests have a five-second timeout and raw provider errors/responses are not returned to clients.
-- Owner-only connection-check and test-message endpoints exist. A test message requires `confirmCost: true`, is rate-limited, and records a redacted audit entry. **No test SMS has been sent as part of this work.**
+- Iranian mobile normalization, six-digit cryptographically generated codes, salted HMAC-SHA256 OTP digests using the server secret as a pepper, expiration, maximum attempts, resend cooldown, both global and per-phone daily ceilings, superseded-challenge invalidation, and one-time consumption are implemented.
+- Development simulator request/verify endpoints run only when `NODE_ENV` is explicitly `development` or `test`, and only when delivery mode is `development_simulator`. The test code is returned only by this isolated endpoint. Verification does not create an account, link a phone, or issue an access token.
+- Per-route IP rate limits and a per-phone database advisory lock protect simulator requests against flooding and concurrent cooldown races.
+- A provider interface and Kavenegar adapter support account-info connection checks and verification-template sends. Requests have a five-second timeout; provider errors, response bodies, API keys, and raw OTPs are not returned to clients.
+- Owner-only connection-check and test-message UI/API actions exist. A test message requires explicit confirmation that it may incur cost, is rate-limited, and records a redacted audit entry. **No test SMS has been sent as part of this work.**
 - SMS remains disabled by default. The settings API rejects attempts to enable OTP authentication; saving provider configuration does not send a message. Real SMS delivery and phone-based login are not active.
+- Automated integration coverage now exercises simulator rejection of non-Iranian phones, wrong/valid/reused codes, stored digest behavior, cooldown, expiry, attempt exhaustion, daily limits, production-mode rejection, and denial of non-owner access to provider test endpoints.
 
 **Still not complete / not production-ready:**
 
 1. Wire phone OTP verification into account registration/login and account-phone linking, with transaction-safe uniqueness and a reviewed migration plan. Existing email/password authentication must remain available until owner-approved cutover.
-2. Complete the owner UI for provider selection, credential configuration, connection-check and explicitly confirmed test-message actions; localize all controls and errors in Persian and English.
-3. Add integration coverage for expiry, cooldown, daily limits, attempt exhaustion, concurrent requests/verifications, production rejection, provider timeout/error redaction, and test-message confirmation/rate limiting.
-4. Verify the full API build and integration suite on the exact current commit; a successful earlier CI run does not cover these new changes.
-5. Do not configure real provider credentials, send a real test SMS, enable production delivery, or migrate users without the owner's explicit approval.
+2. Run and pass the complete API build, unit, integration, Flutter analyze, and Flutter test suites on the exact latest commit, then review any failures.
+3. Validate provider configuration against a real owner-controlled account; a real test message incurs cost and has not been sent.
+4. Do not configure production credentials, send a real test SMS, enable production delivery, or migrate users without the owner's explicit approval.
 
 Kavenegar API endpoints are based on its published REST examples: [account information and REST API](https://kavenegar.github.io/kavenegar_en/) and [verification lookup example](https://github.com/kavenegar/kavenegar-node).
