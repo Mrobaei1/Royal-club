@@ -26,7 +26,7 @@ class _ChatScreenState extends State<ChatScreen> {
       final items = await ChatService.conversations();
       if (mounted) setState(() { _conversations = items; _loading = false; _error = null; });
     } catch (e) {
-      if (mounted) setState(() { _error = e.toString().replaceFirst('Exception: ', ''); _loading = false; });
+      if (mounted) setState(() { _error = appError(context, e); _loading = false; });
     }
   }
 
@@ -112,7 +112,7 @@ class _ChatThreadScreenState extends State<ChatThreadScreen> {
         });
       }
     } catch (e) {
-      if (mounted) setState(() { _error = e.toString().replaceFirst('Exception: ', ''); _loading = false; });
+      if (mounted) setState(() { _error = appError(context, e); _loading = false; });
     }
   }
 
@@ -151,7 +151,7 @@ class _ChatThreadScreenState extends State<ChatThreadScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+          SnackBar(content: Text(appError(context, e))),
         );
       }
     }
@@ -186,7 +186,7 @@ class _ChatThreadScreenState extends State<ChatThreadScreen> {
     controller.dispose();
     if (body == null || body.isEmpty || !mounted) { return; }
     try { await ChatService.edit(widget.userId, id, body); await _load(); }
-    catch (e) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString().replaceFirst('Exception: ', '')))); }
+    catch (e) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appError(context, e)))); }
   }
 
   Future<void> _deleteSelected({required bool forBoth}) async {
@@ -210,7 +210,7 @@ class _ChatThreadScreenState extends State<ChatThreadScreen> {
     );
     if (confirmed != true || !mounted) return;
     try { await ChatService.deleteMessages(widget.userId, selected.map((m) => m['id'].toString()).toList(), forBoth: forBoth); await _load(); }
-    catch (e) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString().replaceFirst('Exception: ', '')))); }
+    catch (e) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appError(context, e)))); }
   }
 
   Future<void> _send() async {
@@ -222,7 +222,7 @@ class _ChatThreadScreenState extends State<ChatThreadScreen> {
       _composer.clear();
       await _load();
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appError(context, e))));
     } finally {
       if (mounted) setState(() => _sending = false);
     }
@@ -245,7 +245,7 @@ class _ChatThreadScreenState extends State<ChatThreadScreen> {
       await ChatService.send(widget.userId, encoded);
       await _load();
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appError(context, e))));
     } finally {
       if (mounted) setState(() => _sending = false);
     }
