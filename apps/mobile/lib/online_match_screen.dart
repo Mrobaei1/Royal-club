@@ -136,7 +136,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
         builder: (dialogContext) => Directionality(
           textDirection: isEnglish ? TextDirection.ltr : TextDirection.rtl,
           child: AlertDialog(
-            title: Text(isEnglish ? 'Invite a friend' : 'دعوت از دوست'),
+            title: Text(appText(context, 'دعوت از دوست', 'Invite a friend')),
             content: SizedBox(
               width: 360,
               child: ListView(
@@ -151,7 +151,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(dialogContext).pop(),
-                child: Text(isEnglish ? 'Cancel' : 'انصراف'),
+                child: Text(appText(context, 'انصراف', 'Cancel')),
               ),
             ],
           ),
@@ -208,7 +208,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: Theme.of(context).colorScheme.surface,
-        title: Text(isEnglish ? 'Head-to-head stats' : 'آمار رودررو', style: TextStyle(color: Theme.of(context).colorScheme.primary)),
+        title: Text(appText(context, 'آمار رودررو', 'Head-to-head stats'), style: TextStyle(color: Theme.of(context).colorScheme.primary)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -216,12 +216,12 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
             Text('$viewerName  $viewerPoints  -  $opponentPoints  $opponentName',
               textAlign: TextAlign.center, style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.bold)),
             const SizedBox(height: 14),
-            _headToHeadRow(isEnglish ? 'Matches played' : 'تعداد مسابقات رودررو', '$matches'),
-            _headToHeadRow(isEnglish ? 'Match wins' : 'بردهای مسابقه', '$viewerWins - $opponentWins'),
-            _headToHeadRow(isEnglish ? 'Game points' : 'امتیاز دست‌ها', '$viewerPoints - $opponentPoints'),
+            _headToHeadRow(appText(context, 'تعداد مسابقات رودررو', 'Matches played'), '$matches'),
+            _headToHeadRow(appText(context, 'بردهای مسابقه', 'Match wins'), '$viewerWins - $opponentWins'),
+            _headToHeadRow(appText(context, 'امتیاز دست‌ها', 'Game points'), '$viewerPoints - $opponentPoints'),
           ],
         ),
-        actions: [TextButton(onPressed: () => Navigator.of(context).pop(), child: Text(isEnglish ? 'Close' : 'بستن'))],
+        actions: [TextButton(onPressed: () => Navigator.of(context).pop(), child: Text(appText(context, 'بستن', 'Close')))],
       ),
     );
   }
@@ -242,7 +242,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
       builder: (dialogContext) => Directionality(
         textDirection: (Localizations.localeOf(context).languageCode == 'en' ? TextDirection.ltr : TextDirection.rtl),
         child: AlertDialog(
-          title: Text(isEnglish ? 'Resign' : 'تسلیم'),
+          title: Text(appText(context, 'تسلیم', 'Resign')),
           content: Text(isEnglish ? 'Choose what to resign:' : 'نوع تسلیم را انتخاب کنید:'),
           actions: [
             TextButton(
