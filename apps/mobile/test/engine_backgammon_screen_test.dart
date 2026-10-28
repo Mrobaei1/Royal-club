@@ -24,7 +24,7 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    await tester.pumpWidget(const MaterialApp(home: EngineBackgammonScreen()));
+    await tester.pumpWidget(const MaterialApp(locale: Locale('fa'), home: EngineBackgammonScreen()));
     await tester.pump();
     expect(find.text('روش بازی را انتخاب کنید'), findsOneWidget);
     await tester.tap(find.text('بازی آفلاین با هوش مصنوعی'));
@@ -52,7 +52,7 @@ void main() {
 
   testWidgets('offline game does not expose a local two-player mode selector',
       (tester) async {
-    await tester.pumpWidget(const MaterialApp(home: EngineBackgammonScreen()));
+    await tester.pumpWidget(const MaterialApp(locale: Locale('fa'), home: EngineBackgammonScreen()));
     await tester.tap(find.text('بازی آفلاین با هوش مصنوعی'));
     await tester.pumpAndSettle();
     expect(find.text('بازی دونفره'), findsNothing);
@@ -68,7 +68,7 @@ void main() {
 
     final engine = BackgammonEngine();
     await tester.pumpWidget(
-      MaterialApp(home: EngineBackgammonScreen(engineForTesting: engine, vsComputerForTesting: false)),
+      MaterialApp(locale: const Locale('fa'), home: EngineBackgammonScreen(engineForTesting: engine, vsComputerForTesting: false)),
     );
     await tester.tap(find.text('بازی آفلاین با هوش مصنوعی'));
     await tester.pumpAndSettle();
@@ -102,7 +102,7 @@ void main() {
 
     final engine = BackgammonEngine();
     await tester.pumpWidget(
-      MaterialApp(home: EngineBackgammonScreen(engineForTesting: engine, vsComputerForTesting: false)),
+      MaterialApp(locale: const Locale('fa'), home: EngineBackgammonScreen(engineForTesting: engine, vsComputerForTesting: false)),
     );
     await tester.tap(find.text('بازی آفلاین با هوش مصنوعی'));
     await tester.pumpAndSettle();
@@ -137,7 +137,7 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    await tester.pumpWidget(const MaterialApp(home: EngineBackgammonScreen()));
+    await tester.pumpWidget(const MaterialApp(locale: Locale('fa'), home: EngineBackgammonScreen()));
     await tester.tap(find.text('بازی آفلاین با هوش مصنوعی'));
     await tester.pumpAndSettle();
 
