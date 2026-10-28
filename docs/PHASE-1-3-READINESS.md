@@ -31,8 +31,8 @@ This checklist is the release gate before starting Phase 4. A green CI run prove
 
 - [x] CI integration test passed for wallet debit, insufficient balance, subscription activation, active-subscription lookup, and ledger consistency.
 - [x] Integration test passed for denying a normal user permission to credit a wallet. Owner plan/credit controls still need broader end-to-end acceptance testing.
-- [ ] Confirm the initial monetization policy end-to-end: games and social features remain free unless the owner explicitly enables charges. Verify that subscription and league-entry rules match the configured product policy; league-entry/subscription-day behavior still needs acceptance testing.
-- [ ] Verify ranking/weekly score behavior against agreed examples, including draws/unfinished games and rating updates.
+- [ ] Confirm the initial monetization policy end-to-end: games and social features remain free unless the owner explicitly enables charges. League-entry implementation is currently missing from main; implement free-by-default league entry, subscription-day entitlement consumption, configurable per-league rules, transaction-safe/idempotent consumption, and acceptance tests before treating this as a manual-only item. Tracked in [issue #26](https://github.com/Mrobaei1/Royal-club/issues/26).
+- [ ] Verify ranking/weekly score behavior against agreed examples, including draws/unfinished games and rating updates. Existing Elo unit tests are extended with zero-sum and symmetry properties on the Phase 4 readiness branch; these are not yet CI-verified and do not replace end-to-end weekly leaderboard cases.
 
 ### Phase 3 — game and social experience
 
