@@ -129,7 +129,7 @@ class _OnlineLobbyScreenState extends State<OnlineLobbyScreen> {
     if (_loading) return;
     setState(() { _loading = true; _error = null; });
     try { await action(); }
-    catch (e) { if (mounted) setState(() => _error = e.toString().replaceFirst('Exception: ', '')); }
+    catch (e) { if (mounted) setState(() => _error = appError(context, e)); }
     finally { if (mounted) setState(() => _loading = false); }
   }
 
