@@ -17,6 +17,7 @@ class _AdminScreenState extends State<AdminScreen> {
   List<dynamic> _reports = [];
   List<dynamic> _permissionGrants = [];
   List<dynamic> _permissionAudit = [];
+  bool _delegatedPermissionsEnabled = false;
   final _email = TextEditingController();
   final _amount = TextEditingController(text: '100');
   final _description = TextEditingController();
@@ -62,7 +63,7 @@ class _AdminScreenState extends State<AdminScreen> {
         if (mounted) setState(() { _owner = false; _loading = false; _error = null; });
         return;
       }
-      final results = await Future.wait([AdminService.plans(), AdminService.reports(), AdminService.smsOtpSettings(), AdminService.permissionGrants(), AdminService.permissionAudit()]);
+      final results = await Future.wait([AdminService.plans(), AdminService.reports(), AdminService.smsOtpSettings(), AdminService.permissionSettings(), AdminService.permissionGrants(), AdminService.permissionAudit()]);
       if (!mounted) return;
       final sms = results[2] as Map<String, dynamic>;
       _smsSettings = sms; _smsMode = sms['deliveryMode']?.toString() ?? 'disabled';
@@ -72,9 +73,10 @@ class _AdminScreenState extends State<AdminScreen> {
       _smsAttempts.text = (sms['maxAttempts'] ?? 5).toString(); _smsDailyLimit.text = (sms['dailyLimit'] ?? 100).toString();
       final plans = results[0] as List<dynamic>;
       final reports = results[1] as List<dynamic>;
-      final grants = results[3] as List<dynamic>;
-      final audit = results[4] as List<dynamic>;
-      setState(() { _owner = true; _plans = plans; _reports = reports; _permissionGrants = grants; _permissionAudit = audit; _loading = false; _error = null; });
+      final permissionSettings = results[3] as Map<String, dynamic>;
+      final grants = results[4] as List<dynamic>;
+      final audit = results[5] as List<dynamic>;
+      setState(() { _owner = true; _plans = plans; _reports = reports; _delegatedPermissionsEnabled = permissionSettings['enabled'] == true; _permissionGrants = grants; _permissionAudit = audit; _loading = false; _error = null; });
     } catch (e) {
       if (mounted) setState(() { _loading = false; _error = appError(context, e); });
     }
@@ -153,6 +155,39 @@ class _AdminScreenState extends State<AdminScreen> {
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appError(context, e))));
     } finally { if (mounted) setState(() => _busy = false); }
+  }
+
+  Future<void> _setDelegatedPermissionsEnabled(bool enabled) async {
+    if (enabled) {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text(appText(context, 'فعال‌سازی مجوزهای تفویض‌شده', 'Enable delegated permissions')),
+          content: Text(appText(context, 'با این کار مجوزهای ثبت‌شده می‌توانند به مسیرهای سرور متصل‌شده دسترسی بدهند. فقط در صورت بررسی مجوزها ادامه دهید.', 'Existing grants may access server routes wired to delegated permissions. Continue only after reviewing the grants.')),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context, false), child: Text(appText(context, 'انصراف', 'Cancel'))),
+            FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(appText(context, 'فعال‌سازی', 'Enable'))),
+          ],
+        ),
+      );
+      if (confirmed != true) return;
+    }
+    setState(() => _busy = true);
+    try {
+      final saved = await AdminService.setDelegatedPermissionsEnabled(enabled);
+      if (!mounted) return;
+      setState(() => _delegatedPermissionsEnabled = saved['enabled'] == true);
+      await _load();
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(enabled
+          ? appText(context, 'مجوزهای تفویض‌شده فعال شدند.', 'Delegated permissions enabled.')
+          : appText(context, 'کلید قطع اضطراری فعال شد؛ مجوزهای تفویض‌شده غیرفعال‌اند.', 'Kill switch engaged; delegated permissions are disabled.'),
+      ));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appError(context, e))));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   Future<void> _grantPermission(dynamic user) async {
@@ -457,6 +492,15 @@ class _AdminScreenState extends State<AdminScreen> {
               Text(appText(context, 'مجوزهای دستیاران و ایجنت‌ها', 'Assistant and agent permissions'), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
               const SizedBox(height: 6),
               Text(appText(context, 'هیچ حساب یا مجوزی خودکار فعال نمی‌شود. این مجوزها فعلاً ثبت و ممیزی می‌شوند؛ تا اتصال کامل مسیرها، دسترسی عملیاتی اعطا نمی‌کنند.', 'No account or permission is activated automatically. Grants are currently recorded and audited; they do not yet enable operational access.'), style: const TextStyle(fontSize: 12)),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(appText(context, 'کلید قطع اضطراری مجوزها', 'Delegated-permission kill switch')),
+                subtitle: Text(_delegatedPermissionsEnabled
+                  ? appText(context, 'فعال — مجوزهای ثبت‌شده قابل استفاده‌اند.', 'Enabled — recorded grants may be used.')
+                  : appText(context, 'خاموش — تمام دسترسی‌های تفویض‌شده مسدود است.', 'Off — all delegated access is blocked.')),
+                value: _delegatedPermissionsEnabled,
+                onChanged: _busy ? null : _setDelegatedPermissionsEnabled,
+              ),
               const SizedBox(height: 8),
               if (_permissionGrants.isEmpty) Text(appText(context, 'مجوز فعالی ثبت نشده است.', 'No active permission grants.')),
               for (final grant in _permissionGrants) Card(child: ListTile(
