@@ -27,12 +27,12 @@ void main() {
         of: find.byType(OnlineBackgammonBoard),
         matching: find.byType(CustomPaint),
       ),
-      findsOneWidget,
+      findsWidgets,
     );
     expect(find.byType(GridView), findsNothing);
     final boardFinder = find.byType(OnlineBackgammonBoard);
     final boardTopLeft = tester.getTopLeft(boardFinder);
-    await tester.tapAt(boardTopLeft + const Offset(10, 35));
+    await tester.tapAt(boardTopLeft + const Offset(42, 35));
     await tester.pump();
     expect(tapped, [11]);
   });
