@@ -995,6 +995,8 @@ test('delegated report permissions are owner-granted, resource-scoped, audited, 
   const assistant = await register('Permission Assistant');
   const targetA = await register('Permission Target A');
   const targetB = await register('Permission Target B');
+  const previousSwitch = await testPool.query('SELECT enabled FROM admin_permission_settings WHERE id = 1');
+  const previousEnabled = previousSwitch.rows[0]?.enabled === true;
   process.env.OWNER_USER_ID = owner.user.id;
 
   try {
@@ -1020,6 +1022,14 @@ test('delegated report permissions are owner-granted, resource-scoped, audited, 
       payload: { phone: '09123456789', confirmCost: true },
     });
     assert.equal(deniedSmsMessageTest.statusCode, 403, deniedSmsMessageTest.body);
+
+    const enableDelegation = await app.inject({
+      method: 'PATCH',
+      url: '/api/v1/admin/permissions/settings',
+      headers: auth(owner.token),
+      payload: { enabled: true },
+    });
+    assert.equal(enableDelegation.statusCode, 200, enableDelegation.body);
 
     const createdA = await testPool.query(
       'INSERT INTO user_reports (reporter_id, reported_user_id, reason) VALUES ($1, $2, $3) RETURNING id',
@@ -1086,7 +1096,35 @@ test('delegated report permissions are owner-granted, resource-scoped, audited, 
       payload: { status: 'actioned' },
     });
     assert.equal(afterRevocation.statusCode, 403, afterRevocation.body);
+
+    const secondGrant = await app.inject({
+      method: 'POST',
+      url: '/api/v1/admin/permissions/grants',
+      headers: auth(owner.token),
+      payload: {
+        userId: assistant.user.id,
+        permission: 'reports.manage',
+        scope: { resourceIds: [targetA.user.id] },
+        reason: 'Verify global delegated kill switch',
+      },
+    });
+    assert.equal(secondGrant.statusCode, 201, secondGrant.body);
+    const disableDelegation = await app.inject({
+      method: 'PATCH',
+      url: '/api/v1/admin/permissions/settings',
+      headers: auth(owner.token),
+      payload: { enabled: false },
+    });
+    assert.equal(disableDelegation.statusCode, 200, disableDelegation.body);
+    const blockedByKillSwitch = await app.inject({
+      method: 'PATCH',
+      url: `/api/v1/admin/reports/${reportAId}`,
+      headers: auth(assistant.token),
+      payload: { status: 'actioned' },
+    });
+    assert.equal(blockedByKillSwitch.statusCode, 403, blockedByKillSwitch.body);
   } finally {
+    await testPool.query('UPDATE admin_permission_settings SET enabled = $1 WHERE id = 1', [previousEnabled]);
     if (previousOwnerId === undefined) delete process.env.OWNER_USER_ID;
     else process.env.OWNER_USER_ID = previousOwnerId;
   }
