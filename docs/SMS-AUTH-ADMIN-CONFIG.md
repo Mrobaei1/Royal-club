@@ -63,3 +63,16 @@ All settings and actions must be authorized on the server. Hiding the menu item 
 - Only authorized administrators can change settings; secret values cannot be read back by client APIs.
 - English and Persian settings UI is complete, including Persian RTL.
 - All OTP security tests pass; no APK is built and no PR is merged as part of this work without the owner's separate authorization.
+
+
+## Implementation status (2026-10-28)
+
+The first configuration foundation is now present on the development branch:
+
+- The API creates a singleton settings row with SMS disabled and safe default OTP policy values.
+- Owner-only API endpoints expose non-secret settings, accept validated configuration, and expose a bounded audit history.
+- Provider API keys are encrypted with AES-256-GCM before storage. Saving a key requires the server-only `SMS_CREDENTIALS_ENCRYPTION_KEY` environment variable to contain a base64-encoded 32-byte key. The key itself must never be committed or returned to the app.
+- The mobile owner panel exposes the configuration fields but does not offer a working enable switch or real-provider mode.
+- Requests to enable OTP or select real-provider delivery are rejected by the API. Saving settings never sends a message.
+
+**Not yet implemented / not production-ready:** OTP issue/verify endpoints, provider adapters, test-connection/test-message flow, phone-number normalization and Iran-only enforcement, complete rate limits by phone and IP, OTP hash/expiry/single-use lifecycle, integration tests, and verification of the mobile/API builds. The development simulator is currently a selectable setting only; it does not yet issue or verify codes. Existing login and registration are unchanged. Do not enable real SMS or migrate accounts until those items are implemented and reviewed.
