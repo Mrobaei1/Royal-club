@@ -80,7 +80,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
       if (sequence == _refreshSequence && mounted) {
         setState(() {
           _connectionLost = true;
-          if (!silent) _error = e.toString().replaceFirst('Exception: ', '');
+          if (!silent) _error = appError(context, e);
         });
       }
     } finally {
@@ -95,7 +95,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
       await MatchService.updateSetup(_id, matchToWin: matchToWin, acceptSettings: acceptSettings, ready: ready);
       await _refresh(silent: true);
     } catch (e) {
-      if (mounted) setState(() => _error = e.toString().replaceFirst('Exception: ', ''));
+      if (mounted) setState(() => _error = appError(context, e));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -111,7 +111,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
       }
       await _refresh(silent: true);
     } catch (e) {
-      if (mounted) setState(() => _error = e.toString().replaceFirst('Exception: ', ''));
+      if (mounted) setState(() => _error = appError(context, e));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -168,7 +168,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
         ));
       }
     } catch (e) {
-      if (mounted) setState(() => _error = e.toString().replaceFirst('Exception: ', ''));
+      if (mounted) setState(() => _error = appError(context, e));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -182,7 +182,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
       if (mounted) setState(() => _matchDetails['spectatorsEnabled'] = saved);
       await _refresh(silent: true);
     } catch (e) {
-      if (mounted) setState(() => _error = e.toString().replaceFirst('Exception: ', ''));
+      if (mounted) setState(() => _error = appError(context, e));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -297,7 +297,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
       }
       await _refresh(silent: true);
     } catch (e) {
-      if (mounted) setState(() => _error = e.toString().replaceFirst('Exception: ', ''));
+      if (mounted) setState(() => _error = appError(context, e));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -311,7 +311,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
       if (mounted) setState(() => _state = {...?_state, ...next});
       await _refresh(silent: true);
     } catch (e) {
-      final message = e.toString().replaceFirst('Exception: ', '');
+      final message = appError(context, e);
       await _refresh(silent: true);
       if (mounted) setState(() => _error = message);
     } finally {
@@ -334,7 +334,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
       }
       await _refresh(silent: true);
     } catch (e) {
-      final message = e.toString().replaceFirst('Exception: ', '');
+      final message = appError(context, e);
       await _refresh(silent: true);
       if (mounted) setState(() => _error = message);
     } finally {
@@ -435,7 +435,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
       }
       await _refresh(silent: true);
     } catch (e) {
-      final message = e.toString().replaceFirst('Exception: ', '');
+      final message = appError(context, e);
       await _refresh(silent: true);
       if (mounted) setState(() => _error = message);
     } finally {
@@ -498,7 +498,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
       }
       await _refresh(silent: true);
     } catch (e) {
-      final message = e.toString().replaceFirst('Exception: ', '');
+      final message = appError(context, e);
       await _refresh(silent: true);
       if (mounted) setState(() => _error = message);
     } finally {
