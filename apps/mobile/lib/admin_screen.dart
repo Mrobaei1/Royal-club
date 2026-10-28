@@ -15,6 +15,8 @@ class _AdminScreenState extends State<AdminScreen> {
   String? _error;
   List<dynamic> _plans = [];
   List<dynamic> _reports = [];
+  List<dynamic> _permissionGrants = [];
+  List<dynamic> _permissionAudit = [];
   final _email = TextEditingController();
   final _amount = TextEditingController(text: '100');
   final _description = TextEditingController();
@@ -59,7 +61,7 @@ class _AdminScreenState extends State<AdminScreen> {
         if (mounted) setState(() { _owner = false; _loading = false; _error = null; });
         return;
       }
-      final results = await Future.wait([AdminService.plans(), AdminService.reports(), AdminService.smsOtpSettings()]);
+      final results = await Future.wait([AdminService.plans(), AdminService.reports(), AdminService.smsOtpSettings(), AdminService.permissionGrants(), AdminService.permissionAudit()]);
       if (!mounted) return;
       final sms = results[2] as Map<String, dynamic>;
       _smsSettings = sms; _smsMode = sms['deliveryMode']?.toString() ?? 'disabled';
@@ -69,7 +71,9 @@ class _AdminScreenState extends State<AdminScreen> {
       _smsAttempts.text = (sms['maxAttempts'] ?? 5).toString(); _smsDailyLimit.text = (sms['dailyLimit'] ?? 100).toString();
       final plans = results[0] as List<dynamic>;
       final reports = results[1] as List<dynamic>;
-      setState(() { _owner = true; _plans = plans; _reports = reports; _loading = false; _error = null; });
+      final grants = results[3] as List<dynamic>;
+      final audit = results[4] as List<dynamic>;
+      setState(() { _owner = true; _plans = plans; _reports = reports; _permissionGrants = grants; _permissionAudit = audit; _loading = false; _error = null; });
     } catch (e) {
       if (mounted) setState(() { _loading = false; _error = appError(context, e); });
     }
@@ -95,6 +99,101 @@ class _AdminScreenState extends State<AdminScreen> {
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appError(context, e))));
     } finally { if (mounted) setState(() => _busy = false); }
+  }
+
+  Future<void> _grantPermission(dynamic user) async {
+    String selected = 'users.read';
+    final reason = TextEditingController();
+    final reference = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+    final choices = const <String>[
+      'users.read', 'users.moderate', 'reports.read', 'reports.manage',
+      'notifications.send', 'leagues.read', 'leagues.manage',
+      'marketing.read', 'marketing.manage', 'operations.read',
+    ];
+    final result = await showDialog<Map<String, String>>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(builder: (context, setDialogState) => AlertDialog(
+        title: Text(appText(context, 'اعطای مجوز محدود', 'Grant scoped permission')),
+        content: Form(key: formKey, child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Text('@${user['username'] ?? 'user'}'),
+          const SizedBox(height: 10),
+          DropdownButtonFormField<String>(
+            value: selected,
+            isExpanded: true,
+            decoration: InputDecoration(labelText: appText(context, 'مجوز', 'Permission')),
+            items: choices.map((value) => DropdownMenuItem(value: value, child: Text(value))).toList(),
+            onChanged: (value) { if (value != null) setDialogState(() => selected = value); },
+          ),
+          const SizedBox(height: 10),
+          TextFormField(
+            controller: reason,
+            maxLength: 500,
+            decoration: InputDecoration(labelText: appText(context, 'دلیل اعطای مجوز (الزامی)', 'Reason (required)')),
+            validator: (value) => (value == null || value.trim().length < 5) ? appText(context, 'دلیل باید حداقل ۵ نویسه باشد.', 'Reason must be at least 5 characters.') : null,
+          ),
+          TextField(
+            controller: reference,
+            maxLength: 200,
+            decoration: InputDecoration(labelText: appText(context, 'شناسه تأیید (اختیاری)', 'Approval reference (optional)')),
+          ),
+          Text(appText(context, 'این کار مجوز را برای حساب انتخاب‌شده ثبت می‌کند. هیچ مجوزی به‌طور خودکار ایجاد نمی‌شود.', 'This records a grant for the selected account. No grants are created automatically.'), style: const TextStyle(fontSize: 12)),
+        ]))),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext), child: Text(appText(context, 'انصراف', 'Cancel'))),
+          FilledButton(onPressed: () {
+            if (formKey.currentState?.validate() == true) {
+              Navigator.pop(dialogContext, {'permission': selected, 'reason': reason.text.trim(), 'reference': reference.text.trim()});
+            }
+          }, child: Text(appText(context, 'ثبت مجوز', 'Create grant'))),
+        ],
+      )),
+    );
+    final reasonText = reason.text.trim();
+    final referenceText = reference.text.trim();
+    reason.dispose();
+    reference.dispose();
+    if (result == null) return;
+    setState(() => _busy = true);
+    try {
+      await AdminService.createPermissionGrant(
+        userId: user['id'].toString(),
+        permission: result['permission']!,
+        reason: result['reason']!,
+        approvalReference: result['reference'],
+      );
+      await _load();
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appText(context, 'مجوز ثبت شد.', 'Permission grant created.'))));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appError(context, e))));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _revokePermission(dynamic grant) async {
+    final accepted = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(appText(context, 'لغو مجوز', 'Revoke permission')),
+        content: Text(appText(context, 'مجوز ${grant['permission']} لغو شود؟', 'Revoke ${grant['permission']}?')),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(appText(context, 'انصراف', 'Cancel'))),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(appText(context, 'لغو مجوز', 'Revoke grant'))),
+        ],
+      ),
+    );
+    if (accepted != true) return;
+    setState(() => _busy = true);
+    try {
+      await AdminService.revokePermissionGrant(grant['id'].toString());
+      await _load();
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appText(context, 'مجوز لغو شد.', 'Permission revoked.'))));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appError(context, e))));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   Future<void> _search() async {
@@ -297,6 +396,29 @@ class _AdminScreenState extends State<AdminScreen> {
                 Text(appText(context, 'کلید ذخیره شده: ${_smsSettings['apiKeyConfigured'] == true ? 'بله (مخفی)' : 'خیر'}', 'Saved key: ${_smsSettings['apiKeyConfigured'] == true ? 'yes (hidden)' : 'no'}'), style: const TextStyle(fontSize: 12)),
               ]))),
               const SizedBox(height: 22),
+              Text(appText(context, 'مجوزهای دستیاران و ایجنت‌ها', 'Assistant and agent permissions'), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 6),
+              Text(appText(context, 'هیچ حساب یا مجوزی خودکار فعال نمی‌شود. ابتدا کاربر را با ایمیل جست‌وجو کنید و سپس فقط مجوز ضروری را اعطا کنید.', 'No account or permission is activated automatically. Search for an account by email, then grant only the required permission.'), style: const TextStyle(fontSize: 12)),
+              const SizedBox(height: 8),
+              if (_permissionGrants.isEmpty) Text(appText(context, 'مجوز فعالی ثبت نشده است.', 'No active permission grants.')),
+              for (final grant in _permissionGrants) Card(child: ListTile(
+                leading: const Icon(Icons.verified_user_outlined),
+                title: Text('@${grant['username'] ?? grant['userId']} · ${grant['permission']}'),
+                subtitle: Text('${grant['reason'] ?? ''}'),
+                trailing: IconButton(tooltip: appText(context, 'لغو مجوز', 'Revoke grant'), onPressed: _busy ? null : () => _revokePermission(grant), icon: const Icon(Icons.remove_circle_outline)),
+              )),
+              if (_permissionAudit.isNotEmpty) ExpansionTile(
+                title: Text(appText(context, 'گزارش ممیزی مجوزها', 'Permission audit log')),
+                children: [
+                  for (final entry in _permissionAudit.take(20))
+                    ListTile(
+                      dense: true,
+                      title: Text('${entry['action']} · ${entry['permission']}'),
+                      subtitle: Text('${entry['actorUsername'] ?? entry['actorUserId'] ?? 'system'} → ${entry['targetUsername'] ?? entry['targetUserId'] ?? 'unknown'} · ${entry['createdAt']}'),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 22),
               Text(appText(context, 'اعتباردهی به کاربر', 'Credit a user'), style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
               const SizedBox(height: 10),
               TextField(controller: _email, keyboardType: TextInputType.emailAddress, decoration: InputDecoration(labelText: appText(context, 'ایمیل دقیق کاربر', 'Exact user email'), border: const OutlineInputBorder())),
@@ -309,6 +431,7 @@ class _AdminScreenState extends State<AdminScreen> {
                 TextField(controller: _description, decoration: InputDecoration(labelText: appText(context, 'توضیح تراکنش', 'Transaction description'))),
                 const SizedBox(height: 8),
                 FilledButton(onPressed: _busy ? null : () => _credit(user), child: Text(appText(context, 'ثبت اعتبار', 'Add credits'))),
+                OutlinedButton.icon(onPressed: _busy ? null : () => _grantPermission(user), icon: const Icon(Icons.admin_panel_settings_outlined), label: Text(appText(context, 'اعطای مجوز محدود', 'Grant scoped permission'))),
                 OutlinedButton(onPressed: _busy ? null : () => _notify(userId: user['id'].toString()), child: Text(appText(context, 'ارسال اعلان به این کاربر', 'Send notification to this user'))),
                 OutlinedButton.icon(onPressed: _busy ? null : () => _exportUser(user), icon: const Icon(Icons.person_search_outlined), label: Text(appText(context, 'استخراج مشخصات کاربر', 'Export user details'))),
               ]))),
