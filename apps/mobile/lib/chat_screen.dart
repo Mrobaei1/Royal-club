@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'l10n/app_text.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
 import 'profile_avatar.dart';
@@ -35,10 +36,10 @@ class _ChatScreenState extends State<ChatScreen> {
   Widget build(BuildContext context) => Directionality(
     textDirection: (_isEnglish ? TextDirection.ltr : TextDirection.rtl),
     child: Scaffold(
-      appBar: AppBar(title: Text(_isEnglish ? 'Private chats' : 'گفت‌وگوهای خصوصی'), actions: [IconButton(tooltip: _isEnglish ? 'Refresh' : 'به‌روزرسانی', onPressed: _load, icon: const Icon(Icons.refresh))]),
+      appBar: AppBar(title: Text(appText(context, 'گفت‌وگوهای خصوصی', 'Private chats')), actions: [IconButton(tooltip: appText(context, 'به‌روزرسانی', 'Refresh'), onPressed: _load, icon: const Icon(Icons.refresh))]),
       body: _loading ? const Center(child: CircularProgressIndicator())
         : _error != null ? Center(child: Padding(padding: const EdgeInsets.all(24), child: Text(_error!, textAlign: TextAlign.center)))
-        : _conversations.isEmpty ? Center(child: Padding(padding: const EdgeInsets.all(24), child: Text(_isEnglish ? 'Add a friend to start a conversation.' : 'برای شروع گفت‌وگو، ابتدا یک دوست اضافه کنید.')))
+        : _conversations.isEmpty ? Center(child: Padding(padding: const EdgeInsets.all(24), child: Text(appText(context, 'برای شروع گفت‌وگو، ابتدا یک دوست اضافه کنید.', 'Add a friend to start a conversation.'))))
         : RefreshIndicator(onRefresh: _load, child: ListView.separated(
           itemCount: _conversations.length,
           separatorBuilder: (_, __) => const Divider(height: 1),
@@ -47,11 +48,11 @@ class _ChatScreenState extends State<ChatScreen> {
             final unread = (item['unreadCount'] as num?)?.toInt() ?? 0;
             return ListTile(
               leading: RoyalAvatar(dataUrl: item['avatarDataUrl']?.toString(), radius: 22),
-              title: Text(item['username']?.toString().isNotEmpty == true ? '@${item['username']}' : (_isEnglish ? 'Friend' : 'دوست')),
+              title: Text(item['username']?.toString().isNotEmpty == true ? '@${item['username']}' : (appText(context, 'دوست', 'Friend'))),
               subtitle: Text(
                 item['lastMessageDeleted'] == true
-                    ? (_isEnglish ? 'Message deleted' : 'پیام حذف شده')
-                    : (item['lastMessage']?.toString() ?? (_isEnglish ? 'Tap to start chatting' : 'برای شروع گفت‌وگو لمس کنید')),
+                    ? (appText(context, 'پیام حذف شده', 'Message deleted'))
+                    : (item['lastMessage']?.toString() ?? (appText(context, 'برای شروع گفت‌وگو لمس کنید', 'Tap to start chatting'))),
                 maxLines: 1, overflow: TextOverflow.ellipsis,
               ),
               trailing: unread > 0 ? CircleAvatar(radius: 12, child: Text('$unread', style: const TextStyle(fontSize: 11))) : const Icon(Icons.chevron_left),
