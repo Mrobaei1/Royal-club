@@ -370,7 +370,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     PopupMenuItem(value: 'admin', child: ListTile(dense: true, leading: Icon(Icons.admin_panel_settings_outlined), title: Text(appText(context, 'پنل مدیریت', 'Admin panel')))),
                     PopupMenuItem(value: 'contact', child: ListTile(dense: true, leading: Icon(Icons.contact_support_outlined), title: Text(appText(context, 'ارتباط با ما', 'Contact us')))),
                     const PopupMenuDivider(),
-                    const PopupMenuItem(
+                    PopupMenuItem(
                       value: 'languageMenu',
                       child: ListTile(
                         dense: true,
