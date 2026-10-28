@@ -41,7 +41,7 @@ export function hasRoyalPermission(
   if (!isRoyalPermission(permission)) return false;
   return grants.some((grant) => {
     if (!grant.active || grant.permission !== permission) return false;
-    if (grant.scope === undefined || grant.scope === null) return resourceId === undefined;
+    if (grant.scope === undefined || grant.scope === null) return true;
     if (!isRecord(grant.scope)) return false;
     const resourceIds = grant.scope.resourceIds;
     if (!Array.isArray(resourceIds) ||
