@@ -89,7 +89,7 @@ class _AdminScreenState extends State<AdminScreen> {
       _smsApiKey.clear();
       if (!mounted) return;
       setState(() => _smsSettings = saved);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appText(context, 'تنظیمات ذخیره شد؛ ارسال واقعی همچنان غیرفعال است.', 'Settings saved; real SMS sending remains disabled.')))));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appText(context, 'تنظیمات ذخیره شد؛ ارسال واقعی همچنان غیرفعال است.', 'Settings saved; real SMS sending remains disabled.'))));
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))));
     } finally { if (mounted) setState(() => _busy = false); }
@@ -132,7 +132,7 @@ class _AdminScreenState extends State<AdminScreen> {
               onPressed: () async {
                 await Clipboard.setData(ClipboardData(text: lines.join('\\n')));
                 if (dialogContext.mounted) Navigator.pop(dialogContext);
-                if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text(appText(context, 'مشخصات در کلیپ‌بورد کپی شد.', 'User details copied to clipboard.'))));
+                if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appText(context, 'مشخصات در کلیپ‌بورد کپی شد.', 'User details copied to clipboard.')))));
               },
               icon: const Icon(Icons.copy),
               label: Text(appText(context, 'کپی برای استخراج', 'Copy for export')),
