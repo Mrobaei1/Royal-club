@@ -1213,14 +1213,17 @@ app.post<{ Body: { phone?: string } }>('/api/v1/auth/phone-otp/request', {
       return reply.code(503).send({ error: 'Phone OTP simulator is disabled.' });
     }
     const usage = await client.query(
-      `SELECT COUNT(*)::int AS daily_count,
-              MAX(created_at) AS last_created_at
+      `SELECT COUNT(*)::int AS global_daily_count,
+              COUNT(*) FILTER (WHERE phone_e164 = $1)::int AS phone_daily_count,
+              MAX(created_at) FILTER (WHERE phone_e164 = $1) AS last_created_at
          FROM sms_otp_challenges
-        WHERE phone_e164 = $1 AND created_at >= NOW() - INTERVAL '1 day'`,
+        WHERE created_at >= NOW() - INTERVAL '1 day'`,
       [phone],
     );
     const row = usage.rows[0] ?? {};
-    if (Number(row.daily_count ?? 0) >= Number(settings.daily_limit ?? 0)) {
+    const dailyLimit = Number(settings.daily_limit ?? 0);
+    if (Number(row.global_daily_count ?? 0) >= dailyLimit ||
+        Number(row.phone_daily_count ?? 0) >= dailyLimit) {
       await client.query('ROLLBACK');
       return reply.code(429).send({ error: 'OTP request limit reached. Try again later.' });
     }
