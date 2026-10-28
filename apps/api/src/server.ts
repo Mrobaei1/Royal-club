@@ -7,6 +7,7 @@ import jwt from '@fastify/jwt';
 import { Pool, type PoolClient } from 'pg';
 import { createCipheriv, randomBytes, randomInt, scrypt as scryptCallback, timingSafeEqual } from 'node:crypto';
 import { isNumericId, isValidRegistrationPassword } from './validation.js';
+import { createOtpCode, digestOtp, normalizeIranianMobile, verifyOtpDigest } from './otp-security.js';
 import { getAllowedCorsOrigins } from './cors-config.js';
 import { INITIAL_BACKGAMMON_BOARD, applyBackgammonMove, hasLegalMove, maxPlayableDiceCount, mustPlayHigherDie } from './backgammon-rules.js';
 import { calculateEloRatings } from './backgammon-rating.js';
@@ -83,6 +84,22 @@ await pool.query(`
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   );
   CREATE INDEX IF NOT EXISTS sms_otp_audit_log_created_idx ON sms_otp_audit_log (created_at DESC);
+
+  CREATE TABLE IF NOT EXISTS sms_otp_challenges (
+    id BIGSERIAL PRIMARY KEY,
+    phone_e164 TEXT NOT NULL,
+    otp_salt TEXT NOT NULL,
+    otp_digest TEXT NOT NULL,
+    attempts INTEGER NOT NULL DEFAULT 0,
+    max_attempts INTEGER NOT NULL CHECK (max_attempts BETWEEN 3 AND 10),
+    expires_at TIMESTAMPTZ NOT NULL,
+    consumed_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+  CREATE INDEX IF NOT EXISTS sms_otp_challenges_phone_created_idx
+    ON sms_otp_challenges (phone_e164, created_at DESC);
+  CREATE INDEX IF NOT EXISTS sms_otp_challenges_expiry_idx
+    ON sms_otp_challenges (expires_at) WHERE consumed_at IS NULL;
 
   -- Dormant delegated permissions: no grants are seeded and all grant management
   -- remains protected by the existing owner identity until explicitly assigned.
@@ -1073,6 +1090,119 @@ app.get('/api/v1/admin/security/sms-otp/audit', { onRequest: [requireOwnerAuth] 
   const result = await pool.query(`SELECT l.id, l.action, l.details, l.created_at AS "createdAt", u.username AS "actorUsername"
     FROM sms_otp_audit_log l LEFT JOIN users u ON u.id = l.actor_user_id ORDER BY l.created_at DESC LIMIT 100`);
   return { entries: result.rows };
+});
+
+
+/**
+ * Development-only OTP simulator. It deliberately does not authenticate users,
+ * issue JWTs, or send real SMS. Production requests are rejected even if the
+ * database settings are accidentally changed.
+ */
+app.post<{ Body: { phone?: string } }>('/api/v1/auth/phone-otp/request', {
+  config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
+}, async (request, reply) => {
+  const phone = normalizeIranianMobile(request.body?.phone);
+  if (!phone) return reply.code(400).send({ error: 'Enter a valid Iranian mobile number.' });
+  if (process.env.NODE_ENV === 'production') {
+    return reply.code(503).send({ error: 'Phone OTP is not available.' });
+  }
+  const settingsResult = await pool.query(
+    'SELECT delivery_mode, otp_ttl_seconds, resend_cooldown_seconds, max_attempts, daily_limit FROM sms_otp_settings WHERE id = 1',
+  );
+  const settings = settingsResult.rows[0];
+  if (settings?.delivery_mode !== 'development_simulator') {
+    return reply.code(503).send({ error: 'Phone OTP simulator is disabled.' });
+  }
+  const usage = await pool.query(
+    `SELECT COUNT(*)::int AS daily_count,
+            MAX(created_at) AS last_created_at
+       FROM sms_otp_challenges
+      WHERE phone_e164 = $1 AND created_at >= NOW() - INTERVAL '1 day'`,
+    [phone],
+  );
+  const row = usage.rows[0] ?? {};
+  if (Number(row.daily_count ?? 0) >= Number(settings.daily_limit ?? 0)) {
+    return reply.code(429).send({ error: 'OTP request limit reached. Try again later.' });
+  }
+  if (row.last_created_at &&
+      Date.now() - new Date(row.last_created_at).getTime() < Number(settings.resend_cooldown_seconds) * 1000) {
+    return reply.code(429).send({ error: 'Please wait before requesting another code.' });
+  }
+
+  const code = createOtpCode();
+  const digest = digestOtp(code);
+  await pool.query(
+    `INSERT INTO sms_otp_challenges
+       (phone_e164, otp_salt, otp_digest, max_attempts, expires_at)
+     VALUES ($1, $2, $3, $4, NOW() + ($5 * INTERVAL '1 second'))`,
+    [phone, digest.salt, digest.digest, settings.max_attempts, settings.otp_ttl_seconds],
+  );
+  // Do not log the phone number or OTP. The code is exposed only by this
+  // development-only simulator response and can never be returned in production.
+  return reply.code(202).send({
+    ok: true,
+    message: 'If the number is eligible, a verification code is available in the development simulator.',
+    ...(process.env.NODE_ENV === 'production' ? {} : { testCode: code }),
+  });
+});
+
+app.post<{ Body: { phone?: string; code?: string } }>('/api/v1/auth/phone-otp/verify', {
+  config: { rateLimit: { max: 15, timeWindow: '1 minute' } },
+}, async (request, reply) => {
+  const phone = normalizeIranianMobile(request.body?.phone);
+  const code = typeof request.body?.code === 'string' ? request.body.code.trim() : '';
+  if (!phone || !/^\d{6}$/.test(code)) {
+    return reply.code(400).send({ error: 'Enter a valid Iranian mobile number and six-digit code.' });
+  }
+  if (process.env.NODE_ENV === 'production') {
+    return reply.code(503).send({ error: 'Phone OTP is not available.' });
+  }
+  const settingsResult = await pool.query('SELECT delivery_mode FROM sms_otp_settings WHERE id = 1');
+  if (settingsResult.rows[0]?.delivery_mode !== 'development_simulator') {
+    return reply.code(503).send({ error: 'Phone OTP simulator is disabled.' });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const found = await client.query(
+      `SELECT id, otp_salt, otp_digest, attempts, max_attempts, expires_at, consumed_at
+         FROM sms_otp_challenges
+        WHERE phone_e164 = $1 AND consumed_at IS NULL
+        ORDER BY created_at DESC LIMIT 1 FOR UPDATE`,
+      [phone],
+    );
+    const challenge = found.rows[0];
+    if (!challenge || new Date(challenge.expires_at).getTime() <= Date.now() ||
+        Number(challenge.attempts) >= Number(challenge.max_attempts)) {
+      if (challenge) {
+        await client.query('UPDATE sms_otp_challenges SET consumed_at = NOW() WHERE id = $1', [challenge.id]);
+      }
+      await client.query('COMMIT');
+      return reply.code(400).send({ error: 'The verification code is invalid or expired.' });
+    }
+    const matches = verifyOtpDigest(code, { salt: challenge.otp_salt, digest: challenge.otp_digest });
+    if (!matches) {
+      const nextAttempts = Number(challenge.attempts) + 1;
+      await client.query(
+        'UPDATE sms_otp_challenges SET attempts = $1, consumed_at = CASE WHEN $1 >= max_attempts THEN NOW() ELSE consumed_at END WHERE id = $2',
+        [nextAttempts, challenge.id],
+      );
+      await client.query('COMMIT');
+      return reply.code(400).send({ error: 'The verification code is invalid or expired.' });
+    }
+    await client.query('UPDATE sms_otp_challenges SET consumed_at = NOW() WHERE id = $1', [challenge.id]);
+    await client.query('COMMIT');
+    // This endpoint proves only possession of the simulator code. It does not
+    // create/link an account or issue an access token.
+    return { verified: true };
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    request.log.error({ err: error }, 'Phone OTP simulator verification failed');
+    return reply.code(500).send({ error: 'Could not verify the code.' });
+  } finally {
+    client.release();
+  }
 });
 
 app.get('/api/v1/admin/reports', { onRequest: [requireOwnerAuth] }, async () => {
