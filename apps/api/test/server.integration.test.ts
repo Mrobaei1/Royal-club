@@ -1041,6 +1041,15 @@ test('subscription purchases debit the wallet atomically and record a ledger ent
     });
     assert.equal(subscriptionLeagueResponse.statusCode, 201, subscriptionLeagueResponse.body);
     const subscriptionLeagueId = String(subscriptionLeagueResponse.json().league.id);
+    const inactiveSubscriptionDenied = await app.inject({
+      method: 'POST',
+      url: `/api/v1/leagues/${subscriptionLeagueId}/entries`,
+      headers: auth(leagueOwner.token),
+      payload: { idempotencyKey: `no-subscription-${randomUUID()}` },
+    });
+    assert.equal(inactiveSubscriptionDenied.statusCode, 409,
+      'A user without an active subscription must not enter a subscription-day league.');
+
     const beforeConsumption = await testPool.query(
       `SELECT ends_at FROM user_subscriptions
         WHERE user_id = $1 AND status = 'active' AND ends_at > NOW()
