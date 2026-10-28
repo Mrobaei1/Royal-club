@@ -176,7 +176,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         child: Scaffold(
           backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           appBar: AppBar(
-            title: Text(appText(context, 'اعلان‌ها${_unread > 0 ? ' ($_unread)' : ''}', 'Notifications${_unread > 0 ? ' ($_unread)' : ''}')'),
+            title: Text('${appText(context, "اعلان‌ها", "Notifications")}${_unread > 0 ? " ($_unread)" : ""}'),
             backgroundColor: Theme.of(context).scaffoldBackgroundColor,
             foregroundColor: Theme.of(context).colorScheme.primary,
             actions: [
