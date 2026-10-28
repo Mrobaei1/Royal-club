@@ -116,7 +116,7 @@ class _WalletScreenState extends State<WalletScreen> {
                 Card(color: Theme.of(context).colorScheme.surface, child: ListTile(
                   leading: Icon(Icons.workspace_premium, color: colors.primary),
                   title: Text(_subscription!['planName']?.toString() ?? appText(context, 'اشتراک فعال', 'Active subscription'), style: TextStyle(color: colors.onSurface)),
-                  subtitle: Text('پایان: ${_subscription!['endsAt'] ?? '—'}', style: TextStyle(color: colors.onSurface.withValues(alpha: 0.7))),
+                  subtitle: Text(appText(context, 'پایان: ${_subscription!['endsAt'] ?? '—'}', 'Ends: ${_subscription!['endsAt'] ?? '—'}'), style: TextStyle(color: colors.onSurface.withValues(alpha: 0.7))),
                 )),
               if (_plans.isEmpty)
                 Padding(padding: const EdgeInsets.all(12), child: Text(appText(context, 'فعلاً اشتراکی تعریف نشده است.', 'No subscriptions are available yet.'), style: TextStyle(color: colors.onSurface.withValues(alpha: 0.7)))),
@@ -126,7 +126,7 @@ class _WalletScreenState extends State<WalletScreen> {
                   child: ListTile(
                     leading: Icon(Icons.stars_rounded, color: colors.primary),
                     title: Text(item['name']?.toString() ?? appText(context, 'اشتراک', 'Subscription'), style: TextStyle(color: colors.onSurface, fontWeight: FontWeight.bold)),
-                    subtitle: Text('${item['durationDays'] ?? 30} روز • ${item['priceCredits'] ?? 0} اعتبار', style: TextStyle(color: colors.onSurface.withValues(alpha: 0.7))),
+                    subtitle: Text(appText(context, '${item['durationDays'] ?? 30} روز • ${item['priceCredits'] ?? 0} اعتبار', '${item['durationDays'] ?? 30} days • ${item['priceCredits'] ?? 0} credits'), style: TextStyle(color: colors.onSurface.withValues(alpha: 0.7))),
                     trailing: FilledButton(
                       onPressed: _busy ? null : () => _activate(item['code'].toString()),
                       child: Text(appText(context, 'فعال‌سازی', 'Activate')),
