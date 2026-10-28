@@ -653,7 +653,44 @@ class _AuthScreenState extends State<AuthScreen> {
       await _requestPhoneOtp();
       return;
     }
-    if (!RegExp(r'^\\d{6}    if (_email.text.trim().isEmpty || _password.text.isEmpty) {
+    if (!RegExp(r'^\d{6}$').hasMatch(_otpCode.text.trim())) {
+      setState(() => _message = appText(context, 'کد شش‌رقمی را وارد کنید.', 'Enter the six-digit verification code.'));
+      return;
+    }
+    setState(() { _busy = true; _message = null; });
+    try {
+      final wasRegister = _register;
+      final result = wasRegister
+          ? await AuthService.registerWithPhoneOtp(
+              phone: _phone.text,
+              code: _otpCode.text,
+              email: _email.text,
+              password: _password.text,
+              fullName: _fullName.text,
+              country: '',
+            )
+          : await AuthService.loginWithPhoneOtp(phone: _phone.text, code: _otpCode.text);
+      if (!mounted) return;
+      if (wasRegister) {
+        await AuthService.setRememberedCredentials(_email.text, _password.text, _rememberMe);
+      } else {
+        await AuthService.setRememberedCredentials('', '', false);
+      }
+      if (!mounted) return;
+      if (result['token'] is String && (result['token'] as String).isNotEmpty) {
+        widget.onAuthenticated();
+      } else {
+        setState(() => _message = appText(context, 'ورود موفق بود، اما توکن دریافت نشد.', 'Authentication succeeded, but no token was received.'));
+      }
+    } catch (e) {
+      if (mounted) setState(() => _message = appError(context, e));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _submit() async {
+    if (_email.text.trim().isEmpty || _password.text.isEmpty) {
       setState(() => _message = appText(context, 'ایمیل و رمز عبور را وارد کن.', 'Enter your email and password.'));
       return;
     }
@@ -678,20 +715,15 @@ class _AuthScreenState extends State<AuthScreen> {
       _busy = true;
       _message = null;
     });
-
     final wasRegister = _register;
     try {
       final result = wasRegister
           ? await AuthService.register(_email.text, _password.text,
               fullName: _fullName.text, phone: _phone.text, country: '')
           : await AuthService.login(_email.text, _password.text);
-
       if (!mounted) return;
-
-      if (result['token'] is String &&
-          (result['token'] as String).isNotEmpty) {
-        await AuthService.setRememberedCredentials(
-            _email.text, _password.text, _rememberMe);
+      if (result['token'] is String && (result['token'] as String).isNotEmpty) {
+        await AuthService.setRememberedCredentials(_email.text, _password.text, _rememberMe);
         if (!mounted) return;
         widget.onAuthenticated();
       } else if (wasRegister) {
@@ -869,217 +901,6 @@ class _AuthScreenState extends State<AuthScreen> {
                               width: 22,
                               child: CircularProgressIndicator(strokeWidth: 2))
                           : Text(_usePhoneOtp ? (_register ? appText(context, 'تأیید کد و ایجاد حساب', 'Verify code and create account') : appText(context, 'تأیید کد و ورود', 'Verify code and log in')) : (_register ? appText(context, 'ایجاد حساب', 'Create account') : appText(context, 'ورود به حساب', 'Log in'))),
-                    ),
-                  ),
-                  if (_message != null) ...[
-                    const SizedBox(height: 16),
-                    Text(_message!, textAlign: TextAlign.center),
-                  ],
-                ],
-              ),
-            ),
-          ),
-        ),
-      );
-}
-).hasMatch(_otpCode.text.trim())) {
-      setState(() => _message = appText(context, 'کد شش‌رقمی را وارد کنید.', 'Enter the six-digit verification code.'));
-      return;
-    }
-    setState(() { _busy = true; _message = null; });
-    try {
-      final wasRegister = _register;
-      final result = wasRegister
-          ? await AuthService.registerWithPhoneOtp(
-              phone: _phone.text,
-              code: _otpCode.text,
-              email: _email.text,
-              password: _password.text,
-              fullName: _fullName.text,
-              country: '',
-            )
-          : await AuthService.loginWithPhoneOtp(phone: _phone.text, code: _otpCode.text);
-      if (!mounted) return;
-      if (wasRegister) {
-        await AuthService.setRememberedCredentials(_email.text, _password.text, _rememberMe);
-      } else {
-        await AuthService.setRememberedCredentials('', '', false);
-      }
-      if (!mounted) return;
-      if (result['token'] is String && (result['token'] as String).isNotEmpty) {
-        widget.onAuthenticated();
-      } else {
-        setState(() => _message = appText(context, 'ورود موفق بود، اما توکن دریافت نشد.', 'Authentication succeeded, but no token was received.'));
-      }
-    } catch (e) {
-      if (mounted) setState(() => _message = appError(context, e));
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
-  Future<void> _submit() async {
-    if (_email.text.trim().isEmpty || _password.text.isEmpty) {
-      setState(() => _message = appText(context, 'ایمیل و رمز عبور را وارد کن.', 'Enter your email and password.'));
-      return;
-    }
-    if (_register && _fullName.text.trim().isEmpty) {
-      setState(() => _message = appText(context, 'نام کاربر را وارد کن.', 'Enter your name.'));
-      return;
-    }
-    if (_register && _phone.text.trim().isEmpty) {
-      setState(() => _message = appText(context, 'شماره تلفن را وارد کن.', 'Enter your phone number.'));
-      return;
-    }
-    if (_register && _password.text.runes.length < 6) {
-      setState(() => _message = appText(context, 'رمز عبور باید حداقل ۶ کاراکتر باشد.', 'Password must be at least 6 characters.'));
-      return;
-    }
-    if (_register && utf8.encode(_password.text).length > 128) {
-      setState(() => _message = appText(context, 'رمز عبور نباید بیشتر از ۱۲۸ بایت باشد.', 'Password must not exceed 128 bytes.'));
-      return;
-    }
-
-    setState(() {
-      _busy = true;
-      _message = null;
-    });
-
-    final wasRegister = _register;
-    try {
-      final result = wasRegister
-          ? await AuthService.register(_email.text, _password.text,
-              fullName: _fullName.text, phone: _phone.text, country: '')
-          : await AuthService.login(_email.text, _password.text);
-
-      if (!mounted) return;
-
-      if (result['token'] is String &&
-          (result['token'] as String).isNotEmpty) {
-        await AuthService.setRememberedCredentials(
-            _email.text, _password.text, _rememberMe);
-        if (!mounted) return;
-        widget.onAuthenticated();
-      } else if (wasRegister) {
-        setState(() {
-          _register = false;
-          _message = appText(context, 'ثبت‌نام انجام شد. برای ورود، رمز عبور را دوباره وارد کنید.', 'Registration complete. Enter your password again to log in.');
-        });
-      } else {
-        setState(() => _message = appText(context, 'ورود انجام شد، اما توکن دریافت نشد.', 'Login succeeded, but no token was received.'));
-      }
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _message = appError(context, e));
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: Text(AppLocalizations.of(context).account)),
-        body: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 420),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const Icon(Icons.workspace_premium_rounded,
-                      color: gold, size: 64),
-                  const SizedBox(height: 12),
-                  const Text('ROYAL CLUB',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                          color: gold,
-                          fontSize: 24,
-                          fontWeight: FontWeight.w900)),
-                  const SizedBox(height: 28),
-                  SegmentedButton<bool>(
-                    segments: [
-                      ButtonSegment(value: false, label: Text(AppLocalizations.of(context).login)),
-                      ButtonSegment(value: true, label: Text(AppLocalizations.of(context).register)),
-                    ],
-                    selected: {_register},
-                    onSelectionChanged: (v) => setState(() {
-                      _register = v.first;
-                      _message = null;
-                    }),
-                  ),
-                  const SizedBox(height: 20),
-                  if (_register) ...[
-                    TextField(controller: _fullName, textCapitalization: TextCapitalization.words,
-                      autofillHints: const [AutofillHints.name],
-                      decoration: InputDecoration(labelText: AppLocalizations.of(context).fullName, border: const OutlineInputBorder(), prefixIcon: const Icon(Icons.person_outline))),
-                    const SizedBox(height: 14),
-                    TextField(
-                      controller: _phone,
-                      keyboardType: TextInputType.phone,
-                      autofillHints: const [AutofillHints.telephoneNumber],
-                      decoration: InputDecoration(
-                        labelText: '${AppLocalizations.of(context).phone} (${appText(context, 'بدون کد کشور', 'no country code')})',
-                        hintText: appText(context, 'مثلاً 09123456789', 'e.g. 09123456789'),
-                        helperText: appText(context, 'فقط شماره تلفن را وارد کنید؛ کد کشور لازم نیست.', 'Enter only the phone number; no country code is needed.'),
-                        border: const OutlineInputBorder(),
-                        prefixIcon: const Icon(Icons.phone_outlined),
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                  ],
-                  TextField(
-                    controller: _email,
-                    keyboardType: TextInputType.emailAddress,
-                    autofillHints: const [AutofillHints.email],
-                    decoration: InputDecoration(
-                      labelText: AppLocalizations.of(context).email,
-                      border: const OutlineInputBorder(),
-                      prefixIcon: const Icon(Icons.email_outlined),
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  TextField(
-                    controller: _password,
-                    obscureText: true,
-                    autofillHints: const [AutofillHints.password],
-                    decoration: InputDecoration(
-                      labelText: AppLocalizations.of(context).password,
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.lock_outline),
-                    ),
-                  ),
-                  if (!_register) ...[
-                    CheckboxListTile(
-                      contentPadding: EdgeInsets.zero,
-                      value: _rememberMe,
-                      controlAffinity: ListTileControlAffinity.leading,
-                      title: Text(AppLocalizations.of(context).rememberMe),
-                      subtitle: Text(
-                          appText(context, 'نام کاربری و رمز عبور به‌صورت امن روی دستگاه ذخیره می‌شوند.', 'Your username and password are stored securely on this device.')),
-                      onChanged: _busy
-                          ? null
-                          : (value) =>
-                              setState(() => _rememberMe = value ?? false),
-                    ),
-                    const SizedBox(height: 8),
-                  ],
-                  if (_checkingSession)
-                    const Padding(
-                      padding: EdgeInsets.all(8),
-                      child: Center(child: CircularProgressIndicator()),
-                    ),
-                  const SizedBox(height: 12),
-                  FilledButton(
-                    onPressed: _busy || _checkingSession ? null : _submit,
-                    child: Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: _busy
-                          ? const SizedBox(
-                              height: 22,
-                              width: 22,
-                              child: CircularProgressIndicator(strokeWidth: 2))
-                          : Text(_register ? appText(context, 'ایجاد حساب', 'Create account') : appText(context, 'ورود به حساب', 'Log in')),
                     ),
                   ),
                   if (_message != null) ...[
