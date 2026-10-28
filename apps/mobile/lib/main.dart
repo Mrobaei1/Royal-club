@@ -381,7 +381,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ),
                     const PopupMenuDivider(),
-                    const PopupMenuItem(
+                    PopupMenuItem(
                       value: 'themeMenu',
                       child: ListTile(
                         dense: true,
