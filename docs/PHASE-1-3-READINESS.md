@@ -44,21 +44,20 @@ This checklist is the release gate before starting Phase 4. A green CI run prove
 
 ### Final release gate
 
-- [x] API build/unit/integration tests, Flutter analyze/tests, and backgammon engine audit passed on PR head `c19c4ca07060b6b0a9acc873476b3592584b9c1f`; Web Preview remains in progress at the time of this update.
+- [x] API build/unit/integration tests, Flutter analyze/tests, and backgammon engine audit passed on PR head `c19c4ca07060b6b0a9acc873476b3592584b9c1f` (GitHub Actions runs 40647723503 and 40647723466).
 - [ ] Production API/database health is checked against the actual deployment, not a mocked or skipped step.
 - [ ] Manual end-to-end acceptance checklist is signed off.
 - [ ] No APK is built until the owner explicitly authorizes the final build after the above criteria are met.
 
 ## Latest automated verification
 
-The following GitHub Actions runs completed successfully for PR #23's head commit `b6be07b4ba85ca31b4114f39c04c8826a4f152fe`:
+The following GitHub Actions runs completed successfully for PR #23 head `c19c4ca07060b6b0a9acc873476b3592584b9c1f`:
 
-- `Validate Royal Club` run 789: API build/tests, API integration tests, Flutter analyze/tests — passed.
-- `Royal Club validation` run 354: API build/tests and Flutter analyze/tests — passed.
-- `Backgammon engine audit` run 109: engine/AI tests and board interaction regression tests — passed.
-- `Royal Club Web Preview` run 875: API build/tests, Flutter analyze/tests, web preview build and artifact upload — passed; deployment job was skipped.
+- [`Royal Club validation` run 556](https://github.com/Mrobaei1/Royal-club/actions/runs/40647723503): API build/unit/integration tests and Flutter analyze/tests — passed.
+- [`Backgammon engine audit` run 311](https://github.com/Mrobaei1/Royal-club/actions/runs/40647723466): engine/AI tests and board interaction regression tests — passed.
+- `Royal Club Web Preview` run 1077 and `Validate Royal Club` run 991 were cancelled after subsequent commits; no successful web-preview result is claimed for this head.
 
-These results establish automated build/test success for that commit only. They do not establish production API/database health, email delivery, real VPN switching, or multi-device manual acceptance. The current CI workflow's production endpoint verification and APK build are gated behind an explicit manual dispatch requesting an APK.
+A subsequent documentation-only update also passed API build/unit/integration tests and Flutter analyze/tests in `Royal Club validation` run 557. These results establish automated checks only. They do not establish production API/database health, real SMS delivery, real VPN switching, or multi-device manual acceptance. APK workflow is now manual-dispatch only; no APK was built.
 
 ## Current decision
 
