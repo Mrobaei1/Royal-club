@@ -48,7 +48,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
     [Color(0xFF7A3151), Color(0xFF54213A), Color(0xFF351529)],
     [Color(0xFF777B85), Color(0xFF4C515D), Color(0xFF30343D)],
   ];
-  static const List<String> _boardThemeNames = ['چوب سلطنتی', 'زمردی', 'آبی یاقوتی', 'زرشکی', 'نقره‌ای'];
+  List<String> get _boardThemeNames => Localizations.localeOf(context).languageCode == 'en' ? ['Royal wood', 'Emerald', 'Sapphire blue', 'Burgundy', 'Silver'] : ['چوب سلطنتی', 'زمردی', 'آبی یاقوتی', 'زرشکی', 'نقره‌ای'];
 
   @override
   void initState() {
@@ -245,18 +245,18 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
       _computerThinking = false;
       _selectedPoint = null;
       _selectedBar = false;
-      _message = 'بازی از ابتدا شروع شد. تاس بریزید.';
+      _message = appText(context, 'بازی از ابتدا شروع شد. تاس بریزید.', 'Game restarted. Roll the dice.');
       _timerPlayer = _engine.currentPlayer;
       _secondsLeft = _turnLimitSeconds;
     });
     _startTurnTimer(reset: true);
   }
 
-  String _playerName(int player) => player == 1 ? 'طلایی' : 'روشن';
+  String _playerName(int player) => player == 1 ? appText(context, 'طلایی', 'Gold') : appText(context, 'روشن', 'Light');
 
   String _profileName(int player) => _vsComputer
-      ? (player == 1 ? 'شما' : 'هوش مصنوعی')
-      : (player == 1 ? 'بازیکن ۱' : 'بازیکن ۲');
+      ? (player == 1 ? appText(context, 'شما', 'You') : appText(context, 'هوش مصنوعی', 'AI'))
+      : (player == 1 ? appText(context, 'بازیکن ۱', 'Player 1') : appText(context, 'بازیکن ۲', 'Player 2'));
 
   void _tapPoint(int point) {
     if (_computerThinking || (_vsComputer && _engine.currentPlayer == -1)) {
@@ -278,7 +278,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
         }
         _selectedPoint = null;
         _selectedBar = false;
-        _message = 'مهره در بار است؛ یکی از خانه‌های سبزرنگ برای ورود را انتخاب کنید.';
+        _message = appText(context, 'مهره در بار است؛ یکی از خانه‌های سبزرنگ برای ورود را انتخاب کنید.', 'A checker is on the bar; select a green point to re-enter.');
         return;
       }
 
@@ -309,7 +309,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
           _engine.points[point] * _engine.currentPlayer > 0) {
         _selectedPoint = point;
         _selectedBar = false;
-        _message = 'مقصد را انتخاب کنید؛ اگر مسیر قانونی باشد، حرکت تجمعی با تاس‌ها هم انجام می‌شود.';
+        _message = appText(context, 'مقصد را انتخاب کنید؛ اگر مسیر قانونی باشد، حرکت تجمعی با تاس‌ها هم انجام می‌شود.', 'Choose a destination. If the route is legal, the dice can be combined for a cumulative move.');
       } else {
         _selectedPoint = null;
         _selectedBar = false;
@@ -377,16 +377,16 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
     _selectedPoint = null;
     _selectedBar = false;
     if (!allPlayed) {
-      _message = 'حرکت تجمعی کامل نشد؛ لطفاً دوباره انتخاب کنید.';
+      _message = appText(context, 'حرکت تجمعی کامل نشد؛ لطفاً دوباره انتخاب کنید.', 'The cumulative move could not be completed. Please choose again.');
     } else if (_engine.finished) {
-      _message = 'تبریک! بازیکن ${_playerName(_engine.winner!)} برنده شد.';
+      _message = appText(context, 'تبریک! بازیکن ${_playerName(_engine.winner!)} برنده شد.', 'Congratulations! ${_playerName(_engine.winner!)} won the game.');
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _showGameOverDialog();
       });
     } else if (_engine.dice.isEmpty) {
-      _message = 'نوبت ${_playerName(_engine.currentPlayer)} است؛ تاس بریزید.';
+      _message = appText(context, 'نوبت ${_playerName(_engine.currentPlayer)} است؛ تاس بریزید.', 'It is ${_playerName(_engine.currentPlayer)}’s turn. Roll the dice.');
     } else {
-      _message = 'حرکت تجمعی انجام شد؛ تاس باقی‌مانده: ${_engine.dice.join('، ')}';
+      _message = appText(context, 'حرکت تجمعی انجام شد؛ تاس باقی‌مانده: ${_engine.dice.join('، ')}', 'Cumulative move completed; remaining dice: ${_engine.dice.join(', ')}');
     }
     _startTurnTimer();
     _scheduleComputerTurn();
@@ -399,14 +399,14 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
     if (_engine.finished || _engine.dice.isEmpty) return;
     setState(() {
       if (_selectedPoint == null || _selectedBar) {
-        _message = 'ابتدا مهره‌ای را که می‌خواهید خارج کنید انتخاب کنید.';
+        _message = appText(context, 'ابتدا مهره‌ای را که می‌خواهید خارج کنید انتخاب کنید.', 'Select the checker you want to bear off first.');
         return;
       }
       final candidates = _moves
           .where((m) => !m.fromBar && m.from == _selectedPoint && m.to == -1)
           .toList();
       if (candidates.isEmpty) {
-        _message = 'با تاس فعلی، خارج کردن این مهره مجاز نیست.';
+        _message = appText(context, 'با تاس فعلی، خارج کردن این مهره مجاز نیست.', 'This checker cannot be borne off with the current dice.');
         return;
       }
       _play(candidates.first);
@@ -418,7 +418,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
     _selectedPoint = null;
     _selectedBar = false;
     if (!ok) {
-      _message = 'این حرکت مجاز نیست.';
+      _message = appText(context, 'این حرکت مجاز نیست.', 'That move is not legal.');
       return;
     }
     if (_engine.finished) {
@@ -429,7 +429,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
     } else if (_engine.dice.isEmpty) {
       _message = 'نوبت ${_playerName(_engine.currentPlayer)} است؛ تاس بریزید.';
     } else {
-      _message = 'حرکت انجام شد؛ تاس باقی‌مانده: ${_engine.dice.join('، ')}';
+      _message = appText(context, 'حرکت انجام شد؛ تاس باقی‌مانده: ${_engine.dice.join('، ')}', 'Move completed; remaining dice: ${_engine.dice.join(', ')}');
     }
     _startTurnTimer();
     _scheduleComputerTurn();
@@ -453,13 +453,13 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
         if (_engine.dice.isEmpty) {
           final rolled = _engine.rollDice();
           if (rolled.isEmpty) {
-            _message = 'نوبت کامپیوتر بدون حرکت تمام شد.';
+            _message = appText(context, 'نوبت کامپیوتر بدون حرکت تمام شد.', 'The computer turn ended without a move.');
             _computerThinking = false;
             return;
           }
           // Show the rolled dice for a full three seconds before the first move.
           _computerThinking = false;
-          _message = 'تاس کامپیوتر: ${_engine.dice.join('، ')}';
+          _message = appText(context, 'تاس کامپیوتر: ${_engine.dice.join('، ')}', 'Computer dice: ${_engine.dice.join(', ')}');
           return;
         }
         final move = _ai.chooseMove(_engine, difficulty: _difficulty);
