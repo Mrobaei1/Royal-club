@@ -641,6 +641,10 @@ test('registered players can join an online match and history does not expose op
   const incomingInvite = (invitesInbox.json().invites as Array<Record<string, unknown>>)
     .find((invite) => String(invite.matchId) === invitedRoomId);
   assert.ok(incomingInvite);
+  const inviteDurationMs = Date.parse(String(incomingInvite.expiresAt)) -
+    Date.parse(String(incomingInvite.createdAt));
+  assert.ok(Math.abs(inviteDurationMs - 60000) < 2000,
+    `Invitation card should expire after 60 seconds, got ${inviteDurationMs}ms.`);
   const inviteNotifications = await app.inject({
     method: 'GET',
     url: '/api/v1/notifications',
