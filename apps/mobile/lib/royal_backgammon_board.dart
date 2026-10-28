@@ -7,7 +7,8 @@ class RoyalBackgammonBoard extends StatelessWidget {
   const RoyalBackgammonBoard({super.key, required this.points, required this.onPointTap,
     this.selectedPoint, this.legalTargets = const <int>{}, this.barWhite = 0,
     this.barBlack = 0, this.offWhite = 0, this.offBlack = 0, this.dice = const <int>[],
-    this.onBearOff, this.themeColors = const [Color(0xFF6D4026), Color(0xFF76502E), Color(0xFF3B2418)]});
+    this.onBearOff, this.themeColors = const [Color(0xFF6D4026), Color(0xFF76502E), Color(0xFF3B2418)],
+    this.onRoll, this.rollLabel = 'Roll dice', this.timerText, this.timerWhite = true});
   final List<num> points;
   final ValueChanged<int> onPointTap;
   final int? selectedPoint;
@@ -16,6 +17,10 @@ class RoyalBackgammonBoard extends StatelessWidget {
   final List<int> dice;
   final VoidCallback? onBearOff;
   final List<Color> themeColors;
+  final VoidCallback? onRoll;
+  final String rollLabel;
+  final String? timerText;
+  final bool timerWhite;
 
   @override
   Widget build(BuildContext context) => LayoutBuilder(builder: (context, c) {
@@ -23,7 +28,7 @@ class RoyalBackgammonBoard extends StatelessWidget {
     return Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       SizedBox(width: panel, child: Column(children: [
         Expanded(child: _CountPanel(label: appText(context, 'بار', 'Bar'), count: barBlack, white: false, themeColors: themeColors)),
-        Expanded(child: _CountPanel(label: appText(context, 'خارج از بازی', 'Off'), count: offBlack, white: false, onTap: onBearOff, themeColors: themeColors)),
+        Expanded(child: _CountPanel(label: appText(context, 'خارج از بازی', 'Off'), count: offBlack, white: false, onTap: onBearOff, themeColors: themeColors, timerText: timerText != null && !timerWhite ? timerText : null)),
       ])),
       const SizedBox(width: 5),
       Expanded(child: LayoutBuilder(builder: (context, boardC) {
@@ -41,20 +46,33 @@ class RoyalBackgammonBoard extends StatelessWidget {
                 child: const SizedBox.expand(),
               ),
             ),
+          if (onRoll != null)
+            Positioned(right: 5, top: boardC.maxHeight / 2 - 19,
+              child: FilledButton.icon(
+                onPressed: onRoll,
+                icon: const Icon(Icons.casino, size: 17),
+                label: Text(rollLabel, maxLines: 1, overflow: TextOverflow.ellipsis),
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFFE2B253),
+                  foregroundColor: const Color(0xFF172033),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                  minimumSize: const Size(0, 38),
+                ),
+              )),
         ]);
       })),
       const SizedBox(width: 5),
       SizedBox(width: panel, child: Column(children: [
         Expanded(child: _CountPanel(label: appText(context, 'بار', 'Bar'), count: barWhite, white: true, themeColors: themeColors)),
-        Expanded(child: _CountPanel(label: appText(context, 'خارج از بازی', 'Off'), count: offWhite, white: true, onTap: onBearOff, themeColors: themeColors)),
+        Expanded(child: _CountPanel(label: appText(context, 'خارج از بازی', 'Off'), count: offWhite, white: true, onTap: onBearOff, themeColors: themeColors, timerText: timerText != null && timerWhite ? timerText : null)),
       ])),
     ]);
   });
 }
 
 class _CountPanel extends StatelessWidget {
-  const _CountPanel({required this.label, required this.count, required this.white, this.onTap, required this.themeColors});
-  final String label; final int count; final bool white; final VoidCallback? onTap; final List<Color> themeColors;
+  const _CountPanel({required this.label, required this.count, required this.white, this.onTap, required this.themeColors, this.timerText});
+  final String label; final int count; final bool white; final VoidCallback? onTap; final List<Color> themeColors; final String? timerText;
   @override
   Widget build(BuildContext context) => GestureDetector(onTap: onTap,
     child: Container(width: double.infinity, margin: const EdgeInsets.symmetric(vertical: 3),
@@ -69,6 +87,10 @@ class _CountPanel extends StatelessWidget {
         CustomPaint(size: const Size(22, 22), painter: _CheckerPainter(white)),
         const SizedBox(height: 3),
         FittedBox(child: Text(count.toString(), style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold))),
+        if (timerText != null) ...[
+          const SizedBox(height: 4),
+          FittedBox(child: Text(timerText!, style: const TextStyle(color: Color(0xFFFFE7A0), fontSize: 10, fontWeight: FontWeight.bold))),
+        ],
       ])));
 }
 
