@@ -1387,3 +1387,53 @@ test('expired, malformed, and missing JWTs cannot access protected routes', asyn
   assert.equal(missing.statusCode, 401, missing.body);
 });
 
+
+
+test('expired and malformed JWTs are denied and missing owner configuration fails closed', async () => {
+  const user = await register('Security Boundary User');
+  const previousOwnerId = process.env.OWNER_USER_ID;
+  const expiredToken = app.jwt.sign(
+    { sub: user.user.id, email: user.user.email },
+    { expiresIn: -1 },
+  );
+  try {
+    delete process.env.OWNER_USER_ID;
+    for (const token of [expiredToken, 'not-a-valid-jwt']) {
+      const me = await app.inject({
+        method: 'GET',
+        url: '/api/v1/me',
+        headers: auth(token),
+      });
+      assert.equal(me.statusCode, 401, me.body);
+
+      const ownerStatus = await app.inject({
+        method: 'GET',
+        url: '/api/v1/admin/status',
+        headers: auth(token),
+      });
+      assert.equal(ownerStatus.statusCode, 401, ownerStatus.body);
+    }
+
+    const missingOwnerConfig = await app.inject({
+      method: 'GET',
+      url: '/api/v1/admin/security/sms-otp',
+      headers: auth(user.token),
+    });
+    assert.equal(missingOwnerConfig.statusCode, 403, missingOwnerConfig.body);
+
+    const deniedGrantManagement = await app.inject({
+      method: 'POST',
+      url: '/api/v1/admin/permissions/grants',
+      headers: auth(user.token),
+      payload: {
+        userId: user.user.id,
+        permission: 'reports.read',
+        reason: 'Attempt to self-grant permission',
+      },
+    });
+    assert.equal(deniedGrantManagement.statusCode, 403, deniedGrantManagement.body);
+  } finally {
+    if (previousOwnerId === undefined) delete process.env.OWNER_USER_ID;
+    else process.env.OWNER_USER_ID = previousOwnerId;
+  }
+});
