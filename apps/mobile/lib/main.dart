@@ -229,7 +229,7 @@ class _HomeScreenState extends State<HomeScreen> {
             Padding(padding: const EdgeInsets.fromLTRB(20, 4, 20, 12), child: Text(appText(context, 'پوسته برنامه', 'App theme'), style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800))),
             Expanded(child: ListView.builder(itemCount: royalThemes.length, itemBuilder: (context, i) => ListTile(
               leading: Icon(Icons.palette_outlined, color: royalThemes[i].accent),
-              title: Text(royalThemes[i].name, style: TextStyle(color: royalThemes[i].dark ? Colors.white : Colors.black)),
+              title: Text(royalThemes[i].localizedName(context), style: TextStyle(color: royalThemes[i].dark ? Colors.white : Colors.black)),
               trailing: i == royalThemeState.index ? Icon(Icons.check_circle, color: royalThemes[i].accent) : Icon(Icons.circle_outlined, color: royalThemeState.current.dark ? Colors.white70 : Colors.black54),
               onTap: () { royalThemeState.select(i); Navigator.of(sheetContext).pop(); },
             ))),
