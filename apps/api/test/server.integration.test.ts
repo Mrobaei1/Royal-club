@@ -1182,6 +1182,7 @@ test('development phone OTP simulator hashes, expires by policy, limits attempts
     const invalidPhone = await app.inject({
       method: 'POST',
       url: '/api/v1/auth/phone-otp/request',
+      remoteAddress: '127.0.0.11',
       payload: { phone: '+12025550123' },
     });
     assert.equal(invalidPhone.statusCode, 400);
@@ -1189,6 +1190,7 @@ test('development phone OTP simulator hashes, expires by policy, limits attempts
     const issued = await app.inject({
       method: 'POST',
       url: '/api/v1/auth/phone-otp/request',
+      remoteAddress: '127.0.0.11',
       payload: { phone },
     });
     assert.equal(issued.statusCode, 202, issued.body);
@@ -1249,6 +1251,7 @@ test('OTP simulator enforces cooldown, expiry, attempt exhaustion, daily limits,
     const response = await app.inject({
       method: 'POST',
       url: '/api/v1/auth/phone-otp/request',
+      remoteAddress: '127.0.0.12',
       payload: { phone: number },
     });
     assert.equal(response.statusCode, 202, response.body);
@@ -1261,6 +1264,7 @@ test('OTP simulator enforces cooldown, expiry, attempt exhaustion, daily limits,
     const cooldown = await app.inject({
       method: 'POST',
       url: '/api/v1/auth/phone-otp/request',
+      remoteAddress: '127.0.0.12',
       payload: { phone: cooldownPhone },
     });
     assert.equal(cooldown.statusCode, 429, cooldown.body);
@@ -1303,12 +1307,14 @@ test('OTP simulator enforces cooldown, expiry, attempt exhaustion, daily limits,
     const globalFirst = await app.inject({
       method: 'POST',
       url: '/api/v1/auth/phone-otp/request',
+      remoteAddress: '127.0.0.12',
       payload: { phone: phone() },
     });
     assert.equal(globalFirst.statusCode, 202, globalFirst.body);
     const globalSecond = await app.inject({
       method: 'POST',
       url: '/api/v1/auth/phone-otp/request',
+      remoteAddress: '127.0.0.12',
       payload: { phone: phone() },
     });
     assert.equal(globalSecond.statusCode, 429, globalSecond.body);
@@ -1317,6 +1323,7 @@ test('OTP simulator enforces cooldown, expiry, attempt exhaustion, daily limits,
     const dailyLimited = await app.inject({
       method: 'POST',
       url: '/api/v1/auth/phone-otp/request',
+      remoteAddress: '127.0.0.12',
       payload: { phone: phone() },
     });
     assert.equal(dailyLimited.statusCode, 429, dailyLimited.body);
@@ -1325,6 +1332,7 @@ test('OTP simulator enforces cooldown, expiry, attempt exhaustion, daily limits,
     const productionRequest = await app.inject({
       method: 'POST',
       url: '/api/v1/auth/phone-otp/request',
+      remoteAddress: '127.0.0.12',
       payload: { phone: phone() },
     });
     assert.equal(productionRequest.statusCode, 503, productionRequest.body);
@@ -1708,6 +1716,7 @@ test('purpose-bound OTP can register a new phone account, log it in, and link a 
     const response = await app.inject({
       method: 'POST',
       url: '/api/v1/auth/phone-otp/request',
+      remoteAddress: '127.0.0.13',
       payload: { phone: number, purpose },
     });
     assert.equal(response.statusCode, 202, response.body);
