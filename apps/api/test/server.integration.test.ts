@@ -1752,6 +1752,10 @@ test('purpose-bound OTP can register a new phone account, log it in, and link a 
     assert.equal(linked.statusCode, 200, linked.body);
     assert.equal(linked.json().phoneE164, `+98${linkPhone.slice(1)}`);
 
+    await testPool.query(
+      'UPDATE sms_otp_challenges SET created_at = NOW() - INTERVAL \'1 minute\' WHERE phone_e164 = $1',
+      [`+98${linkPhone.slice(1)}`],
+    );
     const duplicateCode = await requestCode(linkPhone, 'link');
     const duplicateLink = await app.inject({
       method: 'POST',
