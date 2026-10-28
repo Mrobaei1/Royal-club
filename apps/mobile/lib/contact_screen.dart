@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'l10n/app_text.dart';
 import 'contact_service.dart';
 import 'theme_state.dart';
 
@@ -67,7 +68,7 @@ class _ContactScreenState extends State<ContactScreen> {
       appBar: AppBar(title: Text(Localizations.localeOf(context).languageCode == 'en' ? 'Contact us' : 'ارتباط با ما')),
       body: _loading ? const Center(child: CircularProgressIndicator())
       : _error != null ? Center(child: Padding(padding: const EdgeInsets.all(24), child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Text(_error!, textAlign: TextAlign.center), const SizedBox(height: 12),
+          Text(appError(context, _error), textAlign: TextAlign.center), const SizedBox(height: 12),
           FilledButton(onPressed: _load, child: Text(Localizations.localeOf(context).languageCode == 'en' ? 'Try again' : 'تلاش دوباره')),
         ])))
       : ListView(padding: const EdgeInsets.all(18), children: [
