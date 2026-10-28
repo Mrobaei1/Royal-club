@@ -42,6 +42,15 @@ String appError(BuildContext context, Object? error) {
   };
   final exact = translations[message];
   if (exact != null) return exact;
+  if (message.startsWith('اتصال به سرور ناپایدار است')) {
+    return 'The server connection is unstable. Check your connection and try again.';
+  }
+  if (message.startsWith('پاسخ سرور بیش از حد طول کشید')) {
+    return 'The server response timed out. Check your internet connection and try again.';
+  }
+  if (message.startsWith('پاسخ سرور قابل‌خواندن نیست')) {
+    return 'The server response could not be read. Check the API address and internet access.';
+  }
   if (message.startsWith('خطای سرور (')) {
     return message.replaceFirst('خطای سرور', 'Server error');
   }
