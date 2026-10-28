@@ -242,7 +242,7 @@ class _AccountScreenState extends State<AccountScreen> {
                               fontWeight: FontWeight.bold)),
                       const SizedBox(height: 20),
                       if (_error != null)
-                        Text(_error!,
+                        Text(appError(context, _error),
                             textAlign: TextAlign.center,
                             style: const TextStyle(color: Colors.redAccent)),
                       if (_user != null)
