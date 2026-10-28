@@ -1042,6 +1042,18 @@ test('delegated report permissions are owner-granted, resource-scoped, audited, 
     const reportAId = String(createdA.rows[0].id);
     const reportBId = String(createdB.rows[0].id);
 
+    const unscopedManageGrant = await app.inject({
+      method: 'POST',
+      url: '/api/v1/admin/permissions/grants',
+      headers: auth(owner.token),
+      payload: {
+        userId: assistant.user.id,
+        permission: 'reports.manage',
+        reason: 'Unscoped grant must be rejected',
+      },
+    });
+    assert.equal(unscopedManageGrant.statusCode, 400, unscopedManageGrant.body);
+
     const grant = await app.inject({
       method: 'POST',
       url: '/api/v1/admin/permissions/grants',
