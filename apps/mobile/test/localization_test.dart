@@ -52,6 +52,24 @@ void main() {
     expect(find.text('Save'), findsNothing);
   });
 
+  testWidgets('Persian locale uses RTL direction and English uses LTR', (tester) async {
+    await tester.pumpWidget(
+      _localizedApp(const Locale('fa'), (context) => appText(context, 'تخته‌نرد', 'Backgammon')),
+    );
+    expect(
+      Directionality.of(tester.element(find.text('تخته‌نرد'))),
+      TextDirection.rtl,
+    );
+
+    await tester.pumpWidget(
+      _localizedApp(const Locale('en'), (context) => appText(context, 'تخته‌نرد', 'Backgammon')),
+    );
+    expect(
+      Directionality.of(tester.element(find.text('Backgammon'))),
+      TextDirection.ltr,
+    );
+  });
+
   testWidgets('common Persian service errors are translated in English', (tester) async {
     await tester.pumpWidget(
       _localizedApp(const Locale('en'), (context) {
