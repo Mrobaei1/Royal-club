@@ -21,7 +21,7 @@ This checklist is the release gate before starting Phase 4. A green CI run prove
 - [x] OTP security foundation and automated coverage: owner-only encrypted settings/audit, Iranian phone normalization, HMAC-peppered OTP digests, dev/test-only simulator, expiry/single-use/attempt/cooldown/global-and-phone daily limits, Kavenegar adapter, connection check, explicitly confirmed test-message action, and API integration tests. Latest API build/integration tests passed on PR head `c19c4ca07060b6b0a9acc873476b3592584b9c1f`.
 - [x] Purpose-bound OTP registration/login/phone-linking API endpoints and gated mobile UI are implemented and covered by API integration tests in simulator mode; verified-phone uniqueness is enforced, and ordinary profile edits cannot bypass verification. Existing email/password authentication remains available. Production use is fail-closed until the owner explicitly approves activation and configures the real provider. No real test SMS has been sent.
 - [ ] Review the production activation/migration plan, perform the owner-approved provider connection/test-message workflow if authorized, and manually verify new-account registration, phone login, and linking on Android. See `docs/SMS-AUTH-ADMIN-CONFIG.md`.
-- [x] Persian/English source-level localization coverage: matching ARB resources, bilingual `appText` coverage, mapped service errors, localized friend notifications and wallet fallback text, plus automated locale-selection, notification-copy, and RTL/LTR directionality tests. Flutter analyze/tests passed on PR head `c19c4ca07060b6b0a9acc873476b3592584b9c1f`.
+- [x] Persian/English source-level localization coverage: matching ARB resources, bilingual `appText` coverage, mapped service errors, localized friend notifications and wallet fallback text, plus automated locale-selection, notification-copy, and RTL/LTR directionality tests. Flutter analyze/tests passed on PR head `ea97530af955bccf6d3a8af9ae8597066c8dbb61`.
 - [ ] Manual device acceptance remains: review Persian RTL and English LTR, overflow, dialogs, navigation and dynamic text on real Android screen sizes. Generated-ARB consolidation for remaining inline bilingual strings is maintainability work, not evidence of untranslated UI. No additional languages are in scope. See `docs/PHASE-1-LOCALIZATION-AUDIT.md`.
 - [ ] Complete security closure. Negative tests for expired/malformed JWTs, non-owner access, missing owner configuration, secret redaction, OTP lifecycle and delegated permission controls are covered by the API test suite. Remaining: verify the actual deployed environment and database schema, review host/network controls, confirm owner configuration, and perform final production security acceptance. See `docs/PHASE-1-SECURITY-REVIEW.md`.
 - [x] Dormant delegated-permission foundation: owner-only grant/revocation/audit endpoints, fail-closed scoped enforcement, global kill switch, and a 50-delegate ceiling; API integration tests passed on PR head `c19c4ca07060b6b0a9acc873476b3592584b9c1f`. No grants are seeded and sensitive owner-only endpoints are not delegable.
@@ -45,18 +45,18 @@ This checklist is the release gate before starting Phase 4. A green CI run prove
 
 ### Final release gate
 
-- [x] API build/unit/integration tests, Flutter analyze/tests, and backgammon engine audit passed on PR head `c19c4ca07060b6b0a9acc873476b3592584b9c1f` (GitHub Actions runs 40647723503 and 40647723466).
+- [x] API build/unit/integration tests, Flutter analyze/tests, and backgammon engine audit passed on PR head `ea97530af955bccf6d3a8af9ae8597066c8dbb61` (GitHub Actions runs 40649094399 and 40649094340).
 - [ ] Production API/database health is checked against the actual deployment, not a mocked or skipped step.
 - [ ] Manual end-to-end acceptance checklist is signed off.
 - [ ] No APK is built until the owner explicitly authorizes the final build after the above criteria are met.
 
 ## Latest automated verification
 
-The following GitHub Actions runs completed successfully for PR #23 head `c19c4ca07060b6b0a9acc873476b3592584b9c1f`:
+The following GitHub Actions runs completed successfully for PR #23 head `ea97530af955bccf6d3a8af9ae8597066c8dbb61`:
 
-- [`Royal Club validation` run 556](https://github.com/Mrobaei1/Royal-club/actions/runs/40647723503): API build/unit/integration tests and Flutter analyze/tests — passed.
-- [`Backgammon engine audit` run 311](https://github.com/Mrobaei1/Royal-club/actions/runs/40647723466): engine/AI tests and board interaction regression tests — passed.
-- `Royal Club Web Preview` run 1077 and `Validate Royal Club` run 991 were cancelled after subsequent commits; no successful web-preview result is claimed for this head.
+- [`Royal Club validation`](https://github.com/Mrobaei1/Royal-club/actions/runs/40649094399): API build/unit/integration tests and Flutter analyze/tests — passed.
+- [`Backgammon engine audit`](https://github.com/Mrobaei1/Royal-club/actions/runs/40649094340): engine/AI tests and board interaction regression tests — passed.
+- `Royal Club Web Preview` and `Validate Royal Club` were cancelled after subsequent commits; no successful web-preview result is claimed for this head.
 
 A subsequent documentation-only update also passed API build/unit/integration tests and Flutter analyze/tests in `Royal Club validation` run 557. These results establish automated checks only. They do not establish production API/database health, real SMS delivery, real VPN switching, or multi-device manual acceptance. APK workflow is now manual-dispatch only; no APK was built.
 
