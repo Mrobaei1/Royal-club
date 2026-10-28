@@ -38,7 +38,7 @@ class _ChatScreenState extends State<ChatScreen> {
     child: Scaffold(
       appBar: AppBar(title: Text(appText(context, 'گفت‌وگوهای خصوصی', 'Private chats')), actions: [IconButton(tooltip: appText(context, 'به‌روزرسانی', 'Refresh'), onPressed: _load, icon: const Icon(Icons.refresh))]),
       body: _loading ? const Center(child: CircularProgressIndicator())
-        : _error != null ? Center(child: Padding(padding: const EdgeInsets.all(24), child: Text(_error!, textAlign: TextAlign.center)))
+        : _error != null ? Center(child: Padding(padding: const EdgeInsets.all(24), child: Text(appError(context, _error), textAlign: TextAlign.center)))
         : _conversations.isEmpty ? Center(child: Padding(padding: const EdgeInsets.all(24), child: Text(appText(context, 'برای شروع گفت‌وگو، ابتدا یک دوست اضافه کنید.', 'Add a friend to start a conversation.'))))
         : RefreshIndicator(onRefresh: _load, child: ListView.separated(
           itemCount: _conversations.length,
@@ -266,7 +266,7 @@ class _ChatThreadScreenState extends State<ChatThreadScreen> {
       appBar: AppBar(title: Row(children: [RoyalAvatar(dataUrl: widget.avatarDataUrl, radius: 16), const SizedBox(width: 8), Expanded(child: Text(_selectedMessageIds.isEmpty ? widget.title : (_isEnglish ? '${_selectedMessageIds.length} selected' : '${_selectedMessageIds.length} انتخاب‌شده'), maxLines: 1, overflow: TextOverflow.ellipsis))]), actions: [if (_selectedMessageIds.isNotEmpty) IconButton(tooltip: _isEnglish ? 'Delete for me' : 'حذف برای من', onPressed: () => _deleteSelected(forBoth: false), icon: const Icon(Icons.delete_outline)), if (_selectedMessageIds.isNotEmpty && _messages.where((m) => _selectedMessageIds.contains(m['id']?.toString())).every((m) => m['senderId']?.toString() == _myId)) IconButton(tooltip: _isEnglish ? 'Delete for everyone' : 'حذف برای هر دو طرف', onPressed: () => _deleteSelected(forBoth: true), icon: const Icon(Icons.delete_forever_outlined)), if (_selectedMessageIds.length == 1 && _messages.any((m) => m['id']?.toString() == _selectedMessageIds.first && m['senderId']?.toString() == _myId && m['deletedForAll'] != true && !(m['body']?.toString().startsWith('data:image/') ?? false))) IconButton(tooltip: _isEnglish ? 'Edit message' : 'ویرایش پیام', onPressed: () { final m = _messages.firstWhere((m) => m['id']?.toString() == _selectedMessageIds.first); _editMessage(Map<String, dynamic>.from(m as Map)); }, icon: const Icon(Icons.edit_outlined)), IconButton(tooltip: _isEnglish ? 'Report user' : 'گزارش کاربر', onPressed: _reportUser, icon: const Icon(Icons.flag_outlined)), IconButton(onPressed: _load, icon: const Icon(Icons.refresh))]),
       body: Column(children: [
         Expanded(child: _loading ? const Center(child: CircularProgressIndicator())
-          : _error != null ? Center(child: Padding(padding: const EdgeInsets.all(20), child: Text(_error!, textAlign: TextAlign.center)))
+          : _error != null ? Center(child: Padding(padding: const EdgeInsets.all(20), child: Text(appError(context, _error), textAlign: TextAlign.center)))
           : _messages.isEmpty ? Center(child: Text(_isEnglish ? 'No messages yet.' : 'هنوز پیامی ارسال نشده است.'))
           : ListView.builder(
             reverse: false,
