@@ -66,7 +66,7 @@ class _AdminScreenState extends State<AdminScreen> {
       if (!mounted) return;
       final sms = results[2] as Map<String, dynamic>;
       _smsSettings = sms; _smsMode = sms['deliveryMode']?.toString() ?? 'disabled';
-      _smsProvider = sms['provider']?.toString().isNotEmpty == true ? sms['provider'].toString() : 'kavenegar';
+      _smsProvider = 'kavenegar';
       _smsSender.text = sms['senderId']?.toString() ?? ''; _smsTemplate.text = sms['templateId']?.toString() ?? '';
       _smsTtl.text = (sms['otpTtlSeconds'] ?? 120).toString(); _smsCooldown.text = (sms['resendCooldownSeconds'] ?? 60).toString();
       _smsAttempts.text = (sms['maxAttempts'] ?? 5).toString(); _smsDailyLimit.text = (sms['dailyLimit'] ?? 100).toString();
@@ -423,7 +423,7 @@ class _AdminScreenState extends State<AdminScreen> {
               Card(child: Padding(padding: const EdgeInsets.all(14), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text(appText(context, 'امنیت و احراز هویت — پیامک / OTP', 'Security & authentication — SMS / OTP'), style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 6),
-                Text(appText(context, 'ارسال واقعی پیامک و ورود با OTP تا تصمیم مدیر و تکمیل آداپتور قفل است.', 'Real SMS delivery and OTP login remain locked until the owner decides and the provider adapter is complete.'), style: TextStyle(color: Colors.orange)),
+                Text(appText(context, 'ارسال واقعی ورود با OTP تا یکپارچه‌سازی احراز هویت و تصمیم مدیر قفل است.', 'Real SMS delivery and OTP login remain locked until authentication integration is complete and the owner decides.'), style: TextStyle(color: Colors.orange)),
                 SwitchListTile(contentPadding: EdgeInsets.zero, title: Text(appText(context, 'فعال‌سازی OTP پیامکی', 'Enable SMS OTP')), subtitle: Text(appText(context, 'فعلاً غیرفعال و غیرقابل فعال‌سازی', 'Currently disabled and cannot be enabled')), value: false, onChanged: null),
                 DropdownButtonFormField<String>(initialValue: ['disabled', 'development_simulator', 'real_provider'].contains(_smsMode) ? _smsMode : 'disabled', decoration: InputDecoration(labelText: appText(context, 'حالت ارسال', 'Delivery mode')), items: [
                   DropdownMenuItem(value: 'disabled', child: Text(appText(context, 'غیرفعال (پیش‌فرض)', 'Disabled (default)'))),
