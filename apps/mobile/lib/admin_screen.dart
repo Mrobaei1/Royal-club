@@ -113,6 +113,7 @@ class _AdminScreenState extends State<AdminScreen> {
     setState(() => _busy = true);
     try {
       final profile = await AdminService.exportUserProfile(user['id'].toString());
+      if (!mounted) return;
       final lines = <String>[
         appText(context, 'شناسه کاربر: ${profile['id'] ?? ''}', 'User ID: ${profile['id'] ?? ''}'),
         appText(context, 'نام کاربری: ${profile['username'] ?? ''}', 'Username: ${profile['username'] ?? ''}'),
@@ -122,7 +123,6 @@ class _AdminScreenState extends State<AdminScreen> {
         appText(context, 'موجودی اعتبار: ${profile['walletBalance'] ?? '0'}', 'Credit balance: ${profile['walletBalance'] ?? '0'}'),
         appText(context, 'تاریخ ثبت‌نام: ${profile['createdAt'] ?? ''}', 'Registration date: ${profile['createdAt'] ?? ''}'),
       ];
-      if (!mounted) return;
       await showDialog<void>(
         context: context,
         builder: (dialogContext) => AlertDialog(
@@ -274,12 +274,12 @@ class _AdminScreenState extends State<AdminScreen> {
                 const SizedBox(height: 6),
                 Text(appText(context, 'ارسال واقعی پیامک و ورود با OTP تا تصمیم مدیر و تکمیل آداپتور قفل است.', 'Real SMS delivery and OTP login remain locked until the owner decides and the provider adapter is complete.'), style: TextStyle(color: Colors.orange)),
                 SwitchListTile(contentPadding: EdgeInsets.zero, title: Text(appText(context, 'فعال‌سازی OTP پیامکی', 'Enable SMS OTP')), subtitle: Text(appText(context, 'فعلاً غیرفعال و غیرقابل فعال‌سازی', 'Currently disabled and cannot be enabled')), value: false, onChanged: null),
-                DropdownButtonFormField<String>(value: _smsMode == 'development_simulator' ? 'development_simulator' : 'disabled', decoration: InputDecoration(labelText: appText(context, 'حالت ارسال', 'Delivery mode')), items: [
+                DropdownButtonFormField<String>(initialValue: _smsMode == 'development_simulator' ? 'development_simulator' : 'disabled', decoration: InputDecoration(labelText: appText(context, 'حالت ارسال', 'Delivery mode')), items: [
                   DropdownMenuItem(value: 'disabled', child: Text(appText(context, 'غیرفعال (پیش‌فرض)', 'Disabled (default)'))),
                   DropdownMenuItem(value: 'development_simulator', child: Text(appText(context, 'شبیه‌ساز توسعه، بدون پیامک واقعی', 'Development simulator, no real SMS'))),
                 ], onChanged: _busy ? null : (v) => setState(() => _smsMode = v ?? 'disabled')),
                 const SizedBox(height: 8),
-                DropdownButtonFormField<String>(value: _smsProvider, decoration: InputDecoration(labelText: appText(context, 'ارائه‌دهنده (قابل تغییر در آینده)', 'Provider (replaceable later)')), items: [
+                DropdownButtonFormField<String>(initialValue: _smsProvider, decoration: InputDecoration(labelText: appText(context, 'ارائه‌دهنده (قابل تغییر در آینده)', 'Provider (replaceable later)')), items: [
                   DropdownMenuItem(value: 'kavenegar', child: Text('KaveNegar')),
                   DropdownMenuItem(value: 'ippanel', child: Text('IPPanel')),
                   DropdownMenuItem(value: 'other', child: Text(appText(context, 'سایر', 'Other'))),
