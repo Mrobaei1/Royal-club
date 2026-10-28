@@ -440,11 +440,10 @@ class _AdminScreenState extends State<AdminScreen> {
                   DropdownMenuItem(value: 'real_provider', child: Text(appText(context, 'ارائه‌دهنده واقعی؛ ارسال ورود همچنان خاموش', 'Real provider configured; OTP login remains off'))),
                 ], onChanged: _busy ? null : (v) => setState(() => _smsMode = v ?? 'disabled')),
                 const SizedBox(height: 8),
-                DropdownButtonFormField<String>(initialValue: _smsProvider, decoration: InputDecoration(labelText: appText(context, 'ارائه‌دهنده (قابل تغییر در آینده)', 'Provider (replaceable later)')), items: [
-                  DropdownMenuItem(value: 'kavenegar', child: Text('KaveNegar')),
-                  DropdownMenuItem(value: 'ippanel', child: Text('IPPanel')),
-                  DropdownMenuItem(value: 'other', child: Text(appText(context, 'سایر', 'Other'))),
+                DropdownButtonFormField<String>(initialValue: 'kavenegar', decoration: InputDecoration(labelText: appText(context, 'ارائه‌دهنده', 'Provider')), items: [
+                  const DropdownMenuItem(value: 'kavenegar', child: Text('KaveNegar')),
                 ], onChanged: _busy ? null : (v) => setState(() => _smsProvider = v ?? 'kavenegar')),
+                Text(appText(context, 'در حال حاضر فقط آداپتور کاوه‌نگار پیاده‌سازی شده است.', 'Only the Kavenegar adapter is implemented currently.'), style: const TextStyle(fontSize: 12)),
                 const SizedBox(height: 8),
                 TextField(controller: _smsApiKey, obscureText: true, decoration: InputDecoration(labelText: appText(context, 'کلید API (اختیاری)', 'API key (optional)'), helperText: _smsSettings['apiKeyConfigured'] == true ? appText(context, 'کلید ذخیره شده و مخفی است.', 'The saved key is hidden.') : appText(context, 'ذخیره امن نیازمند کلید رمزنگاری سمت سرور است.', 'Secure storage requires a server-side encryption key.'), border: const OutlineInputBorder())),
                 const SizedBox(height: 8),
