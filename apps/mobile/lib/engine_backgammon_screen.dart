@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'l10n/app_text.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'backgammon_engine.dart';
@@ -221,9 +222,9 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
       final before = _engine.currentPlayer;
       final dice = _engine.rollDice();
       if (_engine.finished) {
-        _message = 'بازی تمام شده است.';
+        _message = appText(context, 'بازی تمام شده است.', 'The game is over.');
       } else if (dice.isEmpty) {
-        _message = 'حرکت مجاز وجود نداشت؛ نوبت عوض شد.';
+        _message = appText(context, 'حرکت مجاز وجود نداشت؛ نوبت عوض شد.', 'No legal move was available; the turn changed.');
       } else {
         _message =
             'نوبت ${_playerName(_engine.currentPlayer)} · تاس: ${dice.join('، ')}';
