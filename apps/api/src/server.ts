@@ -1456,7 +1456,7 @@ app.post<{ Body: { phone?: string; code?: string; email?: string; password?: str
     const country = typeof request.body?.country === 'string' ? request.body.country.trim() : '';
     const password = request.body?.password;
     if (!phone || !/^\d{6}$/.test(code) || !email || email.length > 254 ||
-        !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email) ||
+        !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ||
         !fullName || fullName.length > 120 || country.length > 80 ||
         !isValidRegistrationPassword(password)) {
       return reply.code(400).send({ error: 'Provide a valid Iranian phone, verification code, name, email, and password of at least six characters.' });
