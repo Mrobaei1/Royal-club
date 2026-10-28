@@ -12,6 +12,7 @@ import { createKavenegarProvider } from './sms-provider.js';
 import { getAllowedCorsOrigins } from './cors-config.js';
 import { INITIAL_BACKGAMMON_BOARD, applyBackgammonMove, hasLegalMove, maxPlayableDiceCount, mustPlayHigherDie } from './backgammon-rules.js';
 import { calculateEloRatings } from './backgammon-rating.js';
+import { nextProgressionState, type ProgressionOutcome } from './player-progression.js';
 import { hasRoyalPermission, isRoyalPermission } from './permissions.js';
 import { promisify } from 'node:util';
 
@@ -393,8 +394,24 @@ await pool.query(`
     games_played INTEGER NOT NULL DEFAULT 0 CHECK (games_played >= 0),
     wins INTEGER NOT NULL DEFAULT 0 CHECK (wins >= 0),
     losses INTEGER NOT NULL DEFAULT 0 CHECK (losses >= 0),
+    xp_points INTEGER NOT NULL DEFAULT 0 CHECK (xp_points >= 0),
+    level INTEGER NOT NULL DEFAULT 1 CHECK (level BETWEEN 1 AND 100),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   );
+  ALTER TABLE backgammon_player_stats ADD COLUMN IF NOT EXISTS xp_points INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE backgammon_player_stats ADD COLUMN IF NOT EXISTS level INTEGER NOT NULL DEFAULT 1;
+  CREATE TABLE IF NOT EXISTS backgammon_progression_events (
+    id BIGSERIAL PRIMARY KEY,
+    match_id BIGINT NOT NULL REFERENCES backgammon_matches(id) ON DELETE CASCADE,
+    event_key TEXT NOT NULL,
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    outcome TEXT NOT NULL CHECK (outcome IN ('win', 'loss', 'quit')),
+    points_delta INTEGER NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (match_id, event_key, user_id)
+  );
+  CREATE INDEX IF NOT EXISTS backgammon_progression_user_idx
+    ON backgammon_progression_events (user_id, created_at DESC);
   CREATE INDEX IF NOT EXISTS backgammon_player_stats_leaderboard_idx
     ON backgammon_player_stats (rating DESC, wins DESC, games_played ASC);
 `);
@@ -658,6 +675,61 @@ async function updateBackgammonRatings(client: PoolClient, winnerUserId: string,
       WHERE user_id = $2`,
     [next.loserRating, loserUserId],
   );
+}
+
+
+/** Apply XP exactly once per match event and participant, inside the caller's transaction. */
+async function awardProgression(
+  client: PoolClient,
+  matchId: string,
+  eventKey: string,
+  winnerUserId: string,
+  loserUserId: string,
+  loserOutcome: 'loss' | 'quit',
+): Promise<void> {
+  if (winnerUserId === loserUserId) throw new Error('Progression participants must differ.');
+  const orderedIds = [winnerUserId, loserUserId].sort((left, right) => {
+    const a = BigInt(left);
+    const b = BigInt(right);
+    return a < b ? -1 : a > b ? 1 : 0;
+  });
+  await client.query(
+    'INSERT INTO backgammon_player_stats (user_id) VALUES ($1), ($2) ON CONFLICT (user_id) DO NOTHING',
+    orderedIds,
+  );
+  const locked = await client.query(
+    `SELECT user_id, xp_points, level FROM backgammon_player_stats
+      WHERE user_id = ANY($1::bigint[]) ORDER BY user_id FOR UPDATE`,
+    [orderedIds],
+  );
+  const stats = new Map(locked.rows.map((row) => [String(row.user_id), row]));
+  const entries = [
+    { userId: winnerUserId, outcome: 'win' as const },
+    { userId: loserUserId, outcome: loserOutcome },
+  ];
+  for (const entry of entries) {
+    const inserted = await client.query(
+      `INSERT INTO backgammon_progression_events
+        (match_id, event_key, user_id, outcome, points_delta)
+       VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (match_id, event_key, user_id) DO NOTHING
+       RETURNING user_id`,
+      [matchId, eventKey, entry.userId, entry.outcome,
+       entry.outcome === 'win' ? 20 : entry.outcome === 'loss' ? 5 : -5],
+    );
+    if (!inserted.rowCount) continue;
+    const current = stats.get(entry.userId);
+    if (!current) throw new Error('Could not lock progression stats.');
+    const next = nextProgressionState(Number(current.xp_points), Number(current.level), entry.outcome);
+    await client.query(
+      `UPDATE backgammon_player_stats
+          SET xp_points = $1, level = $2, updated_at = NOW()
+        WHERE user_id = $3`,
+      [next.xp, next.level, entry.userId],
+    );
+    current.xp_points = next.xp;
+    current.level = next.level;
+  }
 }
 
 app.patch<{ Body: { fullName?: string; phone?: string; country?: string } }>('/api/v1/me/profile', { onRequest: [requireMatchAuth], config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request, reply) => {
