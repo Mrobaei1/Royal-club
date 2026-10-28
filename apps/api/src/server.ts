@@ -839,7 +839,7 @@ app.post<{ Body: { userId?: string; permission?: string; scope?: unknown; reason
       scope = { resourceIds: [...new Set(value.resourceIds as string[])] };
     }
     if (!isNumericId(userId) || !isRoyalPermission(permission) ||
-        reason.length < 5 || reason.length > 500 || approvalReference.length > 200) {
+        reason.length < 5 || reason.length > 500 || approvalReference.length > 200 || (permission === 'reports.manage' && !scope)) {
       return reply.code(400).send({ error: 'Provide a valid user ID, allowlisted permission, reason, and optional approval reference.' });
     }
 
