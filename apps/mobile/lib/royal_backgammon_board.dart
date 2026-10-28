@@ -26,13 +26,20 @@ class RoyalBackgammonBoard extends StatelessWidget {
       const SizedBox(width: 5),
       Expanded(child: LayoutBuilder(builder: (context, boardC) {
         final size = Size(boardC.maxWidth, boardC.maxHeight);
-        return GestureDetector(behavior: HitTestBehavior.opaque,
-          onTapDown: (d) {
-            final point = _RoyalBoardPainter.pointAt(d.localPosition, size);
-            if (point != null && point >= 0 && point < points.length) onPointTap(point);
-          },
-          child: CustomPaint(painter: _RoyalBoardPainter(points: points, selected: selectedPoint,
-            targets: legalTargets, dice: dice), child: const SizedBox.expand()));
+        return Stack(fit: StackFit.expand, children: [
+          CustomPaint(painter: _RoyalBoardPainter(points: points, selected: selectedPoint,
+            targets: legalTargets, dice: dice)),
+          for (var point = 0; point < 24; point++)
+            Positioned.fromRect(
+              rect: _RoyalBoardPainter.pointRect(point, size),
+              child: GestureDetector(
+                key: ValueKey('backgammon-point-$point'),
+                behavior: HitTestBehavior.opaque,
+                onTap: () => onPointTap(point),
+                child: const SizedBox.expand(),
+              ),
+            ),
+        ]);
       })),
       const SizedBox(width: 5),
       SizedBox(width: panel, child: Column(children: [
@@ -86,6 +93,14 @@ class _RoyalBoardPainter extends CustomPainter {
   _RoyalBoardPainter({required this.points, required this.selected, required this.targets, required this.dice});
   final List<num> points; final int? selected; final Set<int> targets; final List<int> dice;
   static const gold = Color(0xFFE2B253);
+
+  static Rect pointRect(int i, Size s) {
+    final m=s.width*.025, bw=s.width*.032, hw=(s.width-2*m-bw)/2, pw=hw/6;
+    final top=i<12;
+    final col=top?(i<6?11-i:5-(i-6)):(i<18?i-12:i-18);
+    final left=col<6?m+col*pw:m+hw+bw+(col-6)*pw;
+    return Rect.fromLTWH(left, top?0:s.height/2, pw, s.height/2);
+  }
 
   static int? pointAt(Offset p, Size s) {
     final m=s.width*.025, bw=s.width*.032, hw=(s.width-2*m-bw)/2, pw=hw/6;
