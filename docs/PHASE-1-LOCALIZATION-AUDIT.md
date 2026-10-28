@@ -22,7 +22,7 @@ These are source-level findings, not a claim that every individual string was ca
 1. Expand the English and Persian ARB resources to cover every user-visible app string, including validation errors, API failures, dialogs, snackbars, empty/loading states, game controls, admin tools, and SMS OTP settings.
 2. Replace hard-coded UI strings with generated localization accessors; keep provider secrets and internal identifiers out of translated UI.
 3. Verify Persian RTL and English LTR behavior for navigation, alignment, icons where direction matters, long labels, dialogs, and dynamic text.
-4. Add localization coverage tests: exact supported locale list (`fa`, `en` only), required key parity between ARB files, and smoke/widget tests for language switching and representative screens. A new `apps/mobile/test/localization_resource_parity_test.dart` now enforces exact ARB message-key parity.
+4. Add localization coverage tests: exact supported locale list (`fa`, `en` only), required key parity between ARB files, and smoke/widget tests for language switching and representative screens. New tests in `apps/mobile/test/localization_resource_parity_test.dart` enforce exact ARB message-key parity and locale tags. `apps/mobile/test/app_text_test.dart` covers English translations for the remaining Persian profile-validation API errors. Home-screen strategy/coming-soon copy is now in ARB resources.
 5. Run `flutter gen-l10n`, `flutter analyze`, and Flutter tests in CI. Perform manual device review for overflow and directionality before closing this Phase 1 item.
 
 ## Status
