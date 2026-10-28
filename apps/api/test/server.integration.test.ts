@@ -1093,6 +1093,48 @@ test('subscription purchases debit the wallet atomically and record a ledger ent
     assert.equal(entitlementLedger.rowCount, 1);
     assert.equal(Number(entitlementLedger.rows[0].days_consumed), 2);
 
+    const limitedLeagueResponse = await app.inject({
+      method: 'POST',
+      url: '/api/v1/admin/leagues',
+      headers: auth(leagueOwner.token),
+      payload: {
+        code: 'limited_days_weekly',
+        name: 'Limited Days League',
+        enabled: true,
+        entryMode: 'subscription_days',
+        subscriptionDaysCost: 2,
+      },
+    });
+    assert.equal(limitedLeagueResponse.statusCode, 201, limitedLeagueResponse.body);
+    const limitedLeagueId = String(limitedLeagueResponse.json().league.id);
+    await testPool.query(
+      `UPDATE user_subscriptions SET ends_at = NOW() + INTERVAL '1 day'
+        WHERE id = (SELECT id FROM user_subscriptions
+                     WHERE user_id = $1 AND status = 'active'
+                     ORDER BY ends_at DESC LIMIT 1)`,
+      [buyer.user.id],
+    );
+    const insufficientDaysEntry = await app.inject({
+      method: 'POST',
+      url: `/api/v1/leagues/${limitedLeagueId}/entries`,
+      headers: auth(buyer.token),
+      payload: { idempotencyKey: `insufficient-days-${randomUUID()}` },
+    });
+    assert.equal(insufficientDaysEntry.statusCode, 409, insufficientDaysEntry.body);
+    const rejectedEntitlement = await testPool.query(
+      'SELECT id FROM league_entitlement_ledger WHERE user_id = $1 AND league_id = $2',
+      [buyer.user.id, limitedLeagueId],
+    );
+    assert.equal(rejectedEntitlement.rowCount, 0,
+      'A denied entry must not create an entitlement-consumption ledger row.');
+    await testPool.query(
+      `UPDATE user_subscriptions SET ends_at = $1
+        WHERE id = (SELECT id FROM user_subscriptions
+                     WHERE user_id = $2 AND status = 'active'
+                     ORDER BY ends_at DESC LIMIT 1)`,
+      [afterConsumption.rows[0].ends_at, buyer.user.id],
+    );
+
     const walletAfterLeagueEntry = await app.inject({
       method: 'GET',
       url: '/api/v1/wallet',
