@@ -38,7 +38,7 @@ class _AccountScreenState extends State<AccountScreen> {
     } catch (error) {
       if (mounted) {
         setState(() {
-          _error = error.toString().replaceFirst('Exception: ', '');
+          _error = appError(context, error);
           _loading = false;
         });
       }
@@ -66,7 +66,7 @@ class _AccountScreenState extends State<AccountScreen> {
       final updated = await AuthService.updateUsername(picked);
       if (mounted) setState(() { _user?['username'] = updated['username']; _loading = false; });
     } catch (error) {
-      if (mounted) setState(() { _error = error.toString().replaceFirst('Exception: ', ''); _loading = false; });
+      if (mounted) setState(() { _error = appError(context, error); _loading = false; });
     }
   }
   Future<void> _pickAvatar() async {
@@ -101,7 +101,7 @@ class _AccountScreenState extends State<AccountScreen> {
     } catch (error) {
       if (mounted) {
         setState(() {
-          _error = error.toString().replaceFirst('Exception: ', '');
+          _error = appError(context, error);
           _avatarSaving = false;
         });
       }
@@ -200,7 +200,7 @@ class _AccountScreenState extends State<AccountScreen> {
         _loading = false;
       });
     } catch (error) {
-      if (mounted) setState(() { _error = error.toString().replaceFirst('Exception: ', ''); _loading = false; });
+      if (mounted) setState(() { _error = appError(context, error); _loading = false; });
     }
   }
 
