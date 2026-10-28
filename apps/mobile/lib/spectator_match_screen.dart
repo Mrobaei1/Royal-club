@@ -52,7 +52,7 @@ class _SpectatorMatchScreenState extends State<SpectatorMatchScreen> {
       if (!mounted) return;
       setState(() {
         _loading = false;
-        _error = e.toString().replaceFirst('Exception: ', '');
+        _error = appError(context, e);
       });
     }
   }
