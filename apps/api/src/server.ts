@@ -622,12 +622,17 @@ app.get('/api/v1/me', {
   if (!claims.sub) return reply.code(401).send({ error: 'Invalid token.' });
 
   const result = await pool.query(
-    'SELECT id, username, email, full_name, phone, country, avatar_data_url, created_at FROM users WHERE id = $1',
+    `SELECT u.id, u.username, u.email, u.full_name, u.phone, u.country,
+            u.avatar_data_url, u.created_at,
+            COALESCE(s.xp_points, 0)::int AS "xpPoints",
+            COALESCE(s.level, 1)::int AS level
+       FROM users u LEFT JOIN backgammon_player_stats s ON s.user_id = u.id
+      WHERE u.id = $1`,
     [claims.sub]
   );
   if (!result.rowCount) return reply.code(401).send({ error: 'Account not found.' });
-  const user = result.rows[0] as { id: string; username: string | null; email: string; full_name: string; phone: string; country: string; avatar_data_url: string | null; created_at: Date };
-  return { user: { id: user.id, username: user.username, email: user.email, fullName: user.full_name, phone: user.phone, country: user.country, avatarDataUrl: user.avatar_data_url ?? null, createdAt: user.created_at } };
+  const user = result.rows[0] as { id: string; username: string | null; email: string; full_name: string; phone: string; country: string; avatar_data_url: string | null; created_at: Date; xpPoints: number; level: number };
+  return { user: { id: user.id, username: user.username, email: user.email, fullName: user.full_name, phone: user.phone, country: user.country, avatarDataUrl: user.avatar_data_url ?? null, createdAt: user.created_at, xpPoints: user.xpPoints, level: user.level } };
 });
 
 const requireMatchAuth = async (request: any, reply: any) => {
@@ -2188,7 +2193,7 @@ app.get('/api/v1/leaderboard', { onRequest: [requireMatchAuth] }, async (request
   const claims = request.user as { sub: string };
   const result = await pool.query(
     `SELECT s.user_id AS "userId", u.username, u.avatar_data_url AS "avatarDataUrl", s.rating,
-            GREATEST(1, LEAST(10, FLOOR((s.rating - 1000) / 100.0)::int + 1))::int AS level,
+            s.level, s.xp_points AS "xpPoints",
             s.games_played AS "gamesPlayed", s.wins, s.losses
        FROM backgammon_player_stats s
        JOIN users u ON u.id = s.user_id
@@ -2220,7 +2225,8 @@ app.get('/api/v1/leaderboard/weekly', { onRequest: [requireMatchAuth] }, async (
      SELECT p.user_id AS "userId", u.username,
             u.avatar_data_url AS "avatarDataUrl",
             COALESCE(s.rating, 1000)::int AS rating,
-            GREATEST(1, LEAST(10, FLOOR((COALESCE(s.rating, 1000) - 1000) / 100.0)::int + 1))::int AS level,
+            COALESCE(s.level, 1)::int AS level,
+            COALESCE(s.xp_points, 0)::int AS "xpPoints",
             COUNT(*)::int AS "gamesPlayed",
             COUNT(*) FILTER (WHERE p.winner_user_id = p.user_id)::int AS wins,
             COUNT(*) FILTER (WHERE p.winner_user_id <> p.user_id)::int AS losses,
@@ -2228,7 +2234,7 @@ app.get('/api/v1/leaderboard/weekly', { onRequest: [requireMatchAuth] }, async (
        FROM participants p
        JOIN users u ON u.id = p.user_id
        LEFT JOIN backgammon_player_stats s ON s.user_id = p.user_id
-      GROUP BY p.user_id, u.username, u.avatar_data_url, s.rating
+      GROUP BY p.user_id, u.username, u.avatar_data_url, s.rating, s.level, s.xp_points
       ORDER BY score DESC, wins DESC, "gamesPlayed" ASC, LOWER(u.username) ASC
       LIMIT 50`,
   );
