@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'l10n/app_text.dart';
 import 'profile_avatar.dart';
 import 'services/leaderboard_service.dart';
 
@@ -65,7 +66,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
             IconButton(
               onPressed: _loading ? null : _load,
               icon: const Icon(Icons.refresh),
-              tooltip: 'به‌روزرسانی',
+              tooltip: appText(context, 'به‌روزرسانی', 'Refresh'),
             ),
           ],
         ),
@@ -87,7 +88,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                             FilledButton.icon(
                               onPressed: _load,
                               icon: const Icon(Icons.refresh),
-                              label: const Text('تلاش دوباره'),
+                              label: Text(appText(context, 'تلاش دوباره', 'Try again')),
                               style: FilledButton.styleFrom(
                                 backgroundColor: Theme.of(context).colorScheme.primary,
                                 foregroundColor: Theme.of(context).colorScheme.onPrimary,
@@ -129,7 +130,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                                     foregroundColor: index < 3 ? Theme.of(context).colorScheme.onPrimary : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7), 
                                   ),
                                   title: Text(
-                                    username == null || username.isEmpty ? 'بازیکن' : '@$username',
+                                    username == null || username.isEmpty ? appText(context, 'بازیکن', 'Player') : '@$username',
                                     style: TextStyle(
                                       color: isCurrentUser ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.onSurface,
                                       fontWeight: FontWeight.bold,
