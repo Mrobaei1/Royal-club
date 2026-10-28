@@ -9,9 +9,12 @@ String appText(BuildContext context, String fa, String en) {
 
 /// Converts common Persian service-layer exceptions into the selected app language.
 /// Unknown errors are preserved rather than guessed or silently discarded.
-String appError(BuildContext context, Object? error) {
+String appError(BuildContext context, Object? error) =>
+    appErrorForLanguage(Localizations.localeOf(context).languageCode, error);
+
+String appErrorForLanguage(String languageCode, Object? error) {
   final message = (error ?? '').toString().replaceFirst('Exception: ', '').trim();
-  if (Localizations.localeOf(context).languageCode != 'en') return message;
+  if (languageCode != 'en') return message;
   const translations = <String, String>{
     'سرور Royal Club هنوز تنظیم نشده است. ابتدا سرویس API را راه‌اندازی کنید.':
         'The Royal Club server is not configured yet. Start the API service first.',
