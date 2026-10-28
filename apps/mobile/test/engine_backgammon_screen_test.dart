@@ -51,6 +51,24 @@ void main() {
         findsOneWidget);
   });
 
+  testWidgets('English locale renders backgammon setup and controls in English',
+      (tester) async {
+    await tester.pumpWidget(const MaterialApp(
+      locale: Locale('en'),
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
+      home: EngineBackgammonScreen(),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Choose a game mode'), findsOneWidget);
+    await tester.tap(find.text('Offline vs AI'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Royal Backgammon'), findsOneWidget);
+    expect(find.text('Board theme:'), findsOneWidget);
+    expect(find.text('Restart'), findsWidgets);
+  });
+
   testWidgets('offline game does not expose a local two-player mode selector',
       (tester) async {
     await tester.pumpWidget(const MaterialApp(locale: Locale('fa'), localizationsDelegates: GlobalMaterialLocalizations.delegates, home: EngineBackgammonScreen()));
