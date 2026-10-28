@@ -54,6 +54,10 @@ void main() {
 
   testWidgets('English locale renders backgammon setup and controls in English',
       (tester) async {
+    tester.view.physicalSize = const Size(900, 540);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
     await tester.pumpWidget(const MaterialApp(
       locale: Locale('en'),
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
