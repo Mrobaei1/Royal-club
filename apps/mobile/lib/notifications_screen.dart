@@ -214,7 +214,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 if (_error != null)
                   Padding(
                     padding: const EdgeInsets.all(12),
-                    child: Text(_error!,
+                    child: Text(appError(context, _error),
                         style: const TextStyle(color: Colors.redAccent)),
                   ),
                 Expanded(
