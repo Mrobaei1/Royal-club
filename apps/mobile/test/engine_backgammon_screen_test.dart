@@ -63,10 +63,11 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Choose a game mode'), findsOneWidget);
+    expect(find.text('Royal Backgammon'), findsOneWidget);
     await tester.tap(find.text('Offline vs AI'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Royal Backgammon'), findsOneWidget);
+
     expect(find.text('Board theme:'), findsOneWidget);
     expect(find.text('Restart'), findsWidgets);
   });
