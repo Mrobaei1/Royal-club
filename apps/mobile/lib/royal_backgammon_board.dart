@@ -47,7 +47,7 @@ class RoyalBackgammonBoard extends StatelessWidget {
         Expanded(child: _CountPanel(label: 'آف', count: offWhite, white: true, onTap: onBearOff)),
       ])),
     ]);
-  }
+  });
 }
 
 class _CountPanel extends StatelessWidget {
