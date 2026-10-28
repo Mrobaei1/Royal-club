@@ -452,7 +452,7 @@ class _HomeScreenState extends State<HomeScreen> {
               const Center(child: Text('ROYAL CLUB  •  PLAY WITH HONOUR',
                 style: TextStyle(color: Color(0xFF77839A), fontSize: 9, letterSpacing: 1.5, fontWeight: FontWeight.w600))),
               const SizedBox(height: 10),
-              const Center(child: Text('نسخه 1.1.9',
+              Center(child: Text(appText(context, 'نسخه 1.1.9', 'Version 1.1.9'),
                 style: TextStyle(color: Color(0xFF77839A), fontSize: 11, fontWeight: FontWeight.w600))),
             ],
           ),
