@@ -156,7 +156,7 @@ class _AdminScreenState extends State<AdminScreen> {
   }
 
   Future<void> _grantPermission(dynamic user) async {
-    String selected = 'users.read';
+    String selected = 'reports.read';
     final reason = TextEditingController();
     final reference = TextEditingController();
     final scopeIds = TextEditingController();
