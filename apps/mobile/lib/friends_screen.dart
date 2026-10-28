@@ -59,7 +59,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
         if (query.isEmpty) {
           setState(() {
             _results = [];
-            _message = 'نام کاربری را وارد کنید.';
+            _message = appText(context, 'نام کاربری را وارد کنید.', 'Enter a username.');
           });
           return;
         }
