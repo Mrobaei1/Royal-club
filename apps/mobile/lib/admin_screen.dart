@@ -89,7 +89,7 @@ class _AdminScreenState extends State<AdminScreen> {
       _smsApiKey.clear();
       if (!mounted) return;
       setState(() => _smsSettings = saved);
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تنظیمات ذخیره شد؛ ارسال واقعی همچنان غیرفعال است.')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text(appText(context, 'تنظیمات ذخیره شد؛ ارسال واقعی همچنان غیرفعال است.', 'Settings saved; real SMS sending remains disabled.'))));
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))));
     } finally { if (mounted) setState(() => _busy = false); }
@@ -124,18 +124,18 @@ class _AdminScreenState extends State<AdminScreen> {
       await showDialog<void>(
         context: context,
         builder: (dialogContext) => AlertDialog(
-          title: const Text('مشخصات کاربر'),
+          title: Text(appText(context, 'مشخصات کاربر', 'User details')),
           content: SingleChildScrollView(child: SelectableText(lines.join('\\n'))),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('بستن')),
+            TextButton(onPressed: () => Navigator.pop(dialogContext), child: Text(appText(context, 'بستن', 'Close'))),
             FilledButton.icon(
               onPressed: () async {
                 await Clipboard.setData(ClipboardData(text: lines.join('\\n')));
                 if (dialogContext.mounted) Navigator.pop(dialogContext);
-                if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('مشخصات در کلیپ‌بورد کپی شد.')));
+                if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text(appText(context, 'مشخصات در کلیپ‌بورد کپی شد.', 'User details copied to clipboard.'))));
               },
               icon: const Icon(Icons.copy),
-              label: const Text('کپی برای استخراج'),
+              label: Text(appText(context, 'کپی برای استخراج', 'Copy for export')),
             ),
           ],
         ),
