@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:royal_club/l10n/app_text.dart';
 
@@ -25,4 +26,33 @@ void main() {
     expect(appErrorForLanguage('en', 'Invalid email or password.'), 'Invalid email or password.');
     expect(appErrorForLanguage('fa', 'این نام کاربری قبلاً انتخاب شده است.'), 'این نام کاربری قبلاً انتخاب شده است.');
   });
+  testWidgets('appText selects Persian and English from the active locale', (tester) async {
+    Widget localized(String language) => MaterialApp(
+      locale: Locale(language),
+      supportedLocales: const [Locale('fa'), Locale('en')],
+      home: Builder(
+        builder: (context) => Text(appText(context, 'آزمایش', 'Test')),
+      ),
+    );
+
+    await tester.pumpWidget(localized('fa'));
+    expect(find.text('آزمایش'), findsOneWidget);
+    expect(find.text('Test'), findsNothing);
+
+    await tester.pumpWidget(localized('en'));
+    expect(find.text('Test'), findsOneWidget);
+    expect(find.text('آزمایش'), findsNothing);
+  });
+
+  test('unknown errors are preserved instead of being silently replaced', () {
+    expect(
+      appErrorForLanguage('en', Exception('Unmapped backend error')),
+      'Unmapped backend error',
+    );
+    expect(
+      appErrorForLanguage('fa', Exception('خطای اختصاصی آزمون')),
+      'خطای اختصاصی آزمون',
+    );
+  });
+
 }
