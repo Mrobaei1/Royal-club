@@ -577,8 +577,8 @@ class _AdminScreenState extends State<AdminScreen> {
                 child: Padding(
                   padding: const EdgeInsets.all(12),
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(report['reportedEmail']?.toString() ?? appText(context, 'کاربر', 'User'), style: const TextStyle(fontWeight: FontWeight.bold)),
-                    Text(appText(context, 'گزارشگر: ${report['reporterEmail'] ?? report['reporterId']}', 'Reporter: ${report['reporterEmail'] ?? report['reporterId']}')),
+                    Text('@${report['reportedUsername'] ?? report['reportedUserId'] ?? appText(context, 'کاربر', 'User')}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                    Text(appText(context, 'گزارشگر: @${report['reporterUsername'] ?? report['reporterId']}', 'Reporter: @${report['reporterUsername'] ?? report['reporterId']}')),
                     Text(appText(context, 'گزارش‌های ۷ روز اخیر: ${report['uniqueReportsLast7Days']} گزارشگر یکتا از ${report['reportsLast7Days']} گزارش', 'Last 7 days: ${report['uniqueReportsLast7Days']} unique reporters across ${report['reportsLast7Days']} reports')),
                     if ((report['uniqueReportsLast7Days'] as num?)?.toInt() != null && ((report['uniqueReportsLast7Days'] as num).toInt() >= 2))
                       Chip(label: Text(appText(context, 'نیازمند بررسی مدیر', 'Needs admin review'))),
