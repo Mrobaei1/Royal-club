@@ -210,7 +210,7 @@ class _AccountScreenState extends State<AccountScreen> {
           leading: Icon(icon, color: Theme.of(context).colorScheme.primary),
           title: Text(label,
               style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6), fontSize: 12)),
-          subtitle: Text(value.isEmpty ? 'ثبت نشده' : value,
+          subtitle: Text(value.isEmpty ? appText(context, 'ثبت نشده', 'Not set') : value,
               style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 15)),
         ),
       );
@@ -221,7 +221,7 @@ class _AccountScreenState extends State<AccountScreen> {
         child: Scaffold(
           backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           appBar: AppBar(
-            title: const Text('حساب کاربری'),
+            title: Text(appText(context, 'حساب کاربری', 'Account')),
             backgroundColor: Theme.of(context).scaffoldBackgroundColor,
             foregroundColor: Theme.of(context).colorScheme.primary,
           ),
@@ -234,7 +234,7 @@ class _AccountScreenState extends State<AccountScreen> {
                     children: [
                       _avatar(),
                       const SizedBox(height: 10),
-                      Text('اطلاعات حساب',
+                      Text(appText(context, 'اطلاعات حساب', 'Account information'),
                           textAlign: TextAlign.center,
                           style: TextStyle(
                               color: Theme.of(context).colorScheme.primary,
@@ -251,7 +251,7 @@ class _AccountScreenState extends State<AccountScreen> {
                           child: FilledButton.icon(
                             onPressed: _editProfile,
                             icon: const Icon(Icons.edit_outlined),
-                            label: const Text('ویرایش اطلاعات حساب'),
+                            label: Text(appText(context, 'ویرایش اطلاعات حساب', 'Edit account details')),
                             style: FilledButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary, foregroundColor: Theme.of(context).colorScheme.onPrimary, padding: const EdgeInsets.all(14)),
                           ),
                         ),
@@ -260,20 +260,20 @@ class _AccountScreenState extends State<AccountScreen> {
                           color: Theme.of(context).colorScheme.surface,
                           child: ListTile(
                             leading: Icon(Icons.alternate_email, color: Theme.of(context).colorScheme.primary),
-                            title: Text('نام کاربری', style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6), fontSize: 12)),
-                            subtitle: Text('@${_user!['username']?.toString() ?? 'تنظیم نشده'}', style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 16)),
-                            trailing: IconButton(onPressed: _editUsername, icon: Icon(Icons.edit_outlined, color: Theme.of(context).colorScheme.primary), tooltip: 'ویرایش نام کاربری'),
+                            title: Text(appText(context, 'نام کاربری', 'Username'), style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6), fontSize: 12)),
+                            subtitle: Text('@${_user!['username']?.toString() ?? appText(context, 'تنظیم نشده', 'Not set')}', style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 16)),
+                            trailing: IconButton(onPressed: _editUsername, icon: Icon(Icons.edit_outlined, color: Theme.of(context).colorScheme.primary), tooltip: appText(context, 'ویرایش نام کاربری', 'Edit username')),
                           ),
                         ),
-                        _detail(Icons.badge_outlined, 'نام کامل',
+                        _detail(Icons.badge_outlined, appText(context, 'نام کامل', 'Full name'),
                             _user!['fullName']?.toString() ?? ''),
-                        _detail(Icons.email_outlined, 'ایمیل',
+                        _detail(Icons.email_outlined, appText(context, 'ایمیل', 'Email'),
                             _user!['email']?.toString() ?? ''),
-                        _detail(Icons.phone_outlined, 'تلفن',
+                        _detail(Icons.phone_outlined, appText(context, 'تلفن', 'Phone'),
                             _user!['phone']?.toString() ?? ''),
-                        _detail(Icons.public_outlined, 'کشور',
+                        _detail(Icons.public_outlined, appText(context, 'کشور', 'Country'),
                             _user!['country']?.toString() ?? ''),
-                        _detail(Icons.numbers, 'شناسه کاربری',
+                        _detail(Icons.numbers, appText(context, 'شناسه کاربری', 'User ID'),
                             _user!['id']?.toString() ?? ''),
                       ],
                       const SizedBox(height: 24),
@@ -283,7 +283,7 @@ class _AccountScreenState extends State<AccountScreen> {
                           Navigator.of(context).pop();
                         },
                         icon: const Icon(Icons.logout),
-                        label: const Text('خروج از حساب'),
+                        label: Text(appText(context, 'خروج از حساب', 'Log out')),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: Theme.of(context).colorScheme.primary,
                           side: BorderSide(color: Theme.of(context).colorScheme.primary),
