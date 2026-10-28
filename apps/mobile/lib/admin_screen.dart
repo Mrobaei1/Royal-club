@@ -67,7 +67,9 @@ class _AdminScreenState extends State<AdminScreen> {
       _smsSender.text = sms['senderId']?.toString() ?? ''; _smsTemplate.text = sms['templateId']?.toString() ?? '';
       _smsTtl.text = (sms['otpTtlSeconds'] ?? 120).toString(); _smsCooldown.text = (sms['resendCooldownSeconds'] ?? 60).toString();
       _smsAttempts.text = (sms['maxAttempts'] ?? 5).toString(); _smsDailyLimit.text = (sms['dailyLimit'] ?? 100).toString();
-      setState(() { _owner = true; _plans = results[0]; _reports = results[1]; _loading = false; _error = null; });
+      final plans = results[0] as List<dynamic>;
+      final reports = results[1] as List<dynamic>;
+      setState(() { _owner = true; _plans = plans; _reports = reports; _loading = false; _error = null; });
     } catch (e) {
       if (mounted) setState(() { _loading = false; _error = appError(context, e); });
     }
