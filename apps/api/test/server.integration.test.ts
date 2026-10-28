@@ -1322,3 +1322,30 @@ test('owner SMS test actions fail closed without credentials and require explici
   }
 });
 
+test('expired, malformed, and missing JWTs cannot access protected routes', async () => {
+  const player = await register('Expired Token Player');
+  const expiredToken = app.jwt.sign(
+    { sub: player.user.id, email: player.user.email },
+    { expiresIn: -1 },
+  );
+  const expired = await app.inject({
+    method: 'GET',
+    url: '/api/v1/me',
+    headers: auth(expiredToken),
+  });
+  assert.equal(expired.statusCode, 401, expired.body);
+
+  const malformed = await app.inject({
+    method: 'GET',
+    url: '/api/v1/me',
+    headers: { authorization: 'Bearer not-a-valid-jwt' },
+  });
+  assert.equal(malformed.statusCode, 401, malformed.body);
+
+  const missing = await app.inject({
+    method: 'GET',
+    url: '/api/v1/admin/security/sms-otp',
+  });
+  assert.equal(missing.statusCode, 401, missing.body);
+});
+
