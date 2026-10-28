@@ -93,8 +93,8 @@ class _RoyalBoardPainter extends CustomPainter {
     if(p.dx<m || p.dx>s.width-m || p.dy<0 || p.dy>s.height) return null;
     final x=p.dx-m;
     if(x>=hw && x<=hw+bw && p.dy>=topBase && p.dy<=s.height-topBase) return null;
-    if(x<hw) { final col=(x/pw).floor().clamp(0,5); return p.dy<s.height/2?11-col:12+col; }
-    final col=((x-hw-bw)/pw).floor().clamp(0,5);
+    if(x<hw) { final col=(x/pw).floor().clamp(0,5).toInt(); return p.dy<s.height/2?11-col:12+col; }
+    final col=((x-hw-bw)/pw).floor().clamp(0,5).toInt();
     return p.dy<s.height/2?5-col:18+col;
   }
 
