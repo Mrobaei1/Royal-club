@@ -36,6 +36,17 @@ class AdminService {
   static Future<Map<String, dynamic>> saveSmsOtpSettings(Map<String, dynamic> settings) async =>
       (await _request('PATCH', '/api/v1/admin/security/sms-otp', body: settings))['settings'] as Map<String, dynamic>;
 
+  static Future<Map<String, dynamic>> testSmsConnection() async =>
+      await _request('POST', '/api/v1/admin/security/sms-otp/test-connection');
+
+  static Future<Map<String, dynamic>> testSmsMessage({
+    required String phone,
+    required bool confirmCost,
+  }) async => await _request('POST', '/api/v1/admin/security/sms-otp/test-message', body: {
+        'phone': phone.trim(),
+        'confirmCost': confirmCost,
+      });
+
   static Future<List<dynamic>> permissionGrants() async =>
       (await _request('GET', '/api/v1/admin/permissions/grants'))['grants'] as List<dynamic>? ?? [];
 
