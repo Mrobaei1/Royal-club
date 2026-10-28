@@ -7,7 +7,7 @@ Branch: `feature/chat-ai-invite-ux`
 Royal Club currently supports only Persian (`fa`) and English (`en`). No additional locales are in scope. Flutter's locale state and `MaterialApp.supportedLocales` already restrict selection to those two locales, and generated localization is configured with `lib/l10n/app_fa.arb` and `lib/l10n/app_en.arb`.
 
 ## Findings from source inspection
-The localization framework exists, but localization coverage is incomplete. Each ARB file currently contains only 24 keys, while user-facing strings remain hard-coded in multiple screens. Examples observed in the current branch include:
+The localization framework exists, but localization coverage is incomplete. Each ARB file initially contained 24 keys; the current branch has expanded both files to 54 matching keys, while user-facing strings remain hard-coded in multiple screens. Examples observed in the current branch include:
 
 - `main.dart`: session-checking status, theme/language labels, admin/contact entry points, and authentication helper text.
 - `account_screen.dart`: account editing, save/cancel, username editing, and logout.
@@ -26,4 +26,4 @@ These are source-level findings, not a claim that every individual string was ca
 5. Run `flutter gen-l10n`, `flutter analyze`, and Flutter tests in CI. Perform manual device review for overflow and directionality before closing this Phase 1 item.
 
 ## Status
-**Open — not complete.** The localization infrastructure is present, but the source audit found substantial hard-coded UI text. Do not mark Phase 1 localization complete until the changes and checks above pass.
+**Open — not complete.** Both ARB files now contain 54 matching keys, and a shared Persian/English text helper has been applied to several primary and secondary screens, including home/authentication, account, wallet, friends, chat, notifications, online lobby/match, spectator, leaderboard, backgammon, admin, and contact. Common Persian service-layer errors now have English translations when displayed through `appError`. This is a partial migration: remaining hard-coded labels/messages and service errors still need review, generated localization integration should be consolidated, and CI/manual RTL/LTR verification must pass before this item can be closed.
