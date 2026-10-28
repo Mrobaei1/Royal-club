@@ -2974,7 +2974,7 @@ app.post<{ Params: { id: string }; Body: { moves: Array<{ from: number | null; t
        JSON.stringify(gameFinished ? [] : nextRemaining), matchFinished ? 'finished' : 'active',
        nextHostWins, nextGuestWins, game.id]);
     if (gameFinished && game.guest_user_id) {
-      const winnerId = nextOff.host >= 15 ? game.host_user_id : game.guest_user_id;
+      const winnerId = simulated.off.host >= 15 ? game.host_user_id : game.guest_user_id;
       const loserId = winnerId === game.host_user_id ? game.guest_user_id : game.host_user_id;
       const gameNumber = Number(game.host_game_wins ?? 0) + Number(game.guest_game_wins ?? 0) + 1;
       await awardProgression(client, game.id, `game:${gameNumber}`, winnerId, loserId, 'loss');
@@ -3165,7 +3165,7 @@ app.post<{ Params: { id: string }; Body: { from: number | null; to: number | nul
        JSON.stringify(gameFinished ? [] : nextRemaining), matchFinished ? 'finished' : 'active',
        nextHostWins, nextGuestWins, game.id]);
     if (gameFinished && game.guest_user_id) {
-      const winnerId = nextOff.host >= 15 ? game.host_user_id : game.guest_user_id;
+      const winnerId = off.host >= 15 ? game.host_user_id : game.guest_user_id;
       const loserId = winnerId === game.host_user_id ? game.guest_user_id : game.host_user_id;
       const gameNumber = Number(game.host_game_wins ?? 0) + Number(game.guest_game_wins ?? 0) + 1;
       await awardProgression(client, game.id, `game:${gameNumber}`, winnerId, loserId, 'loss');
