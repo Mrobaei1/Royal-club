@@ -382,6 +382,53 @@ await pool.query(`
     details JSONB NOT NULL DEFAULT '{}'::jsonb,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   );
+  CREATE TABLE IF NOT EXISTS league_rounds (
+    id BIGSERIAL PRIMARY KEY,
+    league_id BIGINT NOT NULL REFERENCES leagues(id) ON DELETE CASCADE,
+    round_number INTEGER NOT NULL CHECK (round_number > 0),
+    stage TEXT NOT NULL DEFAULT 'regular' CHECK (stage IN ('regular', 'final')),
+    status TEXT NOT NULL DEFAULT 'scheduled' CHECK (status IN ('scheduled', 'in_progress', 'completed')),
+    starts_at TIMESTAMPTZ,
+    manager_approved BOOLEAN NOT NULL DEFAULT FALSE,
+    created_by BIGINT REFERENCES users(id) ON DELETE SET NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (league_id, stage, round_number)
+  );
+  CREATE TABLE IF NOT EXISTS league_matches (
+    id BIGSERIAL PRIMARY KEY,
+    league_id BIGINT NOT NULL REFERENCES leagues(id) ON DELETE CASCADE,
+    round_id BIGINT NOT NULL REFERENCES league_rounds(id) ON DELETE CASCADE,
+    player_one_id BIGINT REFERENCES users(id) ON DELETE SET NULL,
+    player_two_id BIGINT REFERENCES users(id) ON DELETE SET NULL,
+    status TEXT NOT NULL DEFAULT 'scheduled'
+      CHECK (status IN ('scheduled', 'in_progress', 'completed', 'bye', 'double_absent', 'technical_issue', 'rescheduled')),
+    scheduled_at TIMESTAMPTZ,
+    replacement_at TIMESTAMPTZ,
+    winner_id BIGINT REFERENCES users(id) ON DELETE SET NULL,
+    score JSONB NOT NULL DEFAULT '{}'::jsonb,
+    incident_note TEXT,
+    resolved_by BIGINT REFERENCES users(id) ON DELETE SET NULL,
+    resolved_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CHECK (player_one_id IS NULL OR player_two_id IS NULL OR player_one_id <> player_two_id)
+  );
+  CREATE INDEX IF NOT EXISTS league_matches_league_round_idx ON league_matches (league_id, round_id);
+  CREATE INDEX IF NOT EXISTS league_matches_players_idx ON league_matches (player_one_id, player_two_id, status);
+  CREATE TABLE IF NOT EXISTS league_appeals (
+    id BIGSERIAL PRIMARY KEY,
+    league_id BIGINT NOT NULL REFERENCES leagues(id) ON DELETE CASCADE,
+    match_id BIGINT NOT NULL REFERENCES league_matches(id) ON DELETE CASCADE,
+    appellant_user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    reason TEXT NOT NULL CHECK (length(reason) BETWEEN 5 AND 2000),
+    status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'accepted', 'rejected')),
+    manager_note TEXT,
+    resolved_by BIGINT REFERENCES users(id) ON DELETE SET NULL,
+    resolved_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    deadline_at TIMESTAMPTZ NOT NULL,
+    UNIQUE (match_id, appellant_user_id)
+  );
+  CREATE INDEX IF NOT EXISTS league_appeals_deadline_idx ON league_appeals (status, deadline_at);
   CREATE TABLE IF NOT EXISTS private_messages (
     id BIGSERIAL PRIMARY KEY,
     sender_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
