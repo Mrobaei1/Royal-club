@@ -23,10 +23,18 @@ void main() {
     );
   });
 
+  test('contact service timeout message is translated for English users', () {
+    expect(
+      appErrorForLanguage('en', 'پاسخ سرور بیش از حد طول کشید؛ اتصال اینترنت را بررسی و دوباره تلاش کنید.'),
+      'The server response timed out. Check your internet connection and try again.',
+    );
+  });
+
   test('already-English errors are preserved and Persian users see original Persian text', () {
     expect(appErrorForLanguage('en', 'Invalid email or password.'), 'Invalid email or password.');
     expect(appErrorForLanguage('fa', 'این نام کاربری قبلاً انتخاب شده است.'), 'این نام کاربری قبلاً انتخاب شده است.');
   });
+
   testWidgets('appText selects Persian and English from the active locale', (tester) async {
     Widget localized(String language) => MaterialApp(
       locale: Locale(language),
@@ -60,5 +68,4 @@ void main() {
       'خطای اختصاصی آزمون',
     );
   });
-
 }
