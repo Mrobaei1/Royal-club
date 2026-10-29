@@ -12,6 +12,7 @@ import { createKavenegarProvider } from './sms-provider.js';
 import { getAllowedCorsOrigins } from './cors-config.js';
 import { INITIAL_BACKGAMMON_BOARD, applyBackgammonMove, hasLegalMove, maxPlayableDiceCount, mustPlayHigherDie } from './backgammon-rules.js';
 import { calculateEloRatings } from './backgammon-rating.js';
+import { nextProgressionState } from './player-progression.js';
 import { hasRoyalPermission, isRoyalPermission } from './permissions.js';
 import { promisify } from 'node:util';
 
@@ -466,8 +467,24 @@ await pool.query(`
     games_played INTEGER NOT NULL DEFAULT 0 CHECK (games_played >= 0),
     wins INTEGER NOT NULL DEFAULT 0 CHECK (wins >= 0),
     losses INTEGER NOT NULL DEFAULT 0 CHECK (losses >= 0),
+    xp_points INTEGER NOT NULL DEFAULT 0 CHECK (xp_points >= 0),
+    level INTEGER NOT NULL DEFAULT 1 CHECK (level BETWEEN 1 AND 100),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   );
+  ALTER TABLE backgammon_player_stats ADD COLUMN IF NOT EXISTS xp_points INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE backgammon_player_stats ADD COLUMN IF NOT EXISTS level INTEGER NOT NULL DEFAULT 1;
+  CREATE TABLE IF NOT EXISTS backgammon_progression_events (
+    id BIGSERIAL PRIMARY KEY,
+    match_id BIGINT NOT NULL REFERENCES backgammon_matches(id) ON DELETE CASCADE,
+    event_key TEXT NOT NULL,
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    outcome TEXT NOT NULL CHECK (outcome IN ('win', 'loss', 'quit')),
+    points_delta INTEGER NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (match_id, event_key, user_id)
+  );
+  CREATE INDEX IF NOT EXISTS backgammon_progression_user_idx
+    ON backgammon_progression_events (user_id, created_at DESC);
   CREATE INDEX IF NOT EXISTS backgammon_player_stats_leaderboard_idx
     ON backgammon_player_stats (rating DESC, wins DESC, games_played ASC);
 `);
@@ -678,12 +695,17 @@ app.get('/api/v1/me', {
   if (!claims.sub) return reply.code(401).send({ error: 'Invalid token.' });
 
   const result = await pool.query(
-    'SELECT id, username, email, full_name, phone, country, avatar_data_url, created_at FROM users WHERE id = $1',
+    `SELECT u.id, u.username, u.email, u.full_name, u.phone, u.country,
+            u.avatar_data_url, u.created_at,
+            COALESCE(s.xp_points, 0)::int AS "xpPoints",
+            COALESCE(s.level, 1)::int AS level
+       FROM users u LEFT JOIN backgammon_player_stats s ON s.user_id = u.id
+      WHERE u.id = $1`,
     [claims.sub]
   );
   if (!result.rowCount) return reply.code(401).send({ error: 'Account not found.' });
-  const user = result.rows[0] as { id: string; username: string | null; email: string; full_name: string; phone: string; country: string; avatar_data_url: string | null; created_at: Date };
-  return { user: { id: user.id, username: user.username, email: user.email, fullName: user.full_name, phone: user.phone, country: user.country, avatarDataUrl: user.avatar_data_url ?? null, createdAt: user.created_at } };
+  const user = result.rows[0] as { id: string; username: string | null; email: string; full_name: string; phone: string; country: string; avatar_data_url: string | null; created_at: Date; xpPoints: number; level: number };
+  return { user: { id: user.id, username: user.username, email: user.email, fullName: user.full_name, phone: user.phone, country: user.country, avatarDataUrl: user.avatar_data_url ?? null, createdAt: user.created_at, xpPoints: user.xpPoints, level: user.level } };
 });
 
 const requireMatchAuth = async (request: any, reply: any) => {
@@ -731,6 +753,61 @@ async function updateBackgammonRatings(client: PoolClient, winnerUserId: string,
       WHERE user_id = $2`,
     [next.loserRating, loserUserId],
   );
+}
+
+
+/** Apply XP exactly once per match event and participant, inside the caller's transaction. */
+async function awardProgression(
+  client: PoolClient,
+  matchId: string,
+  eventKey: string,
+  winnerUserId: string,
+  loserUserId: string,
+  loserOutcome: 'loss' | 'quit',
+): Promise<void> {
+  if (winnerUserId === loserUserId) throw new Error('Progression participants must differ.');
+  const orderedIds = [winnerUserId, loserUserId].sort((left, right) => {
+    const a = BigInt(left);
+    const b = BigInt(right);
+    return a < b ? -1 : a > b ? 1 : 0;
+  });
+  await client.query(
+    'INSERT INTO backgammon_player_stats (user_id) VALUES ($1), ($2) ON CONFLICT (user_id) DO NOTHING',
+    orderedIds,
+  );
+  const locked = await client.query(
+    `SELECT user_id, xp_points, level FROM backgammon_player_stats
+      WHERE user_id = ANY($1::bigint[]) ORDER BY user_id FOR UPDATE`,
+    [orderedIds],
+  );
+  const stats = new Map(locked.rows.map((row) => [String(row.user_id), row]));
+  const entries = [
+    { userId: winnerUserId, outcome: 'win' as const },
+    { userId: loserUserId, outcome: loserOutcome },
+  ];
+  for (const entry of entries) {
+    const inserted = await client.query(
+      `INSERT INTO backgammon_progression_events
+        (match_id, event_key, user_id, outcome, points_delta)
+       VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (match_id, event_key, user_id) DO NOTHING
+       RETURNING user_id`,
+      [matchId, eventKey, entry.userId, entry.outcome,
+       entry.outcome === 'win' ? 20 : entry.outcome === 'loss' ? 5 : -5],
+    );
+    if (!inserted.rowCount) continue;
+    const current = stats.get(entry.userId);
+    if (!current) throw new Error('Could not lock progression stats.');
+    const next = nextProgressionState(Number(current.xp_points), Number(current.level), entry.outcome);
+    await client.query(
+      `UPDATE backgammon_player_stats
+          SET xp_points = $1, level = $2, updated_at = NOW()
+        WHERE user_id = $3`,
+      [next.xp, next.level, entry.userId],
+    );
+    current.xp_points = next.xp;
+    current.level = next.level;
+  }
 }
 
 app.patch<{ Body: { fullName?: string; phone?: string; country?: string } }>('/api/v1/me/profile', { onRequest: [requireMatchAuth], config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request, reply) => {
@@ -2466,7 +2543,7 @@ app.get('/api/v1/leaderboard', { onRequest: [requireMatchAuth] }, async (request
   const claims = request.user as { sub: string };
   const result = await pool.query(
     `SELECT s.user_id AS "userId", u.username, u.avatar_data_url AS "avatarDataUrl", s.rating,
-            GREATEST(1, LEAST(10, FLOOR((s.rating - 1000) / 100.0)::int + 1))::int AS level,
+            s.level, s.xp_points AS "xpPoints",
             s.games_played AS "gamesPlayed", s.wins, s.losses
        FROM backgammon_player_stats s
        JOIN users u ON u.id = s.user_id
@@ -2498,7 +2575,8 @@ app.get('/api/v1/leaderboard/weekly', { onRequest: [requireMatchAuth] }, async (
      SELECT p.user_id AS "userId", u.username,
             u.avatar_data_url AS "avatarDataUrl",
             COALESCE(s.rating, 1000)::int AS rating,
-            GREATEST(1, LEAST(10, FLOOR((COALESCE(s.rating, 1000) - 1000) / 100.0)::int + 1))::int AS level,
+            COALESCE(s.level, 1)::int AS level,
+            COALESCE(s.xp_points, 0)::int AS "xpPoints",
             COUNT(*)::int AS "gamesPlayed",
             COUNT(*) FILTER (WHERE p.winner_user_id = p.user_id)::int AS wins,
             COUNT(*) FILTER (WHERE p.winner_user_id <> p.user_id)::int AS losses,
@@ -2506,7 +2584,7 @@ app.get('/api/v1/leaderboard/weekly', { onRequest: [requireMatchAuth] }, async (
        FROM participants p
        JOIN users u ON u.id = p.user_id
        LEFT JOIN backgammon_player_stats s ON s.user_id = p.user_id
-      GROUP BY p.user_id, u.username, u.avatar_data_url, s.rating
+      GROUP BY p.user_id, u.username, u.avatar_data_url, s.rating, s.level, s.xp_points
       ORDER BY score DESC, wins DESC, "gamesPlayed" ASC, LOWER(u.username) ASC
       LIMIT 50`,
   );
@@ -3070,6 +3148,7 @@ app.post<{ Params: { id: string }; Body: { scope?: 'game' | 'match' } }>(
             WHERE id = $2`,
           [winnerUserId, match.id],
         );
+        await awardProgression(client, match.id, 'match-resignation', winnerUserId, claims.sub, 'quit');
         await updateBackgammonRatings(client, winnerUserId, claims.sub);
         await client.query('COMMIT');
         return { result: { status: 'finished', scope, winnerUserId, loserUserId: claims.sub, reason: 'resignation' } };
@@ -3096,6 +3175,8 @@ app.post<{ Params: { id: string }; Body: { scope?: 'game' | 'match' } }>(
         [matchFinished ? 'finished' : 'active', winnerUserId, nextHostWins, nextGuestWins,
          JSON.stringify(INITIAL_BACKGAMMON_BOARD), winnerUserId, match.id],
       );
+      const gameNumber = Number(match.host_game_wins ?? 0) + Number(match.guest_game_wins ?? 0) + 1;
+      await awardProgression(client, match.id, `game:${gameNumber}`, winnerUserId, claims.sub, 'quit');
       if (matchFinished) {
         await updateBackgammonRatings(client, winnerUserId, claims.sub);
       }
@@ -3235,10 +3316,12 @@ app.post<{ Params: { id: string }; Body: { moves: Array<{ from: number | null; t
        gameFinished ? game.host_user_id : nextTurn, JSON.stringify(gameFinished ? [] : nextDice),
        JSON.stringify(gameFinished ? [] : nextRemaining), matchFinished ? 'finished' : 'active',
        nextHostWins, nextGuestWins, game.id]);
-    if (matchFinished && game.guest_user_id) {
-      const winnerId = nextHostWins >= Number(game.match_to_win ?? 1) ? game.host_user_id : game.guest_user_id;
+    if (gameFinished && game.guest_user_id) {
+      const winnerId = simulated.off.host >= 15 ? game.host_user_id : game.guest_user_id;
       const loserId = winnerId === game.host_user_id ? game.guest_user_id : game.host_user_id;
-      await updateBackgammonRatings(client, winnerId, loserId);
+      const gameNumber = Number(game.host_game_wins ?? 0) + Number(game.guest_game_wins ?? 0) + 1;
+      await awardProgression(client, game.id, `game:${gameNumber}`, winnerId, loserId, 'loss');
+      if (matchFinished) await updateBackgammonRatings(client, winnerId, loserId);
     }
     await client.query('COMMIT');
     return { state: updated.rows[0], appliedMoves: body.moves.length };
@@ -3424,10 +3507,12 @@ app.post<{ Params: { id: string }; Body: { from: number | null; to: number | nul
        gameFinished ? game.host_user_id : nextTurn, JSON.stringify(gameFinished ? [] : nextDice),
        JSON.stringify(gameFinished ? [] : nextRemaining), matchFinished ? 'finished' : 'active',
        nextHostWins, nextGuestWins, game.id]);
-    if (matchFinished && game.guest_user_id) {
-      const winnerId = nextHostWins >= Number(game.match_to_win ?? 1) ? game.host_user_id : game.guest_user_id;
+    if (gameFinished && game.guest_user_id) {
+      const winnerId = off.host >= 15 ? game.host_user_id : game.guest_user_id;
       const loserId = winnerId === game.host_user_id ? game.guest_user_id : game.host_user_id;
-      await updateBackgammonRatings(client, winnerId, loserId);
+      const gameNumber = Number(game.host_game_wins ?? 0) + Number(game.guest_game_wins ?? 0) + 1;
+      await awardProgression(client, game.id, `game:${gameNumber}`, winnerId, loserId, 'loss');
+      if (matchFinished) await updateBackgammonRatings(client, winnerId, loserId);
     }
     await client.query('COMMIT');
     return { state: updated.rows[0] };
