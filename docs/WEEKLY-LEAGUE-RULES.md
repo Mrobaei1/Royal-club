@@ -22,13 +22,13 @@ Each league should store its format, manager-selected minimum participant count,
 
 - [ ] Reject enabling a league until the manager sets a valid minimum participant count.
 - [ ] Audit-log creation and every change to format, minimum participants, schedule, entry mode, and rule decisions.
-- [ ] Enforce the 24-hour appeal deadline.
-- [ ] Record and report actual games played per participant and rest allocation.
-- [ ] Require an explicit manager decision for final-stage setup, based on the configured format.
-- [ ] Record rescheduling decisions for double absence and technical interruptions.
-- [ ] Integration-test authorization, concurrent entry, idempotency, audit history, and the no-wallet-debit guarantee.
+- [x] Enforce the 24-hour appeal deadline in the API.
+- [x] Record round-robin fixtures/byes and report actual completed games and rest rounds per participant.
+- [x] Require explicit manager approval and a compatible format for final-stage round creation.
+- [x] Record double-absence/technical-issue decisions and allow managers to set a replacement time.
+- [x] Existing integration tests cover authorization, concurrent entry, idempotency, audit history, and the no-wallet-debit guarantee. New scheduling/appeal flows still need dedicated integration tests.
 - [ ] Manually accept the Persian and English manager UI before enabling a real league.
 
 ## Current implementation boundary
 
-The integration candidate includes owner-controlled league CRUD, disabled-by-default/free-by-default entry, transactional subscription-day consumption with an entitlement ledger, manager-selected format and minimum participants, and persisted/audited policy fields. Actual tournament scheduling, rest allocation and game-count reporting, appeal enforcement, final-stage execution, and rescheduling workflows for double absence or technical incidents still require implementation and acceptance before the weekly league can be described as complete.
+The API now includes round-robin schedule generation, manager-created rounds, approved final-stage setup for compatible formats, participant game/rest reports, match-result and incident recording, replacement-time scheduling, 24-hour appeals, manager appeal decisions, and audit history. The mobile manager report exposes match results, incident/reschedule actions, and appeal decisions. Remaining acceptance includes dedicated tests for these new workflows, manager UI for manually creating Swiss/knockout/group rounds, real-device Persian/English review, and production security/deployment acceptance.
