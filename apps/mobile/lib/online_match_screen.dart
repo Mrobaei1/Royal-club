@@ -118,6 +118,48 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
     }
   }
 
+  Future<void> _closeEmptyRoom() async {
+    if (_busy ||
+        _matchStatus != 'waiting' ||
+        _matchDetails['isHost'] != true ||
+        _matchDetails['guestName'] != null) {
+      return;
+    }
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(appText(context, 'بستن اتاق بازی', 'Close waiting room')),
+        content: Text(appText(
+          context,
+          'هنوز کسی به اتاق نپیوسته است. با بستن اتاق، دیگران نمی‌توانند وارد آن شوند.',
+          'Nobody has joined this room yet. Closing it will prevent anyone else from joining.',
+        )),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(appText(context, 'بازگشت', 'Keep room')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(appText(context, 'بستن اتاق', 'Close room')),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() { _busy = true; _error = null; });
+    try {
+      await MatchService.cancel(_id);
+      if (!mounted) return;
+      _poller?.cancel();
+      Navigator.of(context).pop();
+    } catch (e) {
+      if (mounted) setState(() => _error = appError(context, e));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   Future<void> _inviteFriend() async {
     if (_busy || _matchStatus != 'waiting' || _matchDetails['isHost'] != true) return;
     final isEnglish = Localizations.localeOf(context).languageCode == 'en';
@@ -578,10 +620,23 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
             if (_matchStatus == 'waiting' && _matchDetails['isHost'] == true)
               Align(
                 alignment: AlignmentDirectional.centerStart,
-                child: OutlinedButton.icon(
-                  onPressed: _busy ? null : _inviteFriend,
-                  icon: const Icon(Icons.person_add_alt_1),
-                  label: Text(isEnglish ? 'Invite / invite again' : 'دعوت یا دعوت مجدد'),
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed: _busy ? null : _inviteFriend,
+                      icon: const Icon(Icons.person_add_alt_1),
+                      label: Text(isEnglish ? 'Invite / invite again' : 'دعوت یا دعوت مجدد'),
+                    ),
+                    if (_matchDetails['guestName'] == null)
+                      OutlinedButton.icon(
+                        onPressed: _busy ? null : _closeEmptyRoom,
+                        icon: const Icon(Icons.meeting_room_outlined),
+                        label: Text(isEnglish ? 'Close empty room' : 'بستن اتاق خالی'),
+                        style: OutlinedButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.error),
+                      ),
+                  ],
                 ),
               ),
             const SizedBox(height: 12),
