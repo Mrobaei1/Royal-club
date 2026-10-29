@@ -329,7 +329,12 @@ class _HomeScreenState extends State<HomeScreen> {
     if (page != null) {
       Navigator.of(context)
           .push(MaterialPageRoute<void>(builder: (_) => page!))
-          .then((_) => _refreshMenuBadges());
+          .then((_) {
+            _refreshMenuBadges();
+            // AccountScreen may log in or log out. Refresh owner visibility
+            // after it returns so the menu reflects the newly authenticated account.
+            if (value == 'account') _refreshAdminVisibility();
+          });
     }
   }
 
