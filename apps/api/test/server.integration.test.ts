@@ -1081,6 +1081,71 @@ test('subscription purchases debit the wallet atomically and record a ledger ent
     assert.equal(duplicateFreeEntry.statusCode, 200, duplicateFreeEntry.body);
     assert.equal(duplicateFreeEntry.json().alreadyEntered, true);
 
+    const executionLeagueResponse = await app.inject({
+      method: 'POST', url: '/api/v1/admin/leagues', headers: auth(leagueOwner.token),
+      payload: { code: 'execution_weekly', name: 'Execution Weekly League', enabled: true, rules: { format: 'round_robin', minimumParticipants: 2 } },
+    });
+    assert.equal(executionLeagueResponse.statusCode, 201, executionLeagueResponse.body);
+    const executionLeagueId = String(executionLeagueResponse.json().league.id);
+    for (const [token, suffix] of [[buyer.token, 'buyer'], [leagueOwner.token, 'owner']] as const) {
+      const entry = await app.inject({
+        method: 'POST', url: `/api/v1/leagues/${executionLeagueId}/entries`, headers: auth(token),
+        payload: { idempotencyKey: `execution-${suffix}-${randomUUID()}` },
+      });
+      assert.equal(entry.statusCode, 201, entry.body);
+    }
+    const generatedSchedule = await app.inject({
+      method: 'POST', url: `/api/v1/admin/leagues/${executionLeagueId}/schedule`, headers: auth(leagueOwner.token),
+      payload: { startsAt: new Date(Date.now() + 3600000).toISOString(), intervalDays: 7 },
+    });
+    assert.equal(generatedSchedule.statusCode, 201, generatedSchedule.body);
+    assert.equal(generatedSchedule.json().rounds.length, 1);
+    const leagueReport = await app.inject({
+      method: 'GET', url: `/api/v1/admin/leagues/${executionLeagueId}/report`, headers: auth(leagueOwner.token),
+    });
+    assert.equal(leagueReport.statusCode, 200, leagueReport.body);
+    assert.equal(leagueReport.json().participants.length, 2);
+    assert.equal(leagueReport.json().matches.length, 1);
+    const scheduledMatch = leagueReport.json().matches[0] as { id: string; playerOneId: string; playerTwoId: string };
+    const resultSaved = await app.inject({
+      method: 'PATCH', url: `/api/v1/admin/league-matches/${scheduledMatch.id}`, headers: auth(leagueOwner.token),
+      payload: { status: 'completed', winnerId: scheduledMatch.playerOneId, score: { playerOne: 1, playerTwo: 0 } },
+    });
+    assert.equal(resultSaved.statusCode, 200, resultSaved.body);
+    const appeal = await app.inject({
+      method: 'POST', url: `/api/v1/leagues/${executionLeagueId}/matches/${scheduledMatch.id}/appeals`, headers: auth(buyer.token),
+      payload: { reason: 'Please review the match result.' },
+    });
+    assert.equal(appeal.statusCode, 201, appeal.body);
+    const appealDecision = await app.inject({
+      method: 'PATCH', url: `/api/v1/admin/league-appeals/${appeal.json().appeal.id}`, headers: auth(leagueOwner.token),
+      payload: { status: 'rejected', managerNote: 'Result reviewed.' },
+    });
+    assert.equal(appealDecision.statusCode, 200, appealDecision.body);
+    assert.equal(appealDecision.json().appeal.status, 'rejected');
+
+    const incidentRound = await app.inject({
+      method: 'POST', url: `/api/v1/admin/leagues/${executionLeagueId}/rounds`, headers: auth(leagueOwner.token),
+      payload: { roundNumber: 2, stage: 'regular', startsAt: new Date(Date.now() + 86400000).toISOString(), matches: [{ playerOneId: scheduledMatch.playerOneId, playerTwoId: scheduledMatch.playerTwoId }] },
+    });
+    assert.equal(incidentRound.statusCode, 201, incidentRound.body);
+    const reportAfterRound = await app.inject({
+      method: 'GET', url: `/api/v1/admin/leagues/${executionLeagueId}/report`, headers: auth(leagueOwner.token),
+    });
+    const incidentMatch = (reportAfterRound.json().matches as Array<{ id: string; status: string }>).find(m => m.status === 'scheduled');
+    assert.ok(incidentMatch);
+    const incidentSaved = await app.inject({
+      method: 'PATCH', url: `/api/v1/admin/league-matches/${incidentMatch!.id}`, headers: auth(leagueOwner.token),
+      payload: { status: 'technical_issue', incidentNote: 'Network interruption.' },
+    });
+    assert.equal(incidentSaved.statusCode, 200, incidentSaved.body);
+    const rescheduled = await app.inject({
+      method: 'PATCH', url: `/api/v1/admin/league-matches/${incidentMatch!.id}`, headers: auth(leagueOwner.token),
+      payload: { status: 'rescheduled', incidentNote: 'technical_issue: replacement arranged', replacementAt: new Date(Date.now() + 172800000).toISOString() },
+    });
+    assert.equal(rescheduled.statusCode, 200, rescheduled.body);
+    assert.ok(rescheduled.json().match.replacementAt);
+
     const subscriptionLeagueResponse = await app.inject({
       method: 'POST',
       url: '/api/v1/admin/leagues',
