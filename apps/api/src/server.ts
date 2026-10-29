@@ -85,6 +85,22 @@ async function consumeOtpChallenge(
 const app = Fastify({ logger: true, trustProxy: false });
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
+// Expire empty waiting rooms after 60 seconds and remove their related notices.
+// The lazy calls also cover serverless runtimes where a persistent timer is not guaranteed.
+async function cleanupExpiredEmptyRooms(): Promise<void> {
+  await pool.query(`
+    WITH expired AS (
+      SELECT id FROM backgammon_matches
+       WHERE status = 'waiting' AND guest_user_id IS NULL AND expires_at <= NOW()
+    ), notices AS (
+      DELETE FROM notifications
+       WHERE data->>'matchId' IN (SELECT id::text FROM expired)
+       RETURNING id
+    )
+    DELETE FROM backgammon_matches WHERE id IN (SELECT id FROM expired)
+  `);
+}
+
 await app.register(helmet);
 const configuredCorsOrigins = process.env.CORS_ORIGINS;
 const allowedOrigins = getAllowedCorsOrigins({
@@ -2237,6 +2253,7 @@ app.post<{ Params: { id: string }; Body: { enabled?: boolean } }>('/api/v1/match
 });
 app.get('/api/v1/matches/open', { onRequest: [requireMatchAuth] }, async (request, reply) => {
   const claims = request.user as { sub: string };
+  await cleanupExpiredEmptyRooms();
   const result = await pool.query(
     `SELECT m.id, m.room_code AS "roomCode", m.status, m.created_at AS "createdAt", u.username AS "hostName", u.avatar_data_url AS "hostAvatarDataUrl"
        FROM backgammon_matches m JOIN users u ON u.id = m.host_user_id
@@ -2251,7 +2268,8 @@ app.post('/api/v1/matches', { onRequest: [requireMatchAuth] }, async (request, r
     const roomCode = randomBytes(3).toString('hex').toUpperCase();
     try {
       const result = await pool.query(
-        `INSERT INTO backgammon_matches (room_code, host_user_id) VALUES ($1, $2)
+        `INSERT INTO backgammon_matches (room_code, host_user_id, expires_at)
+         VALUES ($1, $2, NOW() + INTERVAL '60 seconds')
          RETURNING id, room_code AS "roomCode", status, created_at AS "createdAt", expires_at AS "expiresAt"`, [roomCode, claims.sub]);
       return reply.code(201).send({ match: result.rows[0] });
     } catch (error: any) {
@@ -2348,17 +2366,8 @@ app.get<{ Params: { id: string } }>('/api/v1/matches/:id', { onRequest: [require
 
 app.get('/api/v1/match-invites', { onRequest: [requireMatchAuth] }, async (request) => {
   const claims = request.user as { sub: string };
-  // Hard-delete expired waiting rooms, their invitation rows, and invitation notices.
-  await pool.query(`
-    WITH expired AS (
-      SELECT id FROM backgammon_matches WHERE status = 'waiting' AND guest_user_id IS NULL AND expires_at <= NOW()
-    ), notices AS (
-      DELETE FROM notifications
-       WHERE data->>'matchId' IN (SELECT id::text FROM expired)
-       RETURNING id
-    )
-    DELETE FROM backgammon_matches WHERE id IN (SELECT id FROM expired)
-  `);
+  // Also clean up expired rooms when the notifications screen is polling.
+  await cleanupExpiredEmptyRooms();
   // Invitation cards expire after 10 seconds. Mark them responded without
   // deleting the waiting room, so the host can invite the same friend again.
   await pool.query(
@@ -3298,6 +3307,15 @@ export { app };
 
 // Neon Functions invoke a Fetch-compatible handler; traditional hosts keep the normal listener.
 if (process.env.NEON_FUNCTION_RUNTIME !== '1') {
+  // Keep database cleanup automatic on long-running API hosts. Serverless runtimes
+  // use cleanupExpiredEmptyRooms() on room-list and invitation requests instead.
+  const cleanupTimer = setInterval(() => {
+    void cleanupExpiredEmptyRooms().catch((error) => {
+      app.log.error({ err: error }, 'Could not clean up expired empty rooms');
+    });
+  }, 5_000);
+  cleanupTimer.unref();
+  app.addHook('onClose', async () => { clearInterval(cleanupTimer); });
   const port = Number(process.env.PORT ?? 3000);
   const host = process.env.HOST ?? '0.0.0.0';
   try {
