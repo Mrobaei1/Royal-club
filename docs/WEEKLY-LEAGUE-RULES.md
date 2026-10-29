@@ -31,4 +31,4 @@ Each league should store its format, manager-selected minimum participant count,
 
 ## Current implementation boundary
 
-The integration candidate includes owner-controlled league CRUD, disabled-by-default/free-by-default entry, and transactional subscription-day consumption with an entitlement ledger. The additional tournament-format, rest allocation, appeal, final-stage, absence, and technical-incident rules above still require implementation and acceptance before the weekly league can be described as complete.
+The integration candidate includes owner-controlled league CRUD, disabled-by-default/free-by-default entry, transactional subscription-day consumption with an entitlement ledger, manager-selected format and minimum participants, and persisted/audited policy fields. Actual tournament scheduling, rest allocation and game-count reporting, appeal enforcement, final-stage execution, and rescheduling workflows for double absence or technical incidents still require implementation and acceptance before the weekly league can be described as complete.
