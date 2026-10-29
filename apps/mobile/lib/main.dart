@@ -9,6 +9,7 @@ import 'account_screen.dart';
 import 'notifications_screen.dart';
 import 'engine_backgammon_screen.dart';
 import 'services/auth_service.dart';
+import 'services/admin_service.dart';
 import 'theme_state.dart';
 import 'online_lobby_screen.dart';
 import 'wallet_screen.dart';
@@ -173,12 +174,14 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _pendingRequests = 0;
   int _unreadMessages = 0;
+  bool _isOwner = false;
   Timer? _badgeTimer;
 
   @override
   void initState() {
     super.initState();
     _refreshMenuBadges();
+    _refreshAdminVisibility();
     _badgeTimer = Timer.periodic(
       const Duration(seconds: 20),
       (_) => _refreshMenuBadges(),
@@ -189,6 +192,18 @@ class _HomeScreenState extends State<HomeScreen> {
   void dispose() {
     _badgeTimer?.cancel();
     super.dispose();
+  }
+
+  Future<void> _refreshAdminVisibility() async {
+    var isOwner = false;
+    try {
+      isOwner = await AdminService.isOwner();
+    } catch (_) {
+      // Fail closed: an unavailable API or expired session must not expose admin navigation.
+    }
+    if (mounted && _isOwner != isOwner) {
+      setState(() => _isOwner = isOwner);
+    }
   }
 
   Future<void> _refreshMenuBadges() async {
@@ -367,7 +382,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     PopupMenuItem(value: 'chat', child: ListTile(dense: true, leading: Icon(Icons.chat_bubble_outline), title: Text(AppLocalizations.of(context).privateChat, style: TextStyle(color: _unreadMessages > 0 ? Colors.redAccent : null)))),
                     PopupMenuItem(value: 'notifications', child: ListTile(dense: true, leading: Icon(Icons.notifications_outlined), title: Text(AppLocalizations.of(context).notifications))),
                     PopupMenuItem(value: 'wallet', child: ListTile(dense: true, leading: Icon(Icons.account_balance_wallet_outlined), title: Text(AppLocalizations.of(context).wallet))),
-                    PopupMenuItem(value: 'admin', child: ListTile(dense: true, leading: Icon(Icons.admin_panel_settings_outlined), title: Text(appText(context, 'پنل مدیریت', 'Admin panel')))),
+                    if (_isOwner)
+                      PopupMenuItem(value: 'admin', child: ListTile(dense: true, leading: Icon(Icons.admin_panel_settings_outlined), title: Text(appText(context, 'پنل مدیریت', 'Admin panel')))),
                     PopupMenuItem(value: 'contact', child: ListTile(dense: true, leading: Icon(Icons.contact_support_outlined), title: Text(appText(context, 'ارتباط با ما', 'Contact us')))),
                     const PopupMenuDivider(),
                     PopupMenuItem(
