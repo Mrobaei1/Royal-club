@@ -156,7 +156,7 @@ class _RoyalBoardPainter extends CustomPainter {
   static Rect pointRect(int i, Size s) {
     final m=s.width*.025, bw=(s.width*.09).clamp(24.0,42.0).toDouble(), hw=(s.width-2*m-bw)/2, pw=hw/6;
     final top=i<12;
-    final col=top?(i<6?11-i:5-(i-6)):(i<18?i-12:i-18);
+    final col=top?(i<6?11-i:5-(i-6)):i-12;
     final left=col<6?m+col*pw:m+hw+bw+(col-6)*pw;
     final middle=middleHeight(s), row=(s.height-middle)/2;
     return Rect.fromLTWH(left, top?0:row+middle, pw, row);
@@ -192,7 +192,7 @@ class _RoyalBoardPainter extends CustomPainter {
     // Original Royal Club inlays: alternating white and pale green, with red point labels.
     for (var i=0;i<24;i++) {
       final isTop=i<12;
-      final col=isTop?(i<6?11-i:5-(i-6)):(i<18?i-12:i-18);
+      final col=isTop?(i<6?11-i:5-(i-6)):i-12;
       final x=colX(col), cx=x+pw/2;
       final base=isTop?topBase:bottomBase;
       final tip=isTop?topBase+triH:bottomBase-triH;
