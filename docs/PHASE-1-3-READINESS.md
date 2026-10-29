@@ -1,6 +1,6 @@
-# Royal Club — Phase 1–3 readiness checklist
+# Royal Club — Phase 1–4 readiness checklist
 
-This checklist is the release gate before starting Phase 4. A green CI run proves only the checks that actually ran; it does not prove production deployment health or real-device behavior.
+Phase 4 home-screen implementation has started on `main`. This checklist tracks remaining release gates across Phases 1–4. A green CI run proves only the checks that actually ran; it does not prove production deployment health or real-device behavior.
 
 ## Verified by repository code and automated tests
 
@@ -14,7 +14,7 @@ This checklist is the release gate before starting Phase 4. A green CI run prove
 - [x] Backgammon engine audit and Flutter/API CI checks passed on PR head `b6be07b4ba85ca31b4114f39c04c8826a4f152fe`.
 - [x] APK generation is gated to a manual workflow dispatch with explicit build approval; normal pushes do not create APKs.
 
-## Still required before Phase 4
+## Remaining acceptance gates for Phases 1–3 and Phase 4 release
 
 ### Phase 1 — account, security, language
 
@@ -32,14 +32,18 @@ This checklist is the release gate before starting Phase 4. A green CI run prove
 - [x] CI integration test passed for wallet debit, insufficient balance, subscription activation, active-subscription lookup, and ledger consistency.
 - [x] Integration test passed for denying a normal user permission to credit a wallet. Owner plan/credit controls still need broader end-to-end acceptance testing.
 - [ ] Confirm the initial monetization policy end-to-end: games and social features remain free unless the owner explicitly enables charges. Verify subscription and league-entry behavior against the configured product policy.
-- [ ] League-entry API foundation is proposed in [draft PR #32](https://github.com/Mrobaei1/Royal-club/pull/32): owner-controlled league configuration, disabled-by-default leagues, free-by-default entry, transactionally consumed subscription days, idempotent entry, and a separate entitlement ledger. Keep this gate open until CI passes on the latest head, code review is complete, admin UI/manual acceptance is done, and the owner explicitly configures any subscription-day league. No league is seeded or enabled automatically.
-- [ ] Verify ranking/weekly score behavior against agreed examples, including draws/unfinished games and rating updates.
+- [x] Main contains owner-controlled league configuration, disabled-by-default leagues, free-by-default entry, transactional/idempotent subscription-day consumption, a separate entitlement ledger, and manager-facing league controls. No league is seeded or enabled automatically. The old draft [PR #32](https://github.com/Mrobaei1/Royal-club/pull/32) is not a reliable release gate because its branch is behind main; reconcile its diff before closing it. Manual manager-UI acceptance and owner approval before any paid/subscription-day activation remain open.
+- [x] Add weekly-leaderboard integration regression coverage for unfinished matches and finished matches with no determinable winner; the documented score policy remains 3 points per completed win. See merged PR #31.
+- [ ] Verify all agreed ranking examples and rating updates end-to-end; draw handling remains unverified because the current match result model does not clearly represent a draw.
 
 ### Phase 3 — game and social experience
 
+- [x] Main uses the shared Royal backgammon board for online and offline play, with automated coverage for point hit targets, cumulative moves, legal bar entry, and engine rules.
 - [ ] Finish full online-match acceptance testing on two independent accounts/devices: server-authoritative board state, legal/cumulative dice moves, bar entry, surrender/cancel flows, reconnect, and temporary AI takeover.
-- [ ] Verify invite expiry and notification lifecycle on a running service, including expired-room cleanup after an idle period and host re-invitation.
-- [ ] Exercise username-only display across every screen/API, including empty or legacy profiles; no public UI may fall back to full name or email.
+- [x] Source includes 60-second invite/empty-room expiry and cleanup logic, with room cleanup called on room-list/invite requests and a protected internal trigger endpoint.
+- [ ] Verify invitation expiry, notification lifecycle, physical room cleanup while the serverless function is idle, and host re-invitation on the deployed service. The scheduled Neon trigger is not configured because the latest cleanup endpoint has not been deployed to production.
+- [x] API regression tests cover username-only public payloads and no full-name/email exposure in friend search/list, match history, leaderboard, and spectator views. Owner-only admin navigation is now hidden from non-owners in the mobile home menu and fails closed when the owner-status check fails.
+- [ ] Finish a manual username-only audit across every screen/API, including empty or legacy profiles; no public UI may fall back to full name or email.
 - [ ] Verify theme and language behavior on every screen, not only the screens covered by widget tests.
 - [ ] Run a real VPN-on/VPN-off test using the same account. CI headers are useful regression tests but do not replace a real network test.
 - [ ] Complete accessibility, layout, and performance checks on Android devices of different screen sizes.
@@ -53,23 +57,23 @@ This checklist is the release gate before starting Phase 4. A green CI run prove
 
 ## Latest automated verification
 
-The following GitHub Actions runs completed successfully for merged `main` commit `ed3bc671435a350605d81a2cb87211899d5c4084` on 2026-10-28:
+The following GitHub Actions runs completed successfully for merged `main` commit `1a6d3f81242dc61541161cd6fbb457844de0430e` on 2026-10-29:
 
-- [Validate Royal Club](https://github.com/Mrobaei1/Royal-club/actions/runs/40650172452): API build/unit/integration tests and Flutter analyze/tests — passed.
-- [Royal Club validation](https://github.com/Mrobaei1/Royal-club/actions/runs/40650172451): API build/unit tests and Flutter analyze/tests — passed.
-- [Backgammon engine audit](https://github.com/Mrobaei1/Royal-club/actions/runs/40650172614): engine/AI and board-interaction regression tests — passed.
-- [Royal Club Web Preview](https://github.com/Mrobaei1/Royal-club/actions/runs/40650172578): API build/tests, Flutter analyze/tests, web release build, Pages artifact upload, and GitHub Pages deployment — passed. The build log confirms it injected the configured API endpoint.
+- [Validate Royal Club](https://github.com/Mrobaei1/Royal-club/actions/runs/40960779249): API build/unit/integration tests and Flutter analyze/tests — passed.
+- [Royal Club validation](https://github.com/Mrobaei1/Royal-club/actions/runs/40960779251): API build/unit tests and Flutter analyze/tests — passed.
+- [Royal Club Web Preview](https://github.com/Mrobaei1/Royal-club/actions/runs/40960779248): web release build and Pages publish workflow — passed.
+- [Royal Club Production API Health](https://github.com/Mrobaei1/Royal-club/actions/runs/40960779289): the currently deployed API health and smoke checks — passed. This does **not** prove that the latest source commit is deployed.
 
 ### Production API status — distinguish deployed from merged code
 
 - The Neon Function `royalclubapi` is deployed at `https://br-misty-flower-bavs47dm-royalclubapi.compute.c-8.eu-central-1.aws.neon.tech`, deployment ID `79`, status `completed`.
-- [Deploy run 40570281878](https://github.com/Mrobaei1/Royal-club/actions/runs/40570281878) passed the deployed API health check and the six-character registration/login smoke test on 2026-10-27.
-- The merged web build uses that same API endpoint; it no longer relies on the temporary GitHub Codespaces URL.
-- The merged API source in commit `ed3bc671` has **not** been deployed to Neon yet. The production API deployment workflow is intentionally manual-only. Therefore the CI-tested OTP/phone-auth and other newly added server routes are not claimed as production-live until that release workflow is explicitly dispatched and its health/integration smoke tests pass.
+- The production health workflow passed, but the deployed function is still behind the latest merged API source. The latest merged source has **not** been deployed to Neon; the deployment workflow is intentionally manual-only.
+- The currently inspected deployment metadata does not list `OWNER_USER_ID` or `SMS_CREDENTIALS_ENCRYPTION_KEY`. Owner-only operations therefore remain fail-closed, and production SMS authentication remains disabled. Do not enable real SMS or alter owner privileges as part of an automatic rollout.
+- The scheduled Neon trigger for expired-room cleanup is **not configured**. The trigger endpoint exists in source, but it must be deployed and verified before scheduling production calls. No recurring trigger is left enabled against the older deployment.
 - No APK was built. Android APK generation remains manual-only and requires explicit build approval.
 
-These results prove automated checks and the recorded previous production smoke test only. They do not establish real SMS delivery, real VPN switching, multi-device acceptance, or that the newest merged API source is live in production.
+These results prove automated checks and the health of the currently deployed version only. They do not establish real SMS delivery, real VPN switching, multi-device acceptance, or that the newest API source is live in production.
 
 ## Current decision
 
-**Not ready for Phase 4.** The code-level OTP/RBAC/localization foundations and automated tests have advanced, but production OTP/account linking, full permission-matrix acceptance, actual deployment/security verification, manual RTL/LTR device review, monetization-policy acceptance, live VPN/device testing, and final end-to-end acceptance remain open. No identity/grant/agent automation is activated by planning documentation alone. This checklist must be updated after the next code changes and CI runs; passing CI alone does not close product acceptance items.
+**Phase 4 UI work has started, but Royal Club is not release-ready.** Remaining gates include production OTP/account-linking approval, final permission-matrix decisions, production deployment/schema/security verification, manual RTL/LTR device review, monetization-policy acceptance, live VPN/device testing, two-device online-match acceptance, and final end-to-end sign-off. No privileged identity/grant/agent automation is activated by planning documentation alone. Do not build an APK until the owner explicitly authorizes the final build.
