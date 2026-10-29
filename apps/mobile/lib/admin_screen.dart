@@ -241,6 +241,88 @@ class _AdminScreenState extends State<AdminScreen> {
     }
   }
 
+  Future<void> _scheduleLeague(dynamic league) async {
+    final id = league['id']?.toString();
+    if (id == null || id.isEmpty) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(appText(context, 'ساخت برنامه مسابقات', 'Generate tournament schedule')),
+        content: Text(appText(context,
+          'برای لیگ دوره‌ای، برنامه همه دورها ساخته می‌شود. دور استراحت نیز ثبت خواهد شد. این کار فقط یک‌بار برای هر لیگ مجاز است.',
+          'For round-robin leagues, all rounds will be generated and byes recorded. Scheduling is allowed only once per league.')),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: Text(appText(context, 'انصراف', 'Cancel'))),
+          FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: Text(appText(context, 'ایجاد برنامه', 'Generate'))),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() => _busy = true);
+    try {
+      final result = await AdminService.scheduleLeague(id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(appText(context,
+          'برنامه ساخته شد: ${(result['rounds'] as List? ?? []).length} دور.',
+          'Schedule generated: ${(result['rounds'] as List? ?? []).length} rounds.')),
+      ));
+      await _showLeagueReport(league);
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appError(context, e))));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _showLeagueReport(dynamic league) async {
+    final id = league['id']?.toString();
+    if (id == null || id.isEmpty) return;
+    setState(() => _busy = true);
+    try {
+      final report = await AdminService.leagueReport(id);
+      if (!mounted) return;
+      final participants = (report['participants'] as List? ?? const []);
+      final rounds = (report['rounds'] as List? ?? const []);
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: Text(appText(context, 'گزارش لیگ: ${league['name'] ?? ''}', 'League report: ${league['name'] ?? ''}')),
+          content: SizedBox(
+            width: 520,
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(appText(context, 'گزارش شرکت‌کنندگان', 'Participant report'), style: const TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  for (final p in participants)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 3),
+                      child: Text('${p['username'] ?? ''} — ${appText(context, 'بازی', 'Games')}: ${p['gamesPlayed'] ?? 0} · ${appText(context, 'استراحت', 'Byes')}: ${p['restRounds'] ?? 0}'),
+                    ),
+                  const Divider(),
+                  Text(appText(context, 'دورها', 'Rounds'), style: const TextStyle(fontWeight: FontWeight.bold)),
+                  for (final round in rounds)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 3),
+                      child: Text('${appText(context, 'دور', 'Round')} ${round['roundNumber']}: ${round['matchesResolved']}/${round['matchesTotal']}'),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          actions: [TextButton(onPressed: () => Navigator.pop(dialogContext), child: Text(appText(context, 'بستن', 'Close')))],
+        ),
+      );
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appError(context, e))));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   Future<void> _saveSmsSettings() async {
     setState(() => _busy = true);
     try {
@@ -724,10 +806,26 @@ class _AdminScreenState extends State<AdminScreen> {
                   leading: Icon(league['entryMode'] == 'subscription_days' ? Icons.workspace_premium_outlined : Icons.sports_esports_outlined),
                   title: Text(league['name']?.toString() ?? ''),
                   subtitle: Text('@${league['code']} · ${league['entryMode'] == 'subscription_days' ? appText(context, '${league['subscriptionDaysCost']} روز اشتراک', '${league['subscriptionDaysCost']} subscription days') : appText(context, 'رایگان', 'Free')} · ${league['enabled'] == true ? appText(context, 'فعال', 'Enabled') : appText(context, 'غیرفعال', 'Disabled')}'),
-                  trailing: IconButton(
-                    tooltip: appText(context, 'ویرایش قوانین', 'Edit rules'),
-                    onPressed: _busy ? null : () => _editLeague(league),
-                    icon: const Icon(Icons.edit_outlined),
+                  trailing: Wrap(
+                    spacing: 2,
+                    children: [
+                      IconButton(
+                        tooltip: appText(context, 'گزارش لیگ', 'League report'),
+                        onPressed: _busy ? null : () => _showLeagueReport(league),
+                        icon: const Icon(Icons.assessment_outlined),
+                      ),
+                      if ((league['rules'] is Map ? (league['rules'] as Map)['format'] : null) == 'round_robin')
+                        IconButton(
+                          tooltip: appText(context, 'ساخت برنامه مسابقات', 'Generate schedule'),
+                          onPressed: _busy ? null : () => _scheduleLeague(league),
+                          icon: const Icon(Icons.calendar_month_outlined),
+                        ),
+                      IconButton(
+                        tooltip: appText(context, 'ویرایش قوانین', 'Edit rules'),
+                        onPressed: _busy ? null : () => _editLeague(league),
+                        icon: const Icon(Icons.edit_outlined),
+                      ),
+                    ],
                   ),
                 ),
               ),
