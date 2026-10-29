@@ -167,7 +167,7 @@ class _RoyalBoardPainter extends CustomPainter {
     final w=s.width, h=s.height, m=w*.025, bw=(w*.09).clamp(24.0,42.0).toDouble();
     final hw=(w-2*m-bw)/2, pw=hw/6, mid=middleHeight(s), row=(h-mid)/2;
     final topBase=row*.98, bottomBase=row+mid+row*.02;
-    final triH=row*.56, r=math.min(pw*.43, row*.095);
+    final triH=row*.56, r=math.min(pw*.43, row*.17);
     double colX(int col)=>col<6?m+col*pw:m+hw+bw+(col-6)*pw;
     final bounds=Offset.zero&s;
     final frame=RRect.fromRectAndRadius(bounds,Radius.circular(w*.022));
