@@ -1,7 +1,7 @@
 name: royal_club
 description: Royal Club multi-game platform starter.
 publish_to: 'none'
-version: 1.1.11+11
+version: 1.1.12+12
 environment:
   sdk: '>=3.4.0 <4.0.0'
 dependencies:
