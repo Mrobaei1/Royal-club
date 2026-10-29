@@ -817,6 +817,18 @@ test('registered players can join an online match and history does not expose op
   assert.ok(Number.isFinite(emptyRoomCreatedAt) && Number.isFinite(emptyRoomExpiresAt));
   assert.ok(emptyRoomExpiresAt - emptyRoomCreatedAt <= 60_000 && emptyRoomExpiresAt - emptyRoomCreatedAt >= 59_000,
     'An empty online room should expire after 60 seconds.');
+  const cleanupWithoutTrigger = await app.inject({
+    method: 'POST',
+    url: '/internal/cleanup-expired-empty-rooms',
+  });
+  assert.equal(cleanupWithoutTrigger.statusCode, 403, cleanupWithoutTrigger.body);
+  const scheduledCleanup = await app.inject({
+    method: 'POST',
+    url: '/internal/cleanup-expired-empty-rooms',
+    headers: { 'x-neon-trigger-invocation-id': 'integration-test' },
+  });
+  assert.equal(scheduledCleanup.statusCode, 200, scheduledCleanup.body);
+  assert.equal(scheduledCleanup.json().ok, true);
   const emptyRoomId = String(emptyRoomToClose.json().match.id);
   const guestCannotCloseHostRoom = await app.inject({
     method: 'DELETE',
