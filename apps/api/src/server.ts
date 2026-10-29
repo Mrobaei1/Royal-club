@@ -1408,20 +1408,21 @@ app.post<{ Params: { id: string }; Body: { startsAt?: string | null; intervalDay
       await client.query('ROLLBACK');
       return reply.code(409).send({ error: 'League minimum participant count has not been reached.', minimumParticipants: rules?.minimumParticipants ?? null, currentParticipants: players.length });
     }
-    if (rules?.format !== 'round_robin') { await client.query('ROLLBACK'); return reply.code(422).send({ error: 'Automatic scheduling currently supports round-robin. This league format requires manager-created rounds.' }); }
+    if (!['round_robin', 'swiss', 'knockout'].includes(rules?.format ?? 'round_robin')) { await client.query('ROLLBACK'); return reply.code(422).send({ error: 'This league format requires manager-created rounds.' }); }
     const prior = await client.query('SELECT id FROM league_rounds WHERE league_id = $1', [leagueId]);
     if (prior.rowCount) { await client.query('ROLLBACK'); return reply.code(409).send({ error: 'Schedule already exists for this league.' }); }
     const roster: (string | null)[] = [...players];
     if (roster.length % 2) roster.push(null);
     const n = roster.length;
-    const rounds = n - 1;
+    const rounds = (rules?.format ?? 'round_robin') === 'round_robin' ? n - 1 : 1;
     let rotation = [...roster];
     const created: unknown[] = [];
     for (let r = 0; r < rounds; r++) {
       const when = new Date(start.getTime() + r * interval * 86400000);
       const round = await client.query("INSERT INTO league_rounds (league_id, round_number, stage, status, starts_at, created_by) VALUES ($1,$2,'regular','scheduled',$3,$4) RETURNING id, round_number AS \"roundNumber\", starts_at AS \"startsAt\"", [leagueId, r + 1, when, claims.sub]);
       for (let i = 0; i < n / 2; i++) {
-        const a = rotation[i], b = rotation[n - i - 1];
+        const a = (rules?.format ?? 'round_robin') === 'round_robin' ? rotation[i] : roster[i * 2];
+        const b = (rules?.format ?? 'round_robin') === 'round_robin' ? rotation[n - i - 1] : roster[i * 2 + 1];
         if (a === null || b === null) {
           const bye = a ?? b;
           if (bye !== null) await client.query("INSERT INTO league_matches (league_id, round_id, player_one_id, status, winner_id, scheduled_at, completed_at) VALUES ($1,$2,$3,'bye',$3,$4,$4)", [leagueId, round.rows[0].id, bye, when]);
@@ -1430,7 +1431,7 @@ app.post<{ Params: { id: string }; Body: { startsAt?: string | null; intervalDay
         }
       }
       created.push(round.rows[0]);
-      rotation = [rotation[0], rotation[n - 1], ...rotation.slice(1, n - 1)];
+      if ((rules?.format ?? 'round_robin') === 'round_robin') rotation = [rotation[0], rotation[n - 1], ...rotation.slice(1, n - 1)];
     }
     await client.query("INSERT INTO league_admin_audit_log (actor_user_id, league_id, action, details) VALUES ($1,$2,'league_schedule_generated',$3::jsonb)", [claims.sub, leagueId, JSON.stringify({ format: rules.format, participantCount: players.length, rounds, intervalDays: interval, startsAt: start.toISOString() })]);
     await client.query('COMMIT');
