@@ -1,7 +1,7 @@
 # Royal Club — Phase 4 preparation plan
 
 ## Gate
-Phase 4 remains blocked until the Phase 1–3 checklist is accepted. This document prepares the implementation sequence; it does not authorize deployment, paid features, new privileged identities, production SMS, agent automation, or APK creation.
+Phase 4 implementation has started at the owner's direction, beginning with the home-screen experience and stronger rating/readiness checks. Production activation and release remain gated until Phase 1–3 acceptance items are closed or explicitly accepted by the owner. This plan does not authorize deployment, paid features, new privileged identities, production SMS, agent automation, or APK creation.
 
 ## Phase 4 workstreams
 
@@ -23,7 +23,7 @@ Phase 4 remains blocked until the Phase 1–3 checklist is accepted. This docume
    - Preserve the existing server-owned wallet ledger; no direct client balance mutation.
 
 4. **Game/league expansion**
-   - Complete Phase 2 league-entry implementation first (issue #26): free-by-default rules, subscription-day entitlements, per-league manager configuration, atomic consumption, retry safety, and audit history.
+   - Verify and manually accept the league-entry implementation already present on main: free-by-default rules, disabled-by-default leagues, subscription-day entitlements, per-league manager configuration, atomic consumption, retry safety, and audit history.
    - Keep chess/card-game navigation and future game support isolated from backgammon engine changes.
    - Do not introduce a new game or paid rule until current backgammon and social acceptance gates pass.
 
