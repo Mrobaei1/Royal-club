@@ -28,10 +28,10 @@ class RoyalBackgammonBoard extends StatelessWidget {
     return Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       SizedBox(width: panel, child: Column(children: [
         Expanded(child: _CountPanel(label: appText(context, 'مشکی', 'Black'), count: offBlack, white: false,
-          onTap: onBearOff, themeColors: themeColors,
+          onTap: !timerWhite ? onBearOff : null, themeColors: themeColors,
           timerText: timerText != null && !timerWhite ? timerText : null)),
         Expanded(child: _CountPanel(label: appText(context, 'طلایی', 'Gold'), count: offWhite, white: true,
-          onTap: onBearOff, themeColors: themeColors,
+          onTap: timerWhite ? onBearOff : null, themeColors: themeColors,
           timerText: timerText != null && timerWhite ? timerText : null)),
       ])),
       const SizedBox(width: 5),
