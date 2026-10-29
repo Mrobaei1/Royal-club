@@ -57,22 +57,22 @@ Phase 4 home-screen implementation has started on `main`. This checklist tracks 
 
 ## Latest automated verification
 
-The following GitHub Actions runs completed successfully for merged `main` commit `ed3bc671435a350605d81a2cb87211899d5c4084` on 2026-10-28:
+The following GitHub Actions runs completed successfully for merged `main` commit `1a6d3f81242dc61541161cd6fbb457844de0430e` on 2026-10-29:
 
-- [Validate Royal Club](https://github.com/Mrobaei1/Royal-club/actions/runs/40650172452): API build/unit/integration tests and Flutter analyze/tests — passed.
-- [Royal Club validation](https://github.com/Mrobaei1/Royal-club/actions/runs/40650172451): API build/unit tests and Flutter analyze/tests — passed.
-- [Backgammon engine audit](https://github.com/Mrobaei1/Royal-club/actions/runs/40650172614): engine/AI and board-interaction regression tests — passed.
-- [Royal Club Web Preview](https://github.com/Mrobaei1/Royal-club/actions/runs/40650172578): API build/tests, Flutter analyze/tests, web release build, Pages artifact upload, and GitHub Pages deployment — passed. The build log confirms it injected the configured API endpoint.
+- [Validate Royal Club](https://github.com/Mrobaei1/Royal-club/actions/runs/40960779249): API build/unit/integration tests and Flutter analyze/tests — passed.
+- [Royal Club validation](https://github.com/Mrobaei1/Royal-club/actions/runs/40960779251): API build/unit tests and Flutter analyze/tests — passed.
+- [Royal Club Web Preview](https://github.com/Mrobaei1/Royal-club/actions/runs/40960779248): web release build and Pages publish workflow — passed.
+- [Royal Club Production API Health](https://github.com/Mrobaei1/Royal-club/actions/runs/40960779289): the currently deployed API health and smoke checks — passed. This does **not** prove that the latest source commit is deployed.
 
 ### Production API status — distinguish deployed from merged code
 
 - The Neon Function `royalclubapi` is deployed at `https://br-misty-flower-bavs47dm-royalclubapi.compute.c-8.eu-central-1.aws.neon.tech`, deployment ID `79`, status `completed`.
-- [Deploy run 40570281878](https://github.com/Mrobaei1/Royal-club/actions/runs/40570281878) passed the deployed API health check and the six-character registration/login smoke test on 2026-10-27.
-- The merged web build uses that same API endpoint; it no longer relies on the temporary GitHub Codespaces URL.
-- The merged API source in commit `ed3bc671` has **not** been deployed to Neon yet. The production API deployment workflow is intentionally manual-only. Therefore the CI-tested OTP/phone-auth and other newly added server routes are not claimed as production-live until that release workflow is explicitly dispatched and its health/integration smoke tests pass.
+- The production health workflow passed, but the deployed function is still behind the latest merged API source. The latest merged source has **not** been deployed to Neon; the deployment workflow is intentionally manual-only.
+- The currently inspected deployment metadata does not list `OWNER_USER_ID` or `SMS_CREDENTIALS_ENCRYPTION_KEY`. Owner-only operations therefore remain fail-closed, and production SMS authentication remains disabled. Do not enable real SMS or alter owner privileges as part of an automatic rollout.
+- The scheduled Neon trigger for expired-room cleanup is **not configured**. The trigger endpoint exists in source, but it must be deployed and verified before scheduling production calls. No recurring trigger is left enabled against the older deployment.
 - No APK was built. Android APK generation remains manual-only and requires explicit build approval.
 
-These results prove automated checks and the recorded previous production smoke test only. They do not establish real SMS delivery, real VPN switching, multi-device acceptance, or that the newest merged API source is live in production.
+These results prove automated checks and the health of the currently deployed version only. They do not establish real SMS delivery, real VPN switching, multi-device acceptance, or that the newest API source is live in production.
 
 ## Current decision
 
