@@ -432,9 +432,11 @@ class _AdminScreenState extends State<AdminScreen> {
       );
       if (!dialogContext.mounted) return;
       Navigator.pop(dialogContext);
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(appText(context, 'وضعیت مسابقه ذخیره شد.', 'Match status saved.')),
-      ));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(appText(context, 'وضعیت مسابقه ذخیره شد.', 'Match status saved.')),
+        ));
+      }
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appError(context, e))));
     }
