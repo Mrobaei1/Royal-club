@@ -18,6 +18,8 @@ class _AdminScreenState extends State<AdminScreen> {
   final _leagueCode = TextEditingController();
   final _leagueName = TextEditingController();
   final _leagueDays = TextEditingController(text: '1');
+  final _leagueMinParticipants = TextEditingController(text: '8');
+  String _leagueFormat = 'round_robin';
   String _leagueEntryMode = 'free';
   bool _leagueEnabled = false;
   List<dynamic> _reports = [];
@@ -56,6 +58,7 @@ class _AdminScreenState extends State<AdminScreen> {
     _leagueCode.dispose();
     _leagueName.dispose();
     _leagueDays.dispose();
+    _leagueMinParticipants.dispose();
     _amount.dispose();
     _description.dispose();
     _price.dispose();
@@ -97,7 +100,8 @@ class _AdminScreenState extends State<AdminScreen> {
     final code = _leagueCode.text.trim().toLowerCase();
     final name = _leagueName.text.trim();
     final days = int.tryParse(_leagueDays.text) ?? 1;
-    if (code.length < 2 || name.isEmpty ||
+    final minimumParticipants = int.tryParse(_leagueMinParticipants.text);
+    if (code.length < 2 || name.isEmpty || minimumParticipants == null || minimumParticipants < 2 || minimumParticipants > 512 ||
         (_leagueEntryMode == 'subscription_days' && (days < 1 || days > 30))) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text(appText(context, 'کد، نام و تعداد روز معتبر وارد کنید.', 'Enter a valid code, name, and day count.')),
@@ -112,6 +116,8 @@ class _AdminScreenState extends State<AdminScreen> {
         enabled: _leagueEnabled,
         entryMode: _leagueEntryMode,
         subscriptionDaysCost: _leagueEntryMode == 'free' ? 0 : days,
+        format: _leagueFormat,
+        minimumParticipants: minimumParticipants,
       );
       _leagueCode.clear();
       _leagueName.clear();
@@ -133,6 +139,9 @@ class _AdminScreenState extends State<AdminScreen> {
   Future<void> _editLeague(dynamic league) async {
     final nameController = TextEditingController(text: league['name']?.toString() ?? '');
     final daysController = TextEditingController(text: (league['subscriptionDaysCost'] ?? 1).toString());
+    final currentRules = league['rules'] is Map ? Map<String, dynamic>.from(league['rules'] as Map) : <String, dynamic>{};
+    final minParticipantsController = TextEditingController(text: (currentRules['minimumParticipants'] ?? 8).toString());
+    var format = currentRules['format']?.toString() ?? 'round_robin';
     var mode = league['entryMode']?.toString() == 'subscription_days' ? 'subscription_days' : 'free';
     var enabled = league['enabled'] == true;
     final result = await showDialog<Map<String, dynamic>>(
@@ -142,6 +151,19 @@ class _AdminScreenState extends State<AdminScreen> {
           title: Text(appText(context, 'تنظیم قوانین لیگ', 'Edit league rules')),
           content: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
             TextField(controller: nameController, decoration: InputDecoration(labelText: appText(context, 'نام لیگ', 'League name'))),
+            const SizedBox(height: 10),
+            DropdownButtonFormField<String>(
+              initialValue: format,
+              decoration: InputDecoration(labelText: appText(context, 'فرمت لیگ', 'League format')),
+              items: [
+                DropdownMenuItem(value: 'round_robin', child: Text(appText(context, 'دوره‌ای', 'Round robin'))),
+                DropdownMenuItem(value: 'swiss', child: Text(appText(context, 'سوئیسی', 'Swiss'))),
+                DropdownMenuItem(value: 'knockout', child: Text(appText(context, 'حذفی', 'Knockout'))),
+                DropdownMenuItem(value: 'groups_then_knockout', child: Text(appText(context, 'گروهی سپس حذفی', 'Groups then knockout'))),
+              ],
+              onChanged: (value) => setDialogState(() => format = value ?? 'round_robin'),
+            ),
+            TextField(controller: minParticipantsController, keyboardType: TextInputType.number, decoration: InputDecoration(labelText: appText(context, 'حداقل شرکت‌کنندگان (۲ تا ۵۱۲)', 'Minimum participants (2–512)'))),
             const SizedBox(height: 10),
             DropdownButtonFormField<String>(
               initialValue: mode,
@@ -171,10 +193,19 @@ class _AdminScreenState extends State<AdminScreen> {
             FilledButton(onPressed: () {
               final name = nameController.text.trim();
               final days = int.tryParse(daysController.text) ?? 0;
-              if (name.isEmpty || (mode == 'subscription_days' && (days < 1 || days > 30))) return;
+              final minimum = int.tryParse(minParticipantsController.text);
+              if (name.isEmpty || minimum == null || minimum < 2 || minimum > 512 || (mode == 'subscription_days' && (days < 1 || days > 30))) return;
               Navigator.pop(dialogContext, {
                 'name': name, 'enabled': enabled, 'entryMode': mode,
                 'subscriptionDaysCost': mode == 'free' ? 0 : days,
+                'rules': {
+                  'format': format, 'minimumParticipants': minimum,
+                  'restPolicy': 'balanced_report_actual_games',
+                  'finalStagePolicy': 'manager_decides_by_format',
+                  'appealDeadlineHours': 24,
+                  'doubleAbsencePolicy': 'reschedule_if_possible',
+                  'technicalIssuePolicy': 'reschedule_if_possible',
+                },
               });
             }, child: Text(appText(context, 'ذخیره', 'Save'))),
           ],
@@ -183,6 +214,7 @@ class _AdminScreenState extends State<AdminScreen> {
     );
     nameController.dispose();
     daysController.dispose();
+    minParticipantsController.dispose();
     if (result == null || !mounted) return;
     setState(() => _busy = true);
     try {
@@ -192,6 +224,7 @@ class _AdminScreenState extends State<AdminScreen> {
         enabled: result['enabled'] as bool,
         entryMode: result['entryMode'] as String,
         subscriptionDaysCost: result['subscriptionDaysCost'] as int,
+        rules: Map<String, dynamic>.from(result['rules'] as Map),
       );
       await _load();
       if (mounted) {
@@ -641,6 +674,20 @@ class _AdminScreenState extends State<AdminScreen> {
               TextField(controller: _leagueCode, decoration: InputDecoration(labelText: appText(context, 'کد یکتای لیگ (حروف انگلیسی)', 'Unique league code (English letters)'), border: const OutlineInputBorder())),
               const SizedBox(height: 8),
               TextField(controller: _leagueName, decoration: InputDecoration(labelText: appText(context, 'نام لیگ', 'League name'), border: const OutlineInputBorder())),
+              const SizedBox(height: 8),
+              DropdownButtonFormField<String>(
+                initialValue: _leagueFormat,
+                decoration: InputDecoration(labelText: appText(context, 'فرمت لیگ', 'League format')),
+                items: [
+                  DropdownMenuItem(value: 'round_robin', child: Text(appText(context, 'دوره‌ای', 'Round robin'))),
+                  DropdownMenuItem(value: 'swiss', child: Text(appText(context, 'سوئیسی', 'Swiss'))),
+                  DropdownMenuItem(value: 'knockout', child: Text(appText(context, 'حذفی', 'Knockout'))),
+                  DropdownMenuItem(value: 'groups_then_knockout', child: Text(appText(context, 'گروهی سپس حذفی', 'Groups then knockout'))),
+                ],
+                onChanged: _busy ? null : (value) => setState(() => _leagueFormat = value ?? 'round_robin'),
+              ),
+              const SizedBox(height: 8),
+              TextField(controller: _leagueMinParticipants, keyboardType: TextInputType.number, decoration: InputDecoration(labelText: appText(context, 'حداقل شرکت‌کنندگان (۲ تا ۵۱۲)', 'Minimum participants (2–512)'), helperText: appText(context, 'این مقدار را مدیر برای هر لیگ تعیین می‌کند.', 'The manager sets this for each league.'), border: const OutlineInputBorder())),
               const SizedBox(height: 8),
               DropdownButtonFormField<String>(
                 initialValue: _leagueEntryMode,
