@@ -284,6 +284,7 @@ class _AdminScreenState extends State<AdminScreen> {
       if (!mounted) return;
       final participants = (report['participants'] as List? ?? const []);
       final rounds = (report['rounds'] as List? ?? const []);
+      final matches = (report['matches'] as List? ?? const []);
       final appeals = (report['appeals'] as List? ?? const []);
       await showDialog<void>(
         context: context,
@@ -309,6 +310,48 @@ class _AdminScreenState extends State<AdminScreen> {
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 3),
                       child: Text('${appText(context, 'دور', 'Round')} ${round['roundNumber']}: ${round['matchesResolved']}/${round['matchesTotal']}'),
+                    ),
+                  const Divider(),
+                  Text(appText(context, 'مسابقات و رخدادها', 'Matches and incidents'), style: const TextStyle(fontWeight: FontWeight.bold)),
+                  if (matches.isEmpty) Text(appText(context, 'هنوز مسابقه‌ای زمان‌بندی نشده است.', 'No matches scheduled yet.')),
+                  for (final match in matches)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('#${match['id']} · ${match['playerOneUsername'] ?? '—'} vs ${match['playerTwoUsername'] ?? appText(context, 'استراحت', 'Bye')}'),
+                          Text('${match['status']} ${match['replacementAt'] == null ? '' : '· ${match['replacementAt']}'}'),
+                          if (match['status'] == 'scheduled' || match['status'] == 'in_progress')
+                            Wrap(
+                              spacing: 4,
+                              children: [
+                                TextButton(
+                                  onPressed: () => _setLeagueMatchStatus(dialogContext, match, status: 'completed', winnerId: match['playerOneId']?.toString()),
+                                  child: Text(appText(context, 'برد نفر اول', 'Player 1 wins')),
+                                ),
+                                if (match['playerTwoId'] != null)
+                                  TextButton(
+                                    onPressed: () => _setLeagueMatchStatus(dialogContext, match, status: 'completed', winnerId: match['playerTwoId']?.toString()),
+                                    child: Text(appText(context, 'برد نفر دوم', 'Player 2 wins')),
+                                  ),
+                                TextButton(
+                                  onPressed: () => _setLeagueMatchStatus(dialogContext, match, status: 'double_absent', incidentNote: 'Both participants absent; replacement time to be arranged if possible.'),
+                                  child: Text(appText(context, 'غیبت دوطرفه', 'Both absent')),
+                                ),
+                                TextButton(
+                                  onPressed: () => _setLeagueMatchStatus(dialogContext, match, status: 'technical_issue', incidentNote: 'Technical interruption; replacement time to be arranged if possible.'),
+                                  child: Text(appText(context, 'اختلال فنی', 'Technical issue')),
+                                ),
+                              ],
+                            ),
+                          if (match['status'] == 'double_absent' || match['status'] == 'technical_issue')
+                            TextButton(
+                              onPressed: () => _rescheduleLeagueMatch(dialogContext, match),
+                              child: Text(appText(context, 'تعیین زمان جایگزین', 'Set replacement time')),
+                            ),
+                        ],
+                      ),
                     ),
                   const Divider(),
                   Text(appText(context, 'اعتراض‌ها', 'Appeals'), style: const TextStyle(fontWeight: FontWeight.bold)),
@@ -371,6 +414,66 @@ class _AdminScreenState extends State<AdminScreen> {
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  Future<void> _setLeagueMatchStatus(
+    BuildContext dialogContext,
+    dynamic match, {
+    required String status,
+    String? winnerId,
+    String? incidentNote,
+    String? replacementAt,
+  }) async {
+    try {
+      await AdminService.updateLeagueMatch(
+        match['id'].toString(),
+        status: status,
+        winnerId: winnerId,
+        incidentNote: incidentNote,
+        replacementAt: replacementAt,
+      );
+      if (mounted) {
+        Navigator.pop(dialogContext);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(appText(context, 'وضعیت مسابقه ذخیره شد.', 'Match status saved.')),
+        ));
+      }
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appError(context, e))));
+    }
+  }
+
+  Future<void> _rescheduleLeagueMatch(BuildContext dialogContext, dynamic match) async {
+    final controller = TextEditingController(
+      text: DateTime.now().add(const Duration(days: 1)).toIso8601String(),
+    );
+    final value = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(appText(context, 'زمان جایگزین', 'Replacement time')),
+        content: TextField(
+          controller: controller,
+          decoration: InputDecoration(
+            labelText: appText(context, 'تاریخ و ساعت ISO 8601', 'ISO 8601 date and time'),
+            helperText: '2026-11-01T18:30:00Z',
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: Text(appText(context, 'انصراف', 'Cancel'))),
+          FilledButton(onPressed: () => Navigator.pop(context, controller.text.trim()), child: Text(appText(context, 'ذخیره', 'Save'))),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (value == null || value.isEmpty || !mounted) return;
+    final priorStatus = match['status']?.toString() ?? '';
+    await _setLeagueMatchStatus(
+      dialogContext,
+      match,
+      status: 'rescheduled',
+      replacementAt: value,
+      incidentNote: '${priorStatus == 'technical_issue' ? 'technical_issue' : 'double_absent'}: rescheduled by manager',
+    );
   }
 
   Future<void> _saveSmsSettings() async {
