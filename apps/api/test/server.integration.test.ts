@@ -1050,7 +1050,7 @@ test('subscription purchases debit the wallet atomically and record a ledger ent
       method: 'POST',
       url: '/api/v1/admin/leagues',
       headers: auth(leagueOwner.token),
-      payload: { code: 'free_weekly', name: 'Free Weekly League', enabled: true },
+      payload: { code: 'free_weekly', name: 'Free Weekly League', enabled: true, rules: { minimumParticipants: 8 } },
     });
     assert.equal(freeLeagueResponse.statusCode, 201, freeLeagueResponse.body);
     const freeLeagueId = String(freeLeagueResponse.json().league.id);
@@ -1083,6 +1083,7 @@ test('subscription purchases debit the wallet atomically and record a ledger ent
         enabled: true,
         entryMode: 'subscription_days',
         subscriptionDaysCost: 2,
+        rules: { format: 'swiss', minimumParticipants: 8 },
       },
     });
     assert.equal(subscriptionLeagueResponse.statusCode, 201, subscriptionLeagueResponse.body);
@@ -1149,6 +1150,7 @@ test('subscription purchases debit the wallet atomically and record a ledger ent
         enabled: true,
         entryMode: 'subscription_days',
         subscriptionDaysCost: 2,
+        rules: { format: 'knockout', minimumParticipants: 8 },
       },
     });
     assert.equal(limitedLeagueResponse.statusCode, 201, limitedLeagueResponse.body);
