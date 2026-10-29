@@ -323,6 +323,62 @@ await pool.query(`
   );
   CREATE INDEX IF NOT EXISTS user_subscriptions_current_idx
     ON user_subscriptions (user_id, status, ends_at DESC);
+
+  -- League entry is free by default. Subscription-day consumption is opt-in per league
+  -- and is kept separate from the wallet-credit ledger.
+  CREATE TABLE IF NOT EXISTS leagues (
+    id BIGSERIAL PRIMARY KEY,
+    code TEXT NOT NULL UNIQUE,
+    name TEXT NOT NULL,
+    enabled BOOLEAN NOT NULL DEFAULT FALSE,
+    entry_mode TEXT NOT NULL DEFAULT 'free'
+      CHECK (entry_mode IN ('free', 'subscription_days')),
+    subscription_days_cost INTEGER NOT NULL DEFAULT 0
+      CHECK (subscription_days_cost BETWEEN 0 AND 30),
+    starts_at TIMESTAMPTZ,
+    ends_at TIMESTAMPTZ,
+    created_by BIGINT REFERENCES users(id) ON DELETE SET NULL,
+    updated_by BIGINT REFERENCES users(id) ON DELETE SET NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CHECK (
+      (entry_mode = 'free' AND subscription_days_cost = 0) OR
+      (entry_mode = 'subscription_days' AND subscription_days_cost BETWEEN 1 AND 30)
+    ),
+    CHECK (ends_at IS NULL OR starts_at IS NULL OR ends_at > starts_at)
+  );
+  CREATE TABLE IF NOT EXISTS league_entries (
+    id BIGSERIAL PRIMARY KEY,
+    league_id BIGINT NOT NULL REFERENCES leagues(id) ON DELETE CASCADE,
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    idempotency_key TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (league_id, user_id),
+    UNIQUE (user_id, idempotency_key)
+  );
+  CREATE INDEX IF NOT EXISTS league_entries_league_created_idx
+    ON league_entries (league_id, created_at DESC);
+  CREATE TABLE IF NOT EXISTS league_entitlement_ledger (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    subscription_id BIGINT NOT NULL REFERENCES user_subscriptions(id),
+    league_id BIGINT NOT NULL REFERENCES leagues(id) ON DELETE CASCADE,
+    entry_id BIGINT NOT NULL UNIQUE REFERENCES league_entries(id) ON DELETE CASCADE,
+    days_consumed INTEGER NOT NULL CHECK (days_consumed BETWEEN 1 AND 30),
+    ends_at_before TIMESTAMPTZ NOT NULL,
+    ends_at_after TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+  CREATE INDEX IF NOT EXISTS league_entitlement_ledger_user_created_idx
+    ON league_entitlement_ledger (user_id, created_at DESC);
+  CREATE TABLE IF NOT EXISTS league_admin_audit_log (
+    id BIGSERIAL PRIMARY KEY,
+    actor_user_id BIGINT REFERENCES users(id) ON DELETE SET NULL,
+    league_id BIGINT REFERENCES leagues(id) ON DELETE SET NULL,
+    action TEXT NOT NULL,
+    details JSONB NOT NULL DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
   CREATE TABLE IF NOT EXISTS private_messages (
     id BIGSERIAL PRIMARY KEY,
     sender_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -847,6 +903,283 @@ const requireOwnerAuth = async (request: any, reply: any) => {
     return reply.code(403).send({ error: 'Owner access is not configured or is not permitted.' });
   }
 };
+
+// League management and entry are server-authoritative. League entry never debits wallet credits.
+app.get('/api/v1/leagues', { onRequest: [requireMatchAuth] }, async () => {
+  const result = await pool.query(
+    `SELECT id, code, name, entry_mode AS "entryMode",
+            subscription_days_cost AS "subscriptionDaysCost", starts_at AS "startsAt",
+            ends_at AS "endsAt"
+       FROM leagues
+      WHERE enabled = TRUE
+        AND (starts_at IS NULL OR starts_at <= NOW())
+        AND (ends_at IS NULL OR ends_at > NOW())
+      ORDER BY starts_at NULLS FIRST, id ASC`,
+  );
+  return { leagues: result.rows };
+});
+
+app.get('/api/v1/admin/leagues', { onRequest: [requireOwnerAuth] }, async () => {
+  const result = await pool.query(
+    `SELECT id, code, name, enabled, entry_mode AS "entryMode",
+            subscription_days_cost AS "subscriptionDaysCost",
+            starts_at AS "startsAt", ends_at AS "endsAt",
+            created_at AS "createdAt", updated_at AS "updatedAt"
+       FROM leagues ORDER BY id DESC`,
+  );
+  return { leagues: result.rows };
+});
+
+app.post<{
+  Body: {
+    code?: string; name?: string; enabled?: boolean; entryMode?: string;
+    subscriptionDaysCost?: number; startsAt?: string | null; endsAt?: string | null;
+  };
+}>('/api/v1/admin/leagues', { onRequest: [requireOwnerAuth] }, async (request, reply) => {
+  const body = request.body ?? {};
+  const code = body.code?.trim();
+  const name = body.name?.trim();
+  const entryMode = body.entryMode ?? 'free';
+  const days = body.subscriptionDaysCost ?? 0;
+  if (!code || !/^[a-z0-9][a-z0-9_-]{1,39}$/.test(code) ||
+      !name || name.length > 120 ||
+      typeof (body.enabled ?? false) !== 'boolean' ||
+      !['free', 'subscription_days'].includes(entryMode) ||
+      !Number.isInteger(days) || days < 0 || days > 30 ||
+      (entryMode === 'free' && days !== 0) ||
+      (entryMode === 'subscription_days' && days < 1)) {
+    return reply.code(400).send({ error: 'Invalid league configuration.' });
+  }
+  const startsAt = body.startsAt ?? null;
+  const endsAt = body.endsAt ?? null;
+  if (
+      (startsAt !== null && !Number.isFinite(Date.parse(startsAt))) ||
+      (endsAt !== null && !Number.isFinite(Date.parse(endsAt))) ||
+      (startsAt !== null && endsAt !== null && Date.parse(endsAt) <= Date.parse(startsAt))
+  ) {
+    return reply.code(400).send({ error: 'Invalid league schedule.' });
+  }
+  const claims = request.user as { sub: string };
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const created = await client.query(
+      `INSERT INTO leagues
+         (code, name, enabled, entry_mode, subscription_days_cost, starts_at, ends_at, created_by, updated_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $8)
+       RETURNING id, code, name, enabled, entry_mode AS "entryMode",
+                 subscription_days_cost AS "subscriptionDaysCost",
+                 starts_at AS "startsAt", ends_at AS "endsAt"`,
+      [code, name, body.enabled ?? false, entryMode, days, startsAt, endsAt, claims.sub],
+    );
+    await client.query(
+      `INSERT INTO league_admin_audit_log (actor_user_id, league_id, action, details)
+       VALUES ($1, $2, 'league_created', $3::jsonb)`,
+      [claims.sub, created.rows[0].id, JSON.stringify({ code, enabled: body.enabled ?? false, entryMode, subscriptionDaysCost: days })],
+    );
+    await client.query('COMMIT');
+    return reply.code(201).send({ league: created.rows[0] });
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    if (typeof error === 'object' && error !== null && 'code' in error && error.code === '23505') {
+      return reply.code(409).send({ error: 'A league with that code already exists.' });
+    }
+    request.log.error({ err: error }, 'Could not create league');
+    return reply.code(500).send({ error: 'Could not create league.' });
+  } finally {
+    client.release();
+  }
+});
+
+app.patch<{
+  Params: { id: string };
+  Body: {
+    name?: string; enabled?: boolean; entryMode?: string;
+    subscriptionDaysCost?: number; startsAt?: string | null; endsAt?: string | null;
+  };
+}>('/api/v1/admin/leagues/:id', { onRequest: [requireOwnerAuth] }, async (request, reply) => {
+  if (!isNumericId(request.params.id)) return reply.code(400).send({ error: 'Invalid league id.' });
+  const body = request.body ?? {};
+  const has = (key: string) => Object.prototype.hasOwnProperty.call(body, key);
+  if (has('name') && (typeof body.name !== 'string' || !body.name.trim() || body.name.trim().length > 120) ||
+      has('enabled') && typeof body.enabled !== 'boolean' ||
+      has('entryMode') && !['free', 'subscription_days'].includes(body.entryMode ?? '') ||
+      has('subscriptionDaysCost') && (!Number.isInteger(body.subscriptionDaysCost) || (body.subscriptionDaysCost ?? -1) < 0 || (body.subscriptionDaysCost ?? 31) > 30) ||
+      has('startsAt') && body.startsAt !== null && (typeof body.startsAt !== 'string' || !Number.isFinite(Date.parse(body.startsAt))) ||
+      has('endsAt') && body.endsAt !== null && (typeof body.endsAt !== 'string' || !Number.isFinite(Date.parse(body.endsAt)))) {
+    return reply.code(400).send({ error: 'Invalid league configuration.' });
+  }
+  const client = await pool.connect();
+  const claims = request.user as { sub: string };
+  try {
+    await client.query('BEGIN');
+    const existing = await client.query('SELECT * FROM leagues WHERE id = $1 FOR UPDATE', [request.params.id]);
+    if (!existing.rowCount) {
+      await client.query('ROLLBACK');
+      return reply.code(404).send({ error: 'League not found.' });
+    }
+    const current = existing.rows[0];
+    const entryMode = body.entryMode ?? current.entry_mode;
+    const days = body.subscriptionDaysCost ?? Number(current.subscription_days_cost);
+    if ((entryMode === 'free' && days !== 0) || (entryMode === 'subscription_days' && (days < 1 || days > 30))) {
+      await client.query('ROLLBACK');
+      return reply.code(400).send({ error: 'Entry mode and subscription-day cost do not match.' });
+    }
+    const startsAt = has('startsAt') ? body.startsAt ?? null : current.starts_at;
+    const endsAt = has('endsAt') ? body.endsAt ?? null : current.ends_at;
+    if (startsAt !== null && endsAt !== null && new Date(endsAt).getTime() <= new Date(startsAt).getTime()) {
+      await client.query('ROLLBACK');
+      return reply.code(400).send({ error: 'Invalid league schedule.' });
+    }
+    const updated = await client.query(
+      `UPDATE leagues SET
+          name = $1, enabled = $2, entry_mode = $3, subscription_days_cost = $4,
+          starts_at = $5, ends_at = $6, updated_by = $7, updated_at = NOW()
+        WHERE id = $8
+        RETURNING id, code, name, enabled, entry_mode AS "entryMode",
+                  subscription_days_cost AS "subscriptionDaysCost",
+                  starts_at AS "startsAt", ends_at AS "endsAt"`,
+      [has('name') ? body.name!.trim() : current.name,
+       has('enabled') ? body.enabled : current.enabled, entryMode, days,
+       startsAt, endsAt, claims.sub, request.params.id],
+    );
+    await client.query(
+      `INSERT INTO league_admin_audit_log (actor_user_id, league_id, action, details)
+       VALUES ($1, $2, 'league_updated', $3::jsonb)`,
+      [claims.sub, request.params.id, JSON.stringify({ fields: Object.keys(body) })],
+    );
+    await client.query('COMMIT');
+    return { league: updated.rows[0] };
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    request.log.error({ err: error }, 'Could not update league');
+    return reply.code(500).send({ error: 'Could not update league.' });
+  } finally {
+    client.release();
+  }
+});
+
+app.post<{
+  Params: { id: string };
+  Body: { idempotencyKey?: string };
+}>('/api/v1/leagues/:id/entries', { onRequest: [requireMatchAuth] }, async (request, reply) => {
+  const claims = request.user as { sub: string };
+  const key = request.body?.idempotencyKey;
+  if (!isNumericId(request.params.id) || typeof key !== 'string' || !/^[A-Za-z0-9._:-]{8,100}$/.test(key)) {
+    return reply.code(400).send({ error: 'A valid league id and idempotency key are required.' });
+  }
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const leagueResult = await client.query(
+      `SELECT id, code, name, entry_mode, subscription_days_cost
+         FROM leagues
+        WHERE id = $1 AND enabled = TRUE
+          AND (starts_at IS NULL OR starts_at <= NOW())
+          AND (ends_at IS NULL OR ends_at > NOW())
+        FOR UPDATE`,
+      [request.params.id],
+    );
+    const league = leagueResult.rows[0] as {
+      id: string; code: string; name: string; entry_mode: string; subscription_days_cost: number;
+    } | undefined;
+    if (!league) {
+      await client.query('ROLLBACK');
+      return reply.code(404).send({ error: 'League is not open for entry.' });
+    }
+    const existing = await client.query(
+      `SELECT id, league_id AS "leagueId", user_id AS "userId", created_at AS "createdAt"
+         FROM league_entries WHERE league_id = $1 AND user_id = $2`,
+      [league.id, claims.sub],
+    );
+    if (existing.rowCount) {
+      await client.query('COMMIT');
+      return { entry: existing.rows[0], alreadyEntered: true };
+    }
+    const reusedKey = await client.query(
+      'SELECT id FROM league_entries WHERE user_id = $1 AND idempotency_key = $2',
+      [claims.sub, key],
+    );
+    if (reusedKey.rowCount) {
+      await client.query('ROLLBACK');
+      return reply.code(409).send({ error: 'Idempotency key has already been used for another entry.' });
+    }
+
+    let subscription: { id: string; ends_at: Date | string } | undefined;
+    let endsAtBefore: Date | null = null;
+    let endsAtAfter: Date | null = null;
+    const days = Number(league.subscription_days_cost);
+    if (league.entry_mode === 'subscription_days') {
+      const subResult = await client.query(
+        `SELECT id, ends_at FROM user_subscriptions
+          WHERE user_id = $1 AND status = 'active' AND ends_at > NOW()
+          ORDER BY ends_at DESC LIMIT 1 FOR UPDATE`,
+        [claims.sub],
+      );
+      subscription = subResult.rows[0] as { id: string; ends_at: Date | string } | undefined;
+      if (!subscription) {
+        await client.query('ROLLBACK');
+        return reply.code(409).send({ error: 'An active subscription is required for this league.' });
+      }
+      endsAtBefore = new Date(subscription.ends_at);
+      const availableDays = Math.floor((endsAtBefore.getTime() - Date.now()) / 86400000);
+      if (availableDays < days) {
+        await client.query('ROLLBACK');
+        return reply.code(409).send({ error: 'Insufficient subscription days.', requiredDays: days, availableDays: Math.max(0, availableDays) });
+      }
+      endsAtAfter = new Date(endsAtBefore.getTime() - days * 86400000);
+      if (endsAtAfter.getTime() <= Date.now()) {
+        await client.query('ROLLBACK');
+        return reply.code(409).send({ error: 'Insufficient subscription days.', requiredDays: days, availableDays: Math.max(0, availableDays) });
+      }
+      await client.query(
+        'UPDATE user_subscriptions SET ends_at = $1 WHERE id = $2',
+        [endsAtAfter, subscription.id],
+      );
+    }
+
+    const inserted = await client.query(
+      `INSERT INTO league_entries (league_id, user_id, idempotency_key)
+       VALUES ($1, $2, $3)
+       RETURNING id, league_id AS "leagueId", user_id AS "userId", created_at AS "createdAt"`,
+      [league.id, claims.sub, key],
+    );
+    if (subscription && endsAtBefore && endsAtAfter) {
+      await client.query(
+        `INSERT INTO league_entitlement_ledger
+           (user_id, subscription_id, league_id, entry_id, days_consumed, ends_at_before, ends_at_after)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [claims.sub, subscription.id, league.id, inserted.rows[0].id, days, endsAtBefore, endsAtAfter],
+      );
+    }
+    await client.query('COMMIT');
+    return reply.code(201).send({ entry: inserted.rows[0], subscriptionEndsAt: endsAtAfter });
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    if (typeof error === 'object' && error !== null && 'code' in error && error.code === '23505') {
+      return reply.code(409).send({ error: 'This league entry conflicts with an existing request.' });
+    }
+    request.log.error({ err: error }, 'Could not enter league');
+    return reply.code(500).send({ error: 'Could not enter league.' });
+  } finally {
+    client.release();
+  }
+});
+
+app.get('/api/v1/leagues/:id/entries/me', { onRequest: [requireMatchAuth] }, async (request, reply) => {
+  const claims = request.user as { sub: string };
+  if (!isNumericId((request.params as { id?: string }).id ?? '')) {
+    return reply.code(400).send({ error: 'Invalid league id.' });
+  }
+  const result = await pool.query(
+    `SELECT e.id, e.league_id AS "leagueId", e.created_at AS "createdAt",
+            l.code, l.name
+       FROM league_entries e JOIN leagues l ON l.id = e.league_id
+      WHERE e.league_id = $1 AND e.user_id = $2`,
+    [(request.params as { id: string }).id, claims.sub],
+  );
+  return { entry: result.rows[0] ?? null };
+});
 
 // Delegated grants are dormant until explicitly created by the configured owner.
 // Sensitive owner-only endpoints (wallet credit, SMS configuration, role management)
