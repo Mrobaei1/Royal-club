@@ -327,7 +327,7 @@ class _AdminScreenState extends State<AdminScreen> {
                               spacing: 8,
                               children: [
                                 TextButton(
-                                  onPressed: _busy ? null : () async {
+                                  onPressed: () async {
                                     try {
                                       await AdminService.resolveLeagueAppeal(appeal['id'].toString(), status: 'accepted');
                                       if (mounted) {
@@ -341,7 +341,7 @@ class _AdminScreenState extends State<AdminScreen> {
                                   child: Text(appText(context, 'پذیرش', 'Accept')),
                                 ),
                                 TextButton(
-                                  onPressed: _busy ? null : () async {
+                                  onPressed: () async {
                                     try {
                                       await AdminService.resolveLeagueAppeal(appeal['id'].toString(), status: 'rejected');
                                       if (mounted) {
