@@ -1046,6 +1046,12 @@ test('subscription purchases debit the wallet atomically and record a ledger ent
     });
     assert.equal(deniedLeagueAdmin.statusCode, 403);
 
+    const missingMinimum = await app.inject({
+      method: 'POST', url: '/api/v1/admin/leagues', headers: auth(leagueOwner.token),
+      payload: { code: 'missing_minimum', name: 'Missing Minimum', enabled: true },
+    });
+    assert.equal(missingMinimum.statusCode, 400, 'An enabled league must require the manager to choose a minimum participant count.');
+
     const freeLeagueResponse = await app.inject({
       method: 'POST',
       url: '/api/v1/admin/leagues',
@@ -1056,6 +1062,8 @@ test('subscription purchases debit the wallet atomically and record a ledger ent
     const freeLeagueId = String(freeLeagueResponse.json().league.id);
     assert.equal(freeLeagueResponse.json().league.entryMode, 'free');
     assert.equal(freeLeagueResponse.json().league.subscriptionDaysCost, 0);
+    assert.equal(freeLeagueResponse.json().league.rules.minimumParticipants, 8);
+    assert.equal(freeLeagueResponse.json().league.rules.appealDeadlineHours, 24);
 
     const freeEntry = await app.inject({
       method: 'POST',
