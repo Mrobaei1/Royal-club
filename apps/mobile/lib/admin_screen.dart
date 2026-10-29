@@ -284,6 +284,7 @@ class _AdminScreenState extends State<AdminScreen> {
       if (!mounted) return;
       final participants = (report['participants'] as List? ?? const []);
       final rounds = (report['rounds'] as List? ?? const []);
+      final appeals = (report['appeals'] as List? ?? const []);
       await showDialog<void>(
         context: context,
         builder: (dialogContext) => AlertDialog(
@@ -309,6 +310,55 @@ class _AdminScreenState extends State<AdminScreen> {
                       padding: const EdgeInsets.symmetric(vertical: 3),
                       child: Text('${appText(context, 'دور', 'Round')} ${round['roundNumber']}: ${round['matchesResolved']}/${round['matchesTotal']}'),
                     ),
+                  const Divider(),
+                  Text(appText(context, 'اعتراض‌ها', 'Appeals'), style: const TextStyle(fontWeight: FontWeight.bold)),
+                  if (appeals.isEmpty)
+                    Text(appText(context, 'اعتراضی ثبت نشده است.', 'No appeals submitted.')),
+                  for (final appeal in appeals)
+                    if (appeal['status'] == 'open')
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 6),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('${appeal['appellantUsername'] ?? ''} · ${appText(context, 'مسابقه', 'Match')} ${appeal['matchId']}'),
+                            Text(appeal['reason']?.toString() ?? ''),
+                            Wrap(
+                              spacing: 8,
+                              children: [
+                                TextButton(
+                                  onPressed: _busy ? null : () async {
+                                    try {
+                                      await AdminService.resolveLeagueAppeal(appeal['id'].toString(), status: 'accepted');
+                                      if (mounted) {
+                                        Navigator.pop(dialogContext);
+                                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appText(context, 'اعتراض پذیرفته شد.', 'Appeal accepted.'))));
+                                      }
+                                    } catch (e) {
+                                      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appError(context, e))));
+                                    }
+                                  },
+                                  child: Text(appText(context, 'پذیرش', 'Accept')),
+                                ),
+                                TextButton(
+                                  onPressed: _busy ? null : () async {
+                                    try {
+                                      await AdminService.resolveLeagueAppeal(appeal['id'].toString(), status: 'rejected');
+                                      if (mounted) {
+                                        Navigator.pop(dialogContext);
+                                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appText(context, 'اعتراض رد شد.', 'Appeal rejected.'))));
+                                      }
+                                    } catch (e) {
+                                      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appError(context, e))));
+                                    }
+                                  },
+                                  child: Text(appText(context, 'رد', 'Reject')),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
                 ],
               ),
             ),
