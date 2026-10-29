@@ -39,6 +39,6 @@ test('rating changes are zero-sum across representative rating gaps', () => {
 test('rating update is symmetric when player order and result are reversed', () => {
   const firstWins = calculateEloRatings(1100, 1300);
   const secondWins = calculateEloRatings(1300, 1100);
-  assert.equal(firstWins.winnerRating - 1100, 1300 - secondWins.loserRating);
+  assert.equal(firstWins.winnerRating - 1100, 1100 - secondWins.loserRating);
   assert.equal(1300 - firstWins.loserRating, secondWins.winnerRating - 1100);
 });
