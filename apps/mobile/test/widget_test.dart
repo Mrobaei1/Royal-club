@@ -84,7 +84,6 @@ void main() {
 
     expect(find.text('به باشگاه سلطنتی خوش آمدید'), findsOneWidget);
     expect(find.text('بازی ویژه'), findsOneWidget);
-    expect(find.text('نسخه 1.1.13'), findsOneWidget);
     expect(find.text('تخته‌نرد'), findsOneWidget);
     await tester.scrollUntilVisible(
       find.text('شطرنج'),
@@ -98,6 +97,12 @@ void main() {
       scrollable: find.byType(Scrollable).first,
     );
     expect(find.text('بازی‌های کارتی'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('نسخه 1.1.13'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('نسخه 1.1.13'), findsOneWidget);
   });
 
   testWidgets('home screen keeps all game cards', (tester) async {
