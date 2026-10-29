@@ -660,6 +660,44 @@ test('registered players can join an online match and history does not expose op
   assert.equal(guestStats.losses, 1);
   assert.equal(guestStats.gamesPlayed, 1);
 
+  const hostProgression = await app.inject({
+    method: 'GET',
+    url: '/api/v1/me',
+    headers: auth(host.token),
+  });
+  const guestProgression = await app.inject({
+    method: 'GET',
+    url: '/api/v1/me',
+    headers: auth(guest.token),
+  });
+  assert.equal(hostProgression.statusCode, 200, hostProgression.body);
+  assert.equal(guestProgression.statusCode, 200, guestProgression.body);
+  assert.equal(hostProgression.json().user.xpPoints, 20, 'The winner receives 20 server-awarded XP.');
+  assert.equal(guestProgression.json().user.xpPoints, 5, 'The loser receives 5 server-awarded XP.');
+  assert.equal(hostProgression.json().user.level, 1);
+  assert.equal(guestProgression.json().user.level, 1);
+
+  const progressionEvents = await testPool.query(
+    'SELECT COUNT(*)::int AS total FROM backgammon_progression_events WHERE match_id = $1',
+    [matchId],
+  );
+  assert.equal(progressionEvents.rows[0].total, 2, 'A finished match records exactly one progression event per player.');
+
+  const replayWinningMove = await app.inject({
+    method: 'POST',
+    url: `/api/v1/matches/${matchId}/moves`,
+    headers: auth(host.token),
+    payload: { from: 0, to: null, die: 1, expectedVersion: 100 },
+  });
+  assert.equal(replayWinningMove.statusCode, 409, 'Replaying the stale winning move must be rejected.');
+  const hostProgressionAfterReplay = await app.inject({
+    method: 'GET',
+    url: '/api/v1/me',
+    headers: auth(host.token),
+  });
+  assert.equal(hostProgressionAfterReplay.json().user.xpPoints, 20,
+    'A rejected retry must not award duplicate XP.');
+
   const invitedRoom = await app.inject({
     method: 'POST',
     url: '/api/v1/matches',
