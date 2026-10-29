@@ -79,9 +79,10 @@ void main() {
     expect(find.text('انتخاب عکس پروفایل'), findsOneWidget);
   });
 
-  testWidgets('backgammon is visually featured while chess and cards remain available', (tester) async {
+  testWidgets('home presents a bilingual welcome and features backgammon without hiding other games', (tester) async {
     await tester.pumpWidget(_testApp(const HomeScreen()));
 
+    expect(find.text('به باشگاه سلطنتی خوش آمدید'), findsOneWidget);
     expect(find.text('بازی ویژه'), findsOneWidget);
     expect(find.text('تخته‌نرد'), findsOneWidget);
     await tester.scrollUntilVisible(
