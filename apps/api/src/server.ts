@@ -1159,7 +1159,7 @@ app.patch<{
     await client.query(
       `INSERT INTO league_admin_audit_log (actor_user_id, league_id, action, details)
        VALUES ($1, $2, 'league_updated', $3::jsonb)`,
-      [claims.sub, request.params.id, JSON.stringify({ fields: Object.keys(body) })],
+      [claims.sub, request.params.id, JSON.stringify({ fields: Object.keys(body), ...(has('rules') ? { rules } : {}) })],
     );
     await client.query('COMMIT');
     return { league: updated.rows[0] };
