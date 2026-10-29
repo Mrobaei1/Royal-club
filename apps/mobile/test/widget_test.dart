@@ -86,6 +86,32 @@ void main() {
     expect(find.text('انتخاب عکس پروفایل'), findsOneWidget);
   });
 
+  testWidgets('home presents a bilingual welcome and features backgammon without hiding other games', (tester) async {
+    await tester.pumpWidget(_testApp(const HomeScreen()));
+
+    expect(find.text('به باشگاه سلطنتی خوش آمدید'), findsOneWidget);
+    expect(find.text('بازی ویژه'), findsOneWidget);
+    expect(find.text('تخته‌نرد'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('شطرنج'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('شطرنج'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('بازی‌های کارتی'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('بازی‌های کارتی'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('نسخه 1.1.13'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('نسخه 1.1.13'), findsOneWidget);
+  });
+
   testWidgets('home screen keeps all game cards', (tester) async {
     await tester.pumpWidget(_testApp(const HomeScreen()));
 

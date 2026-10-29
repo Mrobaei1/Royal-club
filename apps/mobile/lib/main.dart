@@ -413,10 +413,72 @@ class _HomeScreenState extends State<HomeScreen> {
               const SizedBox(height: 20),
               Divider(color: theme.accent.withValues(alpha: .65), thickness: 1, height: 1),
               const SizedBox(height: 20),
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(24),
+                  gradient: LinearGradient(
+                    begin: Alignment.topRight,
+                    end: Alignment.bottomLeft,
+                    colors: [
+                      Color.lerp(theme.panel, theme.accent, .20)!,
+                      theme.panel,
+                    ],
+                  ),
+                  border: Border.all(color: theme.accent.withValues(alpha: .38)),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 46,
+                      height: 46,
+                      decoration: BoxDecoration(
+                        color: theme.accent.withValues(alpha: .14),
+                        borderRadius: BorderRadius.circular(15),
+                      ),
+                      child: Icon(Icons.workspace_premium_rounded, color: theme.accent, size: 27),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            appText(context, 'به باشگاه سلطنتی خوش آمدید', 'Welcome to Royal Club'),
+                            textDirection: isEnglish ? TextDirection.ltr : TextDirection.rtl,
+                            style: TextStyle(
+                              color: theme.dark ? Colors.white : Colors.black,
+                              fontSize: 17,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                          const SizedBox(height: 7),
+                          Text(
+                            appText(
+                              context,
+                              'برای یک رقابت جوانمردانه آماده شو؛ بازی خود را انتخاب کن.',
+                              'Prepare for a fair contest and choose your game.',
+                            ),
+                            textDirection: isEnglish ? TextDirection.ltr : TextDirection.rtl,
+                            style: TextStyle(
+                              color: theme.dark ? Colors.white70 : Colors.black54,
+                              height: 1.5,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 22),
               Text(AppLocalizations.of(context).games, textDirection: royalLocaleState.locale.languageCode == 'fa' ? TextDirection.rtl : TextDirection.ltr,
                 style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 21, fontWeight: FontWeight.w800)),
               const SizedBox(height: 14),
               GameTile(
+                featured: true,
                 title: AppLocalizations.of(context).backgammon,
                 subtitle: royalLocaleState.locale.languageCode == 'fa' ? 'بازی کلاسیک و رقابتی' : 'Classic competitive game',
                 icon: Icons.casino_rounded,
@@ -468,7 +530,7 @@ class _HomeScreenState extends State<HomeScreen> {
               Center(child: Text('${AppLocalizations.of(context).appTitle}  •  ${AppLocalizations.of(context).playWithHonour}',
                 style: TextStyle(color: Color(0xFF77839A), fontSize: 9, letterSpacing: 1.5, fontWeight: FontWeight.w600))),
               const SizedBox(height: 10),
-              Center(child: Text(appText(context, 'نسخه 1.1.9', 'Version 1.1.9'),
+              Center(child: Text(appText(context, 'نسخه 1.1.13', 'Version 1.1.13'),
                 style: TextStyle(color: Color(0xFF77839A), fontSize: 11, fontWeight: FontWeight.w600))),
             ],
           ),
@@ -484,6 +546,7 @@ class GameTile extends StatelessWidget {
   final IconData icon;
   final VoidCallback? onTap;
   final bool comingSoon;
+  final bool featured;
 
   const GameTile(
       {super.key,
@@ -491,33 +554,57 @@ class GameTile extends StatelessWidget {
       required this.subtitle,
       required this.icon,
       this.onTap,
-      this.comingSoon = false});
+      this.comingSoon = false,
+      this.featured = false});
 
   @override
   Widget build(BuildContext context) {
     final selectedTheme = royalThemeState.current;
+    final isEnglish = Localizations.localeOf(context).languageCode == 'en';
     return Material(
         color: selectedTheme.panel,
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(featured ? 26 : 22),
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(22),
+          borderRadius: BorderRadius.circular(featured ? 26 : 22),
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 17),
+            padding: EdgeInsets.symmetric(horizontal: 18, vertical: featured ? 22 : 17),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(22),
-              border: Border.all(color: selectedTheme.accent.withValues(alpha: .22)),
+              borderRadius: BorderRadius.circular(featured ? 26 : 22),
+              gradient: featured
+                  ? LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        selectedTheme.panel,
+                        Color.lerp(selectedTheme.panel, selectedTheme.accent, .16)!,
+                      ],
+                    )
+                  : null,
+              border: Border.all(
+                color: selectedTheme.accent.withValues(alpha: featured ? .72 : .22),
+                width: featured ? 1.5 : 1,
+              ),
+              boxShadow: featured
+                  ? [
+                      BoxShadow(
+                        color: selectedTheme.accent.withValues(alpha: .10),
+                        blurRadius: 22,
+                        offset: const Offset(0, 8),
+                      ),
+                    ]
+                  : const [],
             ),
             child: Row(children: [
               Container(
-                width: 52,
-                height: 52,
+                width: featured ? 64 : 52,
+                height: featured ? 64 : 52,
                 decoration: BoxDecoration(
-                  color: selectedTheme.accent.withValues(alpha: .10),
-                  borderRadius: BorderRadius.circular(17),
-                  border: Border.all(color: selectedTheme.accent.withValues(alpha: .25)),
+                  color: selectedTheme.accent.withValues(alpha: featured ? .18 : .10),
+                  borderRadius: BorderRadius.circular(featured ? 20 : 17),
+                  border: Border.all(color: selectedTheme.accent.withValues(alpha: featured ? .45 : .25)),
                 ),
-                child: Icon(icon, color: selectedTheme.accent, size: 27),
+                child: Icon(icon, color: selectedTheme.accent, size: featured ? 33 : 27),
               ),
               const SizedBox(width: 15),
               Expanded(
@@ -525,16 +612,35 @@ class GameTile extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(title,
-                      textDirection: TextDirection.rtl,
+                      textDirection: isEnglish ? TextDirection.ltr : TextDirection.rtl,
                       style: TextStyle(
                           color: selectedTheme.dark ? Colors.white : Colors.black,
-                          fontSize: 16,
+                          fontSize: featured ? 18 : 16,
                           fontWeight: FontWeight.w800)),
                   const SizedBox(height: 5),
                   Text(subtitle,
-                      textDirection: TextDirection.rtl,
+                      textDirection: isEnglish ? TextDirection.ltr : TextDirection.rtl,
                       style: TextStyle(
                           color: selectedTheme.dark ? Colors.white70 : Colors.black54, fontSize: 12)),
+                  if (featured) ...[
+                    const SizedBox(height: 9),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.stars_rounded, size: 14, color: selectedTheme.accent),
+                        const SizedBox(width: 5),
+                        Text(
+                          appText(context, 'بازی ویژه', 'FEATURED GAME'),
+                          style: TextStyle(
+                            color: selectedTheme.accent,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: isEnglish ? 1.1 : 0,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
               )),
               if (comingSoon)
