@@ -1343,6 +1343,122 @@ app.get('/api/v1/leagues/:id/entries/me', { onRequest: [requireMatchAuth] }, asy
   return { entry: result.rows[0] ?? null };
 });
 
+// Weekly league execution: schedule generation, participant game counts, match outcomes, and appeals.
+app.post<{ Params: { id: string }; Body: { startsAt?: string | null; intervalDays?: number } }>('/api/v1/admin/leagues/:id/schedule', { onRequest: [requireOwnerAuth] }, async (request, reply) => {
+  const leagueId = request.params.id;
+  const start = request.body?.startsAt ? new Date(request.body.startsAt) : new Date();
+  const interval = request.body?.intervalDays ?? 7;
+  if (!isNumericId(leagueId) || !Number.isFinite(start.getTime()) || !Number.isInteger(interval) || interval < 1 || interval > 30) return reply.code(400).send({ error: 'Invalid league schedule request.' });
+  const client = await pool.connect();
+  const claims = request.user as { sub: string };
+  try {
+    await client.query('BEGIN');
+    const lr = await client.query('SELECT id, rules FROM leagues WHERE id = $1 FOR UPDATE', [leagueId]);
+    if (!lr.rowCount) { await client.query('ROLLBACK'); return reply.code(404).send({ error: 'League not found.' }); }
+    const rules = lr.rows[0].rules as WeeklyLeagueRules;
+    const rosterResult = await client.query('SELECT user_id AS id FROM league_entries WHERE league_id = $1 ORDER BY created_at, user_id', [leagueId]);
+    const players = (rosterResult.rows as { id: string }[]).map(x => String(x.id));
+    if (!Number.isInteger(rules?.minimumParticipants) || players.length < Number(rules.minimumParticipants)) {
+      await client.query('ROLLBACK');
+      return reply.code(409).send({ error: 'League minimum participant count has not been reached.', minimumParticipants: rules?.minimumParticipants ?? null, currentParticipants: players.length });
+    }
+    if (rules?.format !== 'round_robin') { await client.query('ROLLBACK'); return reply.code(422).send({ error: 'Automatic scheduling currently supports round-robin. This league format requires manager-created rounds.' }); }
+    const prior = await client.query('SELECT id FROM league_rounds WHERE league_id = $1', [leagueId]);
+    if (prior.rowCount) { await client.query('ROLLBACK'); return reply.code(409).send({ error: 'Schedule already exists for this league.' }); }
+    const roster: (string | null)[] = [...players];
+    if (roster.length % 2) roster.push(null);
+    const n = roster.length;
+    const rounds = n - 1;
+    let rotation = [...roster];
+    const created: unknown[] = [];
+    for (let r = 0; r < rounds; r++) {
+      const when = new Date(start.getTime() + r * interval * 86400000);
+      const round = await client.query("INSERT INTO league_rounds (league_id, round_number, stage, status, starts_at, created_by) VALUES ($1,$2,'regular','scheduled',$3,$4) RETURNING id, round_number AS \"roundNumber\", starts_at AS \"startsAt\"", [leagueId, r + 1, when, claims.sub]);
+      for (let i = 0; i < n / 2; i++) {
+        const a = rotation[i], b = rotation[n - i - 1];
+        if (a === null || b === null) {
+          const bye = a ?? b;
+          if (bye !== null) await client.query("INSERT INTO league_matches (league_id, round_id, player_one_id, status, winner_id, scheduled_at, completed_at) VALUES ($1,$2,$3,'bye',$3,$4,$4)", [leagueId, round.rows[0].id, bye, when]);
+        } else {
+          await client.query("INSERT INTO league_matches (league_id, round_id, player_one_id, player_two_id, status, scheduled_at) VALUES ($1,$2,$3,$4,'scheduled',$5)", [leagueId, round.rows[0].id, a, b, when]);
+        }
+      }
+      created.push(round.rows[0]);
+      rotation = [rotation[0], rotation[n - 1], ...rotation.slice(1, n - 1)];
+    }
+    await client.query("INSERT INTO league_admin_audit_log (actor_user_id, league_id, action, details) VALUES ($1,$2,'league_schedule_generated',$3::jsonb)", [claims.sub, leagueId, JSON.stringify({ format: rules.format, participantCount: players.length, rounds, intervalDays: interval, startsAt: start.toISOString() })]);
+    await client.query('COMMIT');
+    return reply.code(201).send({ leagueId, participantCount: players.length, rounds: created });
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    request.log.error({ err: error }, 'Could not generate weekly league schedule');
+    return reply.code(500).send({ error: 'Could not generate weekly league schedule.' });
+  } finally { client.release(); }
+});
+
+app.get<{ Params: { id: string } }>('/api/v1/admin/leagues/:id/report', { onRequest: [requireOwnerAuth] }, async (request, reply) => {
+  const id = request.params.id;
+  if (!isNumericId(id)) return reply.code(400).send({ error: 'Invalid league id.' });
+  const league = await pool.query('SELECT id, code, name, rules FROM leagues WHERE id = $1', [id]);
+  if (!league.rowCount) return reply.code(404).send({ error: 'League not found.' });
+  const participants = await pool.query("SELECT u.id AS \"userId\", u.username, COUNT(m.id) FILTER (WHERE m.status = 'completed')::int AS \"gamesPlayed\", COUNT(m.id) FILTER (WHERE m.status = 'bye')::int AS \"restRounds\", COUNT(m.id) FILTER (WHERE m.status = 'double_absent')::int AS \"doubleAbsenceIncidents\", COUNT(m.id) FILTER (WHERE m.status = 'technical_issue')::int AS \"technicalIncidents\" FROM league_entries e JOIN users u ON u.id=e.user_id LEFT JOIN league_matches m ON m.league_id=e.league_id AND (m.player_one_id=e.user_id OR m.player_two_id=e.user_id) WHERE e.league_id=$1 GROUP BY u.id,u.username ORDER BY \"gamesPlayed\" DESC,u.username ASC", [id]);
+  const rounds = await pool.query("SELECT r.id,r.round_number AS \"roundNumber\",r.stage,r.status,r.starts_at AS \"startsAt\",COUNT(m.id)::int AS \"matchesTotal\",COUNT(m.id) FILTER (WHERE m.status IN ('completed','bye'))::int AS \"matchesResolved\" FROM league_rounds r LEFT JOIN league_matches m ON m.round_id=r.id WHERE r.league_id=$1 GROUP BY r.id ORDER BY r.round_number", [id]);
+  return { league: league.rows[0], participants: participants.rows, rounds: rounds.rows };
+});
+
+app.patch<{ Params: { id: string }; Body: { status?: string; winnerId?: string | number | null; score?: unknown; incidentNote?: string; replacementAt?: string | null } }>('/api/v1/admin/league-matches/:id', { onRequest: [requireOwnerAuth] }, async (request, reply) => {
+  const id = request.params.id, body = request.body ?? {};
+  if (!isNumericId(id) || !['completed','double_absent','technical_issue','rescheduled','in_progress'].includes(body.status ?? '')) return reply.code(400).send({ error: 'Invalid league match update.' });
+  if (body.incidentNote !== undefined && (typeof body.incidentNote !== 'string' || body.incidentNote.length > 2000)) return reply.code(400).send({ error: 'Incident note must be 2000 characters or fewer.' });
+  if (body.replacementAt != null && (typeof body.replacementAt !== 'string' || !Number.isFinite(Date.parse(body.replacementAt)) || Date.parse(body.replacementAt) <= Date.now())) return reply.code(400).send({ error: 'Replacement time must be in the future.' });
+  const client = await pool.connect(), claims = request.user as { sub: string };
+  try {
+    await client.query('BEGIN');
+    const current = await client.query('SELECT * FROM league_matches WHERE id=$1 FOR UPDATE', [id]);
+    if (!current.rowCount) { await client.query('ROLLBACK'); return reply.code(404).send({ error: 'League match not found.' }); }
+    const match = current.rows[0];
+    const winner = body.winnerId == null ? null : String(body.winnerId);
+    if (body.status === 'completed' && (!winner || ![match.player_one_id, match.player_two_id].includes(winner))) { await client.query('ROLLBACK'); return reply.code(400).send({ error: 'Winner must be one of the match participants.' }); }
+    const updated = await client.query("UPDATE league_matches SET status=$1,winner_id=$2,score=$3::jsonb,incident_note=$4,replacement_at=$5,scheduled_at=CASE WHEN $1='rescheduled' THEN $5 ELSE scheduled_at END,completed_at=CASE WHEN $1='completed' THEN NOW() ELSE completed_at END,resolved_by=$6,resolved_at=NOW() WHERE id=$7 RETURNING id,league_id AS \"leagueId\",round_id AS \"roundId\",status,player_one_id AS \"playerOneId\",player_two_id AS \"playerTwoId\",winner_id AS \"winnerId\",scheduled_at AS \"scheduledAt\",replacement_at AS \"replacementAt\",completed_at AS \"completedAt\",incident_note AS \"incidentNote\"", [body.status,winner,JSON.stringify(body.score ?? {}),body.incidentNote ?? null,body.replacementAt ?? null,claims.sub,id]);
+    await client.query("INSERT INTO league_admin_audit_log (actor_user_id,league_id,action,details) VALUES ($1,$2,'league_match_updated',$3::jsonb)", [claims.sub,match.league_id,JSON.stringify({ matchId:id,status:body.status,winnerId:winner,replacementAt:body.replacementAt ?? null })]);
+    await client.query('COMMIT');
+    return { match: updated.rows[0] };
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    request.log.error({ err: error }, 'Could not update weekly league match');
+    return reply.code(500).send({ error: 'Could not update weekly league match.' });
+  } finally { client.release(); }
+});
+
+app.post<{ Params: { id: string; matchId: string }; Body: { reason?: string } }>('/api/v1/leagues/:id/matches/:matchId/appeals', { onRequest: [requireMatchAuth] }, async (request, reply) => {
+  const { id, matchId } = request.params, claims = request.user as { sub: string }, reason = request.body?.reason?.trim();
+  if (!isNumericId(id) || !isNumericId(matchId) || !reason || reason.length < 5 || reason.length > 2000) return reply.code(400).send({ error: 'A valid match and appeal reason (5–2000 characters) are required.' });
+  const result = await pool.query('SELECT id,player_one_id,player_two_id,status,completed_at FROM league_matches WHERE id=$1 AND league_id=$2', [matchId,id]);
+  const match = result.rows[0] as { id: string; player_one_id: string | null; player_two_id: string | null; status: string; completed_at: Date | string | null } | undefined;
+  if (!match || ![match.player_one_id,match.player_two_id].includes(String(claims.sub))) return reply.code(404).send({ error: 'League match not found for this participant.' });
+  if (match.status !== 'completed' || !match.completed_at) return reply.code(409).send({ error: 'Appeals are available only after match completion.' });
+  const deadline = new Date(new Date(match.completed_at).getTime() + 24 * 60 * 60 * 1000);
+  if (deadline.getTime() < Date.now()) return reply.code(410).send({ error: 'The 24-hour appeal window has expired.', deadlineAt: deadline.toISOString() });
+  try {
+    const appeal = await pool.query("INSERT INTO league_appeals (league_id,match_id,appellant_user_id,reason,deadline_at) VALUES ($1,$2,$3,$4,$5) RETURNING id,league_id AS \"leagueId\",match_id AS \"matchId\",status,reason,deadline_at AS \"deadlineAt\",created_at AS \"createdAt\"", [id,matchId,claims.sub,reason,deadline]);
+    return reply.code(201).send({ appeal: appeal.rows[0] });
+  } catch (error) {
+    if (typeof error === 'object' && error !== null && 'code' in error && error.code === '23505') return reply.code(409).send({ error: 'An appeal has already been submitted for this match.' });
+    request.log.error({ err: error }, 'Could not submit league appeal');
+    return reply.code(500).send({ error: 'Could not submit league appeal.' });
+  }
+});
+
+app.patch<{ Params: { id: string }; Body: { status?: 'accepted' | 'rejected'; managerNote?: string } }>('/api/v1/admin/league-appeals/:id', { onRequest: [requireOwnerAuth] }, async (request, reply) => {
+  const id = request.params.id, status = request.body?.status, note = request.body?.managerNote?.trim() ?? null;
+  if (!isNumericId(id) || !['accepted','rejected'].includes(status ?? '') || (note !== null && note.length > 2000)) return reply.code(400).send({ error: 'Invalid appeal decision.' });
+  const claims = request.user as { sub: string };
+  const result = await pool.query("UPDATE league_appeals SET status=$1,manager_note=$2,resolved_by=$3,resolved_at=NOW() WHERE id=$4 AND status='open' RETURNING id,league_id AS \"leagueId\",match_id AS \"matchId\",status,manager_note AS \"managerNote\",resolved_at AS \"resolvedAt\"", [status,note,claims.sub,id]);
+  if (!result.rowCount) return reply.code(404).send({ error: 'Open appeal not found.' });
+  await pool.query("INSERT INTO league_admin_audit_log (actor_user_id,league_id,action,details) VALUES ($1,$2,'league_appeal_resolved',$3::jsonb)", [claims.sub,result.rows[0].leagueId,JSON.stringify({ appealId:id,status })]);
+  return { appeal: result.rows[0] };
+});
+
 // Delegated grants are dormant until explicitly created by the configured owner.
 // Sensitive owner-only endpoints (wallet credit, SMS configuration, role management)
 // are intentionally not reachable through delegated grants.
