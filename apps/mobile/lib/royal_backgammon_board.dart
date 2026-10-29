@@ -24,7 +24,7 @@ class RoyalBackgammonBoard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => LayoutBuilder(builder: (context, c) {
-    final panel = (c.maxWidth * .105).clamp(36.0, 58.0).toDouble();
+    final panel = (c.maxWidth * .075).clamp(28.0, 58.0).toDouble();
     return Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       SizedBox(width: panel, child: Column(children: [
         Expanded(child: _CountPanel(label: appText(context, 'مشکی', 'Black'), count: offBlack, white: false,
