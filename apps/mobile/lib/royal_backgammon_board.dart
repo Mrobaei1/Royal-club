@@ -249,7 +249,9 @@ class _RoyalBoardPainter extends CustomPainter {
     const pips=<int,List<Offset>>{1:[Offset(0,0)],2:[Offset(-1,-1),Offset(1,1)],3:[Offset(-1,-1),Offset(0,0),Offset(1,1)],
       4:[Offset(-1,-1),Offset(1,-1),Offset(-1,1),Offset(1,1)],5:[Offset(-1,-1),Offset(1,-1),Offset(0,0),Offset(-1,1),Offset(1,1)],
       6:[Offset(-1,-1),Offset(1,-1),Offset(-1,0),Offset(1,0),Offset(-1,1),Offset(1,1)]};
-    for (final p in pips[v.clamp(1,6)]!) c.drawCircle(o+Offset(p.dx*s*.27,p.dy*s*.27),s*.075,Paint()..color=const Color(0xFF1A1A1A));
+    for (final p in pips[v.clamp(1,6)]!) {
+      c.drawCircle(o+Offset(p.dx*s*.27,p.dy*s*.27),s*.075,Paint()..color=const Color(0xFF1A1A1A));
+    }
   }
 
   static void _crown(Canvas c,Offset o,double s){
