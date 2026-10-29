@@ -373,10 +373,9 @@ class _AdminScreenState extends State<AdminScreen> {
                                   onPressed: () async {
                                     try {
                                       await AdminService.resolveLeagueAppeal(appeal['id'].toString(), status: 'accepted');
-                                      if (mounted) {
-                                        Navigator.pop(dialogContext);
-                                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appText(context, 'اعتراض پذیرفته شد.', 'Appeal accepted.'))));
-                                      }
+                                      if (!dialogContext.mounted) return;
+                                      Navigator.pop(dialogContext);
+                                      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appText(context, 'اعتراض پذیرفته شد.', 'Appeal accepted.'))));
                                     } catch (e) {
                                       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appError(context, e))));
                                     }
@@ -387,10 +386,9 @@ class _AdminScreenState extends State<AdminScreen> {
                                   onPressed: () async {
                                     try {
                                       await AdminService.resolveLeagueAppeal(appeal['id'].toString(), status: 'rejected');
-                                      if (mounted) {
-                                        Navigator.pop(dialogContext);
-                                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appText(context, 'اعتراض رد شد.', 'Appeal rejected.'))));
-                                      }
+                                      if (!dialogContext.mounted) return;
+                                      Navigator.pop(dialogContext);
+                                      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appText(context, 'اعتراض رد شد.', 'Appeal rejected.'))));
                                     } catch (e) {
                                       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appError(context, e))));
                                     }
@@ -432,12 +430,11 @@ class _AdminScreenState extends State<AdminScreen> {
         incidentNote: incidentNote,
         replacementAt: replacementAt,
       );
-      if (mounted) {
-        Navigator.pop(dialogContext);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(appText(context, 'وضعیت مسابقه ذخیره شد.', 'Match status saved.')),
-        ));
-      }
+      if (!dialogContext.mounted) return;
+      Navigator.pop(dialogContext);
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(appText(context, 'وضعیت مسابقه ذخیره شد.', 'Match status saved.')),
+      ));
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appError(context, e))));
     }
@@ -465,7 +462,7 @@ class _AdminScreenState extends State<AdminScreen> {
       ),
     );
     controller.dispose();
-    if (value == null || value.isEmpty || !mounted) return;
+    if (value == null || value.isEmpty || !dialogContext.mounted) return;
     final priorStatus = match['status']?.toString() ?? '';
     await _setLeagueMatchStatus(
       dialogContext,
