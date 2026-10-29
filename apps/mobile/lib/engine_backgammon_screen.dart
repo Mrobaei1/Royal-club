@@ -47,8 +47,9 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
     [Color(0xFF315A8C), Color(0xFF203F6B), Color(0xFF152B4B)],
     [Color(0xFF7A3151), Color(0xFF54213A), Color(0xFF351529)],
     [Color(0xFF777B85), Color(0xFF4C515D), Color(0xFF30343D)],
+    [Color(0xFF168B8B), Color(0xFF0D6668), Color(0xFF07464B)],
   ];
-  List<String> get _boardThemeNames => Localizations.localeOf(context).languageCode == 'en' ? ['Royal wood', 'Emerald', 'Sapphire blue', 'Burgundy', 'Silver'] : ['چوب سلطنتی', 'زمردی', 'آبی یاقوتی', 'زرشکی', 'نقره‌ای'];
+  List<String> get _boardThemeNames => Localizations.localeOf(context).languageCode == 'en' ? ['Royal wood', 'Emerald', 'Sapphire blue', 'Burgundy', 'Silver', 'Persian turquoise'] : ['چوب سلطنتی', 'زمردی', 'آبی یاقوتی', 'زرشکی', 'نقره‌ای', 'فیروزه‌ای ایرانی'];
 
   @override
   void didChangeDependencies() {
