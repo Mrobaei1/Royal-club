@@ -397,6 +397,67 @@ class _HomeScreenState extends State<HomeScreen> {
               const SizedBox(height: 20),
               Divider(color: theme.accent.withValues(alpha: .65), thickness: 1, height: 1),
               const SizedBox(height: 20),
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(24),
+                  gradient: LinearGradient(
+                    begin: Alignment.topRight,
+                    end: Alignment.bottomLeft,
+                    colors: [
+                      Color.lerp(theme.panel, theme.accent, .20)!,
+                      theme.panel,
+                    ],
+                  ),
+                  border: Border.all(color: theme.accent.withValues(alpha: .38)),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 46,
+                      height: 46,
+                      decoration: BoxDecoration(
+                        color: theme.accent.withValues(alpha: .14),
+                        borderRadius: BorderRadius.circular(15),
+                      ),
+                      child: Icon(Icons.workspace_premium_rounded, color: theme.accent, size: 27),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            appText(context, 'به باشگاه سلطنتی خوش آمدید', 'Welcome to Royal Club'),
+                            textDirection: isEnglish ? TextDirection.ltr : TextDirection.rtl,
+                            style: TextStyle(
+                              color: theme.dark ? Colors.white : Colors.black,
+                              fontSize: 17,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                          const SizedBox(height: 7),
+                          Text(
+                            appText(
+                              context,
+                              'برای یک رقابت جوانمردانه آماده شو؛ بازی خود را انتخاب کن.',
+                              'Prepare for a fair contest and choose your game.',
+                            ),
+                            textDirection: isEnglish ? TextDirection.ltr : TextDirection.rtl,
+                            style: TextStyle(
+                              color: theme.dark ? Colors.white70 : Colors.black54,
+                              height: 1.5,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 22),
               Text(AppLocalizations.of(context).games, textDirection: royalLocaleState.locale.languageCode == 'fa' ? TextDirection.rtl : TextDirection.ltr,
                 style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 21, fontWeight: FontWeight.w800)),
               const SizedBox(height: 14),
