@@ -38,11 +38,18 @@ void main() {
       'اعلان‌ها',
       'حساب کاربری',
       'گفت‌وگوهای خصوصی',
-      'پنل مدیریت',
       'کیف پول',
     ]) {
       expect(find.text(label), findsOneWidget);
     }
+  });
+
+  testWidgets('non-owner home menu hides owner-only admin navigation', (tester) async {
+    await tester.pumpWidget(_testApp(const HomeScreen()));
+    await tester.tap(find.byTooltip('تنظیمات'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('پنل مدیریت'), findsNothing);
   });
 
   testWidgets('English locale renders translated home game cards', (tester) async {
