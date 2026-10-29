@@ -514,7 +514,7 @@ class _HomeScreenState extends State<HomeScreen> {
               Center(child: Text('${AppLocalizations.of(context).appTitle}  •  ${AppLocalizations.of(context).playWithHonour}',
                 style: TextStyle(color: Color(0xFF77839A), fontSize: 9, letterSpacing: 1.5, fontWeight: FontWeight.w600))),
               const SizedBox(height: 10),
-              Center(child: Text(appText(context, 'نسخه 1.1.9', 'Version 1.1.9'),
+              Center(child: Text(appText(context, 'نسخه 1.1.13', 'Version 1.1.13'),
                 style: TextStyle(color: Color(0xFF77839A), fontSize: 11, fontWeight: FontWeight.w600))),
             ],
           ),
