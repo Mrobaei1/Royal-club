@@ -806,6 +806,27 @@ test('registered players can join an online match and history does not expose op
     5, 0, 0, 0, -3, 0, -5, 0, 0, 0, 0, 2,
   ]);
 
+  const emptyRoomToClose = await app.inject({
+    method: 'POST',
+    url: '/api/v1/matches',
+    headers: auth(host.token),
+  });
+  assert.equal(emptyRoomToClose.statusCode, 201, emptyRoomToClose.body);
+  const emptyRoomId = String(emptyRoomToClose.json().match.id);
+  const guestCannotCloseHostRoom = await app.inject({
+    method: 'DELETE',
+    url: `/api/v1/matches/${emptyRoomId}`,
+    headers: auth(guest.token),
+  });
+  assert.equal(guestCannotCloseHostRoom.statusCode, 404, guestCannotCloseHostRoom.body);
+  const hostClosesEmptyRoom = await app.inject({
+    method: 'DELETE',
+    url: `/api/v1/matches/${emptyRoomId}`,
+    headers: auth(host.token),
+  });
+  assert.equal(hostClosesEmptyRoom.statusCode, 200, hostClosesEmptyRoom.body);
+  assert.equal(hostClosesEmptyRoom.json().match.status, 'cancelled');
+
   const cancellationRoom = await app.inject({
     method: 'POST',
     url: '/api/v1/matches',
@@ -819,6 +840,12 @@ test('registered players can join an online match and history does not expose op
     headers: auth(guest.token),
   });
   assert.equal(cancellationJoin.statusCode, 200, cancellationJoin.body);
+  const hostCannotCloseRoomAfterGuestJoins = await app.inject({
+    method: 'DELETE',
+    url: `/api/v1/matches/${cancellationId}`,
+    headers: auth(host.token),
+  });
+  assert.equal(hostCannotCloseRoomAfterGuestJoins.statusCode, 409, hostCannotCloseRoomAfterGuestJoins.body);
 
   const propose = () => app.inject({
     method: 'POST',
