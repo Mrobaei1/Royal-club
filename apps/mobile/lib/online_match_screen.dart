@@ -29,15 +29,20 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
   String _matchStatus = 'waiting';
   String? _error;
 
-  String get _id => widget.match['id'].toString();
+  String get _id => (widget.match['id'] ?? '').toString();
+  bool get _hasValidId => RegExp(r'^[1-9][0-9]*$').hasMatch(_id);
   bool get _isEnglish => Localizations.localeOf(context).languageCode == 'en';
 
   @override
   void initState() {
     super.initState();
     _matchDetails = Map<String, dynamic>.from(widget.match);
-    _refresh();
-    _poller = Timer.periodic(const Duration(seconds: 3), (_) => _refresh(silent: true));
+    if (_hasValidId) {
+      _refresh();
+      _poller = Timer.periodic(const Duration(seconds: 3), (_) => _refresh(silent: true));
+    } else {
+      _error = 'شناسه اتاق بازی معتبر نیست. از فهرست بازی‌های آنلاین دوباره وارد شوید.';
+    }
   }
 
   @override
@@ -47,6 +52,14 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
   }
 
   Future<void> _refresh({bool silent = false}) async {
+    if (!_hasValidId) {
+      if (mounted && !silent) {
+        setState(() => _error = appText(context,
+          'شناسه اتاق بازی معتبر نیست. از فهرست بازی‌های آنلاین دوباره وارد شوید.',
+          'Invalid match ID. Reopen the room from the online lobby.'));
+      }
+      return;
+    }
     if ((_busy && !silent) || _refreshing) return;
     _refreshing = true;
     final sequence = ++_refreshSequence;
