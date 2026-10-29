@@ -577,6 +577,46 @@ test('registered players can join an online match and history does not expose op
   assert.equal(weeklyHost.level, 1);
   assert.equal(Object.hasOwn(weeklyHost, 'fullName'), false);
 
+  // A finished row without a determinable winner must not fabricate a win/loss
+  // or weekly points merely because its status was set to "finished".
+  await testPool.query(
+    `UPDATE backgammon_matches
+        SET status = 'finished', winner_user_id = NULL,
+            off_state = '{"host":0,"guest":0}'::jsonb, updated_at = NOW()
+      WHERE id = $1`,
+    [matchId],
+  );
+  const unresolvedWeekly = await app.inject({
+    method: 'GET',
+    url: '/api/v1/leaderboard/weekly',
+    headers: auth(host.token),
+  });
+  assert.equal(unresolvedWeekly.statusCode, 200, unresolvedWeekly.body);
+  assert.equal(
+    (unresolvedWeekly.json().leaderboard as Array<Record<string, unknown>>)
+      .some((player) => String(player.userId) === String(host.user.id)),
+    false,
+    'A finished match without a determinable winner must not affect weekly rankings.',
+  );
+
+  // Active/unfinished matches must not affect the seven-day completed-match leaderboard.
+  await testPool.query(
+    `UPDATE backgammon_matches SET status = 'active', updated_at = NOW() WHERE id = $1`,
+    [matchId],
+  );
+  const unfinishedWeekly = await app.inject({
+    method: 'GET',
+    url: '/api/v1/leaderboard/weekly',
+    headers: auth(host.token),
+  });
+  assert.equal(unfinishedWeekly.statusCode, 200, unfinishedWeekly.body);
+  assert.equal(
+    (unfinishedWeekly.json().leaderboard as Array<Record<string, unknown>>)
+      .some((player) => String(player.userId) === String(host.user.id)),
+    false,
+    'Active/unfinished matches must not affect weekly rankings.',
+  );
+
   // Prepare a single legal bear-off in the disposable DB so the real move route
   // finishes a game and exercises atomic rating updates without a 15-checker simulation.
   const nearWinBoard = Array<number>(24).fill(0);
