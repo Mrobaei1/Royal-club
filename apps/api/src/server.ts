@@ -1344,6 +1344,52 @@ app.get('/api/v1/leagues/:id/entries/me', { onRequest: [requireMatchAuth] }, asy
 });
 
 // Weekly league execution: schedule generation, participant game counts, match outcomes, and appeals.
+app.post<{ Params: { id: string }; Body: { roundNumber?: number; stage?: string; startsAt?: string | null; managerApproved?: boolean; matches?: Array<{ playerOneId?: string | number; playerTwoId?: string | number | null }> } }>('/api/v1/admin/leagues/:id/rounds', { onRequest: [requireOwnerAuth] }, async (request, reply) => {
+  const leagueId = request.params.id, body = request.body ?? {};
+  const roundNumber = body.roundNumber, stage = body.stage ?? 'regular';
+  const startsAt = body.startsAt ? new Date(body.startsAt) : new Date();
+  if (!isNumericId(leagueId) || !Number.isInteger(roundNumber) || Number(roundNumber) < 1 || Number(roundNumber) > 1000 ||
+      !['regular','final'].includes(stage) || !Number.isFinite(startsAt.getTime()) || !Array.isArray(body.matches) || body.matches.length < 1 || body.matches.length > 256 ||
+      (body.managerApproved !== undefined && typeof body.managerApproved !== 'boolean')) return reply.code(400).send({ error: 'Invalid round configuration.' });
+  const client = await pool.connect(), claims = request.user as { sub: string };
+  try {
+    await client.query('BEGIN');
+    const lr = await client.query('SELECT id,rules FROM leagues WHERE id=$1 FOR UPDATE', [leagueId]);
+    if (!lr.rowCount) { await client.query('ROLLBACK'); return reply.code(404).send({ error: 'League not found.' }); }
+    const rules = lr.rows[0].rules as WeeklyLeagueRules, format = rules?.format ?? 'round_robin';
+    if (stage === 'final' && (!['knockout','groups_then_knockout'].includes(format) || body.managerApproved !== true)) {
+      await client.query('ROLLBACK');
+      return reply.code(409).send({ error: 'A final stage requires a compatible league format and explicit manager approval.' });
+    }
+    const entries = await client.query('SELECT user_id FROM league_entries WHERE league_id=$1', [leagueId]);
+    const registered = new Set((entries.rows as { user_id: string }[]).map(x => String(x.user_id)));
+    if (registered.size < Number(rules?.minimumParticipants ?? 2)) { await client.query('ROLLBACK'); return reply.code(409).send({ error: 'The configured minimum participant count has not been reached.' }); }
+    const seen = new Set<string>();
+    const normalized: Array<{ a: string; b: string | null }> = [];
+    for (const fixture of body.matches) {
+      const a = fixture?.playerOneId == null ? '' : String(fixture.playerOneId);
+      const b = fixture?.playerTwoId == null ? null : String(fixture.playerTwoId);
+      if (!isNumericId(a) || !registered.has(a) || (b !== null && (!isNumericId(b) || !registered.has(b) || b === a)) || seen.has(a) || (b !== null && seen.has(b))) {
+        await client.query('ROLLBACK'); return reply.code(400).send({ error: 'Every fixture must use registered participants, with no duplicate participant within a round.' });
+      }
+      seen.add(a); if (b !== null) seen.add(b); normalized.push({ a, b });
+    }
+    const createdRound = await client.query("INSERT INTO league_rounds (league_id,round_number,stage,status,starts_at,manager_approved,created_by) VALUES ($1,$2,$3,'scheduled',$4,$5,$6) RETURNING id,round_number AS \"roundNumber\",stage,status,starts_at AS \"startsAt\",manager_approved AS \"managerApproved\"", [leagueId,roundNumber,stage,startsAt,stage === 'final' && body.managerApproved === true,claims.sub]);
+    for (const fixture of normalized) {
+      if (fixture.b === null) await client.query("INSERT INTO league_matches (league_id,round_id,player_one_id,status,winner_id,scheduled_at,completed_at) VALUES ($1,$2,$3,'bye',$3,$4,$4)", [leagueId,createdRound.rows[0].id,fixture.a,startsAt]);
+      else await client.query("INSERT INTO league_matches (league_id,round_id,player_one_id,player_two_id,status,scheduled_at) VALUES ($1,$2,$3,$4,'scheduled',$5)", [leagueId,createdRound.rows[0].id,fixture.a,fixture.b,startsAt]);
+    }
+    await client.query("INSERT INTO league_admin_audit_log (actor_user_id,league_id,action,details) VALUES ($1,$2,'league_round_created',$3::jsonb)", [claims.sub,leagueId,JSON.stringify({ roundNumber,stage,managerApproved:body.managerApproved === true,fixtureCount:normalized.length,startsAt:startsAt.toISOString() })]);
+    await client.query('COMMIT');
+    return reply.code(201).send({ round: createdRound.rows[0], fixtureCount: normalized.length });
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    if (typeof error === 'object' && error !== null && 'code' in error && error.code === '23505') return reply.code(409).send({ error: 'That round already exists.' });
+    request.log.error({ err: error }, 'Could not create weekly league round');
+    return reply.code(500).send({ error: 'Could not create weekly league round.' });
+  } finally { client.release(); }
+});
+
 app.post<{ Params: { id: string }; Body: { startsAt?: string | null; intervalDays?: number } }>('/api/v1/admin/leagues/:id/schedule', { onRequest: [requireOwnerAuth] }, async (request, reply) => {
   const leagueId = request.params.id;
   const start = request.body?.startsAt ? new Date(request.body.startsAt) : new Date();
