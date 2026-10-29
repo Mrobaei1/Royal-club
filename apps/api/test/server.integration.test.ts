@@ -124,6 +124,8 @@ test('registered players can join an online match and history does not expose op
   });
   assert.equal(profile.statusCode, 200, profile.body);
   assert.equal(profile.json().user.email, host.user.email);
+  assert.equal(profile.json().user.xpPoints, 0, 'New players start with zero progression XP.');
+  assert.equal(profile.json().user.level, 1, 'New players start at permanent progression level 1.');
 
   const friendRequest = await app.inject({
     method: 'POST',
