@@ -57,4 +57,31 @@ void main() {
     expect(find.byType(OnlineBackgammonBoard), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+  testWidgets('bottom-row points 18 through 23 have unique hit targets',
+      (tester) async {
+    final tapped = <int>[];
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: Center(
+          child: SizedBox(
+            width: 360,
+            child: OnlineBackgammonBoard(
+              points: List<num>.filled(24, 0),
+              onPointTap: tapped.add,
+            ),
+          ),
+        ),
+      ),
+    ));
+
+    for (final point in [18, 23]) {
+      final finder = find.byKey(ValueKey('backgammon-point-$point'));
+      expect(finder, findsOneWidget);
+      await tester.tapAt(tester.getCenter(finder));
+      await tester.pump();
+    }
+    expect(tapped, [18, 23]);
+    expect(tester.takeException(), isNull);
+  });
+
 }
