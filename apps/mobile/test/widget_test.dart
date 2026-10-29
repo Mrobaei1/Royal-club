@@ -84,6 +84,7 @@ void main() {
 
     expect(find.text('به باشگاه سلطنتی خوش آمدید'), findsOneWidget);
     expect(find.text('بازی ویژه'), findsOneWidget);
+    expect(find.text('نسخه 1.1.13'), findsOneWidget);
     expect(find.text('تخته‌نرد'), findsOneWidget);
     await tester.scrollUntilVisible(
       find.text('شطرنج'),
