@@ -338,6 +338,7 @@ await pool.query(`
       CHECK (subscription_days_cost BETWEEN 0 AND 30),
     starts_at TIMESTAMPTZ,
     ends_at TIMESTAMPTZ,
+    rules JSONB NOT NULL DEFAULT '{}'::jsonb,
     created_by BIGINT REFERENCES users(id) ON DELETE SET NULL,
     updated_by BIGINT REFERENCES users(id) ON DELETE SET NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -348,6 +349,7 @@ await pool.query(`
     ),
     CHECK (ends_at IS NULL OR starts_at IS NULL OR ends_at > starts_at)
   );
+  ALTER TABLE leagues ADD COLUMN IF NOT EXISTS rules JSONB NOT NULL DEFAULT '{}'::jsonb;
   CREATE TABLE IF NOT EXISTS league_entries (
     id BIGSERIAL PRIMARY KEY,
     league_id BIGINT NOT NULL REFERENCES leagues(id) ON DELETE CASCADE,
@@ -981,12 +983,42 @@ const requireOwnerAuth = async (request: any, reply: any) => {
   }
 };
 
+// Weekly league rules are server-owned and audited.
+type WeeklyLeagueRules = {
+  format: 'round_robin' | 'swiss' | 'knockout' | 'groups_then_knockout';
+  minimumParticipants: number | null;
+  restPolicy: 'balanced_report_actual_games';
+  finalStagePolicy: 'manager_decides_by_format';
+  appealDeadlineHours: 24;
+  doubleAbsencePolicy: 'reschedule_if_possible';
+  technicalIssuePolicy: 'reschedule_if_possible';
+};
+const defaultWeeklyLeagueRules: WeeklyLeagueRules = {
+  format: 'round_robin', minimumParticipants: null,
+  restPolicy: 'balanced_report_actual_games', finalStagePolicy: 'manager_decides_by_format',
+  appealDeadlineHours: 24, doubleAbsencePolicy: 'reschedule_if_possible',
+  technicalIssuePolicy: 'reschedule_if_possible',
+};
+function normalizeWeeklyLeagueRules(value: unknown, enabled: boolean): WeeklyLeagueRules | null {
+  const raw = value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
+  const format = raw.format ?? defaultWeeklyLeagueRules.format;
+  const minimum = raw.minimumParticipants ?? null;
+  if (!['round_robin', 'swiss', 'knockout', 'groups_then_knockout'].includes(String(format)) ||
+      (minimum !== null && (!Number.isInteger(minimum) || Number(minimum) < 2 || Number(minimum) > 512)) ||
+      (enabled && minimum === null) ||
+      (raw.restPolicy !== undefined && raw.restPolicy !== defaultWeeklyLeagueRules.restPolicy) ||
+      (raw.finalStagePolicy !== undefined && raw.finalStagePolicy !== defaultWeeklyLeagueRules.finalStagePolicy) ||
+      (raw.appealDeadlineHours !== undefined && raw.appealDeadlineHours !== 24) ||
+      (raw.doubleAbsencePolicy !== undefined && raw.doubleAbsencePolicy !== defaultWeeklyLeagueRules.doubleAbsencePolicy) ||
+      (raw.technicalIssuePolicy !== undefined && raw.technicalIssuePolicy !== defaultWeeklyLeagueRules.technicalIssuePolicy)) return null;
+  return { ...defaultWeeklyLeagueRules, format: format as WeeklyLeagueRules['format'], minimumParticipants: minimum as number | null };
+}
 // League management and entry are server-authoritative. League entry never debits wallet credits.
 app.get('/api/v1/leagues', { onRequest: [requireMatchAuth] }, async () => {
   const result = await pool.query(
     `SELECT id, code, name, entry_mode AS "entryMode",
             subscription_days_cost AS "subscriptionDaysCost", starts_at AS "startsAt",
-            ends_at AS "endsAt"
+            ends_at AS "endsAt", rules
        FROM leagues
       WHERE enabled = TRUE
         AND (starts_at IS NULL OR starts_at <= NOW())
@@ -1000,7 +1032,7 @@ app.get('/api/v1/admin/leagues', { onRequest: [requireOwnerAuth] }, async () => 
   const result = await pool.query(
     `SELECT id, code, name, enabled, entry_mode AS "entryMode",
             subscription_days_cost AS "subscriptionDaysCost",
-            starts_at AS "startsAt", ends_at AS "endsAt",
+            starts_at AS "startsAt", ends_at AS "endsAt", rules,
             created_at AS "createdAt", updated_at AS "updatedAt"
        FROM leagues ORDER BY id DESC`,
   );
@@ -1010,7 +1042,7 @@ app.get('/api/v1/admin/leagues', { onRequest: [requireOwnerAuth] }, async () => 
 app.post<{
   Body: {
     code?: string; name?: string; enabled?: boolean; entryMode?: string;
-    subscriptionDaysCost?: number; startsAt?: string | null; endsAt?: string | null;
+    subscriptionDaysCost?: number; startsAt?: string | null; endsAt?: string | null; rules?: unknown;
   };
 }>('/api/v1/admin/leagues', { onRequest: [requireOwnerAuth] }, async (request, reply) => {
   const body = request.body ?? {};
@@ -1029,6 +1061,8 @@ app.post<{
   }
   const startsAt = body.startsAt ?? null;
   const endsAt = body.endsAt ?? null;
+  const rules = normalizeWeeklyLeagueRules(body.rules, body.enabled ?? false);
+  if (!rules) return reply.code(400).send({ error: 'Invalid weekly league rules; set a valid minimum before enabling.' });
   if (
       (startsAt !== null && !Number.isFinite(Date.parse(startsAt))) ||
       (endsAt !== null && !Number.isFinite(Date.parse(endsAt))) ||
@@ -1042,17 +1076,17 @@ app.post<{
     await client.query('BEGIN');
     const created = await client.query(
       `INSERT INTO leagues
-         (code, name, enabled, entry_mode, subscription_days_cost, starts_at, ends_at, created_by, updated_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $8)
+         (code, name, enabled, entry_mode, subscription_days_cost, starts_at, ends_at, rules, created_by, updated_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, $9)
        RETURNING id, code, name, enabled, entry_mode AS "entryMode",
                  subscription_days_cost AS "subscriptionDaysCost",
-                 starts_at AS "startsAt", ends_at AS "endsAt"`,
-      [code, name, body.enabled ?? false, entryMode, days, startsAt, endsAt, claims.sub],
+                 starts_at AS "startsAt", ends_at AS "endsAt", rules`,
+      [code, name, body.enabled ?? false, entryMode, days, startsAt, endsAt, JSON.stringify(rules), claims.sub],
     );
     await client.query(
       `INSERT INTO league_admin_audit_log (actor_user_id, league_id, action, details)
        VALUES ($1, $2, 'league_created', $3::jsonb)`,
-      [claims.sub, created.rows[0].id, JSON.stringify({ code, enabled: body.enabled ?? false, entryMode, subscriptionDaysCost: days })],
+      [claims.sub, created.rows[0].id, JSON.stringify({ code, enabled: body.enabled ?? false, entryMode, subscriptionDaysCost: days, rules })],
     );
     await client.query('COMMIT');
     return reply.code(201).send({ league: created.rows[0] });
@@ -1072,7 +1106,7 @@ app.patch<{
   Params: { id: string };
   Body: {
     name?: string; enabled?: boolean; entryMode?: string;
-    subscriptionDaysCost?: number; startsAt?: string | null; endsAt?: string | null;
+    subscriptionDaysCost?: number; startsAt?: string | null; endsAt?: string | null; rules?: unknown;
   };
 }>('/api/v1/admin/leagues/:id', { onRequest: [requireOwnerAuth] }, async (request, reply) => {
   if (!isNumericId(request.params.id)) return reply.code(400).send({ error: 'Invalid league id.' });
@@ -1096,6 +1130,8 @@ app.patch<{
       return reply.code(404).send({ error: 'League not found.' });
     }
     const current = existing.rows[0];
+    const rules = normalizeWeeklyLeagueRules(has('rules') ? body.rules : current.rules, has('enabled') ? body.enabled === true : current.enabled === true);
+    if (!rules) { await client.query('ROLLBACK'); return reply.code(400).send({ error: 'Invalid weekly league rules; set a valid minimum before enabling.' }); }
     const entryMode = body.entryMode ?? current.entry_mode;
     const days = body.subscriptionDaysCost ?? Number(current.subscription_days_cost);
     if ((entryMode === 'free' && days !== 0) || (entryMode === 'subscription_days' && (days < 1 || days > 30))) {
@@ -1111,14 +1147,14 @@ app.patch<{
     const updated = await client.query(
       `UPDATE leagues SET
           name = $1, enabled = $2, entry_mode = $3, subscription_days_cost = $4,
-          starts_at = $5, ends_at = $6, updated_by = $7, updated_at = NOW()
-        WHERE id = $8
+          starts_at = $5, ends_at = $6, rules = $7::jsonb, updated_by = $8, updated_at = NOW()
+        WHERE id = $9
         RETURNING id, code, name, enabled, entry_mode AS "entryMode",
                   subscription_days_cost AS "subscriptionDaysCost",
-                  starts_at AS "startsAt", ends_at AS "endsAt"`,
+                  starts_at AS "startsAt", ends_at AS "endsAt", rules`,
       [has('name') ? body.name!.trim() : current.name,
        has('enabled') ? body.enabled : current.enabled, entryMode, days,
-       startsAt, endsAt, claims.sub, request.params.id],
+       startsAt, endsAt, JSON.stringify(rules), claims.sub, request.params.id],
     );
     await client.query(
       `INSERT INTO league_admin_audit_log (actor_user_id, league_id, action, details)
