@@ -812,6 +812,11 @@ test('registered players can join an online match and history does not expose op
     headers: auth(host.token),
   });
   assert.equal(emptyRoomToClose.statusCode, 201, emptyRoomToClose.body);
+  const emptyRoomCreatedAt = Date.parse(emptyRoomToClose.json().match.createdAt);
+  const emptyRoomExpiresAt = Date.parse(emptyRoomToClose.json().match.expiresAt);
+  assert.ok(Number.isFinite(emptyRoomCreatedAt) && Number.isFinite(emptyRoomExpiresAt));
+  assert.ok(emptyRoomExpiresAt - emptyRoomCreatedAt <= 60_000 && emptyRoomExpiresAt - emptyRoomCreatedAt >= 59_000,
+    'An empty online room should expire after 60 seconds.');
   const emptyRoomId = String(emptyRoomToClose.json().match.id);
   const guestCannotCloseHostRoom = await app.inject({
     method: 'DELETE',
