@@ -964,7 +964,7 @@ class _AdminScreenState extends State<AdminScreen> {
                         onPressed: _busy ? null : () => _showLeagueReport(league),
                         icon: const Icon(Icons.assessment_outlined),
                       ),
-                      if ((league['rules'] is Map ? (league['rules'] as Map)['format'] : null) == 'round_robin')
+                      if (['round_robin', 'swiss', 'knockout'].contains(league['rules'] is Map ? (league['rules'] as Map)['format'] : null))
                         IconButton(
                           tooltip: appText(context, 'ساخت برنامه مسابقات', 'Generate schedule'),
                           onPressed: _busy ? null : () => _scheduleLeague(league),
