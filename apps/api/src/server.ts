@@ -407,6 +407,7 @@ await pool.query(`
     winner_id BIGINT REFERENCES users(id) ON DELETE SET NULL,
     score JSONB NOT NULL DEFAULT '{}'::jsonb,
     incident_note TEXT,
+    completed_at TIMESTAMPTZ,
     resolved_by BIGINT REFERENCES users(id) ON DELETE SET NULL,
     resolved_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -414,6 +415,7 @@ await pool.query(`
   );
   CREATE INDEX IF NOT EXISTS league_matches_league_round_idx ON league_matches (league_id, round_id);
   CREATE INDEX IF NOT EXISTS league_matches_players_idx ON league_matches (player_one_id, player_two_id, status);
+  ALTER TABLE league_matches ADD COLUMN IF NOT EXISTS completed_at TIMESTAMPTZ;
   CREATE TABLE IF NOT EXISTS league_appeals (
     id BIGSERIAL PRIMARY KEY,
     league_id BIGINT NOT NULL REFERENCES leagues(id) ON DELETE CASCADE,
