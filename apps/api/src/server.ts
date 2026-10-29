@@ -87,8 +87,8 @@ const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
 // Expire empty waiting rooms after 60 seconds and remove their related notices.
 // The lazy calls also cover serverless runtimes where a persistent timer is not guaranteed.
-async function cleanupExpiredEmptyRooms(): Promise<void> {
-  await pool.query(`
+async function cleanupExpiredEmptyRooms(): Promise<number> {
+  const result = await pool.query(`
     WITH expired AS (
       SELECT id FROM backgammon_matches
        WHERE status = 'waiting' AND guest_user_id IS NULL AND expires_at <= NOW()
@@ -99,6 +99,7 @@ async function cleanupExpiredEmptyRooms(): Promise<void> {
     )
     DELETE FROM backgammon_matches WHERE id IN (SELECT id FROM expired)
   `);
+  return result.rowCount ?? 0;
 }
 
 await app.register(helmet);
@@ -3301,6 +3302,21 @@ app.delete<{ Params: { id: string } }>('/api/v1/matches/:id', { onRequest: [requ
   if (!existing.rowCount) return reply.code(404).send({ error: 'Match not found.' });
   return reply.code(409).send({ error: 'Only an empty waiting room can be closed by its host.' });
 });
+// Neon Function Trigger calls this route on its schedule to remove expired rooms
+// even when the API runtime has scaled to zero and no user is making requests.
+app.post('/internal/cleanup-expired-empty-rooms', async (request, reply) => {
+  if (!request.headers['x-neon-trigger-invocation-id']) {
+    return reply.code(403).send({ error: 'Scheduled trigger invocation required.' });
+  }
+  try {
+    const deletedRooms = await cleanupExpiredEmptyRooms();
+    return { ok: true, deletedRooms };
+  } catch (error) {
+    request.log.error({ err: error }, 'Scheduled empty-room cleanup failed');
+    return reply.code(500).send({ error: 'Could not clean up expired empty rooms.' });
+  }
+});
+
 app.addHook('onClose', async () => { await pool.end(); });
 
 export { app };
