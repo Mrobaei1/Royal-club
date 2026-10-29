@@ -1146,6 +1146,33 @@ test('subscription purchases debit the wallet atomically and record a ledger ent
     assert.equal(rescheduled.statusCode, 200, rescheduled.body);
     assert.ok(rescheduled.json().match.replacementAt);
 
+    const knockoutLeagueResponse = await app.inject({
+      method: 'POST', url: '/api/v1/admin/leagues', headers: auth(leagueOwner.token),
+      payload: { code: 'knockout_approval', name: 'Knockout Approval League', enabled: true, rules: { format: 'knockout', minimumParticipants: 2 } },
+    });
+    assert.equal(knockoutLeagueResponse.statusCode, 201, knockoutLeagueResponse.body);
+    const knockoutLeagueId = String(knockoutLeagueResponse.json().league.id);
+    for (const [token, suffix] of [[buyer.token, 'buyer'], [leagueOwner.token, 'owner']] as const) {
+      const entry = await app.inject({
+        method: 'POST', url: `/api/v1/leagues/${knockoutLeagueId}/entries`, headers: auth(token),
+        payload: { idempotencyKey: `knockout-${suffix}-${randomUUID()}` },
+      });
+      assert.equal(entry.statusCode, 201, entry.body);
+    }
+    const knockoutRoster = await testPool.query('SELECT user_id FROM league_entries WHERE league_id=$1 ORDER BY created_at,user_id', [knockoutLeagueId]);
+    const knockoutPlayers = knockoutRoster.rows.map(row => String(row.user_id));
+    const unapprovedFinal = await app.inject({
+      method: 'POST', url: `/api/v1/admin/leagues/${knockoutLeagueId}/rounds`, headers: auth(leagueOwner.token),
+      payload: { roundNumber: 1, stage: 'final', managerApproved: false, matches: [{ playerOneId: knockoutPlayers[0], playerTwoId: knockoutPlayers[1] }] },
+    });
+    assert.equal(unapprovedFinal.statusCode, 409, unapprovedFinal.body);
+    const approvedFinal = await app.inject({
+      method: 'POST', url: `/api/v1/admin/leagues/${knockoutLeagueId}/rounds`, headers: auth(leagueOwner.token),
+      payload: { roundNumber: 1, stage: 'final', managerApproved: true, matches: [{ playerOneId: knockoutPlayers[0], playerTwoId: knockoutPlayers[1] }] },
+    });
+    assert.equal(approvedFinal.statusCode, 201, approvedFinal.body);
+    assert.equal(approvedFinal.json().round.managerApproved, true);
+
     const subscriptionLeagueResponse = await app.inject({
       method: 'POST',
       url: '/api/v1/admin/leagues',
