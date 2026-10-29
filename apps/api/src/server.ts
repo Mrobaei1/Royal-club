@@ -3282,7 +3282,7 @@ app.delete<{ Params: { id: string } }>('/api/v1/matches/:id', { onRequest: [requ
   if (!isNumericId(request.params.id)) return reply.code(400).send({ error: 'Invalid match id.' });
   const result = await pool.query(
     `UPDATE backgammon_matches SET status = 'cancelled', updated_at = NOW()
-      WHERE id = $1 AND host_user_id = $2 AND status = 'waiting'
+      WHERE id = $1 AND host_user_id = $2 AND status = 'waiting' AND guest_user_id IS NULL
       RETURNING id, room_code AS "roomCode", status`,
     [request.params.id, claims.sub]);
   if (result.rowCount) return { match: result.rows[0] };
@@ -3290,7 +3290,7 @@ app.delete<{ Params: { id: string } }>('/api/v1/matches/:id', { onRequest: [requ
     `SELECT status FROM backgammon_matches WHERE id = $1 AND host_user_id = $2`,
     [request.params.id, claims.sub]);
   if (!existing.rowCount) return reply.code(404).send({ error: 'Match not found.' });
-  return reply.code(409).send({ error: 'Only a waiting match can be cancelled.' });
+  return reply.code(409).send({ error: 'Only an empty waiting room can be closed by its host.' });
 });
 app.addHook('onClose', async () => { await pool.end(); });
 
