@@ -115,7 +115,8 @@ await app.register(cors, {
   methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
 });
-await app.register(rateLimit, { max: 120, timeWindow: '1 minute' });
+// Keep integration suites from exhausting the production IP budget while preserving the production limit.
+await app.register(rateLimit, { max: process.env.NODE_ENV === 'test' ? 500 : 120, timeWindow: '1 minute' });
 await app.register(jwt, { secret });
 
 await pool.query(`
