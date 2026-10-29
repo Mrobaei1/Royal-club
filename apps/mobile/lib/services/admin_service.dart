@@ -125,6 +125,30 @@ class AdminService {
     if (rules != null) body['rules'] = rules;
     return (await _request('PATCH', '/api/v1/admin/leagues/$id', body: body))['league'] as Map<String, dynamic>;
   }
+  static Future<Map<String, dynamic>> scheduleLeague(String id, {String? startsAt, int intervalDays = 7}) async =>
+      await _request('POST', '/api/v1/admin/leagues/$id/schedule', body: {
+        if (startsAt != null) 'startsAt': startsAt,
+        'intervalDays': intervalDays,
+      });
+
+  static Future<Map<String, dynamic>> leagueReport(String id) async =>
+      await _request('GET', '/api/v1/admin/leagues/$id/report');
+
+  static Future<Map<String, dynamic>> updateLeagueMatch(String id, {required String status, String? winnerId, Map<String, dynamic>? score, String? incidentNote, String? replacementAt}) async =>
+      await _request('PATCH', '/api/v1/admin/league-matches/$id', body: {
+        'status': status,
+        if (winnerId != null) 'winnerId': winnerId,
+        if (score != null) 'score': score,
+        if (incidentNote != null) 'incidentNote': incidentNote,
+        if (replacementAt != null) 'replacementAt': replacementAt,
+      });
+
+  static Future<Map<String, dynamic>> resolveLeagueAppeal(String id, {required String status, String? managerNote}) async =>
+      await _request('PATCH', '/api/v1/admin/league-appeals/$id', body: {
+        'status': status,
+        if (managerNote != null) 'managerNote': managerNote,
+      });
+
   static Future<List<dynamic>> findUser(String email) async =>
       (await _request('GET', '/api/v1/users/search?email=${Uri.encodeQueryComponent(email.trim())}'))['users'] as List<dynamic>? ?? [];
   static Future<Map<String, dynamic>> exportUserProfile(String userId) async =>
