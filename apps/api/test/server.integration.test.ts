@@ -124,6 +124,8 @@ test('registered players can join an online match and history does not expose op
   });
   assert.equal(profile.statusCode, 200, profile.body);
   assert.equal(profile.json().user.email, host.user.email);
+  assert.equal(profile.json().user.xpPoints, 0, 'New players start with zero progression XP.');
+  assert.equal(profile.json().user.level, 1, 'New players start at permanent progression level 1.');
 
   const friendRequest = await app.inject({
     method: 'POST',
@@ -705,7 +707,7 @@ test('registered players can join an online match and history does not expose op
 
   const expiredInviteNotice = await testPool.query(
     `INSERT INTO notifications (user_id, actor_user_id, type, title, body, data, created_at)
-      VALUES ($1, $2, 'system', 'Expired invite', 'Expired', jsonb_build_object('inviteId', 'expired-test', 'matchId', $3::text), NOW() - INTERVAL '11 seconds')
+      VALUES ($1, $2, 'system', 'Expired invite', 'Expired', jsonb_build_object('inviteId', 'expired-test', 'matchId', $3::text), NOW() - INTERVAL '61 seconds')
       RETURNING id`,
     [guest.user.id, host.user.id, invitedRoomId],
   );
@@ -717,7 +719,7 @@ test('registered players can join an online match and history does not expose op
   assert.equal(notificationsAfterExpiry.statusCode, 200, notificationsAfterExpiry.body);
   assert.equal((notificationsAfterExpiry.json().notifications as Array<Record<string, unknown>>)
     .some((notice) => String(notice.id) === String(expiredInviteNotice.rows[0].id)), false,
-    'Invite notices older than ten seconds must be removed from the notifications inbox.');
+    'Invite notices older than sixty seconds must be removed from the notifications inbox.');
 
 
 
@@ -806,6 +808,44 @@ test('registered players can join an online match and history does not expose op
     5, 0, 0, 0, -3, 0, -5, 0, 0, 0, 0, 2,
   ]);
 
+  const emptyRoomToClose = await app.inject({
+    method: 'POST',
+    url: '/api/v1/matches',
+    headers: auth(host.token),
+  });
+  assert.equal(emptyRoomToClose.statusCode, 201, emptyRoomToClose.body);
+  const emptyRoomCreatedAt = Date.parse(emptyRoomToClose.json().match.createdAt);
+  const emptyRoomExpiresAt = Date.parse(emptyRoomToClose.json().match.expiresAt);
+  assert.ok(Number.isFinite(emptyRoomCreatedAt) && Number.isFinite(emptyRoomExpiresAt));
+  assert.ok(emptyRoomExpiresAt - emptyRoomCreatedAt <= 60_000 && emptyRoomExpiresAt - emptyRoomCreatedAt >= 59_000,
+    'An empty online room should expire after 60 seconds.');
+  const cleanupWithoutTrigger = await app.inject({
+    method: 'POST',
+    url: '/internal/cleanup-expired-empty-rooms',
+  });
+  assert.equal(cleanupWithoutTrigger.statusCode, 403, cleanupWithoutTrigger.body);
+  const scheduledCleanup = await app.inject({
+    method: 'POST',
+    url: '/internal/cleanup-expired-empty-rooms',
+    headers: { 'x-neon-trigger-invocation-id': 'integration-test' },
+  });
+  assert.equal(scheduledCleanup.statusCode, 200, scheduledCleanup.body);
+  assert.equal(scheduledCleanup.json().ok, true);
+  const emptyRoomId = String(emptyRoomToClose.json().match.id);
+  const guestCannotCloseHostRoom = await app.inject({
+    method: 'DELETE',
+    url: `/api/v1/matches/${emptyRoomId}`,
+    headers: auth(guest.token),
+  });
+  assert.equal(guestCannotCloseHostRoom.statusCode, 404, guestCannotCloseHostRoom.body);
+  const hostClosesEmptyRoom = await app.inject({
+    method: 'DELETE',
+    url: `/api/v1/matches/${emptyRoomId}`,
+    headers: auth(host.token),
+  });
+  assert.equal(hostClosesEmptyRoom.statusCode, 200, hostClosesEmptyRoom.body);
+  assert.equal(hostClosesEmptyRoom.json().match.status, 'cancelled');
+
   const cancellationRoom = await app.inject({
     method: 'POST',
     url: '/api/v1/matches',
@@ -819,6 +859,12 @@ test('registered players can join an online match and history does not expose op
     headers: auth(guest.token),
   });
   assert.equal(cancellationJoin.statusCode, 200, cancellationJoin.body);
+  const hostCannotCloseRoomAfterGuestJoins = await app.inject({
+    method: 'DELETE',
+    url: `/api/v1/matches/${cancellationId}`,
+    headers: auth(host.token),
+  });
+  assert.equal(hostCannotCloseRoomAfterGuestJoins.statusCode, 409, hostCannotCloseRoomAfterGuestJoins.body);
 
   const propose = () => app.inject({
     method: 'POST',
@@ -986,6 +1032,177 @@ test('subscription purchases debit the wallet atomically and record a ledger ent
   assert.equal(walletAfter.json().balance, 200);
   assert.ok((walletAfter.json().transactions as Array<Record<string, unknown>>)
     .some((transaction) => Number(transaction.amount) === -300 && Number(transaction.balanceAfter) === 200));
+
+  // League configuration is owner-only; league entry defaults to free and never debits wallet credits.
+  const previousOwnerId = process.env.OWNER_USER_ID;
+  const leagueOwner = await register('League Owner');
+  process.env.OWNER_USER_ID = String(leagueOwner.user.id);
+  try {
+    const deniedLeagueAdmin = await app.inject({
+      method: 'POST',
+      url: '/api/v1/admin/leagues',
+      headers: auth(buyer.token),
+      payload: { code: 'not-owner', name: 'Unauthorized League' },
+    });
+    assert.equal(deniedLeagueAdmin.statusCode, 403);
+
+    const missingMinimum = await app.inject({
+      method: 'POST', url: '/api/v1/admin/leagues', headers: auth(leagueOwner.token),
+      payload: { code: 'missing_minimum', name: 'Missing Minimum', enabled: true },
+    });
+    assert.equal(missingMinimum.statusCode, 400, 'An enabled league must require the manager to choose a minimum participant count.');
+
+    const freeLeagueResponse = await app.inject({
+      method: 'POST',
+      url: '/api/v1/admin/leagues',
+      headers: auth(leagueOwner.token),
+      payload: { code: 'free_weekly', name: 'Free Weekly League', enabled: true, rules: { minimumParticipants: 8 } },
+    });
+    assert.equal(freeLeagueResponse.statusCode, 201, freeLeagueResponse.body);
+    const freeLeagueId = String(freeLeagueResponse.json().league.id);
+    assert.equal(freeLeagueResponse.json().league.entryMode, 'free');
+    assert.equal(freeLeagueResponse.json().league.subscriptionDaysCost, 0);
+    assert.equal(freeLeagueResponse.json().league.rules.minimumParticipants, 8);
+    assert.equal(freeLeagueResponse.json().league.rules.appealDeadlineHours, 24);
+
+    const freeEntry = await app.inject({
+      method: 'POST',
+      url: `/api/v1/leagues/${freeLeagueId}/entries`,
+      headers: auth(buyer.token),
+      payload: { idempotencyKey: `free-entry-${randomUUID()}` },
+    });
+    assert.equal(freeEntry.statusCode, 201, freeEntry.body);
+    const duplicateFreeEntry = await app.inject({
+      method: 'POST',
+      url: `/api/v1/leagues/${freeLeagueId}/entries`,
+      headers: auth(buyer.token),
+      payload: { idempotencyKey: `free-entry-${randomUUID()}` },
+    });
+    assert.equal(duplicateFreeEntry.statusCode, 200, duplicateFreeEntry.body);
+    assert.equal(duplicateFreeEntry.json().alreadyEntered, true);
+
+    const subscriptionLeagueResponse = await app.inject({
+      method: 'POST',
+      url: '/api/v1/admin/leagues',
+      headers: auth(leagueOwner.token),
+      payload: {
+        code: 'subscription_weekly',
+        name: 'Subscription Weekly League',
+        enabled: true,
+        entryMode: 'subscription_days',
+        subscriptionDaysCost: 2,
+        rules: { format: 'swiss', minimumParticipants: 8 },
+      },
+    });
+    assert.equal(subscriptionLeagueResponse.statusCode, 201, subscriptionLeagueResponse.body);
+    const subscriptionLeagueId = String(subscriptionLeagueResponse.json().league.id);
+    const inactiveSubscriptionDenied = await app.inject({
+      method: 'POST',
+      url: `/api/v1/leagues/${subscriptionLeagueId}/entries`,
+      headers: auth(leagueOwner.token),
+      payload: { idempotencyKey: `no-subscription-${randomUUID()}` },
+    });
+    assert.equal(inactiveSubscriptionDenied.statusCode, 409,
+      'A user without an active subscription must not enter a subscription-day league.');
+
+    const beforeConsumption = await testPool.query(
+      `SELECT ends_at FROM user_subscriptions
+        WHERE user_id = $1 AND status = 'active' AND ends_at > NOW()
+        ORDER BY ends_at DESC LIMIT 1`,
+      [buyer.user.id],
+    );
+    assert.ok(beforeConsumption.rowCount);
+
+    const concurrentEntries = await Promise.all([
+      app.inject({
+        method: 'POST',
+        url: `/api/v1/leagues/${subscriptionLeagueId}/entries`,
+        headers: auth(buyer.token),
+        payload: { idempotencyKey: `subscription-entry-a-${randomUUID()}` },
+      }),
+      app.inject({
+        method: 'POST',
+        url: `/api/v1/leagues/${subscriptionLeagueId}/entries`,
+        headers: auth(buyer.token),
+        payload: { idempotencyKey: `subscription-entry-b-${randomUUID()}` },
+      }),
+    ]);
+    assert.ok(concurrentEntries.every((response) => [200, 201].includes(response.statusCode)),
+      concurrentEntries.map((response) => response.body).join('\n'));
+    assert.equal(concurrentEntries.filter((response) => response.statusCode === 201).length, 1);
+    assert.equal(concurrentEntries.filter((response) => response.statusCode === 200).length, 1);
+    const afterConsumption = await testPool.query(
+      `SELECT ends_at FROM user_subscriptions
+        WHERE user_id = $1 AND status = 'active' AND ends_at > NOW()
+        ORDER BY ends_at DESC LIMIT 1`,
+      [buyer.user.id],
+    );
+    const consumedMs = new Date(beforeConsumption.rows[0].ends_at).getTime() -
+      new Date(afterConsumption.rows[0].ends_at).getTime();
+    assert.ok(consumedMs >= 2 * 86400000 - 2000 && consumedMs <= 2 * 86400000 + 2000,
+      `Expected exactly two subscription days consumed, got ${consumedMs}ms.`);
+    const entitlementLedger = await testPool.query(
+      'SELECT days_consumed FROM league_entitlement_ledger WHERE user_id = $1 AND league_id = $2',
+      [buyer.user.id, subscriptionLeagueId],
+    );
+    assert.equal(entitlementLedger.rowCount, 1);
+    assert.equal(Number(entitlementLedger.rows[0].days_consumed), 2);
+
+    const limitedLeagueResponse = await app.inject({
+      method: 'POST',
+      url: '/api/v1/admin/leagues',
+      headers: auth(leagueOwner.token),
+      payload: {
+        code: 'limited_days_weekly',
+        name: 'Limited Days League',
+        enabled: true,
+        entryMode: 'subscription_days',
+        subscriptionDaysCost: 2,
+        rules: { format: 'knockout', minimumParticipants: 8 },
+      },
+    });
+    assert.equal(limitedLeagueResponse.statusCode, 201, limitedLeagueResponse.body);
+    const limitedLeagueId = String(limitedLeagueResponse.json().league.id);
+    await testPool.query(
+      `UPDATE user_subscriptions SET ends_at = NOW() + INTERVAL '1 day'
+        WHERE id = (SELECT id FROM user_subscriptions
+                     WHERE user_id = $1 AND status = 'active'
+                     ORDER BY ends_at DESC LIMIT 1)`,
+      [buyer.user.id],
+    );
+    const insufficientDaysEntry = await app.inject({
+      method: 'POST',
+      url: `/api/v1/leagues/${limitedLeagueId}/entries`,
+      headers: auth(buyer.token),
+      payload: { idempotencyKey: `insufficient-days-${randomUUID()}` },
+    });
+    assert.equal(insufficientDaysEntry.statusCode, 409, insufficientDaysEntry.body);
+    const rejectedEntitlement = await testPool.query(
+      'SELECT id FROM league_entitlement_ledger WHERE user_id = $1 AND league_id = $2',
+      [buyer.user.id, limitedLeagueId],
+    );
+    assert.equal(rejectedEntitlement.rowCount, 0,
+      'A denied entry must not create an entitlement-consumption ledger row.');
+    await testPool.query(
+      `UPDATE user_subscriptions SET ends_at = $1
+        WHERE id = (SELECT id FROM user_subscriptions
+                     WHERE user_id = $2 AND status = 'active'
+                     ORDER BY ends_at DESC LIMIT 1)`,
+      [afterConsumption.rows[0].ends_at, buyer.user.id],
+    );
+
+    const walletAfterLeagueEntry = await app.inject({
+      method: 'GET',
+      url: '/api/v1/wallet',
+      headers: auth(buyer.token),
+    });
+    assert.equal(walletAfterLeagueEntry.statusCode, 200, walletAfterLeagueEntry.body);
+    assert.equal(walletAfterLeagueEntry.json().balance, 200,
+      'League entry must not debit wallet credits.');
+  } finally {
+    if (previousOwnerId === undefined) delete process.env.OWNER_USER_ID;
+    else process.env.OWNER_USER_ID = previousOwnerId;
+  }
 });
 
 

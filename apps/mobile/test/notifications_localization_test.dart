@@ -31,6 +31,6 @@ void main() {
       'data': {'inviteId': 'invite-1', 'matchId': 'match-1'},
     };
     expect(localizedNotificationTitle(invite, true), 'Backgammon invitation');
-    expect(localizedNotificationBody(invite, true), contains('Accept within 10 seconds'));
+    expect(localizedNotificationBody(invite, true), contains('Accept within 60 seconds'));
   });
 }

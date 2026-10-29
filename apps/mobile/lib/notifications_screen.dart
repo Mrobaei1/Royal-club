@@ -2,6 +2,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'l10n/app_text.dart';
 import 'services/notifications_service.dart';
+import 'services/match_service.dart';
+import 'online_match_screen.dart';
 
 String localizedNotificationTitle(Map<String, dynamic> item, bool isEnglish) {
   final data = item['data'] is Map
@@ -28,8 +30,8 @@ String localizedNotificationBody(Map<String, dynamic> item, bool isEnglish) {
       : <String, dynamic>{};
   if (data.containsKey('inviteId')) {
     return isEnglish
-        ? 'A friend invited you to a backgammon match. Accept within 10 seconds to join.'
-        : 'دوست شما را به مسابقه تخته‌نرد دعوت کرده است. برای ورود، تا ۱۰ ثانیه دعوت را بپذیرید.';
+        ? 'A friend invited you to a backgammon match. Accept within 60 seconds to join.'
+        : 'دوست شما را به مسابقه تخته‌نرد دعوت کرده است. برای ورود، تا ۶۰ ثانیه دعوت را بپذیرید.';
   }
   switch (item['type']?.toString()) {
     case 'friend_request':
@@ -58,6 +60,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   bool _busy = false;
   String? _error;
   Timer? _inviteExpiryTimer;
+  Timer? _notificationPoller;
+  bool _refreshing = false;
 
   int get _unread => _items.where((item) => item['readAt'] == null).length;
 
@@ -71,10 +75,17 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   void initState() {
     super.initState();
     _refresh();
+    // Keep this page live while it is open so invitations sent after entry
+    // appear before their ten-second lifetime ends.
+    _notificationPoller = Timer.periodic(
+      const Duration(seconds: 1),
+      (_) => _refresh(silent: true),
+    );
   }
 
   @override
   void dispose() {
+    _notificationPoller?.cancel();
     _inviteExpiryTimer?.cancel();
     super.dispose();
   }
@@ -87,7 +98,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       if (data is! Map || !data.containsKey('inviteId')) continue;
       final createdAt = DateTime.tryParse(item['createdAt']?.toString() ?? '');
       if (createdAt == null) continue;
-      final expiresAt = createdAt.add(const Duration(seconds: 10));
+      final expiresAt = createdAt.add(const Duration(seconds: 60));
       if (nextExpiry == null || expiresAt.isBefore(nextExpiry)) nextExpiry = expiresAt;
     }
     if (nextExpiry == null) return;
@@ -98,6 +109,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   }
 
   Future<void> _refresh({bool silent = false}) async {
+    if (_refreshing) return;
+    _refreshing = true;
     if (!silent) {
       setState(() {
         _loading = true;
@@ -115,9 +128,42 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         setState(() => _error = appError(context, error));
       }
     } finally {
+      _refreshing = false;
       if (mounted && !silent) {
         setState(() => _loading = false);
       }
+    }
+  }
+
+  Future<void> _respondToInvite(Map<String, dynamic> item, {required bool accept}) async {
+    if (_busy) return;
+    final data = item['data'] is Map
+        ? Map<String, dynamic>.from(item['data'] as Map)
+        : <String, dynamic>{};
+    final inviteId = data['inviteId']?.toString();
+    if (inviteId == null || inviteId.isEmpty) return;
+    setState(() { _busy = true; _error = null; });
+    try {
+      final response = await MatchService.respondToInvite(inviteId, accept: accept);
+      if (!mounted) return;
+      setState(() {
+        _items.removeWhere((entry) => entry['id']?.toString() == item['id']?.toString());
+      });
+      _scheduleInviteExpiry();
+      if (accept && response['match'] is Map) {
+        final match = Map<String, dynamic>.from(response['match'] as Map);
+        await Navigator.of(context).push(MaterialPageRoute<void>(
+          builder: (_) => OnlineMatchScreen(match: match),
+        ));
+      }
+      await _refresh(silent: true);
+    } catch (error) {
+      if (mounted) {
+        setState(() => _error = appError(context, error));
+        await _refresh(silent: true);
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
     }
   }
 
@@ -267,40 +313,72 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                               itemBuilder: (context, index) {
                                 final item = _items[index];
                                 final unread = item['readAt'] == null;
+                                final data = item['data'] is Map
+                                    ? Map<String, dynamic>.from(item['data'] as Map)
+                                    : <String, dynamic>{};
+                                final isInvite = data.containsKey('inviteId');
+                                final isEnglish = Localizations.localeOf(context).languageCode == 'en';
                                 return Card(
                                   color: unread
                                       ? Theme.of(context).colorScheme.surfaceContainerHighest
                                       : Theme.of(context).colorScheme.surface,
-                                  child: ListTile(
-                                    onTap: _busy ? null : () => _markRead(item),
-                                    leading: Icon(
-                                      unread
-                                          ? Icons.notifications_active_outlined
-                                          : Icons.notifications_none_rounded,
-                                      color: Theme.of(context).colorScheme.primary,
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(vertical: 4),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                                      children: [
+                                        ListTile(
+                                          onTap: isInvite || _busy ? null : () => _markRead(item),
+                                          leading: Icon(
+                                            unread
+                                                ? Icons.notifications_active_outlined
+                                                : Icons.notifications_none_rounded,
+                                            color: Theme.of(context).colorScheme.primary,
+                                          ),
+                                          title: Text(
+                                            _localizedTitle(item, isEnglish),
+                                            style: TextStyle(
+                                              color: Theme.of(context).colorScheme.onSurface,
+                                              fontWeight: unread ? FontWeight.bold : FontWeight.normal,
+                                            ),
+                                          ),
+                                          subtitle: Padding(
+                                            padding: const EdgeInsets.only(top: 5),
+                                            child: Text(
+                                              _localizedBody(item, isEnglish),
+                                              style: TextStyle(
+                                                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
+                                                height: 1.5,
+                                              ),
+                                            ),
+                                          ),
+                                          trailing: unread
+                                              ? Icon(Icons.circle, color: Theme.of(context).colorScheme.primary, size: 9)
+                                              : Icon(Icons.check, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.38)),
+                                        ),
+                                        if (isInvite)
+                                          Padding(
+                                            padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+                                            child: Row(
+                                              children: [
+                                                Expanded(
+                                                  child: OutlinedButton(
+                                                    onPressed: _busy ? null : () => _respondToInvite(item, accept: false),
+                                                    child: Text(appText(context, 'رد دعوت', 'Decline invitation')),
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 8),
+                                                Expanded(
+                                                  child: FilledButton(
+                                                    onPressed: _busy ? null : () => _respondToInvite(item, accept: true),
+                                                    child: Text(appText(context, 'پذیرش دعوت', 'Accept invitation')),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                      ],
                                     ),
-                                    title: Text(
-                                      _localizedTitle(item, Localizations.localeOf(context).languageCode == 'en'),
-                                      style: TextStyle(
-                                        color: Theme.of(context).colorScheme.onSurface,
-                                        fontWeight: unread
-                                            ? FontWeight.bold
-                                            : FontWeight.normal,
-                                      ),
-                                    ),
-                                    subtitle: Padding(
-                                      padding: const EdgeInsets.only(top: 5),
-                                      child: Text(
-                                        _localizedBody(item, Localizations.localeOf(context).languageCode == 'en'),
-                                        style: TextStyle(
-                                            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7), height: 1.5),
-                                      ),
-                                    ),
-                                    trailing: unread
-                                        ? Icon(Icons.circle,
-                                            color: Theme.of(context).colorScheme.primary, size: 9)
-                                        : Icon(Icons.check,
-                                            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.38)),
                                   ),
                                 );
                               },

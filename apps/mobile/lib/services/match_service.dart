@@ -50,9 +50,23 @@ class MatchService {
     }
     return decoded;
   }
+  // API match IDs are positive numeric database IDs. Normalize legacy aliases and
+  // reject malformed payloads before any screen requests /matches/null.
+  static Map<String, dynamic> _requireMatchId(Map<String, dynamic> match) {
+    final rawId = match['id'] ?? match['matchId'] ?? match['match_id'];
+    final id = rawId?.toString().trim() ?? '';
+    if (!RegExp(r'^[1-9][0-9]*$').hasMatch(id)) {
+      throw Exception('سرور شناسه معتبر اتاق بازی را برنگرداند. لطفاً دوباره تلاش کنید.');
+    }
+    return <String, dynamic>{...match, 'id': id};
+  }
+
   static Future<List<Map<String, dynamic>>> listOpen() async =>
       ((await _request('GET', '/open'))['matches'] as List? ?? const [])
-          .whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
+          .whereType<Map>()
+          .map((e) => Map<String, dynamic>.from(e))
+          .where((match) => RegExp(r'^[1-9][0-9]*$').hasMatch((match['id'] ?? '').toString()))
+          .toList();
   static Future<List<Map<String, dynamic>>> listLive() async =>
       ((await _request('GET', '/live'))['matches'] as List? ?? const [])
           .whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
@@ -60,13 +74,24 @@ class MatchService {
   static Future<List<Map<String, dynamic>>> history() async =>
       ((await _request('GET', '/history'))['matches'] as List? ?? const [])
           .whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
-  static Future<Map<String, dynamic>> create() async =>
-      Map<String, dynamic>.from((await _request('POST', ''))['match'] as Map);
-  static Future<Map<String, dynamic>> join(String id) async =>
-      Map<String, dynamic>.from((await _request('POST', '/$id/join'))['match'] as Map);
+  static Future<Map<String, dynamic>> create() async {
+    final payload = await _request('POST', '');
+    if (payload['match'] is! Map) throw Exception('پاسخ ساخت اتاق از سرور ناقص است.');
+    return _requireMatchId(Map<String, dynamic>.from(payload['match'] as Map));
+  }
+  static Future<Map<String, dynamic>> join(String id) async {
+    if (!RegExp(r'^[1-9][0-9]*$').hasMatch(id)) throw Exception('شناسه اتاق بازی معتبر نیست.');
+    final payload = await _request('POST', '/$id/join');
+    if (payload['match'] is! Map) throw Exception('پاسخ پیوستن به اتاق از سرور ناقص است.');
+    return _requireMatchId(Map<String, dynamic>.from(payload['match'] as Map));
+  }
   static Future<void> cancel(String id) async { await _request('DELETE', '/$id'); }
-  static Future<Map<String, dynamic>> get(String id) async =>
-      Map<String, dynamic>.from((await _request('GET', '/$id'))['match'] as Map);
+  static Future<Map<String, dynamic>> get(String id) async {
+    if (!RegExp(r'^[1-9][0-9]*$').hasMatch(id)) throw Exception('شناسه اتاق بازی معتبر نیست.');
+    final payload = await _request('GET', '/$id');
+    if (payload['match'] is! Map) throw Exception('اطلاعات اتاق از سرور ناقص است.');
+    return _requireMatchId(Map<String, dynamic>.from(payload['match'] as Map));
+  }
 
   static Future<Map<String, dynamic>> getState(String id) async =>
       Map<String, dynamic>.from((await _request('GET', '/$id/state'))['state'] as Map);
@@ -204,8 +229,13 @@ class MatchService {
     await _postJson('/matches/$matchId/invites', {'inviteeId': friendId});
   }
 
-  static Future<Map<String, dynamic>> respondToInvite(String inviteId, {required bool accept}) async =>
-      _postJson('/match-invites/$inviteId/respond', {'accept': accept});
+  static Future<Map<String, dynamic>> respondToInvite(String inviteId, {required bool accept}) async {
+    final payload = await _postJson('/match-invites/$inviteId/respond', {'accept': accept});
+    if (accept && payload['match'] is Map) {
+      payload['match'] = _requireMatchId(Map<String, dynamic>.from(payload['match'] as Map));
+    }
+    return payload;
+  }
 
   static Future<Map<String, dynamic>> updateSetup(
     String id, {int? matchToWin, bool? acceptSettings, bool? ready}

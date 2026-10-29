@@ -12,6 +12,7 @@ import { createKavenegarProvider } from './sms-provider.js';
 import { getAllowedCorsOrigins } from './cors-config.js';
 import { INITIAL_BACKGAMMON_BOARD, applyBackgammonMove, hasLegalMove, maxPlayableDiceCount, mustPlayHigherDie } from './backgammon-rules.js';
 import { calculateEloRatings } from './backgammon-rating.js';
+import { nextProgressionState } from './player-progression.js';
 import { hasRoyalPermission, isRoyalPermission } from './permissions.js';
 import { promisify } from 'node:util';
 
@@ -84,6 +85,23 @@ async function consumeOtpChallenge(
 
 const app = Fastify({ logger: true, trustProxy: false });
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+
+// Expire empty waiting rooms after 60 seconds and remove their related notices.
+// The lazy calls also cover serverless runtimes where a persistent timer is not guaranteed.
+async function cleanupExpiredEmptyRooms(): Promise<number> {
+  const result = await pool.query(`
+    WITH expired AS (
+      SELECT id FROM backgammon_matches
+       WHERE status = 'waiting' AND guest_user_id IS NULL AND expires_at <= NOW()
+    ), notices AS (
+      DELETE FROM notifications
+       WHERE data->>'matchId' IN (SELECT id::text FROM expired)
+       RETURNING id
+    )
+    DELETE FROM backgammon_matches WHERE id IN (SELECT id FROM expired)
+  `);
+  return result.rowCount ?? 0;
+}
 
 await app.register(helmet);
 const configuredCorsOrigins = process.env.CORS_ORIGINS;
@@ -306,6 +324,64 @@ await pool.query(`
   );
   CREATE INDEX IF NOT EXISTS user_subscriptions_current_idx
     ON user_subscriptions (user_id, status, ends_at DESC);
+
+  -- League entry is free by default. Subscription-day consumption is opt-in per league
+  -- and is kept separate from the wallet-credit ledger.
+  CREATE TABLE IF NOT EXISTS leagues (
+    id BIGSERIAL PRIMARY KEY,
+    code TEXT NOT NULL UNIQUE,
+    name TEXT NOT NULL,
+    enabled BOOLEAN NOT NULL DEFAULT FALSE,
+    entry_mode TEXT NOT NULL DEFAULT 'free'
+      CHECK (entry_mode IN ('free', 'subscription_days')),
+    subscription_days_cost INTEGER NOT NULL DEFAULT 0
+      CHECK (subscription_days_cost BETWEEN 0 AND 30),
+    starts_at TIMESTAMPTZ,
+    ends_at TIMESTAMPTZ,
+    rules JSONB NOT NULL DEFAULT '{}'::jsonb,
+    created_by BIGINT REFERENCES users(id) ON DELETE SET NULL,
+    updated_by BIGINT REFERENCES users(id) ON DELETE SET NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CHECK (
+      (entry_mode = 'free' AND subscription_days_cost = 0) OR
+      (entry_mode = 'subscription_days' AND subscription_days_cost BETWEEN 1 AND 30)
+    ),
+    CHECK (ends_at IS NULL OR starts_at IS NULL OR ends_at > starts_at)
+  );
+  ALTER TABLE leagues ADD COLUMN IF NOT EXISTS rules JSONB NOT NULL DEFAULT '{}'::jsonb;
+  CREATE TABLE IF NOT EXISTS league_entries (
+    id BIGSERIAL PRIMARY KEY,
+    league_id BIGINT NOT NULL REFERENCES leagues(id) ON DELETE CASCADE,
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    idempotency_key TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (league_id, user_id),
+    UNIQUE (user_id, idempotency_key)
+  );
+  CREATE INDEX IF NOT EXISTS league_entries_league_created_idx
+    ON league_entries (league_id, created_at DESC);
+  CREATE TABLE IF NOT EXISTS league_entitlement_ledger (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    subscription_id BIGINT NOT NULL REFERENCES user_subscriptions(id),
+    league_id BIGINT NOT NULL REFERENCES leagues(id) ON DELETE CASCADE,
+    entry_id BIGINT NOT NULL UNIQUE REFERENCES league_entries(id) ON DELETE CASCADE,
+    days_consumed INTEGER NOT NULL CHECK (days_consumed BETWEEN 1 AND 30),
+    ends_at_before TIMESTAMPTZ NOT NULL,
+    ends_at_after TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+  CREATE INDEX IF NOT EXISTS league_entitlement_ledger_user_created_idx
+    ON league_entitlement_ledger (user_id, created_at DESC);
+  CREATE TABLE IF NOT EXISTS league_admin_audit_log (
+    id BIGSERIAL PRIMARY KEY,
+    actor_user_id BIGINT REFERENCES users(id) ON DELETE SET NULL,
+    league_id BIGINT REFERENCES leagues(id) ON DELETE SET NULL,
+    action TEXT NOT NULL,
+    details JSONB NOT NULL DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
   CREATE TABLE IF NOT EXISTS private_messages (
     id BIGSERIAL PRIMARY KEY,
     sender_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -393,8 +469,24 @@ await pool.query(`
     games_played INTEGER NOT NULL DEFAULT 0 CHECK (games_played >= 0),
     wins INTEGER NOT NULL DEFAULT 0 CHECK (wins >= 0),
     losses INTEGER NOT NULL DEFAULT 0 CHECK (losses >= 0),
+    xp_points INTEGER NOT NULL DEFAULT 0 CHECK (xp_points >= 0),
+    level INTEGER NOT NULL DEFAULT 1 CHECK (level BETWEEN 1 AND 100),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   );
+  ALTER TABLE backgammon_player_stats ADD COLUMN IF NOT EXISTS xp_points INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE backgammon_player_stats ADD COLUMN IF NOT EXISTS level INTEGER NOT NULL DEFAULT 1;
+  CREATE TABLE IF NOT EXISTS backgammon_progression_events (
+    id BIGSERIAL PRIMARY KEY,
+    match_id BIGINT NOT NULL REFERENCES backgammon_matches(id) ON DELETE CASCADE,
+    event_key TEXT NOT NULL,
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    outcome TEXT NOT NULL CHECK (outcome IN ('win', 'loss', 'quit')),
+    points_delta INTEGER NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (match_id, event_key, user_id)
+  );
+  CREATE INDEX IF NOT EXISTS backgammon_progression_user_idx
+    ON backgammon_progression_events (user_id, created_at DESC);
   CREATE INDEX IF NOT EXISTS backgammon_player_stats_leaderboard_idx
     ON backgammon_player_stats (rating DESC, wins DESC, games_played ASC);
 `);
@@ -605,12 +697,17 @@ app.get('/api/v1/me', {
   if (!claims.sub) return reply.code(401).send({ error: 'Invalid token.' });
 
   const result = await pool.query(
-    'SELECT id, username, email, full_name, phone, country, avatar_data_url, created_at FROM users WHERE id = $1',
+    `SELECT u.id, u.username, u.email, u.full_name, u.phone, u.country,
+            u.avatar_data_url, u.created_at,
+            COALESCE(s.xp_points, 0)::int AS "xpPoints",
+            COALESCE(s.level, 1)::int AS level
+       FROM users u LEFT JOIN backgammon_player_stats s ON s.user_id = u.id
+      WHERE u.id = $1`,
     [claims.sub]
   );
   if (!result.rowCount) return reply.code(401).send({ error: 'Account not found.' });
-  const user = result.rows[0] as { id: string; username: string | null; email: string; full_name: string; phone: string; country: string; avatar_data_url: string | null; created_at: Date };
-  return { user: { id: user.id, username: user.username, email: user.email, fullName: user.full_name, phone: user.phone, country: user.country, avatarDataUrl: user.avatar_data_url ?? null, createdAt: user.created_at } };
+  const user = result.rows[0] as { id: string; username: string | null; email: string; full_name: string; phone: string; country: string; avatar_data_url: string | null; created_at: Date; xpPoints: number; level: number };
+  return { user: { id: user.id, username: user.username, email: user.email, fullName: user.full_name, phone: user.phone, country: user.country, avatarDataUrl: user.avatar_data_url ?? null, createdAt: user.created_at, xpPoints: user.xpPoints, level: user.level } };
 });
 
 const requireMatchAuth = async (request: any, reply: any) => {
@@ -658,6 +755,61 @@ async function updateBackgammonRatings(client: PoolClient, winnerUserId: string,
       WHERE user_id = $2`,
     [next.loserRating, loserUserId],
   );
+}
+
+
+/** Apply XP exactly once per match event and participant, inside the caller's transaction. */
+async function awardProgression(
+  client: PoolClient,
+  matchId: string,
+  eventKey: string,
+  winnerUserId: string,
+  loserUserId: string,
+  loserOutcome: 'loss' | 'quit',
+): Promise<void> {
+  if (winnerUserId === loserUserId) throw new Error('Progression participants must differ.');
+  const orderedIds = [winnerUserId, loserUserId].sort((left, right) => {
+    const a = BigInt(left);
+    const b = BigInt(right);
+    return a < b ? -1 : a > b ? 1 : 0;
+  });
+  await client.query(
+    'INSERT INTO backgammon_player_stats (user_id) VALUES ($1), ($2) ON CONFLICT (user_id) DO NOTHING',
+    orderedIds,
+  );
+  const locked = await client.query(
+    `SELECT user_id, xp_points, level FROM backgammon_player_stats
+      WHERE user_id = ANY($1::bigint[]) ORDER BY user_id FOR UPDATE`,
+    [orderedIds],
+  );
+  const stats = new Map(locked.rows.map((row) => [String(row.user_id), row]));
+  const entries = [
+    { userId: winnerUserId, outcome: 'win' as const },
+    { userId: loserUserId, outcome: loserOutcome },
+  ];
+  for (const entry of entries) {
+    const inserted = await client.query(
+      `INSERT INTO backgammon_progression_events
+        (match_id, event_key, user_id, outcome, points_delta)
+       VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (match_id, event_key, user_id) DO NOTHING
+       RETURNING user_id`,
+      [matchId, eventKey, entry.userId, entry.outcome,
+       entry.outcome === 'win' ? 20 : entry.outcome === 'loss' ? 5 : -5],
+    );
+    if (!inserted.rowCount) continue;
+    const current = stats.get(entry.userId);
+    if (!current) throw new Error('Could not lock progression stats.');
+    const next = nextProgressionState(Number(current.xp_points), Number(current.level), entry.outcome);
+    await client.query(
+      `UPDATE backgammon_player_stats
+          SET xp_points = $1, level = $2, updated_at = NOW()
+        WHERE user_id = $3`,
+      [next.xp, next.level, entry.userId],
+    );
+    current.xp_points = next.xp;
+    current.level = next.level;
+  }
 }
 
 app.patch<{ Body: { fullName?: string; phone?: string; country?: string } }>('/api/v1/me/profile', { onRequest: [requireMatchAuth], config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request, reply) => {
@@ -830,6 +982,317 @@ const requireOwnerAuth = async (request: any, reply: any) => {
     return reply.code(403).send({ error: 'Owner access is not configured or is not permitted.' });
   }
 };
+
+// Weekly league rules are server-owned and audited.
+type WeeklyLeagueRules = {
+  format: 'round_robin' | 'swiss' | 'knockout' | 'groups_then_knockout';
+  minimumParticipants: number | null;
+  restPolicy: 'balanced_report_actual_games';
+  finalStagePolicy: 'manager_decides_by_format';
+  appealDeadlineHours: 24;
+  doubleAbsencePolicy: 'reschedule_if_possible';
+  technicalIssuePolicy: 'reschedule_if_possible';
+};
+const defaultWeeklyLeagueRules: WeeklyLeagueRules = {
+  format: 'round_robin', minimumParticipants: null,
+  restPolicy: 'balanced_report_actual_games', finalStagePolicy: 'manager_decides_by_format',
+  appealDeadlineHours: 24, doubleAbsencePolicy: 'reschedule_if_possible',
+  technicalIssuePolicy: 'reschedule_if_possible',
+};
+function normalizeWeeklyLeagueRules(value: unknown, enabled: boolean): WeeklyLeagueRules | null {
+  const raw = value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
+  const format = raw.format ?? defaultWeeklyLeagueRules.format;
+  const minimum = raw.minimumParticipants ?? null;
+  if (!['round_robin', 'swiss', 'knockout', 'groups_then_knockout'].includes(String(format)) ||
+      (minimum !== null && (!Number.isInteger(minimum) || Number(minimum) < 2 || Number(minimum) > 512)) ||
+      (enabled && minimum === null) ||
+      (raw.restPolicy !== undefined && raw.restPolicy !== defaultWeeklyLeagueRules.restPolicy) ||
+      (raw.finalStagePolicy !== undefined && raw.finalStagePolicy !== defaultWeeklyLeagueRules.finalStagePolicy) ||
+      (raw.appealDeadlineHours !== undefined && raw.appealDeadlineHours !== 24) ||
+      (raw.doubleAbsencePolicy !== undefined && raw.doubleAbsencePolicy !== defaultWeeklyLeagueRules.doubleAbsencePolicy) ||
+      (raw.technicalIssuePolicy !== undefined && raw.technicalIssuePolicy !== defaultWeeklyLeagueRules.technicalIssuePolicy)) return null;
+  return { ...defaultWeeklyLeagueRules, format: format as WeeklyLeagueRules['format'], minimumParticipants: minimum as number | null };
+}
+// League management and entry are server-authoritative. League entry never debits wallet credits.
+app.get('/api/v1/leagues', { onRequest: [requireMatchAuth] }, async () => {
+  const result = await pool.query(
+    `SELECT id, code, name, entry_mode AS "entryMode",
+            subscription_days_cost AS "subscriptionDaysCost", starts_at AS "startsAt",
+            ends_at AS "endsAt", rules
+       FROM leagues
+      WHERE enabled = TRUE
+        AND (starts_at IS NULL OR starts_at <= NOW())
+        AND (ends_at IS NULL OR ends_at > NOW())
+      ORDER BY starts_at NULLS FIRST, id ASC`,
+  );
+  return { leagues: result.rows };
+});
+
+app.get('/api/v1/admin/leagues', { onRequest: [requireOwnerAuth] }, async () => {
+  const result = await pool.query(
+    `SELECT id, code, name, enabled, entry_mode AS "entryMode",
+            subscription_days_cost AS "subscriptionDaysCost",
+            starts_at AS "startsAt", ends_at AS "endsAt", rules,
+            created_at AS "createdAt", updated_at AS "updatedAt"
+       FROM leagues ORDER BY id DESC`,
+  );
+  return { leagues: result.rows };
+});
+
+app.post<{
+  Body: {
+    code?: string; name?: string; enabled?: boolean; entryMode?: string;
+    subscriptionDaysCost?: number; startsAt?: string | null; endsAt?: string | null; rules?: unknown;
+  };
+}>('/api/v1/admin/leagues', { onRequest: [requireOwnerAuth] }, async (request, reply) => {
+  const body = request.body ?? {};
+  const code = body.code?.trim();
+  const name = body.name?.trim();
+  const entryMode = body.entryMode ?? 'free';
+  const days = body.subscriptionDaysCost ?? 0;
+  if (!code || !/^[a-z0-9][a-z0-9_-]{1,39}$/.test(code) ||
+      !name || name.length > 120 ||
+      typeof (body.enabled ?? false) !== 'boolean' ||
+      !['free', 'subscription_days'].includes(entryMode) ||
+      !Number.isInteger(days) || days < 0 || days > 30 ||
+      (entryMode === 'free' && days !== 0) ||
+      (entryMode === 'subscription_days' && days < 1)) {
+    return reply.code(400).send({ error: 'Invalid league configuration.' });
+  }
+  const startsAt = body.startsAt ?? null;
+  const endsAt = body.endsAt ?? null;
+  const rules = normalizeWeeklyLeagueRules(body.rules, body.enabled ?? false);
+  if (!rules) return reply.code(400).send({ error: 'Invalid weekly league rules; set a valid minimum before enabling.' });
+  if (
+      (startsAt !== null && !Number.isFinite(Date.parse(startsAt))) ||
+      (endsAt !== null && !Number.isFinite(Date.parse(endsAt))) ||
+      (startsAt !== null && endsAt !== null && Date.parse(endsAt) <= Date.parse(startsAt))
+  ) {
+    return reply.code(400).send({ error: 'Invalid league schedule.' });
+  }
+  const claims = request.user as { sub: string };
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const created = await client.query(
+      `INSERT INTO leagues
+         (code, name, enabled, entry_mode, subscription_days_cost, starts_at, ends_at, rules, created_by, updated_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, $9)
+       RETURNING id, code, name, enabled, entry_mode AS "entryMode",
+                 subscription_days_cost AS "subscriptionDaysCost",
+                 starts_at AS "startsAt", ends_at AS "endsAt", rules`,
+      [code, name, body.enabled ?? false, entryMode, days, startsAt, endsAt, JSON.stringify(rules), claims.sub],
+    );
+    await client.query(
+      `INSERT INTO league_admin_audit_log (actor_user_id, league_id, action, details)
+       VALUES ($1, $2, 'league_created', $3::jsonb)`,
+      [claims.sub, created.rows[0].id, JSON.stringify({ code, enabled: body.enabled ?? false, entryMode, subscriptionDaysCost: days, rules })],
+    );
+    await client.query('COMMIT');
+    return reply.code(201).send({ league: created.rows[0] });
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    if (typeof error === 'object' && error !== null && 'code' in error && error.code === '23505') {
+      return reply.code(409).send({ error: 'A league with that code already exists.' });
+    }
+    request.log.error({ err: error }, 'Could not create league');
+    return reply.code(500).send({ error: 'Could not create league.' });
+  } finally {
+    client.release();
+  }
+});
+
+app.patch<{
+  Params: { id: string };
+  Body: {
+    name?: string; enabled?: boolean; entryMode?: string;
+    subscriptionDaysCost?: number; startsAt?: string | null; endsAt?: string | null; rules?: unknown;
+  };
+}>('/api/v1/admin/leagues/:id', { onRequest: [requireOwnerAuth] }, async (request, reply) => {
+  if (!isNumericId(request.params.id)) return reply.code(400).send({ error: 'Invalid league id.' });
+  const body = request.body ?? {};
+  const has = (key: string) => Object.prototype.hasOwnProperty.call(body, key);
+  if (has('name') && (typeof body.name !== 'string' || !body.name.trim() || body.name.trim().length > 120) ||
+      has('enabled') && typeof body.enabled !== 'boolean' ||
+      has('entryMode') && !['free', 'subscription_days'].includes(body.entryMode ?? '') ||
+      has('subscriptionDaysCost') && (!Number.isInteger(body.subscriptionDaysCost) || (body.subscriptionDaysCost ?? -1) < 0 || (body.subscriptionDaysCost ?? 31) > 30) ||
+      has('startsAt') && body.startsAt !== null && (typeof body.startsAt !== 'string' || !Number.isFinite(Date.parse(body.startsAt))) ||
+      has('endsAt') && body.endsAt !== null && (typeof body.endsAt !== 'string' || !Number.isFinite(Date.parse(body.endsAt)))) {
+    return reply.code(400).send({ error: 'Invalid league configuration.' });
+  }
+  const client = await pool.connect();
+  const claims = request.user as { sub: string };
+  try {
+    await client.query('BEGIN');
+    const existing = await client.query('SELECT * FROM leagues WHERE id = $1 FOR UPDATE', [request.params.id]);
+    if (!existing.rowCount) {
+      await client.query('ROLLBACK');
+      return reply.code(404).send({ error: 'League not found.' });
+    }
+    const current = existing.rows[0];
+    const rules = normalizeWeeklyLeagueRules(has('rules') ? body.rules : current.rules, has('enabled') ? body.enabled === true : current.enabled === true);
+    if (!rules) { await client.query('ROLLBACK'); return reply.code(400).send({ error: 'Invalid weekly league rules; set a valid minimum before enabling.' }); }
+    const entryMode = body.entryMode ?? current.entry_mode;
+    const days = body.subscriptionDaysCost ?? Number(current.subscription_days_cost);
+    if ((entryMode === 'free' && days !== 0) || (entryMode === 'subscription_days' && (days < 1 || days > 30))) {
+      await client.query('ROLLBACK');
+      return reply.code(400).send({ error: 'Entry mode and subscription-day cost do not match.' });
+    }
+    const startsAt = has('startsAt') ? body.startsAt ?? null : current.starts_at;
+    const endsAt = has('endsAt') ? body.endsAt ?? null : current.ends_at;
+    if (startsAt !== null && endsAt !== null && new Date(endsAt).getTime() <= new Date(startsAt).getTime()) {
+      await client.query('ROLLBACK');
+      return reply.code(400).send({ error: 'Invalid league schedule.' });
+    }
+    const updated = await client.query(
+      `UPDATE leagues SET
+          name = $1, enabled = $2, entry_mode = $3, subscription_days_cost = $4,
+          starts_at = $5, ends_at = $6, rules = $7::jsonb, updated_by = $8, updated_at = NOW()
+        WHERE id = $9
+        RETURNING id, code, name, enabled, entry_mode AS "entryMode",
+                  subscription_days_cost AS "subscriptionDaysCost",
+                  starts_at AS "startsAt", ends_at AS "endsAt", rules`,
+      [has('name') ? body.name!.trim() : current.name,
+       has('enabled') ? body.enabled : current.enabled, entryMode, days,
+       startsAt, endsAt, JSON.stringify(rules), claims.sub, request.params.id],
+    );
+    await client.query(
+      `INSERT INTO league_admin_audit_log (actor_user_id, league_id, action, details)
+       VALUES ($1, $2, 'league_updated', $3::jsonb)`,
+      [claims.sub, request.params.id, JSON.stringify({ fields: Object.keys(body), ...(has('rules') ? { rules } : {}) })],
+    );
+    await client.query('COMMIT');
+    return { league: updated.rows[0] };
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    request.log.error({ err: error }, 'Could not update league');
+    return reply.code(500).send({ error: 'Could not update league.' });
+  } finally {
+    client.release();
+  }
+});
+
+app.post<{
+  Params: { id: string };
+  Body: { idempotencyKey?: string };
+}>('/api/v1/leagues/:id/entries', { onRequest: [requireMatchAuth] }, async (request, reply) => {
+  const claims = request.user as { sub: string };
+  const key = request.body?.idempotencyKey;
+  if (!isNumericId(request.params.id) || typeof key !== 'string' || !/^[A-Za-z0-9._:-]{8,100}$/.test(key)) {
+    return reply.code(400).send({ error: 'A valid league id and idempotency key are required.' });
+  }
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const leagueResult = await client.query(
+      `SELECT id, code, name, entry_mode, subscription_days_cost
+         FROM leagues
+        WHERE id = $1 AND enabled = TRUE
+          AND (starts_at IS NULL OR starts_at <= NOW())
+          AND (ends_at IS NULL OR ends_at > NOW())
+        FOR UPDATE`,
+      [request.params.id],
+    );
+    const league = leagueResult.rows[0] as {
+      id: string; code: string; name: string; entry_mode: string; subscription_days_cost: number;
+    } | undefined;
+    if (!league) {
+      await client.query('ROLLBACK');
+      return reply.code(404).send({ error: 'League is not open for entry.' });
+    }
+    const existing = await client.query(
+      `SELECT id, league_id AS "leagueId", user_id AS "userId", created_at AS "createdAt"
+         FROM league_entries WHERE league_id = $1 AND user_id = $2`,
+      [league.id, claims.sub],
+    );
+    if (existing.rowCount) {
+      await client.query('COMMIT');
+      return { entry: existing.rows[0], alreadyEntered: true };
+    }
+    const reusedKey = await client.query(
+      'SELECT id FROM league_entries WHERE user_id = $1 AND idempotency_key = $2',
+      [claims.sub, key],
+    );
+    if (reusedKey.rowCount) {
+      await client.query('ROLLBACK');
+      return reply.code(409).send({ error: 'Idempotency key has already been used for another entry.' });
+    }
+
+    let subscription: { id: string; ends_at: Date | string } | undefined;
+    let endsAtBefore: Date | null = null;
+    let endsAtAfter: Date | null = null;
+    const days = Number(league.subscription_days_cost);
+    if (league.entry_mode === 'subscription_days') {
+      const subResult = await client.query(
+        `SELECT id, ends_at FROM user_subscriptions
+          WHERE user_id = $1 AND status = 'active' AND ends_at > NOW()
+          ORDER BY ends_at DESC LIMIT 1 FOR UPDATE`,
+        [claims.sub],
+      );
+      subscription = subResult.rows[0] as { id: string; ends_at: Date | string } | undefined;
+      if (!subscription) {
+        await client.query('ROLLBACK');
+        return reply.code(409).send({ error: 'An active subscription is required for this league.' });
+      }
+      endsAtBefore = new Date(subscription.ends_at);
+      const availableDays = Math.floor((endsAtBefore.getTime() - Date.now()) / 86400000);
+      if (availableDays < days) {
+        await client.query('ROLLBACK');
+        return reply.code(409).send({ error: 'Insufficient subscription days.', requiredDays: days, availableDays: Math.max(0, availableDays) });
+      }
+      endsAtAfter = new Date(endsAtBefore.getTime() - days * 86400000);
+      if (endsAtAfter.getTime() <= Date.now()) {
+        await client.query('ROLLBACK');
+        return reply.code(409).send({ error: 'Insufficient subscription days.', requiredDays: days, availableDays: Math.max(0, availableDays) });
+      }
+      await client.query(
+        'UPDATE user_subscriptions SET ends_at = $1 WHERE id = $2',
+        [endsAtAfter, subscription.id],
+      );
+    }
+
+    const inserted = await client.query(
+      `INSERT INTO league_entries (league_id, user_id, idempotency_key)
+       VALUES ($1, $2, $3)
+       RETURNING id, league_id AS "leagueId", user_id AS "userId", created_at AS "createdAt"`,
+      [league.id, claims.sub, key],
+    );
+    if (subscription && endsAtBefore && endsAtAfter) {
+      await client.query(
+        `INSERT INTO league_entitlement_ledger
+           (user_id, subscription_id, league_id, entry_id, days_consumed, ends_at_before, ends_at_after)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [claims.sub, subscription.id, league.id, inserted.rows[0].id, days, endsAtBefore, endsAtAfter],
+      );
+    }
+    await client.query('COMMIT');
+    return reply.code(201).send({ entry: inserted.rows[0], subscriptionEndsAt: endsAtAfter });
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    if (typeof error === 'object' && error !== null && 'code' in error && error.code === '23505') {
+      return reply.code(409).send({ error: 'This league entry conflicts with an existing request.' });
+    }
+    request.log.error({ err: error }, 'Could not enter league');
+    return reply.code(500).send({ error: 'Could not enter league.' });
+  } finally {
+    client.release();
+  }
+});
+
+app.get('/api/v1/leagues/:id/entries/me', { onRequest: [requireMatchAuth] }, async (request, reply) => {
+  const claims = request.user as { sub: string };
+  if (!isNumericId((request.params as { id?: string }).id ?? '')) {
+    return reply.code(400).send({ error: 'Invalid league id.' });
+  }
+  const result = await pool.query(
+    `SELECT e.id, e.league_id AS "leagueId", e.created_at AS "createdAt",
+            l.code, l.name
+       FROM league_entries e JOIN leagues l ON l.id = e.league_id
+      WHERE e.league_id = $1 AND e.user_id = $2`,
+    [(request.params as { id: string }).id, claims.sub],
+  );
+  return { entry: result.rows[0] ?? null };
+});
 
 // Delegated grants are dormant until explicitly created by the configured owner.
 // Sensitive owner-only endpoints (wallet credit, SMS configuration, role management)
@@ -1839,7 +2302,7 @@ app.get('/api/v1/notifications', { onRequest: [requireMatchAuth] }, async (reque
   await pool.query(
     `DELETE FROM notifications
       WHERE user_id = $1 AND data ? 'inviteId'
-        AND created_at <= NOW() - INTERVAL '10 seconds'`,
+        AND created_at <= NOW() - INTERVAL '60 seconds'`,
     [claims.sub],
   );
   const result = await pool.query(
@@ -2116,7 +2579,7 @@ app.get('/api/v1/leaderboard', { onRequest: [requireMatchAuth] }, async (request
   const claims = request.user as { sub: string };
   const result = await pool.query(
     `SELECT s.user_id AS "userId", u.username, u.avatar_data_url AS "avatarDataUrl", s.rating,
-            GREATEST(1, LEAST(10, FLOOR((s.rating - 1000) / 100.0)::int + 1))::int AS level,
+            s.level, s.xp_points AS "xpPoints",
             s.games_played AS "gamesPlayed", s.wins, s.losses
        FROM backgammon_player_stats s
        JOIN users u ON u.id = s.user_id
@@ -2148,7 +2611,8 @@ app.get('/api/v1/leaderboard/weekly', { onRequest: [requireMatchAuth] }, async (
      SELECT p.user_id AS "userId", u.username,
             u.avatar_data_url AS "avatarDataUrl",
             COALESCE(s.rating, 1000)::int AS rating,
-            GREATEST(1, LEAST(10, FLOOR((COALESCE(s.rating, 1000) - 1000) / 100.0)::int + 1))::int AS level,
+            COALESCE(s.level, 1)::int AS level,
+            COALESCE(s.xp_points, 0)::int AS "xpPoints",
             COUNT(*)::int AS "gamesPlayed",
             COUNT(*) FILTER (WHERE p.winner_user_id = p.user_id)::int AS wins,
             COUNT(*) FILTER (WHERE p.winner_user_id <> p.user_id)::int AS losses,
@@ -2156,7 +2620,7 @@ app.get('/api/v1/leaderboard/weekly', { onRequest: [requireMatchAuth] }, async (
        FROM participants p
        JOIN users u ON u.id = p.user_id
        LEFT JOIN backgammon_player_stats s ON s.user_id = p.user_id
-      GROUP BY p.user_id, u.username, u.avatar_data_url, s.rating
+      GROUP BY p.user_id, u.username, u.avatar_data_url, s.rating, s.level, s.xp_points
       ORDER BY score DESC, wins DESC, "gamesPlayed" ASC, LOWER(u.username) ASC
       LIMIT 50`,
   );
@@ -2237,6 +2701,7 @@ app.post<{ Params: { id: string }; Body: { enabled?: boolean } }>('/api/v1/match
 });
 app.get('/api/v1/matches/open', { onRequest: [requireMatchAuth] }, async (request, reply) => {
   const claims = request.user as { sub: string };
+  await cleanupExpiredEmptyRooms();
   const result = await pool.query(
     `SELECT m.id, m.room_code AS "roomCode", m.status, m.created_at AS "createdAt", u.username AS "hostName", u.avatar_data_url AS "hostAvatarDataUrl"
        FROM backgammon_matches m JOIN users u ON u.id = m.host_user_id
@@ -2251,7 +2716,8 @@ app.post('/api/v1/matches', { onRequest: [requireMatchAuth] }, async (request, r
     const roomCode = randomBytes(3).toString('hex').toUpperCase();
     try {
       const result = await pool.query(
-        `INSERT INTO backgammon_matches (room_code, host_user_id) VALUES ($1, $2)
+        `INSERT INTO backgammon_matches (room_code, host_user_id, expires_at)
+         VALUES ($1, $2, NOW() + INTERVAL '60 seconds')
          RETURNING id, room_code AS "roomCode", status, created_at AS "createdAt", expires_at AS "expiresAt"`, [roomCode, claims.sub]);
       return reply.code(201).send({ match: result.rows[0] });
     } catch (error: any) {
@@ -2348,23 +2814,14 @@ app.get<{ Params: { id: string } }>('/api/v1/matches/:id', { onRequest: [require
 
 app.get('/api/v1/match-invites', { onRequest: [requireMatchAuth] }, async (request) => {
   const claims = request.user as { sub: string };
-  // Hard-delete expired waiting rooms, their invitation rows, and invitation notices.
-  await pool.query(`
-    WITH expired AS (
-      SELECT id FROM backgammon_matches WHERE status = 'waiting' AND guest_user_id IS NULL AND expires_at <= NOW()
-    ), notices AS (
-      DELETE FROM notifications
-       WHERE data->>'matchId' IN (SELECT id::text FROM expired)
-       RETURNING id
-    )
-    DELETE FROM backgammon_matches WHERE id IN (SELECT id FROM expired)
-  `);
-  // Invitation cards expire after 10 seconds. Mark them responded without
+  // Also clean up expired rooms when the notifications screen is polling.
+  await cleanupExpiredEmptyRooms();
+  // Invitation cards expire after 60 seconds. Mark them responded without
   // deleting the waiting room, so the host can invite the same friend again.
   await pool.query(
     `UPDATE backgammon_match_invites SET status = 'rejected', responded_at = NOW()
       WHERE invitee_id = $1 AND status = 'pending'
-        AND created_at <= NOW() - INTERVAL '10 seconds'`,
+        AND created_at <= NOW() - INTERVAL '60 seconds'`,
     [claims.sub]);
   await pool.query(
     `DELETE FROM notifications
@@ -2377,7 +2834,7 @@ app.get('/api/v1/match-invites', { onRequest: [requireMatchAuth] }, async (reque
     [claims.sub]);
   const result = await pool.query(
     `SELECT i.id, i.match_id AS "matchId", i.status, i.created_at AS "createdAt",
-            (i.created_at + INTERVAL '10 seconds') AS "expiresAt",
+            (i.created_at + INTERVAL '60 seconds') AS "expiresAt",
             m.room_code AS "roomCode", m.status AS "matchStatus",
             inviter.username AS "inviterUsername",
             inviter.avatar_data_url AS "inviterAvatarDataUrl"
@@ -2386,7 +2843,7 @@ app.get('/api/v1/match-invites', { onRequest: [requireMatchAuth] }, async (reque
        JOIN users inviter ON inviter.id = i.inviter_id
       WHERE i.invitee_id = $1 AND i.status = 'pending' AND m.status = 'waiting'
         AND m.guest_user_id IS NULL AND m.expires_at > NOW()
-        AND i.created_at > NOW() - INTERVAL '10 seconds'
+        AND i.created_at > NOW() - INTERVAL '60 seconds'
       ORDER BY i.created_at DESC LIMIT 50`,
     [claims.sub]);
   return { invites: result.rows };
@@ -2425,7 +2882,7 @@ app.post<{ Params: { id: string }; Body: { inviteeId?: string } }>(
         `UPDATE backgammon_match_invites
             SET status = 'rejected', responded_at = NOW()
           WHERE match_id = $1 AND invitee_id = $2 AND status = 'pending'
-            AND created_at <= NOW() - INTERVAL '10 seconds'`,
+            AND created_at <= NOW() - INTERVAL '60 seconds'`,
         [request.params.id, inviteeId]);
       await client.query(
         `DELETE FROM notifications
@@ -2437,7 +2894,7 @@ app.post<{ Params: { id: string }; Body: { inviteeId?: string } }>(
         [inviteeId, request.params.id]);
 
       // Keep the waiting room available for 60 seconds, while each invitation
-      // card itself remains valid for only 10 seconds.
+      // card remains valid for 60 seconds.
       await client.query(
         `UPDATE backgammon_matches SET expires_at = NOW() + INTERVAL '60 seconds', updated_at = NOW()
           WHERE id = $1`,
@@ -2481,7 +2938,7 @@ app.post<{ Params: { id: string }; Body: { accept: boolean } }>(
         return reply.code(404).send({ error: 'Pending invitation not found.' });
       }
       const freshInvite = await client.query(
-        `SELECT created_at > NOW() - INTERVAL '10 seconds' AS fresh
+        `SELECT created_at > NOW() - INTERVAL '60 seconds' AS fresh
            FROM backgammon_match_invites WHERE id = $1`,
         [request.params.id]);
       if (!freshInvite.rows[0]?.fresh) {
@@ -2727,6 +3184,7 @@ app.post<{ Params: { id: string }; Body: { scope?: 'game' | 'match' } }>(
             WHERE id = $2`,
           [winnerUserId, match.id],
         );
+        await awardProgression(client, match.id, 'match-resignation', winnerUserId, claims.sub, 'quit');
         await updateBackgammonRatings(client, winnerUserId, claims.sub);
         await client.query('COMMIT');
         return { result: { status: 'finished', scope, winnerUserId, loserUserId: claims.sub, reason: 'resignation' } };
@@ -2753,6 +3211,8 @@ app.post<{ Params: { id: string }; Body: { scope?: 'game' | 'match' } }>(
         [matchFinished ? 'finished' : 'active', winnerUserId, nextHostWins, nextGuestWins,
          JSON.stringify(INITIAL_BACKGAMMON_BOARD), winnerUserId, match.id],
       );
+      const gameNumber = Number(match.host_game_wins ?? 0) + Number(match.guest_game_wins ?? 0) + 1;
+      await awardProgression(client, match.id, `game:${gameNumber}`, winnerUserId, claims.sub, 'quit');
       if (matchFinished) {
         await updateBackgammonRatings(client, winnerUserId, claims.sub);
       }
@@ -2892,10 +3352,12 @@ app.post<{ Params: { id: string }; Body: { moves: Array<{ from: number | null; t
        gameFinished ? game.host_user_id : nextTurn, JSON.stringify(gameFinished ? [] : nextDice),
        JSON.stringify(gameFinished ? [] : nextRemaining), matchFinished ? 'finished' : 'active',
        nextHostWins, nextGuestWins, game.id]);
-    if (matchFinished && game.guest_user_id) {
-      const winnerId = nextHostWins >= Number(game.match_to_win ?? 1) ? game.host_user_id : game.guest_user_id;
+    if (gameFinished && game.guest_user_id) {
+      const winnerId = simulated.off.host >= 15 ? game.host_user_id : game.guest_user_id;
       const loserId = winnerId === game.host_user_id ? game.guest_user_id : game.host_user_id;
-      await updateBackgammonRatings(client, winnerId, loserId);
+      const gameNumber = Number(game.host_game_wins ?? 0) + Number(game.guest_game_wins ?? 0) + 1;
+      await awardProgression(client, game.id, `game:${gameNumber}`, winnerId, loserId, 'loss');
+      if (matchFinished) await updateBackgammonRatings(client, winnerId, loserId);
     }
     await client.query('COMMIT');
     return { state: updated.rows[0], appliedMoves: body.moves.length };
@@ -3081,10 +3543,12 @@ app.post<{ Params: { id: string }; Body: { from: number | null; to: number | nul
        gameFinished ? game.host_user_id : nextTurn, JSON.stringify(gameFinished ? [] : nextDice),
        JSON.stringify(gameFinished ? [] : nextRemaining), matchFinished ? 'finished' : 'active',
        nextHostWins, nextGuestWins, game.id]);
-    if (matchFinished && game.guest_user_id) {
-      const winnerId = nextHostWins >= Number(game.match_to_win ?? 1) ? game.host_user_id : game.guest_user_id;
+    if (gameFinished && game.guest_user_id) {
+      const winnerId = off.host >= 15 ? game.host_user_id : game.guest_user_id;
       const loserId = winnerId === game.host_user_id ? game.guest_user_id : game.host_user_id;
-      await updateBackgammonRatings(client, winnerId, loserId);
+      const gameNumber = Number(game.host_game_wins ?? 0) + Number(game.guest_game_wins ?? 0) + 1;
+      await awardProgression(client, game.id, `game:${gameNumber}`, winnerId, loserId, 'loss');
+      if (matchFinished) await updateBackgammonRatings(client, winnerId, loserId);
     }
     await client.query('COMMIT');
     return { state: updated.rows[0] };
@@ -3282,7 +3746,7 @@ app.delete<{ Params: { id: string } }>('/api/v1/matches/:id', { onRequest: [requ
   if (!isNumericId(request.params.id)) return reply.code(400).send({ error: 'Invalid match id.' });
   const result = await pool.query(
     `UPDATE backgammon_matches SET status = 'cancelled', updated_at = NOW()
-      WHERE id = $1 AND host_user_id = $2 AND status = 'waiting'
+      WHERE id = $1 AND host_user_id = $2 AND status = 'waiting' AND guest_user_id IS NULL
       RETURNING id, room_code AS "roomCode", status`,
     [request.params.id, claims.sub]);
   if (result.rowCount) return { match: result.rows[0] };
@@ -3290,14 +3754,38 @@ app.delete<{ Params: { id: string } }>('/api/v1/matches/:id', { onRequest: [requ
     `SELECT status FROM backgammon_matches WHERE id = $1 AND host_user_id = $2`,
     [request.params.id, claims.sub]);
   if (!existing.rowCount) return reply.code(404).send({ error: 'Match not found.' });
-  return reply.code(409).send({ error: 'Only a waiting match can be cancelled.' });
+  return reply.code(409).send({ error: 'Only an empty waiting room can be closed by its host.' });
 });
+// Neon Function Trigger calls this route on its schedule to remove expired rooms
+// even when the API runtime has scaled to zero and no user is making requests.
+app.post('/internal/cleanup-expired-empty-rooms', async (request, reply) => {
+  if (!request.headers['x-neon-trigger-invocation-id']) {
+    return reply.code(403).send({ error: 'Scheduled trigger invocation required.' });
+  }
+  try {
+    const deletedRooms = await cleanupExpiredEmptyRooms();
+    return { ok: true, deletedRooms };
+  } catch (error) {
+    request.log.error({ err: error }, 'Scheduled empty-room cleanup failed');
+    return reply.code(500).send({ error: 'Could not clean up expired empty rooms.' });
+  }
+});
+
 app.addHook('onClose', async () => { await pool.end(); });
 
 export { app };
 
 // Neon Functions invoke a Fetch-compatible handler; traditional hosts keep the normal listener.
 if (process.env.NEON_FUNCTION_RUNTIME !== '1') {
+  // Keep database cleanup automatic on long-running API hosts. Serverless runtimes
+  // use cleanupExpiredEmptyRooms() on room-list and invitation requests instead.
+  const cleanupTimer = setInterval(() => {
+    void cleanupExpiredEmptyRooms().catch((error) => {
+      app.log.error({ err: error }, 'Could not clean up expired empty rooms');
+    });
+  }, 5_000);
+  cleanupTimer.unref();
+  app.addHook('onClose', async () => { clearInterval(cleanupTimer); });
   const port = Number(process.env.PORT ?? 3000);
   const host = process.env.HOST ?? '0.0.0.0';
   try {

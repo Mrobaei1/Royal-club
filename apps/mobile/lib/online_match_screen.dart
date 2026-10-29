@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'l10n/app_text.dart';
 import 'profile_avatar.dart';
 import 'services/match_service.dart';
+import 'royal_backgammon_board.dart';
 
 class OnlineMatchScreen extends StatefulWidget {
   final Map<String, dynamic> match;
@@ -28,15 +29,20 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
   String _matchStatus = 'waiting';
   String? _error;
 
-  String get _id => widget.match['id'].toString();
+  String get _id => (widget.match['id'] ?? '').toString();
+  bool get _hasValidId => RegExp(r'^[1-9][0-9]*$').hasMatch(_id);
   bool get _isEnglish => Localizations.localeOf(context).languageCode == 'en';
 
   @override
   void initState() {
     super.initState();
     _matchDetails = Map<String, dynamic>.from(widget.match);
-    _refresh();
-    _poller = Timer.periodic(const Duration(seconds: 3), (_) => _refresh(silent: true));
+    if (_hasValidId) {
+      _refresh();
+      _poller = Timer.periodic(const Duration(seconds: 3), (_) => _refresh(silent: true));
+    } else {
+      _error = 'شناسه اتاق بازی معتبر نیست. از فهرست بازی‌های آنلاین دوباره وارد شوید.';
+    }
   }
 
   @override
@@ -46,6 +52,14 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
   }
 
   Future<void> _refresh({bool silent = false}) async {
+    if (!_hasValidId) {
+      if (mounted && !silent) {
+        setState(() => _error = appText(context,
+          'شناسه اتاق بازی معتبر نیست. از فهرست بازی‌های آنلاین دوباره وارد شوید.',
+          'Invalid match ID. Reopen the room from the online lobby.'));
+      }
+      return;
+    }
     if ((_busy && !silent) || _refreshing) return;
     _refreshing = true;
     final sequence = ++_refreshSequence;
@@ -110,6 +124,48 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
         setState(() => _matchStatus = 'cancelled');
       }
       await _refresh(silent: true);
+    } catch (e) {
+      if (mounted) setState(() => _error = appError(context, e));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _closeEmptyRoom() async {
+    if (_busy ||
+        _matchStatus != 'waiting' ||
+        _matchDetails['isHost'] != true ||
+        _matchDetails['guestName'] != null) {
+      return;
+    }
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(appText(context, 'بستن اتاق بازی', 'Close waiting room')),
+        content: Text(appText(
+          context,
+          'هنوز کسی به اتاق نپیوسته است. با بستن اتاق، دیگران نمی‌توانند وارد آن شوند.',
+          'Nobody has joined this room yet. Closing it will prevent anyone else from joining.',
+        )),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(appText(context, 'بازگشت', 'Keep room')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(appText(context, 'بستن اتاق', 'Close room')),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() { _busy = true; _error = null; });
+    try {
+      await MatchService.cancel(_id);
+      if (!mounted) return;
+      _poller?.cancel();
+      Navigator.of(context).pop();
     } catch (e) {
       if (mounted) setState(() => _error = appError(context, e));
     } finally {
@@ -524,6 +580,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
     final isMyTurn = _state?['isMyTurn'] == true;
     final isEnglish = Localizations.localeOf(context).languageCode == 'en';
     final bar = preview['bar'] as Map<String, int>;
+    final off = preview['off'] as Map<String, int>;
     final ownBar = (bar[_state?['isHost'] == true ? 'host' : 'guest'] ?? 0);
     return Directionality(
       textDirection: (Localizations.localeOf(context).languageCode == 'en' ? TextDirection.ltr : TextDirection.rtl),
@@ -576,10 +633,23 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
             if (_matchStatus == 'waiting' && _matchDetails['isHost'] == true)
               Align(
                 alignment: AlignmentDirectional.centerStart,
-                child: OutlinedButton.icon(
-                  onPressed: _busy ? null : _inviteFriend,
-                  icon: const Icon(Icons.person_add_alt_1),
-                  label: Text(isEnglish ? 'Invite / invite again' : 'دعوت یا دعوت مجدد'),
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed: _busy ? null : _inviteFriend,
+                      icon: const Icon(Icons.person_add_alt_1),
+                      label: Text(isEnglish ? 'Invite / invite again' : 'دعوت یا دعوت مجدد'),
+                    ),
+                    if (_matchDetails['guestName'] == null)
+                      OutlinedButton.icon(
+                        onPressed: _busy ? null : _closeEmptyRoom,
+                        icon: const Icon(Icons.meeting_room_outlined),
+                        label: Text(isEnglish ? 'Close empty room' : 'بستن اتاق خالی'),
+                        style: OutlinedButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.error),
+                      ),
+                  ],
                 ),
               ),
             const SizedBox(height: 12),
@@ -769,6 +839,11 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
                         child: OnlineBackgammonBoard(
                           points: board,
                           selectedPoint: _selectedFrom,
+                          barWhite: bar['host'] ?? 0,
+                          barBlack: bar['guest'] ?? 0,
+                          offWhite: off['host'] ?? 0,
+                          offBlack: off['guest'] ?? 0,
+                          dice: dice.map((d) => d.toInt()).toList(),
                           onPointTap: (point) => _tapPoint(point, board, remaining, isMyTurn),
                         ),
                       ),
@@ -840,176 +915,40 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
 }
 
 
-/// Traditional 24-point board drawn from the server-authoritative match state.
+/// Online wrapper around the same shared board used by offline practice.
 class OnlineBackgammonBoard extends StatelessWidget {
   final List<num> points;
   final int? selectedPoint;
   final ValueChanged<int> onPointTap;
+  final int barWhite, barBlack, offWhite, offBlack;
+  final List<int> dice;
 
   const OnlineBackgammonBoard({
     super.key,
     required this.points,
     required this.onPointTap,
     this.selectedPoint,
+    this.barWhite = 0,
+    this.barBlack = 0,
+    this.offWhite = 0,
+    this.offBlack = 0,
+    this.dice = const <int>[],
   });
-
-  int? _pointAt(Offset position, Size size) {
-    if (position.dy < 0 || position.dy > size.height) return null;
-    final barWidth = size.width * .075;
-    final halfWidth = (size.width - barWidth) / 2;
-    final x = position.dx;
-    if (x >= halfWidth && x <= halfWidth + barWidth) return null;
-    final column = x < halfWidth
-        ? (x / (halfWidth / 6)).floor().clamp(0, 5).toInt()
-        : ((x - halfWidth - barWidth) / (halfWidth / 6)).floor().clamp(0, 5);
-    if (position.dy < size.height / 2) {
-      return x < halfWidth ? 11 - column : 5 - column;
-    }
-    return x < halfWidth ? 12 + column : 18 + column;
-  }
 
   @override
   Widget build(BuildContext context) => AspectRatio(
-        aspectRatio: 1.48,
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final size = Size(constraints.maxWidth, constraints.maxHeight);
-            return GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTapDown: (details) {
-                final point = _pointAt(details.localPosition, size);
-                if (point != null && point >= 0 && point < points.length) {
-                  onPointTap(point);
-                }
-              },
-              child: CustomPaint(
-                size: size,
-                painter: _OnlineBackgammonBoardPainter(
-                  points: points,
-                  selectedPoint: selectedPoint,
-                ),
-              ),
-            );
-          },
-        ),
-      );
-}
-
-class _OnlineBackgammonBoardPainter extends CustomPainter {
-  final List<num> points;
-  final int? selectedPoint;
-
-  _OnlineBackgammonBoardPainter({required this.points, required this.selectedPoint});
-
-  static const _gold = Color(0xFFD8B45A);
-  static const _lightChecker = Color(0xFFD8B45A);
-  static const _darkChecker = Color(0xFF171717);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final bounds = Offset.zero & size;
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(bounds, const Radius.circular(14)),
-      Paint()..shader = const LinearGradient(
-        colors: [Color(0xFFB9844D), Color(0xFF704626), Color(0xFF482B1A)],
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-      ).createShader(bounds),
-    );
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(bounds.deflate(2), const Radius.circular(12)),
-      Paint()..style = PaintingStyle.stroke..strokeWidth = 3..color = _gold,
-    );
-
-    final barWidth = size.width * .075;
-    final halfWidth = (size.width - barWidth) / 2;
-    final midY = size.height / 2;
-    canvas.drawRect(Rect.fromLTWH(halfWidth, 5, barWidth, size.height - 10),
-        Paint()..color = const Color(0xFF241811));
-    final pointWidth = halfWidth / 6;
-    final checkerRadius = (pointWidth * .34).clamp(3.0, size.height * .035).toDouble();
-    final stackGap = checkerRadius * 1.75;
-
-    for (var i = 0; i < 24 && i < points.length; i++) {
-      final top = i < 12;
-      final column = i < 12 ? (i < 6 ? 5 - i : 11 - i) : (i < 18 ? i - 12 : i - 18);
-      final rightHalf = i < 6 || i >= 18;
-      final left = rightHalf ? halfWidth + barWidth : 0.0;
-      final x = left + column * pointWidth;
-      final rect = Rect.fromLTWH(x + 2, top ? 5 : midY, pointWidth - 4, size.height / 2 - 8);
-      final triangle = Path();
-      if (top) {
-        triangle.moveTo(rect.left, rect.top);
-        triangle.lineTo(rect.right, rect.top);
-        triangle.lineTo(rect.center.dx, rect.bottom);
-      } else {
-        triangle.moveTo(rect.left, rect.bottom);
-        triangle.lineTo(rect.right, rect.bottom);
-        triangle.lineTo(rect.center.dx, rect.top);
-      }
-      triangle.close();
-      canvas.drawPath(triangle, Paint()..color = i.isEven ? const Color(0xFFFFFFFF) : const Color(0xFFB9E7C5));
-      if (selectedPoint == i) {
-        canvas.drawPath(triangle, Paint()..color = _gold.withValues(alpha: .38));
-        canvas.drawPath(triangle, Paint()..style = PaintingStyle.stroke..strokeWidth = 2..color = _gold);
-      }
-      final pointNumber = TextPainter(
-        text: TextSpan(
-          text: '${i + 1}',
-          style: TextStyle(
-            color: const Color(0xFFE53935),
-            fontSize: (pointWidth * .24).clamp(7.0, 10.0),
-            fontWeight: FontWeight.w900,
-            shadows: const [Shadow(color: Colors.black87, blurRadius: 2)],
-          ),
-        ),
-        textDirection: TextDirection.ltr,
-      )..layout();
-      pointNumber.paint(
-        canvas,
-        Offset(
-          x + (pointWidth - pointNumber.width) / 2,
-          top ? rect.top + 2 : rect.bottom - pointNumber.height - 2,
-        ),
-      );
-      final count = points[i].toInt();
-      if (count == 0) continue;
-      final positive = count > 0;
-      final checker = Paint()..color = positive ? _lightChecker : _darkChecker;
-      final outline = Paint()..style = PaintingStyle.stroke..strokeWidth = 1.2..color = positive ? const Color(0xFFFFE7A0) : const Color(0xFF777777);
-      final visible = count.abs().clamp(1, 5);
-      for (var stack = 0; stack < visible; stack++) {
-        final cy = top
-            ? 12 + checkerRadius + stack * stackGap
-            : size.height - 12 - checkerRadius - stack * stackGap;
-        final center = Offset(x + pointWidth / 2, cy);
-        canvas.drawCircle(center, checkerRadius, checker);
-        canvas.drawCircle(center, checkerRadius, outline);
-      }
-      if (count.abs() > 5) {
-        final label = TextPainter(
-          text: TextSpan(text: count.abs().toString(), style: TextStyle(
-            color: positive ? _darkChecker : Colors.white,
-            fontSize: checkerRadius * .95,
-            fontWeight: FontWeight.w900,
-          )),
-          textDirection: TextDirection.ltr,
-        )..layout();
-        label.paint(canvas, Offset(x + (pointWidth - label.width) / 2, top ? 8 : size.height - label.height - 8));
-      }
-    }
-    canvas.drawLine(Offset(halfWidth, 0), Offset(halfWidth, size.height), Paint()..color = _gold..strokeWidth = 1.5);
-    canvas.drawLine(Offset(halfWidth + barWidth, 0), Offset(halfWidth + barWidth, size.height), Paint()..color = _gold..strokeWidth = 1.5);
-  }
-
-  @override
-  bool shouldRepaint(covariant _OnlineBackgammonBoardPainter oldDelegate) {
-    if (oldDelegate.selectedPoint != selectedPoint || oldDelegate.points.length != points.length) return true;
-    for (var i = 0; i < points.length; i++) {
-      if (oldDelegate.points[i] != points[i]) return true;
-    }
-    return false;
-  }
+    aspectRatio: 1.55,
+    child: RoyalBackgammonBoard(
+      points: points,
+      selectedPoint: selectedPoint,
+      barWhite: barWhite,
+      barBlack: barBlack,
+      offWhite: offWhite,
+      offBlack: offBlack,
+      dice: dice,
+      onPointTap: onPointTap,
+    ),
+  );
 }
 
 class _Die extends StatelessWidget {

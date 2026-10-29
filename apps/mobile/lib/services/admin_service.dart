@@ -81,6 +81,50 @@ class AdminService {
 
   static Future<bool> isOwner() async => (await _request('GET', '/api/v1/admin/status'))['isOwner'] == true;
   static Future<List<dynamic>> plans() async => (await _request('GET', '/api/v1/admin/subscription-plans'))['plans'] as List<dynamic>? ?? [];
+
+  static Future<List<dynamic>> leagues() async =>
+      (await _request('GET', '/api/v1/admin/leagues'))['leagues'] as List<dynamic>? ?? [];
+
+  static Future<Map<String, dynamic>> createLeague({
+    required String code,
+    required String name,
+    required bool enabled,
+    required String entryMode,
+    required int subscriptionDaysCost,
+    required String format,
+    required int minimumParticipants,
+  }) async => (await _request('POST', '/api/v1/admin/leagues', body: {
+        'code': code.trim().toLowerCase(),
+        'name': name.trim(),
+        'enabled': enabled,
+        'entryMode': entryMode,
+        'subscriptionDaysCost': subscriptionDaysCost,
+        'rules': {
+          'format': format, 'minimumParticipants': minimumParticipants,
+          'restPolicy': 'balanced_report_actual_games',
+          'finalStagePolicy': 'manager_decides_by_format',
+          'appealDeadlineHours': 24,
+          'doubleAbsencePolicy': 'reschedule_if_possible',
+          'technicalIssuePolicy': 'reschedule_if_possible',
+        },
+      }))['league'] as Map<String, dynamic>;
+
+  static Future<Map<String, dynamic>> updateLeague(
+    String id, {
+    String? name,
+    bool? enabled,
+    String? entryMode,
+    int? subscriptionDaysCost,
+    Map<String, dynamic>? rules,
+  }) async {
+    final body = <String, dynamic>{};
+    if (name != null) body['name'] = name.trim();
+    if (enabled != null) body['enabled'] = enabled;
+    if (entryMode != null) body['entryMode'] = entryMode;
+    if (subscriptionDaysCost != null) body['subscriptionDaysCost'] = subscriptionDaysCost;
+    if (rules != null) body['rules'] = rules;
+    return (await _request('PATCH', '/api/v1/admin/leagues/$id', body: body))['league'] as Map<String, dynamic>;
+  }
   static Future<List<dynamic>> findUser(String email) async =>
       (await _request('GET', '/api/v1/users/search?email=${Uri.encodeQueryComponent(email.trim())}'))['users'] as List<dynamic>? ?? [];
   static Future<Map<String, dynamic>> exportUserProfile(String userId) async =>
