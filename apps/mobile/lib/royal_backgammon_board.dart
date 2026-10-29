@@ -24,15 +24,22 @@ class RoyalBackgammonBoard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => LayoutBuilder(builder: (context, c) {
-    final panel = (c.maxWidth * .075).clamp(28.0, 58.0).toDouble();
+    final panel = (c.maxWidth * .105).clamp(36.0, 58.0).toDouble();
     return Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       SizedBox(width: panel, child: Column(children: [
-        Expanded(child: _CountPanel(label: appText(context, 'بار', 'Bar'), count: barBlack, white: false, themeColors: themeColors)),
-        Expanded(child: _CountPanel(label: appText(context, 'خارج از بازی', 'Off'), count: offBlack, white: false, onTap: onBearOff, themeColors: themeColors, timerText: timerText != null && !timerWhite ? timerText : null)),
+        Expanded(child: _CountPanel(label: appText(context, 'مشکی', 'Black'), count: offBlack, white: false,
+          onTap: onBearOff, themeColors: themeColors,
+          timerText: timerText != null && !timerWhite ? timerText : null)),
+        Expanded(child: _CountPanel(label: appText(context, 'طلایی', 'Gold'), count: offWhite, white: true,
+          onTap: onBearOff, themeColors: themeColors,
+          timerText: timerText != null && timerWhite ? timerText : null)),
       ])),
       const SizedBox(width: 5),
       Expanded(child: LayoutBuilder(builder: (context, boardC) {
         final size = Size(boardC.maxWidth, boardC.maxHeight);
+        final middle = _RoyalBoardPainter.middleHeight(size);
+        final rowHeight = (size.height - middle) / 2;
+        final barWidth = (size.width * .09).clamp(24.0, 42.0).toDouble();
         return Stack(fit: StackFit.expand, children: [
           CustomPaint(painter: _RoyalBoardPainter(points: points, selected: selectedPoint,
             targets: legalTargets, dice: dice, themeColors: themeColors)),
@@ -46,8 +53,13 @@ class RoyalBackgammonBoard extends StatelessWidget {
                 child: const SizedBox.expand(),
               ),
             ),
+          Positioned(left: size.width / 2 - barWidth / 2, top: rowHeight * .35,
+            width: barWidth, child: _BarCount(count: barBlack, white: false)),
+          Positioned(left: size.width / 2 - barWidth / 2, top: rowHeight + middle + rowHeight * .35,
+            width: barWidth, child: _BarCount(count: barWhite, white: true)),
           if (onRoll != null)
-            Positioned(left: 5, right: boardC.maxWidth * .51, top: boardC.maxHeight / 2 - _RoyalBoardPainter.middleHeight(size) / 2 - 19,
+            Positioned(left: 5, right: size.width * .55,
+              top: rowHeight + middle / 2 - 19,
               child: FilledButton.icon(
                 onPressed: onRoll,
                 icon: const Icon(Icons.casino, size: 17),
@@ -61,28 +73,29 @@ class RoyalBackgammonBoard extends StatelessWidget {
               )),
         ]);
       })),
-      const SizedBox(width: 5),
-      SizedBox(width: panel, child: Column(children: [
-        Expanded(child: _CountPanel(label: appText(context, 'بار', 'Bar'), count: barWhite, white: true, themeColors: themeColors)),
-        Expanded(child: _CountPanel(label: appText(context, 'خارج از بازی', 'Off'), count: offWhite, white: true, onTap: onBearOff, themeColors: themeColors, timerText: timerText != null && timerWhite ? timerText : null)),
-      ])),
     ]);
   });
 }
 
 class _CountPanel extends StatelessWidget {
   const _CountPanel({required this.label, required this.count, required this.white, this.onTap, required this.themeColors, this.timerText});
-  final String label; final int count; final bool white; final VoidCallback? onTap; final List<Color> themeColors; final String? timerText;
+  final String label;
+  final int count;
+  final bool white;
+  final VoidCallback? onTap;
+  final List<Color> themeColors;
+  final String? timerText;
+
   @override
   Widget build(BuildContext context) => GestureDetector(onTap: onTap,
     child: Container(width: double.infinity, margin: const EdgeInsets.symmetric(vertical: 3),
       padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
       decoration: BoxDecoration(borderRadius: BorderRadius.circular(7),
-        border: Border.all(color: const Color(0xFFE2B253), width: 1.2),
+        border: Border.all(color: const Color(0xFFD8B45A), width: 1.2),
         gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter,
           colors: [themeColors[1], themeColors[2]])),
       child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-        FittedBox(child: Text(label, style: const TextStyle(color: Color(0xFFE2B253), fontSize: 11, fontWeight: FontWeight.w700))),
+        FittedBox(child: Text(label, style: const TextStyle(color: Color(0xFFD8B45A), fontSize: 11, fontWeight: FontWeight.w700))),
         const SizedBox(height: 4),
         CustomPaint(size: const Size(22, 22), painter: _CheckerPainter(white)),
         const SizedBox(height: 3),
@@ -92,6 +105,19 @@ class _CountPanel extends StatelessWidget {
           FittedBox(child: Text(timerText!, style: const TextStyle(color: Color(0xFFFFE7A0), fontSize: 10, fontWeight: FontWeight.bold))),
         ],
       ])));
+}
+
+class _BarCount extends StatelessWidget {
+  const _BarCount({required this.count, required this.white});
+  final int count;
+  final bool white;
+
+  @override
+  Widget build(BuildContext context) => Column(mainAxisSize: MainAxisSize.min, children: [
+    CustomPaint(size: const Size(22, 22), painter: _CheckerPainter(white)),
+    const SizedBox(height: 2),
+    FittedBox(child: Text('$count', style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w800))),
+  ]);
 }
 
 class _CheckerPainter extends CustomPainter {
@@ -128,7 +154,7 @@ class _RoyalBoardPainter extends CustomPainter {
   static double middleHeight(Size s) => (s.height * .09).clamp(26.0, 44.0).toDouble();
 
   static Rect pointRect(int i, Size s) {
-    final m=s.width*.025, bw=s.width*.032, hw=(s.width-2*m-bw)/2, pw=hw/6;
+    final m=s.width*.025, bw=(s.width*.09).clamp(24.0,42.0).toDouble(), hw=(s.width-2*m-bw)/2, pw=hw/6;
     final top=i<12;
     final col=top?(i<6?11-i:5-(i-6)):(i<18?i-12:i-18);
     final left=col<6?m+col*pw:m+hw+bw+(col-6)*pw;
@@ -138,7 +164,7 @@ class _RoyalBoardPainter extends CustomPainter {
 
   @override
   void paint(Canvas c, Size s) {
-    final w=s.width, h=s.height, m=w*.025, bw=w*.032;
+    final w=s.width, h=s.height, m=w*.025, bw=(w*.09).clamp(24.0,42.0).toDouble();
     final hw=(w-2*m-bw)/2, pw=hw/6, mid=middleHeight(s), row=(h-mid)/2;
     final topBase=row*.98, bottomBase=row+mid+row*.02;
     final triH=row*.56, r=math.min(pw*.43, row*.095);
