@@ -1,0 +1,58 @@
+name: Royal Club Production API Health
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: royal-club-production-api-health
+  cancel-in-progress: true
+
+jobs:
+  health:
+    name: Verify deployed API and database
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check API health
+        env:
+          API_BASE_URL: https://br-misty-flower-bavs47dm-royalclubapi.compute.c-8.eu-central-1.aws.neon.tech
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3 4 5; do
+            if curl --fail --silent --show-error --connect-timeout 5 --max-time 12 "${API_BASE_URL}/api/v1/health" --output health.json; then
+              if node -e 'const x=JSON.parse(require("node:fs").readFileSync("health.json","utf8")); if(x.status!=="ok")process.exit(1)'; then
+                echo "API health check passed."
+                break
+              fi
+            fi
+            if [ "$attempt" -eq 5 ]; then
+              echo "::error::The deployed API did not pass its health check after 5 attempts."
+              cat health.json 2>/dev/null || true
+              exit 1
+            fi
+            sleep 10
+          done
+      - name: Check database connectivity
+        env:
+          API_BASE_URL: https://br-misty-flower-bavs47dm-royalclubapi.compute.c-8.eu-central-1.aws.neon.tech
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3 4 5; do
+            if curl --fail --silent --show-error --connect-timeout 5 --max-time 12 "${API_BASE_URL}/api/v1/health/db" --output database-health.json; then
+              if node -e 'const x=JSON.parse(require("node:fs").readFileSync("database-health.json","utf8")); if(x.status!=="ok"||x.database!=="connected")process.exit(1)'; then
+                echo "Database connectivity check passed."
+                exit 0
+              fi
+            fi
+            if [ "$attempt" -eq 5 ]; then
+              echo "::error::The deployed API did not confirm database connectivity after 5 attempts."
+              cat database-health.json 2>/dev/null || true
+              exit 1
+            fi
+            sleep 10
+          done
