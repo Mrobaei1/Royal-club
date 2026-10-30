@@ -98,6 +98,29 @@ test('registered players can join an online match and history does not expose op
   const host = await register('Host Integration');
   const guest = await register('Guest Integration');
 
+  // Phase 4 agent planning endpoints are owner-only; regular accounts cannot inspect or queue tasks.
+  const deniedAgentTaskList = await app.inject({
+    method: 'GET',
+    url: '/api/v1/admin/agent-tasks',
+    headers: auth(host.token),
+  });
+  assert.equal(deniedAgentTaskList.statusCode, 403);
+  const deniedAgentTaskCreate = await app.inject({
+    method: 'POST',
+    url: '/api/v1/admin/agent-tasks',
+    headers: auth(host.token),
+    payload: { code: 'marketing_report', title: 'Marketing report', domain: 'marketing' },
+  });
+  assert.equal(deniedAgentTaskCreate.statusCode, 403);
+  const deniedAgentProposal = await app.inject({
+    method: 'POST',
+    url: '/api/v1/admin/agent-tasks/1/proposals',
+    headers: auth(host.token),
+    payload: { input: { campaign: 'weekly-summary' } },
+  });
+  assert.equal(deniedAgentProposal.statusCode, 403);
+
+
   const usernameSearch = await app.inject({
     method: 'GET',
     url: `/api/v1/users/search?username=${encodeURIComponent(guest.user.username)}`,
@@ -2193,3 +2216,49 @@ test('purpose-bound OTP can register a new phone account, log it in, and link a 
   }
 });
 
+test('Phase 4 agent task definitions remain dormant and proposals require human review', async () => {
+  const owner = await register('Agent Control Owner');
+  const previousOwnerId = process.env.OWNER_USER_ID;
+  process.env.OWNER_USER_ID = owner.user.id;
+  try {
+    const createTask = await app.inject({
+      method: 'POST',
+      url: '/api/v1/admin/agent-tasks',
+      headers: auth(owner.token),
+      payload: {
+        code: `test_task_${randomUUID().replace(/-/g, '').slice(0, 12)}`,
+        title: 'Read-only analytics summary',
+        domain: 'analytics',
+        description: 'Prepare a summary for manager review.',
+        requestedCapabilities: ['read', 'recommend'],
+      },
+    });
+    assert.equal(createTask.statusCode, 201, createTask.body);
+    assert.equal(createTask.json().runtimeEnabled, false);
+    assert.equal(createTask.json().task.status, 'draft');
+    const taskId = String(createTask.json().task.id);
+
+    const proposal = await app.inject({
+      method: 'POST',
+      url: `/api/v1/admin/agent-tasks/${taskId}/proposals`,
+      headers: auth(owner.token),
+      payload: { input: { period: '7d', includePersonalData: false } },
+    });
+    assert.equal(proposal.statusCode, 201, proposal.body);
+    assert.equal(proposal.json().runtimeEnabled, false);
+    assert.equal(proposal.json().requiresHumanReview, true);
+    assert.equal(proposal.json().proposal.status, 'awaiting_review');
+
+    const queue = await app.inject({
+      method: 'GET',
+      url: '/api/v1/admin/agent-task-proposals',
+      headers: auth(owner.token),
+    });
+    assert.equal(queue.statusCode, 200, queue.body);
+    assert.ok((queue.json().proposals as Array<Record<string, unknown>>)
+      .some((item) => String(item.id) === String(proposal.json().proposal.id)));
+  } finally {
+    if (previousOwnerId === undefined) delete process.env.OWNER_USER_ID;
+    else process.env.OWNER_USER_ID = previousOwnerId;
+  }
+});
