@@ -1322,7 +1322,7 @@ app.patch<{ Params: { gameType: string }; Body: { enabled?: boolean; graceSecond
        VALUES ($1, $2, $3::jsonb, $4::jsonb)`,
       [actor.sub, gameType, JSON.stringify(previous.rows[0]), JSON.stringify(updated.rows[0])],
     );
-    if (enabled === false || takeoverMode === 'disabled' || takeoverMode === 'wait_until_game_end') {
+    if (gameType === 'backgammon' && (enabled === false || takeoverMode === 'disabled' || takeoverMode === 'wait_until_game_end')) {
       await client.query(
         `UPDATE backgammon_match_presence p
             SET takeover_active = FALSE, takeover_started_at = NULL
