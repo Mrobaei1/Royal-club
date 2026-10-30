@@ -28,6 +28,7 @@ Each league should store its format, manager-selected minimum participant count,
 - [x] Require explicit manager approval and a compatible format for final-stage round creation.
 - [x] Record double-absence/technical-issue decisions and allow managers to set a replacement time.
 - [x] Existing integration tests cover authorization, concurrent entry, idempotency, audit history, and the no-wallet-debit guarantee. New scheduling/appeal flows still need dedicated integration tests.
+- [x] Provide manager UI for creating manual Swiss/knockout/group-format rounds and require explicit approval before a compatible final stage.
 - [ ] Manually accept the Persian and English manager UI before enabling a real league.
 
 ## Current implementation boundary
