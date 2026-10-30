@@ -1463,7 +1463,7 @@ app.post<{ Params: { id: string }; Body: { startsAt?: string | null; intervalDay
       await client.query('ROLLBACK');
       return reply.code(409).send({ error: 'League minimum participant count has not been reached.', minimumParticipants: rules?.minimumParticipants ?? null, currentParticipants: players.length });
     }
-    if (!['round_robin', 'swiss', 'knockout'].includes(rules?.format ?? 'round_robin')) { await client.query('ROLLBACK'); return reply.code(422).send({ error: 'This league format requires manager-created rounds.' }); }
+    if ((rules?.format ?? 'round_robin') !== 'round_robin') { await client.query('ROLLBACK'); return reply.code(422).send({ error: 'Automatic schedule generation is available only for round-robin leagues. This format requires manager-created rounds.' }); }
     const prior = await client.query('SELECT id FROM league_rounds WHERE league_id = $1', [leagueId]);
     if (prior.rowCount) { await client.query('ROLLBACK'); return reply.code(409).send({ error: 'Schedule already exists for this league.' }); }
     const roster: (string | null)[] = [...players];

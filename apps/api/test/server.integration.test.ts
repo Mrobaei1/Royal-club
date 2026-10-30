@@ -2592,3 +2592,58 @@ test('odd-sized round-robin league balances byes and reports actual completed ga
     else process.env.OWNER_USER_ID = previousOwnerId;
   }
 });
+
+
+test('automatic schedule generation rejects manager-created formats without creating partial rounds', async () => {
+  const previousOwnerId = process.env.OWNER_USER_ID;
+  const owner = await register('Manual Format Owner');
+  const player = await register('Manual Format Player');
+  process.env.OWNER_USER_ID = owner.user.id;
+  try {
+    for (const [index, format] of ['swiss', 'knockout', 'groups_then_knockout'].entries()) {
+      const created = await app.inject({
+        method: 'POST',
+        url: '/api/v1/admin/leagues',
+        headers: auth(owner.token),
+        payload: {
+          code: `manual_${index}_${randomUUID().replace(/-/g, '').slice(0, 8)}`,
+          name: `Manual Format ${format}`,
+          enabled: true,
+          rules: { format, minimumParticipants: 2 },
+        },
+      });
+      assert.equal(created.statusCode, 201, created.body);
+      const leagueId = String(created.json().league.id);
+
+      for (const [playerIndex, participant] of [owner, player].entries()) {
+        const entry = await app.inject({
+          method: 'POST',
+          url: `/api/v1/leagues/${leagueId}/entries`,
+          headers: auth(participant.token),
+          payload: { idempotencyKey: `manual-format-${index}-${playerIndex}-${randomUUID()}` },
+        });
+        assert.equal(entry.statusCode, 201, entry.body);
+      }
+
+      const schedule = await app.inject({
+        method: 'POST',
+        url: `/api/v1/admin/leagues/${leagueId}/schedule`,
+        headers: auth(owner.token),
+        payload: { startsAt: new Date(Date.now() + 3600000).toISOString(), intervalDays: 7 },
+      });
+      assert.equal(schedule.statusCode, 422, schedule.body);
+      assert.match(schedule.json().error, /only for round-robin/i);
+
+      const report = await app.inject({
+        method: 'GET',
+        url: `/api/v1/admin/leagues/${leagueId}/report`,
+        headers: auth(owner.token),
+      });
+      assert.equal(report.statusCode, 200, report.body);
+      assert.equal(report.json().rounds.length, 0, 'Rejected automatic scheduling must not leave partial rounds.');
+    }
+  } finally {
+    if (previousOwnerId === undefined) delete process.env.OWNER_USER_ID;
+    else process.env.OWNER_USER_ID = previousOwnerId;
+  }
+});
