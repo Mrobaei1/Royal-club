@@ -151,6 +151,41 @@ class _AdminScreenState extends State<AdminScreen> {
     }
   }
 
+  void _applyAgentTemplate(Map<String, dynamic> template) {
+    final rawCode = template['code']?.toString().trim().toLowerCase() ?? '';
+    final code = rawCode.replaceAll(':', '_');
+    final gameCode = template['gameCode']?.toString();
+    final title = template['title']?.toString() ?? rawCode;
+    final responsibility = template['responsibility']?.toString() ?? '';
+    final domain = switch (rawCode) {
+      'membership' => 'membership',
+      'trust_safety' || 'community_moderation' => 'moderation',
+      'leagues' => 'leagues',
+      'wallet_audit' || 'analytics_reporting' => 'analytics',
+      'deposit_review' => 'deposits',
+      'customer_support' => 'membership',
+      'growth_marketing' || 'content_communications' => 'marketing',
+      'advertising' => 'advertising',
+      _ => 'operations',
+    };
+    final capabilities = (template['defaultCapabilities'] as List<dynamic>? ?? const ['read'])
+        .map((value) => value.toString())
+        .toSet();
+    setState(() {
+      _agentTaskCode.text = code;
+      _agentTaskTitle.text = gameCode == null ? title : '$title · $gameCode';
+      _agentTaskDescription.text = gameCode == null
+          ? responsibility
+          : '$responsibility Game code: $gameCode';
+      _agentTaskDomain = domain;
+      _agentTaskRead = capabilities.contains('read');
+      _agentTaskRecommend = capabilities.contains('recommend');
+    });
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(appText(context, 'قالب در فرم پیش‌نویس بارگذاری شد؛ برای ثبت، بررسی کنید.', 'Template loaded into the draft form; review it before saving.')),
+    ));
+  }
+
   Future<void> _createAgentTask() async {
     final code = _agentTaskCode.text.trim().toLowerCase();
     final title = _agentTaskTitle.text.trim();
@@ -1208,6 +1243,17 @@ class _AdminScreenState extends State<AdminScreen> {
                                   child: Text('${appText(context, 'قابلیت‌های پیش‌فرض', 'Default capabilities')}: ${(template['defaultCapabilities'] as List<dynamic>? ?? const []).join(', ')}'),
                                 ),
                               ),
+                              Align(
+                                alignment: AlignmentDirectional.centerEnd,
+                                child: Padding(
+                                  padding: const EdgeInsetsDirectional.only(end: 12, bottom: 8),
+                                  child: OutlinedButton.icon(
+                                    onPressed: _busy ? null : () => _applyAgentTemplate(Map<String, dynamic>.from(template as Map)),
+                                    icon: const Icon(Icons.playlist_add),
+                                    label: Text(appText(context, 'استفاده در پیش‌نویس', 'Use in draft')),
+                                  ),
+                                ),
+                              ),
                             ],
                           ),
                       const Divider(height: 20),
@@ -1232,6 +1278,11 @@ class _AdminScreenState extends State<AdminScreen> {
                           leading: const Icon(Icons.lock_outline),
                           title: Text(_futureGameAgentTemplate!['code']?.toString() ?? ''),
                           subtitle: Text(_futureGameAgentTemplate!['responsibility']?.toString() ?? ''),
+                          trailing: IconButton(
+                            tooltip: appText(context, 'استفاده در پیش‌نویس', 'Use in draft'),
+                            onPressed: _busy ? null : () => _applyAgentTemplate(_futureGameAgentTemplate!),
+                            icon: const Icon(Icons.playlist_add),
+                          ),
                         ),
                       const Divider(height: 24),
                       Text(appText(context, 'ساخت پیش‌نویس وظیفه', 'Create a task draft'), style: const TextStyle(fontWeight: FontWeight.bold)),
