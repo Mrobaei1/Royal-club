@@ -98,3 +98,18 @@ No production deployment, migration, trigger creation, environment update, SMS a
 6. No production deployment/migration, SMS activation, privileged agent activation, or APK build without the separate approvals described above.
 
 **Next coding task:** implement and test online disconnect/temporary AI takeover on a dedicated feature branch. Do not begin by deploying production.
+
+
+## Continuation update — 2026-10-30
+
+The next feature is being implemented on the independent branch
+`feature/backgammon-disconnect-ai-takeover`. The branch currently contains:
+- A pure temporary-AI move selector built on the existing backgammon rules engine.
+- API presence/heartbeat storage, owner-authenticated per-game disconnect policies, an 18-second backgammon default, server-side temporary turn processing, reconnect handback and human/AI concurrency fencing.
+- Mobile heartbeat requests in the existing online-match refresh cycle and a temporary-AI status notice.
+- Unit and integration tests for move selection, grace-period behavior, stale human requests, reconnect and concurrent polling.
+- The implementation design and updated readiness note.
+
+**Verification boundary:** these changes are branch-only, not in `main`, not deployed, and not yet CI-verified. The readiness checklist remains open until all branch workflows pass and two-device manual acceptance is completed. Card and chess takeover execution are not included in this backgammon implementation.
+
+No Production deployment or migration, APK build, SMS activation, Agent runtime, delegated grant, paid feature or operational schedule was performed as part of this feature work.
