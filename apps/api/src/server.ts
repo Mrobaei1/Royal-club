@@ -572,6 +572,16 @@ await pool.query(`
          ('cards', TRUE, 18, 'temporary_ai'),
          ('chess', TRUE, 18, 'wait_until_game_end')
   ON CONFLICT (game_type) DO NOTHING;
+  CREATE TABLE IF NOT EXISTS game_disconnect_policy_audit (
+    id BIGSERIAL PRIMARY KEY,
+    actor_user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+    game_type TEXT NOT NULL REFERENCES game_disconnect_policies(game_type) ON DELETE RESTRICT,
+    previous_policy JSONB NOT NULL,
+    next_policy JSONB NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+  CREATE INDEX IF NOT EXISTS game_disconnect_policy_audit_created_idx
+    ON game_disconnect_policy_audit (created_at DESC);
   CREATE TABLE IF NOT EXISTS backgammon_match_invites (
     id BIGSERIAL PRIMARY KEY,
     match_id BIGINT NOT NULL REFERENCES backgammon_matches(id) ON DELETE CASCADE,
@@ -1277,15 +1287,53 @@ app.patch<{ Params: { gameType: string }; Body: { enabled?: boolean; graceSecond
       (takeoverMode !== undefined && !['temporary_ai', 'wait_until_game_end', 'disabled'].includes(takeoverMode))) {
     return reply.code(400).send({ error: 'Invalid disconnect policy.' });
   }
-  const result = await pool.query(
-    `UPDATE game_disconnect_policies SET enabled = COALESCE($2, enabled),
-       grace_seconds = COALESCE($3, grace_seconds), takeover_mode = COALESCE($4, takeover_mode),
-       updated_at = NOW() WHERE game_type = $1
-       RETURNING game_type AS "gameType", enabled, grace_seconds AS "graceSeconds", takeover_mode AS "takeoverMode", updated_at AS "updatedAt"`,
-    [gameType, enabled ?? null, graceSeconds ?? null, takeoverMode ?? null],
-  );
-  if (!result.rowCount) return reply.code(404).send({ error: 'Disconnect policy not found.' });
-  return { policy: result.rows[0] };
+  const actor = request.user as { sub: string };
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const previous = await client.query(
+      `SELECT game_type AS "gameType", enabled, grace_seconds AS "graceSeconds",
+              takeover_mode AS "takeoverMode"
+         FROM game_disconnect_policies WHERE game_type = $1 FOR UPDATE`,
+      [gameType],
+    );
+    if (!previous.rowCount) {
+      await client.query('ROLLBACK');
+      return reply.code(404).send({ error: 'Disconnect policy not found.' });
+    }
+    const updated = await client.query(
+      `UPDATE game_disconnect_policies SET enabled = COALESCE($2, enabled),
+         grace_seconds = COALESCE($3, grace_seconds), takeover_mode = COALESCE($4, takeover_mode),
+         updated_at = NOW() WHERE game_type = $1
+         RETURNING game_type AS "gameType", enabled, grace_seconds AS "graceSeconds",
+                   takeover_mode AS "takeoverMode", updated_at AS "updatedAt"`,
+      [gameType, enabled ?? null, graceSeconds ?? null, takeoverMode ?? null],
+    );
+    await client.query(
+      `INSERT INTO game_disconnect_policy_audit
+         (actor_user_id, game_type, previous_policy, next_policy)
+       VALUES ($1, $2, $3::jsonb, $4::jsonb)`,
+      [actor.sub, gameType, JSON.stringify(previous.rows[0]), JSON.stringify(updated.rows[0])],
+    );
+    if (enabled === false || takeoverMode === 'disabled' || takeoverMode === 'wait_until_game_end') {
+      await client.query(
+        `UPDATE backgammon_match_presence SET takeover_active = FALSE,
+           takeover_started_at = NULL WHERE user_id IN (
+             SELECT user_id FROM backgammon_match_presence WHERE match_id IN (
+               SELECT id FROM backgammon_matches WHERE status = 'active'
+             )
+           ) AND match_id IN (SELECT id FROM backgammon_matches WHERE status = 'active')`,
+      );
+    }
+    await client.query('COMMIT');
+    return { policy: updated.rows[0] };
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    request.log.error({ err: error }, 'Could not update game disconnect policy');
+    return reply.code(500).send({ error: 'Could not update game disconnect policy.' });
+  } finally {
+    client.release();
+  }
 });
 
 
