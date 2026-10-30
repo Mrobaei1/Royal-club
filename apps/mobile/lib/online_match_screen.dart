@@ -69,6 +69,9 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
         return;
       }
       if (mounted) setState(() => _matchDetails = Map<String, dynamic>.from(match));
+      if (match['status'] == 'active') {
+        await MatchService.heartbeat(_id);
+      }
       if (match['status'] == 'active' || match['status'] == 'finished') {
         final state = await MatchService.getState(_id);
         if (sequence != _refreshSequence) {
