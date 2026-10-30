@@ -163,11 +163,13 @@ class _AdminScreenState extends State<AdminScreen> {
       _agentTaskTitle.clear();
       _agentTaskDescription.clear();
       await _loadAgentTaskProposals();
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(appText(context,
-          'تعریف وظیفه به‌صورت پیش‌نویس ذخیره شد؛ اجرای خودکار غیرفعال است.',
-          'Task definition saved as a draft; automatic execution remains disabled.')),
-      ));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(appText(context,
+            'تعریف وظیفه به‌صورت پیش‌نویس ذخیره شد؛ اجرای خودکار غیرفعال است.',
+            'Task definition saved as a draft; automatic execution remains disabled.')),
+        ));
+      }
     } catch (error) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appError(context, error))));
     } finally {
@@ -209,11 +211,13 @@ class _AdminScreenState extends State<AdminScreen> {
     try {
       await AdminService.rejectAgentTaskProposal(proposal['id'].toString(), reason);
       await _load();
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(appText(context,
-          'پیشنهاد رد و در گزارش ممیزی ثبت شد؛ اجرای ایجنت غیرفعال است.',
-          'Proposal rejected and audited; agent execution remains disabled.')),
-      ));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(appText(context,
+            'پیشنهاد رد و در گزارش ممیزی ثبت شد؛ اجرای ایجنت غیرفعال است.',
+            'Proposal rejected and audited; agent execution remains disabled.')),
+        ));
+      }
     } catch (error) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appError(context, error))));
     } finally {
