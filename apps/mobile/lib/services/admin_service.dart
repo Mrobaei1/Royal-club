@@ -47,6 +47,25 @@ class AdminService {
         'confirmCost': confirmCost,
       });
 
+  static Future<List<dynamic>> agentTasks() async =>
+      (await _request('GET', '/api/v1/admin/agent-tasks'))['tasks'] as List<dynamic>? ?? [];
+
+  static Future<Map<String, dynamic>> createAgentTask({
+    required String code,
+    required String title,
+    required String domain,
+    required String description,
+    required List<String> requestedCapabilities,
+    required bool requiresHumanApproval,
+  }) async => (await _request('POST', '/api/v1/admin/agent-tasks', body: {
+        'code': code.trim().toLowerCase(),
+        'title': title.trim(),
+        'domain': domain,
+        'description': description.trim(),
+        'requestedCapabilities': requestedCapabilities,
+        'requiresHumanApproval': requiresHumanApproval,
+      }))['task'] as Map<String, dynamic>;
+
   static Future<List<dynamic>> agentTaskProposals() async =>
       (await _request('GET', '/api/v1/admin/agent-task-proposals'))['proposals'] as List<dynamic>? ?? [];
 
