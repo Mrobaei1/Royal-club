@@ -276,6 +276,9 @@ await pool.query(`
   );
   CREATE INDEX IF NOT EXISTS agent_task_audit_created_idx
     ON agent_task_audit_log (created_at DESC);
+  ALTER TABLE agent_task_audit_log DROP CONSTRAINT IF EXISTS agent_task_audit_log_action_check;
+  ALTER TABLE agent_task_audit_log ADD CONSTRAINT agent_task_audit_log_action_check
+    CHECK (action IN ('definition_created', 'definition_updated', 'proposal_created', 'proposal_rejected', 'proposal_cancelled'));
 
 
   CREATE TABLE IF NOT EXISTS app_contact_methods (
@@ -1669,6 +1672,86 @@ app.post<{ Body: { code?: string; title?: string; domain?: string; description?:
     }
   },
 );
+
+app.patch<{ Params: { id: string }; Body: { status?: 'draft' | 'paused'; title?: string; description?: string; requestedCapabilities?: string[]; requiresHumanApproval?: boolean } }>(
+  '/api/v1/admin/agent-tasks/:id',
+  { onRequest: [requireOwnerAuth], config: { rateLimit: { max: 20, timeWindow: '1 minute' } } },
+  async (request, reply) => {
+    if (!isNumericId(request.params.id)) return reply.code(400).send({ error: 'Invalid task definition ID.' });
+    const body = request.body ?? {};
+    const status = body.status;
+    const title = typeof body.title === 'string' ? body.title.trim() : undefined;
+    const description = typeof body.description === 'string' ? body.description.trim() : undefined;
+    const capabilities = body.requestedCapabilities;
+    const requiresHumanApproval = body.requiresHumanApproval;
+    if ((status !== undefined && status !== 'draft' && status !== 'paused') ||
+        (title !== undefined && (title.length < 3 || title.length > 120)) ||
+        (description !== undefined && description.length > 2000) ||
+        (capabilities !== undefined && (!Array.isArray(capabilities) || capabilities.length < 1 || capabilities.length > 4 ||
+          !capabilities.every((capability) => typeof capability === 'string' && agentTaskCapabilities.has(capability)) ||
+          new Set(capabilities).size !== capabilities.length)) ||
+        (requiresHumanApproval !== undefined && typeof requiresHumanApproval !== 'boolean') ||
+        (status === undefined && title === undefined && description === undefined && capabilities === undefined && requiresHumanApproval === undefined)) {
+      return reply.code(400).send({ error: 'Provide a valid dormant task update; status may only be draft or paused.' });
+    }
+    const claims = request.user as { sub?: string };
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const updated = await client.query(
+        `UPDATE agent_task_definitions SET
+           status = COALESCE($1, status),
+           title = COALESCE($2, title),
+           description = COALESCE($3, description),
+           requested_capabilities = COALESCE($4::jsonb, requested_capabilities),
+           requires_human_approval = COALESCE($5, requires_human_approval),
+           updated_by = $6, updated_at = NOW()
+         WHERE id = $7
+         RETURNING id, code, title, domain, description,
+                   requested_capabilities AS "requestedCapabilities",
+                   requires_human_approval AS "requiresHumanApproval", status,
+                   updated_at AS "updatedAt"`,
+        [status ?? null, title ?? null, description ?? null, capabilities ? JSON.stringify(capabilities) : null,
+          requiresHumanApproval ?? null, claims.sub ?? null, request.params.id],
+      );
+      if (!updated.rowCount) {
+        await client.query('ROLLBACK');
+        return reply.code(404).send({ error: 'Task definition not found.' });
+      }
+      await client.query(
+        `INSERT INTO agent_task_audit_log
+          (actor_user_id, task_definition_id, action, result, reason, details)
+         VALUES ($1, $2, 'definition_updated', 'success', 'Owner updated a dormant task definition', $3::jsonb)`,
+        [claims.sub ?? null, request.params.id, JSON.stringify({
+          status: updated.rows[0].status,
+          requiresHumanApproval: updated.rows[0].requiresHumanApproval,
+        })],
+      );
+      await client.query('COMMIT');
+      return { task: updated.rows[0], runtimeEnabled: false };
+    } catch (error) {
+      await client.query('ROLLBACK').catch(() => undefined);
+      request.log.error({ err: error }, 'Could not update dormant agent task definition');
+      return reply.code(500).send({ error: 'Could not update task definition.' });
+    } finally {
+      client.release();
+    }
+  },
+);
+
+app.get('/api/v1/admin/agent-task-audit', { onRequest: [requireOwnerAuth] }, async () => {
+  const result = await pool.query(`
+    SELECT a.id, a.actor_user_id AS "actorUserId", actor.username AS "actorUsername",
+           a.task_definition_id AS "taskDefinitionId", t.code AS "taskCode",
+           a.proposal_id AS "proposalId", a.action, a.result, a.reason, a.details,
+           a.created_at AS "createdAt"
+      FROM agent_task_audit_log a
+      LEFT JOIN users actor ON actor.id = a.actor_user_id
+      LEFT JOIN agent_task_definitions t ON t.id = a.task_definition_id
+     ORDER BY a.created_at DESC, a.id DESC LIMIT 200
+  `);
+  return { entries: result.rows, runtimeEnabled: false };
+});
 
 app.get('/api/v1/admin/agent-task-proposals', { onRequest: [requireOwnerAuth] }, async () => {
   const result = await pool.query(`
