@@ -1,7 +1,7 @@
 # Online Disconnect / Temporary AI Takeover
 
 **Implementation branch:** `feature/backgammon-disconnect-ai-takeover`  
-**Status:** Implementation and automated CI are complete on the feature branch (exact verified head `3103470f47b422ed12cbe19e6c2afae49ac868b0`). PR #61 remains draft pending review and two-device manual acceptance. This is not yet part of `main` and is not deployed to Production.
+**Status:** Implementation and automated CI are complete on the feature branch (exact verified head `c9cba5e68751e16d5b367b21521e63807e6f978d`). PR #61 remains draft pending review and two-device manual acceptance. This is not yet part of `main` and is not deployed to Production.
 
 ## Behavior and defaults
 
