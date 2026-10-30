@@ -1,66 +1,44 @@
-# Royal Club — starter scaffold
+# Royal Club
 
-Status: active development in `feature/chat-ai-invite-ux` (PR #23, not merged). This branch is not a production release. See [Phase 1–3 readiness](docs/PHASE-1-3-READINESS.md) for verified coverage and remaining prerequisites.
+Royal Club is an Android-first multi-game platform in active development, built with Flutter, a Fastify/TypeScript API, and PostgreSQL.
 
-## Contents
-- `apps/mobile`: Flutter/Dart starter source (Android-first UI entry point)
-- `apps/api`: TypeScript + Fastify API with health endpoint and PostgreSQL connectivity check
-- `infra/docker-compose.yml`: local PostgreSQL service
-- `docs/DEVELOPMENT-ANDROID.md`: phone-first cloud development workflow
+**Current status:** development and verification are ongoing. The repository's default branch is `main`; merged code and automated CI results do not by themselves establish production readiness.
 
-## Current implemented modules
-- Authentication and profile endpoints
-- Friends, notifications, online-match APIs, and backgammon rules
-- Non-transferable wallet-credit ledger and subscription activation
-- Owner-only mobile admin screen for crediting a user and editing/enabling subscription plans
+## Product scope
 
-## Owner admin configuration
-Set `OWNER_USER_ID` in the API environment to the numeric `users.id` of the owner. Leave it unset to keep owner-only operations disabled. The admin screen checks `/api/v1/admin/status`, and the server independently enforces owner authorization on every administrative write. Do not use an email address or expose this setting in the client app.
+- Backgammon is the current implementation focus. Chess and card-game entry points remain part of the product.
+- Persian and English are the supported languages.
+- Account, friends, notifications, private chat, wallet/subscription, league, ranking, and owner-admin foundations are implemented to varying levels of automated coverage.
+- Phase 4 agent tooling is intentionally dormant: task definitions and proposals are for owner review only. No agent identity, delegated permission, schedule, or execution runtime is activated automatically.
 
-## Deployment configuration checklist
+## Repository layout
 
-- Set `DATABASE_URL` to the managed PostgreSQL connection string and `JWT_SECRET` to a random secret of at least 32 characters.
-- Set `CORS_ORIGINS` to the exact comma-separated HTTPS origins serving the web app. Do not use `*` for a production deployment.
-- Set `OWNER_USER_ID` only after confirming the owner's numeric database user ID; leave it blank to disable owner-only routes.
-- For the manual Neon deployment workflow, add `ROYAL_CLUB_OWNER_USER_ID` only after confirming the owner's numeric `users.id`. If absent, owner-only routes remain disabled.
-- `ROYAL_CLUB_SMS_CREDENTIALS_ENCRYPTION_KEY` is optional and must decode from base64 to exactly 32 bytes. Configure it only when the owner approves provider configuration; it does not enable SMS delivery. Never commit this secret.
-- The Neon deployment workflow is manual-only; a push or merge must not deploy production automatically. Keep real SMS disabled until the owner separately approves activation and account-linking behavior.
-- Build the Flutter app with `--dart-define=API_BASE_URL=https://YOUR-API-HOST` so it does not depend on the temporary Codespaces API URL.
-- Verify database backups, restore procedures, TLS, monitoring, and a real deployed health check before inviting users. GitHub Actions passing is a build/test signal, not proof of a production deployment.
+- `apps/mobile`: Flutter application.
+- `apps/api`: Fastify API and PostgreSQL integration.
+- `infra`: local infrastructure configuration.
+- `docs`: architecture, security, deployment, phase-readiness, and acceptance documentation.
 
-## Test API deployment
+## Readiness and release gates
 
-Follow [docs/DEPLOY-API.md](docs/DEPLOY-API.md) to deploy the included Render blueprint, configure `API_BASE_URL`, and rebuild the app for connected testing.
+See [Phase 1–4 readiness](docs/PHASE-1-3-READINESS.md), [API security review](docs/PHASE-1-SECURITY-REVIEW.md), and [Persian/English localization audit](docs/PHASE-1-LOCALIZATION-AUDIT.md).
 
-## Quick start (cloud IDE or computer)
-1. Import this folder/repository into a cloud IDE with a terminal (see `docs/DEVELOPMENT-ANDROID.md`).
-2. Start PostgreSQL with `docker compose -f infra/docker-compose.yml up -d db` where Docker is supported.
-3. API: `cd apps/api && cp .env.example .env && npm install && npm run dev`
-4. Check `GET /api/v1/health` and `GET /api/v1/health/db`.
-5. Flutter: in an environment with Flutter installed, from `apps/mobile`, run `flutter create . --platforms=android,web` if platform wrapper files are missing, then `flutter pub get` and `flutter run`.
+The remaining release gates include production configuration and schema verification, owner-approved SMS activation and real-device checks, multi-device online-match acceptance, manual RTL/LTR review, and final end-to-end sign-off. The latest merged API source must be deployed and verified before claiming that production runs the current code.
 
-Never put production secrets in source control. The included credentials are for local development only.
+## Deployment safety
 
-## Hands-on test preview
+- Production API deployment is manual-only. A merge or push must not deploy production automatically.
+- Keep real SMS/OTP delivery disabled until the owner separately approves provider activation and account-flow acceptance.
+- Keep `OWNER_USER_ID` unset unless the numeric owner account ID is confirmed through the authorized configuration process. Never infer owner privileges from a username or email.
+- Never commit secrets, provider keys, production database URLs, or user credentials.
+- Do not enable delegated permissions, agents, schedules, payment actions, or moderation automation without an explicit owner-approved permission matrix and production acceptance.
+- Android APK generation is manual-only and requires the owner's explicit approval. No release build is implied by a green CI run.
 
-The web preview is published at: https://mrobaei1.github.io/Royal-club/. It is a test preview, not proof of production API health.
+## Test preview
 
-### Quick test checklist
-1. Open the preview in Chrome. On first launch, the app should show the authentication gate rather than the games home.
-2. Try the registration and login screens. A successful authentication should lead to the games home.
-3. Confirm the home screen still shows backgammon, chess, and card games.
-4. Open backgammon and test legal moves, dice rolls, and the available AI difficulty options.
-5. Check the account, friends, notifications, private chat, wallet/subscription, and admin entry points; report any screen that fails to open or shows an error.
+The [GitHub Pages web preview](https://mrobaei1.github.io/Royal-club/) is a test preview, not a production service. Registration, login, and online play depend on a reachable API and database.
 
-**Important:** the app no longer embeds a temporary Codespaces API address. Until a stable API is deployed and the repository Actions variable `API_BASE_URL` is set, registration and online services show a clear setup message. Follow [the test API deployment guide](docs/DEPLOY-API.md) before testing registration. Do not enter real passwords or payment details in this test build.
+For local development, see [Android development guide](docs/DEVELOPMENT-ANDROID.md) and [API deployment guide](docs/DEPLOY-API.md).
 
-## Current validation
+## Validation
 
-The main-branch web-preview workflow completed successfully on 2026-10-25, including API build, Flutter analysis, Flutter tests, web release build, and GitHub Pages deployment. This confirms the build pipeline, not a full end-to-end test against a permanently hosted API.
-
-## First hands-on test
-
-- Web preview: https://mrobaei1.github.io/Royal-club/
-- The web preview is a test build, not a production service. Registration, login, and online play require the configured API host and database to be reachable.
-- An Android release APK is built by the `Royal Club Android APK` workflow. Open the repository's **Actions** tab, select the latest successful **Royal Club Android APK** run, and download the `royal-club-android-apk` artifact. Extract the ZIP and install `app-release.apk` on an Android phone. GitHub keeps this artifact for 7 days.
-- During testing, try registration/login, local backgammon against AI, and the home screen. Chess and card-game tiles should remain visible. Send any error text or a screenshot with the action you were performing.
+Use GitHub Actions to inspect API build and integration tests, Flutter analysis and tests, backgammon engine audits, and web-preview builds. Always distinguish automated CI evidence from live API health, production deployment, and real-device acceptance.

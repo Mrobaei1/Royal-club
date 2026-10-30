@@ -25,6 +25,16 @@ class _AdminScreenState extends State<AdminScreen> {
   List<dynamic> _reports = [];
   List<dynamic> _permissionGrants = [];
   List<dynamic> _permissionAudit = [];
+  List<dynamic> _agentTaskProposals = [];
+  List<dynamic> _agentTasks = [];
+  bool _agentProposalsUnavailable = false;
+  bool _agentTasksUnavailable = false;
+  final _agentTaskCode = TextEditingController();
+  final _agentTaskTitle = TextEditingController();
+  final _agentTaskDescription = TextEditingController();
+  String _agentTaskDomain = 'operations';
+  bool _agentTaskRead = true;
+  bool _agentTaskRecommend = false;
   bool _delegatedPermissionsEnabled = false;
   final _email = TextEditingController();
   final _amount = TextEditingController(text: '100');
@@ -55,6 +65,9 @@ class _AdminScreenState extends State<AdminScreen> {
   @override
   void dispose() {
     _email.dispose();
+    _agentTaskCode.dispose();
+    _agentTaskTitle.dispose();
+    _agentTaskDescription.dispose();
     _leagueCode.dispose();
     _leagueName.dispose();
     _leagueDays.dispose();
@@ -90,11 +103,127 @@ class _AdminScreenState extends State<AdminScreen> {
       final audit = results[5] as List<dynamic>;
       final leagues = results[6] as List<dynamic>;
       setState(() { _owner = true; _plans = plans; _reports = reports; _delegatedPermissionsEnabled = permissionSettings['enabled'] == true; _permissionGrants = grants; _permissionAudit = audit; _leagues = leagues; _loading = false; _error = null; });
+      await _loadAgentTaskProposals();
     } catch (e) {
       if (mounted) setState(() { _loading = false; _error = appError(context, e); });
     }
   }
 
+
+
+  Future<void> _loadAgentTaskProposals() async {
+    try {
+      final proposals = await AdminService.agentTaskProposals();
+      if (mounted) setState(() { _agentTaskProposals = proposals; _agentProposalsUnavailable = false; });
+    } catch (_) {
+      if (mounted) setState(() { _agentTaskProposals = []; _agentProposalsUnavailable = true; });
+    }
+    try {
+      final tasks = await AdminService.agentTasks();
+      if (mounted) setState(() { _agentTasks = tasks; _agentTasksUnavailable = false; });
+    } catch (_) {
+      if (mounted) setState(() { _agentTasks = []; _agentTasksUnavailable = true; });
+    }
+  }
+
+  Future<void> _createAgentTask() async {
+    final code = _agentTaskCode.text.trim().toLowerCase();
+    final title = _agentTaskTitle.text.trim();
+    final description = _agentTaskDescription.text.trim();
+    final capabilities = <String>[
+      if (_agentTaskRead) 'read',
+      if (_agentTaskRecommend) 'recommend',
+    ];
+    const allowedDomains = <String>{
+      'membership', 'marketing', 'deposits', 'leagues', 'moderation',
+      'operations', 'social', 'advertising', 'analytics',
+    };
+    if (!RegExp(r'^[a-z0-9_]{2,48}$').hasMatch(code) ||
+        title.length < 3 || title.length > 120 ||
+        !allowedDomains.contains(_agentTaskDomain) ||
+        description.length > 2000 || capabilities.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(appText(context,
+          'کد، عنوان، حوزه و حداقل یک قابلیت مجاز را بررسی کنید.',
+          'Check the code, title, domain, and select at least one allowed capability.')),
+      ));
+      return;
+    }
+    setState(() => _busy = true);
+    try {
+      await AdminService.createAgentTask(
+        code: code,
+        title: title,
+        domain: _agentTaskDomain,
+        description: description,
+        requestedCapabilities: capabilities,
+        requiresHumanApproval: true,
+      );
+      _agentTaskCode.clear();
+      _agentTaskTitle.clear();
+      _agentTaskDescription.clear();
+      await _loadAgentTaskProposals();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(appText(context,
+            'تعریف وظیفه به‌صورت پیش‌نویس ذخیره شد؛ اجرای خودکار غیرفعال است.',
+            'Task definition saved as a draft; automatic execution remains disabled.')),
+        ));
+      }
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appError(context, error))));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _rejectAgentProposal(dynamic proposal) async {
+    final reasonController = TextEditingController();
+    final reason = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(appText(context, 'رد پیشنهاد ایجنت', 'Reject agent proposal')),
+        content: TextField(
+          controller: reasonController,
+          minLines: 2,
+          maxLines: 4,
+          maxLength: 500,
+          decoration: InputDecoration(
+            labelText: appText(context, 'دلیل رد (حداقل ۵ نویسه)', 'Reason (at least 5 characters)'),
+            border: const OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext), child: Text(appText(context, 'انصراف', 'Cancel'))),
+          FilledButton(
+            onPressed: () {
+              final value = reasonController.text.trim();
+              if (value.length >= 5 && value.length <= 500) Navigator.pop(dialogContext, value);
+            },
+            child: Text(appText(context, 'ثبت رد', 'Confirm rejection')),
+          ),
+        ],
+      ),
+    );
+    reasonController.dispose();
+    if (reason == null || _busy) return;
+    setState(() => _busy = true);
+    try {
+      await AdminService.rejectAgentTaskProposal(proposal['id'].toString(), reason);
+      await _load();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(appText(context,
+            'پیشنهاد رد و در گزارش ممیزی ثبت شد؛ اجرای ایجنت غیرفعال است.',
+            'Proposal rejected and audited; agent execution remains disabled.')),
+        ));
+      }
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appError(context, error))));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
 
   Future<void> _createLeague() async {
     final code = _leagueCode.text.trim().toLowerCase();
@@ -1012,6 +1141,108 @@ class _AdminScreenState extends State<AdminScreen> {
                       subtitle: Text('${entry['actorUsername'] ?? entry['actorUserId'] ?? appText(context, 'سامانه', 'system')} → ${entry['targetUsername'] ?? entry['targetUserId'] ?? appText(context, 'نامشخص', 'unknown')} · ${entry['createdAt']}'),
                     ),
                 ],
+              ),
+              const SizedBox(height: 22),
+
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(appText(context, 'مرکز وظایف ایجنت‌ها', 'Agent task center'), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 6),
+                      Text(appText(context,
+                        'تعریف‌ها فقط پیش‌نویس هستند. هیچ حساب، مجوز، زمان‌بندی یا اجرای خودکاری فعال نمی‌شود.',
+                        'Definitions are drafts only. No account, permission, schedule, or automatic execution is enabled.'),
+                        style: const TextStyle(fontSize: 12)),
+                      const SizedBox(height: 10),
+                      TextField(controller: _agentTaskCode, decoration: InputDecoration(labelText: appText(context, 'کد وظیفه (حروف کوچک انگلیسی)', 'Task code (lowercase English)'), border: const OutlineInputBorder())),
+                      const SizedBox(height: 8),
+                      TextField(controller: _agentTaskTitle, maxLength: 120, decoration: InputDecoration(labelText: appText(context, 'عنوان وظیفه', 'Task title'), border: const OutlineInputBorder())),
+                      const SizedBox(height: 8),
+                      DropdownButtonFormField<String>(
+                        initialValue: _agentTaskDomain,
+                        decoration: InputDecoration(labelText: appText(context, 'حوزه', 'Domain')),
+                        items: const [
+                          DropdownMenuItem(value: 'membership', child: Text('Membership')),
+                          DropdownMenuItem(value: 'marketing', child: Text('Marketing')),
+                          DropdownMenuItem(value: 'deposits', child: Text('Deposits')),
+                          DropdownMenuItem(value: 'leagues', child: Text('Leagues')),
+                          DropdownMenuItem(value: 'moderation', child: Text('Moderation')),
+                          DropdownMenuItem(value: 'operations', child: Text('Operations')),
+                          DropdownMenuItem(value: 'social', child: Text('Social')),
+                          DropdownMenuItem(value: 'advertising', child: Text('Advertising')),
+                          DropdownMenuItem(value: 'analytics', child: Text('Analytics')),
+                        ],
+                        onChanged: _busy ? null : (value) => setState(() => _agentTaskDomain = value ?? 'operations'),
+                      ),
+                      const SizedBox(height: 8),
+                      TextField(controller: _agentTaskDescription, maxLength: 2000, maxLines: 3, decoration: InputDecoration(labelText: appText(context, 'شرح وظیفه', 'Task description'), border: const OutlineInputBorder())),
+                      CheckboxListTile(
+                        contentPadding: EdgeInsets.zero,
+                        value: _agentTaskRead,
+                        onChanged: _busy ? null : (value) => setState(() => _agentTaskRead = value == true),
+                        title: Text(appText(context, 'خواندن اطلاعات', 'Read data')),
+                      ),
+                      CheckboxListTile(
+                        contentPadding: EdgeInsets.zero,
+                        value: _agentTaskRecommend,
+                        onChanged: _busy ? null : (value) => setState(() => _agentTaskRecommend = value == true),
+                        title: Text(appText(context, 'ارائه پیشنهاد برای بررسی انسانی', 'Recommend for human review')),
+                      ),
+                      FilledButton.icon(
+                        onPressed: _busy ? null : _createAgentTask,
+                        icon: const Icon(Icons.add_task),
+                        label: Text(appText(context, 'ثبت پیش‌نویس وظیفه', 'Save task draft')),
+                      ),
+                      const Divider(height: 24),
+                      Row(children: [
+                        Expanded(child: Text(appText(context, 'تعریف‌های ثبت‌شده', 'Saved task definitions'), style: const TextStyle(fontWeight: FontWeight.bold))),
+                        IconButton(onPressed: _busy ? null : _loadAgentTaskProposals, icon: const Icon(Icons.refresh)),
+                      ]),
+                      if (_agentTasksUnavailable)
+                        Text(appText(context, 'فهرست وظایف از سرور در دسترس نیست.', 'Task definitions are unavailable from the server.'))
+                      else if (_agentTasks.isEmpty)
+                        Text(appText(context, 'تعریفی ثبت نشده است.', 'No task definitions have been saved.'))
+                      else
+                        for (final task in _agentTasks)
+                          ListTile(
+                            dense: true,
+                            title: Text(task['title']?.toString() ?? task['code']?.toString() ?? ''),
+                            subtitle: Text('${task['domain'] ?? ''} · ${task['status'] ?? 'draft'}'),
+                            trailing: const Icon(Icons.lock_outline),
+                          ),
+                      const Divider(height: 24),
+                      Text(appText(context, 'پیشنهادهای در انتظار بررسی', 'Proposals awaiting review'), style: const TextStyle(fontWeight: FontWeight.bold)),
+                      if (_agentProposalsUnavailable)
+                        Text(appText(context, 'صف پیشنهادها از نسخه فعلی سرور در دسترس نیست.', 'Proposal queue is unavailable on the current server version.'))
+                      else if (_agentTaskProposals.where((p) => p is Map && p['status'] == 'awaiting_review').isEmpty)
+                        Text(appText(context, 'پیشنهادی در انتظار بررسی نیست.', 'No proposals are awaiting review.'))
+                      else
+                        for (final proposal in _agentTaskProposals.where((p) => p is Map && p['status'] == 'awaiting_review'))
+                          Card(
+                            child: Padding(
+                              padding: const EdgeInsets.all(10),
+                              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                                Text('${proposal['taskCode'] ?? ''} · ${proposal['taskTitle'] ?? ''}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                                Text('${appText(context, 'شناسه', 'ID')}: ${proposal['id']}'),
+                                Text('${appText(context, 'تاریخ', 'Created')}: ${proposal['createdAt'] ?? ''}'),
+                                if (proposal['input'] != null) Text('${appText(context, 'ورودی', 'Input')}: ${proposal['input']}'),
+                                Align(
+                                  alignment: AlignmentDirectional.centerEnd,
+                                  child: OutlinedButton.icon(
+                                    onPressed: _busy ? null : () => _rejectAgentProposal(proposal),
+                                    icon: const Icon(Icons.block_outlined),
+                                    label: Text(appText(context, 'رد با ثبت دلیل', 'Reject with reason')),
+                                  ),
+                                ),
+                              ]),
+                            ),
+                          ),
+                    ],
+                  ),
+                ),
               ),
               const SizedBox(height: 22),
               Text(appText(context, 'اعتباردهی به کاربر', 'Credit a user'), style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
