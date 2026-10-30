@@ -219,8 +219,8 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text(isEnglish
-              ? 'Invitation sent. It expires in 10 seconds; you can invite again afterward.'
-              : 'دعوت ارسال شد. پس از ۱۰ ثانیه منقضی می‌شود و می‌توانید دوباره دعوت کنید.'),
+              ? 'Invitation sent. It expires in 60 seconds; you can invite again afterward.'
+              : 'دعوت ارسال شد. پس از ۶۰ ثانیه منقضی می‌شود و می‌توانید دوباره دعوت کنید.'),
         ));
       }
     } catch (e) {
