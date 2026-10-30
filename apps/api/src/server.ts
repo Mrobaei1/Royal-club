@@ -951,7 +951,6 @@ async function isTemporaryAiControlActive(client: PoolClient, matchId: string, u
   if (!presence || presence.takeover_mode === 'disabled' || !presence.enabled) return false;
   return Boolean(presence.takeover_active ||
     (presence.takeover_mode === 'temporary_ai' && presence.overdue));
-  return false;
 }
 
 /** Process one overdue disconnected turn. The match row lock serializes AI, human moves and reconnects. */
