@@ -609,6 +609,25 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
                 IconButton(tooltip: isEnglish ? 'Retry' : 'تلاش دوباره', onPressed: _refreshing ? null : () => _refresh(), icon: const Icon(Icons.refresh, color: Colors.redAccent)),
               ]),
             ),
+            if (_state?['aiTakeoverActive'] == true) Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primary.withValues(alpha: .12),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Theme.of(context).colorScheme.primary.withValues(alpha: .45)),
+              ),
+              child: Row(children: [
+                Icon(Icons.smart_toy_outlined, color: Theme.of(context).colorScheme.primary),
+                const SizedBox(width: 10),
+                Expanded(child: Text(
+                  isEnglish
+                    ? 'Temporary AI is playing for the disconnected player. Human control returns automatically after reconnecting.'
+                    : 'هوش مصنوعی موقتاً به‌جای بازیکن قطع‌شده بازی می‌کند؛ با اتصال مجدد، کنترل به بازیکن بازمی‌گردد.',
+                  style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
+                )),
+              ]),
+            ),
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(color: Theme.of(context).colorScheme.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: Theme.of(context).colorScheme.primary.withValues(alpha: .35))),
