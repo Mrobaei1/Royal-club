@@ -49,32 +49,63 @@ Phase 4 home-screen implementation has started on `main`. This checklist tracks 
 - [ ] Run a real VPN-on/VPN-off test using the same account. CI headers are useful regression tests but do not replace a real network test.
 - [ ] Complete accessibility, layout, and performance checks on Android devices of different screen sizes.
 
+### Phase 4 — owner control plane and agent tooling
+
+- [x] Dormant server-side agent task definitions, owner-only proposal queue, audited proposal rejection, and deny-by-default permission foundation are present in `main`.
+- [x] Merged PR #55 restores the owner-facing task center on the current admin screen. It creates draft definitions limited by the UI to `read` and `recommend`, requires human review, lists queued proposals, and supports rejection with an audit reason.
+- [x] Automated API integration tests cover owner-only agent planning endpoints and confirm proposal rejection leaves runtime disabled. Flutter analyze/tests and the web preview build passed on PR #55.
+- [ ] Manually accept the owner admin UI against the deployed API after the current API source and required schema are deployed. The live deployment does not yet contain the agent tables or owner configuration.
+- [ ] Review and approve the complete manager/assistant/agent permission matrix, secure owner identity, emergency kill switch, and audit coverage before creating any agent identity or grant. Issue #24 remains open.
+- [ ] Deposit verification remains a separate gated milestone: no payment provider adapter, automatic deposit approval, or wallet-credit automation is activated.
+- [ ] Scheduling, outbound email, agent execution, financial actions, and privileged role changes remain disabled pending explicit owner approval and production acceptance.
+
 ### Final release gate
 
-- [x] API build/unit/integration tests, Flutter analyze/tests, and backgammon engine audit passed on PR head `ea97530af955bccf6d3a8af9ae8597066c8dbb61` (GitHub Actions runs 40649094399 and 40649094340).
-- [ ] Production API/database health is checked against the actual deployment, not a mocked or skipped step.
-- [ ] Manual end-to-end acceptance checklist is signed off.
+- [x] API build/unit/integration tests, Flutter analyze/tests, and backgammon engine audit passed on PR #55 and PR #56 heads. PR #56 API unit suite reported 54 passing tests; its integration, Flutter, engine/AI, and web-preview workflows all passed.
+- [x] The production health workflow checked the currently deployed API health and database connectivity successfully (run 41018971502). This verifies deployment 79 only; it does not prove that the latest source is deployed or that all new tables/endpoints exist in production.
+- [ ] Deploy the latest API source through the manual-only Neon release workflow after owner configuration and migration review.
+- [ ] Reconcile the production database schema with the 30 tables defined by current API source; 17 are absent from the live production branch at the time of the 2026-10-30 audit.
+- [ ] Configure and verify the scheduled Neon trigger for expired-room cleanup after the cleanup endpoint is deployed.
+- [ ] Complete owner-approved production security configuration, including confirmed numeric owner identity and SMS encryption key only if live SMS is being enabled.
+- [ ] Complete manual Android/device/network acceptance and owner sign-off.
 - [ ] No APK is built until the owner explicitly authorizes the final build after the above criteria are met.
 
 ## Latest automated verification
 
-The following GitHub Actions runs completed successfully for merged `main` commit `1a6d3f81242dc61541161cd6fbb457844de0430e` on 2026-10-29:
+The following GitHub Actions runs completed successfully for the 2026-10-30 changes:
 
-- [Validate Royal Club](https://github.com/Mrobaei1/Royal-club/actions/runs/40960779249): API build/unit/integration tests and Flutter analyze/tests — passed.
-- [Royal Club validation](https://github.com/Mrobaei1/Royal-club/actions/runs/40960779251): API build/unit tests and Flutter analyze/tests — passed.
-- [Royal Club Web Preview](https://github.com/Mrobaei1/Royal-club/actions/runs/40960779248): web release build and Pages publish workflow — passed.
-- [Royal Club Production API Health](https://github.com/Mrobaei1/Royal-club/actions/runs/40960779289): the currently deployed API health and smoke checks — passed. This does **not** prove that the latest source commit is deployed.
+**PR #55 — owner agent-review UI and README refresh** (merged as `4f66934a649fb787783df04aa2d0617a60f5a8fb`):
+- [Validate Royal Club](https://github.com/Mrobaei1/Royal-club/actions/runs/41018699905) — passed.
+- [Royal Club validation](https://github.com/Mrobaei1/Royal-club/actions/runs/41018699999) — passed.
+- [Backgammon engine audit](https://github.com/Mrobaei1/Royal-club/actions/runs/41018699973) — passed.
+- [Royal Club Web Preview](https://github.com/Mrobaei1/Royal-club/actions/runs/41018699929) — passed.
+
+**PR #56 — PostgreSQL TLS alias normalization** (merged as `44179cf27c502cd24b5ec7bf4910e5833514f17d`):
+- [Validate Royal Club](https://github.com/Mrobaei1/Royal-club/actions/runs/41018953696) — API build/unit and integration tests passed; Flutter analyze/tests passed.
+- [Royal Club validation](https://github.com/Mrobaei1/Royal-club/actions/runs/41018953748) — passed.
+- [Backgammon engine audit](https://github.com/Mrobaei1/Royal-club/actions/runs/41018953676) — passed.
+- [Royal Club Web Preview](https://github.com/Mrobaei1/Royal-club/actions/runs/41018953727) — passed.
+
+**Post-merge checks for PR #55 main commit**:
+- [Validate Royal Club](https://github.com/Mrobaei1/Royal-club/actions/runs/41018971423) — passed.
+- [Royal Club validation](https://github.com/Mrobaei1/Royal-club/actions/runs/41018971455) — passed.
+- [Royal Club Production API Health](https://github.com/Mrobaei1/Royal-club/actions/runs/41018971502) — passed health and database connectivity checks for the currently deployed API.
 
 ### Production API status — distinguish deployed from merged code
 
-- The Neon Function `royalclubapi` is deployed at `https://br-misty-flower-bavs47dm-royalclubapi.compute.c-8.eu-central-1.aws.neon.tech`, deployment ID `79`, status `completed`.
-- The production health workflow passed, but the deployed function is still behind the latest merged API source. The latest merged source has **not** been deployed to Neon; the deployment workflow is intentionally manual-only.
-- The currently inspected deployment metadata does not list `OWNER_USER_ID` or `SMS_CREDENTIALS_ENCRYPTION_KEY`. Owner-only operations therefore remain fail-closed, and production SMS authentication remains disabled. Do not enable real SMS or alter owner privileges as part of an automatic rollout.
-- The scheduled Neon trigger for expired-room cleanup is **not configured**. The trigger endpoint exists in source, but it must be deployed and verified before scheduling production calls. No recurring trigger is left enabled against the older deployment.
+- Neon Function `royalclubapi` remains on deployment ID `79`, created 2026-10-27. Its current environment metadata lists only `CORS_ORIGINS`, `DATABASE_URL`, `JWT_SECRET`, `NEON_FUNCTION_RUNTIME`, and `NODE_ENV`.
+- `OWNER_USER_ID` and `SMS_CREDENTIALS_ENCRYPTION_KEY` are absent from that deployment's environment metadata. Owner-only operations therefore remain fail-closed; production SMS authentication remains disabled.
+- The production branch currently exposes 13 application tables, while the current API source defines 30. The 17 missing tables are: `sms_otp_settings`, `sms_otp_audit_log`, `sms_otp_challenges`, `admin_permission_settings`, `admin_permission_grants`, `admin_permission_audit_log`, `agent_task_definitions`, `agent_task_proposals`, `agent_task_audit_log`, `leagues`, `league_entries`, `league_entitlement_ledger`, `league_admin_audit_log`, `league_rounds`, `league_matches`, `league_appeals`, and `backgammon_progression_events`.
+- The production Neon branch has no scheduled triggers. Expired-room cleanup therefore is not scheduled while the serverless function is idle.
+- The production project's database IP allowlist is empty. This must be reviewed as part of production security acceptance; do not change it without checking the actual API connectivity requirements.
+- Read-only function-log review (100 recent records from the last 24 hours) found 16 repeated `pg-connection-string` TLS-alias security warnings and no other ERROR-level application messages in that sample. PR #56 now normalizes legacy `sslmode` aliases to `verify-full` in source, but deployment 79 has not received that code yet.
+- The manual-only deployment workflow includes build/tests, bundle verification, Neon deployment, health checks, and registration/profile/friend smoke tests. It was not dispatched during this work.
 - No APK was built. Android APK generation remains manual-only and requires explicit build approval.
 
-These results prove automated checks and the health of the currently deployed version only. They do not establish real SMS delivery, real VPN switching, multi-device acceptance, or that the newest API source is live in production.
+These checks distinguish source correctness, automated CI, and the currently deployed service. A green CI run or successful health check against deployment 79 does not establish that the newest API source, new schema, owner controls, OTP, or agent UI are live in production.
 
 ## Current decision
 
-**Phase 4 UI work has started, but Royal Club is not release-ready.** Remaining gates include production OTP/account-linking approval, final permission-matrix decisions, production deployment/schema/security verification, manual RTL/LTR device review, monetization-policy acceptance, live VPN/device testing, two-device online-match acceptance, and final end-to-end sign-off. No privileged identity/grant/agent automation is activated by planning documentation alone. Do not build an APK until the owner explicitly authorizes the final build.
+**The repository-side work has advanced, but Royal Club is not release-ready.** PR #55 restored the dormant owner agent-review UI, and PR #56 fixed the PostgreSQL TLS alias warning in source; both are merged and passed their automated checks. Remaining blockers are production API/schema rollout, confirmed owner configuration, trigger scheduling, live OTP decision, two-device game acceptance, manual RTL/LTR and theme checks, monetization/league acceptance, VPN testing, and final owner sign-off.
+
+Do not activate agent identities, delegated grants, schedules, paid features, real SMS, production deployment, or APK generation without the corresponding explicit owner approval.
