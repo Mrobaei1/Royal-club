@@ -2,7 +2,8 @@
 
 **Implementation branch:** `fix/pr61-rebased-on-current-main`  
 **Pull request:** [PR #67](https://github.com/Mrobaei1/Royal-club/pull/67)  
-**Verified source head:** [8bd4040](https://github.com/Mrobaei1/Royal-club/commit/8bd4040891fc49079b796706d72e0525c0516944), including reconnect-race handling and the expanded temporary-AI unit coverage.  
+**Implementation commit:** [8bd4040](https://github.com/Mrobaei1/Royal-club/commit/8bd4040891fc49079b796706d72e0525c0516944), including reconnect-race handling and expanded temporary-AI unit coverage.  
+**Current synchronized PR head at this audit:** [18986e5](https://github.com/Mrobaei1/Royal-club/commit/18986e5ab12d376a6577bb79a58c72893520c153), incorporating the latest `main` history without changing the takeover implementation.  
 **Status:** Automated checks pass. The PR remains Draft pending code review and two-device manual acceptance. This change is not merged into `main` and is not deployed to Production.
 
 ## Behavior and defaults
@@ -29,12 +30,14 @@
 
 ## Automated verification
 
-All four GitHub Actions workflows for exact source head `8bd4040891fc49079b796706d72e0525c0516944` completed successfully:
+All four GitHub Actions workflows for the implementation commit `8bd4040891fc49079b796706d72e0525c0516944` and the synchronized PR head `18986e5ab12d376a6577bb79a58c72893520c153` completed successfully. The latest exact-head run set is:
 
-- [Royal Club validation](https://github.com/Mrobaei1/Royal-club/actions/runs/41055659467): API build/tests and Flutter analyze/widget tests passed.
-- [Backgammon engine audit](https://github.com/Mrobaei1/Royal-club/actions/runs/41055659704): passed.
-- [Validate Royal Club](https://github.com/Mrobaei1/Royal-club/actions/runs/41055659183): API build/tests, API integration tests, and Flutter analyze/tests passed.
-- [Royal Club Web Preview](https://github.com/Mrobaei1/Royal-club/actions/runs/41055659332): tests and Web Preview build passed; deployment was skipped.
+- [Royal Club validation](https://github.com/Mrobaei1/Royal-club/actions/runs/41060683295): API build/unit tests and Flutter analyze/tests passed.
+- [Validate Royal Club](https://github.com/Mrobaei1/Royal-club/actions/runs/41060683281): API build/unit/integration tests and Flutter analyze/tests passed.
+- [Backgammon engine audit](https://github.com/Mrobaei1/Royal-club/actions/runs/41060683309): passed.
+- [Royal Club Web Preview](https://github.com/Mrobaei1/Royal-club/actions/runs/41060683272): Web Preview build passed; deployment was skipped.
+
+The earlier implementation-commit runs remain historical evidence; the four run IDs above correspond to the synchronized PR head.
 
 
 Tests cover legal AI sequence selection, immutable input, bar entry, blocked entry, higher-die handling, grace-period behavior, stale-human-request fencing, takeover, reconnect, restored human control, reconnect-triggered takeover after serverless idle, concurrent state polls, and owner-only audited policy changes.
