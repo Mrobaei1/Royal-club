@@ -41,7 +41,7 @@ All four GitHub Actions workflows completed successfully on the latest tested PR
 The earlier implementation-commit runs remain historical evidence; the four run IDs above correspond to the synchronized PR head.
 
 
-Tests cover legal AI sequence selection, immutable input, bar entry, blocked entry, higher-die handling, grace-period behavior, stale-human-request fencing, takeover, reconnect, restored human control, reconnect-triggered takeover after serverless idle, concurrent state polls, owner-only audited policy changes, and physical deletion of an expired empty room by the scheduled cleanup route.
+Tests cover legal AI sequence selection, immutable input, bar entry, blocked entry, higher-die handling, grace-period behavior, stale-human-request fencing, takeover, reconnect, restored human control, reconnect-triggered takeover after serverless idle, concurrent state polls, a single state-version increment when a disconnected player has no legal move, owner-only audited policy changes, and physical deletion of an expired empty room by the scheduled cleanup route.
 
 **Still required:** review the full diff and complete manual acceptance on two independent devices/accounts. CI does not prove real network-loss behavior or Android lifecycle behavior.
 
