@@ -98,7 +98,7 @@ No production deployment, migration, trigger creation, environment update, SMS a
 5. Never claim background work. Provide truthful progress snapshots when work is actually performed.
 6. No production deployment/migration, SMS activation, privileged agent activation, or APK build without the separate approvals described above.
 
-**Current coding task:** finish CI/review and two-device acceptance for PR #61's online disconnect/temporary AI takeover. Do not merge or deploy Production as part of this handoff.
+**Current coding task:** automated CI for PR #61 is green; finish code review and two-device acceptance for online disconnect/temporary AI takeover. Keep the PR draft and do not deploy Production as part of this handoff.
 
 
 ## Continuation update — 2026-10-30
@@ -113,6 +113,6 @@ The next feature is being implemented on the independent branch
 
 **Pull request:** [PR #61](https://github.com/Mrobaei1/Royal-club/pull/61) (draft; review and final CI pending).
 
-**Verification boundary:** these changes are branch-only, not in `main`, not deployed, and not yet CI-verified. The readiness checklist remains open until all branch workflows pass and two-device manual acceptance is completed. Card and chess takeover execution are not included in this backgammon implementation.
+**Verification boundary:** these changes are branch-only, not in `main`, and not deployed. All automated checks passed on exact head `3103470f47b422ed12cbe19e6c2afae49ac868b0`; two-device manual acceptance and review remain pending. The readiness checklist remains open until all branch workflows pass and two-device manual acceptance is completed. Card and chess takeover execution are not included in this backgammon implementation.
 
 No Production deployment or migration, APK build, SMS activation, Agent runtime, delegated grant, paid feature or operational schedule was performed as part of this feature work.
