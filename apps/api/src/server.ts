@@ -1726,6 +1726,50 @@ app.post<{ Params: { id: string }; Body: { input?: Record<string, unknown> } }>(
   },
 );
 
+app.post<{ Params: { id: string }; Body: { reason?: string } }>(
+  '/api/v1/admin/agent-task-proposals/:id/reject',
+  { onRequest: [requireOwnerAuth], config: { rateLimit: { max: 20, timeWindow: '1 minute' } } },
+  async (request, reply) => {
+    if (!isNumericId(request.params.id)) return reply.code(400).send({ error: 'Invalid proposal ID.' });
+    const reason = typeof request.body?.reason === 'string' ? request.body.reason.trim() : '';
+    if (reason.length < 5 || reason.length > 500) {
+      return reply.code(400).send({ error: 'Provide a review reason between 5 and 500 characters.' });
+    }
+    const claims = request.user as { sub?: string };
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const rejected = await client.query(
+        `UPDATE agent_task_proposals
+            SET status = 'rejected', review_reason = $1, reviewed_by = $2, reviewed_at = NOW()
+          WHERE id = $3 AND status = 'awaiting_review'
+          RETURNING id, task_definition_id AS "taskDefinitionId", status,
+                    review_reason AS "reviewReason", reviewed_at AS "reviewedAt"`,
+        [reason, claims.sub ?? null, request.params.id],
+      );
+      if (!rejected.rowCount) {
+        await client.query('ROLLBACK');
+        return reply.code(409).send({ error: 'Proposal is missing or no longer awaiting review.' });
+      }
+      await client.query(
+        `INSERT INTO agent_task_audit_log
+          (actor_user_id, task_definition_id, proposal_id, action, result, reason, details)
+         VALUES ($1, $2, $3, 'proposal_rejected', 'success', $4, $5::jsonb)`,
+        [claims.sub ?? null, rejected.rows[0].taskDefinitionId, rejected.rows[0].id, reason,
+          JSON.stringify({ runtimeEnabled: false, decision: 'rejected' })],
+      );
+      await client.query('COMMIT');
+      return { proposal: rejected.rows[0], runtimeEnabled: false };
+    } catch (error) {
+      await client.query('ROLLBACK').catch(() => undefined);
+      request.log.error({ err: error }, 'Could not reject agent task proposal');
+      return reply.code(500).send({ error: 'Could not reject task proposal.' });
+    } finally {
+      client.release();
+    }
+  },
+);
+
 app.get('/api/v1/admin/permissions/settings', { onRequest: [requireOwnerAuth] }, async () => {
   const result = await pool.query(
     'SELECT enabled, updated_at AS "updatedAt", u.username AS "updatedBy" FROM admin_permission_settings s LEFT JOIN users u ON u.id = s.updated_by WHERE s.id = 1',
