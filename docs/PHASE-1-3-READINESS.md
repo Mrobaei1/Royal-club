@@ -39,66 +39,60 @@ Phase 4 home-screen implementation has started on `main`. This checklist tracks 
 ### Phase 3 — game and social experience
 
 - [x] Main uses the shared Royal backgammon board for online and offline play, with automated coverage for point hit targets, cumulative moves, legal bar entry, and engine rules.
-- [x] Historical PRs #33, #34, #35, #37, #38, #39 and #40 were closed without merge as superseded (PR #40 also duplicated the #38 lifecycle branch). Their 60-second invitation/room lifecycle, server-authoritative XP, shared board, invitation actions, and match-ID validation are represented in the current `main` implementation and its newer integration/regression tests. Do not reopen or merge these stale branches as-is; use current `main` as the source of truth. PR #41 is the integration PR recorded as merged by GitHub metadata.
-- [ ] Finish full online-match acceptance testing on two independent accounts/devices: server-authoritative board state, legal/cumulative dice moves, bar entry, surrender/cancel flows, reconnect, and temporary AI takeover.
-- [x] Source includes 60-second invite/empty-room expiry and cleanup logic, with room cleanup called on room-list/invite requests and a protected internal trigger endpoint.
-- [ ] Verify invitation expiry, notification lifecycle, physical room cleanup while the serverless function is idle, and host re-invitation on the deployed service. The scheduled Neon trigger is not configured because the latest cleanup endpoint has not been deployed to production.
-- [x] API regression tests cover username-only public payloads and no full-name/email exposure in friend search/list, match history, leaderboard, and spectator views. Owner-only admin navigation is now hidden from non-owners in the mobile home menu and fails closed when the owner-status check fails.
-- [ ] Finish a manual username-only audit across every screen/API, including empty or legacy profiles; no public UI may fall back to full name or email.
+- [x] Historical PRs #33, #34, #35, #37, #38, #39 and #40 were closed without merge as superseded. Their invitation/room lifecycle, server-authoritative XP, shared board, invitation actions, and match-ID validation are represented in current `main` and newer tests. Do not reopen or merge those stale branches.
+- [x] Source implements 60-second invitation/empty-room expiry, server-authoritative move handling, invitation cancellation, match cancellation proposals, and both game/match resignation scopes.
+- [x] PR #58 added integration tests for game-scope and match-scope resignation, invalid scope, non-participant access, board/turn/dice reset, winner recording, and repeat-resignation rejection. The test exposed and fixed a PostgreSQL bigint/text CASE-expression bug in the game-resignation path.
+- [ ] Complete full online-match acceptance on two independent accounts/devices: invite expiry, notification lifecycle, server-authoritative legal/cumulative moves, bar entry, surrender/cancel, reconnect, and host re-invitation.
+- [ ] **Temporary AI takeover after disconnect is not implemented in current `main`.** Source inspection found no online heartbeat/presence tracking, disconnect lease, or server-side AI substitute. This is a feature implementation gap, not merely a manual test. The approved design calls for manager-configurable wait periods (about 15–20 seconds for backgammon/card games; chess can wait until game end).
+- [ ] Verify invitation expiry, notification lifecycle, and physical room cleanup while the serverless function is idle. The protected cleanup endpoint exists, but no scheduled Neon trigger is configured.
+- [x] API regression tests cover username-only public payloads and no full-name/email exposure in friend search/list, match history, leaderboard, and spectator views.
+- [ ] Finish a manual username-only audit across every screen/API, including empty or legacy profiles.
 - [ ] Verify theme and language behavior on every screen, not only the screens covered by widget tests.
-- [ ] Run a real VPN-on/VPN-off test using the same account. CI headers are useful regression tests but do not replace a real network test.
+- [ ] Run a real VPN-on/VPN-off test using the same account.
 - [ ] Complete accessibility, layout, and performance checks on Android devices of different screen sizes.
-
-### Phase 4 — owner control plane and agent tooling
-
-- [x] Dormant server-side agent task definitions, owner-only proposal queue, audited proposal rejection, and deny-by-default permission foundation are present in `main`.
-- [x] Merged PR #55 restores the owner-facing task center on the current admin screen. It creates draft definitions limited by the UI to `read` and `recommend`, requires human review, lists queued proposals, and supports rejection with an audit reason.
-- [x] Automated API integration tests cover owner-only agent planning endpoints and confirm proposal rejection leaves runtime disabled. Flutter analyze/tests and the web preview build passed on PR #55.
-- [ ] Manually accept the owner admin UI against the deployed API after the current API source and required schema are deployed. The live deployment does not yet contain the agent tables or owner configuration.
-- [ ] Review and approve the complete manager/assistant/agent permission matrix, secure owner identity, emergency kill switch, and audit coverage before creating any agent identity or grant. Issue #24 remains open.
-- [ ] Deposit verification remains a separate gated milestone: no payment provider adapter, automatic deposit approval, or wallet-credit automation is activated.
-- [ ] Scheduling, outbound email, agent execution, financial actions, and privileged role changes remain disabled pending explicit owner approval and production acceptance.
 
 ### Final release gate
 
-- [x] API build/unit/integration tests, Flutter analyze/tests, and backgammon engine audit passed on PR #55 and PR #56 heads. PR #56 API unit suite reported 54 passing tests; its integration, Flutter, engine/AI, and web-preview workflows all passed.
-- [x] The production health workflow checked the currently deployed API health and database connectivity successfully (run 41018971502). This verifies deployment 79 only; it does not prove that the latest source is deployed or that all new tables/endpoints exist in production.
-- [ ] Deploy the latest API source through the manual-only Neon release workflow after owner configuration and migration review.
-- [ ] Reconcile the production database schema with the 30 tables defined by current API source; 17 are absent from the live production branch at the time of the 2026-10-30 audit.
+- [x] API build/unit/integration tests, Flutter analyze/tests, and backgammon engine audit passed on PRs #55, #56, and #58.
+- [x] PR #58 integration run passed all 14 API integration subtests, including the new resignation test. PR #58 also passed API build/unit tests, Flutter analyze/tests, and the backgammon engine audit.
+- [x] Production health workflow checked the currently deployed API and database connectivity successfully (run 41019644950). This verifies deployment 79 only; it does not prove latest source or new schema is live.
+- [ ] Deploy latest API source through the manual-only Neon release workflow after owner configuration and migration review.
+- [ ] Reconcile the production database schema with the 30 tables defined by current API source; 17 were absent from the live production branch at the 2026-10-30 audit.
 - [ ] Configure and verify the scheduled Neon trigger for expired-room cleanup after the cleanup endpoint is deployed.
 - [ ] Complete owner-approved production security configuration, including confirmed numeric owner identity and SMS encryption key only if live SMS is being enabled.
+- [ ] Implement and test the online disconnect/temporary-AI takeover feature with manager-configurable grace periods.
 - [ ] Complete manual Android/device/network acceptance and owner sign-off.
-- [ ] No APK is built until the owner explicitly authorizes the final build after the above criteria are met.
+- [ ] No APK is built until the owner explicitly authorizes the final build.
 
 ## Latest automated verification
 
-The following GitHub Actions runs completed successfully for the 2026-10-30 changes:
-
-**PR #55 — owner agent-review UI and README refresh** (merged as `4f66934a649fb787783df04aa2d0617a60f5a8fb`):
+**PR #55 — owner agent-review UI and README refresh** (merged):
 - [Validate Royal Club](https://github.com/Mrobaei1/Royal-club/actions/runs/41018699905) — passed.
 - [Royal Club validation](https://github.com/Mrobaei1/Royal-club/actions/runs/41018699999) — passed.
 - [Backgammon engine audit](https://github.com/Mrobaei1/Royal-club/actions/runs/41018699973) — passed.
 - [Royal Club Web Preview](https://github.com/Mrobaei1/Royal-club/actions/runs/41018699929) — passed.
 
-**PR #56 — PostgreSQL TLS alias normalization** (merged as `44179cf27c502cd24b5ec7bf4910e5833514f17d`):
+**PR #56 — PostgreSQL TLS alias normalization** (merged):
 - [Validate Royal Club](https://github.com/Mrobaei1/Royal-club/actions/runs/41018953696) — API build/unit and integration tests passed; Flutter analyze/tests passed.
 - [Royal Club validation](https://github.com/Mrobaei1/Royal-club/actions/runs/41018953748) — passed.
 - [Backgammon engine audit](https://github.com/Mrobaei1/Royal-club/actions/runs/41018953676) — passed.
 - [Royal Club Web Preview](https://github.com/Mrobaei1/Royal-club/actions/runs/41018953727) — passed.
 
-**Post-merge checks for PR #55 main commit**:
-- [Validate Royal Club](https://github.com/Mrobaei1/Royal-club/actions/runs/41018971423) — passed.
-- [Royal Club validation](https://github.com/Mrobaei1/Royal-club/actions/runs/41018971455) — passed.
-- [Royal Club Production API Health](https://github.com/Mrobaei1/Royal-club/actions/runs/41018971502) — passed health and database connectivity checks for the currently deployed API.
+**PR #58 — resignation SQL fix and integration tests** (merged as `7758638214fcdee5346f37a529bd419bece2c0d2`):
+- [Validate Royal Club](https://github.com/Mrobaei1/Royal-club/actions/runs/41019744686) — API build/unit/integration tests and Flutter analyze/tests passed.
+- [Royal Club validation](https://github.com/Mrobaei1/Royal-club/actions/runs/41019744610) — passed.
+- [Backgammon engine audit](https://github.com/Mrobaei1/Royal-club/actions/runs/41019744583) — passed.
+- The API integration workflow reported 14/14 subtests passing, including the new resignation scenario.
 
 ### Production API status — distinguish deployed from merged code
 
 - Neon Function `royalclubapi` remains on deployment ID `79`, created 2026-10-27. Its current environment metadata lists only `CORS_ORIGINS`, `DATABASE_URL`, `JWT_SECRET`, `NEON_FUNCTION_RUNTIME`, and `NODE_ENV`.
 - `OWNER_USER_ID` and `SMS_CREDENTIALS_ENCRYPTION_KEY` are absent from that deployment's environment metadata. Owner-only operations therefore remain fail-closed; production SMS authentication remains disabled.
-- The production branch currently exposes 13 application tables, while the current API source defines 30. The 17 missing tables are: `sms_otp_settings`, `sms_otp_audit_log`, `sms_otp_challenges`, `admin_permission_settings`, `admin_permission_grants`, `admin_permission_audit_log`, `agent_task_definitions`, `agent_task_proposals`, `agent_task_audit_log`, `leagues`, `league_entries`, `league_entitlement_ledger`, `league_admin_audit_log`, `league_rounds`, `league_matches`, `league_appeals`, and `backgammon_progression_events`.
-- The production Neon branch has no scheduled triggers. Expired-room cleanup therefore is not scheduled while the serverless function is idle.
-- The production project's database IP allowlist is empty. This must be reviewed as part of production security acceptance; do not change it without checking the actual API connectivity requirements.
-- Read-only function-log review (100 recent records from the last 24 hours) found 16 repeated `pg-connection-string` TLS-alias security warnings and no other ERROR-level application messages in that sample. PR #56 now normalizes legacy `sslmode` aliases to `verify-full` in source, but deployment 79 has not received that code yet.
+- The production branch currently exposes 13 application tables, while current API source defines 30. The 17 missing tables are: `sms_otp_settings`, `sms_otp_audit_log`, `sms_otp_challenges`, `admin_permission_settings`, `admin_permission_grants`, `admin_permission_audit_log`, `agent_task_definitions`, `agent_task_proposals`, `agent_task_audit_log`, `leagues`, `league_entries`, `league_entitlement_ledger`, `league_admin_audit_log`, `league_rounds`, `league_matches`, `league_appeals`, and `backgammon_progression_events`.
+- The production Neon branch has no scheduled triggers. Expired-room cleanup is therefore not scheduled while the serverless function is idle.
+- The production project's database IP allowlist is empty. Review this as part of production security acceptance; do not change it without checking actual API connectivity requirements.
+- Read-only function-log review (100 recent records from the last 24 hours) found 16 repeated `pg-connection-string` TLS-alias security warnings and no other ERROR-level application messages in that sample. PR #56 normalizes legacy `sslmode` aliases to `verify-full` in source, but deployment 79 has not received that code.
+- PR #58 also fixes the game-resignation SQL type error in source. Deployment 79 has not received this fix either.
 - The manual-only deployment workflow includes build/tests, bundle verification, Neon deployment, health checks, and registration/profile/friend smoke tests. It was not dispatched during this work.
 - No APK was built. Android APK generation remains manual-only and requires explicit build approval.
 
@@ -106,6 +100,8 @@ These checks distinguish source correctness, automated CI, and the currently dep
 
 ## Current decision
 
-**The repository-side work has advanced, but Royal Club is not release-ready.** PR #55 restored the dormant owner agent-review UI, and PR #56 fixed the PostgreSQL TLS alias warning in source; both are merged and passed their automated checks. Remaining blockers are production API/schema rollout, confirmed owner configuration, trigger scheduling, live OTP decision, two-device game acceptance, manual RTL/LTR and theme checks, monetization/league acceptance, VPN testing, and final owner sign-off.
+**Repository-side changes and automated checks have progressed, but Royal Club is not release-ready.** PR #55 restored the dormant owner agent-review UI; PR #56 fixed the PostgreSQL TLS alias warning in source; PR #58 fixed a real resignation SQL bug and added integration coverage. All three are merged.
+
+The main remaining product feature gap is online disconnect handling with a temporary server-side AI substitute and manager-configurable wait periods. Remaining release blockers also include production API/schema rollout, confirmed owner configuration, trigger scheduling, live OTP decision, two-device game acceptance, manual RTL/LTR and theme checks, monetization/league acceptance, VPN testing, and final owner sign-off.
 
 Do not activate agent identities, delegated grants, schedules, paid features, real SMS, production deployment, or APK generation without the corresponding explicit owner approval.
