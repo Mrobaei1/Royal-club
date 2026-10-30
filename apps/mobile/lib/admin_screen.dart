@@ -27,6 +27,10 @@ class _AdminScreenState extends State<AdminScreen> {
   List<dynamic> _permissionAudit = [];
   List<dynamic> _agentTaskProposals = [];
   List<dynamic> _agentTasks = [];
+  List<dynamic> _agentRoleTemplates = [];
+  Map<String, dynamic>? _futureGameAgentTemplate;
+  bool _agentTemplatesUnavailable = false;
+  final _agentGameCode = TextEditingController();
   bool _agentProposalsUnavailable = false;
   bool _agentTasksUnavailable = false;
   final _agentTaskCode = TextEditingController();
@@ -68,6 +72,7 @@ class _AdminScreenState extends State<AdminScreen> {
     _agentTaskCode.dispose();
     _agentTaskTitle.dispose();
     _agentTaskDescription.dispose();
+    _agentGameCode.dispose();
     _leagueCode.dispose();
     _leagueName.dispose();
     _leagueDays.dispose();
@@ -123,6 +128,26 @@ class _AdminScreenState extends State<AdminScreen> {
       if (mounted) setState(() { _agentTasks = tasks; _agentTasksUnavailable = false; });
     } catch (_) {
       if (mounted) setState(() { _agentTasks = []; _agentTasksUnavailable = true; });
+    }
+    try {
+      final templates = await AdminService.agentTemplates();
+      if (mounted) setState(() { _agentRoleTemplates = templates; _agentTemplatesUnavailable = false; });
+    } catch (_) {
+      if (mounted) setState(() { _agentRoleTemplates = []; _agentTemplatesUnavailable = true; });
+    }
+  }
+
+  Future<void> _loadFutureGameAgentTemplate() async {
+    final gameCode = _agentGameCode.text.trim();
+    if (gameCode.isEmpty) return;
+    try {
+      final template = await AdminService.futureGameAgentTemplate(gameCode);
+      if (!mounted) return;
+      setState(() => _futureGameAgentTemplate = template);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _futureGameAgentTemplate = null);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appError(context, e))));
     }
   }
 
@@ -1157,6 +1182,59 @@ class _AdminScreenState extends State<AdminScreen> {
                         'Definitions are drafts only. No account, permission, schedule, or automatic execution is enabled.'),
                         style: const TextStyle(fontSize: 12)),
                       const SizedBox(height: 10),
+                      Text(appText(context, 'قالب‌های نقش تخصصی', 'Specialist role templates'), style: const TextStyle(fontWeight: FontWeight.bold)),
+                      if (_agentTemplatesUnavailable)
+                        Text(appText(context, 'کاتالوگ نقش‌ها از سرور در دسترس نیست.', 'Role catalogue is unavailable from the server.'))
+                      else if (_agentRoleTemplates.isEmpty)
+                        Text(appText(context, 'قالبی دریافت نشد.', 'No role templates were returned.'))
+                      else
+                        for (final template in _agentRoleTemplates)
+                          ExpansionTile(
+                            tilePadding: EdgeInsets.zero,
+                            title: Text(template['title']?.toString() ?? template['code']?.toString() ?? ''),
+                            subtitle: Text('${template['code'] ?? ''} · ${template['approvalMode'] ?? ''}'),
+                            children: [
+                              Align(
+                                alignment: AlignmentDirectional.centerStart,
+                                child: Padding(
+                                  padding: const EdgeInsetsDirectional.only(start: 16, end: 16, bottom: 10),
+                                  child: Text(template['responsibility']?.toString() ?? ''),
+                                ),
+                              ),
+                              Align(
+                                alignment: AlignmentDirectional.centerStart,
+                                child: Padding(
+                                  padding: const EdgeInsetsDirectional.only(start: 16, end: 16, bottom: 10),
+                                  child: Text('${appText(context, 'قابلیت‌های پیش‌فرض', 'Default capabilities')}: ${(template['defaultCapabilities'] as List<dynamic>? ?? const []).join(', ')}'),
+                                ),
+                              ),
+                            ],
+                          ),
+                      const Divider(height: 20),
+                      Text(appText(context, 'قالب بازی آینده', 'Future-game specialist template'), style: const TextStyle(fontWeight: FontWeight.bold)),
+                      Text(appText(context,
+                        'برای بازی‌های جدید مانند Uno یا Poker، قالب اختصاصی با کد بازی ساخته می‌شود؛ این کار هیچ Agent فعالی ایجاد نمی‌کند.',
+                        'New games such as Uno or Poker can receive a game-scoped template; this does not create an active agent.')),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: _agentGameCode,
+                        decoration: InputDecoration(labelText: appText(context, 'کد بازی (مثلاً uno)', 'Game code (for example uno)'), border: const OutlineInputBorder()),
+                      ),
+                      const SizedBox(height: 8),
+                      OutlinedButton.icon(
+                        onPressed: _busy ? null : _loadFutureGameAgentTemplate,
+                        icon: const Icon(Icons.extension_outlined),
+                        label: Text(appText(context, 'نمایش قالب بازی', 'Preview game template')),
+                      ),
+                      if (_futureGameAgentTemplate != null)
+                        ListTile(
+                          dense: true,
+                          leading: const Icon(Icons.lock_outline),
+                          title: Text(_futureGameAgentTemplate!['code']?.toString() ?? ''),
+                          subtitle: Text(_futureGameAgentTemplate!['responsibility']?.toString() ?? ''),
+                        ),
+                      const Divider(height: 24),
+                      Text(appText(context, 'ساخت پیش‌نویس وظیفه', 'Create a task draft'), style: const TextStyle(fontWeight: FontWeight.bold)),
                       TextField(controller: _agentTaskCode, decoration: InputDecoration(labelText: appText(context, 'کد وظیفه (حروف کوچک انگلیسی)', 'Task code (lowercase English)'), border: const OutlineInputBorder())),
                       const SizedBox(height: 8),
                       TextField(controller: _agentTaskTitle, maxLength: 120, decoration: InputDecoration(labelText: appText(context, 'عنوان وظیفه', 'Task title'), border: const OutlineInputBorder())),
