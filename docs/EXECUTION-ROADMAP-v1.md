@@ -3,7 +3,7 @@
 - **Date:** 2026-10-30
 - **Governing baseline:** Owner-approved WBS v1.0, 1,000 points, seven workstreams, 53 leaf packages.
 - **Purpose:** Set the execution order, dependencies, exit gates and working rules for completing Royal Club efficiently.
-- **Status:** Proposed execution plan for owner confirmation; it does not change WBS scope or weights.
+- **Status:** Owner-confirmed execution order; it does not change WBS scope or weights.
 
 ## 1. Execution principles
 
