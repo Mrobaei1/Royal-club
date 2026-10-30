@@ -97,18 +97,17 @@ test('heartbeat delays takeover, stale human requests are fenced, and reconnect 
     headers: auth(host.accessToken), payload: { expectedVersion: stillFresh.json().state.version },
   });
   assert.equal(staleHumanRoll.statusCode, 409, staleHumanRoll.body);
-  const claimed = await testPool.query(
-    'SELECT takeover_active FROM backgammon_match_presence WHERE match_id = $1 AND user_id = $2',
-    [matchId, host.user.id],
-  );
-  assert.equal(claimed.rows[0].takeover_active, true);
-
   const afterTakeover = await app.inject({
     method: 'GET', url: `/api/v1/matches/${matchId}/state`, headers: auth(guest.accessToken),
   });
   assert.equal(afterTakeover.statusCode, 200, afterTakeover.body);
   assert.equal(afterTakeover.json().state.currentTurnUserId, guest.user.id);
   assert.equal(afterTakeover.json().state.aiTakeoverActive, true);
+  const claimed = await testPool.query(
+    'SELECT takeover_active FROM backgammon_match_presence WHERE match_id = $1 AND user_id = $2',
+    [matchId, host.user.id],
+  );
+  assert.equal(claimed.rows[0].takeover_active, true);
   const aiPresence = await testPool.query(
     'SELECT last_ai_action_at FROM backgammon_match_presence WHERE match_id = $1 AND user_id = $2',
     [matchId, host.user.id],
