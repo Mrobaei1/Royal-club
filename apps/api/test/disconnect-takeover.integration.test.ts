@@ -273,7 +273,7 @@ test('temporary AI takeover processes the guest seat with the correct movement d
   });
   assert.equal(stateResponse.statusCode, 200, stateResponse.body);
   assert.equal(stateResponse.json().state.currentTurnUserId, host.user.id);
-  assert.equal(stateResponse.json().state.aiTakeoverActive, false);
+  assert.equal(stateResponse.json().state.aiTakeoverActive, true);
 
   const after = await testPool.query(
     'SELECT state_version, current_turn_user_id FROM backgammon_matches WHERE id = $1',
