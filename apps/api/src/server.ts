@@ -4388,7 +4388,10 @@ app.get<{ Params: { id: string } }>('/api/v1/matches/:id/state', { onRequest: [r
             m.current_turn_user_id = $2::bigint AS "isMyTurn",
             m.host_user_id = $2::bigint AS "isHost",
             m.dice, m.remaining_dice AS "remainingDice", m.state_version AS version,
-            m.updated_at AS "updatedAt", COALESCE(p.takeover_active, FALSE) AS "aiTakeoverActive",
+            m.updated_at AS "updatedAt",
+            EXISTS (SELECT 1 FROM backgammon_match_presence active_presence
+                     WHERE active_presence.match_id = m.id AND active_presence.takeover_active = TRUE) AS "aiTakeoverActive",
+            COALESCE(p.takeover_active, FALSE) AS "myAiTakeoverActive",
             p.last_heartbeat_at AS "lastHeartbeatAt"
        FROM backgammon_matches m
        LEFT JOIN backgammon_match_presence p ON p.match_id = m.id AND p.user_id = $2
