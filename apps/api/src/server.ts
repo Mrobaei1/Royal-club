@@ -986,7 +986,7 @@ async function processTemporaryAiTakeover(matchId: string, requesterId?: string)
     }
     const policyResult = await client.query(
       `SELECT enabled, grace_seconds, takeover_mode FROM game_disconnect_policies
-        WHERE game_type = 'backgammon'`,
+        WHERE game_type = 'backgammon' FOR SHARE`,
     );
     const policy = policyResult.rows[0];
     if (!policy?.enabled || policy.takeover_mode !== 'temporary_ai') {
