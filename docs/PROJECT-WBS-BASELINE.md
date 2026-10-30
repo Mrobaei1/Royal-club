@@ -5,6 +5,7 @@
 - **Repository:** https://github.com/Mrobaei1/Royal-club
 - **Baseline source:** live `main` at `8359d5253991083dd1be6af91bc847b65ce63b0b`, plus the product decisions and readiness records available on that date
 - **Total project weight:** **1,000 points (100%)**
+- **Leaf work packages:** **53** (verified by counting the leaf rows in the seven workstream tables; documentation correction only, with no scope or weight change).
 - **Leaf package count:** **53** (counted directly from the seven workstream tables; this is a documentation count correction only and does not change scope or weights).
 - **Status:** Governing scope and measurement baseline. The initial item-by-item status audit is recorded separately from the weights; no aggregate completion percentage is asserted by this document.
 
