@@ -96,6 +96,11 @@ class MatchService {
   static Future<Map<String, dynamic>> getState(String id) async =>
       Map<String, dynamic>.from((await _request('GET', '/$id/state'))['state'] as Map);
 
+  static Future<void> heartbeat(String id) async {
+    if (!RegExp(r'^[1-9][0-9]*$').hasMatch(id)) throw Exception('شناسه اتاق بازی معتبر نیست.');
+    await _postJson('/matches/$id/heartbeat', <String, dynamic>{});
+  }
+
   static Future<Map<String, dynamic>> spectate(String id) async =>
       await _request('GET', '/$id/spectate');
 
