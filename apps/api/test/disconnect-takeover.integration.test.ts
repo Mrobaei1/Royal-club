@@ -246,3 +246,48 @@ test('disconnect policies are owner-only, bounded and audited', async () => {
   assert.equal(restored.json().policy.graceSeconds, 18);
   delete process.env.OWNER_USER_ID;
 });
+
+test('temporary AI takeover processes the guest seat with the correct movement direction', async () => {
+  const { matchId, host, guest } = await activeMatch();
+  await testPool.query(
+    `UPDATE backgammon_matches
+        SET current_turn_user_id = $2, dice = '[]'::jsonb,
+            remaining_dice = '[]'::jsonb, state_version = state_version + 1
+      WHERE id = $1`,
+    [matchId, guest.user.id],
+  );
+  await testPool.query(
+    `UPDATE backgammon_match_presence
+        SET last_heartbeat_at = NOW() - INTERVAL '30 seconds'
+      WHERE match_id = $1 AND user_id = $2`,
+    [matchId, guest.user.id],
+  );
+  const before = await testPool.query(
+    'SELECT state_version FROM backgammon_matches WHERE id = $1', [matchId],
+  );
+
+  const stateResponse = await app.inject({
+    method: 'GET',
+    url: `/api/v1/matches/${matchId}/state`,
+    headers: auth(host.accessToken),
+  });
+  assert.equal(stateResponse.statusCode, 200, stateResponse.body);
+  assert.equal(stateResponse.json().state.currentTurnUserId, host.user.id);
+  assert.equal(stateResponse.json().state.aiTakeoverActive, false);
+
+  const after = await testPool.query(
+    'SELECT state_version, current_turn_user_id FROM backgammon_matches WHERE id = $1',
+    [matchId],
+  );
+  assert.equal(Number(after.rows[0].state_version), Number(before.rows[0].state_version) + 1);
+  assert.equal(String(after.rows[0].current_turn_user_id), host.user.id);
+
+  const guestPresence = await testPool.query(
+    `SELECT takeover_active, last_ai_action_at
+       FROM backgammon_match_presence
+      WHERE match_id = $1 AND user_id = $2`,
+    [matchId, guest.user.id],
+  );
+  assert.equal(guestPresence.rows[0].takeover_active, true);
+  assert.ok(guestPresence.rows[0].last_ai_action_at);
+});
