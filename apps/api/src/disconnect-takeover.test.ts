@@ -93,3 +93,50 @@ test('temporary AI can legally bear off a checker from the home board', () => {
   assert.equal(turn.state.off.host, 15);
   assert.deepEqual(turn.remainingDice, [1]);
 });
+
+
+test('temporary AI selects a legal move in the guest direction', () => {
+  const board = Array.from({ length: 24 }, () => 0);
+  board[20] = -1;
+  const state = {
+    board,
+    bar: { host: 0, guest: 0 },
+    off: { host: 0, guest: 0 },
+  };
+  const turn = chooseTemporaryAiTurn(state, [2], false);
+
+  assert.deepEqual(turn.moves, [{ from: 20, to: 22, die: 2 }]);
+  assert.equal(turn.state.board[20], 0);
+  assert.equal(turn.state.board[22], -1);
+});
+
+test('temporary AI enters a guest checker from the bar at the correct point', () => {
+  const board = Array.from({ length: 24 }, () => 0);
+  board[10] = -1;
+  const state = {
+    board,
+    bar: { host: 0, guest: 1 },
+    off: { host: 0, guest: 0 },
+  };
+  const turn = chooseTemporaryAiTurn(state, [3], false);
+
+  assert.deepEqual(turn.moves, [{ from: null, to: 2, die: 3 }]);
+  assert.equal(turn.state.bar.guest, 0);
+  assert.equal(turn.state.board[2], -1);
+});
+
+test('temporary AI hits an opposing blot when the guest move lands on it', () => {
+  const board = Array.from({ length: 24 }, () => 0);
+  board[20] = -1;
+  board[22] = 1;
+  const state = {
+    board,
+    bar: { host: 0, guest: 0 },
+    off: { host: 0, guest: 0 },
+  };
+  const turn = chooseTemporaryAiTurn(state, [2], false);
+
+  assert.deepEqual(turn.moves, [{ from: 20, to: 22, die: 2 }]);
+  assert.equal(turn.state.board[22], -1);
+  assert.equal(turn.state.bar.host, 1);
+});
