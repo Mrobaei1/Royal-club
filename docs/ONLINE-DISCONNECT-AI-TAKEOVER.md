@@ -2,7 +2,7 @@
 
 **Implementation branch:** `fix/pr61-rebased-on-current-main`  
 **Pull request:** [PR #67](https://github.com/Mrobaei1/Royal-club/pull/67)  
-**Reconnect race fix:** [e141e6c](https://github.com/Mrobaei1/Royal-club/commit/e141e6c2925effe50a4d6d506ac0d20c19af48d5) processes an overdue AI turn before a reconnect heartbeat clears the disconnect lease.  
+**Verified source head:** [57ac148](https://github.com/Mrobaei1/Royal-club/commit/57ac148a35ebb58e0a596a1f6b393ae81d3051ec), including the reconnect race fix and regression test.  
 **Status:** Automated checks pass. The PR remains Draft pending code review and two-device manual acceptance. This change is not merged into `main` and is not deployed to Production.
 
 ## Behavior and defaults
@@ -29,12 +29,13 @@
 
 ## Automated verification
 
-All recorded CI workflows for exact source head `797ea417c07bdbed1b46ebe578ecc649cfdad932` completed successfully:
+All four GitHub Actions workflows for exact source head `57ac148a35ebb58e0a596a1f6b393ae81d3051ec` completed successfully:
 
-- [Royal Club validation](https://github.com/Mrobaei1/Royal-club/actions/runs/41044430078): API build/tests and Flutter analyze/tests passed.
-- [Backgammon engine audit](https://github.com/Mrobaei1/Royal-club/actions/runs/41044430000): passed.
-- [Validate Royal Club](https://github.com/Mrobaei1/Royal-club/actions/runs/41044429983): API build/tests, API integration tests, and Flutter analyze/tests passed.
-- [Royal Club Web Preview](https://github.com/Mrobaei1/Royal-club/actions/runs/41044430010): build passed; deployment was skipped.
+- [Royal Club validation](https://github.com/Mrobaei1/Royal-club/actions/runs/41050307542): API build/tests and Flutter analyze/widget tests passed.
+- [Backgammon engine audit](https://github.com/Mrobaei1/Royal-club/actions/runs/41050307582): passed.
+- [Validate Royal Club](https://github.com/Mrobaei1/Royal-club/actions/runs/41050307595): API build/tests, API integration tests, and Flutter analyze/tests passed.
+- [Royal Club Web Preview](https://github.com/Mrobaei1/Royal-club/actions/runs/41050307558): tests and Web Preview build passed; deployment was skipped.
+
 
 Tests cover legal AI sequence selection, immutable input, bar entry, blocked entry, higher-die handling, grace-period behavior, stale-human-request fencing, takeover, reconnect, restored human control, reconnect-triggered takeover after serverless idle, concurrent state polls, and owner-only audited policy changes.
 
