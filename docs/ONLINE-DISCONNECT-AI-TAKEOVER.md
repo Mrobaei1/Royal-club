@@ -2,7 +2,7 @@
 
 **Implementation branch:** `fix/pr61-rebased-on-current-main`  
 **Pull request:** [PR #67](https://github.com/Mrobaei1/Royal-club/pull/67)  
-**Verified source head:** [e5eb166](https://github.com/Mrobaei1/Royal-club/commit/8bd4040891fc49079b796706d72e0525c0516944), including reconnect-race handling and the expanded temporary-AI unit coverage.  
+**Verified source head:** [8bd4040](https://github.com/Mrobaei1/Royal-club/commit/8bd4040891fc49079b796706d72e0525c0516944), including reconnect-race handling and the expanded temporary-AI unit coverage.  
 **Status:** Automated checks pass. The PR remains Draft pending code review and two-device manual acceptance. This change is not merged into `main` and is not deployed to Production.
 
 ## Behavior and defaults
