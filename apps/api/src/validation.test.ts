@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { isNumericId, isValidRegistrationPassword } from './validation.js';
+import { isNumericId, isReservedUsername, isValidRegistrationPassword } from './validation.js';
 
 test('accepts positive decimal database IDs', () => {
   assert.equal(isNumericId('1'), true);
@@ -26,4 +26,13 @@ test('registration passwords are limited to 128 UTF-8 bytes', () => {
   assert.equal(isValidRegistrationPassword('a'.repeat(129)), false);
   assert.equal(isValidRegistrationPassword(''), false);
   assert.equal(isValidRegistrationPassword(undefined), false);
+});
+
+
+test('reserved owner username is recognized case-insensitively', () => {
+  assert.equal(isReservedUsername('ElizArya'), true);
+  assert.equal(isReservedUsername('elizarya'), true);
+  assert.equal(isReservedUsername('@ELIZARYA'), true);
+  assert.equal(isReservedUsername('elizarya2'), false);
+  assert.equal(isReservedUsername(null), false);
 });

@@ -48,6 +48,21 @@ class AdminService {
       });
 
 
+  static Future<List<dynamic>> agentTemplates({String? gameCode}) async {
+    final query = gameCode == null || gameCode.trim().isEmpty
+        ? ''
+        : '?gameCode=${Uri.encodeQueryComponent(gameCode.trim())}';
+    return (await _request('GET', '/api/v1/admin/agent-templates$query'))['templates'] as List<dynamic>? ?? [];
+  }
+
+  static Future<Map<String, dynamic>?> futureGameAgentTemplate(String gameCode) async {
+    final response = await _request(
+      'GET',
+      '/api/v1/admin/agent-templates?gameCode=${Uri.encodeQueryComponent(gameCode.trim())}',
+    );
+    return response['gameSpecialist'] as Map<String, dynamic>?;
+  }
+
   static Future<List<dynamic>> agentTasks() async =>
       (await _request('GET', '/api/v1/admin/agent-tasks'))['tasks'] as List<dynamic>? ?? [];
 
