@@ -2,7 +2,8 @@
 
 - **Audit date:** 2026-10-30
 - **Governing baseline:** `docs/PROJECT-WBS-BASELINE.md`, WBS v1.0
-- **Live main at audit:** `ce80d6723371b250d233ff2f06d467c7fef4bad2`
+- **Live main at initial audit:** `ce80d6723371b250d233ff2f06d467c7fef4bad2`
+- **Documentation follow-up merged after initial audit:** PR #70, merge commit `22dbff4caf81e3507da31e38bc2905cc964baf41` (WBS count correction and evidence ledger; no application code changed).
 - **Leaf package count:** **53** (six + seven + ten + seven + seven + eight + eight)
 - **Total baseline weight:** **1,000 points**; the package weights below sum to exactly 1,000.
 - **Purpose:** evidence inventory and status register; this is not yet the scored baseline.
@@ -34,7 +35,7 @@ The roadmap previously said 47 packages. Counting the actual leaf IDs in the app
 | 1.1 | 15 | In progress | WBS v1.0; project checkpoint | Keep product/NFR decisions synchronized with implementation and manual acceptance. |
 | 1.2 | 15 | In progress | apps/mobile; apps/api/src/server.ts; WBS §5 | Verify provider portability and architecture boundaries against deployed configuration. |
 | 1.3 | 15 | In progress | WBS §6; project checkpoint §7 | Verify privacy/free-by-default/VPN rules across all public and account surfaces. |
-| 1.4 | 15 | In progress | WBS v1.0; EXECUTION-ROADMAP-v1; this ledger | Complete scored evidence links, decision log and recurring milestone reporting. |
+| 1.4 | 15 | In progress | WBS v1.0 (PR #68); roadmap (PR #69); 53-package correction/evidence ledger (PR #70, merge `22dbff4`) | Complete scored evidence links, decision log and recurring milestone reporting. |
 | 1.5 | 10 | In progress | WBS §6; execution roadmap P5 | Complete approved retention, backup/restore and disaster-recovery runbooks/tests. |
 | 1.6 | 10 | In progress | EXECUTION-ROADMAP-v1 §2; WBS §6 | Roadmap is recorded; verify ongoing dependency review and continued chess/card scope. |
 | 2.1 | 20 | In progress | docs/PHASE-1-3-READINESS.md §Phase 1; API auth tests | Verify full session lifecycle, recovery and end-to-end flows. |
@@ -76,7 +77,7 @@ The roadmap previously said 47 packages. Counting the actual leaf IDs in the app
 | 6.6 | 15 | Not started | WBS §6 scope only; no complete evidence identified in this audit | Implement and verify Agent Center categories/monitoring UX without activating external actions. |
 | 6.7 | 10 | Not started | No provider-validated deposit/payment adapter evidence identified | Only proceed after separate provider/security design and owner approval. |
 | 6.8 | 10 | Blocked | WBS approval gate; no manual owner acceptance evidence | Complete owner-facing acceptance; do not activate identities, grants, schedules or financial actions. |
-| 7.1 | 25 | In progress | PR #67 exact-head workflows 41055659704, 41055659467, 41055659183, 41055659332; PR #68/#69 CI | Record exact-head job-level evidence for the current candidate and keep CI tied to proposed commits. |
+| 7.1 | 25 | In progress | PR #67 code-head workflows 41055659704, 41055659467, 41055659183, 41055659332; PR #70 documentation-head workflows 41059470193, 41059470262, 41059470187, 41059470238 (all success); PR #68/#69 CI | Record exact-head job-level evidence for each implementation candidate; documentation-only runs demonstrate workflow execution, not feature acceptance. |
 | 7.2 | 20 | Blocked | Checkpoint production audit: deployment 79 predates current source | Owner-approved deployment plan, latest-source deploy and health/smoke verification. |
 | 7.3 | 25 | Blocked | Checkpoint production audit: 13 production tables vs 30 source tables | Reconcile migrations, review sequence, rollback and recovery; no production mutation without approval. |
 | 7.4 | 15 | Blocked | apps/api/src/server.ts cleanup endpoint; checkpoint says no scheduled Neon trigger | Configure/verify approved scheduled trigger and idle/serverless cleanup observability. |
@@ -114,3 +115,4 @@ The roadmap previously said 47 packages. Counting the actual leaf IDs in the app
 | Date | Change | Scope / weight impact |
 |---|---|---|
 | 2026-10-30 | Initial 53-package evidence inventory; corrected roadmap count from 47 to 53. | None; WBS v1.0 scope and all weights unchanged. |
+| 2026-10-30 | Recorded PR #70 merge (`22dbff4`) and its four successful exact-head workflows. | Documentation/evidence only; no earned WBS points assigned by merge or CI alone. |
