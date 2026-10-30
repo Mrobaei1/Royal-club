@@ -91,5 +91,5 @@ test('temporary AI can legally bear off a checker from the home board', () => {
   assert.equal(turn.moves.length, 1);
   assert.deepEqual(turn.moves[0], { from: 0, to: null, die: 4 });
   assert.equal(turn.state.off.host, 15);
-  assert.deepEqual(turn.remainingDice, [4]);
+  assert.deepEqual(turn.remainingDice, [1]);
 });
