@@ -3308,7 +3308,7 @@ app.post<{ Params: { id: string }; Body: { inviteeId?: string } }>(
         return reply.code(403).send({ error: 'You can invite accepted friends only.' });
       }
       // Expire this friend's old invitation before inserting a replacement.
-      // This lets the host re-invite after the 10-second card timeout even if
+      // This lets the host re-invite after the 60-second invitation expiry even if
       // the invitee has not reopened the lobby to trigger its cleanup endpoint.
       await client.query(
         `UPDATE backgammon_match_invites

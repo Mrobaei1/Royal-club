@@ -58,7 +58,7 @@ class RoyalBackgammonBoard extends StatelessWidget {
           Positioned(left: size.width / 2 - barWidth / 2, top: rowHeight + middle + rowHeight * .35,
             width: barWidth, child: _BarCount(count: barWhite, white: true)),
           if (onRoll != null)
-            Positioned(left: 5, right: size.width * .55,
+            Positioned(left: size.width * .55, right: 5,
               top: rowHeight + middle / 2 - 19,
               child: FilledButton.icon(
                 onPressed: onRoll,
