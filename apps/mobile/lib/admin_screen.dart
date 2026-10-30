@@ -136,7 +136,56 @@ class _AdminScreenState extends State<AdminScreen> {
       if (_agentTaskRead) 'read',
       if (_agentTaskRecommend) 'recommend',
     ];
-    if (!RegExp(r'^[a-z0-9_]{2,48}
+    const allowedDomains = <String>{
+      'membership', 'marketing', 'deposits', 'leagues', 'moderation',
+      'operations', 'social', 'advertising', 'analytics',
+    };
+    if (!RegExp(r'^[a-z0-9_]{2,48}$').hasMatch(code) ||
+        title.length < 3 || title.length > 120 ||
+        !allowedDomains.contains(_agentTaskDomain) ||
+        description.length > 2000 || capabilities.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(appText(
+          context,
+          'کد، عنوان، حوزه و حداقل یک قابلیت مجاز را بررسی کنید.',
+          'Check the code, title, domain, and select at least one allowed capability.',
+        ))),
+      );
+      return;
+    }
+    setState(() => _busy = true);
+    try {
+      await AdminService.createAgentTask(
+        code: code,
+        title: title,
+        domain: _agentTaskDomain,
+        description: description,
+        requestedCapabilities: capabilities,
+        requiresHumanApproval: _agentTaskRequiresApproval,
+      );
+      _agentTaskCode.clear();
+      _agentTaskTitle.clear();
+      _agentTaskDescription.clear();
+      await _loadAgentTaskProposals();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(appText(
+            context,
+            'پیش‌نویس وظیفه ثبت شد؛ اجرای خودکار همچنان غیرفعال است.',
+            'Task draft saved; automatic execution remains disabled.',
+          ))),
+        );
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(appError(context, error))),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
 
   Future<void> _rejectAgentProposal(dynamic proposal) async {
     final reasonController = TextEditingController();
