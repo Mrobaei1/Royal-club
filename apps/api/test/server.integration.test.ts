@@ -2257,6 +2257,23 @@ test('Phase 4 agent task definitions remain dormant and proposals require human 
     assert.equal(queue.statusCode, 200, queue.body);
     assert.ok((queue.json().proposals as Array<Record<string, unknown>>)
       .some((item) => String(item.id) === String(proposal.json().proposal.id)));
+
+    const rejected = await app.inject({
+      method: 'POST',
+      url: `/api/v1/admin/agent-task-proposals/${proposal.json().proposal.id}/reject`,
+      headers: auth(owner.token),
+      payload: { reason: 'Outside the approved read-only scope.' },
+    });
+    assert.equal(rejected.statusCode, 200, rejected.body);
+    assert.equal(rejected.json().proposal.status, 'rejected');
+    assert.equal(rejected.json().runtimeEnabled, false);
+    const repeatedReject = await app.inject({
+      method: 'POST',
+      url: `/api/v1/admin/agent-task-proposals/${proposal.json().proposal.id}/reject`,
+      headers: auth(owner.token),
+      payload: { reason: 'Second review attempt.' },
+    });
+    assert.equal(repeatedReject.statusCode, 409, repeatedReject.body);
   } finally {
     if (previousOwnerId === undefined) delete process.env.OWNER_USER_ID;
     else process.env.OWNER_USER_ID = previousOwnerId;
