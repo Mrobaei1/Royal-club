@@ -141,7 +141,7 @@ A production or financial risk can supersede the nominal phase order and must be
 
 1. **Completed:** PRs #68 and #69 established the WBS v1.0 and execution roadmap on `main`.
 2. **Completed:** PR #70 corrected the leaf count to 53 and added the initial evidence ledger; all four exact-head workflows passed. The official numeric score remains pending.
-3. **Active:** Audit PR #67 and keep it Draft until code review and two-device acceptance pass. Its documentation now points to the correct code SHA and CI run IDs; verify CI on the latest documentation-updated head.
+3. **Active:** PR #67 is synchronized with current `main` (24 commits ahead, 0 behind) and all four workflows passed on exact head `18986e5`. Keep it Draft until code review and two-device acceptance pass; do not merge on CI alone.
 4. Reproduce the reported online-board symptom on devices and verify the 60-second invite/room expiry, including serverless idle behavior; do not infer production scheduling from source code.
 5. Continue P1 rules-engine and online lifecycle acceptance, then move to P2.
 
