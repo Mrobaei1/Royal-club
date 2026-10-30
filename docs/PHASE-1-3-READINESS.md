@@ -105,3 +105,14 @@ These checks distinguish source correctness, automated CI, and the currently dep
 The main remaining product feature gap is online disconnect handling with a temporary server-side AI substitute and manager-configurable wait periods. Remaining release blockers also include production API/schema rollout, confirmed owner configuration, trigger scheduling, live OTP decision, two-device game acceptance, manual RTL/LTR and theme checks, monetization/league acceptance, VPN testing, and final owner sign-off.
 
 Do not activate agent identities, delegated grants, schedules, paid features, real SMS, production deployment, or APK generation without the corresponding explicit owner approval.
+
+
+## Checkpoint verification — 2026-10-30 (main HEAD `6ef1cbe2faeb21157dff58bedc2848b22f6db238`)
+
+All workflows triggered for this exact main commit completed successfully:
+- [Royal Club validation](https://github.com/Mrobaei1/Royal-club/actions/runs/41020158741): Flutter analyze/tests and API build/tests passed.
+- [Validate Royal Club](https://github.com/Mrobaei1/Royal-club/actions/runs/41020158762): Flutter analyze/tests, API build/unit/integration tests passed.
+- [Royal Club Web Preview](https://github.com/Mrobaei1/Royal-club/actions/runs/41020158729): build and deploy jobs passed.
+- [Royal Club Production API Health](https://github.com/Mrobaei1/Royal-club/actions/runs/41020158752): currently deployed API/database health check passed; this does not establish that latest source is deployed.
+
+The four workflow job sets were inspected; all jobs were completed successfully. The open-PR list was empty at this checkpoint. See [canonical project checkpoint and new-chat handoff](PROJECT-CHECKPOINT-2026-10-30.md) for merged PR summary, production audit snapshot, unresolved release gates, product decisions, and continuation protocol.
