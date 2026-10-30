@@ -352,6 +352,7 @@ class _AdminScreenState extends State<AdminScreen> {
               ],
               onChanged: (value) => setDialogState(() => format = value ?? 'round_robin'),
             ),
+            Align(alignment: AlignmentDirectional.centerStart, child: Text(appText(context, 'برنامه‌ریزی خودکار فعلاً فقط برای لیگ دوره‌ای فعال است؛ سایر فرمت‌ها به ساخت دورهای دستی نیاز دارند.', 'Automatic scheduling is currently available only for round-robin leagues; other formats require manager-created rounds.'), style: const TextStyle(fontSize: 12))),
             TextField(controller: minParticipantsController, keyboardType: TextInputType.number, decoration: InputDecoration(labelText: appText(context, 'حداقل شرکت‌کنندگان (۲ تا ۵۱۲)', 'Minimum participants (2–512)'))),
             const SizedBox(height: 10),
             DropdownButtonFormField<String>(
@@ -1109,6 +1110,7 @@ class _AdminScreenState extends State<AdminScreen> {
                 ],
                 onChanged: _busy ? null : (value) => setState(() => _leagueFormat = value ?? 'round_robin'),
               ),
+              Align(alignment: AlignmentDirectional.centerStart, child: Text(appText(context, 'برنامه‌ریزی خودکار فعلاً فقط برای لیگ دوره‌ای فعال است؛ سایر فرمت‌ها به ساخت دورهای دستی نیاز دارند.', 'Automatic scheduling is currently available only for round-robin leagues; other formats require manager-created rounds.'), style: const TextStyle(fontSize: 12))),
               const SizedBox(height: 8),
               TextField(controller: _leagueMinParticipants, keyboardType: TextInputType.number, decoration: InputDecoration(labelText: appText(context, 'حداقل شرکت‌کنندگان (۲ تا ۵۱۲)', 'Minimum participants (2–512)'), helperText: appText(context, 'این مقدار را مدیر برای هر لیگ تعیین می‌کند.', 'The manager sets this for each league.'), border: const OutlineInputBorder())),
               const SizedBox(height: 8),
@@ -1155,7 +1157,7 @@ class _AdminScreenState extends State<AdminScreen> {
                         onPressed: _busy ? null : () => _showLeagueReport(league),
                         icon: const Icon(Icons.assessment_outlined),
                       ),
-                      if (['round_robin', 'swiss', 'knockout'].contains(league['rules'] is Map ? (league['rules'] as Map)['format'] : null))
+                      if ((league['rules'] is Map ? (league['rules'] as Map)['format'] : null) == 'round_robin')
                         IconButton(
                           tooltip: appText(context, 'ساخت برنامه مسابقات', 'Generate schedule'),
                           onPressed: _busy ? null : () => _scheduleLeague(league),
