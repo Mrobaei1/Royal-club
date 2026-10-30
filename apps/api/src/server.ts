@@ -4411,6 +4411,9 @@ app.get<{ Params: { id: string } }>('/api/v1/matches/:id/spectate', { onRequest:
 app.post<{ Params: { id: string } }>('/api/v1/matches/:id/heartbeat', { onRequest: [requireMatchAuth] }, async (request, reply) => {
   const claims = request.user as { sub: string };
   if (!isNumericId(request.params.id)) return reply.code(400).send({ error: 'Invalid match id.' });
+  // Process an overdue disconnected turn before this heartbeat clears the lease.
+  // This is essential on serverless hosts where no background timer runs while idle.
+  await processTemporaryAiTakeover(request.params.id, claims.sub);
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
