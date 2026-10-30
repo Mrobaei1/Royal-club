@@ -5,6 +5,9 @@ import { AGENT_TEMPLATES, gameAgentTemplateCode, getAgentTemplate } from './agen
 test('agent role catalog is unique and contains a parameterized game specialist', () => {
   const codes = AGENT_TEMPLATES.map((template) => template.code);
   assert.equal(new Set(codes).size, codes.length);
+  assert.equal(getAgentTemplate('backgammon')?.gameScoped, false);
+  assert.equal(getAgentTemplate('chess')?.gameScoped, false);
+  assert.equal(getAgentTemplate('card_games')?.gameScoped, false);
   assert.equal(getAgentTemplate('game_operations')?.gameScoped, true);
   assert.equal(gameAgentTemplateCode('uno'), 'game_operations:uno');
   assert.equal(gameAgentTemplateCode('poker'), 'game_operations:poker');
