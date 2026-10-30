@@ -25,6 +25,7 @@ class _AdminScreenState extends State<AdminScreen> {
   List<dynamic> _reports = [];
   List<dynamic> _permissionGrants = [];
   List<dynamic> _permissionAudit = [];
+  List<dynamic> _agentTaskProposals = [];
   bool _delegatedPermissionsEnabled = false;
   final _email = TextEditingController();
   final _amount = TextEditingController(text: '100');
@@ -75,7 +76,7 @@ class _AdminScreenState extends State<AdminScreen> {
         if (mounted) setState(() { _owner = false; _loading = false; _error = null; });
         return;
       }
-      final results = await Future.wait([AdminService.plans(), AdminService.reports(), AdminService.smsOtpSettings(), AdminService.permissionSettings(), AdminService.permissionGrants(), AdminService.permissionAudit(), AdminService.leagues()]);
+      final results = await Future.wait([AdminService.plans(), AdminService.reports(), AdminService.smsOtpSettings(), AdminService.permissionSettings(), AdminService.permissionGrants(), AdminService.permissionAudit(), AdminService.leagues(), AdminService.agentTaskProposals()]);
       if (!mounted) return;
       final sms = results[2] as Map<String, dynamic>;
       _smsSettings = sms; _smsMode = sms['deliveryMode']?.toString() ?? 'disabled';
@@ -89,12 +90,59 @@ class _AdminScreenState extends State<AdminScreen> {
       final grants = results[4] as List<dynamic>;
       final audit = results[5] as List<dynamic>;
       final leagues = results[6] as List<dynamic>;
-      setState(() { _owner = true; _plans = plans; _reports = reports; _delegatedPermissionsEnabled = permissionSettings['enabled'] == true; _permissionGrants = grants; _permissionAudit = audit; _leagues = leagues; _loading = false; _error = null; });
+      final proposals = results[7] as List<dynamic>;
+      setState(() { _owner = true; _plans = plans; _reports = reports; _delegatedPermissionsEnabled = permissionSettings['enabled'] == true; _permissionGrants = grants; _permissionAudit = audit; _leagues = leagues; _agentTaskProposals = proposals; _loading = false; _error = null; });
     } catch (e) {
       if (mounted) setState(() { _loading = false; _error = appError(context, e); });
     }
   }
 
+
+  Future<void> _rejectAgentProposal(dynamic proposal) async {
+    final reasonController = TextEditingController();
+    final reason = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(appText(context, 'رد پیشنهاد ایجنت', 'Reject agent proposal')),
+        content: TextField(
+          controller: reasonController,
+          minLines: 2,
+          maxLines: 4,
+          maxLength: 500,
+          decoration: InputDecoration(
+            labelText: appText(context, 'دلیل رد (حداقل ۵ نویسه)', 'Reason (at least 5 characters)'),
+            border: const OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext), child: Text(appText(context, 'انصراف', 'Cancel'))),
+          FilledButton(
+            onPressed: () {
+              final value = reasonController.text.trim();
+              if (value.length >= 5 && value.length <= 500) Navigator.pop(dialogContext, value);
+            },
+            child: Text(appText(context, 'ثبت رد', 'Confirm rejection')),
+          ),
+        ],
+      ),
+    );
+    reasonController.dispose();
+    if (reason == null || _busy) return;
+    setState(() => _busy = true);
+    try {
+      await AdminService.rejectAgentTaskProposal(proposal['id'].toString(), reason);
+      await _load();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(appText(context, 'پیشنهاد رد و در گزارش ممیزی ثبت شد؛ اجرای ایجنت همچنان غیرفعال است.', 'Proposal rejected and audited; agent execution remains disabled.'))),
+        );
+      }
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appError(context, error))));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
 
   Future<void> _createLeague() async {
     final code = _leagueCode.text.trim().toLowerCase();
@@ -1013,6 +1061,59 @@ class _AdminScreenState extends State<AdminScreen> {
                     ),
                 ],
               ),
+              const SizedBox(height: 22),
+              Row(
+                children: [
+                  Expanded(child: Text(appText(context, 'پیشنهادهای ایجنت برای بررسی', 'Agent proposals for review'), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold))),
+                  IconButton(
+                    tooltip: appText(context, 'تازه‌سازی پیشنهادها', 'Refresh proposals'),
+                    onPressed: _busy ? null : _load,
+                    icon: const Icon(Icons.refresh),
+                  ),
+                ],
+              ),
+              Text(
+                appText(context, 'پیشنهادها فقط برای بررسی انسانی هستند. این صفحه اجرای خودکار یا تأیید اجرای ایجنت را فعال نمی‌کند.', 'Proposals are for human review only. This screen does not enable automatic execution or approve agent execution.'),
+                style: const TextStyle(fontSize: 12),
+              ),
+              if (_agentTaskProposals.where((p) => p is Map && p['status'] == 'awaiting_review').isEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Text(appText(context, 'پیشنهاد در انتظار بررسی وجود ندارد.', 'No proposals are awaiting review.')),
+                ),
+              for (final proposal in _agentTaskProposals.where((p) => p is Map && p['status'] == 'awaiting_review'))
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '\${proposal['taskCode'] ?? ''} · \${proposal['taskTitle'] ?? ''}',
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(appText(context, 'وضعیت: در انتظار بررسی', 'Status: awaiting review')),
+                        Text('\${appText(context, 'شناسه پیشنهاد', 'Proposal ID')}: \${proposal['id']}'),
+                        Text('\${appText(context, 'ثبت شده', 'Created')}: \${proposal['createdAt'] ?? ''}'),
+                        if (proposal['input'] != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 6),
+                            child: SelectableText('\${appText(context, 'ورودی درخواست', 'Requested input')}: \${proposal['input']}'),
+                          ),
+                        const SizedBox(height: 8),
+                        Align(
+                          alignment: AlignmentDirectional.centerEnd,
+                          child: OutlinedButton.icon(
+                            onPressed: _busy ? null : () => _rejectAgentProposal(proposal),
+                            icon: const Icon(Icons.block_outlined),
+                            label: Text(appText(context, 'رد با ثبت دلیل', 'Reject with reason')),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               const SizedBox(height: 22),
               Text(appText(context, 'اعتباردهی به کاربر', 'Credit a user'), style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
               const SizedBox(height: 10),
