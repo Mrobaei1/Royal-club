@@ -99,6 +99,13 @@ test('registered players can join an online match and history does not expose op
   const guest = await register('Guest Integration');
 
   // Phase 4 agent planning endpoints are owner-only; regular accounts cannot inspect or queue tasks.
+  const deniedAgentTemplateList = await app.inject({
+    method: 'GET',
+    url: '/api/v1/admin/agent-templates',
+    headers: auth(host.token),
+  });
+  assert.equal(deniedAgentTemplateList.statusCode, 403);
+
   const deniedAgentTaskList = await app.inject({
     method: 'GET',
     url: '/api/v1/admin/agent-tasks',
@@ -2221,6 +2228,37 @@ test('Phase 4 agent task definitions remain dormant and proposals require human 
   const previousOwnerId = process.env.OWNER_USER_ID;
   process.env.OWNER_USER_ID = owner.user.id;
   try {
+    const templates = await app.inject({
+      method: 'GET',
+      url: '/api/v1/admin/agent-templates',
+      headers: auth(owner.token),
+    });
+    assert.equal(templates.statusCode, 200, templates.body);
+    assert.equal(templates.json().runtimeEnabled, false);
+    const roleTemplates = templates.json().templates as Array<Record<string, unknown>>;
+    assert.equal(roleTemplates.length, 17);
+    assert.ok(roleTemplates.some((template) => template.code === 'backgammon'));
+    assert.ok(roleTemplates.some((template) => template.code === 'chess'));
+    assert.ok(roleTemplates.some((template) => template.code === 'card_games'));
+    assert.ok(roleTemplates.some((template) => template.code === 'deposit_review'));
+
+    const futureGameTemplate = await app.inject({
+      method: 'GET',
+      url: '/api/v1/admin/agent-templates?gameCode=Uno',
+      headers: auth(owner.token),
+    });
+    assert.equal(futureGameTemplate.statusCode, 200, futureGameTemplate.body);
+    assert.equal(futureGameTemplate.json().gameSpecialist.code, 'game_operations:uno');
+    assert.equal(futureGameTemplate.json().gameSpecialist.gameCode, 'uno');
+    assert.deepEqual(futureGameTemplate.json().gameSpecialist.defaultCapabilities, ['read', 'recommend']);
+
+    const invalidGameTemplate = await app.inject({
+      method: 'GET',
+      url: '/api/v1/admin/agent-templates?gameCode=../admin',
+      headers: auth(owner.token),
+    });
+    assert.equal(invalidGameTemplate.statusCode, 400, invalidGameTemplate.body);
+
     const createTask = await app.inject({
       method: 'POST',
       url: '/api/v1/admin/agent-tasks',
@@ -2405,4 +2443,41 @@ test('online match resignation handles game and match scopes atomically', async 
     payload: { scope: 'match' },
   });
   assert.equal(repeatedResign.statusCode, 409, repeatedResign.body);
+});
+
+
+test('ElizArya username is reserved for the configured owner identity', async () => {
+  const ordinary = await register('Ordinary Username Claimant');
+  const owner = await register('Verified Owner Identity');
+  const previousOwnerId = process.env.OWNER_USER_ID;
+  try {
+    const unconfiguredAttempt = await app.inject({
+      method: 'PATCH',
+      url: '/api/v1/me/username',
+      headers: auth(ordinary.token),
+      payload: { username: 'ElizArya' },
+    });
+    assert.equal(unconfiguredAttempt.statusCode, 403, unconfiguredAttempt.body);
+
+    process.env.OWNER_USER_ID = owner.user.id;
+    const ordinaryAttempt = await app.inject({
+      method: 'PATCH',
+      url: '/api/v1/me/username',
+      headers: auth(ordinary.token),
+      payload: { username: 'ElizArya' },
+    });
+    assert.equal(ordinaryAttempt.statusCode, 403, ordinaryAttempt.body);
+
+    const ownerAssignment = await app.inject({
+      method: 'PATCH',
+      url: '/api/v1/me/username',
+      headers: auth(owner.token),
+      payload: { username: 'ElizArya' },
+    });
+    assert.equal(ownerAssignment.statusCode, 200, ownerAssignment.body);
+    assert.equal(ownerAssignment.json().user.username, 'ElizArya');
+  } finally {
+    if (previousOwnerId === undefined) delete process.env.OWNER_USER_ID;
+    else process.env.OWNER_USER_ID = previousOwnerId;
+  }
 });
