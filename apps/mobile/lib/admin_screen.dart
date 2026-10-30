@@ -1089,17 +1089,17 @@ class _AdminScreenState extends State<AdminScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          '\${proposal['taskCode'] ?? ''} · \${proposal['taskTitle'] ?? ''}',
+                          '${proposal['taskCode'] ?? ''} · ${proposal['taskTitle'] ?? ''}',
                           style: const TextStyle(fontWeight: FontWeight.bold),
                         ),
                         const SizedBox(height: 6),
                         Text(appText(context, 'وضعیت: در انتظار بررسی', 'Status: awaiting review')),
-                        Text('\${appText(context, 'شناسه پیشنهاد', 'Proposal ID')}: \${proposal['id']}'),
-                        Text('\${appText(context, 'ثبت شده', 'Created')}: \${proposal['createdAt'] ?? ''}'),
+                        Text('${appText(context, 'شناسه پیشنهاد', 'Proposal ID')}: ${proposal['id']}'),
+                        Text('${appText(context, 'ثبت شده', 'Created')}: ${proposal['createdAt'] ?? ''}'),
                         if (proposal['input'] != null)
                           Padding(
                             padding: const EdgeInsets.only(top: 6),
-                            child: SelectableText('\${appText(context, 'ورودی درخواست', 'Requested input')}: \${proposal['input']}'),
+                            child: SelectableText('${appText(context, 'ورودی درخواست', 'Requested input')}: ${proposal['input']}'),
                           ),
                         const SizedBox(height: 8),
                         Align(
