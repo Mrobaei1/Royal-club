@@ -1,7 +1,7 @@
 # Royal Club — Execution Roadmap v1.0
 
 - **Date:** 2026-10-30
-- **Governing baseline:** Owner-approved WBS v1.0, 1,000 points, seven workstreams, 47 leaf packages.
+- **Governing baseline:** Owner-approved WBS v1.0, 1,000 points, seven workstreams, 53 leaf packages.
 - **Purpose:** Set the execution order, dependencies, exit gates and working rules for completing Royal Club efficiently.
 - **Status:** Proposed execution plan for owner confirmation; it does not change WBS scope or weights.
 
@@ -24,11 +24,11 @@
 
 Tasks:
 - Verify and complete the documentation-only WBS v1.0 PR #68: confirm exact diff, current-head CI, review/merge rules, then merge only when all repository rules permit.
-- Keep this roadmap linked to the WBS and maintain one evidence ledger for all 47 leaf packages.
+- Keep this roadmap linked to the WBS and maintain one evidence ledger for all 53 leaf packages.
 - Reconcile current `main`, open PRs, CI status and known blockers before each execution batch.
 - Replace provisional progress estimates with an item-by-item evidence audit; do not report an informal estimate as an official WBS score.
 
-**Exit gate:** WBS v1.0 is present on `main`; roadmap is tracked; 47-package evidence ledger has an owner, status, evidence and next action for each package.
+**Exit gate:** WBS v1.0 is present on `main`; roadmap is tracked; 53-package evidence ledger has an owner, status, evidence and next action for each package.
 
 ### P1 — Close critical backgammon and online-match correctness risks
 
@@ -109,7 +109,7 @@ Tasks:
 Tasks:
 - Run full regression on two independent accounts/devices and supported Android sizes.
 - Verify Persian/English, themes, accessibility, performance, network interruption/recovery, privacy and game flows.
-- Review all 47 WBS packages and confirm evidence links and residual blockers.
+- Review all 53 WBS packages and confirm evidence links and residual blockers.
 - Prepare release notes, rollback plan and release candidate checklist.
 - Build/test APK only after a separate explicit owner instruction.
 
@@ -141,7 +141,7 @@ A production or financial risk can supersede the nominal phase order and must be
 
 1. Verify/merge PR #68 only after current-head checks and repository review rules pass.
 2. Audit PR #67 diff, review threads and exact-head CI; then arrange the required two-device acceptance. Do not merge before acceptance.
-3. Create the 47-package evidence ledger and replace provisional project percentages with an evidence-backed baseline audit.
+3. Create the 53-package evidence ledger and replace provisional project percentages with an evidence-backed baseline audit.
 4. Triage the online-board source-of-truth issue and 60-second invite expiry against current `main`; create focused fixes if they are not already satisfied.
 5. Continue P1 engine and online lifecycle acceptance, then move to P2.
 

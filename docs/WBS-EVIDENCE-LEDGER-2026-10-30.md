@@ -1,0 +1,116 @@
+# Royal Club — WBS v1.0 Evidence Ledger (initial audit)
+
+- **Audit date:** 2026-10-30
+- **Governing baseline:** `docs/PROJECT-WBS-BASELINE.md`, WBS v1.0
+- **Live main at audit:** `ce80d6723371b250d233ff2f06d467c7fef4bad2`
+- **Leaf package count:** **53** (six + seven + ten + seven + seven + eight + eight)
+- **Total baseline weight:** **1,000 points**; the package weights below sum to exactly 1,000.
+- **Purpose:** evidence inventory and status register; this is not yet the scored baseline.
+
+## Important count correction
+
+The roadmap previously said 47 packages. Counting the actual leaf IDs in the approved WBS tables gives **53**. This is a documentation/count correction only: no work package, scope, package weight, workstream weight or owner decision has been added, removed or changed. The WBS remains v1.0 and 1,000 points.
+
+## Scoring discipline
+
+- Status and earned points are separate. A source implementation or green CI does not complete a package whose manual, production or owner-approval criteria remain open.
+- **No points are awarded in this initial inventory yet.** In-progress packages must first have their acceptance criteria split into explicit, evidence-backed sub-criteria and sub-weights under WBS §4. This prevents subjective partial credit and duplicate counting.
+- Accordingly, **the official aggregate percentage remains pending baseline scoring**. This is not a claim that the project is 0% complete.
+- A draft PR is evidence of work in progress, not merged implementation. PR #67 remains Draft and is excluded from main-branch implementation completion.
+- Production deployment, schema mutation, real SMS, paid activation, agent execution/schedules and APK generation remain separately approval-gated.
+
+## Status summary
+
+- In progress: 35 packages
+- Blocked: 13 packages
+- Not started: 4 packages
+- Blocked — approval gated: 1 packages
+- Total: 53 packages / 1000 points.
+
+## Package-by-package evidence register
+
+| WBS | Weight | Status | Current evidence | Remaining acceptance / next action |
+|---|---:|---|---|---|
+| 1.1 | 15 | In progress | WBS v1.0; project checkpoint | Keep product/NFR decisions synchronized with implementation and manual acceptance. |
+| 1.2 | 15 | In progress | apps/mobile; apps/api/src/server.ts; WBS §5 | Verify provider portability and architecture boundaries against deployed configuration. |
+| 1.3 | 15 | In progress | WBS §6; project checkpoint §7 | Verify privacy/free-by-default/VPN rules across all public and account surfaces. |
+| 1.4 | 15 | In progress | WBS v1.0; EXECUTION-ROADMAP-v1; this ledger | Complete scored evidence links, decision log and recurring milestone reporting. |
+| 1.5 | 10 | In progress | WBS §6; execution roadmap P5 | Complete approved retention, backup/restore and disaster-recovery runbooks/tests. |
+| 1.6 | 10 | In progress | EXECUTION-ROADMAP-v1 §2; WBS §6 | Roadmap is recorded; verify ongoing dependency review and continued chess/card scope. |
+| 2.1 | 20 | In progress | docs/PHASE-1-3-READINESS.md §Phase 1; API auth tests | Verify full session lifecycle, recovery and end-to-end flows. |
+| 2.2 | 20 | In progress | docs/PHASE-1-3-READINESS.md §OTP; docs/SMS-AUTH-ADMIN-CONFIG.md | Real provider activation and Android registration/login/linking acceptance remain gated. |
+| 2.3 | 20 | In progress | apps/api/src/server.ts self-account/auth routes; apps/api/test/server.integration.test.ts privacy assertions | Complete manual audit of every public surface and legacy/empty profiles. |
+| 2.4 | 20 | In progress | docs/PHASE-1-LOCALIZATION-AUDIT.md; readiness localization checklist | Re-run exact-head Flutter tests and close any remaining dynamic/navigation gaps. |
+| 2.5 | 20 | Blocked | Readiness checklist — manual device acceptance open | Manual Persian RTL / English LTR acceptance on supported Android sizes. |
+| 2.6 | 15 | Blocked | docs/PHASE-1-SECURITY-REVIEW.md; checkpoint production audit | Confirm owner configuration and complete deployed environment/network/security review. |
+| 2.7 | 15 | Blocked | Execution roadmap P2; readiness checklist | Same-account VPN-on/VPN-off test on a real device. |
+| 3.1 | 45 | In progress | apps/api/src/backgammon-rules.ts; backgammon engine audit CI | Complete edge-case audit and acceptance for legal sequences, dice, hits, bar, bear-off and turn transitions. |
+| 3.2 | 35 | In progress | apps/mobile/lib/royal_backgammon_board.dart; online/offline screens | Complete cross-mode visual, responsive, theme and device acceptance. |
+| 3.3 | 25 | In progress | apps/api/src/server.ts routes /matches and /match-invites; server integration tests | Verify expiry/cancellation/races and physical cleanup during serverless idle. |
+| 3.4 | 25 | In progress | apps/api/src/server.ts move/state routes; API integration tests | Complete two-device acceptance of authoritative state, cumulative moves, reconnect and races. |
+| 3.5 | 25 | In progress | PR #67; docs/ONLINE-DISCONNECT-AI-TAKEOVER.md; four successful CI workflows on 8bd4040 | PR remains Draft and unmerged; two-device disconnect/grace/AI/reconnect/handback test is pending. |
+| 3.6 | 15 | In progress | PR #58; apps/api/src/server.ts resignation route; integration tests | Verify UI confirmation/cancel, match-vs-game scope and duplicate behavior on devices. |
+| 3.7 | 15 | In progress | Offline backgammon screen and engine tests | Verify offline restart/AI/local two-player and isolation from online/ranking state. |
+| 3.8 | 20 | In progress | Main navigation/game entry screens; WBS §6 | Verify chess and card-game entry points and complete their agreed MVP flows. |
+| 3.9 | 10 | Not started | WBS §6 product scope | Document and test extension boundaries for Uno/Mafia without implementing unapproved game features. |
+| 3.10 | 15 | Blocked | PR #67 two-device gate; readiness checklist | Complete full game acceptance on two independent accounts/devices and supported Android sizes. |
+| 4.1 | 20 | In progress | apps/api friend routes; readiness friend-limit checklist | Complete username-based lifecycle and API limit verification including boundary/race cases. |
+| 4.2 | 25 | In progress | API chat/image-message integration tests; readiness checklist | Verify full emoji set, approved audience, delivery behavior and mobile UX. |
+| 4.3 | 15 | In progress | apps/mobile/lib/notifications_screen.dart (_deleteAll); apps/mobile/lib/services/notifications_service.dart; API DELETE /api/v1/notifications; server integration test | Verify targeting/localization and clear-all without cross-user side effects. |
+| 4.4 | 15 | In progress | apps/api/test/server.integration.test.ts spectator scenarios | Complete host-permission and friend/follower device acceptance; retain no-replay rule. |
+| 4.5 | 15 | In progress | apps/api/test/server.integration.test.ts public payload assertions | Static API scan found fullName only in own-account registration/auth/profile responses; public endpoints use usernames and have regression assertions. Complete manual UI and legacy/empty-profile audit. |
+| 4.6 | 15 | In progress | Account/profile screens; readiness privacy checklist | Verify avatar/username edit pricing and private account-detail visibility. |
+| 4.7 | 15 | Blocked | Execution roadmap P2; manual UX gate | Accept social UX in Persian/English, light/dark themes and real Android layouts. |
+| 5.1 | 25 | In progress | Wallet ledger source and API integration tests; readiness checklist | Complete concurrency, idempotency, audit and owner-adjustment verification. |
+| 5.2 | 20 | In progress | Subscription transaction source/tests; readiness checklist | Verify expiry, entitlements and manager-controlled prices end-to-end; keep paid activation disabled. |
+| 5.3 | 25 | In progress | Progression/leaderboard source and tests; readiness checklist | Verify XP/levels and Elo examples, ties, draws, retries and bounded growth. |
+| 5.4 | 35 | In progress | League source; WBS owner decisions; execution roadmap P3 | Complete fixtures, byes, appeals, incidents, audit history and manager acceptance. |
+| 5.5 | 15 | In progress | League entitlement ledger source; readiness checklist | Verify subscription-day consumption exactly once and no direct wallet debit. |
+| 5.6 | 10 | In progress | WBS §6; free-by-default policy; readiness checklist | Test owner/manager controls while ensuring paid behavior remains disabled absent approval. |
+| 5.7 | 10 | Blocked | Execution roadmap P3 | Manual Persian/English manager UI acceptance before any activation. |
+| 6.1 | 20 | In progress | Admin UI source; readiness checklist | Complete mobile/desktop usability and non-admin negative-access acceptance. |
+| 6.2 | 20 | Blocked | Checkpoint production audit: OWNER_USER_ID absent | Obtain owner-confirmed numeric configuration through the approved secure path; never infer it. |
+| 6.3 | 25 | In progress | Delegated-permission source/tests; readiness checklist | Review full permission matrix/scopes/revocation and 50-assistant ceiling; do not seed grants. |
+| 6.4 | 20 | In progress | PR #55 merged; agent task proposal source/docs | Complete capabilities/approval/state/audit model while execution stays dormant. |
+| 6.5 | 20 | In progress | Permission/agent audit and kill-switch source/tests | Verify kill-switch, cancellation, revocation and secret-redaction controls end-to-end. |
+| 6.6 | 15 | Not started | WBS §6 scope only; no complete evidence identified in this audit | Implement and verify Agent Center categories/monitoring UX without activating external actions. |
+| 6.7 | 10 | Not started | No provider-validated deposit/payment adapter evidence identified | Only proceed after separate provider/security design and owner approval. |
+| 6.8 | 10 | Blocked | WBS approval gate; no manual owner acceptance evidence | Complete owner-facing acceptance; do not activate identities, grants, schedules or financial actions. |
+| 7.1 | 25 | In progress | PR #67 exact-head workflows 41055659704, 41055659467, 41055659183, 41055659332; PR #68/#69 CI | Record exact-head job-level evidence for the current candidate and keep CI tied to proposed commits. |
+| 7.2 | 20 | Blocked | Checkpoint production audit: deployment 79 predates current source | Owner-approved deployment plan, latest-source deploy and health/smoke verification. |
+| 7.3 | 25 | Blocked | Checkpoint production audit: 13 production tables vs 30 source tables | Reconcile migrations, review sequence, rollback and recovery; no production mutation without approval. |
+| 7.4 | 15 | Blocked | apps/api/src/server.ts cleanup endpoint; checkpoint says no scheduled Neon trigger | Configure/verify approved scheduled trigger and idle/serverless cleanup observability. |
+| 7.5 | 20 | Not started | WBS §6 and execution roadmap P5; no tested backup/restore evidence identified | Complete monitoring/runbooks and owner-approved latest-three backup/restore test. |
+| 7.6 | 20 | Blocked | Checkpoint production security audit; owner/SMS secrets absent | Complete network/CORS/secrets/owner-ID/least-privilege acceptance with owner approval. |
+| 7.7 | 20 | Blocked | Two-device and real Android acceptance gates remain open | Complete end-to-end network, layout, accessibility, performance and regression acceptance. |
+| 7.8 | 15 | Blocked — approval gated | Owner instruction required; no APK authorization in current task | Prepare release notes/rollback readiness only; do not build or prepare APK until explicit approval. |
+
+
+## Static source audit findings — 2026-10-30
+
+- **Public identity:** a scan of current-main `apps/api/src/server.ts` found `fullName` in registration/phone-registration responses and the authenticated `/api/v1/me/profile` response, all for the account owner. Public friend, chat, leaderboard, match-history and spectator handlers use usernames; API integration tests assert that full names/emails are absent from the relevant payloads. This is source-level evidence only; the manual screen-by-screen and legacy/empty-profile audit remains open.
+- **Clear-all notifications:** the mobile notifications screen has a confirmed delete-all action, `NotificationsService.deleteAll()` calls `DELETE /api/v1/notifications`, and the API deletes only rows for the authenticated `user_id`. The integration test verifies that clearing one account's notifications leaves the other account's notifications intact. Device UX acceptance remains open.
+- **Online board source:** the online match screen fetches the authenticated `/matches/:id/state` snapshot; its local batch-move view is explicitly marked as a preview and is not submitted until confirmation. The reported incorrect-board symptom has not been reproduced in a real two-device session, so no speculative UI change is made.
+
+## Critical current blockers
+
+1. **PR #67:** four exact-head GitHub Actions workflows succeeded on `8bd4040891fc49079b796706d72e0525c0516944`, but the PR is Draft, has no review submissions or review threads, and awaits two-device manual acceptance. The PR branch is 19 commits ahead and 2 commits behind current main; the divergence is the two documentation commits merged after its base. Re-check before merge; do not merge on CI alone.
+2. **Online board:** main's mobile screen obtains the match state from the authenticated `/matches/:id/state` endpoint and labels it server state. The rendering path also supports a local, explicitly unsubmitted batch-move preview. The user's reported incorrect-board symptom still requires real-device reproduction; no source change is justified from static inspection alone.
+3. **Room/invite expiry:** source creates empty rooms with a 60-second expiry and invite cards are checked against a 60-second age. The API cleanup endpoint exists and is called by room/invite polling, but there is no configured Neon scheduled trigger in the latest production audit; serverless idle cleanup is therefore not proven.
+4. **Production:** latest checkpoint reports deployment 79 predates current source, 13 production tables versus 30 defined by source, no scheduled Neon trigger, and missing owner/SMS configuration. No production deployment or migration is authorized by this audit.
+5. **Manual acceptance:** two-device match behavior, RTL/LTR, theme consistency, VPN continuity and Android layout/accessibility/performance remain open.
+
+## Evidence sources
+
+- [Approved WBS v1.0](PROJECT-WBS-BASELINE.md)
+- [Execution roadmap v1.0](EXECUTION-ROADMAP-v1.md)
+- [Phase readiness checklist](PHASE-1-3-READINESS.md)
+- [Project checkpoint](PROJECT-CHECKPOINT-2026-10-30.md)
+- [PR #67 — disconnect/temporary AI takeover](https://github.com/Mrobaei1/Royal-club/pull/67)
+- [PR #58 — resignation SQL fix and tests](https://github.com/Mrobaei1/Royal-club/pull/58)
+
+## Audit change log
+
+| Date | Change | Scope / weight impact |
+|---|---|---|
+| 2026-10-30 | Initial 53-package evidence inventory; corrected roadmap count from 47 to 53. | None; WBS v1.0 scope and all weights unchanged. |
