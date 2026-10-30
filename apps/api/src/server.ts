@@ -1317,12 +1317,10 @@ app.patch<{ Params: { gameType: string }; Body: { enabled?: boolean; graceSecond
     );
     if (enabled === false || takeoverMode === 'disabled' || takeoverMode === 'wait_until_game_end') {
       await client.query(
-        `UPDATE backgammon_match_presence SET takeover_active = FALSE,
-           takeover_started_at = NULL WHERE user_id IN (
-             SELECT user_id FROM backgammon_match_presence WHERE match_id IN (
-               SELECT id FROM backgammon_matches WHERE status = 'active'
-             )
-           ) AND match_id IN (SELECT id FROM backgammon_matches WHERE status = 'active')`,
+        `UPDATE backgammon_match_presence p
+            SET takeover_active = FALSE, takeover_started_at = NULL
+           FROM backgammon_matches m
+          WHERE p.match_id = m.id AND m.status = 'active'`,
       );
     }
     await client.query('COMMIT');
