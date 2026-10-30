@@ -465,6 +465,198 @@ class _AdminScreenState extends State<AdminScreen> {
     }
   }
 
+
+  Future<void> _createManualLeagueRound(
+    dynamic league,
+    List<dynamic> participants,
+    List<dynamic> existingRounds,
+  ) async {
+    final id = league['id']?.toString();
+    if (id == null || id.isEmpty || participants.isEmpty) return;
+    final format = (league['rules'] is Map
+        ? (league['rules'] as Map)['format']?.toString()
+        : 'round_robin') ?? 'round_robin';
+    final options = participants.map((p) => <String, String>{
+      'id': p['userId'].toString(),
+      'username': p['username']?.toString() ?? p['userId'].toString(),
+    }).toList();
+    final nextRound = existingRounds
+        .map((r) => int.tryParse(r['roundNumber']?.toString() ?? '') ?? 0)
+        .fold<int>(0, (a, b) => a > b ? a : b) + 1;
+    final fixtures = <Map<String, dynamic>>[];
+    for (var i = 0; i < options.length; i += 2) {
+      fixtures.add({
+        'one': options[i]['id'],
+        'two': i + 1 < options.length ? options[i + 1]['id'] : null,
+        'bye': i + 1 >= options.length,
+      });
+    }
+    final roundController = TextEditingController(text: nextRound.toString());
+    var stage = 'regular';
+    var managerApproved = false;
+    Map<String, dynamic>? requestBody;
+    try {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => StatefulBuilder(
+          builder: (context, setDialogState) => AlertDialog(
+            title: Text(appText(context, 'ساخت دور دستی', 'Create manager-defined round')),
+            content: SizedBox(
+              width: 540,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    TextField(
+                      controller: roundController,
+                      keyboardType: TextInputType.number,
+                      decoration: InputDecoration(labelText: appText(context, 'شماره دور', 'Round number')),
+                    ),
+                    const SizedBox(height: 8),
+                    DropdownButtonFormField<String>(
+                      initialValue: stage,
+                      decoration: InputDecoration(labelText: appText(context, 'مرحله', 'Stage')),
+                      items: [
+                        DropdownMenuItem(value: 'regular', child: Text(appText(context, 'عادی', 'Regular'))),
+                        if (format == 'knockout' || format == 'groups_then_knockout')
+                          DropdownMenuItem(value: 'final', child: Text(appText(context, 'نهایی', 'Final'))),
+                      ],
+                      onChanged: (value) => setDialogState(() {
+                        stage = value ?? 'regular';
+                        if (stage != 'final') managerApproved = false;
+                      }),
+                    ),
+                    if (stage == 'final')
+                      CheckboxListTile(
+                        contentPadding: EdgeInsets.zero,
+                        value: managerApproved,
+                        onChanged: (value) => setDialogState(() => managerApproved = value == true),
+                        title: Text(appText(context, 'مرحله نهایی را صریحاً تأیید می‌کنم.', 'I explicitly approve creating the final stage.')),
+                      ),
+                    const Divider(),
+                    Text(appText(context, 'مسابقات این دور', 'Fixtures in this round'), style: const TextStyle(fontWeight: FontWeight.bold)),
+                    for (final fixture in fixtures)
+                      Card(
+                        margin: const EdgeInsets.symmetric(vertical: 5),
+                        child: Padding(
+                          padding: const EdgeInsets.all(8),
+                          child: Column(
+                            children: [
+                              DropdownButtonFormField<String>(
+                                initialValue: fixture['one'] as String?,
+                                decoration: InputDecoration(labelText: appText(context, 'بازیکن اول', 'Player one')),
+                                items: [
+                                  for (final p in options)
+                                    DropdownMenuItem(value: p['id'], child: Text('@${p['username']}')),
+                                ],
+                                onChanged: (value) => setDialogState(() => fixture['one'] = value),
+                              ),
+                              if (fixture['bye'] != true)
+                                DropdownButtonFormField<String>(
+                                  initialValue: fixture['two'] as String?,
+                                  decoration: InputDecoration(labelText: appText(context, 'بازیکن دوم', 'Player two')),
+                                  items: [
+                                    for (final p in options)
+                                      DropdownMenuItem(value: p['id'], child: Text('@${p['username']}')),
+                                  ],
+                                  onChanged: (value) => setDialogState(() => fixture['two'] = value),
+                                ),
+                              Row(
+                                children: [
+                                  Expanded(child: CheckboxListTile(
+                                    contentPadding: EdgeInsets.zero,
+                                    value: fixture['bye'] == true,
+                                    onChanged: (value) => setDialogState(() {
+                                      fixture['bye'] = value == true;
+                                      if (value == true) fixture['two'] = null;
+                                    }),
+                                    title: Text(appText(context, 'استراحت (بدون حریف)', 'Bye (no opponent)')),
+                                  )),
+                                  IconButton(
+                                    tooltip: appText(context, 'حذف مسابقه', 'Remove fixture'),
+                                    onPressed: fixtures.length <= 1 ? null : () => setDialogState(() => fixtures.remove(fixture)),
+                                    icon: const Icon(Icons.delete_outline),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    Align(
+                      alignment: AlignmentDirectional.centerStart,
+                      child: TextButton.icon(
+                        onPressed: () => setDialogState(() => fixtures.add({'one': null, 'two': null, 'bye': false})),
+                        icon: const Icon(Icons.add),
+                        label: Text(appText(context, 'افزودن مسابقه', 'Add fixture')),
+                      ),
+                    ),
+                    Text(
+                      appText(context, 'هر بازیکن در یک دور فقط یک‌بار می‌تواند در مسابقه یا استراحت ثبت شود. سرور تکراری‌ها را رد می‌کند.', 'A participant may appear only once per round, including a bye. The server rejects duplicate assignments.'),
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: Text(appText(context, 'انصراف', 'Cancel'))),
+              FilledButton(
+                onPressed: () {
+                  final round = int.tryParse(roundController.text);
+                  final used = <String>{};
+                  var valid = round != null && round >= 1 && round <= 1000 && fixtures.isNotEmpty;
+                  final matches = <Map<String, dynamic>>[];
+                  for (final fixture in fixtures) {
+                    final one = fixture['one']?.toString();
+                    final bye = fixture['bye'] == true;
+                    final two = bye ? null : fixture['two']?.toString();
+                    if (one == null || one.isEmpty || used.contains(one) ||
+                        (!bye && (two == null || two.isEmpty || two == one || used.contains(two)))) {
+                      valid = false;
+                      break;
+                    }
+                    used.add(one);
+                    if (two != null) used.add(two);
+                    matches.add({'playerOneId': one, 'playerTwoId': two});
+                  }
+                  if (!valid || (stage == 'final' && !managerApproved)) {
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                      content: Text(appText(context, 'شماره دور، مسابقات یا تأیید مرحله نهایی معتبر نیست.', 'Check the round number, fixture assignments, and final-stage approval.')),
+                    ));
+                    return;
+                  }
+                  requestBody = {
+                    'roundNumber': round,
+                    'stage': stage,
+                    'managerApproved': managerApproved,
+                    'matches': matches,
+                  };
+                  Navigator.pop(dialogContext, true);
+                },
+                child: Text(appText(context, 'ثبت دور', 'Create round')),
+              ),
+            ],
+          ),
+        ),
+      );
+      if (confirmed != true || requestBody == null || !mounted) return;
+      setState(() => _busy = true);
+      final result = await AdminService.createLeagueRound(id, requestBody!);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(appText(context, 'دور ثبت شد؛ تعداد مسابقات: ${result['fixtureCount'] ?? 0}.', 'Round created; fixtures: ${result['fixtureCount'] ?? 0}.')),
+      ));
+      await _showLeagueReport(league);
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appError(context, e))));
+    } finally {
+      roundController.dispose();
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   Future<void> _showLeagueReport(dynamic league) async {
     final id = league['id']?.toString();
     if (id == null || id.isEmpty) return;
@@ -476,6 +668,7 @@ class _AdminScreenState extends State<AdminScreen> {
       final rounds = (report['rounds'] as List? ?? const []);
       final matches = (report['matches'] as List? ?? const []);
       final appeals = (report['appeals'] as List? ?? const []);
+      final format = league['rules'] is Map ? (league['rules'] as Map)['format']?.toString() ?? 'round_robin' : 'round_robin';
       await showDialog<void>(
         context: context,
         builder: (dialogContext) => AlertDialog(
@@ -594,7 +787,18 @@ class _AdminScreenState extends State<AdminScreen> {
               ),
             ),
           ),
-          actions: [TextButton(onPressed: () => Navigator.pop(dialogContext), child: Text(appText(context, 'بستن', 'Close')))],
+          actions: [
+            if (format != 'round_robin')
+              TextButton.icon(
+                onPressed: participants.isEmpty ? null : () {
+                  Navigator.pop(dialogContext);
+                  _createManualLeagueRound(league, participants, rounds);
+                },
+                icon: const Icon(Icons.add),
+                label: Text(appText(context, 'ساخت دور دستی', 'Create manual round')),
+              ),
+            TextButton(onPressed: () => Navigator.pop(dialogContext), child: Text(appText(context, 'بستن', 'Close'))),
+          ],
         ),
       );
     } catch (e) {
