@@ -2238,6 +2238,32 @@ test('Phase 4 agent task definitions remain dormant and proposals require human 
     assert.equal(createTask.json().task.status, 'draft');
     const taskId = String(createTask.json().task.id);
 
+    const pauseTask = await app.inject({
+      method: 'PATCH',
+      url: `/api/v1/admin/agent-tasks/${taskId}`,
+      headers: auth(owner.token),
+      payload: { status: 'paused' },
+    });
+    assert.equal(pauseTask.statusCode, 200, pauseTask.body);
+    assert.equal(pauseTask.json().task.status, 'paused');
+    assert.equal(pauseTask.json().runtimeEnabled, false);
+    const proposalWhilePaused = await app.inject({
+      method: 'POST',
+      url: `/api/v1/admin/agent-tasks/${taskId}/proposals`,
+      headers: auth(owner.token),
+      payload: { input: { period: '7d' } },
+    });
+    assert.equal(proposalWhilePaused.statusCode, 409, proposalWhilePaused.body);
+
+    const resumeDraft = await app.inject({
+      method: 'PATCH',
+      url: `/api/v1/admin/agent-tasks/${taskId}`,
+      headers: auth(owner.token),
+      payload: { status: 'draft' },
+    });
+    assert.equal(resumeDraft.statusCode, 200, resumeDraft.body);
+    assert.equal(resumeDraft.json().task.status, 'draft');
+
     const proposal = await app.inject({
       method: 'POST',
       url: `/api/v1/admin/agent-tasks/${taskId}/proposals`,
@@ -2274,6 +2300,16 @@ test('Phase 4 agent task definitions remain dormant and proposals require human 
       payload: { reason: 'Second review attempt.' },
     });
     assert.equal(repeatedReject.statusCode, 409, repeatedReject.body);
+
+    const audit = await app.inject({
+      method: 'GET',
+      url: '/api/v1/admin/agent-task-audit',
+      headers: auth(owner.token),
+    });
+    assert.equal(audit.statusCode, 200, audit.body);
+    const auditEntries = audit.json().entries as Array<Record<string, unknown>>;
+    assert.ok(auditEntries.some((entry) => entry.action === 'definition_updated' && String(entry.taskDefinitionId) === taskId));
+    assert.ok(auditEntries.some((entry) => entry.action === 'proposal_rejected' && String(entry.proposalId) === String(proposal.json().proposal.id)));
   } finally {
     if (previousOwnerId === undefined) delete process.env.OWNER_USER_ID;
     else process.env.OWNER_USER_ID = previousOwnerId;
