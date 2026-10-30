@@ -3,7 +3,7 @@
 **Implementation branch:** `fix/pr61-rebased-on-current-main`  
 **Pull request:** [PR #67](https://github.com/Mrobaei1/Royal-club/pull/67)  
 **Implementation commit:** [8bd4040](https://github.com/Mrobaei1/Royal-club/commit/8bd4040891fc49079b796706d72e0525c0516944), including reconnect-race handling and expanded temporary-AI unit coverage.  
-**Current synchronized PR head at this audit:** [18986e5](https://github.com/Mrobaei1/Royal-club/commit/18986e5ab12d376a6577bb79a58c72893520c153), incorporating the latest `main` history without changing the takeover implementation.  
+**Latest tested PR head before this documentation sync:** [987a045](https://github.com/Mrobaei1/Royal-club/commit/987a04587c66d06a8aed01b4cfb0ea15c7f82844), including a test-only assertion that the scheduled cleanup route physically deletes an expired empty room. The branch is 27 commits ahead and 0 behind `main`.  
 **Status:** Automated checks pass. The PR remains Draft pending code review and two-device manual acceptance. This change is not merged into `main` and is not deployed to Production.
 
 ## Behavior and defaults
@@ -27,20 +27,21 @@
 - On serverless hosts, the reconnect heartbeat first processes an overdue turn before refreshing presence; this prevents a returning player from bypassing the AI turn when no background worker or opponent poll ran during the idle period.
 - Long-running API hosts scan for due turns every two seconds. Authenticated match-state polling also attempts a due takeover.
 - **Serverless idle limitation:** if all clients stop polling and the API scales to zero, no background execution is guaranteed. A due takeover is processed on the next authenticated state poll. No scheduled trigger was created or activated.
+- **Live Neon configuration check (2026-10-30):** the `Royal-Club-API` production branch has no Function Triggers configured; its active `royalclubapi` deployment is version 79 from 2026-10-27 and predates this PR. Do not treat the branch implementation or cleanup route as active in Production.
 
 ## Automated verification
 
-All four GitHub Actions workflows for the implementation commit `8bd4040891fc49079b796706d72e0525c0516944` and the synchronized PR head `18986e5ab12d376a6577bb79a58c72893520c153` completed successfully. The latest exact-head run set is:
+All four GitHub Actions workflows completed successfully on the latest tested PR head `987a04587c66d06a8aed01b4cfb0ea15c7f82844` (including the test-only cleanup assertion). The exact-head run set is:
 
-- [Royal Club validation](https://github.com/Mrobaei1/Royal-club/actions/runs/41060683295): API build/unit tests and Flutter analyze/tests passed.
-- [Validate Royal Club](https://github.com/Mrobaei1/Royal-club/actions/runs/41060683281): API build/unit/integration tests and Flutter analyze/tests passed.
-- [Backgammon engine audit](https://github.com/Mrobaei1/Royal-club/actions/runs/41060683309): passed.
-- [Royal Club Web Preview](https://github.com/Mrobaei1/Royal-club/actions/runs/41060683272): Web Preview build passed; deployment was skipped.
+- [Royal Club validation](https://github.com/Mrobaei1/Royal-club/actions/runs/41081567733): API build/unit tests passed.
+- [Validate Royal Club](https://github.com/Mrobaei1/Royal-club/actions/runs/41081567720): API build/unit/integration tests and Flutter analyze/tests passed.
+- [Backgammon engine audit](https://github.com/Mrobaei1/Royal-club/actions/runs/41081567762): passed.
+- [Royal Club Web Preview](https://github.com/Mrobaei1/Royal-club/actions/runs/41081567721): API, Flutter analyze/tests and Web Preview build passed; deployment was skipped.
 
 The earlier implementation-commit runs remain historical evidence; the four run IDs above correspond to the synchronized PR head.
 
 
-Tests cover legal AI sequence selection, immutable input, bar entry, blocked entry, higher-die handling, grace-period behavior, stale-human-request fencing, takeover, reconnect, restored human control, reconnect-triggered takeover after serverless idle, concurrent state polls, and owner-only audited policy changes.
+Tests cover legal AI sequence selection, immutable input, bar entry, blocked entry, higher-die handling, grace-period behavior, stale-human-request fencing, takeover, reconnect, restored human control, reconnect-triggered takeover after serverless idle, concurrent state polls, owner-only audited policy changes, and physical deletion of an expired empty room by the scheduled cleanup route.
 
 **Still required:** review the full diff and complete manual acceptance on two independent devices/accounts. CI does not prove real network-loss behavior or Android lifecycle behavior.
 
