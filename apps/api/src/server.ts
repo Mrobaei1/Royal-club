@@ -230,6 +230,52 @@ await pool.query(`
   ALTER TABLE admin_permission_audit_log DROP CONSTRAINT IF EXISTS admin_permission_audit_log_action_check;
   ALTER TABLE admin_permission_audit_log ADD CONSTRAINT admin_permission_audit_log_action_check
     CHECK (action IN ('grant_created', 'grant_revoked', 'grant_rejected', 'kill_switch_changed'));
+  -- Dormant Phase 4 agent control plane. Definitions are plans only; no runtime executes them.
+  CREATE TABLE IF NOT EXISTS agent_task_definitions (
+    id BIGSERIAL PRIMARY KEY,
+    code TEXT NOT NULL UNIQUE,
+    title TEXT NOT NULL CHECK (char_length(title) BETWEEN 3 AND 120),
+    domain TEXT NOT NULL CHECK (domain IN (
+      'membership', 'marketing', 'deposits', 'leagues', 'moderation',
+      'operations', 'social', 'advertising', 'analytics'
+    )),
+    description TEXT NOT NULL DEFAULT '' CHECK (char_length(description) <= 2000),
+    requested_capabilities JSONB NOT NULL DEFAULT '["read"]'::jsonb
+      CHECK (jsonb_typeof(requested_capabilities) = 'array'),
+    requires_human_approval BOOLEAN NOT NULL DEFAULT TRUE,
+    status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'paused')),
+    created_by BIGINT REFERENCES users(id) ON DELETE SET NULL,
+    updated_by BIGINT REFERENCES users(id) ON DELETE SET NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+  CREATE TABLE IF NOT EXISTS agent_task_proposals (
+    id BIGSERIAL PRIMARY KEY,
+    task_definition_id BIGINT NOT NULL REFERENCES agent_task_definitions(id) ON DELETE RESTRICT,
+    requested_by BIGINT REFERENCES users(id) ON DELETE SET NULL,
+    input JSONB NOT NULL DEFAULT '{}'::jsonb CHECK (jsonb_typeof(input) = 'object'),
+    status TEXT NOT NULL DEFAULT 'awaiting_review'
+      CHECK (status IN ('awaiting_review', 'rejected', 'cancelled')),
+    review_reason TEXT NOT NULL DEFAULT '',
+    reviewed_by BIGINT REFERENCES users(id) ON DELETE SET NULL,
+    reviewed_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+  CREATE INDEX IF NOT EXISTS agent_task_proposals_status_created_idx
+    ON agent_task_proposals (status, created_at DESC);
+  CREATE TABLE IF NOT EXISTS agent_task_audit_log (
+    id BIGSERIAL PRIMARY KEY,
+    actor_user_id BIGINT REFERENCES users(id) ON DELETE SET NULL,
+    task_definition_id BIGINT REFERENCES agent_task_definitions(id) ON DELETE SET NULL,
+    proposal_id BIGINT REFERENCES agent_task_proposals(id) ON DELETE SET NULL,
+    action TEXT NOT NULL CHECK (action IN ('definition_created', 'proposal_created', 'proposal_rejected', 'proposal_cancelled')),
+    result TEXT NOT NULL CHECK (result IN ('success', 'denied', 'error')),
+    reason TEXT NOT NULL DEFAULT '',
+    details JSONB NOT NULL DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+  CREATE INDEX IF NOT EXISTS agent_task_audit_created_idx
+    ON agent_task_audit_log (created_at DESC);
 
 
   CREATE TABLE IF NOT EXISTS app_contact_methods (
@@ -1552,6 +1598,133 @@ const requireOwnerOrPermission = (
   if (ownerUserId && isNumericId(ownerUserId) && claims.sub === ownerUserId) return;
   await requirePermission(permission, resourceIdOf)(request, reply);
 };
+
+// Phase 4 agent control plane: plans and proposals only. There is intentionally no execution endpoint.
+const agentTaskDomains = new Set([
+  'membership', 'marketing', 'deposits', 'leagues', 'moderation',
+  'operations', 'social', 'advertising', 'analytics',
+]);
+const agentTaskCapabilities = new Set(['read', 'recommend', 'execute', 'approve']);
+
+app.get('/api/v1/admin/agent-tasks', { onRequest: [requireOwnerAuth] }, async () => {
+  const result = await pool.query(`
+    SELECT id, code, title, domain, description,
+           requested_capabilities AS "requestedCapabilities",
+           requires_human_approval AS "requiresHumanApproval", status,
+           created_at AS "createdAt", updated_at AS "updatedAt"
+      FROM agent_task_definitions
+     ORDER BY created_at DESC, id DESC LIMIT 200
+  `);
+  return { tasks: result.rows, runtimeEnabled: false };
+});
+
+app.post<{ Body: { code?: string; title?: string; domain?: string; description?: string; requestedCapabilities?: string[]; requiresHumanApproval?: boolean } }>(
+  '/api/v1/admin/agent-tasks',
+  { onRequest: [requireOwnerAuth], config: { rateLimit: { max: 10, timeWindow: '1 minute' } } },
+  async (request, reply) => {
+    const body = request.body ?? {};
+    const code = typeof body.code === 'string' ? body.code.trim().toLowerCase() : '';
+    const title = typeof body.title === 'string' ? body.title.trim() : '';
+    const domain = typeof body.domain === 'string' ? body.domain : '';
+    const description = typeof body.description === 'string' ? body.description.trim() : '';
+    const capabilities = body.requestedCapabilities ?? ['read'];
+    const requiresHumanApproval = body.requiresHumanApproval ?? true;
+    if (!/^[a-z0-9_]{2,48}$/.test(code) || title.length < 3 || title.length > 120 ||
+        !agentTaskDomains.has(domain) || description.length > 2000 ||
+        !Array.isArray(capabilities) || capabilities.length < 1 || capabilities.length > 4 ||
+        !capabilities.every((capability) => typeof capability === 'string' && agentTaskCapabilities.has(capability)) ||
+        new Set(capabilities).size !== capabilities.length || typeof requiresHumanApproval !== 'boolean') {
+      return reply.code(400).send({ error: 'Provide a valid dormant task definition and allowlisted capabilities.' });
+    }
+    const claims = request.user as { sub?: string };
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const inserted = await client.query(
+        `INSERT INTO agent_task_definitions
+          (code, title, domain, description, requested_capabilities, requires_human_approval, status, created_by, updated_by)
+         VALUES ($1, $2, $3, $4, $5::jsonb, $6, 'draft', $7, $7)
+         RETURNING id, code, title, domain, description,
+                   requested_capabilities AS "requestedCapabilities",
+                   requires_human_approval AS "requiresHumanApproval", status,
+                   created_at AS "createdAt", updated_at AS "updatedAt"`,
+        [code, title, domain, description, JSON.stringify(capabilities), requiresHumanApproval, claims.sub ?? null],
+      );
+      await client.query(
+        `INSERT INTO agent_task_audit_log (actor_user_id, task_definition_id, action, result, reason, details)
+         VALUES ($1, $2, 'definition_created', 'success', 'Owner created a dormant task definition', $3::jsonb)`,
+        [claims.sub ?? null, inserted.rows[0].id, JSON.stringify({ code, domain, requestedCapabilities: capabilities })],
+      );
+      await client.query('COMMIT');
+      return reply.code(201).send({ task: inserted.rows[0], runtimeEnabled: false });
+    } catch (error) {
+      await client.query('ROLLBACK').catch(() => undefined);
+      if (typeof error === 'object' && error !== null && 'code' in error && error.code === '23505') {
+        return reply.code(409).send({ error: 'A task definition with this code already exists.' });
+      }
+      request.log.error({ err: error }, 'Could not create dormant agent task definition');
+      return reply.code(500).send({ error: 'Could not create task definition.' });
+    } finally {
+      client.release();
+    }
+  },
+);
+
+app.get('/api/v1/admin/agent-task-proposals', { onRequest: [requireOwnerAuth] }, async () => {
+  const result = await pool.query(`
+    SELECT p.id, p.task_definition_id AS "taskDefinitionId", t.code AS "taskCode",
+           t.title AS "taskTitle", p.input, p.status, p.review_reason AS "reviewReason",
+           p.created_at AS "createdAt", p.reviewed_at AS "reviewedAt"
+      FROM agent_task_proposals p
+      JOIN agent_task_definitions t ON t.id = p.task_definition_id
+     ORDER BY p.created_at DESC, p.id DESC LIMIT 200
+  `);
+  return { proposals: result.rows, runtimeEnabled: false };
+});
+
+app.post<{ Params: { id: string }; Body: { input?: Record<string, unknown> } }>(
+  '/api/v1/admin/agent-tasks/:id/proposals',
+  { onRequest: [requireOwnerAuth], config: { rateLimit: { max: 20, timeWindow: '1 minute' } } },
+  async (request, reply) => {
+    if (!isNumericId(request.params.id)) return reply.code(400).send({ error: 'Invalid task definition ID.' });
+    const input = request.body?.input ?? {};
+    if (!input || typeof input !== 'object' || Array.isArray(input) || Buffer.byteLength(JSON.stringify(input), 'utf8') > 8000) {
+      return reply.code(400).send({ error: 'Proposal input must be an object no larger than 8 KB.' });
+    }
+    const claims = request.user as { sub?: string };
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const task = await client.query(
+        'SELECT id, status FROM agent_task_definitions WHERE id = $1 FOR SHARE',
+        [request.params.id],
+      );
+      if (!task.rowCount || task.rows[0].status !== 'draft') {
+        await client.query('ROLLBACK');
+        return reply.code(409).send({ error: 'Task definition is missing or not available for proposals.' });
+      }
+      const inserted = await client.query(
+        `INSERT INTO agent_task_proposals (task_definition_id, requested_by, input, status)
+         VALUES ($1, $2, $3::jsonb, 'awaiting_review')
+         RETURNING id, task_definition_id AS "taskDefinitionId", input, status, created_at AS "createdAt"`,
+        [request.params.id, claims.sub ?? null, JSON.stringify(input)],
+      );
+      await client.query(
+        `INSERT INTO agent_task_audit_log (actor_user_id, task_definition_id, proposal_id, action, result, reason, details)
+         VALUES ($1, $2, $3, 'proposal_created', 'success', 'Proposal queued for human review; execution is disabled', $4::jsonb)`,
+        [claims.sub ?? null, request.params.id, inserted.rows[0].id, JSON.stringify({ runtimeEnabled: false })],
+      );
+      await client.query('COMMIT');
+      return reply.code(201).send({ proposal: inserted.rows[0], runtimeEnabled: false, requiresHumanReview: true });
+    } catch (error) {
+      await client.query('ROLLBACK').catch(() => undefined);
+      request.log.error({ err: error }, 'Could not create agent task proposal');
+      return reply.code(500).send({ error: 'Could not create task proposal.' });
+    } finally {
+      client.release();
+    }
+  },
+);
 
 app.get('/api/v1/admin/permissions/settings', { onRequest: [requireOwnerAuth] }, async () => {
   const result = await pool.query(
