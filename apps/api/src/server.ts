@@ -3630,13 +3630,13 @@ app.post<{ Params: { id: string }; Body: { scope?: 'game' | 'match' } }>(
       await client.query(
         `UPDATE backgammon_matches
             SET status = $1,
-                winner_user_id = CASE WHEN $1 = 'finished' THEN $2 ELSE NULL END,
+                winner_user_id = CASE WHEN $1 = 'finished' THEN $2::bigint ELSE NULL END,
                 finish_reason = CASE WHEN $1 = 'finished' THEN 'resignation' ELSE NULL END,
                 host_game_wins = $3, guest_game_wins = $4,
                 board_state = CASE WHEN $1 = 'active' THEN $5::jsonb ELSE board_state END,
                 bar_state = CASE WHEN $1 = 'active' THEN '{"host":0,"guest":0}'::jsonb ELSE bar_state END,
                 off_state = CASE WHEN $1 = 'active' THEN '{"host":0,"guest":0}'::jsonb ELSE off_state END,
-                current_turn_user_id = CASE WHEN $1 = 'active' THEN $6 ELSE NULL END,
+                current_turn_user_id = CASE WHEN $1 = 'active' THEN $6::bigint ELSE NULL END,
                 dice = '[]'::jsonb, remaining_dice = '[]'::jsonb,
                 cancellation_proposed_by = NULL, cancellation_accepted_by = NULL,
                 state_version = state_version + 1, updated_at = NOW()

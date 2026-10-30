@@ -2279,3 +2279,130 @@ test('Phase 4 agent task definitions remain dormant and proposals require human 
     else process.env.OWNER_USER_ID = previousOwnerId;
   }
 });
+
+
+test('online match resignation handles game and match scopes atomically', async () => {
+  const host = await register('Resignation Host');
+  const guest = await register('Resignation Guest');
+  const stranger = await register('Resignation Stranger');
+
+  const created = await app.inject({
+    method: 'POST',
+    url: '/api/v1/matches',
+    headers: auth(host.token),
+  });
+  assert.equal(created.statusCode, 201, created.body);
+  const matchId = String(created.json().match.id);
+
+  const joined = await app.inject({
+    method: 'POST',
+    url: `/api/v1/matches/${matchId}/join`,
+    headers: auth(guest.token),
+  });
+  assert.equal(joined.statusCode, 200, joined.body);
+
+  const hostReady = await app.inject({
+    method: 'POST',
+    url: `/api/v1/matches/${matchId}/setup`,
+    headers: auth(host.token),
+    payload: { ready: true },
+  });
+  assert.equal(hostReady.statusCode, 200, hostReady.body);
+
+  const guestReady = await app.inject({
+    method: 'POST',
+    url: `/api/v1/matches/${matchId}/setup`,
+    headers: auth(guest.token),
+    payload: { acceptSettings: true, ready: true },
+  });
+  assert.equal(guestReady.statusCode, 200, guestReady.body);
+  assert.equal(guestReady.json().setup.status, 'active');
+
+  await testPool.query(
+    'UPDATE backgammon_matches SET match_to_win = 3, state_version = 12 WHERE id = $1',
+    [matchId],
+  );
+
+  const invalidScope = await app.inject({
+    method: 'POST',
+    url: `/api/v1/matches/${matchId}/resign`,
+    headers: auth(guest.token),
+    payload: { scope: 'series' },
+  });
+  assert.equal(invalidScope.statusCode, 400, invalidScope.body);
+
+  const strangerResign = await app.inject({
+    method: 'POST',
+    url: `/api/v1/matches/${matchId}/resign`,
+    headers: auth(stranger.token),
+    payload: { scope: 'game' },
+  });
+  assert.equal(strangerResign.statusCode, 404, strangerResign.body);
+
+  const gameResign = await app.inject({
+    method: 'POST',
+    url: `/api/v1/matches/${matchId}/resign`,
+    headers: auth(guest.token),
+    payload: { scope: 'game' },
+  });
+  assert.equal(gameResign.statusCode, 200, gameResign.body);
+  assert.equal(gameResign.json().result.status, 'active');
+  assert.equal(gameResign.json().result.scope, 'game');
+  assert.equal(String(gameResign.json().result.winnerUserId), String(host.user.id));
+  assert.equal(String(gameResign.json().result.loserUserId), String(guest.user.id));
+  assert.equal(gameResign.json().result.hostGameWins, 1);
+  assert.equal(gameResign.json().result.guestGameWins, 0);
+  assert.equal(gameResign.json().result.matchToWin, 3);
+
+  const afterGameResign = await testPool.query(
+    `SELECT status, winner_user_id, finish_reason, host_game_wins, guest_game_wins,
+            current_turn_user_id, dice, remaining_dice, state_version
+       FROM backgammon_matches WHERE id = $1`,
+    [matchId],
+  );
+  const gameState = afterGameResign.rows[0];
+  assert.equal(gameState.status, 'active');
+  assert.equal(gameState.winner_user_id, null);
+  assert.equal(gameState.finish_reason, null);
+  assert.equal(gameState.host_game_wins, 1);
+  assert.equal(gameState.guest_game_wins, 0);
+  assert.equal(String(gameState.current_turn_user_id), String(host.user.id));
+  assert.deepEqual(gameState.dice, []);
+  assert.deepEqual(gameState.remaining_dice, []);
+  assert.equal(gameState.state_version, 13);
+
+  const matchResign = await app.inject({
+    method: 'POST',
+    url: `/api/v1/matches/${matchId}/resign`,
+    headers: auth(host.token),
+    payload: { scope: 'match' },
+  });
+  assert.equal(matchResign.statusCode, 200, matchResign.body);
+  assert.equal(matchResign.json().result.status, 'finished');
+  assert.equal(matchResign.json().result.scope, 'match');
+  assert.equal(String(matchResign.json().result.winnerUserId), String(guest.user.id));
+  assert.equal(String(matchResign.json().result.loserUserId), String(host.user.id));
+
+  const afterMatchResign = await testPool.query(
+    `SELECT status, winner_user_id, finish_reason, dice, remaining_dice,
+            cancellation_proposed_by, cancellation_accepted_by
+       FROM backgammon_matches WHERE id = $1`,
+    [matchId],
+  );
+  const finalState = afterMatchResign.rows[0];
+  assert.equal(finalState.status, 'finished');
+  assert.equal(String(finalState.winner_user_id), String(guest.user.id));
+  assert.equal(finalState.finish_reason, 'resignation');
+  assert.deepEqual(finalState.dice, []);
+  assert.deepEqual(finalState.remaining_dice, []);
+  assert.equal(finalState.cancellation_proposed_by, null);
+  assert.equal(finalState.cancellation_accepted_by, null);
+
+  const repeatedResign = await app.inject({
+    method: 'POST',
+    url: `/api/v1/matches/${matchId}/resign`,
+    headers: auth(host.token),
+    payload: { scope: 'match' },
+  });
+  assert.equal(repeatedResign.statusCode, 409, repeatedResign.body);
+});
