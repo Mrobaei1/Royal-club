@@ -34,8 +34,8 @@ test('temporary AI prioritizes entering a checker from the bar', () => {
 
 test('temporary AI skips a turn when every entry point is blocked', () => {
   const board = Array.from({ length: 24 }, () => 0);
-  board[22] = -2;
-  board[20] = -2;
+  board[23] = -2;
+  board[21] = -2;
   const state = {
     board,
     bar: { host: 1, guest: 0 },
@@ -50,8 +50,8 @@ test('temporary AI skips a turn when every entry point is blocked', () => {
 
 test('temporary AI applies the standard higher-die rule when only one die can be played', () => {
   const board = Array.from({ length: 24 }, () => 0);
-  board[0] = 1;
-  board[23] = -1;
+  board[5] = 1;
+  board[4] = -2;
   const state = {
     board,
     bar: { host: 0, guest: 0 },
@@ -59,6 +59,6 @@ test('temporary AI applies the standard higher-die rule when only one die can be
   };
   const turn = chooseTemporaryAiTurn(state, [1, 6], true);
 
-  if (turn.moves.length === 1) assert.equal(turn.moves[0].die, 1);
-  else assert.ok(turn.moves.length > 1);
+  assert.equal(turn.moves.length, 1);
+  assert.equal(turn.moves[0].die, 6);
 });
