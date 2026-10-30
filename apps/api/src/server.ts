@@ -3929,11 +3929,7 @@ app.post<{ Params: { id: string }; Body: { moves: Array<{ from: number | null; t
       await client.query('ROLLBACK');
       return reply.code(409).send({ error: 'It is not your turn.' });
     }
-    if (await isTemporaryAiControlActive(client, match.id, claims.sub)) {
-      await client.query('ROLLBACK');
-      return reply.code(409).send({ error: 'Temporary AI control is active for this disconnected player. Reconnect with a heartbeat to regain control.' });
-    }
-    if (await isTemporaryAiControlActive(client, match.id, claims.sub)) {
+    if (await isTemporaryAiControlActive(client, game.id, claims.sub)) {
       await client.query('ROLLBACK');
       return reply.code(409).send({ error: 'Temporary AI control is active for this disconnected player. Reconnect with a heartbeat to regain control.' });
     }
@@ -4076,6 +4072,10 @@ app.post<{ Params: { id: string }; Body: { from: number | null; to: number | nul
     if (game.current_turn_user_id !== claims.sub) {
       await client.query('ROLLBACK');
       return reply.code(409).send({ error: 'It is not your turn.' });
+    }
+    if (await isTemporaryAiControlActive(client, game.id, claims.sub)) {
+      await client.query('ROLLBACK');
+      return reply.code(409).send({ error: 'Temporary AI control is active for this disconnected player. Reconnect with a heartbeat to regain control.' });
     }
     if (game.state_version !== body.expectedVersion) {
       await client.query('ROLLBACK');
@@ -4255,7 +4255,7 @@ app.post<{ Params: { id: string }; Body: { expectedVersion: number } }>('/api/v1
       await client.query('ROLLBACK');
       return reply.code(409).send({ error: 'It is not your active turn.' });
     }
-    if (await isTemporaryAiControlActive(client, match.id, claims.sub)) {
+    if (await isTemporaryAiControlActive(client, game.id, claims.sub)) {
       await client.query('ROLLBACK');
       return reply.code(409).send({ error: 'Temporary AI control is active for this disconnected player. Reconnect with a heartbeat to regain control.' });
     }
