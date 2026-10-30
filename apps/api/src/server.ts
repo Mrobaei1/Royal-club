@@ -6,7 +6,7 @@ import rateLimit from '@fastify/rate-limit';
 import jwt from '@fastify/jwt';
 import { Pool, type PoolClient } from 'pg';
 import { createCipheriv, createDecipheriv, createHmac, randomBytes, randomInt, scrypt as scryptCallback, timingSafeEqual } from 'node:crypto';
-import { isNumericId, isValidRegistrationPassword } from './validation.js';
+import { isNumericId, isReservedUsername, isValidRegistrationPassword } from './validation.js';
 import { createOtpCode, digestOtp, normalizeIranianMobile, verifyOtpDigest } from './otp-security.js';
 import { createKavenegarProvider } from './sms-provider.js';
 import { getAllowedCorsOrigins } from './cors-config.js';
@@ -954,6 +954,12 @@ app.patch<{ Body: { username?: string } }>('/api/v1/me/username', { onRequest: [
   const username = typeof request.body?.username === 'string' ? request.body.username.trim().replace(/^@/, '') : '';
   if (!/^[a-zA-Z0-9_.]{3,24}$/.test(username)) {
     return reply.code(400).send({ error: 'نام کاربری باید ۳ تا ۲۴ حرف و فقط شامل حروف انگلیسی، عدد، نقطه یا زیرخط باشد.' });
+  }
+  if (isReservedUsername(username)) {
+    const configuredOwnerId = process.env.OWNER_USER_ID?.trim();
+    if (!configuredOwnerId || !isNumericId(configuredOwnerId) || claims.sub !== configuredOwnerId) {
+      return reply.code(403).send({ error: 'This username is reserved for the verified platform owner.' });
+    }
   }
   try {
     const result = await pool.query(
