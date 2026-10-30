@@ -291,3 +291,51 @@ test('temporary AI takeover processes the guest seat with the correct movement d
   assert.equal(guestPresence.rows[0].takeover_active, true);
   assert.ok(guestPresence.rows[0].last_ai_action_at);
 });
+
+test('temporary AI passes a turn exactly once when the disconnected player has no legal moves', async () => {
+  const { matchId, host, guest } = await activeMatch();
+  await testPool.query(
+    `UPDATE backgammon_matches
+        SET board_state = $2::jsonb,
+            bar_state = '{"host":0,"guest":0}'::jsonb,
+            off_state = '{"host":0,"guest":0}'::jsonb,
+            dice = '[1,2]'::jsonb,
+            remaining_dice = '[1,2]'::jsonb,
+            current_turn_user_id = $3,
+            state_version = state_version + 1
+      WHERE id = $1`,
+    [matchId, JSON.stringify(Array.from({ length: 24 }, () => 0)), host.user.id],
+  );
+  await testPool.query(
+    `UPDATE backgammon_match_presence
+        SET last_heartbeat_at = NOW() - INTERVAL '30 seconds'
+      WHERE match_id = $1 AND user_id = $2`,
+    [matchId, host.user.id],
+  );
+  const before = await testPool.query(
+    'SELECT state_version FROM backgammon_matches WHERE id = $1', [matchId],
+  );
+
+  const response = await app.inject({
+    method: 'GET',
+    url: `/api/v1/matches/${matchId}/state`,
+    headers: auth(guest.accessToken),
+  });
+  assert.equal(response.statusCode, 200, response.body);
+  assert.equal(response.json().state.currentTurnUserId, guest.user.id);
+  assert.deepEqual(response.json().state.dice, []);
+  assert.deepEqual(response.json().state.remainingDice, []);
+
+  const after = await testPool.query(
+    'SELECT state_version, current_turn_user_id FROM backgammon_matches WHERE id = $1',
+    [matchId],
+  );
+  assert.equal(Number(after.rows[0].state_version), Number(before.rows[0].state_version) + 1);
+  assert.equal(String(after.rows[0].current_turn_user_id), guest.user.id);
+  const presence = await testPool.query(
+    'SELECT takeover_active, last_ai_action_at FROM backgammon_match_presence WHERE match_id = $1 AND user_id = $2',
+    [matchId, host.user.id],
+  );
+  assert.equal(presence.rows[0].takeover_active, true);
+  assert.ok(presence.rows[0].last_ai_action_at);
+});
