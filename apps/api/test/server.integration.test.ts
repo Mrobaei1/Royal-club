@@ -98,6 +98,29 @@ test('registered players can join an online match and history does not expose op
   const host = await register('Host Integration');
   const guest = await register('Guest Integration');
 
+  // Phase 4 agent planning endpoints are owner-only; regular accounts cannot inspect or queue tasks.
+  const deniedAgentTaskList = await app.inject({
+    method: 'GET',
+    url: '/api/v1/admin/agent-tasks',
+    headers: auth(host.token),
+  });
+  assert.equal(deniedAgentTaskList.statusCode, 403);
+  const deniedAgentTaskCreate = await app.inject({
+    method: 'POST',
+    url: '/api/v1/admin/agent-tasks',
+    headers: auth(host.token),
+    payload: { code: 'marketing_report', title: 'Marketing report', domain: 'marketing' },
+  });
+  assert.equal(deniedAgentTaskCreate.statusCode, 403);
+  const deniedAgentProposal = await app.inject({
+    method: 'POST',
+    url: '/api/v1/admin/agent-tasks/1/proposals',
+    headers: auth(host.token),
+    payload: { input: { campaign: 'weekly-summary' } },
+  });
+  assert.equal(deniedAgentProposal.statusCode, 403);
+
+
   const usernameSearch = await app.inject({
     method: 'GET',
     url: `/api/v1/users/search?username=${encodeURIComponent(guest.user.username)}`,
