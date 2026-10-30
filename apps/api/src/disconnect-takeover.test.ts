@@ -62,3 +62,34 @@ test('temporary AI applies the standard higher-die rule when only one die can be
   assert.equal(turn.moves.length, 1);
   assert.equal(turn.moves[0].die, 6);
 });
+
+test('temporary AI uses all four dice when doubles allow four legal moves', () => {
+  const board = Array.from({ length: 24 }, () => 0);
+  board[3] = 4;
+  board[0] = 11;
+  const state = {
+    board,
+    bar: { host: 0, guest: 0 },
+    off: { host: 0, guest: 0 },
+  };
+  const turn = chooseTemporaryAiTurn(state, [2, 2, 2, 2], true);
+
+  assert.equal(turn.moves.length, 4);
+  assert.deepEqual(turn.remainingDice, []);
+});
+
+test('temporary AI can legally bear off a checker from the home board', () => {
+  const board = Array.from({ length: 24 }, () => 0);
+  board[0] = 1;
+  const state = {
+    board,
+    bar: { host: 0, guest: 0 },
+    off: { host: 14, guest: 0 },
+  };
+  const turn = chooseTemporaryAiTurn(state, [1, 4], true);
+
+  assert.equal(turn.moves.length, 1);
+  assert.deepEqual(turn.moves[0], { from: 0, to: null, die: 1 });
+  assert.equal(turn.state.off.host, 15);
+  assert.deepEqual(turn.remainingDice, [4]);
+});
