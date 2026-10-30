@@ -42,12 +42,16 @@ export function authorizeAgentAction(request: AgentAuthorizationRequest): AgentA
     if (!gameCode || !request.grant.gameCodes.includes(gameCode)) {
       return { allowed: false, reason: 'scope_denied' };
     }
+  } else if (gameCode) {
+    return { allowed: false, reason: 'scope_denied' };
   }
   const resourceId = request.resource?.resourceId;
   if (request.grant.resourceIds !== undefined) {
     if (!resourceId || !request.grant.resourceIds.includes(resourceId)) {
       return { allowed: false, reason: 'scope_denied' };
     }
+  } else if (resourceId) {
+    return { allowed: false, reason: 'scope_denied' };
   }
 
   return { allowed: true, reason: 'authorized' };
