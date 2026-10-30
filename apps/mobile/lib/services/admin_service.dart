@@ -173,6 +173,9 @@ class AdminService {
         'intervalDays': intervalDays,
       });
 
+  static Future<Map<String, dynamic>> createLeagueRound(String id, Map<String, dynamic> body) async =>
+      await _request('POST', '/api/v1/admin/leagues/$id/rounds', body: body);
+
   static Future<Map<String, dynamic>> leagueReport(String id) async =>
       await _request('GET', '/api/v1/admin/leagues/$id/report');
 
