@@ -2,7 +2,7 @@
 
 **Implementation branch:** `fix/pr61-rebased-on-current-main`  
 **Pull request:** [PR #67](https://github.com/Mrobaei1/Royal-club/pull/67)  
-**Verified source head:** `797ea417c07bdbed1b46ebe578ecc649cfdad932` (before documentation-only follow-up)  
+**Reconnect race fix:** [e141e6c](https://github.com/Mrobaei1/Royal-club/commit/e141e6c2925effe50a4d6d506ac0d20c19af48d5) processes an overdue AI turn before a reconnect heartbeat clears the disconnect lease.  
 **Status:** Automated checks pass. The PR remains Draft pending code review and two-device manual acceptance. This change is not merged into `main` and is not deployed to Production.
 
 ## Behavior and defaults
@@ -23,6 +23,7 @@
 - The AI selector uses the existing server-side backgammon rules, including bar entry, bearing off, maximum playable dice, and the higher-die rule.
 - A complete AI turn is committed in one transaction and increments the match state version once.
 - A successful reconnect heartbeat clears takeover and restores human control. An AI turn committed before reconnect remains a completed action.
+- On serverless hosts, the reconnect heartbeat first processes an overdue turn before refreshing presence; this prevents a returning player from bypassing the AI turn when no background worker or opponent poll ran during the idle period.
 - Long-running API hosts scan for due turns every two seconds. Authenticated match-state polling also attempts a due takeover.
 - **Serverless idle limitation:** if all clients stop polling and the API scales to zero, no background execution is guaranteed. A due takeover is processed on the next authenticated state poll. No scheduled trigger was created or activated.
 
@@ -35,7 +36,7 @@ All recorded CI workflows for exact source head `797ea417c07bdbed1b46ebe578ecc64
 - [Validate Royal Club](https://github.com/Mrobaei1/Royal-club/actions/runs/41044429983): API build/tests, API integration tests, and Flutter analyze/tests passed.
 - [Royal Club Web Preview](https://github.com/Mrobaei1/Royal-club/actions/runs/41044430010): build passed; deployment was skipped.
 
-Tests cover legal AI sequence selection, immutable input, bar entry, blocked entry, higher-die handling, grace-period behavior, stale-human-request fencing, takeover, reconnect, restored human control, concurrent state polls, and owner-only audited policy changes.
+Tests cover legal AI sequence selection, immutable input, bar entry, blocked entry, higher-die handling, grace-period behavior, stale-human-request fencing, takeover, reconnect, restored human control, reconnect-triggered takeover after serverless idle, concurrent state polls, and owner-only audited policy changes.
 
 **Still required:** review the full diff and complete manual acceptance on two independent devices/accounts. CI does not prove real network-loss behavior or Android lifecycle behavior.
 
