@@ -1,7 +1,7 @@
 # Online Disconnect / Temporary AI Takeover
 
 **Implementation branch:** `feature/backgammon-disconnect-ai-takeover`  
-**Status:** Implementation added on the feature branch; automated CI and review are pending. This is not yet part of `main` and is not deployed to Production.
+**Status:** Implementation and automated CI are complete on the feature branch (exact verified head `3103470f47b422ed12cbe19e6c2afae49ac868b0`). PR #61 remains draft pending review and two-device manual acceptance. This is not yet part of `main` and is not deployed to Production.
 
 ## Behavior and defaults
 
@@ -23,7 +23,7 @@
 - A successful reconnect heartbeat clears the takeover assignment and restores human control. Any AI turn already committed before the reconnect remains a completed server action; no further AI action is scheduled after the fresh heartbeat.
 - Persistent API hosts scan for due turns every two seconds. Serverless requests to the authenticated match-state endpoint also process a due takeover, so an opponent actively polling the board can advance the match without relying on an in-process timer.
 
-## Tests added (not yet verified)
+## Tests and automated verification (passed on exact head `3103470f47b422ed12cbe19e6c2afae49ac868b0`)
 
 - Pure selector tests cover legal sequence selection, immutable input state, bar-entry priority, blocked entries and the higher-die rule.
 - Integration tests cover the grace period, stale-human-request fencing, takeover, reconnect and restored human move control.
