@@ -65,7 +65,7 @@ class _OnlineLobbyScreenState extends State<OnlineLobbyScreen> {
     if (!mounted || id == null || _popupInviteId != null || !_shownInviteIds.add(id)) return;
     _popupInviteId = id;
     final isEnglish = Localizations.localeOf(context).languageCode == 'en';
-    final timeout = Timer(const Duration(seconds: 10), () {
+    final timeout = Timer(const Duration(seconds: 60), () {
       if (mounted && _popupInviteId == id) {
         Navigator.of(context, rootNavigator: true).pop('expired');
       }
@@ -76,8 +76,8 @@ class _OnlineLobbyScreenState extends State<OnlineLobbyScreen> {
       builder: (dialogContext) => AlertDialog(
         title: Text(appText(context, 'دعوت بازی تخته‌نرد', 'Backgammon invitation')),
         content: Text(isEnglish
-            ? '@${invite['inviterUsername'] ?? 'friend'} invited you to play. This invitation expires in 10 seconds.'
-            : '@${invite['inviterUsername'] ?? 'دوست'} شما را به بازی دعوت کرده است. این دعوت تا ۱۰ ثانیه دیگر منقضی می‌شود.'),
+            ? '@${invite['inviterUsername'] ?? 'friend'} invited you to play. This invitation expires in 60 seconds.'
+            : '@${invite['inviterUsername'] ?? 'دوست'} شما را به بازی دعوت کرده است. این دعوت تا ۶۰ ثانیه دیگر منقضی می‌شود.'),
         actions: [
           TextButton(onPressed: () => Navigator.of(dialogContext).pop('decline'), child: Text(appText(context, 'رد دعوت', 'Decline'))),
           FilledButton(onPressed: () => Navigator.of(dialogContext).pop('accept'), child: Text(appText(context, 'پذیرش و ورود', 'Accept & join'))),
