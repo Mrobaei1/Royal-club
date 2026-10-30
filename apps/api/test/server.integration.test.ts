@@ -2444,3 +2444,40 @@ test('online match resignation handles game and match scopes atomically', async 
   });
   assert.equal(repeatedResign.statusCode, 409, repeatedResign.body);
 });
+
+
+test('ElizArya username is reserved for the configured owner identity', async () => {
+  const ordinary = await register('Ordinary Username Claimant');
+  const owner = await register('Verified Owner Identity');
+  const previousOwnerId = process.env.OWNER_USER_ID;
+  try {
+    const unconfiguredAttempt = await app.inject({
+      method: 'PATCH',
+      url: '/api/v1/me/username',
+      headers: auth(ordinary.token),
+      payload: { username: 'ElizArya' },
+    });
+    assert.equal(unconfiguredAttempt.statusCode, 403, unconfiguredAttempt.body);
+
+    process.env.OWNER_USER_ID = owner.user.id;
+    const ordinaryAttempt = await app.inject({
+      method: 'PATCH',
+      url: '/api/v1/me/username',
+      headers: auth(ordinary.token),
+      payload: { username: 'ElizArya' },
+    });
+    assert.equal(ordinaryAttempt.statusCode, 403, ordinaryAttempt.body);
+
+    const ownerAssignment = await app.inject({
+      method: 'PATCH',
+      url: '/api/v1/me/username',
+      headers: auth(owner.token),
+      payload: { username: 'ElizArya' },
+    });
+    assert.equal(ownerAssignment.statusCode, 200, ownerAssignment.body);
+    assert.equal(ownerAssignment.json().user.username, 'ElizArya');
+  } finally {
+    if (previousOwnerId === undefined) delete process.env.OWNER_USER_ID;
+    else process.env.OWNER_USER_ID = previousOwnerId;
+  }
+});
