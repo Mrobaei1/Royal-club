@@ -2476,6 +2476,17 @@ test('ElizArya username is reserved for the configured owner identity', async ()
     });
     assert.equal(ownerAssignment.statusCode, 200, ownerAssignment.body);
     assert.equal(ownerAssignment.json().user.username, 'ElizArya');
+
+    const configuredOwnerId = process.env.OWNER_USER_ID;
+    delete process.env.OWNER_USER_ID;
+    const handleDoesNotGrantOwnerAccess = await app.inject({
+      method: 'GET',
+      url: '/api/v1/admin/agent-templates',
+      headers: auth(owner.token),
+    });
+    assert.equal(handleDoesNotGrantOwnerAccess.statusCode, 403,
+      'The reserved username must not grant owner privileges when the numeric owner ID is absent.');
+    process.env.OWNER_USER_ID = configuredOwnerId;
   } finally {
     if (previousOwnerId === undefined) delete process.env.OWNER_USER_ID;
     else process.env.OWNER_USER_ID = previousOwnerId;
