@@ -10,6 +10,7 @@ import { isNumericId, isValidRegistrationPassword } from './validation.js';
 import { createOtpCode, digestOtp, normalizeIranianMobile, verifyOtpDigest } from './otp-security.js';
 import { createKavenegarProvider } from './sms-provider.js';
 import { getAllowedCorsOrigins } from './cors-config.js';
+import { normalizeDatabaseConnectionString } from './database-config.js';
 import { INITIAL_BACKGAMMON_BOARD, applyBackgammonMove, hasLegalMove, maxPlayableDiceCount, mustPlayHigherDie } from './backgammon-rules.js';
 import { calculateEloRatings } from './backgammon-rating.js';
 import { nextProgressionState } from './player-progression.js';
@@ -84,7 +85,7 @@ async function consumeOtpChallenge(
 }
 
 const app = Fastify({ logger: true, trustProxy: false });
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+const pool = new Pool({ connectionString: normalizeDatabaseConnectionString(process.env.DATABASE_URL) });
 
 // Expire empty waiting rooms after 60 seconds and remove their related notices.
 // The lazy calls also cover serverless runtimes where a persistent timer is not guaranteed.
