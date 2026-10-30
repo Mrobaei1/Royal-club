@@ -39,6 +39,7 @@ Phase 4 home-screen implementation has started on `main`. This checklist tracks 
 ### Phase 3 — game and social experience
 
 - [x] Main uses the shared Royal backgammon board for online and offline play, with automated coverage for point hit targets, cumulative moves, legal bar entry, and engine rules.
+- [x] Historical PR #35 was closed without merge after the shared-board work was superseded; the shared board is present on `main` and later integration/regression PRs cover the current implementation. Do not merge the stale PR #35 branch.
 - [ ] Finish full online-match acceptance testing on two independent accounts/devices: server-authoritative board state, legal/cumulative dice moves, bar entry, surrender/cancel flows, reconnect, and temporary AI takeover.
 - [x] Source includes 60-second invite/empty-room expiry and cleanup logic, with room cleanup called on room-list/invite requests and a protected internal trigger endpoint.
 - [ ] Verify invitation expiry, notification lifecycle, physical room cleanup while the serverless function is idle, and host re-invitation on the deployed service. The scheduled Neon trigger is not configured because the latest cleanup endpoint has not been deployed to production.
