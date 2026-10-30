@@ -24,6 +24,7 @@ Each league should store its format, manager-selected minimum participant count,
 - [ ] Audit-log creation and every change to format, minimum participants, schedule, entry mode, and rule decisions.
 - [x] Enforce the 24-hour appeal deadline in the API.
 - [x] Record round-robin fixtures/byes and report actual completed games and rest rounds per participant.
+- [x] Dedicated integration test verifies a five-player round robin creates all 10 unique pairings, gives every player exactly one bye, and reports four completed games per player after results are recorded.
 - [x] Require explicit manager approval and a compatible format for final-stage round creation.
 - [x] Record double-absence/technical-issue decisions and allow managers to set a replacement time.
 - [x] Existing integration tests cover authorization, concurrent entry, idempotency, audit history, and the no-wallet-debit guarantee. New scheduling/appeal flows still need dedicated integration tests.
@@ -31,4 +32,4 @@ Each league should store its format, manager-selected minimum participant count,
 
 ## Current implementation boundary
 
-The API now includes round-robin schedule generation, manager-created rounds, approved final-stage setup for compatible formats, participant game/rest reports, match-result and incident recording, replacement-time scheduling, 24-hour appeals, manager appeal decisions, and audit history. The mobile manager report exposes match results, incident/reschedule actions, and appeal decisions. Remaining acceptance includes dedicated tests for these new workflows, manager UI for manually creating Swiss/knockout/group rounds, real-device Persian/English review, and production security/deployment acceptance.
+The API now includes round-robin schedule generation, manager-created rounds, approved final-stage setup for compatible formats, participant game/rest reports, match-result and incident recording, replacement-time scheduling, 24-hour appeals, manager appeal decisions, and audit history. The mobile manager report exposes match results, incident/reschedule actions, and appeal decisions. Remaining acceptance includes manager UI for manually creating Swiss/knockout/group rounds, real-device Persian/English review, and production security/deployment acceptance. API integration coverage now includes the five-player round-robin bye-balance scenario.

@@ -2406,3 +2406,103 @@ test('online match resignation handles game and match scopes atomically', async 
   });
   assert.equal(repeatedResign.statusCode, 409, repeatedResign.body);
 });
+
+test('odd-sized round-robin league balances byes and reports actual completed games', async () => {
+  const previousOwnerId = process.env.OWNER_USER_ID;
+  const players = await Promise.all([
+    register('Bye Balance Owner'),
+    register('Bye Balance Player 2'),
+    register('Bye Balance Player 3'),
+    register('Bye Balance Player 4'),
+    register('Bye Balance Player 5'),
+  ]);
+  const owner = players[0];
+  process.env.OWNER_USER_ID = owner.user.id;
+  try {
+    const created = await app.inject({
+      method: 'POST',
+      url: '/api/v1/admin/leagues',
+      headers: auth(owner.token),
+      payload: {
+        code: `odd_round_robin_${randomUUID().replace(/-/g, '').slice(0, 8)}`,
+        name: 'Odd Roster Round Robin',
+        enabled: true,
+        rules: { format: 'round_robin', minimumParticipants: 5 },
+      },
+    });
+    assert.equal(created.statusCode, 201, created.body);
+    const leagueId = String(created.json().league.id);
+
+    for (const [index, player] of players.entries()) {
+      const entry = await app.inject({
+        method: 'POST',
+        url: `/api/v1/leagues/${leagueId}/entries`,
+        headers: auth(player.token),
+        payload: { idempotencyKey: `odd-roster-${index}-${randomUUID()}` },
+      });
+      assert.equal(entry.statusCode, 201, entry.body);
+    }
+
+    const schedule = await app.inject({
+      method: 'POST',
+      url: `/api/v1/admin/leagues/${leagueId}/schedule`,
+      headers: auth(owner.token),
+      payload: { startsAt: new Date(Date.now() + 3600000).toISOString(), intervalDays: 7 },
+    });
+    assert.equal(schedule.statusCode, 201, schedule.body);
+    assert.equal(schedule.json().rounds.length, 5);
+
+    const initialReport = await app.inject({
+      method: 'GET',
+      url: `/api/v1/admin/leagues/${leagueId}/report`,
+      headers: auth(owner.token),
+    });
+    assert.equal(initialReport.statusCode, 200, initialReport.body);
+    const matches = initialReport.json().matches as Array<{
+      id: string; status: string; playerOneId: string; playerTwoId: string | null;
+    }>;
+    const byes = matches.filter((match) => match.status === 'bye');
+    const fixtures = matches.filter((match) => match.status === 'scheduled');
+    assert.equal(byes.length, 5, 'Five-player round robin must create one bye per round.');
+    assert.equal(fixtures.length, 10, 'Every pair of five players must meet exactly once.');
+    const uniquePairings = new Set(fixtures.map((match) =>
+      [match.playerOneId, match.playerTwoId].sort().join(':')));
+    assert.equal(uniquePairings.size, 10, 'No pair may be duplicated.');
+
+    for (const match of fixtures) {
+      const completed = await app.inject({
+        method: 'PATCH',
+        url: `/api/v1/admin/league-matches/${match.id}`,
+        headers: auth(owner.token),
+        payload: { status: 'completed', winnerId: match.playerOneId, score: { playerOne: 1, playerTwo: 0 } },
+      });
+      assert.equal(completed.statusCode, 200, completed.body);
+    }
+
+    const finalReport = await app.inject({
+      method: 'GET',
+      url: `/api/v1/admin/leagues/${leagueId}/report`,
+      headers: auth(owner.token),
+    });
+    assert.equal(finalReport.statusCode, 200, finalReport.body);
+    const participants = finalReport.json().participants as Array<{
+      userId: string; gamesPlayed: number; restRounds: number;
+    }>;
+    assert.equal(participants.length, 5);
+    for (const participant of participants) {
+      assert.equal(participant.gamesPlayed, 4, `Player ${participant.userId} must have four completed games.`);
+      assert.equal(participant.restRounds, 1, `Player ${participant.userId} must have exactly one bye.`);
+    }
+    assert.equal(participants.reduce((sum, player) => sum + player.gamesPlayed, 0), 20);
+    assert.equal(participants.reduce((sum, player) => sum + player.restRounds, 0), 5);
+
+    const audit = await testPool.query(
+      "SELECT COUNT(*)::int AS count FROM league_admin_audit_log WHERE league_id = $1 AND action = 'league_schedule_generated'",
+      [leagueId],
+    );
+    assert.equal(audit.rows[0].count, 1);
+  } finally {
+    if (previousOwnerId === undefined) delete process.env.OWNER_USER_ID;
+    else process.env.OWNER_USER_ID = previousOwnerId;
+  }
+});
