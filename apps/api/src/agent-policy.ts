@@ -36,16 +36,19 @@ export function authorizeAgentAction(request: AgentAuthorizationRequest): AgentA
   if (!request.grant.capabilities.includes(request.capability)) return { allowed: false, reason: 'capability_denied' };
 
   const gameCode = request.resource?.gameCode;
-  if (gameCode && request.grant.gameCodes && !request.grant.gameCodes.includes(gameCode)) {
-    return { allowed: false, reason: 'scope_denied' };
+  // If a grant is scoped, the request must identify a matching resource.
+  // Omitting the resource must never widen a scoped grant into global access.
+  if (request.grant.gameCodes !== undefined) {
+    if (!gameCode || !request.grant.gameCodes.includes(gameCode)) {
+      return { allowed: false, reason: 'scope_denied' };
+    }
   }
   const resourceId = request.resource?.resourceId;
-  if (resourceId && request.grant.resourceIds && !request.grant.resourceIds.includes(resourceId)) {
-    return { allowed: false, reason: 'scope_denied' };
+  if (request.grant.resourceIds !== undefined) {
+    if (!resourceId || !request.grant.resourceIds.includes(resourceId)) {
+      return { allowed: false, reason: 'scope_denied' };
+    }
   }
-  // A missing scope list means no scope has been granted, not unrestricted access.
-  if (gameCode && !request.grant.gameCodes) return { allowed: false, reason: 'scope_denied' };
-  if (resourceId && !request.grant.resourceIds) return { allowed: false, reason: 'scope_denied' };
 
   return { allowed: true, reason: 'authorized' };
 }
