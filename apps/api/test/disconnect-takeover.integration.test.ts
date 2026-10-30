@@ -163,3 +163,51 @@ test('concurrent state polls can execute only one temporary AI turn', async () =
   assert.equal(Number(after.rows[0].state_version), Number(before.rows[0].state_version) + 1);
   assert.equal(String(after.rows[0].current_turn_user_id), guest.user.id);
 });
+
+test('disconnect policies are owner-only, bounded and audited', async () => {
+  const regular = await register('Disconnect Policy Regular');
+  process.env.OWNER_USER_ID = '0';
+  const denied = await app.inject({
+    method: 'GET', url: '/api/v1/admin/game-disconnect-policies',
+    headers: auth(regular.accessToken),
+  });
+  assert.equal(denied.statusCode, 403);
+
+  const owner = await register('Disconnect Policy Owner');
+  process.env.OWNER_USER_ID = owner.user.id;
+  const listed = await app.inject({
+    method: 'GET', url: '/api/v1/admin/game-disconnect-policies',
+    headers: auth(owner.accessToken),
+  });
+  assert.equal(listed.statusCode, 200, listed.body);
+  const backgammon = (listed.json().policies as Array<Record<string, unknown>>)
+    .find(policy => policy.gameType === 'backgammon');
+  assert.equal(backgammon?.graceSeconds, 18);
+  assert.equal(backgammon?.takeoverMode, 'temporary_ai');
+
+  const invalid = await app.inject({
+    method: 'PATCH', url: '/api/v1/admin/game-disconnect-policies/backgammon',
+    headers: auth(owner.accessToken), payload: { graceSeconds: 4 },
+  });
+  assert.equal(invalid.statusCode, 400);
+
+  const updated = await app.inject({
+    method: 'PATCH', url: '/api/v1/admin/game-disconnect-policies/backgammon',
+    headers: auth(owner.accessToken), payload: { graceSeconds: 23 },
+  });
+  assert.equal(updated.statusCode, 200, updated.body);
+  assert.equal(updated.json().policy.graceSeconds, 23);
+  const audit = await testPool.query(
+    'SELECT COUNT(*)::int AS count FROM game_disconnect_policy_audit WHERE actor_user_id = $1 AND game_type = $2',
+    [owner.user.id, 'backgammon'],
+  );
+  assert.equal(audit.rows[0].count, 1);
+
+  const restored = await app.inject({
+    method: 'PATCH', url: '/api/v1/admin/game-disconnect-policies/backgammon',
+    headers: auth(owner.accessToken), payload: { graceSeconds: 18 },
+  });
+  assert.equal(restored.statusCode, 200, restored.body);
+  assert.equal(restored.json().policy.graceSeconds, 18);
+  delete process.env.OWNER_USER_ID;
+});
