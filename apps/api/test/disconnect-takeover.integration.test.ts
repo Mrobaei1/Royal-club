@@ -141,6 +141,41 @@ test('heartbeat delays takeover, stale human requests are fenced, and reconnect 
   assert.equal(humanRoll.statusCode, 200, humanRoll.body);
 });
 
+test('reconnect heartbeat processes an overdue turn before restoring human presence', async () => {
+  const { matchId, host, guest } = await activeMatch();
+  const before = await testPool.query(
+    'SELECT state_version FROM backgammon_matches WHERE id = $1', [matchId],
+  );
+  await testPool.query(
+    `UPDATE backgammon_match_presence
+        SET last_heartbeat_at = NOW() - INTERVAL '30 seconds'
+      WHERE match_id = $1 AND user_id = $2`,
+    [matchId, host.user.id],
+  );
+
+  // Simulate the disconnected player returning while the serverless API was idle
+  // and no opponent state poll had triggered the lazy takeover.
+  const reconnected = await app.inject({
+    method: 'POST', url: `/api/v1/matches/${matchId}/heartbeat`,
+    headers: auth(host.accessToken),
+  });
+  assert.equal(reconnected.statusCode, 200, reconnected.body);
+  assert.equal(reconnected.json().presence.takeoverActive, false);
+
+  const after = await testPool.query(
+    `SELECT state_version, current_turn_user_id
+       FROM backgammon_matches WHERE id = $1`,
+    [matchId],
+  );
+  assert.equal(Number(after.rows[0].state_version), Number(before.rows[0].state_version) + 1);
+  assert.equal(String(after.rows[0].current_turn_user_id), guest.user.id);
+  const aiPresence = await testPool.query(
+    'SELECT last_ai_action_at FROM backgammon_match_presence WHERE match_id = $1 AND user_id = $2',
+    [matchId, host.user.id],
+  );
+  assert.ok(aiPresence.rows[0].last_ai_action_at);
+});
+
 test('concurrent state polls can execute only one temporary AI turn', async () => {
   const { matchId, host, guest } = await activeMatch();
   await testPool.query(
