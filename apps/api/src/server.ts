@@ -1102,31 +1102,6 @@ async function processDueTemporaryAiTakeovers(): Promise<void> {
   }
 }
 
-app.get('/api/v1/admin/game-disconnect-policies', { onRequest: [requireOwnerAuth] }, async () => {
-  const result = await pool.query('SELECT game_type AS "gameType", enabled, grace_seconds AS "graceSeconds", takeover_mode AS "takeoverMode", updated_at AS "updatedAt" FROM game_disconnect_policies ORDER BY game_type');
-  return { policies: result.rows };
-});
-
-app.patch<{ Params: { gameType: string }; Body: { enabled?: boolean; graceSeconds?: number; takeoverMode?: string } }>('/api/v1/admin/game-disconnect-policies/:gameType', { onRequest: [requireOwnerAuth] }, async (request, reply) => {
-  const { gameType } = request.params;
-  const { enabled, graceSeconds, takeoverMode } = request.body ?? {};
-  if (!['backgammon', 'cards', 'chess'].includes(gameType) ||
-      (enabled !== undefined && typeof enabled !== 'boolean') ||
-      (graceSeconds !== undefined && (!Number.isInteger(graceSeconds) || graceSeconds < 5 || graceSeconds > 120)) ||
-      (takeoverMode !== undefined && !['temporary_ai', 'wait_until_game_end', 'disabled'].includes(takeoverMode))) {
-    return reply.code(400).send({ error: 'Invalid disconnect policy.' });
-  }
-  const result = await pool.query(
-    `UPDATE game_disconnect_policies SET enabled = COALESCE($2, enabled),
-       grace_seconds = COALESCE($3, grace_seconds), takeover_mode = COALESCE($4, takeover_mode),
-       updated_at = NOW() WHERE game_type = $1
-       RETURNING game_type AS "gameType", enabled, grace_seconds AS "graceSeconds", takeover_mode AS "takeoverMode", updated_at AS "updatedAt"`,
-    [gameType, enabled ?? null, graceSeconds ?? null, takeoverMode ?? null],
-  );
-  if (!result.rowCount) return reply.code(404).send({ error: 'Disconnect policy not found.' });
-  return { policy: result.rows[0] };
-});
-
 app.patch<{ Body: { fullName?: string; phone?: string; country?: string } }>('/api/v1/me/profile', { onRequest: [requireMatchAuth], config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request, reply) => {
   const claims = request.user as { sub: string };
   const fullName = typeof request.body?.fullName === 'string' ? request.body.fullName.trim() : '';
@@ -1297,6 +1272,32 @@ const requireOwnerAuth = async (request: any, reply: any) => {
     return reply.code(403).send({ error: 'Owner access is not configured or is not permitted.' });
   }
 };
+
+app.get('/api/v1/admin/game-disconnect-policies', { onRequest: [requireOwnerAuth] }, async () => {
+  const result = await pool.query('SELECT game_type AS "gameType", enabled, grace_seconds AS "graceSeconds", takeover_mode AS "takeoverMode", updated_at AS "updatedAt" FROM game_disconnect_policies ORDER BY game_type');
+  return { policies: result.rows };
+});
+
+app.patch<{ Params: { gameType: string }; Body: { enabled?: boolean; graceSeconds?: number; takeoverMode?: string } }>('/api/v1/admin/game-disconnect-policies/:gameType', { onRequest: [requireOwnerAuth] }, async (request, reply) => {
+  const { gameType } = request.params;
+  const { enabled, graceSeconds, takeoverMode } = request.body ?? {};
+  if (!['backgammon', 'cards', 'chess'].includes(gameType) ||
+      (enabled !== undefined && typeof enabled !== 'boolean') ||
+      (graceSeconds !== undefined && (!Number.isInteger(graceSeconds) || graceSeconds < 5 || graceSeconds > 120)) ||
+      (takeoverMode !== undefined && !['temporary_ai', 'wait_until_game_end', 'disabled'].includes(takeoverMode))) {
+    return reply.code(400).send({ error: 'Invalid disconnect policy.' });
+  }
+  const result = await pool.query(
+    `UPDATE game_disconnect_policies SET enabled = COALESCE($2, enabled),
+       grace_seconds = COALESCE($3, grace_seconds), takeover_mode = COALESCE($4, takeover_mode),
+       updated_at = NOW() WHERE game_type = $1
+       RETURNING game_type AS "gameType", enabled, grace_seconds AS "graceSeconds", takeover_mode AS "takeoverMode", updated_at AS "updatedAt"`,
+    [gameType, enabled ?? null, graceSeconds ?? null, takeoverMode ?? null],
+  );
+  if (!result.rowCount) return reply.code(404).send({ error: 'Disconnect policy not found.' });
+  return { policy: result.rows[0] };
+});
+
 
 // Weekly league rules are server-owned and audited.
 type WeeklyLeagueRules = {
