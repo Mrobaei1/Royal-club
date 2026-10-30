@@ -4383,13 +4383,16 @@ app.get<{ Params: { id: string } }>('/api/v1/matches/:id/state', { onRequest: [r
   if (!isNumericId(request.params.id)) return reply.code(400).send({ error: 'Invalid match id.' });
   await processTemporaryAiTakeover(request.params.id, claims.sub);
   const result = await pool.query(
-    `SELECT id, status, board_state AS board, bar_state AS bar, off_state AS off,
-            current_turn_user_id AS "currentTurnUserId",
-            current_turn_user_id = $2::bigint AS "isMyTurn",
-            host_user_id = $2::bigint AS "isHost",
-            dice, remaining_dice AS "remainingDice", state_version AS version, updated_at AS "updatedAt"
-       FROM backgammon_matches
-      WHERE id = $1 AND (host_user_id = $2 OR guest_user_id = $2) AND expires_at > NOW()`,
+    `SELECT m.id, m.status, m.board_state AS board, m.bar_state AS bar, m.off_state AS off,
+            m.current_turn_user_id AS "currentTurnUserId",
+            m.current_turn_user_id = $2::bigint AS "isMyTurn",
+            m.host_user_id = $2::bigint AS "isHost",
+            m.dice, m.remaining_dice AS "remainingDice", m.state_version AS version,
+            m.updated_at AS "updatedAt", COALESCE(p.takeover_active, FALSE) AS "aiTakeoverActive",
+            p.last_heartbeat_at AS "lastHeartbeatAt"
+       FROM backgammon_matches m
+       LEFT JOIN backgammon_match_presence p ON p.match_id = m.id AND p.user_id = $2
+      WHERE m.id = $1 AND (m.host_user_id = $2 OR m.guest_user_id = $2) AND m.expires_at > NOW()`,
     [request.params.id, claims.sub]);
   if (!result.rowCount) return reply.code(404).send({ error: 'Match not found.' });
   if (!['active', 'finished'].includes(result.rows[0].status)) return reply.code(409).send({ error: 'The match is not active yet.' });
@@ -4500,6 +4503,13 @@ if (process.env.NEON_FUNCTION_RUNTIME !== '1') {
   }, 5_000);
   cleanupTimer.unref();
   app.addHook('onClose', async () => { clearInterval(cleanupTimer); });
+  const disconnectTakeoverTimer = setInterval(() => {
+    void processDueTemporaryAiTakeovers().catch((error) => {
+      app.log.error({ err: error }, 'Temporary AI takeover scan failed');
+    });
+  }, 2_000);
+  disconnectTakeoverTimer.unref();
+  app.addHook('onClose', async () => { clearInterval(disconnectTakeoverTimer); });
   const port = Number(process.env.PORT ?? 3000);
   const host = process.env.HOST ?? '0.0.0.0';
   try {
