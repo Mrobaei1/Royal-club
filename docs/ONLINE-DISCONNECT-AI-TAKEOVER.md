@@ -22,6 +22,7 @@
 - A complete temporary AI turn is committed as one transaction and increments the existing state version once.
 - A successful reconnect heartbeat clears the takeover assignment and restores human control. Any AI turn already committed before the reconnect remains a completed server action; no further AI action is scheduled after the fresh heartbeat.
 - Persistent API hosts scan for due turns every two seconds. Serverless requests to the authenticated match-state endpoint also process a due takeover, so an opponent actively polling the board can advance the match without relying on an in-process timer.
+- **Serverless idle limitation:** when all clients stop polling and Neon scales the API to zero, there is no guaranteed background execution. A due takeover runs on the next authenticated state poll. Fully autonomous progress while every client is offline would require a separately approved scheduled trigger; none was created or activated.
 
 ## Tests and automated verification (passed on exact head `3103470f47b422ed12cbe19e6c2afae49ac868b0`)
 
