@@ -49,7 +49,7 @@ The roadmap previously said 47 packages. Counting the actual leaf IDs in the app
 | 3.2 | 35 | In progress | apps/mobile/lib/royal_backgammon_board.dart; online/offline screens | Complete cross-mode visual, responsive, theme and device acceptance. |
 | 3.3 | 25 | In progress | apps/api/src/server.ts routes /matches and /match-invites; server integration tests | Verify expiry/cancellation/races and physical cleanup during serverless idle. |
 | 3.4 | 25 | In progress | apps/api/src/server.ts move/state routes; API integration tests | Complete two-device acceptance of authoritative state, cumulative moves, reconnect and races. |
-| 3.5 | 25 | In progress | PR #67; docs/ONLINE-DISCONNECT-AI-TAKEOVER.md; four successful CI workflows on 8bd4040 | PR remains Draft and unmerged; two-device disconnect/grace/AI/reconnect/handback test is pending. |
+| 3.5 | 25 | In progress | PR #67 code commit `8bd4040`; latest branch head `18986e5`; four successful exact-head workflows 41060683295, 41060683281, 41060683309, 41060683272 | PR remains Draft and unmerged; code review and two-device disconnect/grace/AI/reconnect/handback acceptance are pending. |
 | 3.6 | 15 | In progress | PR #58; apps/api/src/server.ts resignation route; integration tests | Verify UI confirmation/cancel, match-vs-game scope and duplicate behavior on devices. |
 | 3.7 | 15 | In progress | Offline backgammon screen and engine tests | Verify offline restart/AI/local two-player and isolation from online/ranking state. |
 | 3.8 | 20 | In progress | Main navigation/game entry screens; WBS §6 | Verify chess and card-game entry points and complete their agreed MVP flows. |
@@ -77,7 +77,7 @@ The roadmap previously said 47 packages. Counting the actual leaf IDs in the app
 | 6.6 | 15 | Not started | WBS §6 scope only; no complete evidence identified in this audit | Implement and verify Agent Center categories/monitoring UX without activating external actions. |
 | 6.7 | 10 | Not started | No provider-validated deposit/payment adapter evidence identified | Only proceed after separate provider/security design and owner approval. |
 | 6.8 | 10 | Blocked | WBS approval gate; no manual owner acceptance evidence | Complete owner-facing acceptance; do not activate identities, grants, schedules or financial actions. |
-| 7.1 | 25 | In progress | PR #67 code-head workflows 41055659704, 41055659467, 41055659183, 41055659332; PR #70 documentation-head workflows 41059470193, 41059470262, 41059470187, 41059470238 (all success); PR #68/#69 CI | Record exact-head job-level evidence for each implementation candidate; documentation-only runs demonstrate workflow execution, not feature acceptance. |
+| 7.1 | 25 | In progress | PR #67 latest exact-head workflows on `18986e5`: 41060683295, 41060683281, 41060683309, 41060683272 (all success); PR #70/#71 documentation-head workflows also green | Record exact-head job-level evidence for each implementation candidate; the latest PR #67 CI includes API build/unit/integration, Flutter analyze/tests, engine/AI audit and Web Preview build. |
 | 7.2 | 20 | Blocked | Checkpoint production audit: deployment 79 predates current source | Owner-approved deployment plan, latest-source deploy and health/smoke verification. |
 | 7.3 | 25 | Blocked | Checkpoint production audit: 13 production tables vs 30 source tables | Reconcile migrations, review sequence, rollback and recovery; no production mutation without approval. |
 | 7.4 | 15 | Blocked | apps/api/src/server.ts cleanup endpoint; checkpoint says no scheduled Neon trigger | Configure/verify approved scheduled trigger and idle/serverless cleanup observability. |
@@ -95,7 +95,7 @@ The roadmap previously said 47 packages. Counting the actual leaf IDs in the app
 
 ## Critical current blockers
 
-1. **PR #67:** four exact-head GitHub Actions workflows succeeded on `8bd4040891fc49079b796706d72e0525c0516944`, but the PR is Draft, has no review submissions or review threads, and awaits two-device manual acceptance. The PR branch is 19 commits ahead and 2 commits behind current main; the divergence is the two documentation commits merged after its base. Re-check before merge; do not merge on CI alone.
+1. **PR #67:** code changes are based on `8bd4040891fc49079b796706d72e0525c0516944`; the branch was synchronized with current main using merge commit `18986e5ab12d376a6577bb79a58c72893520c153` and is now 24 commits ahead / 0 behind. All four workflows on that exact PR head passed (API build/unit/integration, Flutter analyze/tests, engine/AI audit, Web Preview build; deploy skipped). PR remains Draft with no review submissions/threads; code review and two-device manual acceptance remain open. Do not merge on CI alone.
 2. **Online board:** main's mobile screen obtains the match state from the authenticated `/matches/:id/state` endpoint and labels it server state. The rendering path also supports a local, explicitly unsubmitted batch-move preview. The user's reported incorrect-board symptom still requires real-device reproduction; no source change is justified from static inspection alone.
 3. **Room/invite expiry:** source creates empty rooms with a 60-second expiry and invite cards are checked against a 60-second age. The API cleanup endpoint exists and is called by room/invite polling, but there is no configured Neon scheduled trigger in the latest production audit; serverless idle cleanup is therefore not proven.
 4. **Production:** latest checkpoint reports deployment 79 predates current source, 13 production tables versus 30 defined by source, no scheduled Neon trigger, and missing owner/SMS configuration. No production deployment or migration is authorized by this audit.
@@ -116,3 +116,4 @@ The roadmap previously said 47 packages. Counting the actual leaf IDs in the app
 |---|---|---|
 | 2026-10-30 | Initial 53-package evidence inventory; corrected roadmap count from 47 to 53. | None; WBS v1.0 scope and all weights unchanged. |
 | 2026-10-30 | Recorded PR #70 merge (`22dbff4`) and its four successful exact-head workflows. | Documentation/evidence only; no earned WBS points assigned by merge or CI alone. |
+| 2026-10-30 | Recorded PR #67 synchronization with current main (`18986e5`) and four successful exact-head workflows; two-device acceptance remains pending. | PR remains unmerged; no manual acceptance points awarded. |
