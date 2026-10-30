@@ -668,6 +668,7 @@ class _AdminScreenState extends State<AdminScreen> {
       final rounds = (report['rounds'] as List? ?? const []);
       final matches = (report['matches'] as List? ?? const []);
       final appeals = (report['appeals'] as List? ?? const []);
+      final format = league['rules'] is Map ? (league['rules'] as Map)['format']?.toString() ?? 'round_robin' : 'round_robin';
       await showDialog<void>(
         context: context,
         builder: (dialogContext) => AlertDialog(
