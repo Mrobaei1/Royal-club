@@ -2606,7 +2606,7 @@ test('automatic schedule generation rejects manager-created formats without crea
         url: '/api/v1/admin/leagues',
         headers: auth(owner.token),
         payload: {
-          code: `manual_format_${format}_${index}_${randomUUID().replace(/-/g, '').slice(0, 8)}`,
+          code: `manual_${index}_${randomUUID().replace(/-/g, '').slice(0, 8)`,
           name: `Manual Format ${format}`,
           enabled: true,
           rules: { format, minimumParticipants: 2 },
