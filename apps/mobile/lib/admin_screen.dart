@@ -26,6 +26,7 @@ class _AdminScreenState extends State<AdminScreen> {
   List<dynamic> _permissionGrants = [];
   List<dynamic> _permissionAudit = [];
   List<dynamic> _agentTaskProposals = [];
+  bool _agentProposalsUnavailable = false;
   bool _delegatedPermissionsEnabled = false;
   final _email = TextEditingController();
   final _amount = TextEditingController(text: '100');
@@ -76,7 +77,7 @@ class _AdminScreenState extends State<AdminScreen> {
         if (mounted) setState(() { _owner = false; _loading = false; _error = null; });
         return;
       }
-      final results = await Future.wait([AdminService.plans(), AdminService.reports(), AdminService.smsOtpSettings(), AdminService.permissionSettings(), AdminService.permissionGrants(), AdminService.permissionAudit(), AdminService.leagues(), AdminService.agentTaskProposals()]);
+      final results = await Future.wait([AdminService.plans(), AdminService.reports(), AdminService.smsOtpSettings(), AdminService.permissionSettings(), AdminService.permissionGrants(), AdminService.permissionAudit(), AdminService.leagues()]);
       if (!mounted) return;
       final sms = results[2] as Map<String, dynamic>;
       _smsSettings = sms; _smsMode = sms['deliveryMode']?.toString() ?? 'disabled';
@@ -90,13 +91,24 @@ class _AdminScreenState extends State<AdminScreen> {
       final grants = results[4] as List<dynamic>;
       final audit = results[5] as List<dynamic>;
       final leagues = results[6] as List<dynamic>;
-      final proposals = results[7] as List<dynamic>;
-      setState(() { _owner = true; _plans = plans; _reports = reports; _delegatedPermissionsEnabled = permissionSettings['enabled'] == true; _permissionGrants = grants; _permissionAudit = audit; _leagues = leagues; _agentTaskProposals = proposals; _loading = false; _error = null; });
+      setState(() { _owner = true; _plans = plans; _reports = reports; _delegatedPermissionsEnabled = permissionSettings['enabled'] == true; _permissionGrants = grants; _permissionAudit = audit; _leagues = leagues; _loading = false; _error = null; });
+      await _loadAgentTaskProposals();
     } catch (e) {
       if (mounted) setState(() { _loading = false; _error = appError(context, e); });
     }
   }
 
+
+  Future<void> _loadAgentTaskProposals() async {
+    try {
+      final proposals = await AdminService.agentTaskProposals();
+      if (mounted) setState(() { _agentTaskProposals = proposals; _agentProposalsUnavailable = false; });
+    } catch (_) {
+      // The API may not yet be deployed with the proposal-review endpoint.
+      // Keep the rest of the owner console usable and fail closed.
+      if (mounted) setState(() { _agentTaskProposals = []; _agentProposalsUnavailable = true; });
+    }
+  }
 
   Future<void> _rejectAgentProposal(dynamic proposal) async {
     final reasonController = TextEditingController();
@@ -1067,7 +1079,7 @@ class _AdminScreenState extends State<AdminScreen> {
                   Expanded(child: Text(appText(context, 'پیشنهادهای ایجنت برای بررسی', 'Agent proposals for review'), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold))),
                   IconButton(
                     tooltip: appText(context, 'تازه‌سازی پیشنهادها', 'Refresh proposals'),
-                    onPressed: _busy ? null : _load,
+                    onPressed: _busy ? null : _loadAgentTaskProposals,
                     icon: const Icon(Icons.refresh),
                   ),
                 ],
@@ -1076,7 +1088,12 @@ class _AdminScreenState extends State<AdminScreen> {
                 appText(context, 'پیشنهادها فقط برای بررسی انسانی هستند. این صفحه اجرای خودکار یا تأیید اجرای ایجنت را فعال نمی‌کند.', 'Proposals are for human review only. This screen does not enable automatic execution or approve agent execution.'),
                 style: const TextStyle(fontSize: 12),
               ),
-              if (_agentTaskProposals.where((p) => p is Map && p['status'] == 'awaiting_review').isEmpty)
+              if (_agentProposalsUnavailable)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Text(appText(context, 'این قابلیت هنوز روی نسخه سرور مستقر نشده است؛ سایر بخش‌های مدیریت در دسترس می‌مانند.', 'This endpoint is not available on the deployed server yet; the rest of the admin console remains available.')),
+                )
+              else if (_agentTaskProposals.where((p) => p is Map && p['status'] == 'awaiting_review').isEmpty)
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 8),
                   child: Text(appText(context, 'پیشنهاد در انتظار بررسی وجود ندارد.', 'No proposals are awaiting review.')),
