@@ -20,7 +20,7 @@ Royal Club is an Android-first multi-game platform in active development, built 
 
 ## Readiness and release gates
 
-See [Phase 1–4 readiness](docs/PHASE-1-3-READINESS.md), [API security review](docs/PHASE-1-SECURITY-REVIEW.md), and [Persian/English localization audit](docs/PHASE-1-LOCALIZATION-AUDIT.md).
+See [Project checkpoint and continuation handoff](docs/PROJECT-CHECKPOINT-2026-10-30.md), [Phase 1–4 readiness](docs/PHASE-1-3-READINESS.md), [API security review](docs/PHASE-1-SECURITY-REVIEW.md), and [Persian/English localization audit](docs/PHASE-1-LOCALIZATION-AUDIT.md).
 
 The remaining release gates include production configuration and schema verification, owner-approved SMS activation and real-device checks, multi-device online-match acceptance, manual RTL/LTR review, and final end-to-end sign-off. The latest merged API source must be deployed and verified before claiming that production runs the current code.
 
