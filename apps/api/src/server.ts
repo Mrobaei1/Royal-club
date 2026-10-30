@@ -14,6 +14,7 @@ import { normalizeDatabaseConnectionString } from './database-config.js';
 import { INITIAL_BACKGAMMON_BOARD, applyBackgammonMove, hasLegalMove, maxPlayableDiceCount, mustPlayHigherDie } from './backgammon-rules.js';
 import { calculateEloRatings } from './backgammon-rating.js';
 import { nextProgressionState } from './player-progression.js';
+import { AGENT_TEMPLATES, gameAgentTemplateCode, getAgentTemplate } from './agent-catalog.js';
 import { hasRoyalPermission, isRoyalPermission } from './permissions.js';
 import { promisify } from 'node:util';
 
@@ -1606,6 +1607,30 @@ const agentTaskDomains = new Set([
   'operations', 'social', 'advertising', 'analytics',
 ]);
 const agentTaskCapabilities = new Set(['read', 'recommend', 'execute', 'approve']);
+
+// Expose inert role templates to the owner-facing Agent Center. This is read-only:
+ // listing templates never creates task definitions, identities, grants, or runtime work.
+app.get<{ Querystring: { gameCode?: string } }>(
+  '/api/v1/admin/agent-templates',
+  { onRequest: [requireOwnerAuth] },
+  async (request, reply) => {
+    const requestedGameCode = request.query.gameCode?.trim();
+    let gameSpecialist: (ReturnType<typeof getAgentTemplate> & { code: string; gameCode: string }) | null = null;
+    if (requestedGameCode) {
+      const code = gameAgentTemplateCode(requestedGameCode);
+      if (!code) return reply.code(400).send({ error: 'Provide a valid game code.' });
+      const template = getAgentTemplate('game_operations');
+      if (!template) return reply.code(500).send({ error: 'Game specialist template is unavailable.' });
+      gameSpecialist = { ...template, code, gameCode: requestedGameCode.toLowerCase() };
+    }
+    return {
+      templates: AGENT_TEMPLATES,
+      gameSpecialistTemplateCode: 'game_operations',
+      gameSpecialist,
+      runtimeEnabled: false,
+    };
+  },
+);
 
 app.get('/api/v1/admin/agent-tasks', { onRequest: [requireOwnerAuth] }, async () => {
   const result = await pool.query(`
