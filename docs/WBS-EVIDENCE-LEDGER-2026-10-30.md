@@ -39,7 +39,7 @@ The roadmap previously said 47 packages. Counting the actual leaf IDs in the app
 | 1.6 | 10 | In progress | EXECUTION-ROADMAP-v1 §2; WBS §6 | Roadmap is recorded; verify ongoing dependency review and continued chess/card scope. |
 | 2.1 | 20 | In progress | docs/PHASE-1-3-READINESS.md §Phase 1; API auth tests | Verify full session lifecycle, recovery and end-to-end flows. |
 | 2.2 | 20 | In progress | docs/PHASE-1-3-READINESS.md §OTP; docs/SMS-AUTH-ADMIN-CONFIG.md | Real provider activation and Android registration/login/linking acceptance remain gated. |
-| 2.3 | 20 | In progress | apps/api/test/server.integration.test.ts; readiness privacy checklist | Complete manual audit of every public surface and legacy/empty profiles. |
+| 2.3 | 20 | In progress | apps/api/src/server.ts self-account/auth routes; apps/api/test/server.integration.test.ts privacy assertions | Complete manual audit of every public surface and legacy/empty profiles. |
 | 2.4 | 20 | In progress | docs/PHASE-1-LOCALIZATION-AUDIT.md; readiness localization checklist | Re-run exact-head Flutter tests and close any remaining dynamic/navigation gaps. |
 | 2.5 | 20 | Blocked | Readiness checklist — manual device acceptance open | Manual Persian RTL / English LTR acceptance on supported Android sizes. |
 | 2.6 | 15 | Blocked | docs/PHASE-1-SECURITY-REVIEW.md; checkpoint production audit | Confirm owner configuration and complete deployed environment/network/security review. |
@@ -56,9 +56,9 @@ The roadmap previously said 47 packages. Counting the actual leaf IDs in the app
 | 3.10 | 15 | Blocked | PR #67 two-device gate; readiness checklist | Complete full game acceptance on two independent accounts/devices and supported Android sizes. |
 | 4.1 | 20 | In progress | apps/api friend routes; readiness friend-limit checklist | Complete username-based lifecycle and API limit verification including boundary/race cases. |
 | 4.2 | 25 | In progress | API chat/image-message integration tests; readiness checklist | Verify full emoji set, approved audience, delivery behavior and mobile UX. |
-| 4.3 | 15 | In progress | Notification API/mobile screens; readiness checklist | Verify targeting/localization and clear-all without cross-user side effects. |
+| 4.3 | 15 | In progress | apps/mobile/lib/notifications_screen.dart (_deleteAll); apps/mobile/lib/services/notifications_service.dart; API DELETE /api/v1/notifications; server integration test | Verify targeting/localization and clear-all without cross-user side effects. |
 | 4.4 | 15 | In progress | apps/api/test/server.integration.test.ts spectator scenarios | Complete host-permission and friend/follower device acceptance; retain no-replay rule. |
-| 4.5 | 15 | In progress | apps/api/test/server.integration.test.ts public payload assertions | Complete manual UI/API audit across profiles, friends, chat, leaderboard, history and spectator views. |
+| 4.5 | 15 | In progress | apps/api/test/server.integration.test.ts public payload assertions | Static API scan found fullName only in own-account registration/auth/profile responses; public endpoints use usernames and have regression assertions. Complete manual UI and legacy/empty-profile audit. |
 | 4.6 | 15 | In progress | Account/profile screens; readiness privacy checklist | Verify avatar/username edit pricing and private account-detail visibility. |
 | 4.7 | 15 | Blocked | Execution roadmap P2; manual UX gate | Accept social UX in Persian/English, light/dark themes and real Android layouts. |
 | 5.1 | 25 | In progress | Wallet ledger source and API integration tests; readiness checklist | Complete concurrency, idempotency, audit and owner-adjustment verification. |
@@ -84,6 +84,13 @@ The roadmap previously said 47 packages. Counting the actual leaf IDs in the app
 | 7.6 | 20 | Blocked | Checkpoint production security audit; owner/SMS secrets absent | Complete network/CORS/secrets/owner-ID/least-privilege acceptance with owner approval. |
 | 7.7 | 20 | Blocked | Two-device and real Android acceptance gates remain open | Complete end-to-end network, layout, accessibility, performance and regression acceptance. |
 | 7.8 | 15 | Blocked — approval gated | Owner instruction required; no APK authorization in current task | Prepare release notes/rollback readiness only; do not build or prepare APK until explicit approval. |
+
+
+## Static source audit findings — 2026-10-30
+
+- **Public identity:** a scan of current-main `apps/api/src/server.ts` found `fullName` in registration/phone-registration responses and the authenticated `/api/v1/me/profile` response, all for the account owner. Public friend, chat, leaderboard, match-history and spectator handlers use usernames; API integration tests assert that full names/emails are absent from the relevant payloads. This is source-level evidence only; the manual screen-by-screen and legacy/empty-profile audit remains open.
+- **Clear-all notifications:** the mobile notifications screen has a confirmed delete-all action, `NotificationsService.deleteAll()` calls `DELETE /api/v1/notifications`, and the API deletes only rows for the authenticated `user_id`. The integration test verifies that clearing one account's notifications leaves the other account's notifications intact. Device UX acceptance remains open.
+- **Online board source:** the online match screen fetches the authenticated `/matches/:id/state` snapshot; its local batch-move view is explicitly marked as a preview and is not submitted until confirmation. The reported incorrect-board symptom has not been reproduced in a real two-device session, so no speculative UI change is made.
 
 ## Critical current blockers
 
