@@ -3,7 +3,7 @@
 - **Date:** 2026-10-30
 - **Governing baseline:** Owner-approved WBS v1.0, 1,000 points, seven workstreams, 53 leaf packages.
 - **Purpose:** Set the execution order, dependencies, exit gates and working rules for completing Royal Club efficiently.
-- **Status:** Proposed execution plan for owner confirmation; it does not change WBS scope or weights.
+- **Status:** Owner-confirmed execution order; it does not change WBS scope or weights.
 
 ## 1. Execution principles
 
@@ -139,13 +139,13 @@ A production or financial risk can supersede the nominal phase order and must be
 
 ## 5. First execution queue as of 2026-10-30
 
-1. Verify/merge PR #68 only after current-head checks and repository review rules pass.
-2. Audit PR #67 diff, review threads and exact-head CI; then arrange the required two-device acceptance. Do not merge before acceptance.
-3. Create the 53-package evidence ledger and replace provisional project percentages with an evidence-backed baseline audit.
-4. Triage the online-board source-of-truth issue and 60-second invite expiry against current `main`; create focused fixes if they are not already satisfied.
-5. Continue P1 engine and online lifecycle acceptance, then move to P2.
+1. **Completed:** PRs #68 and #69 established the WBS v1.0 and execution roadmap on `main`.
+2. **Completed:** PR #70 corrected the leaf count to 53 and added the initial evidence ledger; all four exact-head workflows passed. The official numeric score remains pending.
+3. **Active:** Audit PR #67 and keep it Draft until code review and two-device acceptance pass. Its documentation now points to the correct code SHA and CI run IDs; verify CI on the latest documentation-updated head.
+4. Reproduce the reported online-board symptom on devices and verify the 60-second invite/room expiry, including serverless idle behavior; do not infer production scheduling from source code.
+5. Continue P1 rules-engine and online lifecycle acceptance, then move to P2.
 
-This queue is a starting snapshot, not a claim that the listed issues have been re-verified on the live repository. Re-check current refs and CI before acting.
+This queue was refreshed after PR #70 merged. Re-check live refs and exact-head CI before each implementation or merge decision.
 
 ## 6. Change control
 
