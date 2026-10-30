@@ -536,7 +536,7 @@ class _AdminScreenState extends State<AdminScreen> {
                       ),
                     const Divider(),
                     Text(appText(context, 'مسابقات این دور', 'Fixtures in this round'), style: const TextStyle(fontWeight: FontWeight.bold)),
-                    for (var i = 0; i < fixtures.length; i++)
+                    for (final fixture in fixtures)
                       Card(
                         margin: const EdgeInsets.symmetric(vertical: 5),
                         child: Padding(
@@ -544,38 +544,38 @@ class _AdminScreenState extends State<AdminScreen> {
                           child: Column(
                             children: [
                               DropdownButtonFormField<String>(
-                                initialValue: fixtures[i]['one'] as String?,
+                                initialValue: fixture['one'] as String?,
                                 decoration: InputDecoration(labelText: appText(context, 'بازیکن اول', 'Player one')),
                                 items: [
                                   for (final p in options)
                                     DropdownMenuItem(value: p['id'], child: Text('@${p['username']}')),
                                 ],
-                                onChanged: (value) => setDialogState(() => fixtures[i]['one'] = value),
+                                onChanged: (value) => setDialogState(() => fixture['one'] = value),
                               ),
-                              if (fixtures[i]['bye'] != true)
+                              if (fixture['bye'] != true)
                                 DropdownButtonFormField<String>(
-                                  initialValue: fixtures[i]['two'] as String?,
+                                  initialValue: fixture['two'] as String?,
                                   decoration: InputDecoration(labelText: appText(context, 'بازیکن دوم', 'Player two')),
                                   items: [
                                     for (final p in options)
                                       DropdownMenuItem(value: p['id'], child: Text('@${p['username']}')),
                                   ],
-                                  onChanged: (value) => setDialogState(() => fixtures[i]['two'] = value),
+                                  onChanged: (value) => setDialogState(() => fixture['two'] = value),
                                 ),
                               Row(
                                 children: [
                                   Expanded(child: CheckboxListTile(
                                     contentPadding: EdgeInsets.zero,
-                                    value: fixtures[i]['bye'] == true,
+                                    value: fixture['bye'] == true,
                                     onChanged: (value) => setDialogState(() {
-                                      fixtures[i]['bye'] = value == true;
-                                      if (value == true) fixtures[i]['two'] = null;
+                                      fixture['bye'] = value == true;
+                                      if (value == true) fixture['two'] = null;
                                     }),
                                     title: Text(appText(context, 'استراحت (بدون حریف)', 'Bye (no opponent)')),
                                   )),
                                   IconButton(
                                     tooltip: appText(context, 'حذف مسابقه', 'Remove fixture'),
-                                    onPressed: fixtures.length <= 1 ? null : () => setDialogState(() => fixtures.removeAt(i)),
+                                    onPressed: fixtures.length <= 1 ? null : () => setDialogState(() => fixtures.remove(fixture)),
                                     icon: const Icon(Icons.delete_outline),
                                   ),
                                 ],
