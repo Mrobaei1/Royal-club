@@ -949,17 +949,8 @@ async function isTemporaryAiControlActive(client: PoolClient, matchId: string, u
   );
   const presence = result.rows[0];
   if (!presence || presence.takeover_mode === 'disabled' || !presence.enabled) return false;
-  if (presence.takeover_active || (presence.takeover_mode === 'temporary_ai' && presence.overdue)) {
-    await client.query(
-      `UPDATE backgammon_match_presence
-          SET takeover_active = TRUE,
-              disconnected_at = COALESCE(disconnected_at, last_heartbeat_at),
-              takeover_started_at = COALESCE(takeover_started_at, NOW())
-        WHERE match_id = $1 AND user_id = $2`,
-      [matchId, userId],
-    );
-    return true;
-  }
+  return Boolean(presence.takeover_active ||
+    (presence.takeover_mode === 'temporary_ai' && presence.overdue));
   return false;
 }
 
