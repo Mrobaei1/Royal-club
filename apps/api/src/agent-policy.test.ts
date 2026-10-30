@@ -21,6 +21,26 @@ test('game scope is exact and missing scope is not unrestricted', () => {
   assert.deepEqual(authorizeAgentAction({ runtimeEnabled: true, killSwitchEnabled: false, grant: { active: true, capabilities: ['read'] }, capability: 'read', resource: { gameCode: 'uno' } }), { allowed: false, reason: 'scope_denied' });
 });
 
+test('scoped grants deny requests that omit the scoped resource', () => {
+  assert.deepEqual(
+    authorizeAgentAction({ runtimeEnabled: true, killSwitchEnabled: false, grant, capability: 'read' }),
+    { allowed: false, reason: 'scope_denied' },
+  );
+  assert.deepEqual(
+    authorizeAgentAction({ runtimeEnabled: true, killSwitchEnabled: false, grant, capability: 'read', resource: { gameCode: '' } }),
+    { allowed: false, reason: 'scope_denied' },
+  );
+  const resourceScoped = { active: true, capabilities: ['read'] as const, resourceIds: ['league-1'] as const };
+  assert.deepEqual(
+    authorizeAgentAction({ runtimeEnabled: true, killSwitchEnabled: false, grant: resourceScoped, capability: 'read' }),
+    { allowed: false, reason: 'scope_denied' },
+  );
+  assert.equal(
+    authorizeAgentAction({ runtimeEnabled: true, killSwitchEnabled: false, grant: resourceScoped, capability: 'read', resource: { resourceId: 'league-1' } }).allowed,
+    true,
+  );
+});
+
 test('sensitive actions remain owner-only even if an agent has broad capabilities', () => {
   assert.deepEqual(authorizeAgentAction({ runtimeEnabled: true, killSwitchEnabled: false, grant: { active: true, capabilities: ['read', 'recommend', 'execute', 'approve'] }, capability: 'execute', sensitiveAction: 'wallet_credit' }), { allowed: false, reason: 'owner_only_action' });
 });
