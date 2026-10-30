@@ -71,6 +71,15 @@ The catalog is a starting set of role families, not a cap. Multiple instances ma
 - Backups and daily reports are separate scheduled capabilities; they remain off until recipients, timezone, retention, and approval are configured.
 - No autonomous production changes.
 
+## Task lifecycle and approval contract
+
+The pure contracts in `apps/api/src/agent-contracts.ts` define an explicit forward-only task state machine:
+
+- `proposed → awaiting_approval → queued → running → succeeded|failed`
+- Rejection and cancellation are terminal; terminal tasks cannot be re-queued through a state transition.
+- Approval is bound to an exact action digest and target, expires, is single-use, and cannot be self-approved by the requester.
+- The caller must derive the digest from canonical action parameters. Persistence, atomic consumption, and cryptographic digest generation belong to a future reviewed service layer; these pure helpers are not an approval service or execution runtime.
+
 ## Game extensibility contract
 
 A game specialist receives only a validated `gameCode` and the minimum game-specific read model. Each game integration implements a versioned adapter contract:
