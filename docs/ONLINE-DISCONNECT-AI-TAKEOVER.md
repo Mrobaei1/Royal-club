@@ -10,7 +10,7 @@
 - Backgammon's default disconnect grace period is 18 seconds after the last successful heartbeat.
 - The manager policy supports an enabled flag, a 5–120 second grace period, and a takeover mode.
 - Default policy rows are: backgammon = temporary AI after 18 seconds; cards = temporary AI after 18 seconds (policy only until card-game server integration exists); chess = wait until game end (no temporary AI moves by default).
-- Policy reads and updates are owner-authenticated. The existing fail-closed owner identity check remains in force; no owner ID is guessed or seeded.
+- Policy reads and updates are owner-authenticated and every update is written to an append-only audit table in the same transaction. Policy updates serialize against AI turn processing. The existing fail-closed owner identity check remains in force; no owner ID is guessed or seeded.
 
 ## Server authority and concurrency
 
