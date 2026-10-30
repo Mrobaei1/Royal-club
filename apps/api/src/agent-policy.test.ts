@@ -44,3 +44,51 @@ test('scoped grants deny requests that omit the scoped resource', () => {
 test('sensitive actions remain owner-only even if an agent has broad capabilities', () => {
   assert.deepEqual(authorizeAgentAction({ runtimeEnabled: true, killSwitchEnabled: false, grant: { active: true, capabilities: ['read', 'recommend', 'execute', 'approve'] }, capability: 'execute', sensitiveAction: 'wallet_credit' }), { allowed: false, reason: 'owner_only_action' });
 });
+
+test('every declared sensitive action remains owner-only', () => {
+  const sensitiveActions = [
+    'wallet_credit', 'wallet_debit', 'wallet_refund', 'wallet_correction',
+    'role_change', 'moderation_penalty', 'competition_result_override',
+    'advertising_spend', 'external_message', 'production_config',
+    'database_migration', 'deployment', 'destructive_operation',
+  ] as const;
+  const broadGrant = {
+    active: true,
+    capabilities: ['read', 'recommend', 'execute', 'approve'] as const,
+  };
+  for (const sensitiveAction of sensitiveActions) {
+    assert.deepEqual(
+      authorizeAgentAction({
+        runtimeEnabled: true,
+        killSwitchEnabled: false,
+        grant: broadGrant,
+        capability: 'execute',
+        sensitiveAction,
+      }),
+      { allowed: false, reason: 'owner_only_action' },
+      `Sensitive action ${sensitiveAction} must never be delegated to an agent.`,
+    );
+  }
+});
+
+test('game and resource scopes must both match when a grant has both restrictions', () => {
+  const dualScopedGrant = {
+    active: true,
+    capabilities: ['read'] as const,
+    gameCodes: ['backgammon'] as const,
+    resourceIds: ['league-42'] as const,
+  };
+  const authorize = (resource: { gameCode?: string; resourceId?: string }) =>
+    authorizeAgentAction({
+      runtimeEnabled: true,
+      killSwitchEnabled: false,
+      grant: dualScopedGrant,
+      capability: 'read',
+      resource,
+    });
+  assert.deepEqual(authorize({ gameCode: 'backgammon', resourceId: 'league-42' }), { allowed: true, reason: 'authorized' });
+  assert.deepEqual(authorize({ gameCode: 'backgammon', resourceId: 'league-43' }), { allowed: false, reason: 'scope_denied' });
+  assert.deepEqual(authorize({ gameCode: 'chess', resourceId: 'league-42' }), { allowed: false, reason: 'scope_denied' });
+  assert.deepEqual(authorize({ gameCode: 'backgammon' }), { allowed: false, reason: 'scope_denied' });
+  assert.deepEqual(authorize({ resourceId: 'league-42' }), { allowed: false, reason: 'scope_denied' });
+});
