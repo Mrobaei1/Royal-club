@@ -82,7 +82,7 @@ test("isolated chess migrations apply cleanly against a bigint users schema", { 
     );
     const actual = new Set(columns.rows.map(row => `${row.table_name}.${row.column_name}`));
     for (const required of [
-      "chess_games.revision", "chess_games.clock_snapshot", "chess_rooms.settings_snapshot",
+      "chess_games.revision", "chess_games.clock_snapshot", "chess_rooms.settings_snapshot", "chess_rooms.expires_at",
       "chess_moves.ply", "chess_draw_offers.status", "chess_player_ratings.rating",
       "chess_matchmaking_queue.min_opponent_level",
     ]) assert.ok(actual.has(required), `missing ${required}`);
