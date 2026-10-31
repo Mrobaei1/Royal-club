@@ -29,6 +29,7 @@ test('a new player resets readiness and cannot join after start', () => {
   manager.joinRoom(room.code, {id:'third',username:'third'});
   assert.equal(manager.getRoom(room.code).status, 'waiting');
   assert.equal(manager.getRoom(room.code).players[2]!.ready, false);
+  assert.equal(manager.getRoom(room.code).players.every(player => !player.ready), true);
   manager.setReady(room.code, host.id, true);
   manager.setReady(room.code, guest.id, true);
   manager.setReady(room.code, 'third', true);
