@@ -312,14 +312,40 @@ void main() {
       expect(game.currentPlayer, -1);
     });
 
-    test('positive player cannot oversized-bear off past a checker closer to point 24', () {
+    test('die 6 bears off from point 5 when point 6 is empty, not point 1', () {
       clearPosition(rolledDice: [6]);
-      game.points[20] = 1;
+      // Player +1 home board: index 18 is point 6, index 19 point 5,
+      // and index 23 point 1. Lower points do not block oversized bear-off.
+      game.points[19] = 1;
       game.points[23] = 1;
 
       final moves = game.legalMoves();
-      expect(moves.any((move) => move.from == 20 && move.to == -1), isFalse);
-      expect(moves.any((move) => move.from == 23 && move.to == -1), isTrue);
+      expect(moves.any((move) => move.from == 19 && move.to == -1), isTrue);
+      expect(moves.any((move) => move.from == 23 && move.to == -1), isFalse);
+    });
+
+    test('a checker on point 6 must be borne off before point 5 with die 6', () {
+      clearPosition(rolledDice: [6]);
+      game.points[18] = 1;
+      game.points[19] = 1;
+      game.points[23] = 1;
+
+      final moves = game.legalMoves();
+      expect(moves.any((move) => move.from == 18 && move.to == -1), isTrue);
+      expect(moves.any((move) => move.from == 19 && move.to == -1), isFalse);
+      expect(moves.any((move) => move.from == 23 && move.to == -1), isFalse);
+    });
+
+    test('negative player uses mirrored oversized bear-off order', () {
+      clearPosition(player: -1, rolledDice: [6]);
+      // Mirrored home board: index 5 is point 6, index 4 point 5,
+      // and index 0 point 1.
+      game.points[4] = -1;
+      game.points[0] = -1;
+
+      final moves = game.legalMoves();
+      expect(moves.any((move) => move.from == 4 && move.to == -1), isTrue);
+      expect(moves.any((move) => move.from == 0 && move.to == -1), isFalse);
     });
 
   });
