@@ -137,7 +137,10 @@ class BackgammonEngine {
       } else if (die > exactDistance) {
         var hasFartherChecker = false;
         if (player == 1) {
-          for (var i = 18; i < from; i++) {
+          // Player +1 moves toward point 24. An oversized die may only
+          // bear off this checker when no checker remains on a higher point
+          // (closer to the bear-off edge).
+          for (var i = from + 1; i <= 23; i++) {
             if (board[i] > 0) {
               hasFartherChecker = true;
               break;
