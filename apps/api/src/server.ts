@@ -535,6 +535,7 @@ await pool.query(`
     dice JSONB NOT NULL DEFAULT '[]'::jsonb,
     remaining_dice JSONB NOT NULL DEFAULT '[]'::jsonb,
     state_version INTEGER NOT NULL DEFAULT 0,
+    turn_started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     expires_at TIMESTAMPTZ NOT NULL DEFAULT (NOW() + INTERVAL '60 seconds'),
@@ -548,6 +549,7 @@ await pool.query(`
   ALTER TABLE backgammon_matches ADD COLUMN IF NOT EXISTS dice JSONB NOT NULL DEFAULT '[]'::jsonb;
   ALTER TABLE backgammon_matches ADD COLUMN IF NOT EXISTS remaining_dice JSONB NOT NULL DEFAULT '[]'::jsonb;
   ALTER TABLE backgammon_matches ADD COLUMN IF NOT EXISTS state_version INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE backgammon_matches ADD COLUMN IF NOT EXISTS turn_started_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
   ALTER TABLE backgammon_matches ALTER COLUMN board_state SET DEFAULT '${JSON.stringify(INITIAL_BACKGAMMON_BOARD)}'::jsonb;
   CREATE INDEX IF NOT EXISTS backgammon_matches_waiting_idx ON backgammon_matches (created_at DESC) WHERE status = 'waiting';
   CREATE INDEX IF NOT EXISTS backgammon_matches_players_idx ON backgammon_matches (host_user_id, guest_user_id, status);
@@ -1147,7 +1149,8 @@ async function processTemporaryAiTakeover(matchId: string, requesterId?: string)
     await client.query(
       `UPDATE backgammon_matches
           SET board_state = $1::jsonb, bar_state = $2::jsonb, off_state = $3::jsonb,
-              current_turn_user_id = $4, dice = '[]'::jsonb, remaining_dice = '[]'::jsonb,
+              current_turn_user_id = $4, turn_started_at = NOW(),
+              dice = '[]'::jsonb, remaining_dice = '[]'::jsonb,
               status = $5, winner_user_id = $6, finish_reason = $7,
               host_game_wins = $8, guest_game_wins = $9,
               state_version = state_version + 1, updated_at = NOW()
@@ -4098,6 +4101,7 @@ app.post<{ Params: { id: string }; Body: { matchToWin?: number; acceptSettings?:
         await client.query(
           `UPDATE backgammon_matches SET status = 'active', current_turn_user_id = host_user_id,
              dice = '[]'::jsonb, remaining_dice = '[]'::jsonb, state_version = 0,
+             turn_started_at = NOW(),
              expires_at = NOW() + INTERVAL '30 minutes', updated_at = NOW() WHERE id = $1 AND status = 'waiting'`, [request.params.id]);
         await client.query(
           `INSERT INTO backgammon_match_presence (match_id, user_id)
@@ -4219,7 +4223,7 @@ app.post<{ Params: { id: string }; Body: { scope?: 'game' | 'match' } }>(
         await client.query(
           `UPDATE backgammon_matches
               SET status = 'finished', winner_user_id = $1, finish_reason = 'resignation',
-                  dice = '[]'::jsonb, remaining_dice = '[]'::jsonb,
+                  dice = '[]'::jsonb, remaining_dice = '[]'::jsonb, turn_started_at = NOW(),
                   cancellation_proposed_by = NULL, cancellation_accepted_by = NULL,
                   state_version = state_version + 1, updated_at = NOW()
             WHERE id = $2`,
@@ -4245,7 +4249,7 @@ app.post<{ Params: { id: string }; Body: { scope?: 'game' | 'match' } }>(
                 bar_state = CASE WHEN $1 = 'active' THEN '{"host":0,"guest":0}'::jsonb ELSE bar_state END,
                 off_state = CASE WHEN $1 = 'active' THEN '{"host":0,"guest":0}'::jsonb ELSE off_state END,
                 current_turn_user_id = CASE WHEN $1 = 'active' THEN $6::bigint ELSE NULL END,
-                dice = '[]'::jsonb, remaining_dice = '[]'::jsonb,
+                turn_started_at = NOW(), dice = '[]'::jsonb, remaining_dice = '[]'::jsonb,
                 cancellation_proposed_by = NULL, cancellation_accepted_by = NULL,
                 state_version = state_version + 1, updated_at = NOW()
           WHERE id = $7`,
@@ -4598,7 +4602,8 @@ app.post<{ Params: { id: string }; Body: { expectedVersion: number } }>('/api/v1
     const nextTurn = hostTurn ? game.guest_user_id : game.host_user_id;
     const updated = await client.query(
       `UPDATE backgammon_matches SET current_turn_user_id = $1, dice = '[]'::jsonb,
-              remaining_dice = '[]'::jsonb, state_version = state_version + 1, updated_at = NOW()
+              remaining_dice = '[]'::jsonb, turn_started_at = NOW(),
+              state_version = state_version + 1, updated_at = NOW()
          WHERE id = $2
          RETURNING id, status, state_version AS version, current_turn_user_id AS "currentTurnUserId"`,
       [nextTurn, game.id]);
@@ -4624,7 +4629,7 @@ app.get<{ Params: { id: string } }>('/api/v1/matches/:id/spectate', { onRequest:
             m.board_state AS board, m.bar_state AS bar, m.off_state AS off,
             m.current_turn_user_id AS "currentTurnUserId",
             m.dice, m.remaining_dice AS "remainingDice", m.state_version AS version,
-            m.updated_at AS "updatedAt", m.spectators_enabled AS "spectatorsEnabled"
+            m.updated_at AS "updatedAt", m.turn_started_at AS "turnStartedAt", m.spectators_enabled AS "spectatorsEnabled"
        FROM backgammon_matches m
        JOIN users host ON host.id = m.host_user_id
        JOIN users guest ON guest.id = m.guest_user_id
@@ -4655,7 +4660,8 @@ app.get<{ Params: { id: string } }>('/api/v1/matches/:id/spectate', { onRequest:
     state: {
       id: row.id, status: row.status, board: row.board, bar: row.bar, off: row.off,
       currentTurnUserId: row.currentTurnUserId, isMyTurn: false, isHost: false,
-      dice: row.dice, remainingDice: row.remainingDice, version: row.version, updatedAt: row.updatedAt,
+      dice: row.dice, remainingDice: row.remainingDice, version: row.version,
+      updatedAt: row.updatedAt, turnStartedAt: row.turnStartedAt,
     },
   };
 });
@@ -4710,7 +4716,7 @@ app.get<{ Params: { id: string } }>('/api/v1/matches/:id/state', { onRequest: [r
             m.current_turn_user_id = $2::bigint AS "isMyTurn",
             m.host_user_id = $2::bigint AS "isHost",
             m.dice, m.remaining_dice AS "remainingDice", m.state_version AS version,
-            m.updated_at AS "updatedAt",
+            m.updated_at AS "updatedAt", m.turn_started_at AS "turnStartedAt",
             EXISTS (SELECT 1 FROM backgammon_match_presence active_presence
                      WHERE active_presence.match_id = m.id AND active_presence.takeover_active = TRUE) AS "aiTakeoverActive",
             COALESCE(p.takeover_active, FALSE) AS "myAiTakeoverActive",
