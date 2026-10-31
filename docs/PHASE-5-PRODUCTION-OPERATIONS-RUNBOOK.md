@@ -135,3 +135,13 @@ This verifies the SQL predicate and associated-notification deletion path on an 
 A daily Neon snapshot schedule with seven-day retention was attempted after the owner requested Phase 5 completion. Neon rejected the request with `backup schedule creation is not enabled for this project` (HTTP 404). No schedule was changed. The manual snapshot does not satisfy the requested recurring 23:59 Asia/Tehran backup with a time-limited email link and latest-three recovery-point workflow. A supported recurring backup path must be enabled by the provider/account or implemented through a separately configured secure backup service.
 
 Provider-plan cross-check: the Neon project owner is on the Free plan. Neon documents scheduled snapshots as unavailable on Free, with one manual snapshot permitted on Free; snapshot storage is billed separately. The current manual snapshot is therefore the project's one available manual recovery point. Do not create additional snapshots or change plan/billing settings without reviewing cost and retention implications. The recurring backup requirement needs either an owner-approved plan change or a separately configured backup service with the necessary secrets and retention controls.
+
+## 12. Deployment provenance and trigger hardening — 2026-10-31
+
+PR #92 (`b74c05ff68b9cd3334d07a2d084983b0b48ad7cc`) passed exact-head CI and is merged. The current source and deployment workflow now enforce:
+- manual deployment from `main` only, targeting the confirmed Production Neon project and branch;
+- a read-only source/database table, column, and explicit-index name parity gate before deployment;
+- `ROYAL_CLUB_GIT_SHA` injected from the exact GitHub workflow commit and a post-deploy health check that fails if `/api/v1/health` reports a different SHA;
+- Neon scheduled cleanup invocation ID must match between the trusted trigger header and JSON body, with a structured success log including invocation ID and deleted-room count.
+
+**Important:** these changes are merged in GitHub but are not yet live. Neon still reports active deployment 81, which predates PR #92. Use the manual deployment workflow and retain its successful run URL, commit SHA, and new deployment ID before accepting source provenance or live trigger-route behavior. No deployment was triggered from this chat.
