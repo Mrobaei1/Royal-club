@@ -133,6 +133,12 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
   app.post<{Params:{gameId:string};Body:MoveBody}>("/chess/games/:gameId/moves",{preHandler:options.authenticate},async(request,reply)=>{
     let playerId:string;
     try{playerId=userId(request,options);}catch{return fail(reply,401,"unauthorized");}
+    const body=request.body;
+    if(!body||typeof body.from!=="string"||typeof body.to!=="string"||
+       !/^[a-h][1-8]$/.test(body.from)||!/^[a-h][1-8]$/.test(body.to)||
+       (body.promotion!==undefined&&!["q","r","b","n"].includes(body.promotion))) {
+      return fail(reply,400,"invalid_move");
+    }
     const client=await pool.connect();
     try{
       await client.query("BEGIN");
@@ -247,8 +253,13 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
     let actor:string;
     try{actor=userId(request,options);}catch{return fail(reply,401,"unauthorized");}
     if(!await options.canManageSettings(actor))return fail(reply,403,"forbidden");
-    const {id,displayName,baseMs,incrementMs,enabled}=request.body;
-    if(!id?.trim()||!displayName?.trim()||!Number.isSafeInteger(baseMs)||baseMs<1000||!Number.isSafeInteger(incrementMs)||incrementMs<0||typeof enabled!=="boolean")return fail(reply,400,"invalid_time_control");
+    const body=request.body;
+    const {id,displayName,baseMs,incrementMs,enabled}=body??{} as {id:string;displayName:string;baseMs:number;incrementMs:number;enabled:boolean};
+    if(typeof id!=="string"||!id.trim()||!/^[a-zA-Z0-9_-]{1,40}$/.test(id)||
+       typeof displayName!=="string"||!displayName.trim()||displayName.length>80||
+       !Number.isSafeInteger(baseMs)||baseMs<1000||baseMs>86_400_000||
+       !Number.isSafeInteger(incrementMs)||incrementMs<0||incrementMs>60_000||
+       typeof enabled!=="boolean")return fail(reply,400,"invalid_time_control");
     const saved=await pool.query(
       `INSERT INTO chess_time_controls(id,display_name,base_ms,increment_ms,enabled)
        VALUES($1,$2,$3,$4,$5) ON CONFLICT(id) DO UPDATE SET display_name=EXCLUDED.display_name,
@@ -340,9 +351,11 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
   app.get<{Params:{gameId:string};Querystring:{afterId?:string}}>("/chess/games/:gameId/chat",{preHandler:options.authenticate},async(request,reply)=>{
     let playerId:string;
     try{playerId=userId(request,options);}catch{return fail(reply,401,"unauthorized");}
+    const afterId=request.query.afterId??"0";
+    if(!/^\\d{1,20}$/.test(afterId))return fail(reply,400,"invalid_chat_cursor");
     const result=await pool.query(
       "SELECT c.id,c.message,c.created_at,u.username FROM chess_chat_messages c JOIN users u ON u.id=c.user_id JOIN chess_games g ON g.id=c.game_id WHERE g.id=$1 AND (g.white_user_id=$2 OR g.black_user_id=$2) AND c.id>$3 ORDER BY c.id ASC LIMIT 100",
-      [request.params.gameId,playerId,request.query.afterId??"0"]
+      [request.params.gameId,playerId,afterId]
     );
     return {messages:result.rows.map(row=>({id:String(row.id),username:row.username,message:row.message,createdAt:row.created_at}))};
   });
