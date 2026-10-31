@@ -25,6 +25,9 @@ const userId=(request:FastifyRequest,options:RouteOptions):string=>{
 };
 const fail=(reply:{code:(status:number)=>{send:(body:unknown)=>unknown}},status:number,error:string)=>reply.code(status).send({error});
 async function rollback(client:PoolClient){try{await client.query("ROLLBACK");}catch{/* preserve original failure */}}
+async function publishGameEvent(pool:Pool,gameId:string|number,event:object):Promise<void>{
+  await pool.query("SELECT pg_notify($1,$2)",["chess_game_"+String(gameId),JSON.stringify(event)]);
+}
 
 export async function registerChessRoutes(app:FastifyInstance,options:RouteOptions):Promise<void>{
   const {pool}=options;
@@ -178,6 +181,7 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
         else {const winner=status==="white_win"?white:black;await awardChessResult(client,String(row.id),"final_result",white,black,{outcome:"win",winnerId:winner,loserId:winner===white?black:white});}
       }
       await client.query("COMMIT");
+      try{await publishGameEvent(pool,row.id,{type:"state"});}catch(error){request.log.warn({err:error},"chess state notification failed");}
       return {fen:played.fen,pgn:played.pgn,revision:ply,status,clock:nextClock,move:played.san};
     }catch(error){
       await rollback(client);
@@ -202,6 +206,7 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
     );
     if(!inserted.rowCount)return fail(reply,403,"chat_not_allowed");
     const profile=await pool.query("SELECT username FROM users WHERE id=$1",[playerId]);
+    try{await publishGameEvent(pool,request.params.gameId,{type:"chat",id:String(inserted.rows[0].id)});}catch(error){request.log.warn({err:error},"chess chat notification failed");}
     return reply.code(201).send({id:String(inserted.rows[0].id),username:profile.rows[0]?.username??"",message,createdAt:inserted.rows[0].created_at});
   });
 
@@ -345,6 +350,7 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
       if(pending.rowCount){await client.query("ROLLBACK");return fail(reply,409,"draw_offer_pending");}
       const offer=await client.query("INSERT INTO chess_draw_offers(game_id,offered_by) VALUES($1,$2) RETURNING id,created_at",[row.id,playerId]);
       await client.query("COMMIT");
+      try{await publishGameEvent(pool,row.id,{type:"draw_offer",offerId:String(offer.rows[0].id),offeredBy:playerId});}catch(error){request.log.warn({err:error},"chess draw offer notification failed");}
       return reply.code(201).send({offerId:String(offer.rows[0].id),status:"pending",createdAt:offer.rows[0].created_at});
     }catch(error){await rollback(client);request.log.error(error);return fail(reply,500,"draw_offer_failed");}
     finally{client.release();}
