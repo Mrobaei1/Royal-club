@@ -33,6 +33,7 @@ test("isolated chess migrations apply cleanly against a bigint users schema", { 
       "006_admin_audit.sql",
       "007_chat_rate_limit_index.sql",
       "008_cancel_draws_on_terminal.sql",
+      "009_draw_offer_expiry.sql",
     ]) {
       const sql = await readFile(new URL(`../../database/migrations/${file}`, import.meta.url), "utf8");
       await db.query(sql);
@@ -109,7 +110,7 @@ test("isolated chess migrations apply cleanly against a bigint users schema", { 
     const actual = new Set(columns.rows.map(row => `${row.table_name}.${row.column_name}`));
     for (const required of [
       "chess_games.revision", "chess_games.clock_snapshot", "chess_rooms.settings_snapshot", "chess_rooms.expires_at",
-      "chess_moves.ply", "chess_draw_offers.status", "chess_player_ratings.rating",
+      "chess_moves.ply", "chess_draw_offers.status", "chess_draw_offers.expires_at", "chess_player_ratings.rating",
       "chess_matchmaking_queue.min_opponent_level", "chess_admin_audit_events.action",
     ]) assert.ok(actual.has(required), `missing ${required}`);
   } finally {
