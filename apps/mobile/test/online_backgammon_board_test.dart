@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:royal_club/online_match_screen.dart';
+import 'package:royal_club/royal_backgammon_board.dart';
 
 void main() {
   testWidgets('online board renders a real point board and maps taps to points',
@@ -69,6 +70,41 @@ void main() {
       findsWidgets,
     );
     expect(tester.takeException(), isNull);
+  });
+
+  test('checker stacks stay on the outer side of each player, never the center band', () {
+    const size = Size(900, 600);
+    final middleTop = 600 * .455;
+    final middleBottom = 600 * .545;
+    for (var point = 0; point < 24; point++) {
+      for (var stackIndex = 0; stackIndex < 6; stackIndex++) {
+        final center = RoyalBackgammonBoard.checkerCenterForPoint(
+          point: point,
+          stackIndex: stackIndex,
+          checkerCount: 15,
+          boardSize: size,
+        );
+        if (point < 12) {
+          expect(center.dy, lessThan(middleTop), reason: 'Top point $point must remain on the top player side.');
+        } else {
+          expect(center.dy, greaterThan(middleBottom), reason: 'Bottom point $point must remain on the bottom player side.');
+        }
+      }
+    }
+  });
+
+  test('first checker is anchored near its own outer edge', () {
+    const size = Size(900, 600);
+    for (var point = 0; point < 12; point++) {
+      final center = RoyalBackgammonBoard.checkerCenterForPoint(
+        point: point, stackIndex: 0, checkerCount: 5, boardSize: size);
+      expect(center.dy, lessThan(100), reason: 'Top checkers must anchor at the top player edge.');
+    }
+    for (var point = 12; point < 24; point++) {
+      final center = RoyalBackgammonBoard.checkerCenterForPoint(
+        point: point, stackIndex: 0, checkerCount: 5, boardSize: size);
+      expect(center.dy, greaterThan(500), reason: 'Bottom checkers must anchor at the bottom player edge.');
+    }
   });
 
   testWidgets('selected point is repainted without losing the board',
