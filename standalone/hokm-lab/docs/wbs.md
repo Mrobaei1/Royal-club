@@ -33,7 +33,7 @@
 | WBS | Evidence-based status | Estimate |
 |---|---|---:|
 | 1.0 | Initial assumptions documented; regional rule sign-off pending | 25% |
-| 2.0 | Core engine, duplicate-deck validation, deterministic tests; public completed-trick history retained | 85% |
+| 2.0 | Core engine, duplicate-deck validation, deterministic tests, public completed-trick history and 2,000 seeded deal / 5,000 seeded trick property checks; CI green | 88% |
 | 3.0 | Round/match transitions, public trick-history views and full-hand regression tests; CI green | 85% |
 | 4.0 | In-memory lifecycle, readiness, host transfer, empty-only cleanup and match target tracking | 80% |
 | 5.0 | No production Fastify/network/persistence adapter yet | 0% |
@@ -42,7 +42,7 @@
 | 8.0 | Not implemented | 0% |
 | 9.0 | Not implemented | 0% |
 | 10.0 | Core accepts only 3/5/7 and architecture reserves source for trusted manager config; admin auth/UI/audit pending | 20% |
-| 11.0 | Engine/room/round/progression tests plus 24 seeded bot deals, 100 seeded full matches, hidden-information invariance, public-history privacy, permanent forfeit takeover, temporary disconnect/reclaim and stale-version race checks; production integration/concurrency/security suites pending | 52% |
+| 11.0 | Engine/room/round/progression tests plus 2,000 seeded deal, 5,000 seeded trick, 3,000 scoring and 52 malformed-deck property cases; 24 seeded bot deals, 100 seeded full matches, hidden-information invariance, public-history privacy, forfeit takeover, disconnect/reclaim and stale-version checks; production integration/concurrency/security suites pending | 56% |
 | 12.0 | WBS, architecture contract and setup README documented; final handoff pending | 20% |
 
 ## Confirmed match scoring and progression rules (2026-10-31)
@@ -52,6 +52,6 @@
 - Level curve: level 1 starts at 0 XP; advancement cost from level L is round(300 + 5(L−1) + 0.08(L−1)^2). Level 100 starts at 79,439 XP; 95,000 XP is level 109. XP floors at zero and achieved level never decreases.
 - In-memory calculation and unit tests are now in the isolated lab. Production persistence, atomic ledger transactions and server identity integration remain open.
 
-**Weighted overall progress: 41.81%** (sum of each WBS weight multiplied by its current estimate). This is a planning estimate only; packages with no implementation remain at 0%, and the standalone lab is not production-ready.
+**Weighted overall progress: 42.49%** (sum of each WBS weight multiplied by its current estimate). This is a planning estimate only; packages with no implementation remain at 0%, and the standalone lab is not production-ready.
 
-These are planning estimates, not a claim of completed production functionality. On 2026-10-31 the bot public-card ledger, void-suit inference, full-hand simulation, round-history tests and in-memory disconnect/reclaim lifecycle were added. CI evidence for the newest lifecycle tests is tracked by the latest run linked from the branch Actions page; the latest bot simulation run 41231943065 passed with 100 seeded full matches to target 3 (and all existing tests); an earlier bot run 41227379369 passed with 24 seeded deals. Recalculate after each verified milestone.
+These are planning estimates, not a claim of completed production functionality. On 2026-10-31 the bot public-card ledger, void-suit inference, full-hand simulation, round-history tests, in-memory disconnect/reclaim lifecycle and seeded engine property suite were added. CI evidence for the newest lifecycle tests is tracked by the latest run linked from the branch Actions page; the latest bot simulation run 41231943065 passed with 100 seeded full matches to target 3 (and all existing tests); an earlier bot run 41227379369 passed with 24 seeded deals. Recalculate after each verified milestone.
