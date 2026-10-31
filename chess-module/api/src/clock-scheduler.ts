@@ -97,6 +97,7 @@ export function startChessClockScheduler(app: FastifyInstance, pool: Pool, inter
   scheduledApps.add(app);
   let running = false;
   let lastCleanupAt = 0;
+  let lastDrawCleanupAt = 0;
   let timer: ReturnType<typeof setInterval>;
 
   const tick = async () => {
@@ -108,6 +109,20 @@ export function startChessClockScheduler(app: FastifyInstance, pool: Pool, inter
         await pool.query("UPDATE chess_rooms SET status='cancelled' WHERE status='waiting' AND expires_at<=NOW()");
         await pool.query("DELETE FROM chess_matchmaking_queue WHERE created_at<NOW()-INTERVAL '10 minutes'");
         lastCleanupAt = now;
+      }
+      if (now - lastDrawCleanupAt >= 2_000) {
+        const expiredOffers = await pool.query(
+          "UPDATE chess_draw_offers SET status='cancelled',responded_at=NOW() WHERE status='pending' AND expires_at<=NOW() RETURNING game_id,id"
+        );
+        for (const offer of expiredOffers.rows as Array<{game_id:string|number;id:string|number}>) {
+          try {
+            await pool.query("SELECT pg_notify($1,$2)",[
+              "chess_game_"+String(offer.game_id),
+              JSON.stringify({type:"draw_response",offerId:String(offer.id),status:"cancelled"})
+            ]);
+          } catch { /* offer is already expired in the database */ }
+        }
+        lastDrawCleanupAt = now;
       }
       await adjudicateExpiredChessClocks(pool, now);
     } catch (error) {
