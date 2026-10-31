@@ -80,6 +80,15 @@ test("off-suit non-trump ace cannot beat a led-suit card", () => {
   assert.equal(result.winnerSeat, 2);
 });
 
+test("trick rejects plays that are not in clockwise seat order", () => {
+  assert.throws(() => resolveTrick([
+    { seat: 0, card: c("hearts", "A") },
+    { seat: 2, card: c("hearts", "K") },
+    { seat: 1, card: c("hearts", "Q") },
+    { seat: 3, card: c("hearts", "J") }
+  ], "spades"), /clockwise/);
+});
+
 test("trick rejects incomplete tricks and duplicate seats", () => {
   assert.throws(() => resolveTrick([{ seat: 0, card: c("hearts", "A") }], "spades"), /four plays/);
   assert.throws(() => resolveTrick([
