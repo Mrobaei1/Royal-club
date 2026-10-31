@@ -46,8 +46,8 @@ export async function registerChessWebSocket(app: FastifyInstance, options: Opti
       };
       listener.on("notification", (notification) => {
         if (!notification.payload) return;
-        let event: {type?:string; id?:string; connected?:boolean; fromUserId?:string; signalType?:string; payload?:unknown};
-        try { event = JSON.parse(notification.payload) as {type?:string;id?:string;connected?:boolean}; }
+        let event: {type?:string; id?:string; connected?:boolean; fromUserId?:string; signalType?:string; payload?:unknown; offerId?:string; offeredBy?:string; status?:string};
+        try { event = JSON.parse(notification.payload) as {type?:string;id?:string;connected?:boolean;offerId?:string;offeredBy?:string;status?:string}; }
         catch { return; }
         void (async () => {
           if (event.type === "state") {
