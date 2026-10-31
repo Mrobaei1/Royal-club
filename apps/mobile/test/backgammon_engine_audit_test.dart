@@ -136,3 +136,14 @@ int _checkerCount(BackgammonEngine game, int player) {
   }
   return count;
 }
+
+
+    test('positive-player oversized bear-off checks higher points, mirrored from negative player', () {
+      position(player: 1, dice: [6], points: {20: 1, 23: 1});
+      expect(game.legalMoves().any((m) => m.from == 20 && m.to == -1), isFalse);
+      expect(game.legalMoves().any((m) => m.from == 23 && m.to == -1), isTrue);
+
+      position(player: -1, dice: [6], points: {0: -1, 3: -1});
+      expect(game.legalMoves().any((m) => m.from == 0 && m.to == -1), isFalse);
+      expect(game.legalMoves().any((m) => m.from == 3 && m.to == -1), isTrue);
+    });
