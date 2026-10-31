@@ -110,10 +110,24 @@ class _AuthGateState extends State<AuthGate> {
   Future<void> _checkSession() async {
     var valid = false;
     try {
-      await AuthService.me();
-      valid = true;
+      final hasToken = await AuthService.hasStoredToken();
+      if (hasToken) {
+        try {
+          await AuthService.me();
+          valid = true;
+        } on AuthUnauthorizedException {
+          // Only a confirmed 401 means the saved session is no longer valid.
+          await AuthService.logout();
+          valid = false;
+        } catch (_) {
+          // A timeout, DNS failure, blocked route, or server error is not logout.
+          // Keep the locally stored session and let the app open in limited/offline mode.
+          valid = true;
+        }
+      }
     } catch (_) {
-      // توکن وجود ندارد یا نشست دیگر معتبر نیست.
+      // Secure-storage read failures must not be mistaken for a confirmed logout.
+      valid = false;
     }
     if (!mounted) return;
     setState(() {
