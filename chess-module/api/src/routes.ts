@@ -557,7 +557,7 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
     let actor:string;
     try{actor=userId(request,options);}catch{return fail(reply,401,"unauthorized");}
     const changed=await pool.query(
-      "UPDATE chess_rooms r SET settings_snapshot=jsonb_set(COALESCE(r.settings_snapshot,'{}'::jsonb),'{voiceEnabled}','true'::jsonb) FROM chess_games g WHERE g.id=$1 AND g.room_id=r.id AND r.host_user_id=$2 RETURNING r.id",
+      "UPDATE chess_rooms r SET settings_snapshot=jsonb_set(COALESCE(r.settings_snapshot,'{}'::jsonb),'{voiceEnabled}','true'::jsonb) FROM chess_games g WHERE g.id=$1 AND g.status='active' AND g.room_id=r.id AND r.host_user_id=$2 RETURNING r.id",
       [request.params.gameId,actor]
     );
     if(!changed.rowCount)return fail(reply,403,"host_only");
