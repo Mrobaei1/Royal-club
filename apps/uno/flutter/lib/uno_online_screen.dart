@@ -5,6 +5,8 @@ import 'package:http/http.dart' as http;
 import 'package:permission_handler/permission_handler.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 import 'uno_voice_mesh.dart';
+import 'uno_chat_panel.dart';
+import 'uno_mic_button.dart';
 
 class UnoOnlineScreen extends StatefulWidget {
   const UnoOnlineScreen({
@@ -299,10 +301,10 @@ class _UnoOnlineScreenState extends State<UnoOnlineScreen> {
     final room = _room;
     return Scaffold(
       appBar: AppBar(title: const Text('UNO آنلاین'), actions: [
-        if (room != null) IconButton(
-          tooltip: _micMuted ? 'روشن‌کردن میکروفون' : 'خاموش‌کردن میکروفون',
-          icon: Icon(_micMuted ? Icons.mic_off : Icons.mic),
-          onPressed: room['voiceEnabled'] == true ? _toggleMic : null,
+        if (room != null) UnoMicButton(
+          muted: _micMuted,
+          enabled: room['voiceEnabled'] == true,
+          onPressed: _toggleMic,
         ),
       ]),
       body: _busy ? const Center(child: CircularProgressIndicator()) : room == null ? _buildLobby() : _buildRoom(room),
@@ -394,16 +396,12 @@ class _UnoOnlineScreenState extends State<UnoOnlineScreen> {
     );
   }
 
-  Widget _buildChat(Map<String, dynamic> room) => Card(
-    child: Padding(padding: const EdgeInsets.all(12), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      const Text('چت میز', style: TextStyle(fontWeight: FontWeight.bold)),
-      SizedBox(height: 130, child: ListView(children: _messages.map((m) => Text('@${m['username']}: ${m['text']}')).toList())),
-      Row(children: [
-        Expanded(child: TextField(controller: _chatController, maxLength: 500, decoration: const InputDecoration(hintText: 'پیام بنویس…', counterText: ''))),
-        IconButton(onPressed: room['chatEnabled'] == true ? _sendChat : null, icon: const Icon(Icons.send)),
-      ]),
-    ])),
-  );
+  Widget _buildChat(Map<String, dynamic> room) => UnoChatPanel(
+        controller: _chatController,
+        messages: _messages,
+        enabled: room['chatEnabled'] == true,
+        onSend: _sendChat,
+      );
 
   Widget _errorText() => Padding(
     padding: const EdgeInsets.only(top: 12),
