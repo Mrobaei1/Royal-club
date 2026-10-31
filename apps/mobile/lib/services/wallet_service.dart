@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
-import 'auth_service.dart';
+import 'api_transport.dart';
 
 class WalletService {
   static const FlutterSecureStorage _storage = FlutterSecureStorage();
@@ -17,7 +17,7 @@ class WalletService {
   static Future<Map<String, dynamic>> _request(String path, {Map<String, dynamic>? body}) async {
     final headers = await _headers();
     final response = body == null
-        ? await http.get(Uri.parse('${AuthService.baseUrl}$path'), headers: headers)
+        ? await http.get(ApiTransport.uri(path), headers: headers)
         : await http.post(Uri.parse('${AuthService.baseUrl}$path'), headers: headers, body: jsonEncode(body));
     final decoded = jsonDecode(response.body);
     if (decoded is! Map<String, dynamic>) throw Exception('پاسخ سرور نامعتبر است.');
