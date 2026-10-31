@@ -506,10 +506,10 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
       if(!offer.rowCount||String(offer.rows[0].offered_by)===playerId){await client.query("ROLLBACK");return fail(reply,409,"draw_offer_unavailable");}
       if(request.body?.accept===true){
         const clock={...(row.clock_snapshot as ClockSnapshot),active:null,lastStartedAt:null,finished:true};
+        await client.query("UPDATE chess_draw_offers SET status='accepted',responded_by=$2,responded_at=NOW() WHERE id=$1",[offer.rows[0].id,playerId]);
         await client.query("UPDATE chess_games SET status='draw',clock_snapshot=$2::jsonb,finished_at=NOW(),revision=revision+1 WHERE id=$1",[row.id,JSON.stringify(clock)]);
         await client.query("UPDATE chess_rooms SET status='finished' WHERE id=$1",[row.room_id]);
         await client.query("DELETE FROM chess_voice_leases WHERE room_id=$1",[row.room_id]);
-        await client.query("UPDATE chess_draw_offers SET status='accepted',responded_by=$2,responded_at=NOW() WHERE id=$1",[offer.rows[0].id,playerId]);
         await awardChessResult(client,String(row.id),"final_result",white,black,{outcome:"draw",winnerId:null,loserId:null});
         await client.query("COMMIT");
         try{
