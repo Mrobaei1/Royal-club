@@ -43,7 +43,7 @@ Phase 4 home-screen implementation has started on `main`. This checklist tracks 
 - [x] Source implements 60-second invitation/empty-room expiry, server-authoritative move handling, invitation cancellation, match cancellation proposals, and both game/match resignation scopes.
 - [x] PR #58 added integration tests for game-scope and match-scope resignation, invalid scope, non-participant access, board/turn/dice reset, winner recording, and repeat-resignation rejection. The test exposed and fixed a PostgreSQL bigint/text CASE-expression bug in the game-resignation path.
 - [ ] Complete full online-match acceptance on two independent accounts/devices: invite expiry, notification lifecycle, server-authoritative legal/cumulative moves, bar entry, surrender/cancel, reconnect, and host re-invitation.
-- [ ] **Temporary AI takeover is implemented on Draft PR #67, based on the current main HEAD, but is not yet in `main`.** All four GitHub Actions workflows passed on source head [`8bd4040`](https://github.com/Mrobaei1/Royal-club/commit/8bd4040891fc49079b796706d72e0525c0516944) (API build/tests, integration tests, Flutter analyze/widget tests, backgammon engine audit, and Web Preview build). Two-device manual acceptance remains pending. See [PR #67](https://github.com/Mrobaei1/Royal-club/pull/67) and `docs/ONLINE-DISCONNECT-AI-TAKEOVER.md`. Card and chess execution remain future integrations.
+- [x] **Temporary AI takeover for backgammon is merged into `main` via PR #67** (merge commit [`69f315b`](https://github.com/Mrobaei1/Royal-club/commit/69f315b2c2d38eba3c1e688ab48be77d17a2137c), 2026-10-31). The source includes server-authoritative presence/heartbeat handling, overdue-turn processing, reconnect recovery, and regression coverage for both seats and no-legal-move cases. Latest-main CI on [`4171bb7`](https://github.com/Mrobaei1/Royal-club/commit/4171bb7933a13eedb0bfc52ed51f7fe3c3d8b8bc) passed API build/unit/integration tests and Flutter analyze/tests; Web Preview build/deploy also passed. Two-device manual acceptance and Production deployment remain pending. Card and chess execution remain future integrations. See [PR #67](https://github.com/Mrobaei1/Royal-club/pull/67) and `docs/ONLINE-DISCONNECT-AI-TAKEOVER.md`.
 - [ ] Verify invitation expiry, notification lifecycle, and physical room cleanup while the serverless function is idle. The protected cleanup endpoint exists, but no scheduled Neon trigger is configured.
 - [x] API regression tests cover username-only public payloads and no full-name/email exposure in friend search/list, match history, leaderboard, and spectator views.
 - [ ] Finish a manual username-only audit across every screen/API, including empty or legacy profiles.
@@ -60,7 +60,7 @@ Phase 4 home-screen implementation has started on `main`. This checklist tracks 
 - [ ] Reconcile the production database schema with the 30 tables defined by current API source; 17 were absent from the live production branch at the 2026-10-30 audit.
 - [ ] Configure and verify the scheduled Neon trigger for expired-room cleanup after the cleanup endpoint is deployed.
 - [ ] Complete owner-approved production security configuration, including confirmed numeric owner identity and SMS encryption key only if live SMS is being enabled.
-- [ ] Complete review and two-device manual acceptance for Draft PR #67; merge only after both are satisfactory.
+- [ ] Complete two-device manual acceptance of the merged PR #67 behavior before Production deployment; CI does not prove real network-loss or Android lifecycle behavior.
 - [ ] Complete manual Android/device/network acceptance and owner sign-off.
 - [ ] No APK is built until the owner explicitly authorizes the final build.
 
@@ -84,6 +84,13 @@ Phase 4 home-screen implementation has started on `main`. This checklist tracks 
 - [Backgammon engine audit](https://github.com/Mrobaei1/Royal-club/actions/runs/41019744583) — passed.
 - The API integration workflow reported 14/14 subtests passing, including the new resignation scenario.
 
+**PR #67 — server-authoritative backgammon disconnect / temporary AI takeover** (merged as `69f315b2c2d38eba3c1e688ab48be77d17a2137c` on 2026-10-31):
+- [Validate Royal Club](https://github.com/Mrobaei1/Royal-club/actions/runs/41177353219) — API build/unit/integration tests and Flutter analyze/tests passed on main SHA `4171bb7933a13eedb0bfc52ed51f7fe3c3d8b8bc`.
+- [Royal Club validation](https://github.com/Mrobaei1/Royal-club/actions/runs/41177353226) — API build/tests and Flutter analyze/widget tests passed on the same main SHA.
+- [Royal Club Web Preview](https://github.com/Mrobaei1/Royal-club/actions/runs/41177353203) — API and Flutter checks, Web Preview build, and GitHub Pages deployment passed on the same main SHA.
+- [Royal Club Production API Health](https://github.com/Mrobaei1/Royal-club/actions/runs/41177353201) — the currently deployed API/database health workflow passed; this does not deploy the merged source.
+- Two-device manual acceptance and Production deployment remain open.
+
 ### Production API status — distinguish deployed from merged code
 
 - Neon Function `royalclubapi` remains on deployment ID `79`, created 2026-10-27. Its current environment metadata lists only `CORS_ORIGINS`, `DATABASE_URL`, `JWT_SECRET`, `NEON_FUNCTION_RUNTIME`, and `NODE_ENV`.
@@ -94,7 +101,7 @@ Phase 4 home-screen implementation has started on `main`. This checklist tracks 
 - Read-only function-log review (100 recent records from the last 24 hours) found 16 repeated `pg-connection-string` TLS-alias security warnings and no other ERROR-level application messages in that sample. PR #56 normalizes legacy `sslmode` aliases to `verify-full` in source, but deployment 79 has not received that code.
 - PR #58 also fixes the game-resignation SQL type error in source. Deployment 79 has not received this fix either.
 - The manual-only deployment workflow includes build/tests, bundle verification, Neon deployment, health checks, and registration/profile/friend smoke tests. It was not dispatched during this work.
-- No APK was built. Android APK generation remains manual-only and requires explicit build approval.
+- A separate push-triggered Android APK run on 2026-10-31 (`main` SHA `23375ac6b96d50449298ea60779d658aa83307d0`, app version `1.1.14+16`) completed successfully and uploaded the `royal-club-android-arm64-release` artifact ([run 41177336792](https://github.com/Mrobaei1/Royal-club/actions/runs/41177336792)). This is not the tracked `feature/shared-royal-backgammon-board` branch at `1.1.11+11`; no APK run for that branch/version was found. Commit [`4171bb7`](https://github.com/Mrobaei1/Royal-club/commit/4171bb7933a13eedb0bfc52ed51f7fe3c3d8b8bc) restored the workflow to manual-dispatch-only.
 
 These checks distinguish source correctness, automated CI, and the currently deployed service. A green CI run or successful health check against deployment 79 does not establish that the newest API source, new schema, owner controls, OTP, or agent UI are live in production.
 
@@ -102,7 +109,7 @@ These checks distinguish source correctness, automated CI, and the currently dep
 
 **Repository-side changes and automated checks have progressed, but Royal Club is not release-ready.** PR #55 restored the dormant owner agent-review UI; PR #56 fixed the PostgreSQL TLS alias warning in source; PR #58 fixed a real resignation SQL bug and added integration coverage. All three are merged.
 
-The current `main` branch still lacks online disconnect handling; implementation and automated checks exist on Draft PR #67, pending review and two-device acceptance. Remaining release blockers also include production API/schema rollout, confirmed owner configuration, trigger scheduling, live OTP decision, two-device game acceptance, manual RTL/LTR and theme checks, monetization/league acceptance, VPN testing, and final owner sign-off.
+Server-authoritative backgammon disconnect/temporary-AI handling is now merged into `main` via PR #67 (merge commit `69f315b2c2d38eba3c1e688ab48be77d17a2137c`). Latest-main CI passed API build/unit/integration tests, Flutter analyze/tests, and Web Preview build/deploy. Two-device acceptance and Production deployment remain open. Other release blockers include production API/schema rollout, confirmed owner configuration, trigger scheduling, live OTP decision, full two-device game acceptance, manual RTL/LTR and theme checks, monetization/league acceptance, VPN testing, and final owner sign-off.
 
 Do not activate agent identities, delegated grants, schedules, paid features, real SMS, production deployment, or APK generation without the corresponding explicit owner approval.
 
