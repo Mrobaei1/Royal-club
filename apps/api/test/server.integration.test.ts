@@ -728,7 +728,7 @@ test('registered players can join an online match and history does not expose op
             state_version = 100, match_to_win = 1, host_game_wins = 0,
             guest_game_wins = 0, updated_at = NOW()
       WHERE id = $3`,
-    [JSON.stringify(nearWinBoard), JSON.stringify({ host: 14, guest: 0 }), matchId],
+    [JSON.stringify(nearWinBoard), JSON.stringify({ host: 14, guest: 15 }), matchId],
   );
   const winningMove = await app.inject({
     method: 'POST',
