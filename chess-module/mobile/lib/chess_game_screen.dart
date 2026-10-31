@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'chess_board.dart';
 
@@ -89,11 +91,21 @@ class _ChessGameScreenState extends State<ChessGameScreen> {
   @override
   Widget build(BuildContext context) {
     final fa = Localizations.localeOf(context).languageCode == 'fa';
-    return Column(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final availableHeight = constraints.maxHeight.isFinite
+            ? constraints.maxHeight : constraints.maxWidth;
+        final boardSize = math.min(constraints.maxWidth, availableHeight * 0.38);
+        return Column(
       children: [
         _player(widget.blackUsername, widget.blackClock, white: false),
         const SizedBox(height: 8),
-        ChessBoard(fen: widget.fen, legalMoves: widget.legalMoves, onMove: widget.onMove),
+        Center(
+          child: SizedBox(
+            width: boardSize,
+            child: ChessBoard(fen: widget.fen, legalMoves: widget.legalMoves, onMove: widget.onMove),
+          ),
+        ),
         const SizedBox(height: 8),
         _player(widget.whiteUsername, widget.whiteClock, white: true),
         if (widget.pendingDrawOfferId != null && widget.drawOfferedByOpponent)
@@ -202,6 +214,8 @@ class _ChessGameScreenState extends State<ChessGameScreen> {
           ],
         ),
       ],
+        );
+      },
     );
   }
 }
