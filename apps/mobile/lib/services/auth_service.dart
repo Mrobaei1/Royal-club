@@ -110,7 +110,6 @@ class AuthService {
   }) async {
     final token = await _storage.read(key: 'royal_club_token');
     if (token == null || token.isEmpty) throw Exception('ابتدا وارد حساب شوید.');
-    final base = baseUrl.trim().replaceFirst(RegExp(r'/+$'), '');
     final response = await _send(() => http.post(
       ApiTransport.uri('/api/v1/auth/phone-otp/link'),
       headers: {
@@ -125,7 +124,6 @@ class AuthService {
   static Future<Map<String, dynamic>> me() async {
     final token = await _storage.read(key: 'royal_club_token');
     if (token == null || token.isEmpty) throw Exception('ابتدا وارد حساب شوید.');
-    final base = baseUrl.trim().replaceFirst(RegExp(r'/+$'), '');
     return _decode(await _send(() => http.get(
           ApiTransport.uri('/api/v1/me'),
           headers: {'Authorization': 'Bearer $token'},
@@ -135,7 +133,6 @@ class AuthService {
   static Future<Map<String, dynamic>> customizationPricing() async {
     final token = await _storage.read(key: 'royal_club_token');
     if (token == null || token.isEmpty) throw Exception('ابتدا وارد حساب شوید.');
-    final base = baseUrl.trim().replaceFirst(RegExp(r'/+$'), '');
     return _decode(await _send(() => http.get(
       ApiTransport.uri('/api/v1/account/customization-pricing'),
       headers: {'Authorization': 'Bearer $token'},
@@ -147,7 +144,6 @@ class AuthService {
     required String code,
     required String newPassword,
   }) async {
-    final base = baseUrl.trim().replaceFirst(RegExp(r'/+$'), '');
     return _decode(await _send(() => http.post(
       ApiTransport.uri('/api/v1/auth/phone-otp/reset-password'),
       headers: {'Content-Type': 'application/json'},
@@ -158,7 +154,6 @@ class AuthService {
   static Future<Map<String, dynamic>> updateUsername(String username) async {
     final token = await _storage.read(key: 'royal_club_token');
     if (token == null || token.isEmpty) throw Exception('ابتدا وارد حساب شوید.');
-    final base = baseUrl.trim().replaceFirst(RegExp(r'/+$'), '');
     final response = await _send(() => http.patch(
           ApiTransport.uri('/api/v1/me/username'),
           headers: {
@@ -177,7 +172,6 @@ class AuthService {
   }) async {
     final token = await _storage.read(key: 'royal_club_token');
     if (token == null || token.isEmpty) throw Exception('ابتدا وارد حساب شوید.');
-    final base = baseUrl.trim().replaceFirst(RegExp(r'/+$'), '');
     final response = await _send(() => http.patch(
           ApiTransport.uri('/api/v1/me/profile'),
           headers: {
@@ -198,7 +192,6 @@ class AuthService {
   static Future<Map<String, dynamic>> updateAvatar(String avatarDataUrl) async {
     final token = await _storage.read(key: 'royal_club_token');
     if (token == null || token.isEmpty) throw Exception('ابتدا وارد حساب شوید.');
-    final base = baseUrl.trim().replaceFirst(RegExp(r'/+$'), '');
     final response = await _send(() => http.patch(
           ApiTransport.uri('/api/v1/me/avatar'),
           headers: {
