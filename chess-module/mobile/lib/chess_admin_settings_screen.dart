@@ -67,15 +67,16 @@ class ChessAdminSettingsScreen extends StatelessWidget {
                         ? (fa ? 'شناسه معتبر نیست' : 'Enter a valid ID') : null),
                   TextFormField(controller: name,
                     decoration: InputDecoration(labelText: fa ? 'نام نمایشی' : 'Display name'),
-                    validator: (v) => v == null || v.trim().isEmpty ? (fa ? 'نام لازم است' : 'Name is required') : null),
+                    validator: (v) => v == null || v.trim().isEmpty || v.trim().length > 80
+                        ? (fa ? 'نام باید بین ۱ تا ۸۰ نویسه باشد' : 'Name must be 1–80 characters') : null),
                   TextFormField(controller: base, keyboardType: TextInputType.number,
                     decoration: InputDecoration(labelText: fa ? 'زمان پایه (ثانیه)' : 'Base time (seconds)'),
-                    validator: (v) => int.tryParse(v ?? '') == null || int.parse(v!) < 1
-                        ? (fa ? 'زمان نامعتبر است' : 'Enter a positive number') : null),
+                    validator: (v) => int.tryParse(v ?? '') == null || int.parse(v!) < 1 || int.parse(v) > 86400
+                        ? (fa ? 'زمان باید بین ۱ تا ۸۶۴۰۰ ثانیه باشد' : 'Enter 1–86400 seconds') : null),
                   TextFormField(controller: increment, keyboardType: TextInputType.number,
                     decoration: InputDecoration(labelText: fa ? 'افزایش هر حرکت (ثانیه)' : 'Increment per move (seconds)'),
-                    validator: (v) => int.tryParse(v ?? '') == null || int.parse(v!) < 0
-                        ? (fa ? 'افزایش نامعتبر است' : 'Enter zero or more') : null),
+                    validator: (v) => int.tryParse(v ?? '') == null || int.parse(v!) < 0 || int.parse(v) > 60
+                        ? (fa ? 'افزایش باید بین صفر تا ۶۰ ثانیه باشد' : 'Enter 0–60 seconds') : null),
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
                     title: Text(fa ? 'فعال' : 'Enabled'),
