@@ -75,10 +75,6 @@ test("isolated chess migrations apply cleanly against a bigint users schema", { 
       "INSERT INTO chess_chat_messages(game_id,user_id,message) VALUES($1,$2,'migration smoke test')",
       [game.rows[0].id, white],
     );
-    const drawOffer = await db.query(
-      "INSERT INTO chess_draw_offers(game_id,offered_by) VALUES($1,$2) RETURNING id",
-      [game.rows[0].id, white],
-    );
     const expiredOffer = await db.query(
       "INSERT INTO chess_draw_offers(game_id,offered_by,expires_at) VALUES($1,$2,NOW()-INTERVAL '1 second') RETURNING id",
       [game.rows[0].id, black],
@@ -86,6 +82,10 @@ test("isolated chess migrations apply cleanly against a bigint users schema", { 
     assert.equal(await expirePendingChessDrawOffers(db), 1);
     const expiredStatus = await db.query("SELECT status FROM chess_draw_offers WHERE id=$1",[expiredOffer.rows[0].id]);
     assert.equal(expiredStatus.rows[0].status, "cancelled");
+    const drawOffer = await db.query(
+      "INSERT INTO chess_draw_offers(game_id,offered_by) VALUES($1,$2) RETURNING id",
+      [game.rows[0].id, white],
+    );
 
     const adjudicated = await adjudicateExpiredChessClocks(db, 1200);
     assert.equal(adjudicated, 1);
