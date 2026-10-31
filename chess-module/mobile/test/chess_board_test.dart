@@ -27,7 +27,6 @@ void main() {
 
   testWidgets('non-interactive board ignores taps', (tester) async {
     final semantics = tester.ensureSemantics();
-    addTearDown(semantics.dispose);
     String? submitted;
     await tester.pumpWidget(MaterialApp(
       home: Scaffold(
