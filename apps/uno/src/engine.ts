@@ -84,7 +84,7 @@ export function applyUnoAction(source: UnoGame, playerId: string, action: GameAc
     return game;
   }
   if (action.type === 'catchUno') {
-    if (index !== game.currentPlayerIndex || !game.unoPendingPlayerId || game.unoPendingPlayerId === playerId) {
+    if (!game.unoPendingPlayerId || game.unoPendingPlayerId === playerId) {
       throw new UnoError('CATCH_NOT_AVAILABLE', 'There is no opponent to catch right now.');
     }
     const offender = game.players.find(p => p.id === game.unoPendingPlayerId);
@@ -121,12 +121,6 @@ export function applyUnoAction(source: UnoGame, playerId: string, action: GameAc
   game.discardPile.push(card);
   if (card.color !== 'wild') game.activeColor = card.color;
   else game.activeColor = action.chosenColor!;
-  if (player.hand.length === 0) {
-    game.winnerId = player.id;
-    game.unoPendingPlayerId = null;
-    return game;
-  }
-  if (player.hand.length === 1) game.unoPendingPlayerId = player.id;
   let skip = 0;
   if (card.face === 'reverse') {
     game.direction = game.direction === 1 ? -1 : 1;
@@ -138,6 +132,12 @@ export function applyUnoAction(source: UnoGame, playerId: string, action: GameAc
     for (let i = 0; i < amount; i++) drawOne(game, target);
     skip = 1;
   }
+  if (player.hand.length === 0) {
+    game.winnerId = player.id;
+    game.unoPendingPlayerId = null;
+    return game;
+  }
+  if (player.hand.length === 1) game.unoPendingPlayerId = player.id;
   advance(game, 1 + skip);
   return game;
 }

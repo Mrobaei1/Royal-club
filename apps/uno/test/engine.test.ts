@@ -72,3 +72,32 @@ test('wild cards reject colors outside the four UNO colors', () => {
     (error: unknown) => error instanceof UnoError && error.code === 'CHOOSE_COLOR',
   );
 });
+
+test('any seated opponent can catch an uncalled UNO before the next action', () => {
+  const game = startUnoGame([
+    {id:'a',username:'a'},
+    {id:'b',username:'b'},
+    {id:'c',username:'c'},
+  ]);
+  game.players[0]!.hand = [
+    {id:'play-me',color:'red',face:3},
+    {id:'keep-me',color:'blue',face:4},
+  ];
+  game.discardPile = [{id:'top',color:'red',face:1}];
+  game.activeColor = 'red';
+  const played = applyUnoAction(game, 'a', {type:'play',cardId:'play-me'});
+  assert.equal(played.currentPlayerIndex, 1);
+  const caught = applyUnoAction(played, 'c', {type:'catchUno'});
+  assert.equal(caught.players[0]!.hand.length, 3);
+  assert.equal(caught.unoPendingPlayerId, null);
+});
+
+test('a final Draw Two applies its penalty before the round is awarded', () => {
+  const game = startUnoGame([{id:'a',username:'a'},{id:'b',username:'b'}]);
+  game.players[0]!.hand = [{id:'last-draw-two',color:'red',face:'draw2'}];
+  game.discardPile = [{id:'top',color:'red',face:5}];
+  game.activeColor = 'red';
+  const finished = applyUnoAction(game, 'a', {type:'play',cardId:'last-draw-two'});
+  assert.equal(finished.winnerId, 'a');
+  assert.equal(finished.players[1]!.hand.length, 9);
+});
