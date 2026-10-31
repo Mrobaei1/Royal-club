@@ -174,14 +174,7 @@ class ChessVoiceClient {
         onError?.call(StateError('voice_connection_failed'));
       }
     };
-    _localStream ??= await navigator.mediaDevices.getUserMedia({
-      'audio': true,
-      'video': false,
-    });
-    for (final track in _localStream!.getAudioTracks()) {
-      track.enabled = false;
-      await peer.addTrack(track, _localStream!);
-    }
+    // Do not request microphone permission just to receive the opponent's audio.
   }
 
   Future<void> _createAndSendOffer() async {
@@ -289,7 +282,18 @@ class ChessVoiceClient {
   }
 
   Future<void> _enableLocalAudio() async {
-    for (final track in _localStream?.getAudioTracks() ?? <MediaStreamTrack>[]) {
+    final peer = _peer;
+    if (peer == null) throw StateError('voice_peer_not_ready');
+    if (_localStream == null) {
+      _localStream = await navigator.mediaDevices.getUserMedia({
+        'audio': true,
+        'video': false,
+      });
+      for (final track in _localStream!.getAudioTracks()) {
+        await peer.addTrack(track, _localStream!);
+      }
+    }
+    for (final track in _localStream!.getAudioTracks()) {
       track.enabled = true;
     }
   }
