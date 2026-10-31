@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'chess_board.dart';
+import 'chess_player_profile_card.dart';
 
 class ChessGameScreen extends StatefulWidget {
   const ChessGameScreen({
@@ -26,6 +27,8 @@ class ChessGameScreen extends StatefulWidget {
     this.drawOfferedByOpponent = false,
     this.onRespondToDraw,
     this.activeSide,
+    this.whiteProfile,
+    this.blackProfile,
   });
 
   final String fen;
@@ -123,14 +126,41 @@ class _ChessGameScreenState extends State<ChessGameScreen> {
     return '${minutes.toString().padLeft(2, '0')}:${remainder.toString().padLeft(2, '0')}';
   }
 
-  Widget _player(String username, Duration clock, {required bool white, required bool active}) => Row(
-        children: [
-          CircleAvatar(child: Text(username.isEmpty ? '?' : username.substring(0, 1).toUpperCase())),
-          const SizedBox(width: 8),
-          Expanded(child: Text(username, maxLines: 1, overflow: TextOverflow.ellipsis)),
-          Text(_clock(clock), style: TextStyle(fontFeatures: const [], fontWeight: active ? FontWeight.bold : FontWeight.normal)),
-        ],
-      );
+  Widget _player(String username, Duration clock, {required ChessPlayerProfile? profile, required bool active}) {
+    final fa = Localizations.localeOf(context).languageCode == 'fa';
+    return Row(
+      children: [
+        CircleAvatar(child: Text(username.isEmpty ? '?' : username.substring(0, 1).toUpperCase())),
+        const SizedBox(width: 8),
+        Expanded(
+          child: InkWell(
+            onTap: profile == null ? null : () => showModalBottomSheet<void>(
+              context: context,
+              isScrollControlled: true,
+              builder: (_) => SafeArea(
+                child: SingleChildScrollView(child: ChessPlayerProfileCard(profile: profile)),
+              ),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(username, maxLines: 1, overflow: TextOverflow.ellipsis),
+                  if (profile != null)
+                    Text(
+                      fa ? 'سطح ${profile.level} • امتیاز ${profile.rating}' : 'Level ${profile.level} • Rating ${profile.rating}',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        Text(_clock(clock), style: TextStyle(fontFeatures: const [], fontWeight: active ? FontWeight.bold : FontWeight.normal)),
+      ],
+    );
+  }
 
   void _send() {
     final text = _messageController.text.trim();
@@ -149,7 +179,7 @@ class _ChessGameScreenState extends State<ChessGameScreen> {
         final boardSize = math.min(constraints.maxWidth, availableHeight * 0.38);
         return Column(
       children: [
-        _player(widget.blackUsername, _blackDisplay, white: false, active: widget.activeSide == 'black'),
+        _player(widget.blackUsername, _blackDisplay, profile: widget.blackProfile, active: widget.activeSide == 'black'),
         const SizedBox(height: 8),
         Center(
           child: SizedBox(
@@ -158,7 +188,7 @@ class _ChessGameScreenState extends State<ChessGameScreen> {
           ),
         ),
         const SizedBox(height: 8),
-        _player(widget.whiteUsername, _whiteDisplay, white: true, active: widget.activeSide == 'white'),
+        _player(widget.whiteUsername, _whiteDisplay, profile: widget.whiteProfile, active: widget.activeSide == 'white'),
         if (widget.pendingDrawOfferId != null && widget.drawOfferedByOpponent)
           Card(
             child: Padding(
