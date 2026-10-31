@@ -76,6 +76,7 @@ class ChessVoiceClient {
       onDone: () {
         _socket = null;
         _socketSubscription = null;
+        _talkRequested = false;
         _leaseId = null; // Server releases the lease when this socket disconnects.
         _leaseRenewal?.cancel();
         _leaseRenewal = null;
