@@ -27,8 +27,8 @@ Build and verify an independent, Royal Club-compatible Hokm/Court Piece game mod
 - [x] Intentional forfeit penalty with duplicate-event protection and permanent fixed-Hard bot takeover.
 - [x] Transient disconnect grace, timeout-triggered temporary bot takeover, version-checked reconnect and no-rollback seat reclaim.
 - [ ] Persistent per-user XP ledger and atomic match-result transaction.
-- [x] Fixed-hard bot with legal-card selection, public unseen-card counting, void-suit inference, deterministic full-hand simulation, 24 seeded-deal simulations, 100 seeded full-match simulations to target 3, a 300-deal comparison against a legal-random baseline (Hard team: 269/300 wins, 89.67%; 67.6% trick share), a 300-deal deterministic-greedy baseline comparison (169/300 wins, 56.33%; 51.51% trick share) and hidden-hand invariance tests.
-- [ ] Deeper trick-outcome search, stronger strategic baselines (including expert/partnership-aware opponents), richer public inference, automated bot-seat orchestration and match-level strategy simulations.
+- [x] Fixed-hard bot with legal-card selection, public unseen-card counting, void-suit inference, deterministic full-hand simulation, 24 seeded-deal simulations, 100 seeded full-match simulations to target 3, a deterministic public-information sampled trick search (12 seeded hidden-hand allocations constrained by public void-suit evidence), a 300-deal legal-random comparison (258/300 Hard wins, 86.00%; 70.56% trick share), a 300-deal deterministic-greedy comparison (168/300 wins, 56.00%; 54.49% trick share), and hidden-hand invariance / repeatability tests.
+- [ ] Multi-trick lookahead / endgame search, expert and varied partnership-aware opponent baselines, broader calibrated public inference and match-level tournament simulations.
 - [x] Public completed-trick history retained in round state and sanitized per-seat views.
 - [ ] Production online service, network-driven deadline scheduler, authenticated session binding/persistent reconnect; chat/voice.
 - [ ] Flutter UI, manager controls and end-to-end/security testing.
