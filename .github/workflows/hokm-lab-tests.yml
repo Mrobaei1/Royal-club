@@ -1,0 +1,34 @@
+name: Isolated Hokm Lab Tests
+
+on:
+  push:
+    branches:
+      - research/hokm-standalone
+    paths:
+      - "standalone/hokm-lab/**"
+      - ".github/workflows/hokm-lab-tests.yml"
+  pull_request:
+    branches:
+      - research/hokm-standalone
+    paths:
+      - "standalone/hokm-lab/**"
+      - ".github/workflows/hokm-lab-tests.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  node-tests:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: standalone/hokm-lab
+    steps:
+      - name: Checkout isolated branch
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Run rules-engine tests
+        run: npm test
