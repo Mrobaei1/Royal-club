@@ -45,8 +45,8 @@ export async function registerChessWebSocket(app: FastifyInstance, options: Opti
       };
       listener.on("notification", (notification) => {
         if (!notification.payload) return;
-        let event: {type?:string; id?:string};
-        try { event = JSON.parse(notification.payload) as {type?:string;id?:string}; }
+        let event: {type?:string; id?:string; connected?:boolean};
+        try { event = JSON.parse(notification.payload) as {type?:string;id?:string;connected?:boolean}; }
         catch { return; }
         void (async () => {
           if (event.type === "state") {
@@ -68,9 +68,9 @@ export async function registerChessWebSocket(app: FastifyInstance, options: Opti
               const row=message.rows[0];
               send({type:"chess:chat:message",id:String(row.id),username:row.username,message:row.message,createdAt:row.created_at});
             }
-          } else if (event.type === "presence" && event.id) {
+          } else if (event.type === "presence" && event.id && typeof event.connected === "boolean") {
             const user = await options.pool.query("SELECT username FROM users WHERE id=$1",[event.id]);
-            send({type:"chess:opponent:presence",userId:event.id,username:user.rows[0]?.username??"",connected:true});
+            send({type:"chess:opponent:presence",userId:event.id,username:user.rows[0]?.username??"",connected:event.connected});
           } else if (event.type === "voice") {
             const lease = await options.pool.query(
               "SELECT u.username,l.expires_at FROM chess_voice_leases l JOIN users u ON u.id=l.user_id WHERE l.room_id=$1 AND l.expires_at>NOW()",
