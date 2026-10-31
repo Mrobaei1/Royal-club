@@ -4472,81 +4472,14 @@ app.post<{ Params: { id: string }; Body: { from: number | null; to: number | nul
       await client.query('ROLLBACK');
       return reply.code(409).send({ error: 'You must play the higher die first when the lower die would prevent it.' });
     }
-    const sign = hostTurn ? 1 : -1;
-    const bar = { host: Number(game.bar_state?.host ?? 0), guest: Number(game.bar_state?.guest ?? 0) };
-    const off = { host: Number(game.off_state?.host ?? 0), guest: Number(game.off_state?.guest ?? 0) };
-    const board = [...game.board_state];
-    const ownBar = hostTurn ? 'host' : 'guest';
-    const otherBar = hostTurn ? 'guest' : 'host';
-    let target = -1;
-
-    if (bar[ownBar] > 0) {
-      if (body.from !== null || body.to === null) {
-        await client.query('ROLLBACK');
-        return reply.code(409).send({ error: 'A checker on the bar must enter before other checkers can move.' });
-      }
-      target = hostTurn ? 24 - body.die : body.die - 1;
-      if (body.to !== target) {
-        await client.query('ROLLBACK');
-        return reply.code(409).send({ error: 'Invalid bar-entry point for that die.' });
-      }
-    } else {
-      if (body.from === null) {
-        await client.query('ROLLBACK');
-        return reply.code(409).send({ error: 'No checker is available on the bar.' });
-      }
-      if (board[body.from] * sign <= 0) {
-        await client.query('ROLLBACK');
-        return reply.code(409).send({ error: 'Select one of your own checkers.' });
-      }
-      const rawTarget = hostTurn ? body.from - body.die : body.from + body.die;
-      if (body.to === null) {
-        const inHome = hostTurn ? body.from <= 5 : body.from >= 18;
-        const allHome = board.every((count, point) => hostTurn
-          ? point <= 5 || count <= 0
-          : point >= 18 || count >= 0);
-        const overshootClear = hostTurn
-          ? !board.some((count, point) => point > body.from! && point <= 5 && count > 0)
-          : !board.some((count, point) => point < body.from! && point >= 18 && count < 0);
-        const distanceToOff = hostTurn ? body.from + 1 : 24 - body.from;
-        const overshootsDie = body.die > distanceToOff;
-        if (!inHome || !allHome || body.die < distanceToOff || (overshootsDie && !overshootClear)) {
-          await client.query('ROLLBACK');
-          return reply.code(409).send({ error: 'That checker cannot bear off with this die.' });
-        }
-        off[ownBar] += 1;
-      } else {
-        if (rawTarget < 0 || rawTarget > 23 || body.to !== rawTarget) {
-          await client.query('ROLLBACK');
-          return reply.code(409).send({ error: 'Move distance does not match the selected die.' });
-        }
-        target = rawTarget;
-        if (board[target] * sign <= -2) {
-          await client.query('ROLLBACK');
-          return reply.code(409).send({ error: 'That point is blocked by the opponent.' });
-        }
-        board[body.from] -= sign;
-        if (board[target] * sign < 0) {
-          board[target] = 0;
-          bar[otherBar] += 1;
-        }
-        board[target] += sign;
-      }
-      if (body.to === null) board[body.from] -= sign;
+    // Use the same canonical rule engine as batch moves and AI turns.
+    // This also rejects malformed persisted board/bar/off state before mutation.
+    const applied = applyBackgammonMove(moveState, body, hostTurn);
+    if ('error' in applied) {
+      await client.query('ROLLBACK');
+      return reply.code(409).send({ error: applied.error });
     }
-
-    if (body.from === null) {
-      bar[ownBar] -= 1;
-      if (board[target] * sign <= -2) {
-        await client.query('ROLLBACK');
-        return reply.code(409).send({ error: 'That entry point is blocked by the opponent.' });
-      }
-      if (board[target] * sign < 0) {
-        board[target] = 0;
-        bar[otherBar] += 1;
-      }
-      board[target] += sign;
-    }
+    const { board, bar, off } = applied.state;
 
     const remaining = [...game.remaining_dice];
     remaining.splice(remaining.indexOf(body.die), 1);
