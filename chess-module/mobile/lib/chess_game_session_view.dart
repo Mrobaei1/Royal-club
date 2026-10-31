@@ -33,7 +33,6 @@ class ChessGameSessionView extends StatelessWidget {
   Widget build(BuildContext context) => AnimatedBuilder(
         animation: session,
         builder: (context, _) {
-          final messenger = ScaffoldMessenger.of(context);
           final game = session.game;
           final messenger = ScaffoldMessenger.of(context);
           if (game == null) {
