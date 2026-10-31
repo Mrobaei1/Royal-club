@@ -48,7 +48,7 @@ test('refund and financial outflow require exact, unexpired, unused owner approv
   assert.deepEqual(authorizeOwnerProtectedAction({ ...request, approval: { ...ownerApproval, target: 'wallet:attacker' } }), { allowed: false, reason: 'approval_mismatch' });
   assert.deepEqual(authorizeOwnerProtectedAction({ ...request, approval: { ...ownerApproval, expiresAtMs: request.nowMs } }), { allowed: false, reason: 'approval_expired' });
   assert.deepEqual(authorizeOwnerProtectedAction({ ...request, approval: { ...ownerApproval, consumedAtMs: request.nowMs - 1 } }), { allowed: false, reason: 'approval_consumed' });
-  assert.deepEqual(authorizeOwnerProtectedAction({ ...request, approval: ownerApproval }), { allowed: true, reason: 'owner_approval_verified' });
+  assert.deepEqual(authorizeOwnerProtectedAction({ ...request, approval: { ...ownerApproval, target: 'agent:marketing-01' } }), { allowed: true, reason: 'owner_approval_verified' });
 });
 
 test('permanent agent offboarding also requires explicit owner approval', () => {
