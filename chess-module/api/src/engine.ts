@@ -47,7 +47,7 @@ export class ChessGame {
       checkmate: this.game.isCheckmate(),
       draw: this.game.isDraw(),
       gameOver: this.game.isGameOver(),
-      legalMoves: this.game.moves()
+      legalMoves: this.game.moves({ verbose: true }).map(move => `${move.from}${move.to}${move.promotion ?? ""}`)
     };
   }
 }
