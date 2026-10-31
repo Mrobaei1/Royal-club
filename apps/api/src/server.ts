@@ -4642,6 +4642,9 @@ app.get<{ Params: { id: string } }>('/api/v1/matches/:id/spectate', { onRequest:
   );
   if (!result.rowCount) return reply.code(404).send({ error: 'This match is not available for your spectator access.' });
   const row = result.rows[0];
+  if (!isValidBackgammonState({ board: row.board, bar: row.bar, off: row.off })) {
+    return reply.code(409).send({ error: 'Invalid board state.' });
+  }
   return {
     match: {
       id: row.id, roomCode: row.roomCode, status: row.status,
@@ -4718,6 +4721,11 @@ app.get<{ Params: { id: string } }>('/api/v1/matches/:id/state', { onRequest: [r
     [request.params.id, claims.sub]);
   if (!result.rowCount) return reply.code(404).send({ error: 'Match not found.' });
   if (!['active', 'finished'].includes(result.rows[0].status)) return reply.code(409).send({ error: 'The match is not active yet.' });
+  if (!isValidBackgammonState({
+    board: result.rows[0].board,
+    bar: result.rows[0].bar,
+    off: result.rows[0].off,
+  })) return reply.code(409).send({ error: 'Invalid board state.' });
   return { state: result.rows[0] };
 });
 
