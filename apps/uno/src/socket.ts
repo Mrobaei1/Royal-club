@@ -40,7 +40,12 @@ function allowSignal(userId: string): void {
 function payloadSize(value: unknown): number {
   try { return Buffer.byteLength(JSON.stringify(value)); } catch { return Number.MAX_SAFE_INTEGER; }
 }
-export function registerUnoSockets(io: Server, verifyToken: TokenVerifier, rooms = new UnoRoomManager()) {
+export function registerUnoSockets(
+  io: Server,
+  verifyToken: TokenVerifier,
+  rooms = new UnoRoomManager(),
+  persistRooms: () => Promise<void> = async () => {},
+) {
   io.use((socket, next) => {
     const token = socket.handshake.auth?.token;
     if (typeof token !== 'string' || !token) return next(new Error('UNAUTHORIZED'));
@@ -78,6 +83,7 @@ export function registerUnoSockets(io: Server, verifyToken: TokenVerifier, rooms
     socket.on('uno:room:create', async (_payload: unknown, ack?: Ack) => {
       try {
         const room = rooms.createRoom(user);
+        await persistRooms();
         await joinSocketRoom(room.code);
         publishRoom(room);
         ack?.({ ok: true, data: { code: room.code, room: publicRoom(rooms.getRoom(room.code)) } });
@@ -87,6 +93,7 @@ export function registerUnoSockets(io: Server, verifyToken: TokenVerifier, rooms
       try {
         if (typeof payload?.code !== 'string') throw new UnoError('INVALID_CODE', 'A table code is required.');
         const room = rooms.joinRoom(payload.code, user);
+        await persistRooms();
         await joinSocketRoom(room.code);
         publishRoom(room);
         ack?.({ ok: true, data: { room: publicRoom(room) } });
@@ -95,6 +102,7 @@ export function registerUnoSockets(io: Server, verifyToken: TokenVerifier, rooms
     socket.on('uno:room:reconnect', async (payload: { code?: string }, ack?: Ack) => {
       try {
         const room = rooms.reconnect(payload?.code ?? '', user);
+        await persistRooms();
         await joinSocketRoom(room.code);
         publishRoom(room);
         if (room.game) {
@@ -105,10 +113,11 @@ export function registerUnoSockets(io: Server, verifyToken: TokenVerifier, rooms
         ack?.({ ok: true, data: { room: publicRoom(room), game: room.game ? publicGameState(room.game) : null, hand: room.game ? privateHand(room.game, user.id) : [] } });
       } catch (e) { fail(e, ack); }
     });
-    socket.on('uno:room:ready', (payload: { code?: string; ready?: boolean }, ack?: Ack) => {
+    socket.on('uno:room:ready', async (payload: { code?: string; ready?: boolean }, ack?: Ack) => {
       try {
         if (typeof payload?.ready !== 'boolean') throw new UnoError('INVALID_READY', 'Ready state must be true or false.');
         const room = rooms.setReady(payload.code ?? '', user.id, payload.ready);
+        await persistRooms();
         publishRoom(room);
         ack?.({ ok: true, data: { status: room.status } });
       } catch (e) { fail(e, ack); }
@@ -116,6 +125,7 @@ export function registerUnoSockets(io: Server, verifyToken: TokenVerifier, rooms
     socket.on('uno:room:start', async (payload: { code?: string }, ack?: Ack) => {
       try {
         const started = rooms.start(payload.code ?? '', user.id);
+        await persistRooms();
         publishRoom(started.room);
         io.to(`uno:${started.room.code}`).emit('uno:game:state', started.game);
         await publishPrivateHands(started.room.code);
@@ -128,6 +138,7 @@ export function registerUnoSockets(io: Server, verifyToken: TokenVerifier, rooms
           throw new UnoError('INVALID_ACTION', 'This UNO action is not supported.');
         }
         const result = rooms.act(payload.code ?? '', user.id, payload.action);
+        await persistRooms();
         io.to(`uno:${payload.code}`).emit('uno:game:state', result.game);
         await publishPrivateHands(payload.code ?? '');
         ack?.({ ok: true, data: { game: result.game } });
@@ -146,20 +157,22 @@ export function registerUnoSockets(io: Server, verifyToken: TokenVerifier, rooms
         ack?.({ ok: true });
       } catch (e) { fail(e, ack); }
     });
-    socket.on('uno:voice:mute', (payload: { code?: string; targetId?: string; muted?: boolean }, ack?: Ack) => {
+    socket.on('uno:voice:mute', async (payload: { code?: string; targetId?: string; muted?: boolean }, ack?: Ack) => {
       try {
         if (typeof payload?.targetId !== 'string' || typeof payload.muted !== 'boolean') throw new UnoError('INVALID_MUTE', 'A target and mute state are required.');
         const room = rooms.setMuted(payload.code ?? '', user.id, payload.targetId, payload.muted);
+        await persistRooms();
         publishRoom(room);
         ack?.({ ok: true });
       } catch (e) { fail(e, ack); }
     });
-    socket.on('uno:room:communication', (payload: { code?: string; setting?: 'chatEnabled' | 'voiceEnabled'; enabled?: boolean }, ack?: Ack) => {
+    socket.on('uno:room:communication', async (payload: { code?: string; setting?: 'chatEnabled' | 'voiceEnabled'; enabled?: boolean }, ack?: Ack) => {
       try {
         if (!['chatEnabled', 'voiceEnabled'].includes(payload?.setting ?? '') || typeof payload.enabled !== 'boolean') {
           throw new UnoError('INVALID_SETTING', 'A supported communication setting is required.');
         }
         const room = rooms.setCommunication(payload.code ?? '', user.id, payload.setting!, payload.enabled);
+        await persistRooms();
         publishRoom(room);
         ack?.({ ok: true });
       } catch (e) { fail(e, ack); }
@@ -182,15 +195,16 @@ export function registerUnoSockets(io: Server, verifyToken: TokenVerifier, rooms
         ack?.({ ok: true });
       } catch (e) { fail(e, ack); }
     });
-    socket.on('uno:room:leave', (payload: { code?: string }, ack?: Ack) => {
+    socket.on('uno:room:leave', async (payload: { code?: string }, ack?: Ack) => {
       try {
         const room = rooms.leave(payload?.code ?? '', user.id);
+        await persistRooms();
         if (room) publishRoom(room);
         socket.leave(`uno:${payload?.code}`);
         ack?.({ ok: true });
       } catch (e) { fail(e, ack); }
     });
-    socket.on('disconnect', () => {
+    socket.on('disconnect', async () => {
       const active = userSockets.get(user.id);
       active?.delete(socket.id);
       if (active && active.size > 0) return;
@@ -199,6 +213,7 @@ export function registerUnoSockets(io: Server, verifyToken: TokenVerifier, rooms
       if (!code) return;
       try {
         const room = rooms.leave(code, user.id);
+        await persistRooms();
         if (room) publishRoom(room);
       } catch { /* A room may have expired between disconnect and cleanup. */ }
     });

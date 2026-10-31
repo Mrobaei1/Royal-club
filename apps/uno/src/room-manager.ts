@@ -3,6 +3,7 @@ import { applyUnoAction, privateHand, publicGameState, startUnoGame } from './en
 import { UnoError, type GameAction, type UnoRoom } from './model.js';
 
 export interface AuthenticatedPlayer { id: string; username: string; }
+export interface UnoRoomSnapshot { rooms: UnoRoom[]; }
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 function makeCode(): string {
   const bytes = randomBytes(6);
@@ -130,6 +131,32 @@ export class UnoRoomManager {
     return structuredClone(room);
   }
   getRoom(code: string): UnoRoom { return structuredClone(this.requireRoom(code)); }
+  exportSnapshot(): UnoRoomSnapshot {
+    return { rooms: [...this.rooms.values()].map(room => structuredClone(room)) };
+  }
+  restoreSnapshot(snapshot: unknown): void {
+    if (!snapshot || typeof snapshot !== 'object' || !Array.isArray((snapshot as { rooms?: unknown }).rooms)) {
+      throw new UnoError('INVALID_SNAPSHOT', 'The saved UNO room state is invalid.');
+    }
+    const rooms = (snapshot as { rooms: unknown[] }).rooms;
+    this.rooms.clear();
+    this.userRooms.clear();
+    for (const candidate of rooms) {
+      if (!candidate || typeof candidate !== 'object') continue;
+      const room = candidate as UnoRoom;
+      if (typeof room.code !== 'string' || !Array.isArray(room.players) ||
+          !['waiting', 'ready', 'playing', 'finished'].includes(room.status)) continue;
+      for (const player of room.players) {
+        player.selfMuted = typeof player.selfMuted === 'boolean' ? player.selfMuted : player.muted !== false;
+        player.hostMuted = typeof player.hostMuted === 'boolean' ? player.hostMuted : false;
+        player.muted = player.selfMuted || player.hostMuted;
+      }
+      this.rooms.set(room.code, structuredClone(room));
+      if (room.status !== 'finished') {
+        for (const player of room.players) this.userRooms.set(player.id, room.code);
+      }
+    }
+  }
   getRoomForUser(userId: string): string | null { return this.userRooms.get(userId) ?? null; }
   private requireRoom(code: string): UnoRoom {
     const room = this.rooms.get(code.trim().toUpperCase());

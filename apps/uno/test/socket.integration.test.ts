@@ -5,6 +5,7 @@ import type { AddressInfo } from 'node:net';
 import { Server as SocketServer } from 'socket.io';
 import { io as connect, type Socket } from 'socket.io-client';
 import { registerUnoSockets } from '../src/socket.js';
+import { UnoRoomManager } from '../src/room-manager.js';
 
 type AckResult = { ok: boolean; data?: Record<string, unknown>; error?: { code: string; message: string } };
 function emitAck(socket: Socket, event: string, payload: unknown): Promise<AckResult> {
@@ -29,11 +30,12 @@ test('authenticated sockets enforce host start and keep hands and voice signals 
     ['guest-token', { id: 'guest-id', username: 'guest_handle' }],
     ['outsider-token', { id: 'outsider-id', username: 'outside_handle' }],
   ]);
+  let persistenceWrites = 0;
   const roomManager = registerUnoSockets(io, async token => {
     const player = identities.get(token);
     if (!player) throw new Error('bad token');
     return player;
-  });
+  }, new UnoRoomManager(), async () => { persistenceWrites++; });
   await new Promise<void>(resolve => http.listen(0, '127.0.0.1', resolve));
   const address = http.address() as AddressInfo;
   const url = `http://127.0.0.1:${address.port}`;
@@ -101,6 +103,7 @@ test('authenticated sockets enforce host start and keep hands and voice signals 
     host.disconnect();
     await new Promise(resolve => setTimeout(resolve, 50));
     assert.equal(roomManager.getRoom(code).players[0]!.connected, true);
+    assert.ok(persistenceWrites >= 7);
 
   } finally {
     for (const client of clients) client.disconnect();

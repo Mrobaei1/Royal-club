@@ -8,7 +8,7 @@ import { Pool } from 'pg';
 import { createTurnCredentials } from './turn-credentials.js';
 import { Server } from 'socket.io';
 import { registerUnoSockets } from './socket.js';
-import type { AuthenticatedPlayer } from './room-manager.js';
+import { UnoRoomManager, type AuthenticatedPlayer } from './room-manager.js';
 
 const databaseUrl = process.env.DATABASE_URL ?? '';
 if (!databaseUrl) throw new Error('DATABASE_URL is required to resolve the authenticated public username.');
@@ -27,6 +27,26 @@ function normalizeDatabaseUrl(value: string): string {
 const pool = new Pool({ connectionString: normalizeDatabaseUrl(databaseUrl) });
 const jwtSecret = process.env.JWT_SECRET ?? '';
 if (jwtSecret.length < 32) throw new Error('JWT_SECRET must contain at least 32 characters.');
+
+const roomManager = new UnoRoomManager();
+await pool.query(`
+  CREATE TABLE IF NOT EXISTS uno_room_snapshots (
+    id SMALLINT PRIMARY KEY CHECK (id = 1),
+    state JSONB NOT NULL DEFAULT '{"rooms":[]}'::jsonb,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+  INSERT INTO uno_room_snapshots (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
+`);
+const savedRooms = await pool.query('SELECT state FROM uno_room_snapshots WHERE id = 1');
+if (savedRooms.rows[0]?.state) roomManager.restoreSnapshot(savedRooms.rows[0].state);
+let roomWriteQueue: Promise<unknown> = Promise.resolve();
+const persistRooms = (): Promise<void> => {
+  const snapshot = JSON.stringify(roomManager.exportSnapshot());
+  roomWriteQueue = roomWriteQueue.catch(() => undefined).then(() =>
+    pool.query('UPDATE uno_room_snapshots SET state = $1::jsonb, updated_at = NOW() WHERE id = 1', [snapshot]),
+  );
+  return roomWriteQueue.then(() => {});
+};
 async function verifyRoyalToken(token: string): Promise<AuthenticatedPlayer> {
   const claims = verifyRoyalHs256Token(token, jwtSecret);
   const profile = await pool.query(
@@ -78,10 +98,10 @@ const io = new Server(app.server, {
   transports: ['websocket', 'polling'],
   maxHttpBufferSize: 64 * 1024,
 });
-registerUnoSockets(io, verifyRoyalToken);
+registerUnoSockets(io, verifyRoyalToken, roomManager, persistRooms);
 const port = Number(process.env.PORT ?? 4100);
 const host = process.env.HOST ?? '0.0.0.0';
-app.addHook('onClose', async () => { await pool.end(); });
+app.addHook('onClose', async () => { await roomWriteQueue.catch(error => app.log.error(error)); await pool.end(); });
 try {
   await app.listen({ port, host });
   app.log.info(`UNO standalone service listening on ${host}:${port}`);

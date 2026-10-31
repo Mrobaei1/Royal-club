@@ -117,3 +117,19 @@ test('host mute and voice shutdown require players to opt in again', () => {
   manager.setCommunication(room.code, host.id, 'voiceEnabled', true);
   assert.equal(manager.getRoom(room.code).players[1]!.muted, true);
 });
+
+test('room snapshots survive manager recreation and restore user membership', () => {
+  const first = new UnoRoomManager();
+  const room = first.createRoom(host);
+  first.joinRoom(room.code, guest);
+  first.setReady(room.code, host.id, true);
+  const snapshot = first.exportSnapshot();
+  const restarted = new UnoRoomManager();
+  restarted.restoreSnapshot(snapshot);
+  assert.equal(restarted.getRoom(room.code).players.length, 2);
+  assert.equal(restarted.getRoom(room.code).status, 'waiting');
+  assert.equal(restarted.getRoomForUser(host.id), room.code);
+  assert.equal(restarted.getRoomForUser(guest.id), room.code);
+  restarted.setReady(room.code, guest.id, true);
+  assert.equal(restarted.getRoom(room.code).status, 'ready');
+});
