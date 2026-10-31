@@ -102,7 +102,7 @@ export function applyRoomCommand(room, userId, command, expectedVersion) {
   if (room.status !== "playing" || !room.round) throw new Error("Room is not playing");
   let round;
   if (command?.type === "choose_trump") {
-    round = chooseTrump(room.round, player.seat, command.suit, command.remainingDeck);
+    round = chooseTrump(room.round, player.seat, command.suit);
   } else if (command?.type === "play_card") {
     round = playCard(room.round, player.seat, command.card);
   } else {
