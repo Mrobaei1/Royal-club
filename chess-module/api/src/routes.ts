@@ -5,6 +5,7 @@ import { ChessGame } from "./engine.js";
 import { defaultTimeControls, snapshotClock, startClock, settleClock, type ClockSnapshot, type TimeControl } from "./clock.js";
 import { canJoinRoom, validateRoomSettings, type ChessRoomSettings } from "./room-policy.js";
 import { awardChessResult } from "./progression-store.js";
+import { startChessClockScheduler } from "./clock-scheduler.js";
 
 type RouteOptions = {
   pool: Pool;
@@ -27,6 +28,7 @@ async function rollback(client:PoolClient){try{await client.query("ROLLBACK");}c
 
 export async function registerChessRoutes(app:FastifyInstance,options:RouteOptions):Promise<void>{
   const {pool}=options;
+  startChessClockScheduler(app,pool);
   app.get("/chess/time-controls",{preHandler:options.authenticate},async()=>{
     const result=await pool.query("SELECT id,display_name AS name,base_ms,increment_ms,enabled FROM chess_time_controls ORDER BY base_ms");
     return {timeControls:result.rows};
