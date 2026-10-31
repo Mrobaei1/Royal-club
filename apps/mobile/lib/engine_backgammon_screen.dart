@@ -466,7 +466,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
       return;
     }
     _computerThinking = true;
-    Future<void>.delayed(const Duration(seconds: 2), () {
+    Future<void>.delayed(delay, () {
       if (!mounted) return;
       setState(() {
         if (!_vsComputer || _engine.finished || _engine.currentPlayer != -1) {
