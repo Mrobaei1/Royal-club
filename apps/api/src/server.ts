@@ -4390,6 +4390,7 @@ app.post<{ Params: { id: string }; Body: { moves: Array<{ from: number | null; t
               off_state = $3::jsonb, current_turn_user_id = $4, dice = $5::jsonb,
               remaining_dice = $6::jsonb, status = $7,
               host_game_wins = $8, guest_game_wins = $9,
+              turn_started_at = CASE WHEN $11::boolean THEN NOW() ELSE turn_started_at END,
               state_version = state_version + 1, updated_at = NOW()
          WHERE id = $10
          RETURNING id, status, board_state AS board, bar_state AS bar, off_state AS off,
@@ -4400,7 +4401,7 @@ app.post<{ Params: { id: string }; Body: { moves: Array<{ from: number | null; t
       [JSON.stringify(nextBoard), JSON.stringify(nextBar), JSON.stringify(nextOff),
        gameFinished ? game.host_user_id : nextTurn, JSON.stringify(gameFinished ? [] : nextDice),
        JSON.stringify(gameFinished ? [] : nextRemaining), matchFinished ? 'finished' : 'active',
-       nextHostWins, nextGuestWins, game.id]);
+       nextHostWins, nextGuestWins, game.id, turnComplete || gameFinished]);
     if (gameFinished && game.guest_user_id) {
       const winnerId = simulated.off.host >= 15 ? game.host_user_id : game.guest_user_id;
       const loserId = winnerId === game.host_user_id ? game.guest_user_id : game.host_user_id;
@@ -4518,6 +4519,7 @@ app.post<{ Params: { id: string }; Body: { from: number | null; to: number | nul
               off_state = $3::jsonb, current_turn_user_id = $4, dice = $5::jsonb,
               remaining_dice = $6::jsonb, status = $7,
               host_game_wins = $8, guest_game_wins = $9,
+              turn_started_at = CASE WHEN $11::boolean THEN NOW() ELSE turn_started_at END,
               state_version = state_version + 1, updated_at = NOW()
          WHERE id = $10
          RETURNING id, status, board_state AS board, bar_state AS bar, off_state AS off,
@@ -4528,7 +4530,7 @@ app.post<{ Params: { id: string }; Body: { from: number | null; to: number | nul
       [JSON.stringify(nextBoard), JSON.stringify(nextBar), JSON.stringify(nextOff),
        gameFinished ? game.host_user_id : nextTurn, JSON.stringify(gameFinished ? [] : nextDice),
        JSON.stringify(gameFinished ? [] : nextRemaining), matchFinished ? 'finished' : 'active',
-       nextHostWins, nextGuestWins, game.id]);
+       nextHostWins, nextGuestWins, game.id, turnComplete || gameFinished]);
     if (gameFinished && game.guest_user_id) {
       const winnerId = off.host >= 15 ? game.host_user_id : game.guest_user_id;
       const loserId = winnerId === game.host_user_id ? game.guest_user_id : game.host_user_id;
