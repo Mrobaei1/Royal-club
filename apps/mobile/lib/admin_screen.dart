@@ -117,11 +117,13 @@ class _AdminScreenState extends State<AdminScreen> {
       setState(() { _owner = true; _plans = plans; _reports = reports; _delegatedPermissionsEnabled = permissionSettings['enabled'] == true; _permissionGrants = grants; _permissionAudit = audit; _leagues = leagues; _loading = false; _error = null; });
       try {
         final customizationPricing = await AdminService.accountCustomizationPricing();
-        if (mounted) setState(() {
-          _avatarChangePrice.text = (customizationPricing['avatarChangePriceCredits'] ?? 0).toString();
-          _usernameChangePrice.text = (customizationPricing['usernameChangePriceCredits'] ?? 0).toString();
-          _customizationPricingAvailable = true;
-        });
+        if (mounted) {
+          setState(() {
+            _avatarChangePrice.text = (customizationPricing['avatarChangePriceCredits'] ?? 0).toString();
+            _usernameChangePrice.text = (customizationPricing['usernameChangePriceCredits'] ?? 0).toString();
+            _customizationPricingAvailable = true;
+          });
+        }
       } catch (_) {
         if (mounted) setState(() => _customizationPricingAvailable = false);
       }
@@ -150,9 +152,11 @@ class _AdminScreenState extends State<AdminScreen> {
         avatarChangePriceCredits: avatarPrice,
         usernameChangePriceCredits: usernamePrice,
       );
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(appText(context, 'قیمت خدمات حساب ذخیره شد.', 'Account service prices saved.')),
-      ));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(appText(context, 'قیمت خدمات حساب ذخیره شد.', 'Account service prices saved.')),
+        ));
+      }
     } catch (error) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appError(context, error))));
     } finally {
