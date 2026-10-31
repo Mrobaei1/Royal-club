@@ -1,5 +1,6 @@
 import { createRound, chooseTrump, playCard, roundViewForSeat } from "./round.js";
 import { createDeck, shuffleDeck } from "./engine.js";
+import { awardCompletedMatch, penalizeMatchLeaver } from "./progression.js";
 
 const MAX_PLAYERS = 4;
 const VALID_MATCH_TARGETS = Object.freeze([3, 5, 7]);
@@ -35,6 +36,8 @@ export function createRoom({ roomId, hostUserId, now, privateRoom = true, matchT
     status: "waiting",
     matchTarget,
     matchScore: [0, 0],
+    playerProgress: {},
+    penalizedLeavers: [],
     players: [{ userId: hostUserId, seat: 0, ready: false, connected: true }],
     version: 1,
     round: null
@@ -66,6 +69,20 @@ export function leaveRoom(room, userId) {
   if (players.length === room.players.length) throw new Error("User is not a member of this room");
   const hostUserId = room.hostUserId === userId ? (players[0]?.userId ?? null) : room.hostUserId;
   return { ...room, hostUserId, players, version: room.version + 1 };
+}
+
+/** Active-match exit: charge the leaver once, reserve their seat for match resolution. */
+export function recordMatchForfeit(room, userId) {
+  if (room.status !== "playing") throw new Error("Only an active match can record a player exit");
+  const player = room.players.find((candidate) => candidate.userId === userId);
+  if (!player) throw new Error("User is not a member of this room");
+  if ((room.penalizedLeavers ?? []).includes(userId)) return room;
+  const playerProgress = penalizeMatchLeaver(room.playerProgress ?? {}, userId);
+  const players = room.players.map((candidate) =>
+    candidate.userId === userId ? { ...candidate, connected: false, forfeited: true } : candidate
+  );
+  return { ...room, players, playerProgress,
+    penalizedLeavers: [...(room.penalizedLeavers ?? []), userId], version: room.version + 1 };
 }
 
 export function setPlayerReady(room, userId, ready) {
@@ -117,6 +134,7 @@ export function roomViewForUser(room, userId) {
     version: room.version,
     hostUserId: room.hostUserId,
     players: room.players.map(({ userId: id, seat, ready, connected }) => ({ userId: id, seat, ready, connected })),
+    ownProgress: room.playerProgress?.[userId] ?? { xp: 0, level: 1 },
     game: room.round ? roundViewForSeat(room.round, player.seat) : null
   });
 }
@@ -139,11 +157,12 @@ export function applyRoomCommand(room, userId, command, expectedVersion) {
 
   let matchScore = room.matchScore;
   let status = "playing";
+  let playerProgress = room.playerProgress ?? {};
   if (round.phase === "completed") {
     matchScore = [...room.matchScore];
     const winningTeam = round.scores[0] > round.scores[1] ? 0 : 1;
     matchScore[winningTeam] += 1;
     status = matchScore[winningTeam] >= room.matchTarget ? "completed" : "round_completed";
   }
-  return { ...room, round, matchScore, status, version: room.version + 1 };
+  return { ...room, round, matchScore, playerProgress, status, version: room.version + 1 };
 }
