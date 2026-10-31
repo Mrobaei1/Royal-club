@@ -54,6 +54,8 @@ class ChessGameScreen extends StatefulWidget {
   final String? activeSide; // white, black, or null; server remains authoritative.
   final ChessPlayerProfile? whiteProfile;
   final ChessPlayerProfile? blackProfile;
+  final bool canManageVoice;
+  final ValueChanged<bool>? onVoiceEnabledChanged;
   final bool isHost;
   final ValueChanged<bool>? onToggleVoice;
 
@@ -257,6 +259,14 @@ class _ChessGameScreenState extends State<ChessGameScreen> {
             title: Text(fa ? 'فعال‌سازی صدای اتاق' : 'Enable room voice'),
             value: widget.voiceEnabled,
             onChanged: widget.onToggleVoice,
+          ),
+        if (widget.canManageVoice)
+          SwitchListTile(
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+            title: Text(fa ? 'فعال‌سازی صدای اتاق' : 'Enable room voice'),
+            value: widget.voiceEnabled,
+            onChanged: widget.onVoiceEnabledChanged,
           ),
         if (widget.voiceEnabled)
           Row(
