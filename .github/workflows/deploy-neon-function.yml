@@ -101,6 +101,12 @@ jobs:
           echo "url=$DATABASE_URL" >> "$GITHUB_OUTPUT"
           echo "Neon database connection resolved without displaying credentials."
 
+      - name: Verify source/database schema parity (read-only pre-deploy gate)
+        env:
+          DATABASE_URL: ${{ steps.database.outputs.url }}
+        working-directory: apps/api
+        run: npm run schema:check
+
       - name: Prepare encrypted function environment
         env:
           JWT_SECRET: ${{ secrets.ROYAL_CLUB_JWT_SECRET }}
@@ -641,12 +647,6 @@ jobs:
             await pool.end();
           }
           NODE
-
-      - name: Verify source/database table-name parity (read-only)
-        env:
-          DATABASE_URL: ${{ steps.database.outputs.url }}
-        working-directory: apps/api
-        run: npm run schema:check
 
       - name: Collect Neon function logs after smoke-test failure
         if: failure()
