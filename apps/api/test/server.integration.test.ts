@@ -541,6 +541,8 @@ test('registered players can join an online match and history does not expose op
   const state = snapshot.json().state;
   assert.equal(state.isHost, true);
   assert.equal(state.isMyTurn, true);
+  assert.ok(Number.isFinite(Date.parse(state.turnStartedAt)));
+  const initialTurnStartedAt = state.turnStartedAt;
   assert.deepEqual(state.board, [
     -2, 0, 0, 0, 0, 5, 0, 3, 0, 0, 0, -5,
     5, 0, 0, 0, -3, 0, -5, 0, 0, 0, 0, 2,
@@ -556,6 +558,15 @@ test('registered players can join an online match and history does not expose op
   const rolledState = roll.json().state;
   assert.equal(rolledState.dice.length, 2);
   assert.ok(rolledState.dice.every((die: number) => Number.isInteger(die) && die >= 1 && die <= 6));
+  const afterRollClock = await testPool.query(
+    'SELECT turn_started_at FROM backgammon_matches WHERE id = $1',
+    [matchId],
+  );
+  assert.equal(
+    new Date(afterRollClock.rows[0].turn_started_at).toISOString(),
+    new Date(initialTurnStartedAt).toISOString(),
+    'Rolling dice must not restart the player turn clock.',
+  );
   assert.ok([2, 4].includes(rolledState.remainingDice.length));
 
   const guestRoll = await app.inject({
@@ -625,6 +636,10 @@ test('registered players can join an online match and history does not expose op
     [JSON.stringify(batchBoard), JSON.stringify({ host: 0, guest: 0 }),
      JSON.stringify({ host: 13, guest: 13 }), matchId],
   );
+  const beforeBatchClock = await testPool.query(
+    'SELECT turn_started_at FROM backgammon_matches WHERE id = $1',
+    [matchId],
+  );
   const batchMove = await app.inject({
     method: 'POST',
     url: `/api/v1/matches/${matchId}/moves/batch`,
@@ -641,6 +656,12 @@ test('registered players can join an online match and history does not expose op
   assert.equal(batchMove.json().state.board[0], 1);
   assert.deepEqual(batchMove.json().state.remainingDice, []);
   assert.equal(String(batchMove.json().state.currentTurnUserId), String(guest.user.id));
+  const afterBatchClock = await testPool.query(
+    'SELECT turn_started_at > $2::timestamptz AS advanced FROM backgammon_matches WHERE id = $1',
+    [matchId, beforeBatchClock.rows[0].turn_started_at],
+  );
+  assert.equal(afterBatchClock.rows[0].advanced, true,
+    'Completing the turn must start the next player clock.');
 
   // Mark a test match as finished to exercise the real history endpoint without
   // having to simulate 15 bear-offs. This database is disposable and CI-only.
