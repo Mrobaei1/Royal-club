@@ -19,6 +19,7 @@ import { AGENT_TEMPLATES, gameAgentTemplateCode, getAgentTemplate } from './agen
 import { hasRoyalPermission, isRoyalPermission } from './permissions.js';
 import { isValidNeonTriggerInvocation } from './neon-trigger-auth.js';
 import { promisify } from 'node:util';
+import { createRoyalLoggerOptions } from './logging-config.js';
 
 const scrypt = promisify(scryptCallback);
 
@@ -87,7 +88,7 @@ async function consumeOtpChallenge(
   return true;
 }
 
-const app = Fastify({ logger: true, trustProxy: false });
+const app = Fastify({ logger: createRoyalLoggerOptions(), trustProxy: false });
 const pool = new Pool({ connectionString: normalizeDatabaseConnectionString(process.env.DATABASE_URL) });
 
 // Expire empty waiting rooms after 60 seconds and remove their related notices.
