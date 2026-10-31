@@ -2,11 +2,11 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
-import 'auth_service.dart';
+import 'api_transport.dart';
 
 class FriendsService {
   static const _storage = FlutterSecureStorage();
-  static const _baseUrl = AuthService.baseUrl;
+  
 
   static Future<Map<String, String>> _headers() async {
     final token = await _storage.read(key: 'royal_club_token');
@@ -25,10 +25,9 @@ class FriendsService {
     String method,
     String path,
   ) async {
-    AuthService.ensureConfigured();
+    ApiTransport.ensureConfigured();
     final headers = await _headers();
-    final base = _baseUrl.trim().replaceFirst(RegExp(r'/+$'), '');
-    final uri = Uri.parse('$base$path');
+    final uri = ApiTransport.uri(path);
     late http.Response response;
     try {
       switch (method) {
