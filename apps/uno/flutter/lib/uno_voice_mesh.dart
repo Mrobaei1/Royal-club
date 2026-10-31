@@ -84,9 +84,11 @@ class UnoVoiceMesh {
     if (fromId == localPlayerId) return;
     final peer = await _peer(fromId);
     if (kind == 'offer') {
-      final sdp = data['sdp'];
-      final type = data['type'];
-      if (sdp is! String || type is! String) return;
+      final rawSdp = data['sdp'];
+      final rawType = data['type'];
+      if (rawSdp is! String || rawType is! String) return;
+      final String sdp = rawSdp;
+      final String type = rawType;
       await peer.setRemoteDescription(RTCSessionDescription(sdp, type));
       final answer = await peer.createAnswer();
       await peer.setLocalDescription(answer);
