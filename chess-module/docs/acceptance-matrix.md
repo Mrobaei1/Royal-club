@@ -9,11 +9,11 @@
 | Voice PTT | Exclusive lease, expiry, release, disconnect and disable unit tests; DB-backed lease, authenticated signaling relay, lease renewal and Flutter WebRTC client implemented | Multi-instance PostgreSQL atomicity, device permission, TURN/NAT traversal and two-device media acceptance |
 | Mobile board | Widget tests for orientation and legal-move callback | Device layout, RTL/LTR, accessibility and promotion dialog acceptance |
 | Chat | Persisted chat API, participant authorization, transactional per-player rate limit, PostgreSQL notification trigger and WebSocket delivery implemented | Spam/rate-limit and two-device live test |
-| Profiles | Authenticated username-only profile API, aggregate stats and bilingual profile card with in-game detail sheet implemented | API payload privacy regression tests and full public profile stats |
-| Admin settings | Time-control CRUD API, manager permission check, transactional audit trail, immutable active-game snapshots and bilingual manager screen | API permission regression tests and full host-app wiring |
+| Profiles | Authenticated username-only profile API, aggregate stats, privacy-field regression and bilingual in-game profile detail sheet | Device acceptance and expanded per-time-control statistics review |
+| Admin settings | Time-control CRUD API, manager permission checks, transactional audit trail, immutable active-game snapshots, PostgreSQL route tests and bilingual manager screen | Full host-app wiring and manager-role integration with the host application |
 
 A row is not complete merely because a contract or placeholder exists. Integration readiness requires every automated test to pass, the remaining acceptance items to be closed or explicitly accepted, and owner approval for the separate merge step.
 
-| Room lifecycle | Private-room expiry, host cancellation, matchmaking queue expiry/status polling, pending draw expiry and terminal draw cleanup | Concurrent room join/cancel race tests and two-client matchmaking acceptance |
+| Room lifecycle | PostgreSQL route tests cover private-room create/join/self-join/cancel/expiry, two-account matchmaking, draw, chat, voice, moves, profiles and admin authorization | Multi-instance contention and actual two-device acceptance |
 | PostgreSQL migrations | Migrations 001–006 applied in an isolated PostgreSQL 16 integration test; timeout adjudication and progression side effects exercised against a real database | Production schema review and multi-instance contention tests |
-| Flutter API transport | Authenticated HTTP/WebSocket client for lobby, moves, chat, profiles, draw, admin and voice | Full host application wiring and device-level reconnect tests |
+| Flutter API transport | Authenticated HTTP/WebSocket client, auto-connected game session view, server-synchronized clocks, reconnect handling, lobby and game controls | Full host application wiring and device-level reconnect tests |
