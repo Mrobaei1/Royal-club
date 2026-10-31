@@ -806,7 +806,7 @@ app.post<{ Body: { email?: string; password?: string } }>(
       [email]
     );
     const user = result.rows[0] as
-      | { id: string; email: string; password_hash: string }
+      | { id: string; email: string; password_hash: string; token_version: number }
       | undefined;
 
     let matches = false;
@@ -850,7 +850,7 @@ app.post('/api/v1/auth/logout', async (request, reply) => {
   try {
     await request.jwtVerify();
     const claims = request.user as { sub?: string; jti?: string; exp?: number };
-    if (!claims.sub || !isNumericId(claims.sub) || !claims.jti || !Number.isFinite(claims.exp)) {
+    if (!claims.sub || !isNumericId(claims.sub) || !claims.jti || typeof claims.exp !== 'number' || !Number.isFinite(claims.exp)) {
       return reply.code(401).send({ error: 'Session cannot be revoked. Please sign in again.' });
     }
     await pool.query(
