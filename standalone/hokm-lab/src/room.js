@@ -163,6 +163,7 @@ export function applyRoomCommand(room, userId, command, expectedVersion) {
     const winningTeam = round.scores[0] > round.scores[1] ? 0 : 1;
     matchScore[winningTeam] += 1;
     status = matchScore[winningTeam] >= room.matchTarget ? "completed" : "round_completed";
+    if (status === "completed") playerProgress = awardCompletedMatch(room.players, winningTeam, playerProgress);
   }
   return { ...room, round, matchScore, playerProgress, status, version: room.version + 1 };
 }
