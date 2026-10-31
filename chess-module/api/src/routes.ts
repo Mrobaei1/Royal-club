@@ -145,9 +145,10 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
       await client.query(
         `UPDATE chess_games SET current_fen=$2,pgn=$3,clock_snapshot=$4::jsonb,status=$5,
           finished_at=CASE WHEN $5='active' THEN NULL ELSE NOW() END,revision=revision+1 WHERE id=$1`,
-        [row.id,played.fen,played.pgn,JSON.stringify({...nextClock,finished:status!=="active"}),status]
+        [row.id,played.fen,played.pgn,JSON.stringify(status==="active"?nextClock:{...nextClock,active:null,lastStartedAt:null,finished:true}),status]
       );
       if(status!=="active"){
+        await client.query("UPDATE chess_rooms SET status='finished' WHERE id=$1",[row.room_id]);
         if(status==="draw")await awardChessResult(client,String(row.id),"final_result",white,black,{outcome:"draw",winnerId:null,loserId:null});
         else {const winner=status==="white_win"?white:black;await awardChessResult(client,String(row.id),"final_result",white,black,{outcome:"win",winnerId:winner,loserId:winner===white?black:white});}
       }
@@ -192,7 +193,9 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
       if(playerId!==white&&playerId!==black){await client.query("ROLLBACK");return fail(reply,403,"not_a_player");}
       const winner=playerId===white?black:white;
       const status=winner===white?"white_win":"black_win";
-      await client.query("UPDATE chess_games SET status=$2,finished_at=NOW(),revision=revision+1 WHERE id=$1",[row.id,status]);
+      const clock={...(row.clock_snapshot as ClockSnapshot),active:null,lastStartedAt:null,finished:true};
+      await client.query("UPDATE chess_games SET status=$2,clock_snapshot=$3::jsonb,finished_at=NOW(),revision=revision+1 WHERE id=$1",[row.id,status,JSON.stringify(clock)]);
+      await client.query("UPDATE chess_rooms SET status='finished' WHERE id=$1",[row.room_id]);
       await awardChessResult(client,String(row.id),"final_result",white,black,{outcome:"resignation",winnerId:winner,loserId:playerId});
       await client.query("COMMIT");
       return {status,winnerId:winner};
@@ -226,7 +229,7 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
     );
     if(!profile.rowCount)return fail(reply,404,"player_not_found");
     const stats=await pool.query(
-      "WITH played AS (SELECT CASE WHEN white_user_id=$1 THEN CASE status WHEN 'white_win' THEN 'win' WHEN 'black_win' THEN 'loss' ELSE 'draw' END ELSE CASE status WHEN 'black_win' THEN 'win' WHEN 'white_win' THEN 'loss' ELSE 'draw' END END AS outcome, COALESCE(settings_snapshot->'timeControl'->>'id','unknown') AS mode FROM chess_games WHERE status<>'active' AND (white_user_id=$1 OR black_user_id=$1)) SELECT mode,COUNT(*)::int AS games,COUNT(*) FILTER(WHERE outcome='win')::int AS wins,COUNT(*) FILTER(WHERE outcome='loss')::int AS losses,COUNT(*) FILTER(WHERE outcome='draw')::int AS draws FROM played GROUP BY mode ORDER BY mode",
+      "WITH played AS (SELECT CASE WHEN white_user_id=$1 THEN CASE status WHEN 'white_win' THEN 'win' WHEN 'black_win' THEN 'loss' ELSE 'draw' END ELSE CASE status WHEN 'black_win' THEN 'win' WHEN 'white_win' THEN 'loss' ELSE 'draw' END END AS outcome, COALESCE(settings_snapshot->'timeControl'->>'id','unknown') AS mode FROM chess_games WHERE status IN ('white_win','black_win','draw') AND (white_user_id=$1 OR black_user_id=$1)) SELECT mode,COUNT(*)::int AS games,COUNT(*) FILTER(WHERE outcome='win')::int AS wins,COUNT(*) FILTER(WHERE outcome='loss')::int AS losses,COUNT(*) FILTER(WHERE outcome='draw')::int AS draws FROM played GROUP BY mode ORDER BY mode",
       [request.params.userId]
     );
     const total=stats.rows.reduce((sum,row)=>sum+Number(row.games),0);
@@ -281,8 +284,14 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
     let actor:string;
     try{actor=userId(request,options);}catch{return fail(reply,401,"unauthorized");}
     if(!await options.canManageSettings(actor))return fail(reply,403,"forbidden");
-    const deleted=await pool.query("DELETE FROM chess_time_controls t WHERE t.id=$1 AND NOT EXISTS(SELECT 1 FROM chess_rooms r WHERE r.time_control_id=t.id) RETURNING t.id",[request.params.id]);
-    if(!deleted.rowCount)return fail(reply,409,"time_control_in_use_or_missing");
+    const referenced=await pool.query("SELECT 1 FROM chess_rooms WHERE time_control_id=$1 LIMIT 1",[request.params.id]);
+    if(referenced.rowCount){
+      const disabled=await pool.query("UPDATE chess_time_controls SET enabled=false,updated_at=NOW() WHERE id=$1 RETURNING id",[request.params.id]);
+      if(!disabled.rowCount)return fail(reply,404,"time_control_not_found");
+      return {deleted:false,disabled:true,id:request.params.id};
+    }
+    const deleted=await pool.query("DELETE FROM chess_time_controls WHERE id=$1 RETURNING id",[request.params.id]);
+    if(!deleted.rowCount)return fail(reply,404,"time_control_not_found");
     return {deleted:true,id:request.params.id};
   });
 
