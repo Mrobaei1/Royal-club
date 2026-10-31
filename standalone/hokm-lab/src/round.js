@@ -43,16 +43,19 @@ export function createRound({ deck = shuffleDeck(createDeck()), hakemSeat = 0 } 
     trickWinners: [],
     scores: [0, 0],
     deckCursor: cursor,
-    seenCards: new Set(hands.flat().map(cardId))
+    seenCards: new Set(hands.flat().map(cardId)),
+    // Hidden undealt cards stay server-side; clients never submit the remaining deck.
+    undealtDeck: deck.slice(20).map(copyCard)
   };
 }
 
-export function chooseTrump(state, seat, suit, remainingDeck) {
+export function chooseTrump(state, seat, suit) {
   if (state.phase !== "choose_trump") throw new Error("Round is not waiting for trump selection");
   if (seat !== state.hakemSeat) throw new Error("Only the hakem may choose trump");
   if (!SUITS.includes(suit)) throw new RangeError("Invalid trump suit");
+  const remainingDeck = state.undealtDeck;
   if (!Array.isArray(remainingDeck) || remainingDeck.length !== 32) {
-    throw new TypeError("Expected the 32 undealt cards in original shuffled order");
+    throw new Error("Server-side undealt deck is missing or invalid");
   }
   const seen = new Set(state.seenCards);
   for (const card of remainingDeck) {
@@ -69,6 +72,7 @@ export function chooseTrump(state, seat, suit, remainingDeck) {
     trickWinners: [...state.trickWinners],
     scores: [...state.scores],
     seenCards: seen,
+    undealtDeck: [],
     trumpSuit: suit,
     phase: "playing",
     deckCursor: 52
