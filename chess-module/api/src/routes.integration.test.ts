@@ -55,7 +55,7 @@ test("authenticated chess routes support private game, draw, chat, voice, profil
     });
     await app.ready();
 
-    const request = (userId: string, method: string, url: string, payload?: unknown) =>
+    const request = (userId: string, method: 'GET' | 'POST' | 'PUT' | 'DELETE', url: string, payload?: unknown) =>
       app.inject({
         method,
         url,
