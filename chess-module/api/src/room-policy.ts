@@ -7,8 +7,12 @@ export type ChessRoomSettings = {
 export type PlayerAdmission = { userId: string; chessLevel: number };
 
 export function validateRoomSettings(settings: ChessRoomSettings): void {
-  if (!Number.isInteger(settings.minOpponentLevel) || settings.minOpponentLevel < 1 ||
-      !settings.timeControlId.trim()) throw new RangeError("invalid_room_settings");
+  if (!Number.isSafeInteger(settings.minOpponentLevel) || settings.minOpponentLevel < 1 ||
+      settings.minOpponentLevel > 10_000 || typeof settings.timeControlId !== "string" ||
+      !/^[a-zA-Z0-9_-]{1,40}$/.test(settings.timeControlId) ||
+      typeof settings.chatEnabled !== "boolean" || typeof settings.voiceEnabled !== "boolean") {
+    throw new RangeError("invalid_room_settings");
+  }
 }
 export function canJoinRoom(settings: ChessRoomSettings, player: PlayerAdmission): boolean {
   validateRoomSettings(settings);
