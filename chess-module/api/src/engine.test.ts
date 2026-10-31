@@ -22,7 +22,7 @@ test("supports castling, en passant and promotion", () => {
   for (const [from,to] of [["e2","e4"],["a7","a6"],["e4","e5"],["d7","d5"]] as const) ep.play({from,to});
   assert.equal(ep.play({from:"e5",to:"d6"}).san, "exd6");
   const promotion = new ChessGame("7k/P7/8/8/8/8/8/7K w - - 0 1");
-  assert.match(promotion.play({from:"a7",to:"a8",promotion:"n"}).san, /a8=N/);
+  assert.match(promotion.play({from:"a7",to:"a8",promotion:"n"}).san ?? "", /a8=N/);
 });
 test("detects checkmate", () => {
   const game = new ChessGame();
