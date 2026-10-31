@@ -42,7 +42,7 @@
 | 8.0 | Not implemented | 0% |
 | 9.0 | Not implemented | 0% |
 | 10.0 | Core accepts only 3/5/7 and architecture reserves source for trusted manager config; admin auth/UI/audit pending | 20% |
-| 11.0 | Engine/room/round/progression tests plus 2,000 seeded deal, 5,000 seeded trick, 3,000 scoring and 52 malformed-deck property cases; 24 seeded bot deals, 100 seeded full matches, 300-deal random-baseline and 300-deal greedy-baseline comparative bot benchmarks, hidden-information invariance, public-history privacy, forfeit takeover, disconnect/reclaim and stale-version checks; production integration/concurrency/security suites pending | 58% |
+| 11.0 | Engine/room/round/progression tests plus 2,000 seeded deal, 5,000 seeded trick, 3,000 scoring and 52 malformed-deck property cases; 24 seeded bot deals, 100 seeded full matches, 300-deal random-baseline and 300-deal greedy-baseline comparative bot benchmarks, hidden-information invariance, public-history privacy, forfeit takeover, disconnect/reclaim and stale-version checks; production integration/concurrency/security suites pending | 60% |
 | 12.0 | WBS, architecture contract and setup README documented; final handoff pending | 20% |
 
 ## Confirmed match scoring and progression rules (2026-10-31)
