@@ -614,7 +614,9 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
     }
   }
 
-  List<Widget> _buildRoomControlItems(BuildContext sheetContext) => [
+  List<Widget> _buildRoomControlItems(BuildContext sheetContext) {
+    final isEnglish = _isEnglish;
+    return [
                 Text(
                   isEnglish ? 'Room controls' : 'مدیریت اتاق',
                 style: Theme.of(sheetContext).textTheme.titleLarge?.copyWith(
@@ -760,7 +762,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
               ),
             ],
     ];
-
+  }
 
   @override
   Widget build(BuildContext context) {
