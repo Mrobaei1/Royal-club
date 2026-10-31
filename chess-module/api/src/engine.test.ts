@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { ChessGame } from "./engine.js";
+import { ChessGame, type Promotion } from "./engine.js";
 import { Chess } from "chess.js";
 
 test("starts from the standard position and rejects illegal moves", () => {
@@ -77,11 +77,11 @@ test("deterministic legal-move fuzzing keeps adapter FEN in sync with chess.js",
       const legal = reference.moves({ verbose: true });
       assert.ok(legal.length > 0);
       random = (random * 48271) % 2147483647;
-      const move = legal[random % legal.length];
+      const move = legal[random % legal.length]!;
       const result = adapter.play({
         from: move.from,
         to: move.to,
-        ...(move.promotion ? { promotion: move.promotion } : {}),
+        ...(move.promotion ? { promotion: move.promotion as Promotion } : {}),
       });
       reference.move({ from: move.from, to: move.to, ...(move.promotion ? { promotion: move.promotion } : {}) });
       assert.equal(result.fen, reference.fen(), `seed ${seed}, ply ${ply}`);
