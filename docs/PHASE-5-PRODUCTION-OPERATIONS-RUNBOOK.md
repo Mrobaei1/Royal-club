@@ -109,3 +109,27 @@ Minimum acceptance:
 - [ ] **1.5 Data lifecycle/DR:** retention, backup/restore, and disaster-recovery requirements reviewed and approved.
 
 No item above should be checked solely because a PR merged or a workflow was green. Attach exact evidence and an owner acceptance record where required.
+
+## 9. Restore test evidence — 2026-10-31
+
+A manual point-in-time snapshot `snap-spring-truth-ba9rbrg1` was created from Production and restored without finalization to isolated non-primary branch `phase5-restore-test-20261031` (`br-crimson-rice-baahb4f3`). Production was not replaced or mutated.
+
+Read-only comparison returned matching catalog totals on both branches:
+- Public base tables: 33
+- Public columns: 289
+- PostgreSQL constraints: 405
+- Indexes in `pg_indexes`: 78
+- Explicit index names found in current API source: 33/33 present in Production
+- Selected row counts: users 3/3, backgammon matches 4/4, wallet accounts 2/2
+
+This establishes a successful point-in-time restore and selected schema/row-count checks. It is not a full row-by-row checksum, semantic constraint equivalence proof, or application integration test against the restored branch. The restored branch is retained for further validation; deleting it requires explicit approval.
+
+## 10. Cleanup SQL acceptance on isolated restore branch
+
+On the isolated restored branch only, a synthetic expired empty waiting room and a synthetic notification referencing its `matchId` were inserted. The same cleanup CTE used by `cleanupExpiredEmptyRooms()` was executed as a controlled SQL acceptance test. Result: **1 expired room deleted and 1 associated notification deleted**. Production data was not modified.
+
+This verifies the SQL predicate and associated-notification deletion path on an isolated branch. It does not prove that Neon trigger metadata reaches the deployed HTTP route, nor does it verify the route's response/logging in the live function. Live route-level acceptance remains open because Neon logs expose only generic invocation begin/end entries.
+
+## 11. Recurring snapshot capability limitation
+
+A daily Neon snapshot schedule with seven-day retention was attempted after the owner requested Phase 5 completion. Neon rejected the request with `backup schedule creation is not enabled for this project` (HTTP 404). No schedule was changed. The manual snapshot does not satisfy the requested recurring 23:59 Asia/Tehran backup with a time-limited email link and latest-three recovery-point workflow. A supported recurring backup path must be enabled by the provider/account or implemented through a separately configured secure backup service.
