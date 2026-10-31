@@ -14,16 +14,16 @@ export function isValidRegistrationPassword(value: unknown): value is string {
     Buffer.byteLength(value, 'utf8') <= 128;
 }
 
-/** Accept only canonical, correctly typed raster image data within the 650 KiB decoded limit. */
-export function isValidAvatarDataUrl(value: unknown): value is string {
-  if (typeof value !== 'string') return false;
+/** Accept canonical raster image data whose declared MIME type matches its file signature. */
+export function isValidImageDataUrl(value: unknown, maxBytes = 650 * 1024): value is string {
+  if (typeof value !== 'string' || !Number.isSafeInteger(maxBytes) || maxBytes < 1) return false;
   const match = /^data:image\/(jpeg|png|webp);base64,([A-Za-z0-9+/]+={0,2})$/.exec(value);
   if (!match) return false;
 
   const [, format, encoded] = match;
   if (encoded.length % 4 !== 0) return false;
   const bytes = Buffer.from(encoded, 'base64');
-  if (bytes.length === 0 || bytes.length > 650 * 1024 || bytes.toString('base64') !== encoded) return false;
+  if (bytes.length === 0 || bytes.length > maxBytes || bytes.toString('base64') !== encoded) return false;
 
   if (format === 'png') {
     return bytes.length >= 8 && bytes.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
@@ -34,4 +34,9 @@ export function isValidAvatarDataUrl(value: unknown): value is string {
   return bytes.length >= 12 &&
     bytes.toString('ascii', 0, 4) === 'RIFF' &&
     bytes.toString('ascii', 8, 12) === 'WEBP';
+}
+
+/** Avatar uploads have a strict 650 KiB decoded-payload limit. */
+export function isValidAvatarDataUrl(value: unknown): value is string {
+  return isValidImageDataUrl(value, 650 * 1024);
 }

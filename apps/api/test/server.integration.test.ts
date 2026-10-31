@@ -295,7 +295,8 @@ test('registered players can join an online match and history does not expose op
     .some((message) => message.body === 'Hello, friend!'));
   const messageId = String((sentMessage.json().message as Record<string, unknown>).id);
 
-  const imageBody = `data:image/png;base64,${'A'.repeat(4000)}`;
+  const pngBytes = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+  const imageBody = `data:image/png;base64,${pngBytes.toString('base64')}`;
   const sentImageMessage = await app.inject({
     method: 'POST',
     url: `/api/v1/chat/${guest.user.id}/messages`,
@@ -2890,4 +2891,211 @@ test('friend acceptance serializes concurrent requests at the 100-friend boundar
     headers: auth(outsider.token), payload: {},
   });
   assert.equal(overLimitRequest.statusCode, 409);
+});
+
+
+test('logout revokes the current bearer session while a fresh login creates a new session', async () => {
+  const user = await register('Session Lifecycle Player');
+  const beforeLogout = await app.inject({
+    method: 'GET', url: '/api/v1/me', headers: auth(user.token),
+  });
+  assert.equal(beforeLogout.statusCode, 200, beforeLogout.body);
+
+  const logout = await app.inject({
+    method: 'POST', url: '/api/v1/auth/logout', headers: auth(user.token),
+  });
+  assert.equal(logout.statusCode, 200, logout.body);
+  assert.equal(logout.json().loggedOut, true);
+
+  const revokedProfile = await app.inject({
+    method: 'GET', url: '/api/v1/me', headers: auth(user.token),
+  });
+  assert.equal(revokedProfile.statusCode, 401);
+
+  const revokedFriends = await app.inject({
+    method: 'GET', url: '/api/v1/friends', headers: auth(user.token),
+  });
+  assert.equal(revokedFriends.statusCode, 401);
+
+  const repeatLogout = await app.inject({
+    method: 'POST', url: '/api/v1/auth/logout', headers: auth(user.token),
+  });
+  assert.equal(repeatLogout.statusCode, 200, 'Logout revocation must be idempotent.');
+
+  const login = await app.inject({
+    method: 'POST', url: '/api/v1/auth/login',
+    payload: { email: user.user.email, password: 'IntegrationPass123!' },
+  });
+  assert.equal(login.statusCode, 200, login.body);
+  const freshProfile = await app.inject({
+    method: 'GET', url: '/api/v1/me', headers: auth(login.json().accessToken),
+  });
+  assert.equal(freshProfile.statusCode, 200, freshProfile.body);
+});
+
+test('phone OTP password recovery changes password, consumes code once, and revokes all prior sessions', async () => {
+  const previous = await testPool.query(
+    'SELECT enabled, delivery_mode FROM sms_otp_settings WHERE id = 1',
+  );
+  const previousSettings = previous.rows[0];
+  const user = await register('Password Recovery Player');
+  const phone = '+989123456789';
+  await testPool.query('UPDATE users SET phone_e164 = $1 WHERE id = $2', [phone, user.user.id]);
+  await testPool.query(
+    "UPDATE sms_otp_settings SET enabled = FALSE, delivery_mode = 'development_simulator' WHERE id = 1",
+  );
+
+  try {
+    const unknownPhoneRequest = await app.inject({
+      method: 'POST', url: '/api/v1/auth/phone-otp/request',
+      payload: { phone: '09111111111', purpose: 'reset_password' },
+    });
+    assert.equal(unknownPhoneRequest.statusCode, 202);
+    assert.equal(Object.hasOwn(unknownPhoneRequest.json(), 'testCode'), false,
+      'Unknown recovery numbers must not trigger a billable SMS or expose account existence.');
+    const unknownChallenge = await testPool.query(
+      'SELECT id FROM sms_otp_challenges WHERE phone_e164 = $1 AND purpose = $2 AND consumed_at IS NULL',
+      ['+989111111111', 'reset_password'],
+    );
+    assert.equal(unknownChallenge.rowCount, 0);
+
+    const requested = await app.inject({
+      method: 'POST', url: '/api/v1/auth/phone-otp/request',
+      payload: { phone: '09123456789', purpose: 'reset_password' },
+    });
+    assert.equal(requested.statusCode, 202, requested.body);
+    const code = String(requested.json().testCode ?? '');
+    assert.match(code, /^\d{6}$/);
+
+    const reset = await app.inject({
+      method: 'POST', url: '/api/v1/auth/phone-otp/reset-password',
+      payload: { phone: '09123456789', code, newPassword: 'RecoveredPass123!' },
+    });
+    assert.equal(reset.statusCode, 200, reset.body);
+    assert.equal(reset.json().ok, true);
+
+    const oldSession = await app.inject({
+      method: 'GET', url: '/api/v1/me', headers: auth(user.token),
+    });
+    assert.equal(oldSession.statusCode, 401,
+      'Password recovery must invalidate all access tokens issued before the reset.');
+
+    const oldPasswordLogin = await app.inject({
+      method: 'POST', url: '/api/v1/auth/login',
+      payload: { email: user.user.email, password: 'IntegrationPass123!' },
+    });
+    assert.equal(oldPasswordLogin.statusCode, 401);
+
+    const newPasswordLogin = await app.inject({
+      method: 'POST', url: '/api/v1/auth/login',
+      payload: { email: user.user.email, password: 'RecoveredPass123!' },
+    });
+    assert.equal(newPasswordLogin.statusCode, 200, newPasswordLogin.body);
+
+    const reusedCode = await app.inject({
+      method: 'POST', url: '/api/v1/auth/phone-otp/reset-password',
+      payload: { phone: '09123456789', code, newPassword: 'AnotherPass123!' },
+    });
+    assert.equal(reusedCode.statusCode, 400, 'A password-reset OTP must be single-use.');
+  } finally {
+    await testPool.query(
+      'UPDATE sms_otp_settings SET enabled = $1, delivery_mode = $2 WHERE id = 1',
+      [previousSettings.enabled, previousSettings.delivery_mode],
+    );
+  }
+});
+
+
+test('owner-managed profile customization pricing charges atomically and keeps the first avatar free', async () => {
+  const previousOwnerId = process.env.OWNER_USER_ID;
+  const owner = await register('Customization Pricing Owner');
+  const user = await register('Customization Pricing User');
+  process.env.OWNER_USER_ID = owner.user.id;
+
+  try {
+    const denied = await app.inject({
+      method: 'GET', url: '/api/v1/admin/account-customization-pricing',
+      headers: auth(user.token),
+    });
+    assert.equal(denied.statusCode, 403);
+
+    const configured = await app.inject({
+      method: 'PATCH', url: '/api/v1/admin/account-customization-pricing',
+      headers: auth(owner.token),
+      payload: { avatarChangePriceCredits: 40, usernameChangePriceCredits: 25 },
+    });
+    assert.equal(configured.statusCode, 200, configured.body);
+    assert.equal(Number(configured.json().settings.avatarChangePriceCredits), 40);
+    assert.equal(Number(configured.json().settings.usernameChangePriceCredits), 25);
+
+    await testPool.query(
+      'INSERT INTO wallet_accounts (user_id, balance) VALUES ($1, 0) ON CONFLICT (user_id) DO UPDATE SET balance = 0',
+      [user.user.id],
+    );
+    const pngA = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x01]);
+    const firstAvatar = await app.inject({
+      method: 'PATCH', url: '/api/v1/me/avatar', headers: auth(user.token),
+      payload: { avatarDataUrl: `data:image/png;base64,${pngA.toString('base64')}` },
+    });
+    assert.equal(firstAvatar.statusCode, 200, firstAvatar.body);
+    assert.equal(firstAvatar.json().chargedCredits, 0);
+    assert.equal(firstAvatar.json().firstAvatarFree, true);
+
+    const pngB = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x02]);
+    const insufficientAvatar = await app.inject({
+      method: 'PATCH', url: '/api/v1/me/avatar', headers: auth(user.token),
+      payload: { avatarDataUrl: `data:image/png;base64,${pngB.toString('base64')}` },
+    });
+    assert.equal(insufficientAvatar.statusCode, 409);
+    const unchanged = await testPool.query(
+      'SELECT avatar_data_url, avatar_change_count FROM users WHERE id = $1',
+      [user.user.id],
+    );
+    assert.equal(unchanged.rows[0].avatar_data_url, firstAvatar.json().avatarDataUrl);
+    assert.equal(Number(unchanged.rows[0].avatar_change_count), 1);
+
+    await testPool.query('UPDATE wallet_accounts SET balance = 100 WHERE user_id = $1', [user.user.id]);
+    const secondAvatar = await app.inject({
+      method: 'PATCH', url: '/api/v1/me/avatar', headers: auth(user.token),
+      payload: { avatarDataUrl: `data:image/png;base64,${pngB.toString('base64')}` },
+    });
+    assert.equal(secondAvatar.statusCode, 200, secondAvatar.body);
+    assert.equal(secondAvatar.json().chargedCredits, 40);
+
+    const renamed = await app.inject({
+      method: 'PATCH', url: '/api/v1/me/username', headers: auth(user.token),
+      payload: { username: 'priced_player' },
+    });
+    assert.equal(renamed.statusCode, 200, renamed.body);
+    assert.equal(renamed.json().chargedCredits, 25);
+
+    const unchangedUsername = await app.inject({
+      method: 'PATCH', url: '/api/v1/me/username', headers: auth(user.token),
+      payload: { username: 'priced_player' },
+    });
+    assert.equal(unchangedUsername.statusCode, 200, unchangedUsername.body);
+    assert.equal(unchangedUsername.json().chargedCredits, 0);
+
+    const pricing = await app.inject({
+      method: 'GET', url: '/api/v1/account/customization-pricing', headers: auth(user.token),
+    });
+    assert.equal(pricing.statusCode, 200, pricing.body);
+    assert.equal(pricing.json().avatarFirstChangeFree, false);
+    assert.equal(pricing.json().avatarChangePriceCredits, 40);
+    assert.equal(pricing.json().usernameChangePriceCredits, 25);
+
+    const wallet = await testPool.query('SELECT balance FROM wallet_accounts WHERE user_id = $1', [user.user.id]);
+    assert.equal(Number(wallet.rows[0].balance), 35);
+    const ledger = await testPool.query(
+      'SELECT type, amount FROM wallet_transactions WHERE user_id = $1 ORDER BY id',
+      [user.user.id],
+    );
+    assert.deepEqual(ledger.rows.map((row) => [row.type, Number(row.amount)]), [
+      ['avatar_change', -40],
+      ['username_change', -25],
+    ]);
+  } finally {
+    if (previousOwnerId === undefined) delete process.env.OWNER_USER_ID;
+    else process.env.OWNER_USER_ID = previousOwnerId;
+  }
 });

@@ -5,8 +5,8 @@ import cors from '@fastify/cors';
 import rateLimit from '@fastify/rate-limit';
 import jwt from '@fastify/jwt';
 import { Pool, type PoolClient } from 'pg';
-import { createCipheriv, createDecipheriv, createHmac, randomBytes, randomInt, scrypt as scryptCallback, timingSafeEqual } from 'node:crypto';
-import { isNumericId, isReservedUsername, isValidAvatarDataUrl, isValidRegistrationPassword } from './validation.js';
+import { createCipheriv, createDecipheriv, createHmac, randomBytes, randomInt, randomUUID, scrypt as scryptCallback, timingSafeEqual } from 'node:crypto';
+import { isNumericId, isReservedUsername, isValidAvatarDataUrl, isValidImageDataUrl, isValidRegistrationPassword } from './validation.js';
 import { createOtpCode, digestOtp, normalizeIranianMobile, verifyOtpDigest } from './otp-security.js';
 import { createKavenegarProvider } from './sms-provider.js';
 import { getAllowedCorsOrigins } from './cors-config.js';
@@ -59,7 +59,7 @@ async function consumeOtpChallenge(
   client: PoolClient,
   phone: string,
   code: string,
-  purpose: 'verify' | 'register' | 'login' | 'link',
+  purpose: 'verify' | 'register' | 'login' | 'link' | 'reset_password',
 ): Promise<boolean> {
   const found = await client.query(
     `SELECT id, otp_salt, otp_digest, attempts, max_attempts, expires_at, consumed_at
@@ -133,9 +133,14 @@ await pool.query(`
     phone TEXT NOT NULL DEFAULT '',
     country TEXT NOT NULL DEFAULT '',
     avatar_data_url TEXT,
+    token_version INTEGER NOT NULL DEFAULT 0 CHECK (token_version >= 0),
+    avatar_change_count INTEGER NOT NULL DEFAULT 0 CHECK (avatar_change_count >= 0),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   );
   ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_data_url TEXT;
+  ALTER TABLE users ADD COLUMN IF NOT EXISTS token_version INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_change_count INTEGER NOT NULL DEFAULT 0;
+  UPDATE users SET avatar_change_count = 1 WHERE avatar_data_url IS NOT NULL AND avatar_change_count = 0;
   ALTER TABLE users ADD COLUMN IF NOT EXISTS username TEXT;
   UPDATE users SET username = 'p' || id::text WHERE username IS NULL OR username = '';
   CREATE UNIQUE INDEX IF NOT EXISTS users_username_unique_idx ON users (LOWER(username)) WHERE username IS NOT NULL;
@@ -175,7 +180,7 @@ await pool.query(`
   CREATE TABLE IF NOT EXISTS sms_otp_challenges (
     id BIGSERIAL PRIMARY KEY,
     phone_e164 TEXT NOT NULL,
-    purpose TEXT NOT NULL DEFAULT 'verify' CHECK (purpose IN ('verify', 'register', 'login', 'link')),
+    purpose TEXT NOT NULL DEFAULT 'verify' CHECK (purpose IN ('verify', 'register', 'login', 'link', 'reset_password')),
     otp_salt TEXT NOT NULL,
     otp_digest TEXT NOT NULL,
     attempts INTEGER NOT NULL DEFAULT 0,
@@ -346,12 +351,20 @@ await pool.query(`
     user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     amount BIGINT NOT NULL CHECK (amount <> 0),
     balance_after BIGINT NOT NULL CHECK (balance_after >= 0),
-    type TEXT NOT NULL CHECK (type IN ('admin_credit', 'subscription_purchase', 'adjustment')),
+    type TEXT NOT NULL CHECK (type IN ('admin_credit', 'subscription_purchase', 'adjustment', 'avatar_change', 'username_change')),
     description TEXT NOT NULL DEFAULT '',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   );
   CREATE INDEX IF NOT EXISTS wallet_transactions_user_idx
     ON wallet_transactions (user_id, created_at DESC);
+  CREATE TABLE IF NOT EXISTS account_customization_pricing (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    avatar_change_price_credits BIGINT NOT NULL DEFAULT 0 CHECK (avatar_change_price_credits >= 0),
+    username_change_price_credits BIGINT NOT NULL DEFAULT 0 CHECK (username_change_price_credits >= 0),
+    updated_by BIGINT REFERENCES users(id) ON DELETE SET NULL,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+  INSERT INTO account_customization_pricing (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
   CREATE TABLE IF NOT EXISTS subscription_plans (
     id BIGSERIAL PRIMARY KEY,
     code TEXT NOT NULL UNIQUE,
@@ -626,6 +639,46 @@ await pool.query(`
     ON backgammon_player_stats (rating DESC, wins DESC, games_played ASC);
 `);
 
+const walletTypeConstraint = await pool.query(
+  `SELECT pg_get_constraintdef(oid) AS definition
+     FROM pg_constraint
+    WHERE conrelid = 'wallet_transactions'::regclass
+      AND conname = 'wallet_transactions_type_check'`,
+);
+if (!String(walletTypeConstraint.rows[0]?.definition ?? '').includes('avatar_change')) {
+  await pool.query('ALTER TABLE wallet_transactions DROP CONSTRAINT IF EXISTS wallet_transactions_type_check');
+  await pool.query(
+    `ALTER TABLE wallet_transactions
+       ADD CONSTRAINT wallet_transactions_type_check
+       CHECK (type IN ('admin_credit', 'subscription_purchase', 'adjustment', 'avatar_change', 'username_change'))`,
+  );
+}
+
+const otpPurposeConstraint = await pool.query(
+  `SELECT pg_get_constraintdef(oid) AS definition
+     FROM pg_constraint
+    WHERE conrelid = 'sms_otp_challenges'::regclass
+      AND conname = 'sms_otp_challenges_purpose_check'`,
+);
+if (!String(otpPurposeConstraint.rows[0]?.definition ?? '').includes('reset_password')) {
+  await pool.query('ALTER TABLE sms_otp_challenges DROP CONSTRAINT IF EXISTS sms_otp_challenges_purpose_check');
+  await pool.query(
+    `ALTER TABLE sms_otp_challenges
+       ADD CONSTRAINT sms_otp_challenges_purpose_check
+       CHECK (purpose IN ('verify', 'register', 'login', 'link', 'reset_password'))`,
+  );
+}
+
+await pool.query(`
+  CREATE TABLE IF NOT EXISTS auth_token_revocations (
+    jti TEXT PRIMARY KEY,
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    expires_at TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+  CREATE INDEX IF NOT EXISTS auth_token_revocations_expiry_idx ON auth_token_revocations (expires_at);
+`);
+
 const messageBodyConstraint = await pool.query(
   'SELECT pg_get_constraintdef(oid) AS definition FROM pg_constraint WHERE conrelid = \'private_messages\'::regclass AND conname = \'private_messages_body_check\'',
 );
@@ -738,7 +791,7 @@ app.post<{ Body: { email?: string; password?: string; fullName?: string; phone?:
       );
       const user = { ...created, username: profile.rows[0]?.username ?? null };
       const accessToken = app.jwt.sign(
-        { sub: user.id, email: user.email },
+        { sub: user.id, email: user.email, jti: randomUUID(), ver: 0 },
         { expiresIn: '1h' }
       );
       return reply.code(201).send({
@@ -787,11 +840,11 @@ app.post<{ Body: { email?: string; password?: string } }>(
     }
 
     const result = await pool.query(
-      'SELECT id, email, password_hash FROM users WHERE email = $1',
+      'SELECT id, email, password_hash, token_version FROM users WHERE email = $1',
       [email]
     );
     const user = result.rows[0] as
-      | { id: string; email: string; password_hash: string }
+      | { id: string; email: string; password_hash: string; token_version: number }
       | undefined;
 
     let matches = false;
@@ -808,7 +861,7 @@ app.post<{ Body: { email?: string; password?: string } }>(
     }
 
     const accessToken = app.jwt.sign(
-      { sub: user.id, email: user.email },
+      { sub: user.id, email: user.email, jti: randomUUID(), ver: Number(user.token_version ?? 0) },
       { expiresIn: '1h' }
     );
     return {
@@ -820,10 +873,44 @@ app.post<{ Body: { email?: string; password?: string } }>(
   }
 );
 
+async function isTokenSessionActive(claims: { sub?: string; jti?: string; ver?: number }): Promise<boolean> {
+  if (!claims.sub || !isNumericId(claims.sub)) return false;
+  const user = await pool.query('SELECT token_version FROM users WHERE id = $1', [claims.sub]);
+  if (!user.rowCount || Number(user.rows[0].token_version ?? 0) !== Number(claims.ver ?? 0)) return false;
+  if (typeof claims.jti === 'string' && claims.jti.length > 0) {
+    const revoked = await pool.query('SELECT 1 FROM auth_token_revocations WHERE jti = $1 AND expires_at > NOW()', [claims.jti]);
+    if (revoked.rowCount) return false;
+  }
+  return true;
+}
+
+app.post('/api/v1/auth/logout', async (request, reply) => {
+  try {
+    await request.jwtVerify();
+    const claims = request.user as { sub?: string; jti?: string; exp?: number };
+    if (!claims.sub || !isNumericId(claims.sub) || !claims.jti || typeof claims.exp !== 'number' || !Number.isFinite(claims.exp)) {
+      return reply.code(401).send({ error: 'Session cannot be revoked. Please sign in again.' });
+    }
+    await pool.query('DELETE FROM auth_token_revocations WHERE expires_at <= NOW()');
+    await pool.query(
+      `INSERT INTO auth_token_revocations (jti, user_id, expires_at)
+       VALUES ($1, $2, TO_TIMESTAMP($3))
+       ON CONFLICT (jti) DO NOTHING`,
+      [claims.jti, claims.sub, claims.exp],
+    );
+    return { loggedOut: true };
+  } catch {
+    return reply.code(401).send({ error: 'Authentication required.' });
+  }
+});
+
 app.get('/api/v1/me', {
   onRequest: [async (request, reply) => {
     try {
       await request.jwtVerify();
+      if (!await isTokenSessionActive(request.user as { sub?: string; jti?: string; ver?: number })) {
+        return reply.code(401).send({ error: 'Session expired or revoked. Please sign in again.' });
+      }
     } catch {
       return reply.code(401).send({ error: 'Authentication required.' });
     }
@@ -849,8 +936,8 @@ app.get('/api/v1/me', {
 const requireMatchAuth = async (request: any, reply: any) => {
   try {
     await request.jwtVerify();
-    const claims = request.user as { sub?: string };
-    if (!claims.sub || !isNumericId(claims.sub)) return reply.code(401).send({ error: 'Invalid token.' });
+    const claims = request.user as { sub?: string; jti?: string; ver?: number };
+    if (!await isTokenSessionActive(claims)) return reply.code(401).send({ error: 'Session expired or revoked. Please sign in again.' });
   } catch {
     return reply.code(401).send({ error: 'Authentication required.' });
   }
@@ -1128,18 +1215,87 @@ app.patch<{ Body: { fullName?: string; phone?: string; country?: string } }>('/a
   return { user: result.rows[0] };
 });
 
-app.patch<{ Body: { avatarDataUrl?: string | null } }>('/api/v1/me/avatar', { onRequest: [requireMatchAuth], config: { rateLimit: { max: 6, timeWindow: '1 minute' } } }, async (request, reply) => {
+app.get('/api/v1/account/customization-pricing', { onRequest: [requireMatchAuth] }, async (request) => {
+  const claims = request.user as { sub: string };
+  const [pricing, user] = await Promise.all([
+    pool.query(
+      'SELECT avatar_change_price_credits AS "avatarChangePriceCredits", username_change_price_credits AS "usernameChangePriceCredits" FROM account_customization_pricing WHERE id = 1',
+    ),
+    pool.query('SELECT avatar_change_count FROM users WHERE id = $1', [claims.sub]),
+  ]);
+  const row = pricing.rows[0] ?? {};
+  return {
+    avatarFirstChangeFree: Number(user.rows[0]?.avatar_change_count ?? 0) === 0,
+    avatarChangePriceCredits: Number(row.avatarChangePriceCredits ?? 0),
+    usernameChangePriceCredits: Number(row.usernameChangePriceCredits ?? 0),
+  };
+});
+
+app.patch<{ Body: { avatarDataUrl?: string | null } }>('/api/v1/me/avatar', { onRequest: [requireMatchAuth], config: { rateLimit: { max: 6, timeWindow: '1 minute', hook: 'preHandler', keyGenerator: (request) => `avatar:${(request.user as { sub: string }).sub}` } } }, async (request, reply) => {
   const claims = request.user as { sub: string };
   const avatar = request.body?.avatarDataUrl;
   if (avatar !== null && !isValidAvatarDataUrl(avatar)) {
     return reply.code(400).send({ error: 'تصویر باید فایل معتبر JPG، PNG یا WebP و حداکثر 650 کیلوبایت باشد.' });
   }
-  const result = await pool.query(
-    'UPDATE users SET avatar_data_url = $1 WHERE id = $2 RETURNING avatar_data_url',
-    [avatar ?? null, claims.sub],
-  );
-  if (!result.rowCount) return reply.code(404).send({ error: 'Account not found.' });
-  return { avatarDataUrl: result.rows[0].avatar_data_url ?? null };
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const current = await client.query(
+      'SELECT avatar_data_url, avatar_change_count FROM users WHERE id = $1 FOR UPDATE',
+      [claims.sub],
+    );
+    if (!current.rowCount) {
+      await client.query('ROLLBACK');
+      return reply.code(404).send({ error: 'Account not found.' });
+    }
+    if (avatar === null) {
+      await client.query('UPDATE users SET avatar_data_url = NULL WHERE id = $1', [claims.sub]);
+      await client.query('COMMIT');
+      return { avatarDataUrl: null, chargedCredits: 0 };
+    }
+    if (current.rows[0].avatar_data_url === avatar) {
+      await client.query('COMMIT');
+      return { avatarDataUrl: avatar, chargedCredits: 0 };
+    }
+
+    const firstAvatar = Number(current.rows[0].avatar_change_count ?? 0) === 0;
+    let price = 0;
+    if (!firstAvatar) {
+      const pricing = await client.query(
+        'SELECT avatar_change_price_credits FROM account_customization_pricing WHERE id = 1 FOR SHARE',
+      );
+      price = Number(pricing.rows[0]?.avatar_change_price_credits ?? 0);
+    }
+    if (price > 0) {
+      await client.query('INSERT INTO wallet_accounts (user_id) VALUES ($1) ON CONFLICT (user_id) DO NOTHING', [claims.sub]);
+      const wallet = await client.query('SELECT balance FROM wallet_accounts WHERE user_id = $1 FOR UPDATE', [claims.sub]);
+      const balance = Number(wallet.rows[0]?.balance ?? 0);
+      if (balance < price) {
+        await client.query('ROLLBACK');
+        return reply.code(409).send({ error: 'Insufficient wallet credits for this avatar change.', required: price, balance });
+      }
+      const debit = await client.query(
+        'UPDATE wallet_accounts SET balance = balance - $1, updated_at = NOW() WHERE user_id = $2 RETURNING balance',
+        [price, claims.sub],
+      );
+      await client.query(
+        'INSERT INTO wallet_transactions (user_id, amount, balance_after, type, description) VALUES ($1, $2, $3, $4, $5)',
+        [claims.sub, -price, debit.rows[0].balance, 'avatar_change', 'Profile avatar change'],
+      );
+    }
+    const updated = await client.query(
+      'UPDATE users SET avatar_data_url = $1, avatar_change_count = avatar_change_count + 1 WHERE id = $2 RETURNING avatar_data_url',
+      [avatar, claims.sub],
+    );
+    await client.query('COMMIT');
+    return { avatarDataUrl: updated.rows[0].avatar_data_url, chargedCredits: price, firstAvatarFree: firstAvatar };
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    request.log.error({ err: error }, 'Could not update avatar');
+    return reply.code(500).send({ error: 'Could not update avatar.' });
+  } finally {
+    client.release();
+  }
 });
 
 app.patch<{ Body: { username?: string } }>('/api/v1/me/username', { onRequest: [requireMatchAuth], config: { rateLimit: { max: 5, timeWindow: '1 minute' } } }, async (request, reply) => {
@@ -1154,23 +1310,58 @@ app.patch<{ Body: { username?: string } }>('/api/v1/me/username', { onRequest: [
       return reply.code(403).send({ error: 'This username is reserved for the verified platform owner.' });
     }
   }
+  const client = await pool.connect();
   try {
-    const result = await pool.query(
+    await client.query('BEGIN');
+    const current = await client.query('SELECT username FROM users WHERE id = $1 FOR UPDATE', [claims.sub]);
+    if (!current.rowCount) {
+      await client.query('ROLLBACK');
+      return reply.code(404).send({ error: 'Account not found.' });
+    }
+    const currentUsername = String(current.rows[0].username ?? '');
+    if (currentUsername.toLowerCase() === username.toLowerCase()) {
+      await client.query('COMMIT');
+      return { user: { id: claims.sub, username: currentUsername }, chargedCredits: 0 };
+    }
+    const pricing = await client.query(
+      'SELECT username_change_price_credits FROM account_customization_pricing WHERE id = 1 FOR SHARE',
+    );
+    const price = Number(pricing.rows[0]?.username_change_price_credits ?? 0);
+    if (price > 0) {
+      await client.query('INSERT INTO wallet_accounts (user_id) VALUES ($1) ON CONFLICT (user_id) DO NOTHING', [claims.sub]);
+      const wallet = await client.query('SELECT balance FROM wallet_accounts WHERE user_id = $1 FOR UPDATE', [claims.sub]);
+      const balance = Number(wallet.rows[0]?.balance ?? 0);
+      if (balance < price) {
+        await client.query('ROLLBACK');
+        return reply.code(409).send({ error: 'Insufficient wallet credits for this username change.', required: price, balance });
+      }
+      const debit = await client.query(
+        'UPDATE wallet_accounts SET balance = balance - $1, updated_at = NOW() WHERE user_id = $2 RETURNING balance',
+        [price, claims.sub],
+      );
+      await client.query(
+        'INSERT INTO wallet_transactions (user_id, amount, balance_after, type, description) VALUES ($1, $2, $3, $4, $5)',
+        [claims.sub, -price, debit.rows[0].balance, 'username_change', 'Profile username change'],
+      );
+    }
+    const updated = await client.query(
       'UPDATE users SET username = $1 WHERE id = $2 RETURNING id, username',
       [username, claims.sub],
     );
-    if (!result.rowCount) return reply.code(404).send({ error: 'Account not found.' });
-    return { user: result.rows[0] };
-  } catch (error: unknown) {
+    await client.query('COMMIT');
+    return { user: updated.rows[0], chargedCredits: price };
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
     if (typeof error === 'object' && error !== null && 'code' in error && error.code === '23505') {
       return reply.code(409).send({ error: 'این نام کاربری قبلاً انتخاب شده است.' });
     }
     request.log.error({ err: error }, 'Could not update username');
     return reply.code(500).send({ error: 'Could not update username.' });
+  } finally {
+    client.release();
   }
 });
 
-// Wallet balances are server-owned; credits are non-transferable and every change is ledgered.
 app.get('/api/v1/wallet', { onRequest: [requireMatchAuth] }, async (request) => {
   const claims = request.user as { sub: string };
   await pool.query('INSERT INTO wallet_accounts (user_id) VALUES ($1) ON CONFLICT (user_id) DO NOTHING', [claims.sub]);
@@ -2505,7 +2696,7 @@ app.post<{ Body: { phone?: string; purpose?: string } }>('/api/v1/auth/phone-otp
   const phone = normalizeIranianMobile(request.body?.phone);
   const purpose = request.body?.purpose ?? 'verify';
   if (!phone) return reply.code(400).send({ error: 'Enter a valid Iranian mobile number.' });
-  if (!['verify', 'register', 'login', 'link'].includes(purpose)) {
+  if (!['verify', 'register', 'login', 'link', 'reset_password'].includes(purpose)) {
     return reply.code(400).send({ error: 'Invalid verification purpose.' });
   }
   const client = await pool.connect();
@@ -2533,6 +2724,16 @@ app.post<{ Body: { phone?: string; purpose?: string } }>('/api/v1/auth/phone-otp
     if (runtime.live && !String(settings.template_id ?? '').trim()) {
       await client.query('ROLLBACK');
       return reply.code(503).send({ error: 'Phone verification provider is not fully configured.' });
+    }
+    if (purpose === 'reset_password') {
+      const eligible = await client.query('SELECT 1 FROM users WHERE phone_e164 = $1 LIMIT 1', [phone]);
+      if (!eligible.rowCount) {
+        await client.query('COMMIT');
+        return reply.code(202).send({
+          ok: true,
+          message: 'If the number is linked to an account, a verification code will be sent.',
+        });
+      }
     }
     const usage = await client.query(
       `SELECT COUNT(*)::int AS global_daily_count,
@@ -2692,7 +2893,7 @@ app.post<{ Body: { phone?: string; code?: string; email?: string; password?: str
         [`p${userId}${randomInt(1000, 9999)}`, userId],
       );
       const user = { ...created.rows[0], username: usernameResult.rows[0]?.username ?? null };
-      const accessToken = app.jwt.sign({ sub: userId, email }, { expiresIn: '1h' });
+      const accessToken = app.jwt.sign({ sub: userId, email, jti: randomUUID(), ver: 0 }, { expiresIn: '1h' });
       await client.query('COMMIT');
       return reply.code(201).send({
         user: { id: userId, username: user.username, email: user.email, fullName: user.full_name, phone: user.phone, country: user.country, createdAt: user.created_at },
@@ -2739,7 +2940,7 @@ app.post<{ Body: { phone?: string; code?: string } }>(
         return reply.code(400).send({ error: 'The verification code is invalid or expired.' });
       }
       const found = await client.query(
-        'SELECT id, email, username, full_name, phone, country, created_at FROM users WHERE phone_e164 = $1 LIMIT 1',
+        'SELECT id, email, username, full_name, phone, country, created_at, token_version FROM users WHERE phone_e164 = $1 LIMIT 1',
         [phone],
       );
       if (!found.rowCount) {
@@ -2747,7 +2948,7 @@ app.post<{ Body: { phone?: string; code?: string } }>(
         return reply.code(401).send({ error: 'Phone number or verification code is invalid.' });
       }
       const user = found.rows[0];
-      const accessToken = app.jwt.sign({ sub: String(user.id), email: user.email }, { expiresIn: '1h' });
+      const accessToken = app.jwt.sign({ sub: String(user.id), email: user.email, jti: randomUUID(), ver: Number(user.token_version ?? 0) }, { expiresIn: '1h' });
       await client.query('COMMIT');
       return {
         user: { id: String(user.id), username: user.username, email: user.email, fullName: user.full_name, phone: user.phone, country: user.country, createdAt: user.created_at },
@@ -2759,6 +2960,49 @@ app.post<{ Body: { phone?: string; code?: string } }>(
       await client.query('ROLLBACK').catch(() => undefined);
       request.log.error({ err: error }, 'Phone OTP login failed');
       return reply.code(500).send({ error: 'Could not log in with phone.' });
+    } finally {
+      client.release();
+    }
+  },
+);
+
+app.post<{ Body: { phone?: string; code?: string; newPassword?: string } }>(
+  '/api/v1/auth/phone-otp/reset-password',
+  { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } },
+  async (request, reply) => {
+    const phone = normalizeIranianMobile(request.body?.phone);
+    const code = typeof request.body?.code === 'string' ? request.body.code.trim() : '';
+    const newPassword = request.body?.newPassword;
+    if (!phone || !/^\d{6}$/.test(code) || !isValidRegistrationPassword(newPassword)) {
+      return reply.code(400).send({ error: 'Enter a valid Iranian mobile, six-digit code, and a password of at least six characters.' });
+    }
+    const settingsResult = await pool.query('SELECT enabled, delivery_mode, provider FROM sms_otp_settings WHERE id = 1');
+    const runtime = otpRuntimeAllowed(settingsResult.rows[0]);
+    if (!runtime.simulator && !runtime.live) return reply.code(503).send({ error: 'Phone password recovery is not available.' });
+
+    const salt = randomBytes(16);
+    const derived = await scrypt(newPassword, salt, 64) as Buffer;
+    const passwordHash = `${salt.toString('hex')}:${derived.toString('hex')}`;
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const verified = await consumeOtpChallenge(client, phone, code, 'reset_password');
+      if (!verified) {
+        await client.query('COMMIT');
+        return reply.code(400).send({ error: 'The verification code is invalid or expired.' });
+      }
+      // Do not reveal whether the phone is linked to an account. Incrementing
+      // token_version invalidates every previously issued session for that account.
+      await client.query(
+        'UPDATE users SET password_hash = $1, token_version = token_version + 1 WHERE phone_e164 = $2',
+        [passwordHash, phone],
+      );
+      await client.query('COMMIT');
+      return { ok: true, message: 'If the number is linked to an account, its password has been reset.' };
+    } catch (error) {
+      await client.query('ROLLBACK').catch(() => undefined);
+      request.log.error({ err: error }, 'Phone password recovery failed');
+      return reply.code(500).send({ error: 'Could not reset the password.' });
     } finally {
       client.release();
     }
@@ -2879,6 +3123,38 @@ app.post<{ Body: { userId?: string; title?: string; body?: string } }>('/api/v1/
   return { sent: result.rowCount ?? 0, scope: userId ? 'user' : 'all' };
 });
 
+app.get('/api/v1/admin/account-customization-pricing', { onRequest: [requireOwnerAuth] }, async () => {
+  const result = await pool.query(
+    'SELECT avatar_change_price_credits AS "avatarChangePriceCredits", username_change_price_credits AS "usernameChangePriceCredits", updated_at AS "updatedAt" FROM account_customization_pricing WHERE id = 1',
+  );
+  return { settings: result.rows[0] ?? { avatarChangePriceCredits: 0, usernameChangePriceCredits: 0 } };
+});
+
+app.patch<{ Body: { avatarChangePriceCredits?: number; usernameChangePriceCredits?: number } }>(
+  '/api/v1/admin/account-customization-pricing',
+  { onRequest: [requireOwnerAuth] },
+  async (request, reply) => {
+    const { avatarChangePriceCredits, usernameChangePriceCredits } = request.body ?? {};
+    if ((avatarChangePriceCredits === undefined && usernameChangePriceCredits === undefined) ||
+        (avatarChangePriceCredits !== undefined && (!Number.isSafeInteger(avatarChangePriceCredits) || avatarChangePriceCredits < 0 || avatarChangePriceCredits > 1000000000)) ||
+        (usernameChangePriceCredits !== undefined && (!Number.isSafeInteger(usernameChangePriceCredits) || usernameChangePriceCredits < 0 || usernameChangePriceCredits > 1000000000))) {
+      return reply.code(400).send({ error: 'Customization prices must be non-negative whole credit amounts.' });
+    }
+    const result = await pool.query(
+      `UPDATE account_customization_pricing SET
+         avatar_change_price_credits = COALESCE($1, avatar_change_price_credits),
+         username_change_price_credits = COALESCE($2, username_change_price_credits),
+         updated_by = $3, updated_at = NOW()
+       WHERE id = 1
+       RETURNING avatar_change_price_credits AS "avatarChangePriceCredits",
+                 username_change_price_credits AS "usernameChangePriceCredits",
+                 updated_at AS "updatedAt"`,
+      [avatarChangePriceCredits ?? null, usernameChangePriceCredits ?? null, (request.user as { sub: string }).sub],
+    );
+    return { settings: result.rows[0] };
+  },
+);
+
 app.get('/api/v1/admin/subscription-plans', { onRequest: [requireOwnerAuth] }, async () => {
   const result = await pool.query(
     'SELECT code, name, duration_days AS "durationDays", price_credits AS "priceCredits", active FROM subscription_plans ORDER BY price_credits ASC',
@@ -2966,9 +3242,10 @@ app.post<{ Params: { userId: string }; Body: { body?: string } }>('/api/v1/chat/
   const claims = request.user as { sub: string };
   const { userId } = request.params;
   const body = typeof request.body?.body === 'string' ? request.body.body.trim() : '';
-  const isImage = /^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/]+={0,2}$/.test(body);
-  if (!isNumericId(userId) || userId === claims.sub || !body || (isImage ? body.length > 680000 : body.length > 2000)) {
-    return reply.code(400).send({ error: 'Message must be text up to 2000 characters or a supported image up to 500 KB.' });
+  const imageCandidate = body.startsWith('data:image/');
+  const isImage = imageCandidate && isValidImageDataUrl(body, 500 * 1024);
+  if (!isNumericId(userId) || userId === claims.sub || !body || (imageCandidate ? !isImage : body.length > 2000)) {
+    return reply.code(400).send({ error: 'Message must be text up to 2000 characters or a valid supported image up to 500 KiB.' });
   }
   const friendship = await pool.query(
     'SELECT 1 FROM friendships WHERE status = $1 AND ((requester_id = $2 AND addressee_id = $3) OR (requester_id = $3 AND addressee_id = $2)) LIMIT 1',

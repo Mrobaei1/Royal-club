@@ -46,10 +46,13 @@ class _AdminScreenState extends State<AdminScreen> {
   final _amount = TextEditingController(text: '100');
   final _description = TextEditingController();
   final _price = TextEditingController();
+  final _avatarChangePrice = TextEditingController(text: '0');
+  final _usernameChangePrice = TextEditingController(text: '0');
   final _notificationTitle = TextEditingController();
   final _notificationBody = TextEditingController();
   List<dynamic> _users = [];
   bool _busy = false;
+  bool _customizationPricingAvailable = false;
   Map<String, dynamic> _smsSettings = {};
   String _smsMode = 'disabled';
   String _smsProvider = 'kavenegar';
@@ -82,6 +85,8 @@ class _AdminScreenState extends State<AdminScreen> {
     _amount.dispose();
     _description.dispose();
     _price.dispose();
+    _avatarChangePrice.dispose();
+    _usernameChangePrice.dispose();
     _notificationTitle.dispose();
     _notificationBody.dispose();
     _smsSender.dispose(); _smsTemplate.dispose(); _smsApiKey.dispose(); _smsTestPhone.dispose(); _smsTtl.dispose(); _smsCooldown.dispose(); _smsAttempts.dispose(); _smsDailyLimit.dispose();
@@ -110,6 +115,18 @@ class _AdminScreenState extends State<AdminScreen> {
       final audit = results[5] as List<dynamic>;
       final leagues = results[6] as List<dynamic>;
       setState(() { _owner = true; _plans = plans; _reports = reports; _delegatedPermissionsEnabled = permissionSettings['enabled'] == true; _permissionGrants = grants; _permissionAudit = audit; _leagues = leagues; _loading = false; _error = null; });
+      try {
+        final customizationPricing = await AdminService.accountCustomizationPricing();
+        if (mounted) {
+          setState(() {
+            _avatarChangePrice.text = (customizationPricing['avatarChangePriceCredits'] ?? 0).toString();
+            _usernameChangePrice.text = (customizationPricing['usernameChangePriceCredits'] ?? 0).toString();
+            _customizationPricingAvailable = true;
+          });
+        }
+      } catch (_) {
+        if (mounted) setState(() => _customizationPricingAvailable = false);
+      }
       await _loadAgentTaskProposals();
     } catch (e) {
       if (mounted) setState(() { _loading = false; _error = appError(context, e); });
@@ -117,6 +134,35 @@ class _AdminScreenState extends State<AdminScreen> {
   }
 
 
+
+  Future<void> _saveAccountCustomizationPricing() async {
+    final avatarPrice = int.tryParse(_avatarChangePrice.text.trim());
+    final usernamePrice = int.tryParse(_usernameChangePrice.text.trim());
+    if (avatarPrice == null || usernamePrice == null ||
+        avatarPrice < 0 || usernamePrice < 0 ||
+        avatarPrice > 1000000000 || usernamePrice > 1000000000) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(appText(context, 'قیمت‌ها باید عدد صحیح بین صفر تا یک میلیارد باشند.', 'Prices must be whole numbers between zero and one billion.')),
+      ));
+      return;
+    }
+    setState(() => _busy = true);
+    try {
+      await AdminService.saveAccountCustomizationPricing(
+        avatarChangePriceCredits: avatarPrice,
+        usernameChangePriceCredits: usernamePrice,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(appText(context, 'قیمت خدمات حساب ذخیره شد.', 'Account service prices saved.')),
+        ));
+      }
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appError(context, error))));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
 
   Future<void> _loadAgentTaskProposals() async {
     try {
@@ -1687,6 +1733,42 @@ class _AdminScreenState extends State<AdminScreen> {
                   IconButton(onPressed: _busy ? null : () => _editPlan(plan), icon: const Icon(Icons.edit)),
                 ]),
               )),
+              if (_customizationPricingAvailable) ...[
+              const SizedBox(height: 22),
+              Text(appText(context, 'قیمت‌گذاری تغییرات حساب', 'Account customization pricing'), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(appText(context, 'اولین تصویر پروفایل برای هر حساب رایگان است؛ تغییرات بعدی با قیمت تعیین‌شده مدیر محاسبه می‌شود.', 'The first profile avatar is free per account; later changes use the owner-set price.'), style: const TextStyle(fontSize: 12)),
+                      const SizedBox(height: 10),
+                      TextField(
+                        controller: _avatarChangePrice,
+                        keyboardType: TextInputType.number,
+                        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                        decoration: InputDecoration(labelText: appText(context, 'هزینه تغییر آواتار (اعتبار)', 'Avatar change price (credits)')),
+                      ),
+                      const SizedBox(height: 10),
+                      TextField(
+                        controller: _usernameChangePrice,
+                        keyboardType: TextInputType.number,
+                        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                        decoration: InputDecoration(labelText: appText(context, 'هزینه تغییر نام کاربری (اعتبار)', 'Username change price (credits)')),
+                      ),
+                      const SizedBox(height: 12),
+                      FilledButton.icon(
+                        onPressed: _busy ? null : _saveAccountCustomizationPricing,
+                        icon: const Icon(Icons.save_outlined),
+                        label: Text(appText(context, 'ذخیره قیمت‌ها', 'Save prices')),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              ],
             ]),
     ),
   );

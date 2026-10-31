@@ -125,6 +125,17 @@ class AdminService {
   }
 
   static Future<bool> isOwner() async => (await _request('GET', '/api/v1/admin/status'))['isOwner'] == true;
+  static Future<Map<String, dynamic>> accountCustomizationPricing() async =>
+      (await _request('GET', '/api/v1/admin/account-customization-pricing'))['settings'] as Map<String, dynamic>;
+
+  static Future<Map<String, dynamic>> saveAccountCustomizationPricing({
+    required int avatarChangePriceCredits,
+    required int usernameChangePriceCredits,
+  }) async => (await _request('PATCH', '/api/v1/admin/account-customization-pricing', body: {
+        'avatarChangePriceCredits': avatarChangePriceCredits,
+        'usernameChangePriceCredits': usernameChangePriceCredits,
+      }))['settings'] as Map<String, dynamic>;
+
   static Future<List<dynamic>> plans() async => (await _request('GET', '/api/v1/admin/subscription-plans'))['plans'] as List<dynamic>? ?? [];
 
   static Future<List<dynamic>> leagues() async =>

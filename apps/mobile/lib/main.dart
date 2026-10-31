@@ -688,6 +688,7 @@ class _AuthScreenState extends State<AuthScreen> {
   late bool _register = widget.initialRegister;
   bool _phoneOtpAvailable = false;
   bool _usePhoneOtp = false;
+  bool _recoveringPassword = false;
   bool _otpRequested = false;
   bool _busy = false;
   bool _rememberMe = true;
@@ -750,7 +751,7 @@ class _AuthScreenState extends State<AuthScreen> {
       setState(() => _message = appText(context, 'نام، ایمیل و رمز عبور را قبل از دریافت کد وارد کنید.', 'Enter your name, email, and password before requesting a code.'));
       return;
     }
-    if (_register && (_password.text.runes.length < 6 || utf8.encode(_password.text).length > 128)) {
+    if ((_register || _recoveringPassword) && (_password.text.runes.length < 6 || utf8.encode(_password.text).length > 128)) {
       setState(() => _message = appText(context, 'رمز عبور باید حداقل ۶ کاراکتر و حداکثر ۱۲۸ بایت باشد.', 'Password must be at least 6 characters and at most 128 bytes.'));
       return;
     }
@@ -758,7 +759,7 @@ class _AuthScreenState extends State<AuthScreen> {
     try {
       final result = await AuthService.requestPhoneOtp(
         phone: _phone.text,
-        purpose: _register ? 'register' : 'login',
+        purpose: _register ? 'register' : (_recoveringPassword ? 'reset_password' : 'login'),
       );
       if (!mounted) return;
       setState(() {
@@ -787,6 +788,7 @@ class _AuthScreenState extends State<AuthScreen> {
     setState(() { _busy = true; _message = null; });
     try {
       final wasRegister = _register;
+      final wasRecovery = _recoveringPassword;
       final result = wasRegister
           ? await AuthService.registerWithPhoneOtp(
               phone: _phone.text,
@@ -796,8 +798,29 @@ class _AuthScreenState extends State<AuthScreen> {
               fullName: _fullName.text,
               country: '',
             )
-          : await AuthService.loginWithPhoneOtp(phone: _phone.text, code: _otpCode.text);
+          : wasRecovery
+              ? await AuthService.resetPasswordWithPhoneOtp(
+                  phone: _phone.text,
+                  code: _otpCode.text,
+                  newPassword: _password.text,
+                )
+              : await AuthService.loginWithPhoneOtp(phone: _phone.text, code: _otpCode.text);
       if (!mounted) return;
+      if (wasRecovery) {
+        await AuthService.setRememberedCredentials('', '', false);
+        if (!mounted) return;
+        setState(() {
+          _recoveringPassword = false;
+          _usePhoneOtp = false;
+          _otpRequested = false;
+          _otpCode.clear();
+          _password.clear();
+          _message = appText(context,
+            'اگر شماره به حسابی متصل باشد، رمز عبور آن تغییر کرد. اکنون با رمز جدید وارد شوید.',
+            'If the phone is linked to an account, its password has been reset. Sign in with the new password.');
+        });
+        return;
+      }
       if (wasRegister) {
         await AuthService.setRememberedCredentials(_email.text, _password.text, _rememberMe);
       } else {
@@ -898,12 +921,14 @@ class _AuthScreenState extends State<AuthScreen> {
                     selected: {_register},
                     onSelectionChanged: (v) => setState(() {
                       _register = v.first;
+                      _recoveringPassword = false;
+                      _usePhoneOtp = false;
                       _otpRequested = false;
                       _otpCode.clear();
                       _message = null;
                     }),
                   ),
-                  if (_phoneOtpAvailable) ...[
+                  if (_phoneOtpAvailable && !_recoveringPassword) ...[
                     const SizedBox(height: 8),
                     TextButton(
                       onPressed: _busy ? null : () => setState(() {
@@ -917,6 +942,21 @@ class _AuthScreenState extends State<AuthScreen> {
                           : appText(context, 'ورود یا ثبت‌نام با کد پیامکی', 'Use phone verification code')),
                     ),
                   ],
+                  if (_phoneOtpAvailable && !_register && !_recoveringPassword)
+                    Align(
+                      alignment: AlignmentDirectional.centerEnd,
+                      child: TextButton(
+                        onPressed: _busy ? null : () => setState(() {
+                          _recoveringPassword = true;
+                          _usePhoneOtp = true;
+                          _otpRequested = false;
+                          _otpCode.clear();
+                          _password.clear();
+                          _message = null;
+                        }),
+                        child: Text(appText(context, 'فراموشی رمز عبور؟ بازیابی با پیامک', 'Forgot password? Recover by SMS')),
+                      ),
+                    ),
                   const SizedBox(height: 20),
                   if (_register) ...[
                     TextField(controller: _fullName, textCapitalization: TextCapitalization.words,
@@ -968,12 +1008,12 @@ class _AuthScreenState extends State<AuthScreen> {
                     ),
                   ),
                   const SizedBox(height: 14),
-                  if (!_usePhoneOtp || _register) TextField(
+                  if (!_usePhoneOtp || _register || _recoveringPassword) TextField(
                     controller: _password,
                     obscureText: true,
                     autofillHints: const [AutofillHints.password],
                     decoration: InputDecoration(
-                      labelText: AppLocalizations.of(context).password,
+                      labelText: _recoveringPassword ? appText(context, 'رمز عبور جدید', 'New password') : AppLocalizations.of(context).password,
                       border: OutlineInputBorder(),
                       prefixIcon: Icon(Icons.lock_outline),
                     ),
