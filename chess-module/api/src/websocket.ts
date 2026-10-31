@@ -34,6 +34,9 @@ export async function registerChessWebSocket(app: FastifyInstance, options: Opti
       const channel = "chess_game_" + gameId;
       const listener = await options.pool.connect();
       let closed = false;
+      let cleaned = false;
+      let voiceWasActive = false;
+      let expiryTimer: ReturnType<typeof setInterval> | undefined;
       const send = (value: unknown) => {
         if (!closed && socket.readyState === 1) socket.send(JSON.stringify(value));
       };
@@ -65,11 +68,15 @@ export async function registerChessWebSocket(app: FastifyInstance, options: Opti
               const row=message.rows[0];
               send({type:"chess:chat:message",id:String(row.id),username:row.username,message:row.message,createdAt:row.created_at});
             }
+          } else if (event.type === "presence" && event.id) {
+            const user = await options.pool.query("SELECT username FROM users WHERE id=$1",[event.id]);
+            send({type:"chess:opponent:presence",userId:event.id,username:user.rows[0]?.username??"",connected:true});
           } else if (event.type === "voice") {
             const lease = await options.pool.query(
               "SELECT u.username,l.expires_at FROM chess_voice_leases l JOIN users u ON u.id=l.user_id WHERE l.room_id=$1 AND l.expires_at>NOW()",
               [roomId]
             );
+            voiceWasActive = Boolean(lease.rowCount);
             send(lease.rowCount
               ? {type:"chess:voice:granted",speakingUsername:lease.rows[0].username,expiresAt:lease.rows[0].expires_at}
               : {type:"chess:voice:released"});
@@ -77,8 +84,23 @@ export async function registerChessWebSocket(app: FastifyInstance, options: Opti
         })().catch(() => send({type:"chess:error",code:"event_delivery_failed"}));
       });
       await listener.query("LISTEN " + channel);
-      await publish({type:"presence",userId,connected:true});
+      await publish({type:"presence",id:userId,connected:true});
       send({type:"chess:connected",gameId});
+      const currentLease = await options.pool.query(
+        "SELECT u.username,l.expires_at FROM chess_voice_leases l JOIN users u ON u.id=l.user_id WHERE l.room_id=$1 AND l.expires_at>NOW()",
+        [roomId]
+      );
+      voiceWasActive = Boolean(currentLease.rowCount);
+      if (currentLease.rowCount) send({type:"chess:voice:granted",speakingUsername:currentLease.rows[0].username,expiresAt:currentLease.rows[0].expires_at});
+      expiryTimer = setInterval(() => {
+        void options.pool.query("SELECT 1 FROM chess_voice_leases WHERE room_id=$1 AND expires_at>NOW()",[roomId])
+          .then(result => {
+            if (voiceWasActive && !result.rowCount) {
+              voiceWasActive = false;
+              send({type:"chess:voice:released"});
+            }
+          }).catch(() => send({type:"chess:error",code:"voice_status_unavailable"}));
+      },1000);
       socket.on("message", (raw) => {
         let message: {type?:string};
         try { message = JSON.parse(raw.toString()) as {type?:string}; }
@@ -86,17 +108,17 @@ export async function registerChessWebSocket(app: FastifyInstance, options: Opti
         if (message.type === "ping") send({type:"chess:pong",serverTime:Date.now()});
         else send({type:"chess:error",code:"unsupported_command_use_authenticated_api"});
       });
-      socket.on("close", () => {
+      const cleanup = async () => {
+        if (cleaned) return;
+        cleaned = true;
         closed = true;
-        void publish({type:"presence",userId,connected:false}).finally(async () => {
-          try { await listener.query("UNLISTEN " + channel); } catch {}
-          listener.release();
-        });
-      });
-      socket.on("error", () => {
-        closed = true;
+        if (expiryTimer) clearInterval(expiryTimer);
+        try { await publish({type:"presence",id:userId,connected:false}); } catch {}
+        try { await listener.query("UNLISTEN " + channel); } catch {}
         listener.release();
-      });
+      };
+      socket.on("close", () => { void cleanup(); });
+      socket.on("error", () => { void cleanup(); });
     })().catch(() => socket.close(1011, "subscription_failed"));
   });
 }
