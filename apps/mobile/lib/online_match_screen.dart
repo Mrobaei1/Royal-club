@@ -613,95 +613,26 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final dice = (_state?['dice'] as List?)?.cast<num>() ?? const <num>[];
-    final rawRemaining = (_state?['remainingDice'] as List?)?.cast<num>() ?? const <num>[];
-    final preview = _previewGameState();
-    final board = (preview['board'] as List<int>).map<num>((v) => v).toList();
-    final remaining = [...rawRemaining];
-    for (final move in _pendingMoves) {
-      final die = move['die'];
-      if (die != null) remaining.remove(die);
-    }
-    final isMyTurn = _state?['isMyTurn'] == true;
-    final isEnglish = Localizations.localeOf(context).languageCode == 'en';
-    final aiTakeoverActive = _state?['aiTakeoverActive'] == true;
-    final canAct = isMyTurn && !aiTakeoverActive;
-    final turnTimerText = _matchStatus == 'active' && _state != null && !aiTakeoverActive
-        ? '${_turnSecondsRemaining}s'
-        : null;
-    final timerWhite = (_state?['isHost'] == true) == isMyTurn;
-    final bar = preview['bar'] as Map<String, int>;
-    final off = preview['off'] as Map<String, int>;
-    final ownBar = (bar[_state?['isHost'] == true ? 'host' : 'guest'] ?? 0);
-    return Directionality(
-      textDirection: (Localizations.localeOf(context).languageCode == 'en' ? TextDirection.ltr : TextDirection.rtl),
-      child: Scaffold(
-        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-        appBar: AppBar(
-          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-          foregroundColor: Theme.of(context).colorScheme.primary,
-          title: Text(isEnglish ? 'Room ${widget.match['roomCode'] ?? _id}' : 'اتاق ${widget.match['roomCode'] ?? _id}'),
-          actions: [IconButton(onPressed: _busy ? null : _refresh, icon: const Icon(Icons.refresh))],
-        ),
-        body: SafeArea(child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            if (_connectionLost) Container(
-              margin: const EdgeInsets.only(bottom: 12),
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(color: Colors.red.withValues(alpha: .13), borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.redAccent.withValues(alpha: .5))),
-              child: Row(children: [
-                const Icon(Icons.wifi_off_rounded, color: Colors.redAccent),
-                const SizedBox(width: 10),
-                Expanded(child: Text(isEnglish ? 'Server connection is unstable. Reconnecting…' : 'اتصال به سرور قطع یا ناپایدار است؛ تلاش برای اتصال مجدد ادامه دارد.', style: const TextStyle(color: Colors.redAccent))),
-                IconButton(tooltip: isEnglish ? 'Retry' : 'تلاش دوباره', onPressed: _refreshing ? null : () => _refresh(), icon: const Icon(Icons.refresh, color: Colors.redAccent)),
-              ]),
-            ),
-            if (_state?['aiTakeoverActive'] == true) Container(
-              margin: const EdgeInsets.only(bottom: 12),
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primary.withValues(alpha: .12),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Theme.of(context).colorScheme.primary.withValues(alpha: .45)),
-              ),
-              child: Row(children: [
-                Icon(Icons.smart_toy_outlined, color: Theme.of(context).colorScheme.primary),
-                const SizedBox(width: 10),
-                Expanded(child: Text(
-                  isEnglish
-                    ? 'Temporary AI is playing for the disconnected player. Human control returns automatically after reconnecting.'
-                    : 'هوش مصنوعی موقتاً به‌جای بازیکن قطع‌شده بازی می‌کند؛ با اتصال مجدد، کنترل به بازیکن بازمی‌گردد.',
-                  style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
-                )),
-              ]),
-            ),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(color: Theme.of(context).colorScheme.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: Theme.of(context).colorScheme.primary.withValues(alpha: .35))),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                Text(
-                  _matchStatus == 'finished'
-                      ? (isEnglish ? 'Game finished' : 'بازی پایان یافت')
-                      : (_state == null
-                          ? (isEnglish ? 'Waiting for opponent…' : 'در انتظار ورود حریف...')
-                          : (isMyTurn ? (isEnglish ? 'Your turn' : 'نوبت شماست') : (isEnglish ? 'Waiting for opponent' : 'در انتظار حرکت حریف'))),
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.primary,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 18,
-                  ),
+  void _showRoomControls() {
+    final isEnglish = _isEnglish;
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+          child: ListView(
+            shrinkWrap: true,
+            children: [
+              Text(
+                isEnglish ? 'Room controls' : 'مدیریت اتاق',
+                style: Theme.of(sheetContext).textTheme.titleLarge?.copyWith(
+                  color: Theme.of(sheetContext).colorScheme.primary,
+                  fontWeight: FontWeight.bold,
                 ),
-                const SizedBox(height: 6),
-                Text(isEnglish ? 'First to ${_matchDetails['matchToWin'] ?? 1} · Match score: ${_matchDetails['hostGameWins'] ?? 0} - ${_matchDetails['guestGameWins'] ?? 0}' : 'Match to Win: ${_matchDetails['matchToWin'] ?? 1} · امتیاز مسابقه: ${_matchDetails['hostGameWins'] ?? 0} - ${_matchDetails['guestGameWins'] ?? 0}',
-                  style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7), fontWeight: FontWeight.w600)),
-                const SizedBox(height: 4),
-                Text(_state == null ? (isEnglish ? 'Room status refreshes automatically.' : 'این صفحه به‌صورت خودکار هر ۳ ثانیه وضعیت اتاق را بررسی می‌کند.') : (isEnglish ? 'State version: ${_state!['version']}' : 'نسخه وضعیت: ${_state!['version']}'),
-                  style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.54), fontSize: 12)),
-              ]),
-            ),
+              ),
+              const SizedBox(height: 12),
             if (_matchStatus == 'waiting' && _matchDetails['isHost'] == true)
               Align(
                 alignment: AlignmentDirectional.centerStart,
@@ -870,6 +801,109 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
                 ]),
               ),
             ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final dice = (_state?['dice'] as List?)?.cast<num>() ?? const <num>[];
+    final rawRemaining = (_state?['remainingDice'] as List?)?.cast<num>() ?? const <num>[];
+    final preview = _previewGameState();
+    final board = (preview['board'] as List<int>).map<num>((v) => v).toList();
+    final remaining = [...rawRemaining];
+    for (final move in _pendingMoves) {
+      final die = move['die'];
+      if (die != null) remaining.remove(die);
+    }
+    final isMyTurn = _state?['isMyTurn'] == true;
+    final isEnglish = Localizations.localeOf(context).languageCode == 'en';
+    final aiTakeoverActive = _state?['aiTakeoverActive'] == true;
+    final canAct = isMyTurn && !aiTakeoverActive;
+    final turnTimerText = _matchStatus == 'active' && _state != null && !aiTakeoverActive
+        ? '${_turnSecondsRemaining}s'
+        : null;
+    final timerWhite = (_state?['isHost'] == true) == isMyTurn;
+    final bar = preview['bar'] as Map<String, int>;
+    final off = preview['off'] as Map<String, int>;
+    final ownBar = (bar[_state?['isHost'] == true ? 'host' : 'guest'] ?? 0);
+    return Directionality(
+      textDirection: (Localizations.localeOf(context).languageCode == 'en' ? TextDirection.ltr : TextDirection.rtl),
+      child: Scaffold(
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        appBar: AppBar(
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+          foregroundColor: Theme.of(context).colorScheme.primary,
+          title: Text(isEnglish ? 'Room ${widget.match['roomCode'] ?? _id}' : 'اتاق ${widget.match['roomCode'] ?? _id}'),
+          actions: [
+            IconButton(
+              onPressed: _showRoomControls,
+              tooltip: isEnglish ? 'Room controls' : 'مدیریت اتاق',
+              icon: const Icon(Icons.menu_rounded),
+            ),
+            IconButton(onPressed: _busy ? null : _refresh, icon: const Icon(Icons.refresh)),
+          ],
+        ),
+        body: SafeArea(child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            if (_connectionLost) Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(color: Colors.red.withValues(alpha: .13), borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.redAccent.withValues(alpha: .5))),
+              child: Row(children: [
+                const Icon(Icons.wifi_off_rounded, color: Colors.redAccent),
+                const SizedBox(width: 10),
+                Expanded(child: Text(isEnglish ? 'Server connection is unstable. Reconnecting…' : 'اتصال به سرور قطع یا ناپایدار است؛ تلاش برای اتصال مجدد ادامه دارد.', style: const TextStyle(color: Colors.redAccent))),
+                IconButton(tooltip: isEnglish ? 'Retry' : 'تلاش دوباره', onPressed: _refreshing ? null : () => _refresh(), icon: const Icon(Icons.refresh, color: Colors.redAccent)),
+              ]),
+            ),
+            if (_state?['aiTakeoverActive'] == true) Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primary.withValues(alpha: .12),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Theme.of(context).colorScheme.primary.withValues(alpha: .45)),
+              ),
+              child: Row(children: [
+                Icon(Icons.smart_toy_outlined, color: Theme.of(context).colorScheme.primary),
+                const SizedBox(width: 10),
+                Expanded(child: Text(
+                  isEnglish
+                    ? 'Temporary AI is playing for the disconnected player. Human control returns automatically after reconnecting.'
+                    : 'هوش مصنوعی موقتاً به‌جای بازیکن قطع‌شده بازی می‌کند؛ با اتصال مجدد، کنترل به بازیکن بازمی‌گردد.',
+                  style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
+                )),
+              ]),
+            ),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(color: Theme.of(context).colorScheme.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: Theme.of(context).colorScheme.primary.withValues(alpha: .35))),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                Text(
+                  _matchStatus == 'finished'
+                      ? (isEnglish ? 'Game finished' : 'بازی پایان یافت')
+                      : (_state == null
+                          ? (isEnglish ? 'Waiting for opponent…' : 'در انتظار ورود حریف...')
+                          : (isMyTurn ? (isEnglish ? 'Your turn' : 'نوبت شماست') : (isEnglish ? 'Waiting for opponent' : 'در انتظار حرکت حریف'))),
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.primary,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(isEnglish ? 'First to ${_matchDetails['matchToWin'] ?? 1} · Match score: ${_matchDetails['hostGameWins'] ?? 0} - ${_matchDetails['guestGameWins'] ?? 0}' : 'Match to Win: ${_matchDetails['matchToWin'] ?? 1} · امتیاز مسابقه: ${_matchDetails['hostGameWins'] ?? 0} - ${_matchDetails['guestGameWins'] ?? 0}',
+                  style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7), fontWeight: FontWeight.w600)),
+                const SizedBox(height: 4),
+                Text(_state == null ? (isEnglish ? 'Room status refreshes automatically.' : 'این صفحه به‌صورت خودکار هر ۳ ثانیه وضعیت اتاق را بررسی می‌کند.') : (isEnglish ? 'State version: ${_state!['version']}' : 'نسخه وضعیت: ${_state!['version']}'),
+                  style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.54), fontSize: 12)),
+              ]),
+            ),
             if (_state != null) ...[
               const SizedBox(height: 16),
               if (isMyTurn && remaining.isNotEmpty) OutlinedButton.icon(
