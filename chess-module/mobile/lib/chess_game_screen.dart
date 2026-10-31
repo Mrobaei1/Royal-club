@@ -62,7 +62,7 @@ class _ChessGameScreenState extends State<ChessGameScreen> {
 
   Widget _player(String username, Duration clock, {required bool white}) => Row(
         children: [
-          CircleAvatar(child: Text(username.isEmpty ? '?' : username.characters.first.toUpperCase())),
+          CircleAvatar(child: Text(username.isEmpty ? '?' : username.substring(0, 1).toUpperCase())),
           const SizedBox(width: 8),
           Expanded(child: Text(username, maxLines: 1, overflow: TextOverflow.ellipsis)),
           Text(_clock(clock), style: const TextStyle(fontFeatures: [])),
