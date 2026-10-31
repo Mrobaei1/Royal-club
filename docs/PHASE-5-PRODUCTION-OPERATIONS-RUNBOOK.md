@@ -109,3 +109,19 @@ Minimum acceptance:
 - [ ] **1.5 Data lifecycle/DR:** retention, backup/restore, and disaster-recovery requirements reviewed and approved.
 
 No item above should be checked solely because a PR merged or a workflow was green. Attach exact evidence and an owner acceptance record where required.
+
+## 9. Restore test evidence — 2026-10-31
+
+A manual point-in-time snapshot `snap-spring-truth-ba9rbrg1` was created from Production and restored without finalization to isolated non-primary branch `phase5-restore-test-20261031` (`br-crimson-rice-baahb4f3`). Production was not replaced or mutated.
+
+Read-only comparison returned matching catalog totals on both branches:
+- Public base tables: 33
+- Public columns: 289
+- PostgreSQL constraints: 405
+- Indexes in `pg_indexes`: 78
+- Explicit index names found in current API source: 33/33 present in Production
+- Selected row counts: users 3/3, backgammon matches 4/4, wallet accounts 2/2
+
+This establishes that the snapshot could be restored and that the selected schema and row-count checks matched. It is not a full row-by-row checksum, semantic constraint equivalence proof, application integration test against the restored branch, or recurring backup acceptance. The restored branch is retained for additional validation; deleting it requires explicit approval.
+
+The snapshot schedule remains empty. The manual snapshot does not satisfy the product requirement for a recurring 23:59 Asia/Tehran backup with a time-limited email link and latest-three recovery-point workflow. Neon schedule controls expose daily/weekly/monthly frequency with an hour field, so they cannot alone guarantee the requested minute-level local schedule. Implementing the email-link workflow requires a separate design and secure email/storage integration; do not treat provider snapshots as equivalent.
