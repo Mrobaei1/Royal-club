@@ -2,54 +2,35 @@
 
 This document describes the intended adapter boundary. It does not wire anything into the production app.
 
-## Authoritative server commands
-Every command must be authenticated and scoped to a room:
-- `create_room`
-- `join_room`
-- `leave_room`
-- `set_ready`
-- `start_game`
-- `choose_trump`
-- `play_card`
-- `request_reconnect`
-- `send_chat_message`
-
-The server derives the seat from the authenticated room membership. It must never accept a client-supplied seat/team/score/hand as authoritative input. The match target (3, 5, or 7) is loaded from trusted manager-controlled configuration after role authorization; never accept this setting from a player or public room-create payload.
+## Match XP and level progression
+- Personal XP is awarded only after the final match result: +20 XP for each winning-team player and +5 XP for each losing-team player. Intermediate hands do not award personal XP.
+- A player leaving an active match receives −5 XP individually. The penalty operation is idempotent and does not penalize teammates.
+- Level 1 starts at 0 XP. Advancement cost from level L to L+1 is round(300 + 5(L−1) + 0.08(L−1)^2). Level 100 starts at 79,439 XP; 95,000 XP maps to level 109.
+- XP is cumulative and non-spendable, floored at zero; achieved levels never decrease. Practice/offline games award no XP.
+- The current lab implements the calculation in memory only. Production must persist a per-user, per-game XP ledger and commit final match status plus rewards atomically with a unique match-result key to prevent duplicate awards.
 
 ## Fixed bot policy
-- Bot difficulty is fixed to **Hard** for every bot-controlled seat, by default and permanently.
-- There is no player-facing or room-facing difficulty selector, and no client/API command may override the difficulty.
+- Bot difficulty is fixed to **Hard** for every bot-controlled seat.
+- There is no player-facing or room-facing difficulty selector, and no client/API command may override it.
 - The server owns the bot policy; clients cannot submit strategy parameters or hidden information.
-- Hard strategy may use only the bot's own hand, public cards already played, trump, turn/round state and other information legitimately visible to that seat.
-- The bot must never read opponents' private hands or the undealt deck to choose a move.
-- Every bot move is passed through the same authoritative legal-move validator used for human moves.
-- Acceptance tests must prove the policy cannot be downgraded by client input and that hidden-card information is not exposed to the bot decision layer.
+- Hard strategy may use only the bot's own hand and information legitimately visible to that seat.
+- Every bot move passes through the same authoritative legal-move validator as a human move.
+
+## Authoritative server commands
+Every command must be authenticated and scoped to a room: create/join/leave, ready/start, choose trump, play card, reconnect and chat.
+The server derives seat from authenticated membership. Never accept client-supplied seat/team/score/hand as authoritative input. Match target (3, 5, or 7) comes from trusted manager configuration.
 
 ## Server-side validation
-For each command, verify:
-1. authenticated user is a member of this room;
-2. room is in a phase that accepts the command;
-3. caller's seat is the current seat;
-4. the submitted card is present in that seat's server-held hand;
-5. the move obeys follow-suit and all phase rules;
-6. state transition is atomic and versioned;
-7. all clients receive a public event, while each player receives only their own private hand update.
-
-Reject stale commands using a monotonically increasing room version. Use idempotency keys for reconnect/retry-sensitive actions.
+For each command, verify membership, room phase, turn, card ownership, follow-suit legality, atomic/versioned state transition and correct public/private event delivery. Reject stale commands using a monotonically increasing room version.
 
 ## Data separation
-- Private server state: all four hands, shuffled deck, RNG seed if persisted, hidden bot state.
-- Public room state: seat occupancy, ready flags, current phase/seat, trump after declaration, public plays, trick counts, public score, timer deadline.
+- Private server state: all hands, shuffled deck, hidden bot state.
+- Public room state: seat occupancy, readiness, phase/current seat, trump, public plays, trick counts, public score and deadlines.
 - Per-seat payload: public state plus only that seat's own cards.
-- Logs: never log full hidden hands in production telemetry.
+- Never log full hidden hands in production telemetry.
 
 ## Room lifecycle
-Use server time for invitation expiration and turn deadlines. Cleanup jobs must be idempotent. Reconnection restores a seat only after verifying the authenticated user is the original seat owner. A disconnected player may be replaced by a bot only according to a manager-configured policy and after a defined grace period.
+Use server time for invitation expiration and turn deadlines. Cleanup jobs must be idempotent. Reconnection restores a seat only after authenticating the original seat owner. A disconnected player may be replaced by a bot only under a defined manager-controlled policy.
 
 ## Royal Club compatibility
-- UI adapter: Flutter/Dart.
-- API adapter: existing Fastify/TypeScript API.
-- Persistent records: existing PostgreSQL infrastructure; do not create a second account or wallet system.
-- Social links/chat should call existing Royal Club services after their contracts are inspected.
-- Voice/microphone requires explicit permission, room consent, moderation/abuse controls, and a documented provider/cost decision before implementation.
-- No changes to production routes, app navigation, database schema, deployments, or APKs are part of this isolated lab.
+Flutter/Dart UI, existing Fastify/TypeScript API and existing PostgreSQL infrastructure. No second account or wallet system. Voice requires explicit permission, consent, moderation and provider/cost review. No production routes, database schema, deployments or APKs are changed by this lab.
