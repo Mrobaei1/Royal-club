@@ -40,6 +40,8 @@ class ChessGameSession extends ChangeNotifier {
   Timer? _reconnect;
   bool _disposed = false;
   bool _reconnectScheduled = false;
+  bool _openingSocket = false;
+  Future<void>? _connectFuture;
   int _reconnectAttempt = 0;
   int _serverOffsetMs = 0;
   int _refreshGeneration = 0;
@@ -52,8 +54,14 @@ class ChessGameSession extends ChangeNotifier {
   String? get status => game?['status'] as String?;
   bool get isHost => game?['isHost'] == true;
 
-  Future<void> connect() async {
-    if (_disposed) throw StateError('chess_session_disposed');
+  Future<void> connect() {
+    if (_disposed) return Future.error(StateError('chess_session_disposed'));
+    return _connectFuture ??= _connectInternal().whenComplete(() {
+      _connectFuture = null;
+    });
+  }
+
+  Future<void> _connectInternal() async {
     try {
       await refresh();
       if (voiceEnabled) await voiceClient?.connect();
@@ -131,7 +139,8 @@ class ChessGameSession extends ChangeNotifier {
       );
 
   Future<void> _openSocket() async {
-    if (_disposed || _socket != null) return;
+    if (_disposed || _socket != null || _openingSocket) return;
+    _openingSocket = true;
     try {
       final socket = await api.connectGameSocket(gameId);
       if (_disposed) {
@@ -148,9 +157,11 @@ class ChessGameSession extends ChangeNotifier {
         onDone: () => _socketEnded(null),
         cancelOnError: true,
       );
-      socket.add(jsonEncode({'type': 'ping'}));
+      socket.add(jsonEncode({'type': 'ping', 'clientTime': DateTime.now().millisecondsSinceEpoch}));
     } catch (error) {
       _socketEnded(error);
+    } finally {
+      _openingSocket = false;
     }
   }
 
