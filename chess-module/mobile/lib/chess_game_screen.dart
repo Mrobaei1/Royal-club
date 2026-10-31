@@ -56,6 +56,7 @@ class ChessGameScreen extends StatefulWidget {
   final ChessPlayerProfile? blackProfile;
   final bool canManageVoice;
   final ValueChanged<bool>? onVoiceEnabledChanged;
+  final String gameStatus;
   final bool isHost;
   final ValueChanged<bool>? onToggleVoice;
 
@@ -192,11 +193,26 @@ class _ChessGameScreenState extends State<ChessGameScreen> {
         Center(
           child: SizedBox(
             width: boardSize,
-            child: ChessBoard(fen: widget.fen, legalMoves: widget.legalMoves, onMove: widget.onMove),
+            child: ChessBoard(fen: widget.fen, legalMoves: widget.legalMoves, onMove: widget.onMove, interactive: widget.gameStatus == 'active'),
           ),
         ),
         const SizedBox(height: 8),
         _player(widget.whiteUsername, _whiteDisplay, profile: widget.whiteProfile, active: widget.activeSide == 'white'),
+        if (widget.gameStatus != 'active')
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(10),
+              child: Text(
+                widget.gameStatus == 'draw'
+                    ? (fa ? 'بازی مساوی شد' : 'Game drawn')
+                    : widget.gameStatus == 'white_win'
+                        ? (fa ? 'سفید برنده شد' : 'White won')
+                        : widget.gameStatus == 'black_win'
+                            ? (fa ? 'سیاه برنده شد' : 'Black won')
+                            : (fa ? 'بازی پایان یافت' : 'Game finished'),
+              ),
+            ),
+          ),
         if (widget.pendingDrawOfferId != null && widget.drawOfferedByOpponent)
           Card(
             child: Padding(
@@ -216,7 +232,7 @@ class _ChessGameScreenState extends State<ChessGameScreen> {
               ),
             ),
           ),
-        if (widget.onOfferDraw != null || widget.onResign != null)
+        if (widget.gameStatus == 'active' && (widget.onOfferDraw != null || widget.onResign != null))
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
@@ -260,7 +276,7 @@ class _ChessGameScreenState extends State<ChessGameScreen> {
             value: widget.voiceEnabled,
             onChanged: widget.onToggleVoice,
           ),
-        if (widget.canManageVoice)
+        if (widget.gameStatus == 'active' && widget.canManageVoice)
           SwitchListTile(
             dense: true,
             contentPadding: EdgeInsets.zero,
@@ -268,7 +284,7 @@ class _ChessGameScreenState extends State<ChessGameScreen> {
             value: widget.voiceEnabled,
             onChanged: widget.onVoiceEnabledChanged,
           ),
-        if (widget.voiceEnabled)
+        if (widget.gameStatus == 'active' && widget.voiceEnabled)
           Row(
             children: [
               Expanded(
@@ -310,12 +326,13 @@ class _ChessGameScreenState extends State<ChessGameScreen> {
             Expanded(
               child: TextField(
                 controller: _messageController,
+                enabled: widget.gameStatus == 'active',
                 maxLength: 2000,
                 decoration: InputDecoration(hintText: fa ? 'پیام' : 'Message', counterText: ''),
                 onSubmitted: (_) => _send(),
               ),
             ),
-            IconButton(onPressed: _send, icon: const Icon(Icons.send)),
+            IconButton(onPressed: widget.gameStatus == 'active' ? _send : null, icon: const Icon(Icons.send)),
           ],
         ),
       ],
