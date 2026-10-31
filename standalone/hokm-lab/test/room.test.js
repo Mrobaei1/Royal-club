@@ -165,3 +165,13 @@ test("active-match exit applies -5 XP to the leaver once only", async () => {
   assert.equal(exited.players[0].forfeited, true);
   assert.equal(recordMatchForfeit(exited, "u0").playerProgress.u0.xp, 95);
 });
+
+test("a player marked as having left cannot continue sending game commands", async () => {
+  const { recordMatchForfeit } = await import("../src/room.js");
+  let room = startRoom(fullReadyRoom(), "u0", { now: 2000, rng: () => 0.5 });
+  room = recordMatchForfeit(room, "u0");
+  assert.throws(
+    () => applyRoomCommand(room, "u0", { type: "choose_trump", suit: "hearts" }, room.version),
+    /left the match/
+  );
+});
