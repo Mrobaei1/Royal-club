@@ -1028,7 +1028,7 @@ class _AdminScreenState extends State<AdminScreen> {
             maxLength: 200,
             decoration: InputDecoration(labelText: appText(context, 'شناسه تأیید (اختیاری)', 'Approval reference (optional)')),
           ),
-          Text(appText(context, 'این کار فقط مجوز را ثبت می‌کند؛ تا زمان اتصال به مسیرهای مجازشده، دسترسی عملیاتی ایجاد نمی‌شود. هیچ مجوزی خودکار ایجاد نمی‌شود.', 'This only records the grant; it does not enable operational access until protected routes are wired to it. No grants are created automatically.'), style: const TextStyle(fontSize: 12)),
+          Text(appText(context, 'این مجوز فقط در محدوده گزارش‌ها اثر دارد؛ reports.manage نیز فقط برای شناسه‌های هدف ثبت‌شده معتبر است. هیچ مجوزی خودکار ایجاد نمی‌شود.', 'This grant is operational only for the report routes; reports.manage is limited to the specified target user IDs. No grants are created automatically.'), style: const TextStyle(fontSize: 12)),
         ]))),
         actions: [
           TextButton(onPressed: () => Navigator.pop(dialogContext), child: Text(appText(context, 'انصراف', 'Cancel'))),
@@ -1379,7 +1379,7 @@ class _AdminScreenState extends State<AdminScreen> {
               const SizedBox(height: 22),
               Text(appText(context, 'مجوزهای دستیاران و ایجنت‌ها', 'Assistant and agent permissions'), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
               const SizedBox(height: 6),
-              Text(appText(context, 'هیچ حساب یا مجوزی خودکار فعال نمی‌شود. این مجوزها فعلاً ثبت و ممیزی می‌شوند؛ تا اتصال کامل مسیرها، دسترسی عملیاتی اعطا نمی‌کنند.', 'No account or permission is activated automatically. Grants are currently recorded and audited; they do not yet enable operational access.'), style: const TextStyle(fontSize: 12)),
+              Text(appText(context, 'هیچ حساب یا مجوزی خودکار فعال نمی‌شود. فعلاً فقط دسترسی به گزارش‌ها قابل تفویض است: مشاهده گزارش‌ها یا مدیریت گزارش‌های کاربرانِ مشخص‌شده. سایر بخش‌ها همچنان فقط در اختیار مالک‌اند.', 'No account or permission is activated automatically. Currently, only report access can be delegated: read reports or manage reports for explicitly scoped users. All other admin areas remain owner-only.'), style: const TextStyle(fontSize: 12)),
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
                 title: Text(appText(context, 'کلید قطع اضطراری مجوزها', 'Delegated-permission kill switch')),
