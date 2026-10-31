@@ -159,7 +159,7 @@ void main() {
   });
 
 
-  testWidgets('shows the timer for the human and hides it on the AI turn',
+  testWidgets('shows the human timer and hides it after a legal move hands over to AI',
       (tester) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
@@ -167,6 +167,11 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
 
     final engine = BackgammonEngine();
+    engine.points.fillRange(0, 24, 0);
+    engine.points[0] = 1;
+    engine.dice = [1];
+    engine.currentPlayer = 1;
+
     await tester.pumpWidget(MaterialApp(
       locale: const Locale('fa'),
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
@@ -181,9 +186,13 @@ void main() {
 
     expect(find.text('⏱ 20'), findsOneWidget);
 
-    // The computer's turn must not display the human countdown.
-    engine.currentPlayer = -1;
+    // Drive the real widget interaction so its timer lifecycle is updated.
+    await tester.tap(find.byKey(const ValueKey('backgammon-point-0')));
     await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('backgammon-point-1')));
+    await tester.pump();
+
+    expect(engine.currentPlayer, -1);
     expect(find.text('⏱ 20'), findsNothing);
   });
 
