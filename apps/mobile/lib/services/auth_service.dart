@@ -2,20 +2,15 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
+import 'api_transport.dart';
 
 class AuthService {
-  static const String baseUrl = String.fromEnvironment('API_BASE_URL', defaultValue: '');
+  /// Compatibility facade; the active origin is owned by ApiTransport.
+  static String get baseUrl => ApiTransport.baseUrl;
   static const FlutterSecureStorage _storage = FlutterSecureStorage();
 
-  static void ensureConfigured({String? configuredBaseUrl}) {
-    final value = (configuredBaseUrl ?? baseUrl).trim();
-    final uri = Uri.tryParse(value);
-    if (value.isEmpty || uri == null ||
-        (uri.scheme != 'https' && uri.scheme != 'http') || uri.host.isEmpty) {
-      throw Exception('سرور Royal Club هنوز تنظیم نشده است. ابتدا سرویس API را راه‌اندازی کنید.');
-    }
-  }
-
+  static void ensureConfigured({String? configuredBaseUrl}) =>
+      ApiTransport.ensureConfigured(configuredBaseUrl: configuredBaseUrl);
   static Future<http.Response> _send(Future<http.Response> Function() request) async {
     ensureConfigured();
     try {
