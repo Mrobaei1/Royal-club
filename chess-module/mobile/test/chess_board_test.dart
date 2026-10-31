@@ -5,7 +5,6 @@ import 'package:royal_club_chess/chess_board.dart';
 void main() {
   testWidgets('renders white at bottom and emits only server-approved UCI moves', (tester) async {
     final semantics = tester.ensureSemantics();
-    addTearDown(semantics.dispose);
     String? submitted;
     await tester.pumpWidget(MaterialApp(
       home: Scaffold(
@@ -23,6 +22,7 @@ void main() {
     await tester.tap(find.byWidgetPredicate((widget) => widget is Semantics && (widget.properties.label ?? '').startsWith('e4 ')));
     await tester.pump();
     expect(submitted, 'e2e4');
+    semantics.dispose();
   });
 
   testWidgets('non-interactive board ignores taps', (tester) async {
@@ -39,10 +39,11 @@ void main() {
         ),
       ),
     ));
-    await tester.tap(find.bySemanticsLabel('e2 ♙'));
+    await tester.tap(find.byWidgetPredicate((widget) => widget is Semantics && (widget.properties.label ?? '').startsWith('e2 ')));
     await tester.pump();
-    await tester.tap(find.bySemanticsLabel('e4 empty'));
+    await tester.tap(find.byWidgetPredicate((widget) => widget is Semantics && (widget.properties.label ?? '').startsWith('e4 ')));
     await tester.pump();
     expect(submitted, isNull);
+    semantics.dispose();
   });
 }
