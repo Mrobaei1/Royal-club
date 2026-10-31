@@ -196,6 +196,9 @@ void main() {
 
     expect(engine.currentPlayer, -1);
     expect(find.text('⏱ 20'), findsNothing);
+
+    // Drain the scheduled AI-turn callback so the widget test leaves no timer behind.
+    await tester.pump(const Duration(seconds: 3));
   });
 
 
