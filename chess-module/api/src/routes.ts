@@ -104,6 +104,27 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
       players:{white:{username:row.white_username},black:{username:row.black_username}}};
   });
 
+  app.get<{Params:{gameId:string};Querystring:{afterPly?:string}}>("/chess/games/:gameId/history",{preHandler:options.authenticate},async(request,reply)=>{
+    let playerId:string;
+    try{playerId=userId(request,options);}catch{return fail(reply,401,"unauthorized");}
+    const afterPly=request.query.afterPly===undefined?0:Number(request.query.afterPly);
+    if(!Number.isSafeInteger(afterPly)||afterPly<0)return fail(reply,400,"invalid_history_cursor");
+    const game=await pool.query(
+      "SELECT id,current_fen,pgn,status,revision FROM chess_games WHERE id=$1 AND (white_user_id=$2 OR black_user_id=$2)",
+      [request.params.gameId,playerId]
+    );
+    if(!game.rowCount)return fail(reply,404,"game_not_found");
+    const moves=await pool.query(
+      "SELECT ply,user_id,from_square,to_square,promotion,san,fen_after,created_at FROM chess_moves WHERE game_id=$1 AND ply>$2 ORDER BY ply ASC LIMIT 200",
+      [request.params.gameId,afterPly]
+    );
+    return {
+      gameId:String(game.rows[0].id),fen:game.rows[0].current_fen,pgn:game.rows[0].pgn,
+      status:game.rows[0].status,revision:Number(game.rows[0].revision),
+      moves:moves.rows.map(row=>({...row,ply:Number(row.ply),userId:String(row.user_id)}))
+    };
+  });
+
   app.post<{Params:{gameId:string};Body:MoveBody}>("/chess/games/:gameId/moves",{preHandler:options.authenticate},async(request,reply)=>{
     let playerId:string;
     try{playerId=userId(request,options);}catch{return fail(reply,401,"unauthorized");}
