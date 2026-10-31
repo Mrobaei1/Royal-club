@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:royal_club_chess/chess_game_screen.dart';
+import 'package:royal_club_chess/chess_board.dart';
 
 const _fen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 
@@ -116,7 +117,7 @@ void main() {
     expect(find.text('White won'), findsOneWidget);
     expect(find.text('Offer draw'), findsNothing);
     expect(find.text('Resign'), findsNothing);
-    expect(find.byType(GestureDetector), findsWidgets);
+    expect(tester.widget<ChessBoard>(find.byType(ChessBoard)).interactive, isFalse);
   });
 
 }
