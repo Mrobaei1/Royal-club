@@ -223,7 +223,7 @@ function applyCommandForSeat(room, seat, command, expectedVersion) {
 function advanceHardBotTurn(room) {
   let next = room;
   let steps = 0;
-  while (next.status === "playing" && next.round && steps < 2) {
+  while (next.status === "playing" && next.round && steps < 52) {
     const seat = next.round.phase === "choose_trump" ? next.round.hakemSeat : next.round.currentSeat;
     const occupant = next.players.find((player) => player.seat === seat);
     if (!occupant?.botControlled) break;
