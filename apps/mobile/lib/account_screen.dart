@@ -79,7 +79,7 @@ class _AccountScreenState extends State<AccountScreen> {
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext), child: Text(appText(context, 'انصراف', 'Cancel'))),
+          TextButton(onPressed: () => Navigator.pop(dialogContext), child: Text(cancelLabel)),
           FilledButton(onPressed: () => Navigator.pop(dialogContext, controller.text.trim()), child: Text(appText(context, 'ذخیره', 'Save'))),
         ],
       ),
@@ -192,16 +192,20 @@ class _AccountScreenState extends State<AccountScreen> {
       final firstAvatarFree = _customizationPricing['avatarFirstChangeFree'] == true;
       final avatarPrice = (_customizationPricing['avatarChangePriceCredits'] as num?)?.toInt() ?? 0;
       if (!firstAvatarFree && avatarPrice > 0) {
+        final confirmTitle = appText(context, 'تأیید هزینه تغییر تصویر', 'Confirm avatar change cost');
+        final confirmBody = appText(context,
+          'این تغییر تصویر پروفایل $avatarPrice اعتبار هزینه دارد. ادامه می‌دهید؟',
+          'This profile photo change costs $avatarPrice credits. Continue?');
+        final cancelLabel = appText(context, 'انصراف', 'Cancel');
+        final continueLabel = appText(context, 'تأیید و ادامه', 'Confirm and continue');
         final confirmed = await showDialog<bool>(
           context: context,
           builder: (dialogContext) => AlertDialog(
-            title: Text(appText(context, 'تأیید هزینه تغییر تصویر', 'Confirm avatar change cost')),
-            content: Text(appText(context,
-              'این تغییر تصویر پروفایل ${avatarPrice} اعتبار هزینه دارد. ادامه می‌دهید؟',
-              'This profile photo change costs ${avatarPrice} credits. Continue?')),
+            title: Text(confirmTitle),
+            content: Text(confirmBody),
             actions: [
               TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: Text(appText(context, 'انصراف', 'Cancel'))),
-              FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: Text(appText(context, 'تأیید و ادامه', 'Confirm and continue'))),
+              FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: Text(continueLabel)),
             ],
           ),
         );
