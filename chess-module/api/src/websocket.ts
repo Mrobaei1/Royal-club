@@ -114,6 +114,8 @@ export async function registerChessWebSocket(app: FastifyInstance, options: Opti
         closed = true;
         if (expiryTimer) clearInterval(expiryTimer);
         try { await publish({type:"presence",id:userId,connected:false}); } catch {}
+        // A disconnected participant must not keep the room microphone lease.
+        try { await options.pool.query("DELETE FROM chess_voice_leases WHERE room_id=$1 AND user_id=$2",[roomId,userId]); } catch {}
         try { await listener.query("UNLISTEN " + channel); } catch {}
         listener.release();
       };
