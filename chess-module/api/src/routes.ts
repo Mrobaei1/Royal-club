@@ -228,6 +228,7 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
       await client.query("UPDATE chess_rooms SET status='finished' WHERE id=$1",[row.room_id]);
       await awardChessResult(client,String(row.id),"final_result",white,black,{outcome:"resignation",winnerId:winner,loserId:playerId});
       await client.query("COMMIT");
+      try{await publishGameEvent(pool,row.id,{type:"state"});}catch(error){request.log.warn({err:error},"chess resignation notification failed");}
       return {status,winnerId:winner};
     }catch(error){await rollback(client);request.log.error(error);return fail(reply,500,"chess_resign_failed");}
     finally{client.release();}
@@ -376,10 +377,15 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
         await client.query("UPDATE chess_draw_offers SET status='accepted',responded_by=$2,responded_at=NOW() WHERE id=$1",[offer.rows[0].id,playerId]);
         await awardChessResult(client,String(row.id),"final_result",white,black,{outcome:"draw",winnerId:null,loserId:null});
         await client.query("COMMIT");
+        try{
+          await publishGameEvent(pool,row.id,{type:"state"});
+          await publishGameEvent(pool,row.id,{type:"draw_response",offerId:String(offer.rows[0].id),status:"accepted"});
+        }catch(error){request.log.warn({err:error},"chess draw acceptance notification failed");}
         return {status:"draw"};
       }
       await client.query("UPDATE chess_draw_offers SET status='declined',responded_by=$2,responded_at=NOW() WHERE id=$1",[offer.rows[0].id,playerId]);
       await client.query("COMMIT");
+      try{await publishGameEvent(pool,row.id,{type:"draw_response",offerId:String(offer.rows[0].id),status:"declined"});}catch(error){request.log.warn({err:error},"chess draw response notification failed");}
       return {status:"declined"};
     }catch(error){await rollback(client);request.log.error(error);return fail(reply,500,"draw_response_failed");}
     finally{client.release();}
