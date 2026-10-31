@@ -45,6 +45,8 @@ export class UnoRoomManager {
       room.players.push({ ...player, ready: false, connected: true, muted: true, selfMuted: true, hostMuted: false });
       room.roundsWon[player.id] = 0;
       this.userRooms.set(player.id, code);
+      // A changed lobby invalidates every previous ready vote.
+      for (const seat of room.players) seat.ready = false;
     }
     room.status = 'waiting';
     return structuredClone(room);
