@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/material.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 
 /// Push-to-talk transport for the isolated chess module.
@@ -43,11 +44,6 @@ class ChessVoiceClient {
     final base = apiBaseUri.toString().replaceFirst(RegExp(r'/+$'), '');
     return Uri.parse('$base$path');
   }
-
-  Map<String, String> get _headers => {
-        HttpHeaders.authorizationHeader: 'Bearer $token',
-        HttpHeaders.contentTypeHeader: 'application/json',
-      };
 
   Future<void> connect() async {
     if (_disposed) throw StateError('voice_client_disposed');
