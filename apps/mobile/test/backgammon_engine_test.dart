@@ -271,10 +271,10 @@ void main() {
       game.points[20] = 1;
 
       final moves = game.legalMoves();
-      // Point 23 is closest to the bear-off edge and may use the oversized die;
-      // point 20 must not skip over it.
-      expect(moves.any((move) => move.from == 23 && move.to == -1), isTrue);
-      expect(moves.any((move) => move.from == 20 && move.to == -1), isFalse);
+      // Point 20 (point 4) is the farthest occupied point. It may use
+      // the oversized die; point 23 (point 1) cannot skip over it.
+      expect(moves.any((move) => move.from == 20 && move.to == -1), isTrue);
+      expect(moves.any((move) => move.from == 23 && move.to == -1), isFalse);
     });
 
     test(
