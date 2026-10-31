@@ -29,6 +29,8 @@ class ChessGameScreen extends StatefulWidget {
     this.activeSide,
     this.whiteProfile,
     this.blackProfile,
+    this.isHost = false,
+    this.onToggleVoice,
   });
 
   final String fen;
@@ -52,6 +54,8 @@ class ChessGameScreen extends StatefulWidget {
   final String? activeSide; // white, black, or null; server remains authoritative.
   final ChessPlayerProfile? whiteProfile;
   final ChessPlayerProfile? blackProfile;
+  final bool isHost;
+  final ValueChanged<bool>? onToggleVoice;
 
   @override
   State<ChessGameScreen> createState() => _ChessGameScreenState();
@@ -245,6 +249,14 @@ class _ChessGameScreenState extends State<ChessGameScreen> {
                   label: Text(fa ? 'تسلیم' : 'Resign'),
                 ),
             ],
+          ),
+        if (widget.isHost && widget.onToggleVoice != null)
+          SwitchListTile(
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+            title: Text(fa ? 'فعال‌سازی صدای اتاق' : 'Enable room voice'),
+            value: widget.voiceEnabled,
+            onChanged: widget.onToggleVoice,
           ),
         if (widget.voiceEnabled)
           Row(
