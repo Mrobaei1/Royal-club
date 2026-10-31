@@ -3,10 +3,6 @@ name: Deploy Royal Club API to Neon Functions
 # Production deployment is deliberately manual-only. A merge or push must never deploy
 # to the live Neon function without an explicit release action.
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'apps/api/**'
   workflow_dispatch:
     inputs:
       neon_project_id:
