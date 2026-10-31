@@ -85,6 +85,9 @@ class AdminService {
   static Future<List<dynamic>> agentTaskProposals() async =>
       (await _request('GET', '/api/v1/admin/agent-task-proposals'))['proposals'] as List<dynamic>? ?? [];
 
+  static Future<List<dynamic>> agentTaskAudit() async =>
+      (await _request('GET', '/api/v1/admin/agent-task-audit'))['entries'] as List<dynamic>? ?? [];
+
   static Future<void> rejectAgentTaskProposal(String id, String reason) async {
     await _request('POST', '/api/v1/admin/agent-task-proposals/$id/reject', body: {'reason': reason});
   }
