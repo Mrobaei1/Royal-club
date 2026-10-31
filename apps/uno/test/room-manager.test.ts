@@ -101,3 +101,19 @@ test('re-enabling voice preserves each player self-mute preference', () => {
   assert.equal(enabled.players[0]!.muted, true);
   assert.equal(enabled.players[1]!.muted, true);
 });
+
+test('host mute and voice shutdown require players to opt in again', () => {
+  const manager = new UnoRoomManager();
+  const room = manager.createRoom(host);
+  manager.joinRoom(room.code, guest);
+  manager.setMuted(room.code, guest.id, guest.id, false);
+  assert.equal(manager.getRoom(room.code).players[1]!.muted, false);
+  manager.setMuted(room.code, host.id, guest.id, true);
+  manager.setMuted(room.code, host.id, guest.id, false);
+  assert.equal(manager.getRoom(room.code).players[1]!.muted, true);
+  manager.setMuted(room.code, guest.id, guest.id, false);
+  assert.equal(manager.getRoom(room.code).players[1]!.muted, false);
+  manager.setCommunication(room.code, host.id, 'voiceEnabled', false);
+  manager.setCommunication(room.code, host.id, 'voiceEnabled', true);
+  assert.equal(manager.getRoom(room.code).players[1]!.muted, true);
+});

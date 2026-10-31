@@ -91,6 +91,7 @@ export class UnoRoomManager {
       target.selfMuted = muted;
     } else {
       target.hostMuted = muted;
+      if (muted) target.selfMuted = true;
     }
     target.muted = target.selfMuted || target.hostMuted;
     return structuredClone(room);
@@ -102,6 +103,7 @@ export class UnoRoomManager {
     if (setting === 'voiceEnabled') {
       for (const player of room.players) {
         player.hostMuted = !enabled;
+        if (!enabled) player.selfMuted = true;
         player.muted = player.selfMuted || player.hostMuted;
       }
     }

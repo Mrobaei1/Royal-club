@@ -237,18 +237,51 @@ class _UnoOnlineScreenState extends State<UnoOnlineScreen> {
       await _setupVoice();
       if (_micMuted) {
         final permission = await Permission.microphone.request();
-        if (!permission.isGranted) throw StateError('برای گفت‌وگوی صوتی باید مجوز میکروفون را فعال کنی.');
-        final players = List<Map<String, dynamic>>.from((room['players'] as List).map((p) => Map<String, dynamic>.from(p as Map)));
-        await _voice!.enableMicrophone(players.where((p) => p['id'] != widget.playerId).map((p) => p['id'] as String));
-        await _voice!.setMuted(false);
-        setState(() => _micMuted = false);
+        if (!permission.isGranted) {
+          throw StateError('برای گفت‌وگوی صوتی باید مجوز میکروفون را فعال کنی.');
+        }
+        final authorization = await _emit('uno:voice:mute', {
+          'code': room['code'],
+          'targetId': widget.playerId,
+          'muted': false,
+        });
+        if (authorization['ok'] != true) {
+          final message = (authorization['error'] as Map?)?['message']?.toString();
+          throw StateError(message ?? 'میزبان اجازهٔ فعال‌کردن میکروفون را نداده است.');
+        }
+        try {
+          final players = List<Map<String, dynamic>>.from(
+            (room['players'] as List).map((p) => Map<String, dynamic>.from(p as Map)),
+          );
+          await _voice!.enableMicrophone(
+            players.where((p) => p['id'] != widget.playerId).map((p) => p['id'] as String),
+          );
+          await _voice!.setMuted(false);
+          if (mounted) setState(() => _micMuted = false);
+        } catch (_) {
+          await _voice!.setMuted(true);
+          await _emit('uno:voice:mute', {
+            'code': room['code'],
+            'targetId': widget.playerId,
+            'muted': true,
+          });
+          rethrow;
+        }
       } else {
         await _voice!.setMuted(true);
-        setState(() => _micMuted = true);
+        if (mounted) setState(() => _micMuted = true);
+        final result = await _emit('uno:voice:mute', {
+          'code': room['code'],
+          'targetId': widget.playerId,
+          'muted': true,
+        });
+        if (result['ok'] != true) {
+          final message = (result['error'] as Map?)?['message']?.toString();
+          throw StateError(message ?? 'وضعیت میکروفون در سرور ثبت نشد.');
+        }
       }
-      await _emit('uno:voice:mute', {'code': room['code'], 'targetId': widget.playerId, 'muted': _micMuted});
     } catch (error) {
-      if (mounted) setState(() => _error = error.toString());
+      if (mounted) setState(() => _error = error.toString().replaceFirst('Bad state: ', ''));
     }
   }
 
