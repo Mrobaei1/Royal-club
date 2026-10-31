@@ -244,6 +244,25 @@ test("expired disconnect grace transfers seat to temporary Hard bot and permits 
   assert.throws(() => handleDisconnectTimeout(room, "u0", { now: deadline + 2000, expectedVersion: staleVersion }), /Stale room version/);
 });
 
+
+test("multiple temporary disconnects advance consecutive Hard bots through a complete hand", () => {
+  let room = startRoom(fullReadyRoom(1000, 3), "u0", { now: 2000, rng: () => 0.5 });
+  for (const userId of ["u0", "u1", "u2", "u3"]) {
+    room = disconnectPlayer(room, userId, { now: 3000, expectedVersion: room.version });
+  }
+  for (const userId of ["u0", "u1", "u2", "u3"]) {
+    const player = room.players.find(candidate => candidate.userId === userId);
+    room = handleDisconnectTimeout(room, userId, {
+      now: player.reconnectDeadline,
+      expectedVersion: room.version
+    });
+  }
+  assert.equal(room.status, "round_completed");
+  assert.equal(room.round.phase, "completed");
+  assert.equal(room.round.completedTricks.length, 13);
+  assert.ok(room.players.every(player => player.temporaryBot && player.botControlled && !player.connected));
+});
+
 test("intentional forfeit remains permanent after a temporary disconnect", () => {
   let room = startRoom(fullReadyRoom(), "u0", { now: 2000, rng: () => 0.5 });
   room = disconnectPlayer(room, "u0", { now: 3000, expectedVersion: room.version });
