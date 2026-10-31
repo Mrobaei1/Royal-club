@@ -106,6 +106,13 @@ test('registered players can join an online match and history does not expose op
   });
   assert.equal(deniedAgentTemplateList.statusCode, 403);
 
+  const deniedAgentAudit = await app.inject({
+    method: 'GET',
+    url: '/api/v1/admin/agent-task-audit',
+    headers: auth(host.token),
+  });
+  assert.equal(deniedAgentAudit.statusCode, 403);
+
   const deniedAgentTaskList = await app.inject({
     method: 'GET',
     url: '/api/v1/admin/agent-tasks',
@@ -2442,6 +2449,19 @@ test('Phase 4 agent task definitions remain dormant and proposals require human 
       payload: { reason: 'Second review attempt.' },
     });
     assert.equal(repeatedReject.statusCode, 409, repeatedReject.body);
+
+    const audit = await app.inject({
+      method: 'GET',
+      url: '/api/v1/admin/agent-task-audit',
+      headers: auth(owner.token),
+    });
+    assert.equal(audit.statusCode, 200, audit.body);
+    assert.equal(audit.json().runtimeEnabled, false);
+    const auditEntries = audit.json().entries as Array<Record<string, unknown>>;
+    assert.ok(auditEntries.some((entry) => entry.action === 'definition_created'));
+    assert.ok(auditEntries.some((entry) => entry.action === 'proposal_created'));
+    assert.ok(auditEntries.some((entry) => entry.action === 'proposal_rejected'));
+    assert.ok(auditEntries.every((entry) => entry.actorUsername === owner.user.username));
   } finally {
     if (previousOwnerId === undefined) delete process.env.OWNER_USER_ID;
     else process.env.OWNER_USER_ID = previousOwnerId;

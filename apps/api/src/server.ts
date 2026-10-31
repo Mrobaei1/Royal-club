@@ -1969,6 +1969,22 @@ app.get('/api/v1/admin/agent-task-proposals', { onRequest: [requireOwnerAuth] },
   return { proposals: result.rows, runtimeEnabled: false };
 });
 
+app.get('/api/v1/admin/agent-task-audit', { onRequest: [requireOwnerAuth] }, async () => {
+  const result = await pool.query(`
+    SELECT a.id, a.task_definition_id AS "taskDefinitionId",
+           t.code AS "taskCode", t.title AS "taskTitle",
+           a.proposal_id AS "proposalId", a.action, a.result, a.reason, a.details,
+           actor.username AS "actorUsername",
+           a.created_at AS "createdAt"
+      FROM agent_task_audit_log a
+      LEFT JOIN agent_task_definitions t ON t.id = a.task_definition_id
+      LEFT JOIN users actor ON actor.id = a.actor_user_id
+     ORDER BY a.created_at DESC, a.id DESC
+     LIMIT 200
+  `);
+  return { entries: result.rows, runtimeEnabled: false };
+});
+
 app.post<{ Params: { id: string }; Body: { input?: Record<string, unknown> } }>(
   '/api/v1/admin/agent-tasks/:id/proposals',
   { onRequest: [requireOwnerAuth], config: { rateLimit: { max: 20, timeWindow: '1 minute' } } },
