@@ -127,6 +127,7 @@ class _ChessLobbyScreenState extends State<ChessLobbyScreen> {
           TextField(
             controller: _roomCode,
             textCapitalization: TextCapitalization.characters,
+            onChanged: (_) => setState(() {}),
             decoration: InputDecoration(labelText: fa ? 'کد اتاق' : 'Room code'),
           ),
           OutlinedButton(
