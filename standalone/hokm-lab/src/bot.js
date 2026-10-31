@@ -237,27 +237,23 @@ function searchExpectedTrickValue(state, seat, candidates, ledger) {
       const firstWon = firstWinner.seat % 2 === seat % 2;
       let sampleScore = firstWon ? 1 : 0;
 
-      // Two additional complete tricks provide a bounded three-trick lookahead.
+      // One additional complete trick provides a bounded two-trick lookahead.
       // Every seat uses the same public-information-only partner-aware policy.
+      const nextTrick = [];
       let leader = firstWinner.seat;
-      for (let depth = 0; depth < 2; depth += 1) {
-        const futureTrick = [];
-        for (let offset = 0; offset < 4; offset += 1) {
-          const nextSeat = (leader + offset) % 4;
-          const hand = simulatedHands[nextSeat];
-          if (!hand?.length) { valid = false; break; }
-          const card = simulatedPolicy(hand, futureTrick, state.trumpSuit, nextSeat);
-          const index = hand.findIndex(item => cardKey(item) === cardKey(card));
-          if (index < 0) { valid = false; break; }
-          hand.splice(index, 1);
-          futureTrick.push({ seat: nextSeat, card });
-        }
-        if (!valid || futureTrick.length !== 4) { valid = false; break; }
-        const futureWinner = simulatedWinner(futureTrick, state.trumpSuit);
-        if (futureWinner.seat % 2 === seat % 2) sampleScore += depth === 0 ? 0.35 : 0.15;
-        leader = futureWinner.seat;
+      for (let offset = 0; offset < 4; offset += 1) {
+        const nextSeat = (leader + offset) % 4;
+        const hand = simulatedHands[nextSeat];
+        if (!hand?.length) { valid = false; break; }
+        const card = simulatedPolicy(hand, nextTrick, state.trumpSuit, nextSeat);
+        const index = hand.findIndex(item => cardKey(item) === cardKey(card));
+        if (index < 0) { valid = false; break; }
+        hand.splice(index, 1);
+        nextTrick.push({ seat: nextSeat, card });
       }
-      if (!valid) continue;
+      if (!valid || nextTrick.length !== 4) continue;
+      const secondWinner = simulatedWinner(nextTrick, state.trumpSuit);
+      if (secondWinner.seat % 2 === seat % 2) sampleScore += 0.35;
 
       const entry = values.get(cardKey(candidate));
       entry.score += sampleScore;
