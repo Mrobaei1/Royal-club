@@ -670,6 +670,7 @@ app.addHook('onRequest', async () => {
 app.get('/api/v1/health', async () => ({
   status: 'ok',
   service: 'royal-club-api',
+  buildSha: process.env.ROYAL_CLUB_GIT_SHA ?? null,
   timestamp: new Date().toISOString(),
 }));
 
