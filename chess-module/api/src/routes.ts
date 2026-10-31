@@ -426,7 +426,7 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
     const client=await pool.connect();
     try{
       await client.query("BEGIN");
-      const room=await client.query("SELECT r.id,r.host_user_id,r.settings_snapshot FROM chess_rooms r JOIN chess_games g ON g.room_id=r.id WHERE g.id=$1 FOR UPDATE OF r",[request.params.gameId]);
+      const room=await client.query("SELECT r.id,r.host_user_id,r.settings_snapshot FROM chess_rooms r JOIN chess_games g ON g.room_id=r.id AND g.status='active' WHERE g.id=$1 FOR UPDATE OF r",[request.params.gameId]);
       if(!room.rowCount||String(room.rows[0].host_user_id)!==actor){await client.query("ROLLBACK");return fail(reply,403,"host_only");}
       const settings={...(room.rows[0].settings_snapshot??{}),voiceEnabled:false};
       await client.query("UPDATE chess_rooms SET settings_snapshot=$2::jsonb WHERE id=$1",[room.rows[0].id,JSON.stringify(settings)]);
