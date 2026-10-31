@@ -225,8 +225,10 @@ class _RoyalBoardPainter extends CustomPainter {
           final center=checkerCenter(i,k,n,s);
           _checker(c,center,r,count>0);
         }
-        if(count.abs()>5)_txt(c,count.abs().toString(),
-          checkerCenter(i,0,n,s),r*.8,count>0?const Color(0xFF302315):Colors.white);
+        if(count.abs()>5) {
+          _txt(c,count.abs().toString(),
+            checkerCenter(i,0,n,s),r*.8,count>0?const Color(0xFF302315):Colors.white);
+        }
       }
       _txt(c,i.toString(),Offset(cx,isTop?row*.035:h-row*.035),math.max(8.0,pw*.24),const Color(0xFFE53935));
     }
