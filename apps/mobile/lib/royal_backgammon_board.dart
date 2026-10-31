@@ -188,7 +188,7 @@ class _RoyalBoardPainter extends CustomPainter {
     final hw=(w-2*m-bw)/2, pw=hw/6, mid=middleHeight(s), row=(h-mid)/2;
     // Point bases belong to the players' outer edges; tips face the central bar.
     final topBase=0.0, bottomBase=h;
-    final triH=row*.56, r=math.min(pw*.43, row*.17);
+    final triH=row*.56;
     double colX(int col)=>col<6?m+col*pw:m+hw+bw+(col-6)*pw;
     final bounds=Offset.zero&s;
     final frame=RRect.fromRectAndRadius(bounds,Radius.circular(w*.022));
