@@ -310,6 +310,7 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
       await client.query("UPDATE chess_rooms SET settings_snapshot=$2::jsonb WHERE id=$1",[room.rows[0].id,JSON.stringify(settings)]);
       await client.query("DELETE FROM chess_voice_leases WHERE room_id=$1",[room.rows[0].id]);
       await client.query("COMMIT");
+      try{await publishGameEvent(pool,request.params.gameId,{type:"voice"});}catch(error){request.log.warn({err:error},"voice disable notification failed");}
       return {voiceEnabled:false};
     }catch(error){await rollback(client);request.log.error(error);return fail(reply,500,"voice_disable_failed");}
     finally{client.release();}
@@ -400,7 +401,7 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
     let playerId:string;
     try{playerId=userId(request,options);}catch{return fail(reply,401,"unauthorized");}
     const renewed=await pool.query(
-      "UPDATE chess_voice_leases l SET expires_at=NOW()+INTERVAL '8 seconds' FROM chess_games g WHERE g.id=$1 AND g.room_id=l.room_id AND l.user_id=$2 AND l.lease_id=$3 RETURNING l.expires_at",
+      "UPDATE chess_voice_leases l SET expires_at=NOW()+INTERVAL '8 seconds' FROM chess_games g JOIN chess_rooms r ON r.id=g.room_id WHERE g.id=$1 AND g.status='active' AND COALESCE((r.settings_snapshot->>'voiceEnabled')::boolean,false)=true AND g.room_id=l.room_id AND l.user_id=$2 AND l.lease_id=$3 AND l.expires_at>NOW() RETURNING l.expires_at",
       [request.params.gameId,playerId,request.body?.leaseId]
     );
     if(!renewed.rowCount)return fail(reply,409,"voice_lease_expired");
@@ -416,6 +417,7 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
       [request.params.gameId,actor]
     );
     if(!changed.rowCount)return fail(reply,403,"host_only");
+    try{await publishGameEvent(pool,request.params.gameId,{type:"voice"});}catch(error){request.log.warn({err:error},"voice enable notification failed");}
     return {voiceEnabled:true};
   });
 
