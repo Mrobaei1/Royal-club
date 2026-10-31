@@ -39,9 +39,8 @@ class AuthService {
 
   static Future<Map<String, dynamic>> _post(
       String path, Map<String, dynamic> data) async {
-    final base = baseUrl.trim().replaceFirst(RegExp(r'/+$'), '');
     final response = await _send(() => http.post(
-          Uri.parse('$base$path'),
+          ApiTransport.uri(path),
           headers: {'Content-Type': 'application/json'},
           body: jsonEncode(data),
         ));
@@ -68,9 +67,8 @@ class AuthService {
       _post('/api/v1/auth/login', {'email': email.trim(), 'password': password});
 
   static Future<Map<String, dynamic>> phoneOtpStatus() async {
-    final base = baseUrl.trim().replaceFirst(RegExp(r'/+$'), '');
     return _decode(await _send(
-      () => http.get(Uri.parse('$base/api/v1/auth/phone-otp/status')),
+      () => http.get(ApiTransport.uri('/api/v1/auth/phone-otp/status')),
     ));
   }
 
@@ -114,7 +112,7 @@ class AuthService {
     if (token == null || token.isEmpty) throw Exception('ابتدا وارد حساب شوید.');
     final base = baseUrl.trim().replaceFirst(RegExp(r'/+$'), '');
     final response = await _send(() => http.post(
-      Uri.parse('$base/api/v1/auth/phone-otp/link'),
+      ApiTransport.uri('/api/v1/auth/phone-otp/link'),
       headers: {
         'Authorization': 'Bearer $token',
         'Content-Type': 'application/json',
@@ -129,7 +127,7 @@ class AuthService {
     if (token == null || token.isEmpty) throw Exception('ابتدا وارد حساب شوید.');
     final base = baseUrl.trim().replaceFirst(RegExp(r'/+$'), '');
     return _decode(await _send(() => http.get(
-          Uri.parse('$base/api/v1/me'),
+          ApiTransport.uri('/api/v1/me'),
           headers: {'Authorization': 'Bearer $token'},
         )));
   }
@@ -139,7 +137,7 @@ class AuthService {
     if (token == null || token.isEmpty) throw Exception('ابتدا وارد حساب شوید.');
     final base = baseUrl.trim().replaceFirst(RegExp(r'/+$'), '');
     return _decode(await _send(() => http.get(
-      Uri.parse('$base/api/v1/account/customization-pricing'),
+      ApiTransport.uri('/api/v1/account/customization-pricing'),
       headers: {'Authorization': 'Bearer $token'},
     )));
   }
@@ -151,7 +149,7 @@ class AuthService {
   }) async {
     final base = baseUrl.trim().replaceFirst(RegExp(r'/+$'), '');
     return _decode(await _send(() => http.post(
-      Uri.parse('$base/api/v1/auth/phone-otp/reset-password'),
+      ApiTransport.uri('/api/v1/auth/phone-otp/reset-password'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({'phone': phone.trim(), 'code': code.trim(), 'newPassword': newPassword}),
     )));
@@ -162,7 +160,7 @@ class AuthService {
     if (token == null || token.isEmpty) throw Exception('ابتدا وارد حساب شوید.');
     final base = baseUrl.trim().replaceFirst(RegExp(r'/+$'), '');
     final response = await _send(() => http.patch(
-          Uri.parse('$base/api/v1/me/username'),
+          ApiTransport.uri('/api/v1/me/username'),
           headers: {
             'Authorization': 'Bearer $token',
             'Content-Type': 'application/json'
@@ -181,7 +179,7 @@ class AuthService {
     if (token == null || token.isEmpty) throw Exception('ابتدا وارد حساب شوید.');
     final base = baseUrl.trim().replaceFirst(RegExp(r'/+$'), '');
     final response = await _send(() => http.patch(
-          Uri.parse('$base/api/v1/me/profile'),
+          ApiTransport.uri('/api/v1/me/profile'),
           headers: {
             'Authorization': 'Bearer $token',
             'Content-Type': 'application/json'
@@ -202,7 +200,7 @@ class AuthService {
     if (token == null || token.isEmpty) throw Exception('ابتدا وارد حساب شوید.');
     final base = baseUrl.trim().replaceFirst(RegExp(r'/+$'), '');
     final response = await _send(() => http.patch(
-          Uri.parse('$base/api/v1/me/avatar'),
+          ApiTransport.uri('/api/v1/me/avatar'),
           headers: {
             'Authorization': 'Bearer $token',
             'Content-Type': 'application/json'
