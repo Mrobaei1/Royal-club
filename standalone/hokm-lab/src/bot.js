@@ -106,51 +106,70 @@ function sampleHiddenHands(state, seat, ledger, rng) {
   const played = [0, 1, 2, 3].map(() => 0);
   for (const trick of publicHistory(state)) for (const play of trick) played[play.seat] += 1;
   const capacities = [0, 1, 2, 3].map(id => id === seat ? 0 : 13 - played[id]);
-  if (capacities[seat] !== 0 || capacities.some((count, id) => id !== seat && count < 0)) return null;
-  const cards = [];
-  for (const suit of SUITS) for (const rankName of RANKS) {
-    const key = cardKey({ suit, rank: rankName });
-    const visible = new Set([
-      ...state.hands[seat].map(cardKey),
-      ...publicHistory(state).flatMap(trick => trick.map(play => cardKey(play.card)))
-    ]);
-    if (!visible.has(key)) cards.push({ suit, rank: rankName });
-  }
-  const required = capacities.reduce((sum, count) => sum + count, 0);
-  if (cards.length !== required) return null;
+  const ownExpected = 13 - played[seat];
+  if (state.hands[seat].length !== ownExpected ||
+      capacities.some((count, id) => id !== seat && count < 0)) return null;
+
+  const visible = new Set([
+    ...state.hands[seat].map(cardKey),
+    ...publicHistory(state).flatMap(trick => trick.map(play => cardKey(play.card)))
+  ]);
+  const cardsBySuit = Object.fromEntries(SUITS.map(suit => [suit,
+    RANKS.map(rankName => ({ suit, rank: rankName }))
+      .filter(card => !visible.has(cardKey(card)))
+  ]));
+  if (Object.values(cardsBySuit).reduce((sum, cards) => sum + cards.length, 0) !==
+      capacities.reduce((sum, count) => sum + count, 0)) return null;
+
   const voids = ledger.voidSuitsBySeat;
-  const eligible = card => [0, 1, 2, 3].filter(id => id !== seat &&
-    !(voids[id] ?? []).includes(card.suit) && capacities[id] > 0);
-  cards.sort((a, b) => eligible(a).length - eligible(b).length);
-  const hands = [[], [], [], []];
-  function assign(index) {
-    if (index === cards.length) return capacities.every((count, id) => id === seat || count === 0);
-    const remaining = cards.length - index;
-    if (capacities.reduce((sum, count) => sum + count, 0) !== remaining) return false;
-    for (const id of [0, 1, 2, 3]) {
-      if (id === seat || capacities[id] === 0) continue;
-      let possible = 0;
-      for (let cursor = index; cursor < cards.length; cursor += 1) {
-        if (!(voids[id] ?? []).includes(cards[cursor].suit)) possible += 1;
+  const allocations = Object.fromEntries(SUITS.map(suit => [suit, {}]));
+  function allocateSuit(suitIndex) {
+    if (suitIndex === SUITS.length) return capacities.every((count, id) => id === seat || count === 0);
+    const suit = SUITS[suitIndex];
+    const count = cardsBySuit[suit].length;
+    const eligibleSeats = [0, 1, 2, 3].filter(id => id !== seat &&
+      !(voids[id] ?? []).includes(suit));
+    function distribute(position, remaining) {
+      if (position === eligibleSeats.length) {
+        if (remaining !== 0) return false;
+        return allocateSuit(suitIndex + 1);
       }
-      if (possible < capacities[id]) return false;
+      const id = eligibleSeats[position];
+      const max = Math.min(capacities[id], remaining);
+      const options = Array.from({ length: max + 1 }, (_, index) => index);
+      for (let i = options.length - 1; i > 0; i -= 1) {
+        const j = Math.floor(rng() * (i + 1));
+        [options[i], options[j]] = [options[j], options[i]];
+      }
+      for (const amount of options) {
+        capacities[id] -= amount;
+        allocations[suit][id] = amount;
+        if (distribute(position + 1, remaining - amount)) return true;
+        capacities[id] += amount;
+      }
+      delete allocations[suit][id];
+      return false;
     }
-    const card = cards[index];
-    const choices = eligible(card);
-    for (let i = choices.length - 1; i > 0; i -= 1) {
-      const j = Math.floor(rng() * (i + 1));
-      [choices[i], choices[j]] = [choices[j], choices[i]];
-    }
-    for (const id of choices) {
-      capacities[id] -= 1;
-      hands[id].push(card);
-      if (assign(index + 1)) return true;
-      hands[id].pop();
-      capacities[id] += 1;
-    }
-    return false;
+    return distribute(0, count);
   }
-  return assign(0) ? hands : null;
+  if (!allocateSuit(0)) return null;
+
+  const hands = [[], [], [], []];
+  for (const suit of SUITS) {
+    const cards = [...cardsBySuit[suit]];
+    for (let i = cards.length - 1; i > 0; i -= 1) {
+      const j = Math.floor(rng() * (i + 1));
+      [cards[i], cards[j]] = [cards[j], cards[i]];
+    }
+    let cursor = 0;
+    for (const id of [0, 1, 2, 3]) {
+      const amount = allocations[suit][id] ?? 0;
+      hands[id].push(...cards.slice(cursor, cursor + amount));
+      cursor += amount;
+    }
+    if (cursor !== cards.length) return null;
+  }
+  return hands;
 }
 function simulatedWinner(trick, trump) {
   return currentWinner(trick, trump);
