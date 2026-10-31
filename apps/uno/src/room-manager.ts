@@ -154,7 +154,7 @@ export class UnoRoomManager {
     }
     player.selfMuted = true;
     player.muted = true;
-    if (room.status !== 'playing' && room.status !== 'finished') room.status = 'waiting';
+    if (room.status !== 'playing') room.status = 'waiting';
     return structuredClone(room);
   }
   leave(code: string, playerId: string): UnoRoom | null {
