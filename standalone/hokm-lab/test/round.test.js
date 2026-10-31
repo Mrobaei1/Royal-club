@@ -64,3 +64,22 @@ test("round rejects a malformed deck with duplicate cards before dealing", () =>
   deck[51] = deck[0];
   assert.throws(() => createRound({ deck }), /52 unique/);
 });
+
+
+test("completed public trick history is retained and sanitized in seat views",()=>{
+  let state=chooseTrump(createRound({deck:createDeck(),hakemSeat:0}),0,"hearts");
+  const trick=[];
+  for(let i=0;i<4;i++){
+    const seat=state.currentSeat;
+    const card=state.hands[seat].find(c=>!trick.length||c.suit===trick[0].suit) ?? state.hands[seat][0];
+    if(!trick.length) trick.push(card);
+    state=playCard(state,seat,card);
+  }
+  assert.equal(state.completedTricks.length,1);
+  assert.equal(state.completedTricks[0].length,4);
+  const view=roundViewForSeat(state,2);
+  assert.equal(view.completedTricks.length,1);
+  assert.equal(view.completedTricks[0].length,4);
+  assert.equal("undealtDeck" in view,false);
+  assert.equal("hands" in view,false);
+});
