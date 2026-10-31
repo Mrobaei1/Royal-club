@@ -7,14 +7,16 @@ import 'package:flutter/foundation.dart';
 import 'chess_api_client.dart';
 import 'chess_game_screen.dart';
 import 'chess_player_profile_card.dart';
+import 'chess_voice_client.dart';
 
 /// Orchestrates the HTTP snapshot, live WebSocket events, chat, draw offers
 /// and server-synchronized display clocks for one authenticated chess game.
 class ChessGameSession extends ChangeNotifier {
-  ChessGameSession({required this.api, required this.gameId});
+  ChessGameSession({required this.api, required this.gameId, this.voiceClient});
 
   final ChessApiClient api;
   final String gameId;
+  final ChessVoiceClient? voiceClient;
 
   Map<String, dynamic>? game;
   List<ChessChatMessage> messages = [];
@@ -254,6 +256,17 @@ class ChessGameSession extends ChangeNotifier {
   Future<void> resign() async {
     await api.resign(gameId);
     await refresh();
+  }
+
+  Future<void> pressToTalk() async {
+    if (!voiceEnabled) throw StateError('voice_disabled_by_host');
+    final client = voiceClient;
+    if (client == null) throw StateError('voice_client_not_configured');
+    await client.pressToTalk();
+  }
+
+  Future<void> releaseTalk() async {
+    await voiceClient?.releaseTalk();
   }
 
   Future<void> setVoiceEnabled(bool enabled) async {
