@@ -13,7 +13,7 @@
 | 4.0 | Room and invitation lifecycle | Four seats, private invite, ready/start, host transfer, empty-room cleanup, no occupied-room TTL | 8% |
 | 5.0 | Authoritative online service | Fastify adapter, authenticated membership, atomic/versioned commands, persistence and event delivery | 12% |
 | 6.0 | Reconnect and availability | Disconnect grace period, seat recovery, bot substitution policy, reconnect idempotency | 8% |
-| 7.0 | AI players | Fixed hard-only decision policy; no user-selectable difficulty; all actions pass the same authoritative validator | 7% |
+| 7.0 | AI players | Fixed hard-only policy; no user-selectable difficulty; public-information-only decisions; legal action validation; strategy simulation | 7% |
 | 8.0 | Chat and voice | Room chat, abuse controls, mic permission/consent, mute/report and provider decision | 7% |
 | 9.0 | Flutter game UI | Responsive RTL table, cards, hands, trick animation, score, invite/waiting room and accessibility | 12% |
 | 10.0 | Manager controls | Authenticated manager-only target selector (3/5/7), room/connection policy and audit trail | 5% |
@@ -38,7 +38,7 @@
 | 4.0 | In-memory lifecycle, readiness, host transfer, empty-only cleanup and match target tracking | 80% |
 | 5.0 | No production Fastify/network/persistence adapter yet | 0% |
 | 6.0 | Not implemented | 0% |
-| 7.0 | Not implemented | 0% |
+| 7.0 | Initial hard-only heuristic and legality/privacy tests implemented; strategic simulations and orchestration pending | 25% |
 | 8.0 | Not implemented | 0% |
 | 9.0 | Not implemented | 0% |
 | 10.0 | Core accepts only 3/5/7 and architecture reserves source for trusted manager config; admin auth/UI/audit pending | 20% |
