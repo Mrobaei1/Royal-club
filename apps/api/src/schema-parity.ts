@@ -6,7 +6,7 @@ import { normalizeDatabaseConnectionString } from './database-config.js';
 
 export function extractDeclaredTableNames(source: string): string[] {
   const names = new Set<string>();
-  const pattern = /CREATE\\s+TABLE\\s+(?:IF\\s+NOT\\s+EXISTS\\s+)?(?:"?([a-z_][a-z0-9_$]*)"?)/gi;
+  const pattern = /CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(?:"?([a-z_][a-z0-9_$]*)"?)/gi;
   for (const match of source.matchAll(pattern)) names.add(match[1].toLowerCase());
   return [...names].sort();
 }
