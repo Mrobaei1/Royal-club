@@ -134,10 +134,13 @@ await pool.query(`
     country TEXT NOT NULL DEFAULT '',
     avatar_data_url TEXT,
     token_version INTEGER NOT NULL DEFAULT 0 CHECK (token_version >= 0),
+    avatar_change_count INTEGER NOT NULL DEFAULT 0 CHECK (avatar_change_count >= 0),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   );
   ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_data_url TEXT;
   ALTER TABLE users ADD COLUMN IF NOT EXISTS token_version INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_change_count INTEGER NOT NULL DEFAULT 0;
+  UPDATE users SET avatar_change_count = 1 WHERE avatar_data_url IS NOT NULL AND avatar_change_count = 0;
   ALTER TABLE users ADD COLUMN IF NOT EXISTS username TEXT;
   UPDATE users SET username = 'p' || id::text WHERE username IS NULL OR username = '';
   CREATE UNIQUE INDEX IF NOT EXISTS users_username_unique_idx ON users (LOWER(username)) WHERE username IS NOT NULL;
@@ -348,12 +351,20 @@ await pool.query(`
     user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     amount BIGINT NOT NULL CHECK (amount <> 0),
     balance_after BIGINT NOT NULL CHECK (balance_after >= 0),
-    type TEXT NOT NULL CHECK (type IN ('admin_credit', 'subscription_purchase', 'adjustment')),
+    type TEXT NOT NULL CHECK (type IN ('admin_credit', 'subscription_purchase', 'adjustment', 'avatar_change', 'username_change')),
     description TEXT NOT NULL DEFAULT '',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   );
   CREATE INDEX IF NOT EXISTS wallet_transactions_user_idx
     ON wallet_transactions (user_id, created_at DESC);
+  CREATE TABLE IF NOT EXISTS account_customization_pricing (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    avatar_change_price_credits BIGINT NOT NULL DEFAULT 0 CHECK (avatar_change_price_credits >= 0),
+    username_change_price_credits BIGINT NOT NULL DEFAULT 0 CHECK (username_change_price_credits >= 0),
+    updated_by BIGINT REFERENCES users(id) ON DELETE SET NULL,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+  INSERT INTO account_customization_pricing (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
   CREATE TABLE IF NOT EXISTS subscription_plans (
     id BIGSERIAL PRIMARY KEY,
     code TEXT NOT NULL UNIQUE,
@@ -627,6 +638,21 @@ await pool.query(`
   CREATE INDEX IF NOT EXISTS backgammon_player_stats_leaderboard_idx
     ON backgammon_player_stats (rating DESC, wins DESC, games_played ASC);
 `);
+
+const walletTypeConstraint = await pool.query(
+  `SELECT pg_get_constraintdef(oid) AS definition
+     FROM pg_constraint
+    WHERE conrelid = 'wallet_transactions'::regclass
+      AND conname = 'wallet_transactions_type_check'`,
+);
+if (!String(walletTypeConstraint.rows[0]?.definition ?? '').includes('avatar_change')) {
+  await pool.query('ALTER TABLE wallet_transactions DROP CONSTRAINT IF EXISTS wallet_transactions_type_check');
+  await pool.query(
+    `ALTER TABLE wallet_transactions
+       ADD CONSTRAINT wallet_transactions_type_check
+       CHECK (type IN ('admin_credit', 'subscription_purchase', 'adjustment', 'avatar_change', 'username_change'))`,
+  );
+}
 
 const otpPurposeConstraint = await pool.query(
   `SELECT pg_get_constraintdef(oid) AS definition
