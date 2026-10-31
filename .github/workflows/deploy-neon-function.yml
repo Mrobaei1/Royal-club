@@ -35,6 +35,21 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Verify production release target
+        env:
+          REQUESTED_PROJECT_ID: ${{ inputs.neon_project_id }}
+          REQUESTED_BRANCH_ID: ${{ inputs.neon_branch_id }}
+        run: |
+          if [ "$GITHUB_REF" != "refs/heads/main" ]; then
+            echo "::error::Production API deployments may only run from main."
+            exit 1
+          fi
+          if [ "$REQUESTED_PROJECT_ID" != "crimson-moon-58282245" ] || [ "$REQUESTED_BRANCH_ID" != "br-misty-flower-bavs47dm" ]; then
+            echo "::error::The selected Neon project/branch does not match the confirmed Production target."
+            exit 1
+          fi
+          echo "Production target and source branch verified."
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
