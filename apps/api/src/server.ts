@@ -4581,8 +4581,11 @@ app.delete<{ Params: { id: string } }>('/api/v1/matches/:id', { onRequest: [requ
 // Neon Function Trigger calls this route on its schedule to remove expired rooms
 // even when the API runtime has scaled to zero and no user is making requests.
 app.post('/internal/cleanup-expired-empty-rooms', async (request, reply) => {
-  if (!request.headers['x-neon-trigger-invocation-id']) {
-    return reply.code(403).send({ error: 'Scheduled trigger invocation required.' });
+  const triggerInvocationId = request.headers['x-neon-trigger-invocation-id'];
+  const invocationId = (request.body as { invocation_id?: unknown } | undefined)?.invocation_id;
+  if (typeof triggerInvocationId !== 'string' || !triggerInvocationId ||
+      typeof invocationId !== 'string' || invocationId !== triggerInvocationId) {
+    return reply.code(403).send({ error: 'Valid scheduled trigger invocation required.' });
   }
   try {
     const deletedRooms = await cleanupExpiredEmptyRooms();
