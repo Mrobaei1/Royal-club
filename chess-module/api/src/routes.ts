@@ -76,18 +76,24 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
     const client=await pool.connect();
     try{
       await client.query("BEGIN");
-      await client.query("SELECT pg_advisory_xact_lock(hashtext('royal_chess_player'),hashtext($1))",[playerId]);
       const roomResult=await client.query("SELECT * FROM chess_rooms WHERE room_code=$1 FOR UPDATE",[request.params.roomCode]);
       const room=roomResult.rows[0];
       if(!room||room.status!=="waiting"){await client.query("ROLLBACK");return fail(reply,404,"room_unavailable");}
+      const hostId=String(room.host_user_id);
+      for(const id of [hostId,playerId].sort()){
+        await client.query("SELECT pg_advisory_xact_lock(hashtext('royal_chess_player'),hashtext($1))",[id]);
+      }
       if(room.expires_at&&new Date(room.expires_at).getTime()<=Date.now()){
         await client.query("UPDATE chess_rooms SET status='cancelled' WHERE id=$1",[room.id]);
         await client.query("COMMIT");
         return fail(reply,410,"room_expired");
       }
       if(String(room.host_user_id)===playerId){await client.query("ROLLBACK");return fail(reply,400,"cannot_play_self");}
-      const activeGame=await client.query("SELECT id FROM chess_games WHERE status='active' AND (white_user_id=$1 OR black_user_id=$1) LIMIT 1",[playerId]);
-      if(activeGame.rowCount){await client.query("ROLLBACK");return fail(reply,409,"active_chess_game_exists");}
+      const activeGame=await client.query(
+        "SELECT id FROM chess_games WHERE status='active' AND (white_user_id IN ($1,$2) OR black_user_id IN ($1,$2)) LIMIT 1",
+        [hostId,playerId]
+      );
+      if(activeGame.rowCount){await client.query("ROLLBACK");return fail(reply,409,"participant_active_chess_game_exists");}
       const progression=await client.query("SELECT level FROM chess_player_progression WHERE user_id=$1",[playerId]);
       const level=Number(progression.rows[0]?.level??1);
       const settings=(room.settings_snapshot??{}) as ChessRoomSettings;
@@ -104,6 +110,7 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
         [room.id,room.host_user_id,playerId,initialFen,JSON.stringify(clock),JSON.stringify({...settings,timeControl:control})]
       );
       await client.query("UPDATE chess_rooms SET status='active',settings_snapshot=$2::jsonb WHERE id=$1",[room.id,JSON.stringify({...settings,timeControl:control})]);
+      await client.query("DELETE FROM chess_matchmaking_queue WHERE user_id=ANY($1::bigint[])",[[hostId,playerId]]);
       await client.query("COMMIT");
       return reply.code(201).send({gameId:String(game.rows[0].id),fen:initialFen,clock,settings:{...settings,timeControl:control}});
     }catch(error){await rollback(client);request.log.error(error);return fail(reply,500,"chess_room_join_failed");}
