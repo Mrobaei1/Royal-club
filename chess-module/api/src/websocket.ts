@@ -79,6 +79,12 @@ export async function registerChessWebSocket(app: FastifyInstance, options: Opti
           } else if (event.type === "voice:signal" && event.fromUserId !== userId &&
                      typeof event.signalType === "string" && event.payload !== undefined) {
             send({type:"chess:voice:signal",signalType:event.signalType,payload:event.payload});
+          } else if (event.type === "voice_settings") {
+            const settings = await options.pool.query(
+              "SELECT COALESCE((settings_snapshot->>'voiceEnabled')::boolean,false) AS enabled FROM chess_rooms WHERE id=$1",
+              [roomId]
+            );
+            send({type:"chess:voice:settings",enabled:Boolean(settings.rows[0]?.enabled)});
           } else if (event.type === "voice") {
             const lease = await options.pool.query(
               "SELECT u.username,l.expires_at FROM chess_voice_leases l JOIN users u ON u.id=l.user_id WHERE l.room_id=$1 AND l.expires_at>NOW()",
