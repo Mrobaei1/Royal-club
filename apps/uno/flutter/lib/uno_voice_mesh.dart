@@ -25,8 +25,11 @@ class UnoVoiceMesh {
   List<Map<String, dynamic>>? _providedIceServers;
   bool get isMuted => _muted;
 
-  void setIceServers(List<Map<String, dynamic>> servers) {
+  Future<void> setIceServers(List<Map<String, dynamic>> servers) async {
     _providedIceServers = servers;
+    for (final peer in _peers.values) {
+      await peer.setConfiguration(_configuration);
+    }
   }
 
   Map<String, dynamic> get _configuration => {

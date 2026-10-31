@@ -108,7 +108,7 @@ class _UnoOnlineScreenState extends State<UnoOnlineScreen> {
       final data = Map<String, dynamic>.from(result['data'] as Map);
       final room = Map<String, dynamic>.from(data['room'] as Map);
       setState(() => _room = room);
-      _setupVoice();
+      await _setupVoice();
       _syncRemoteMute(room);
       if (data['game'] is Map) {
         setState(() => _game = Map<String, dynamic>.from(data['game'] as Map));
@@ -160,7 +160,7 @@ class _UnoOnlineScreenState extends State<UnoOnlineScreen> {
         final map = Map<String, dynamic>.from(data as Map);
         final room = Map<String, dynamic>.from(map['room'] as Map);
         setState(() => _room = room);
-        _setupVoice();
+        await _setupVoice();
       }
       if (event == 'uno:room:start') {
         final map = Map<String, dynamic>.from(data as Map);
@@ -173,7 +173,7 @@ class _UnoOnlineScreenState extends State<UnoOnlineScreen> {
     }
   }
 
-  void _setupVoice() {
+  Future<void> _setupVoice() async {
     _voice ??= UnoVoiceMesh(
       localPlayerId: widget.playerId,
       turnUrl: widget.turnUrl,
@@ -184,6 +184,12 @@ class _UnoOnlineScreenState extends State<UnoOnlineScreen> {
         if (code != null) _socket?.emit('uno:voice:signal', {'code': code, 'targetId': targetId, 'kind': kind, 'data': data});
       },
     );
+    try {
+      final servers = await _fetchIceServers();
+      await _voice!.setIceServers(servers);
+    } catch (_) {
+      // STUN fallback remains configured if the optional TURN service is unavailable.
+    }
   }
 
   Future<List<Map<String, dynamic>>> _fetchIceServers() async {
@@ -191,10 +197,8 @@ class _UnoOnlineScreenState extends State<UnoOnlineScreen> {
     final room = _room;
     if (room == null) return;
     try {
-      _setupVoice();
+      await _setupVoice();
       if (_micMuted) {
-        final iceServers = await _fetchIceServers();
-        _voice!.setIceServers(iceServers);
         final permission = await Permission.microphone.request();
         if (!permission.isGranted) throw StateError('برای گفت‌وگوی صوتی باید مجوز میکروفون را فعال کنی.');
         final players = List<Map<String, dynamic>>.from((room['players'] as List).map((p) => Map<String, dynamic>.from(p as Map)));
