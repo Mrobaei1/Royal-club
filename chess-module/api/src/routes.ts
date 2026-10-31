@@ -297,7 +297,7 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
       }
       const winner=playerId===white?black:white;
       const status=winner===white?"white_win":"black_win";
-      const clock={...(row.clock_snapshot as ClockSnapshot),active:null,lastStartedAt:null,finished:true};
+      const clock={...elapsed,active:null,lastStartedAt:null,finished:true};
       await client.query("UPDATE chess_games SET status=$2,clock_snapshot=$3::jsonb,finished_at=NOW(),revision=revision+1 WHERE id=$1",[row.id,status,JSON.stringify(clock)]);
       await client.query("UPDATE chess_rooms SET status='finished' WHERE id=$1",[row.room_id]);
       await client.query("DELETE FROM chess_voice_leases WHERE room_id=$1",[row.room_id]);
@@ -502,7 +502,7 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
     const client=await pool.connect();
     try{
       await client.query("BEGIN");
-      const game=await client.query("SELECT id,white_user_id,black_user_id,status FROM chess_games WHERE id=$1 FOR UPDATE",[request.params.gameId]);
+      const game=await client.query("SELECT id,room_id,white_user_id,black_user_id,status,settings_snapshot,clock_snapshot FROM chess_games WHERE id=$1 FOR UPDATE",[request.params.gameId]);
       const row=game.rows[0];
       if(!row||row.status!=="active"){await client.query("ROLLBACK");return fail(reply,404,"active_game_not_found");}
       if(playerId!==String(row.white_user_id)&&playerId!==String(row.black_user_id)){await client.query("ROLLBACK");return fail(reply,403,"not_a_player");}
