@@ -19,6 +19,9 @@ const scheduledApps = new WeakSet<FastifyInstance>();
  * exactly one instance can adjudicate a given expired game.
  */
 export async function adjudicateExpiredChessClocks(pool: Pool, now = Date.now()): Promise<number> {
+  await pool.query("UPDATE chess_rooms SET status='cancelled' WHERE status='waiting' AND expires_at<=NOW()");
+  await pool.query("DELETE FROM chess_matchmaking_queue WHERE created_at<NOW()-INTERVAL '10 minutes'");
+
   const candidates = await pool.query(
     `SELECT id FROM chess_games
      WHERE status='active'
