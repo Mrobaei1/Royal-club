@@ -42,6 +42,7 @@ export function createRound({ deck = shuffleDeck(createDeck()), hakemSeat = 0 } 
     trumpSuit: null,
     hands,
     currentTrick: [],
+    completedTricks: [],
     trickWinners: [],
     scores: [0, 0],
     deckCursor: cursor,
@@ -71,6 +72,7 @@ export function chooseTrump(state, seat, suit) {
     ...state,
     hands: cloneHands(state.hands),
     currentTrick: [],
+    completedTricks: (state.completedTricks ?? []).map((trick) => trick.map((play) => ({ seat: play.seat, card: copyCard(play.card) }))),
     trickWinners: [...state.trickWinners],
     scores: [...state.scores],
     seenCards: seen,
@@ -107,6 +109,7 @@ export function playCard(state, seat, card) {
     ...state,
     hands,
     currentTrick,
+    completedTricks: (state.completedTricks ?? []).map((trick) => trick.map((play) => ({ seat: play.seat, card: copyCard(play.card) }))),
     trickWinners: [...state.trickWinners],
     scores: [...state.scores]
   };
@@ -123,6 +126,7 @@ export function playCard(state, seat, card) {
   return {
     ...base,
     currentTrick: [],
+    completedTricks: [...(state.completedTricks ?? []), currentTrick.map((play) => ({ seat: play.seat, card: copyCard(play.card) }))],
     trickWinners,
     scores,
     currentSeat: result.winnerSeat,
@@ -140,6 +144,7 @@ export function roundViewForSeat(state, seat) {
     currentSeat: state.currentSeat,
     trumpSuit: state.trumpSuit,
     currentTrick: state.currentTrick.map((play) => ({ seat: play.seat, card: copyCard(play.card) })),
+    completedTricks: (state.completedTricks ?? []).map((trick) => trick.map((play) => ({ seat: play.seat, card: copyCard(play.card) }))),
     trickWinners: [...state.trickWinners],
     scores: [...state.scores],
     ownSeat: seat,
