@@ -3003,3 +3003,98 @@ test('phone OTP password recovery changes password, consumes code once, and revo
     );
   }
 });
+
+
+test('owner-managed profile customization pricing charges atomically and keeps the first avatar free', async () => {
+  const previousOwnerId = process.env.OWNER_USER_ID;
+  const owner = await register('Customization Pricing Owner');
+  const user = await register('Customization Pricing User');
+  process.env.OWNER_USER_ID = owner.user.id;
+
+  try {
+    const denied = await app.inject({
+      method: 'GET', url: '/api/v1/admin/account-customization-pricing',
+      headers: auth(user.token),
+    });
+    assert.equal(denied.statusCode, 403);
+
+    const configured = await app.inject({
+      method: 'PATCH', url: '/api/v1/admin/account-customization-pricing',
+      headers: auth(owner.token),
+      payload: { avatarChangePriceCredits: 40, usernameChangePriceCredits: 25 },
+    });
+    assert.equal(configured.statusCode, 200, configured.body);
+    assert.equal(configured.json().settings.avatarChangePriceCredits, 40);
+    assert.equal(configured.json().settings.usernameChangePriceCredits, 25);
+
+    await testPool.query(
+      'INSERT INTO wallet_accounts (user_id, balance) VALUES ($1, 0) ON CONFLICT (user_id) DO UPDATE SET balance = 0',
+      [user.user.id],
+    );
+    const pngA = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x01]);
+    const firstAvatar = await app.inject({
+      method: 'PATCH', url: '/api/v1/me/avatar', headers: auth(user.token),
+      payload: { avatarDataUrl: `data:image/png;base64,${pngA.toString('base64')}` },
+    });
+    assert.equal(firstAvatar.statusCode, 200, firstAvatar.body);
+    assert.equal(firstAvatar.json().chargedCredits, 0);
+    assert.equal(firstAvatar.json().firstAvatarFree, true);
+
+    const pngB = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x02]);
+    const insufficientAvatar = await app.inject({
+      method: 'PATCH', url: '/api/v1/me/avatar', headers: auth(user.token),
+      payload: { avatarDataUrl: `data:image/png;base64,${pngB.toString('base64')}` },
+    });
+    assert.equal(insufficientAvatar.statusCode, 409);
+    const unchanged = await testPool.query(
+      'SELECT avatar_data_url, avatar_change_count FROM users WHERE id = $1',
+      [user.user.id],
+    );
+    assert.equal(unchanged.rows[0].avatar_data_url, firstAvatar.json().avatarDataUrl);
+    assert.equal(Number(unchanged.rows[0].avatar_change_count), 1);
+
+    await testPool.query('UPDATE wallet_accounts SET balance = 100 WHERE user_id = $1', [user.user.id]);
+    const secondAvatar = await app.inject({
+      method: 'PATCH', url: '/api/v1/me/avatar', headers: auth(user.token),
+      payload: { avatarDataUrl: `data:image/png;base64,${pngB.toString('base64')}` },
+    });
+    assert.equal(secondAvatar.statusCode, 200, secondAvatar.body);
+    assert.equal(secondAvatar.json().chargedCredits, 40);
+
+    const renamed = await app.inject({
+      method: 'PATCH', url: '/api/v1/me/username', headers: auth(user.token),
+      payload: { username: 'priced_player' },
+    });
+    assert.equal(renamed.statusCode, 200, renamed.body);
+    assert.equal(renamed.json().chargedCredits, 25);
+
+    const unchangedUsername = await app.inject({
+      method: 'PATCH', url: '/api/v1/me/username', headers: auth(user.token),
+      payload: { username: 'priced_player' },
+    });
+    assert.equal(unchangedUsername.statusCode, 200, unchangedUsername.body);
+    assert.equal(unchangedUsername.json().chargedCredits, 0);
+
+    const pricing = await app.inject({
+      method: 'GET', url: '/api/v1/account/customization-pricing', headers: auth(user.token),
+    });
+    assert.equal(pricing.statusCode, 200, pricing.body);
+    assert.equal(pricing.json().avatarFirstChangeFree, false);
+    assert.equal(pricing.json().avatarChangePriceCredits, 40);
+    assert.equal(pricing.json().usernameChangePriceCredits, 25);
+
+    const wallet = await testPool.query('SELECT balance FROM wallet_accounts WHERE user_id = $1', [user.user.id]);
+    assert.equal(Number(wallet.rows[0].balance), 35);
+    const ledger = await testPool.query(
+      'SELECT type, amount FROM wallet_transactions WHERE user_id = $1 ORDER BY id',
+      [user.user.id],
+    );
+    assert.deepEqual(ledger.rows.map((row) => [row.type, Number(row.amount)]), [
+      ['avatar_change', -40],
+      ['username_change', -25],
+    ]);
+  } finally {
+    if (previousOwnerId === undefined) delete process.env.OWNER_USER_ID;
+    else process.env.OWNER_USER_ID = previousOwnerId;
+  }
+});
