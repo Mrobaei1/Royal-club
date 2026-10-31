@@ -456,7 +456,8 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
     if (!_vsComputer ||
         _engine.finished ||
         _engine.currentPlayer != -1 ||
-        _computerThinking) {
+        _computerThinking ||
+        _blockedRollPending) {
       return;
     }
     _computerThinking = true;
@@ -468,13 +469,20 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
           return;
         }
         if (_engine.dice.isEmpty) {
-          final rolled = _engine.rollDice();
+          final rolled = _engine.rollDice(deferNoMoves: true);
           if (rolled.isEmpty) {
             _message = appText(context, 'نوبت کامپیوتر بدون حرکت تمام شد.', 'The computer turn ended without a move.');
             _computerThinking = false;
             return;
           }
-          // Show the rolled dice for a full three seconds before the first move.
+          if (_engine.legalMoves().isEmpty) {
+            _blockedRollPending = true;
+            _message = appText(context,
+                'تاس هوش مصنوعی: ${_engine.dice.join('، ')} · حرکت ممکن نیست؛ نمایش به مدت ۲ ثانیه.',
+                'Computer dice: ${_engine.dice.join(', ')} · No legal move; showing for 2 seconds.');
+            return;
+          }
+          // Keep the computer roll visible for two seconds before its first move.
           _computerThinking = false;
           _message = appText(context, 'تاس کامپیوتر: ${_engine.dice.join('، ')}', 'Computer dice: ${_engine.dice.join(', ')}');
           return;
@@ -491,6 +499,10 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
               appText(context, 'نوبت کامپیوتر است؛ تاس باقی‌مانده: ${_engine.dice.join('، ')}', 'Computer turn; remaining dice: ${_engine.dice.join(', ')}');
         }
       });
+      if (_blockedRollPending && _engine.currentPlayer == -1 && _engine.dice.isNotEmpty && _engine.legalMoves().isEmpty) {
+        _showBlockedRollThenPass(-1);
+        return;
+      }
       if (!_engine.finished && _engine.currentPlayer != _timerPlayer) {
         _timerPlayer = _engine.currentPlayer;
         _secondsLeft = _turnLimitSeconds;
