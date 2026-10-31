@@ -19,16 +19,25 @@ function isValidGameState(state: MutableGameState): boolean {
     if (!Number.isInteger(count) || Math.abs(count) > 15) return false;
   }
   if (!state.bar || !state.off) return false;
-  return [state.bar.host, state.bar.guest, state.off.host, state.off.guest]
-    .every((count) => Number.isInteger(count) && count >= 0 && count <= 15);
+  if (![state.bar.host, state.bar.guest, state.off.host, state.off.guest]
+    .every((count) => Number.isInteger(count) && count >= 0 && count <= 15)) return false;
+
+  // Validate each player's complete checker inventory, not just individual
+  // points. A legal game can never contain more than 15 checkers per player.
+  const hostOnBoard = state.board.reduce((sum, count) => sum + Math.max(count, 0), 0);
+  const guestOnBoard = state.board.reduce((sum, count) => sum + Math.max(-count, 0), 0);
+  return hostOnBoard + state.bar.host + state.off.host <= 15 &&
+    guestOnBoard + state.bar.guest + state.off.guest <= 15;
 }
 
 function isValidRemainingDice(remainingDice: number[]): boolean {
-  if (!Array.isArray(remainingDice) || remainingDice.length === 0) return false;
+  if (!Array.isArray(remainingDice) || remainingDice.length === 0 || remainingDice.length > 4) return false;
   for (let index = 0; index < remainingDice.length; index++) {
     const die = remainingDice[index];
     if (!Number.isInteger(die) || die < 1 || die > 6) return false;
   }
+  // Three or four remaining dice can only be the remainder of a doubles roll.
+  if (remainingDice.length > 2 && !remainingDice.every((die) => die === remainingDice[0])) return false;
   return true;
 }
 
