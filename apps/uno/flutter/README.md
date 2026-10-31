@@ -17,7 +17,7 @@ flutter test
 <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
 ```
 
-The user must grant microphone permission at runtime. On iOS, add `NSMicrophoneUsageDescription` to Info.plist. The app must use HTTPS/WSS in production.
+The user must grant microphone permission at runtime. On Android, use a minimum SDK of 23 and Java 8-compatible compile options; add the manifest permissions above. On iOS, add `NSMicrophoneUsageDescription` to Info.plist. The app must use HTTPS/WSS in production.
 
 ## WebRTC
-The voice mesh requests microphone access only after the user taps the microphone control. STUN is configured by default; supply TURN URLs and credentials for reliable calls on mobile networks and restrictive NATs. Never commit TURN credentials. With six players each device may maintain up to five peer connections; for a production launch, an SFU is preferable.
+The voice mesh requests microphone access only after the user taps the microphone control. STUN is configured by default; supply `turnUrl`, `turnUsername`, and `turnCredential` to `UnoOnlineScreen` for reliable calls on mobile networks and restrictive NATs. Never commit TURN credentials. These values must come from a TURN service using short-lived credentials; do not use permanent public credentials. With six players each device may maintain up to five peer connections; for a production launch, an SFU is preferable.
