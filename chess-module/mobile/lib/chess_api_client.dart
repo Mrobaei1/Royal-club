@@ -135,6 +135,9 @@ class ChessApiClient {
   Future<Map<String, dynamic>> playerProfile(String userId) =>
       _request('GET', '/chess/players/${Uri.encodeComponent(userId)}/profile');
 
+  Future<Map<String, dynamic>> playerProfileByUsername(String username) =>
+      _request('GET', '/chess/players/username/${Uri.encodeComponent(username)}/profile');
+
   Future<List<Map<String, dynamic>>> adminAudit({int limit = 50}) async {
     final response = await _request('GET', '/chess/admin/audit', query: {'limit': '$limit'});
     return (response['events'] as List).cast<Map<String, dynamic>>();
