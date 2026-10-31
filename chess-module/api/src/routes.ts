@@ -76,6 +76,7 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
     const client=await pool.connect();
     try{
       await client.query("BEGIN");
+      await client.query("SELECT pg_advisory_xact_lock(hashtext('royal_chess_player'),hashtext($1))",[playerId]);
       const roomResult=await client.query("SELECT * FROM chess_rooms WHERE room_code=$1 FOR UPDATE",[request.params.roomCode]);
       const room=roomResult.rows[0];
       if(!room||room.status!=="waiting"){await client.query("ROLLBACK");return fail(reply,404,"room_unavailable");}
@@ -622,6 +623,7 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
       await client.query("BEGIN");
       // Serialize matching decisions across API instances; row locks still protect queue records.
       await client.query("SELECT pg_advisory_xact_lock(hashtext('royal_chess_matchmaking'))");
+      await client.query("SELECT pg_advisory_xact_lock(hashtext('royal_chess_player'),hashtext($1))",[playerId]);
       const activeGame=await client.query("SELECT id FROM chess_games WHERE status='active' AND (white_user_id=$1 OR black_user_id=$1) LIMIT 1",[playerId]);
       if(activeGame.rowCount){await client.query("ROLLBACK");return fail(reply,409,"active_chess_game_exists");}
       const ownLevelResult=await client.query("SELECT level FROM chess_player_progression WHERE user_id=$1",[playerId]);
