@@ -86,6 +86,115 @@ function stableBest(cards, score) {
   })[0];
 }
 
+
+function hashSeed(value) {
+  let hash = 2166136261;
+  for (const char of value) {
+    hash ^= char.charCodeAt(0);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+function seededRandom(seed) {
+  let value = seed >>> 0;
+  return () => {
+    value = (1664525 * value + 1013904223) >>> 0;
+    return value / 0x100000000;
+  };
+}
+function sampleHiddenHands(state, seat, ledger, rng) {
+  const played = [0, 1, 2, 3].map(() => 0);
+  for (const trick of publicHistory(state)) for (const play of trick) played[play.seat] += 1;
+  const capacities = [0, 1, 2, 3].map(id => id === seat ? 0 : 13 - played[id]);
+  if (capacities[seat] !== 0 || capacities.some((count, id) => id !== seat && count < 0)) return null;
+  const cards = [];
+  for (const suit of SUITS) for (const rankName of RANKS) {
+    const key = cardKey({ suit, rank: rankName });
+    const visible = new Set([
+      ...state.hands[seat].map(cardKey),
+      ...publicHistory(state).flatMap(trick => trick.map(play => cardKey(play.card)))
+    ]);
+    if (!visible.has(key)) cards.push({ suit, rank: rankName });
+  }
+  const required = capacities.reduce((sum, count) => sum + count, 0);
+  if (cards.length !== required) return null;
+  const voids = ledger.voidSuitsBySeat;
+  const eligible = card => [0, 1, 2, 3].filter(id => id !== seat &&
+    !(voids[id] ?? []).includes(card.suit) && capacities[id] > 0);
+  cards.sort((a, b) => eligible(a).length - eligible(b).length);
+  const hands = [[], [], [], []];
+  function assign(index) {
+    if (index === cards.length) return capacities.every((count, id) => id === seat || count === 0);
+    const card = cards[index];
+    const choices = eligible(card).sort(() => rng() - 0.5);
+    for (const id of choices) {
+      capacities[id] -= 1;
+      hands[id].push(card);
+      if (assign(index + 1)) return true;
+      hands[id].pop();
+      capacities[id] += 1;
+    }
+    return false;
+  }
+  return assign(0) ? hands : null;
+}
+function simulatedWinner(trick, trump) {
+  return currentWinner(trick, trump);
+}
+function simulatedPolicy(hand, trick, trump) {
+  const legal = legalCards(hand, trick);
+  const winner = simulatedWinner(trick, trump);
+  if (winner && winner.seat % 2 === (trick.length ? (trick[0].seat % 2) : winner.seat % 2) &&
+      (winner.seat + 2) % 4 !== -1) {
+    // Partnership check is applied by the caller below; this branch only keeps
+    // the deterministic fallback cheap when no sampled winning card exists.
+  }
+  const leadSuit = trick[0]?.card.suit;
+  const winning = winner ? legal.filter(card => beats(card,
+    { ...winner, leadSuit }, trump)) : legal;
+  return stableBest(winning.length ? winning : legal, card => -cardCost(card, trump));
+}
+function searchExpectedTrickValue(state, seat, candidates, ledger) {
+  const historyKey = publicHistory(state).flatMap(trick =>
+    trick.map(play => `${play.seat}:${cardKey(play.card)}`)).join("|");
+  const seedBase = hashSeed(`${seat}:${state.trumpSuit}:${historyKey}:${state.hands[seat].map(cardKey).sort().join(",")}`);
+  const samples = 32;
+  const values = new Map(candidates.map(card => [cardKey(card), { score: 0, samples: 0 }]));
+  for (let sample = 0; sample < samples; sample += 1) {
+    const rng = seededRandom(seedBase + sample * 104729);
+    const hidden = sampleHiddenHands(state, seat, ledger, rng);
+    if (!hidden) continue;
+    for (const candidate of candidates) {
+      const trick = [...state.currentTrick, { seat, card: candidate }];
+      const simulatedHands = hidden.map(hand => [...hand]);
+      let valid = true;
+      for (let offset = 1; offset < 4 - state.currentTrick.length; offset += 1) {
+        const nextSeat = (seat + offset) % 4;
+        const hand = nextSeat === seat ? state.hands[seat] : simulatedHands[nextSeat];
+        if (!hand?.length) { valid = false; break; }
+        const card = simulatedPolicy(hand, trick, state.trumpSuit);
+        const index = hand.findIndex(item => cardKey(item) === cardKey(card));
+        if (index < 0) { valid = false; break; }
+        hand.splice(index, 1);
+        trick.push({ seat: nextSeat, card });
+      }
+      if (!valid || trick.length !== 4) continue;
+      const winner = simulatedWinner(trick, state.trumpSuit);
+      const won = winner.seat % 2 === seat % 2;
+      const entry = values.get(cardKey(candidate));
+      entry.score += won ? 1 : 0;
+      entry.samples += 1;
+    }
+  }
+  const scored = candidates.map(card => {
+    const entry = values.get(cardKey(card));
+    return { card, rate: entry.samples ? entry.score / entry.samples : -1,
+      cost: cardCost(card, state.trumpSuit) };
+  });
+  return scored.sort((a, b) => b.rate - a.rate || a.cost - b.cost ||
+    SUITS.indexOf(a.card.suit) - SUITS.indexOf(b.card.suit))[0]?.card ?? null;
+}
+
 /** Fixed Hard policy; no opponent hand or undealt deck is inspected. */
 export function chooseHardBotAction(state, seat) {
   assertState(state, seat);
@@ -130,5 +239,7 @@ export function chooseHardBotAction(state, seat) {
       ? stableBest(winning, card => -cardCost(card, state.trumpSuit))
       : stableBest(legal, card => -cardCost(card, state.trumpSuit));
   }
+  const searched = searchExpectedTrickValue(state, seat, legal, ledger);
+  if (searched) chosen = searched;
   return Object.freeze({ type: "play_card", card: { ...chosen }, difficulty: "hard" });
 }
