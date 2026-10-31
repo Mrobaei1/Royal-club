@@ -275,3 +275,15 @@ test('disconnect between rounds preserves the seat for reconnection', () => {
   assert.equal(restored.players.find(player => player.id === guest.id)!.ready, false);
   assert.equal(restored.status, 'waiting');
 });
+
+test('a connected player inherits host controls when the host disconnects', () => {
+  const manager = new UnoRoomManager();
+  const room = manager.createRoom(host);
+  manager.joinRoom(room.code, guest);
+  manager.setReady(room.code, host.id, true);
+  manager.setReady(room.code, guest.id, true);
+  manager.start(room.code, host.id);
+  const afterDisconnect = manager.disconnect(room.code, host.id)!;
+  assert.equal(afterDisconnect.hostId, guest.id);
+  assert.equal(afterDisconnect.players.find(player => player.id === host.id)!.connected, false);
+});

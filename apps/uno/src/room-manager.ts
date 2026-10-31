@@ -148,6 +148,10 @@ export class UnoRoomManager {
     const player = this.requirePlayer(room, playerId);
     player.connected = false;
     player.ready = false;
+    if (room.hostId === playerId) {
+      const successor = room.players.find(seat => seat.id !== playerId && seat.connected);
+      if (successor) room.hostId = successor.id;
+    }
     player.selfMuted = true;
     player.muted = true;
     if (room.status !== 'playing' && room.status !== 'finished') room.status = 'waiting';
@@ -170,7 +174,9 @@ export class UnoRoomManager {
       this.rooms.delete(room.code);
       return null;
     }
-    if (room.hostId === playerId) room.hostId = room.players[0]!.id;
+    if (room.hostId === playerId) {
+      room.hostId = (room.players.find(player => player.connected) ?? room.players[0]!).id;
+    }
     if (room.status !== 'finished') {
       room.status = room.players.length >= 2 && room.players.every(p => p.ready) ? 'ready' : 'waiting';
     }
