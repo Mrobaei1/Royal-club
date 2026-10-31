@@ -6,7 +6,7 @@ import rateLimit from '@fastify/rate-limit';
 import jwt from '@fastify/jwt';
 import { Pool, type PoolClient } from 'pg';
 import { createCipheriv, createDecipheriv, createHmac, randomBytes, randomInt, randomUUID, scrypt as scryptCallback, timingSafeEqual } from 'node:crypto';
-import { isNumericId, isReservedUsername, isValidAvatarDataUrl, isValidRegistrationPassword } from './validation.js';
+import { isNumericId, isReservedUsername, isValidAvatarDataUrl, isValidImageDataUrl, isValidRegistrationPassword } from './validation.js';
 import { createOtpCode, digestOtp, normalizeIranianMobile, verifyOtpDigest } from './otp-security.js';
 import { createKavenegarProvider } from './sms-provider.js';
 import { getAllowedCorsOrigins } from './cors-config.js';
@@ -3242,9 +3242,10 @@ app.post<{ Params: { userId: string }; Body: { body?: string } }>('/api/v1/chat/
   const claims = request.user as { sub: string };
   const { userId } = request.params;
   const body = typeof request.body?.body === 'string' ? request.body.body.trim() : '';
-  const isImage = /^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/]+={0,2}$/.test(body);
-  if (!isNumericId(userId) || userId === claims.sub || !body || (isImage ? body.length > 680000 : body.length > 2000)) {
-    return reply.code(400).send({ error: 'Message must be text up to 2000 characters or a supported image up to 500 KB.' });
+  const imageCandidate = body.startsWith('data:image/');
+  const isImage = imageCandidate && isValidImageDataUrl(body, 500 * 1024);
+  if (!isNumericId(userId) || userId === claims.sub || !body || (imageCandidate ? !isImage : body.length > 2000)) {
+    return reply.code(400).send({ error: 'Message must be text up to 2000 characters or a valid supported image up to 500 KiB.' });
   }
   const friendship = await pool.query(
     'SELECT 1 FROM friendships WHERE status = $1 AND ((requester_id = $2 AND addressee_id = $3) OR (requester_id = $3 AND addressee_id = $2)) LIMIT 1',
