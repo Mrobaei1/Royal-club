@@ -97,10 +97,15 @@ class ChessVoiceClient {
     if (_leaseId == null) throw StateError('voice_lease_missing');
     _leaseRenewal?.cancel();
     _leaseRenewal = Timer.periodic(const Duration(seconds: 4), (_) => _renewLease());
-    await _ensurePeerConnection();
-    await _enableLocalAudio();
-    if (_peer?.signalingState == RTCSignalingState.RTCSignalingStateStable) {
-      await _createAndSendOffer();
+    try {
+      await _ensurePeerConnection();
+      await _enableLocalAudio();
+      if (_peer?.signalingState == RTCSignalingState.RTCSignalingStateStable) {
+        await _createAndSendOffer();
+      }
+    } catch (_) {
+      await releaseTalk();
+      rethrow;
     }
   }
 
