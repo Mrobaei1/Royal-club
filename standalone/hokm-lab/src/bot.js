@@ -1,6 +1,8 @@
-import { SUITS, legalCards, resolveTrick, teamForSeat } from "./engine.js";
+import { SUITS, RANKS, legalCards } from "./engine.js";
 
-const rank = Object.freeze({ "2":2,"3":3,"4":4,"5":5,"6":6,"7":7,"8":8,"9":9,"10":10,J:11,Q:12,K:13,A:14 });
+const rank = Object.freeze(Object.fromEntries(RANKS.map((value, index) => [value, index + 2])));
+const cardKey = card => `${card.rank}_of_${card.suit}`;
+const partnerOf = seat => (seat + 2) % 4;
 
 function assertSeat(seat) {
   if (!Number.isInteger(seat) || seat < 0 || seat > 3) throw new RangeError("Invalid bot seat");
@@ -11,82 +13,114 @@ function assertState(state, seat) {
       !Array.isArray(state.currentTrick) || !Array.isArray(state.trickWinners)) {
     throw new TypeError("Invalid server round state");
   }
+  if (!Array.isArray(state.hands[seat])) throw new TypeError("Bot's private hand is unavailable");
   if (state.phase === "playing" && !SUITS.includes(state.trumpSuit)) throw new Error("Trump is not set");
 }
 
-/** Count unseen cards from the bot's perspective; no undealt deck or opponent hand is read. */
+function publicHistory(state) {
+  return [...(state.completedTricks ?? []), ...(state.currentTrick.length ? [state.currentTrick] : [])];
+}
+
+/** Derives only cards in the bot hand and publicly exposed plays. */
 export function visibleCardLedger(state, seat) {
   assertState(state, seat);
-  const visible = new Set(state.hands[seat].map(c => `${c.rank}_of_${c.suit}`));
-  for (const play of state.currentTrick) visible.add(`${play.card.rank}_of_${play.card.suit}`);
-  for (const trick of state.completedTricks ?? []) {
-    for (const play of trick) visible.add(`${play.card.rank}_of_${play.card.suit}`);
+  const visible = new Set(state.hands[seat].map(cardKey));
+  for (const trick of publicHistory(state)) {
+    for (const play of trick) visible.add(cardKey(play.card));
   }
-  return Object.freeze({ knownCards: visible.size, ownHandCount: state.hands[seat].length });
+  const unseenBySuit = Object.fromEntries(SUITS.map(suit => [suit, RANKS.filter(rankName =>
+    !visible.has(cardKey({ suit, rank: rankName }))).length]));
+  const voidSuitsBySeat = Object.fromEntries([0,1,2,3].filter(s => s !== seat).map(s => [s, []]));
+  for (const trick of publicHistory(state)) {
+    if (!trick.length) continue;
+    const leadSuit = trick[0].card.suit;
+    for (const play of trick) {
+      if (play.card.suit !== leadSuit && voidSuitsBySeat[play.seat] &&
+          !voidSuitsBySeat[play.seat].includes(leadSuit)) {
+        voidSuitsBySeat[play.seat].push(leadSuit);
+      }
+    }
+  }
+  return Object.freeze({
+    knownCards: visible.size,
+    ownHandCount: state.hands[seat].length,
+    unseenBySuit: Object.freeze(unseenBySuit),
+    voidSuitsBySeat: Object.freeze(Object.fromEntries(Object.entries(voidSuitsBySeat)
+      .map(([id, suits]) => [id, Object.freeze(suits)])))
+  });
 }
 
-function partialWinner(trick, trumpSuit) {
-  if (!trick.length) return null;
-  const lead = trick[0].card.suit;
-  const strength = card => card.suit === trumpSuit ? 2 : card.suit === lead ? 1 : 0;
-  let best = trick[0];
-  for (const play of trick.slice(1)) {
-    const a = strength(play.card), b = strength(best.card);
-    if (a > b || (a === b && a > 0 && rank[play.card.rank] > rank[best.card.rank])) best = play;
-  }
-  return best;
+function strength(card, leadSuit, trumpSuit) {
+  if (card.suit === trumpSuit) return 2;
+  if (card.suit === leadSuit) return 1;
+  return 0;
 }
-function beats(card, current, trump) {
+function currentWinner(trick, trumpSuit) {
+  if (!trick.length) return null;
+  const leadSuit = trick[0].card.suit;
+  return trick.reduce((best, play) => {
+    const a = strength(play.card, leadSuit, trumpSuit);
+    const b = strength(best.card, leadSuit, trumpSuit);
+    return a > b || (a === b && a > 0 && rank[play.card.rank] > rank[best.card.rank]) ? play : best;
+  });
+}
+function beats(card, current, trumpSuit) {
   if (!current) return true;
-  const lead = current.card.suit;
-  const a = card.suit === trump ? 2 : card.suit === lead ? 1 : 0;
-  const b = current.card.suit === trump ? 2 : current.card.suit === lead ? 1 : 0;
+  const leadSuit = current.leadSuit;
+  const a = strength(card, leadSuit, trumpSuit);
+  const b = strength(current.card, leadSuit, trumpSuit);
   return a > b || (a === b && a > 0 && rank[card.rank] > rank[current.card.rank]);
 }
-function cardCost(card, trump) {
-  return rank[card.rank] + (card.suit === trump ? 5 : 0);
+function cardCost(card, trumpSuit) {
+  return rank[card.rank] + (card.suit === trumpSuit ? 14 : 0);
+}
+function stableBest(cards, score) {
+  return [...cards].sort((a,b) => score(b)-score(a) || SUITS.indexOf(a.suit)-SUITS.indexOf(b.suit) || rank[b.rank]-rank[a.rank])[0];
 }
 
-/** Fixed Hard policy. It considers only the bot's hand and public trick history. */
+/** Fixed Hard policy; no opponent hand or undealt deck is inspected. */
 export function chooseHardBotAction(state, seat) {
   assertState(state, seat);
   if (state.phase === "choose_trump") {
     if (seat !== state.hakemSeat) throw new Error("Only the hakem bot may choose trump");
     const hand = state.hands[seat];
-    const suitScore = suit => {
-      const cards = hand.filter(c => c.suit === suit);
-      return cards.length * 3 + cards.reduce((sum,c) => sum + (rank[c.rank] >= 12 ? rank[c.rank] - 10 : 0),0);
-    };
-    const suit = [...SUITS].sort((a,b) => suitScore(b)-suitScore(a) || SUITS.indexOf(a)-SUITS.indexOf(b))[0];
-    return Object.freeze({ type:"choose_trump", suit, difficulty:"hard" });
+    const suit = stableBest(SUITS, candidate => {
+      const cards = hand.filter(card => card.suit === candidate);
+      return cards.length * 5 + cards.reduce((sum, card) => sum + Math.max(0, rank[card.rank] - 10), 0);
+    });
+    return Object.freeze({ type: "choose_trump", suit, difficulty: "hard" });
   }
   if (state.phase !== "playing") throw new Error("Bot cannot act outside an active round");
   if (state.currentSeat !== seat) throw new Error("It is not the bot's turn");
+
   const hand = state.hands[seat];
   const legal = legalCards(hand, state.currentTrick);
-  const partner = (seat + 2) % 4;
-  const winningPlay = partialWinner(state.currentTrick, state.trumpSuit);
-  const partnerCurrentlyWinning = winningPlay?.seat === partner;
-  let chosen;
+  if (!legal.length) throw new Error("No legal card is available");
+  const ledger = visibleCardLedger(state, seat);
+  const partner = partnerOf(seat);
+  const winner = currentWinner(state.currentTrick, state.trumpSuit);
+  const partnerWinning = winner?.seat === partner;
 
+  let chosen;
   if (state.currentTrick.length === 0) {
-    // Lead from a long, strong non-trump suit; preserve trump for control.
-    chosen = [...legal].sort((a,b) => {
-      const countA = hand.filter(c=>c.suit===a.suit).length;
-      const countB = hand.filter(c=>c.suit===b.suit).length;
-      const scoreA = countA*4 + rank[a.rank] + (a.suit===state.trumpSuit ? -8 : 0);
-      const scoreB = countB*4 + rank[b.rank] + (b.suit===state.trumpSuit ? -8 : 0);
-      return scoreB-scoreA || rank[b.rank]-rank[a.rank];
-    })[0];
-  } else if (partnerCurrentlyWinning) {
-    // Do not waste a control card when partner is already likely to take the trick.
-    chosen = [...legal].sort((a,b)=>cardCost(a,state.trumpSuit)-cardCost(b,state.trumpSuit))[0];
+    chosen = stableBest(legal, card => {
+      const sameSuit = hand.filter(item => item.suit === card.suit);
+      const topHonors = sameSuit.filter(item => rank[item.rank] >= 11).length;
+      const remaining = ledger.unseenBySuit[card.suit];
+      const voidRisk = Object.entries(ledger.voidSuitsBySeat).filter(([id, suits]) =>
+        Number(id) !== partner && suits.includes(card.suit)).length;
+      return sameSuit.length * 5 + topHonors * 2 + rank[card.rank] * 0.2
+        + Math.min(remaining, 8) * 0.25 - voidRisk * 3
+        - (card.suit === state.trumpSuit ? 7 : 0);
+    });
+  } else if (partnerWinning) {
+    chosen = stableBest(legal, card => -cardCost(card, state.trumpSuit));
   } else {
-    // Win with the cheapest legal card that overtakes the current winning play.
-    const winners = legal.filter(card=>beats(card,winningPlay,state.trumpSuit));
-    chosen = winners.length
-      ? [...winners].sort((a,b)=>cardCost(a,state.trumpSuit)-cardCost(b,state.trumpSuit))[0]
-      : [...legal].sort((a,b)=>cardCost(a,state.trumpSuit)-cardCost(b,state.trumpSuit))[0];
+    const current = { ...winner, leadSuit: state.currentTrick[0].card.suit };
+    const winning = legal.filter(card => beats(card, current, state.trumpSuit));
+    chosen = winning.length
+      ? stableBest(winning, card => -cardCost(card, state.trumpSuit))
+      : stableBest(legal, card => -cardCost(card, state.trumpSuit));
   }
-  return Object.freeze({ type:"play_card", card:{...chosen}, difficulty:"hard" });
+  return Object.freeze({ type: "play_card", card: { ...chosen }, difficulty: "hard" });
 }
