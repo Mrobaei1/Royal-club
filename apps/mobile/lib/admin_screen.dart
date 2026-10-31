@@ -52,6 +52,7 @@ class _AdminScreenState extends State<AdminScreen> {
   final _notificationBody = TextEditingController();
   List<dynamic> _users = [];
   bool _busy = false;
+  bool _customizationPricingAvailable = false;
   Map<String, dynamic> _smsSettings = {};
   String _smsMode = 'disabled';
   String _smsProvider = 'kavenegar';
@@ -99,7 +100,7 @@ class _AdminScreenState extends State<AdminScreen> {
         if (mounted) setState(() { _owner = false; _loading = false; _error = null; });
         return;
       }
-      final results = await Future.wait([AdminService.plans(), AdminService.reports(), AdminService.smsOtpSettings(), AdminService.permissionSettings(), AdminService.permissionGrants(), AdminService.permissionAudit(), AdminService.leagues(), AdminService.accountCustomizationPricing()]);
+      final results = await Future.wait([AdminService.plans(), AdminService.reports(), AdminService.smsOtpSettings(), AdminService.permissionSettings(), AdminService.permissionGrants(), AdminService.permissionAudit(), AdminService.leagues()]);
       if (!mounted) return;
       final sms = results[2] as Map<String, dynamic>;
       _smsSettings = sms; _smsMode = sms['deliveryMode']?.toString() ?? 'disabled';
@@ -113,10 +114,17 @@ class _AdminScreenState extends State<AdminScreen> {
       final grants = results[4] as List<dynamic>;
       final audit = results[5] as List<dynamic>;
       final leagues = results[6] as List<dynamic>;
-      final customizationPricing = results[7] as Map<String, dynamic>;
-      _avatarChangePrice.text = (customizationPricing['avatarChangePriceCredits'] ?? 0).toString();
-      _usernameChangePrice.text = (customizationPricing['usernameChangePriceCredits'] ?? 0).toString();
       setState(() { _owner = true; _plans = plans; _reports = reports; _delegatedPermissionsEnabled = permissionSettings['enabled'] == true; _permissionGrants = grants; _permissionAudit = audit; _leagues = leagues; _loading = false; _error = null; });
+      try {
+        final customizationPricing = await AdminService.accountCustomizationPricing();
+        if (mounted) setState(() {
+          _avatarChangePrice.text = (customizationPricing['avatarChangePriceCredits'] ?? 0).toString();
+          _usernameChangePrice.text = (customizationPricing['usernameChangePriceCredits'] ?? 0).toString();
+          _customizationPricingAvailable = true;
+        });
+      } catch (_) {
+        if (mounted) setState(() => _customizationPricingAvailable = false);
+      }
       await _loadAgentTaskProposals();
     } catch (e) {
       if (mounted) setState(() { _loading = false; _error = appError(context, e); });
@@ -1721,6 +1729,7 @@ class _AdminScreenState extends State<AdminScreen> {
                   IconButton(onPressed: _busy ? null : () => _editPlan(plan), icon: const Icon(Icons.edit)),
                 ]),
               )),
+              if (_customizationPricingAvailable) ...[
               const SizedBox(height: 22),
               Text(appText(context, 'قیمت‌گذاری تغییرات حساب', 'Account customization pricing'), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
@@ -1754,6 +1763,7 @@ class _AdminScreenState extends State<AdminScreen> {
                     ],
                   ),
                 ),
+              ],
               ),
             ]),
     ),
