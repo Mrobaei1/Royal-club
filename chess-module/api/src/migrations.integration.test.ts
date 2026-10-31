@@ -31,6 +31,7 @@ test("isolated chess migrations apply cleanly against a bigint users schema", { 
       "004_matchmaking_queue.sql",
       "005_room_lifecycle.sql",
       "006_admin_audit.sql",
+      "007_chat_rate_limit_index.sql",
     ]) {
       const sql = await readFile(new URL(`../../database/migrations/${file}`, import.meta.url), "utf8");
       await db.query(sql);
