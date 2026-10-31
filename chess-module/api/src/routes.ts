@@ -52,11 +52,22 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
     if(!tc.rowCount)return fail(reply,400,"time_control_unavailable");
     const roomCode=randomBytes(5).toString("hex").toUpperCase();
     const inserted=await pool.query(
-      `INSERT INTO chess_rooms(room_code,host_user_id,min_opponent_level,time_control_id,settings_snapshot)
-       VALUES($1,$2,$3,$4,$5::jsonb) RETURNING id,room_code`,
+      `INSERT INTO chess_rooms(room_code,host_user_id,min_opponent_level,time_control_id,settings_snapshot,expires_at)
+       VALUES($1,$2,$3,$4,$5::jsonb,NOW()+INTERVAL '10 minutes') RETURNING id,room_code`,
       [roomCode,hostId,settings.minOpponentLevel,settings.timeControlId,JSON.stringify(settings)]
     );
     return reply.code(201).send({roomId:String(inserted.rows[0].id),roomCode:inserted.rows[0].room_code,settings});
+  });
+
+  app.delete<{Params:{roomCode:string}}>("/chess/rooms/:roomCode",{preHandler:options.authenticate},async(request,reply)=>{
+    let actor:string;
+    try{actor=userId(request,options);}catch{return fail(reply,401,"unauthorized");}
+    const cancelled=await pool.query(
+      "UPDATE chess_rooms SET status='cancelled' WHERE room_code=$1 AND host_user_id=$2 AND status='waiting' RETURNING id",
+      [request.params.roomCode,actor]
+    );
+    if(!cancelled.rowCount)return fail(reply,404,"waiting_room_not_found");
+    return {cancelled:true};
   });
 
   app.post<{Params:{roomCode:string}}>("/chess/rooms/:roomCode/join",{preHandler:options.authenticate},async(request,reply)=>{
@@ -68,6 +79,11 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
       const roomResult=await client.query("SELECT * FROM chess_rooms WHERE room_code=$1 FOR UPDATE",[request.params.roomCode]);
       const room=roomResult.rows[0];
       if(!room||room.status!=="waiting"){await client.query("ROLLBACK");return fail(reply,404,"room_unavailable");}
+      if(room.expires_at&&new Date(room.expires_at).getTime()<=Date.now()){
+        await client.query("UPDATE chess_rooms SET status='cancelled' WHERE id=$1",[room.id]);
+        await client.query("COMMIT");
+        return fail(reply,410,"room_expired");
+      }
       if(String(room.host_user_id)===playerId){await client.query("ROLLBACK");return fail(reply,400,"cannot_play_self");}
       const activeGame=await client.query("SELECT id FROM chess_games WHERE status='active' AND (white_user_id=$1 OR black_user_id=$1) LIMIT 1",[playerId]);
       if(activeGame.rowCount){await client.query("ROLLBACK");return fail(reply,409,"active_chess_game_exists");}
