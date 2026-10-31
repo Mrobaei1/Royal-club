@@ -199,6 +199,50 @@ test('concurrent state polls can execute only one temporary AI turn', async () =
   assert.equal(String(after.rows[0].current_turn_user_id), guest.user.id);
 });
 
+test('temporary AI refuses to advance a corrupt checker inventory', async () => {
+  const { matchId, host, guest } = await activeMatch();
+  await testPool.query(
+    `UPDATE backgammon_matches
+        SET board_state = $2::jsonb,
+            bar_state = '{"host":0,"guest":0}'::jsonb,
+            off_state = '{"host":0,"guest":0}'::jsonb,
+            dice = '[]'::jsonb, remaining_dice = '[]'::jsonb,
+            current_turn_user_id = $3, state_version = state_version + 1
+      WHERE id = $1`,
+    [matchId, JSON.stringify(Array.from({ length: 24 }, () => 0)), host.user.id],
+  );
+  await testPool.query(
+    `UPDATE backgammon_match_presence
+        SET last_heartbeat_at = NOW() - INTERVAL '30 seconds'
+      WHERE match_id = $1 AND user_id = $2`,
+    [matchId, host.user.id],
+  );
+  const before = await testPool.query(
+    'SELECT state_version, current_turn_user_id FROM backgammon_matches WHERE id = $1',
+    [matchId],
+  );
+
+  const response = await app.inject({
+    method: 'GET',
+    url: `/api/v1/matches/${matchId}/state`,
+    headers: auth(guest.accessToken),
+  });
+  assert.equal(response.statusCode, 409, response.body);
+  assert.match(response.body, /Invalid board state/);
+
+  const after = await testPool.query(
+    'SELECT state_version, current_turn_user_id FROM backgammon_matches WHERE id = $1',
+    [matchId],
+  );
+  assert.equal(Number(after.rows[0].state_version), Number(before.rows[0].state_version));
+  assert.equal(String(after.rows[0].current_turn_user_id), String(before.rows[0].current_turn_user_id));
+  const presence = await testPool.query(
+    'SELECT takeover_active FROM backgammon_match_presence WHERE match_id = $1 AND user_id = $2',
+    [matchId, host.user.id],
+  );
+  assert.equal(presence.rows[0].takeover_active, false);
+});
+
 test('disconnect policies are owner-only, bounded and audited', async () => {
   const regular = await register('Disconnect Policy Regular');
   process.env.OWNER_USER_ID = '0';
