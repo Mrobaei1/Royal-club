@@ -90,4 +90,33 @@ void main() {
     expect(find.text('Enable room voice'), findsNothing);
   });
 
+  testWidgets('finished game displays result and hides active-game actions', (tester) async {
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: ChessGameScreen(
+          fen: _fen,
+          legalMoves: const ['e2e4'],
+          whiteUsername: 'white_player',
+          blackUsername: 'black_player',
+          whiteClock: const Duration(minutes: 4),
+          blackClock: const Duration(minutes: 5),
+          onMove: (_) {},
+          messages: const [],
+          onSendMessage: (_) {},
+          onVoicePressed: () {},
+          onVoiceReleased: () {},
+          voiceEnabled: true,
+          speakingUsername: null,
+          onOfferDraw: () {},
+          onResign: () {},
+          gameStatus: 'white_win',
+        ),
+      ),
+    ));
+    expect(find.text('White won'), findsOneWidget);
+    expect(find.text('Offer draw'), findsNothing);
+    expect(find.text('Resign'), findsNothing);
+    expect(find.byType(GestureDetector), findsWidgets);
+  });
+
 }
