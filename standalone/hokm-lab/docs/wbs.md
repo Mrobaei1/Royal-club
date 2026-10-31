@@ -13,7 +13,7 @@
 | 4.0 | Room and invitation lifecycle | Four seats, private invite, ready/start, host transfer, empty-room cleanup, no occupied-room TTL | 8% |
 | 5.0 | Authoritative online service | Fastify adapter, authenticated membership, atomic/versioned commands, persistence and event delivery | 12% |
 | 6.0 | Reconnect and availability | Disconnect grace period, seat recovery, bot substitution policy, reconnect idempotency | 8% |
-| 7.0 | AI players | Easy/medium/hard decision policies; all actions pass the same authoritative validator | 7% |
+| 7.0 | AI players | Fixed hard-only decision policy; no user-selectable difficulty; all actions pass the same authoritative validator | 7% |
 | 8.0 | Chat and voice | Room chat, abuse controls, mic permission/consent, mute/report and provider decision | 7% |
 | 9.0 | Flutter game UI | Responsive RTL table, cards, hands, trick animation, score, invite/waiting room and accessibility | 12% |
 | 10.0 | Manager controls | Authenticated manager-only target selector (3/5/7), room/connection policy and audit trail | 5% |
@@ -44,5 +44,12 @@
 | 10.0 | Core accepts only 3/5/7 and architecture reserves source for trusted manager config; admin auth/UI/audit pending | 20% |
 | 11.0 | Engine/room/round unit tests; full-match and malformed-deck regression checks added, CI confirmation pending | 30% |
 | 12.0 | WBS, architecture contract and setup README documented; final handoff pending | 20% |
+
+## Confirmed match scoring and progression rules (2026-10-31)
+
+- End-of-match rewards only: +20 XP for each winning-team player; +5 XP for each losing-team player. No personal XP is granted at intermediate hand boundaries.
+- Active-match leaver: −5 XP for that player only, with duplicate exit notifications protected against repeat deductions.
+- Level curve: level 1 starts at 0 XP; advancement cost from level L is round(300 + 5(L−1) + 0.08(L−1)^2). Level 100 starts at 79,439 XP; 95,000 XP is level 109. XP floors at zero and achieved level never decreases.
+- In-memory calculation and unit tests are now in the isolated lab. Production persistence, atomic ledger transactions and server identity integration remain open.
 
 These are planning estimates, not a claim of completed production functionality. Recalculate after each verified milestone.
