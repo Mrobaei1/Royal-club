@@ -75,7 +75,15 @@ function cardCost(card, trumpSuit) {
   return rank[card.rank] + (card.suit === trumpSuit ? 14 : 0);
 }
 function stableBest(cards, score) {
-  return [...cards].sort((a,b) => score(b)-score(a) || SUITS.indexOf(a.suit)-SUITS.indexOf(b.suit) || rank[b.rank]-rank[a.rank])[0];
+  return [...cards].sort((a,b) => {
+    const delta = score(b) - score(a);
+    if (delta) return delta;
+    const suitA = typeof a === "string" ? a : a.suit;
+    const suitB = typeof b === "string" ? b : b.suit;
+    const suitDelta = SUITS.indexOf(suitA) - SUITS.indexOf(suitB);
+    if (suitDelta) return suitDelta;
+    return rank[typeof b === "string" ? "2" : b.rank] - rank[typeof a === "string" ? "2" : a.rank];
+  })[0];
 }
 
 /** Fixed Hard policy; no opponent hand or undealt deck is inspected. */
