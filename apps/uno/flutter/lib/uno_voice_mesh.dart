@@ -142,7 +142,8 @@ class UnoVoiceMesh {
     if (stream == null) return;
     final added = _addedTrackIds.putIfAbsent(peerId, () => <String>{});
     for (final track in stream.getAudioTracks()) {
-      if (added.add(track.id)) await peer.addTrack(track, stream);
+      final String trackKey = track.id ?? track.hashCode.toString();
+      if (added.add(trackKey)) await peer.addTrack(track, stream);
     }
   }
 
