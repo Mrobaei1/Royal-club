@@ -33,6 +33,7 @@ class ChessGameSessionView extends StatelessWidget {
   Widget build(BuildContext context) => AnimatedBuilder(
         animation: session,
         builder: (context, _) {
+          final messenger = ScaffoldMessenger.of(context);
           final game = session.game;
           final messenger = ScaffoldMessenger.of(context);
           if (game == null) {
@@ -106,7 +107,7 @@ class ChessGameSessionView extends StatelessWidget {
                     whiteProfile: session.whiteProfile,
                     blackProfile: session.blackProfile,
                     isHost: session.isHost,
-                    onToggleVoice: (enabled) => unawaited(session.setVoiceEnabled(enabled).catchError((e) => _report(context, e))),
+                    onToggleVoice: (enabled) => unawaited(session.setVoiceEnabled(enabled).catchError((e) => _report(messenger, e))),
                     onMove: (uci) {
                       if (uci.length < 4) return;
                       unawaited(_guard(session.submitMove(
