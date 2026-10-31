@@ -114,7 +114,9 @@ export function applyUnoAction(source: UnoGame, playerId: string, action: GameAc
   if (card.face === 'wild4' && player.hand.some(c => c.id !== card.id && c.color === game.activeColor)) {
     throw new UnoError('ILLEGAL_WILD4', 'Wild Draw Four is not legal while you hold the active color.');
   }
-  if (card.color === 'wild' && !action.chosenColor) throw new UnoError('CHOOSE_COLOR', 'Choose a color for a wild card.');
+  if (card.color === 'wild' && (!action.chosenColor || !UNO_COLORS.includes(action.chosenColor))) {
+    throw new UnoError('CHOOSE_COLOR', 'Choose one of the four valid colors for a wild card.');
+  }
   player.hand.splice(cardIndex, 1);
   game.discardPile.push(card);
   if (card.color !== 'wild') game.activeColor = card.color;

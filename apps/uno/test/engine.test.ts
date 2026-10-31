@@ -61,3 +61,14 @@ test('drawn-card identity is private to the active player', () => {
   assert.equal(privateTurnState(game, 'b').drawnCardId, null);
   assert.equal('drawnCardId' in (publicGameState(game) as object), false);
 });
+
+test('wild cards reject colors outside the four UNO colors', () => {
+  const game = startUnoGame([{id:'a',username:'a'},{id:'b',username:'b'}]);
+  game.players[0]!.hand = [{id:'wild-card',color:'wild',face:'wild'}];
+  game.discardPile = [{id:'top',color:'red',face:1}];
+  game.activeColor = 'red';
+  assert.throws(
+    () => applyUnoAction(game, 'a', {type:'play',cardId:'wild-card',chosenColor:'purple' as never}),
+    (error: unknown) => error instanceof UnoError && error.code === 'CHOOSE_COLOR',
+  );
+});

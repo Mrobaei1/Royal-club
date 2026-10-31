@@ -10,6 +10,7 @@ type ClientSocket = Socket & { data: { player: AuthenticatedPlayer } };
 const MAX_CHAT_LENGTH = 500;
 const MAX_SIGNAL_BYTES = 48_000;
 const chatWindows = new Map<string, number[]>();
+const signalWindows = new Map<string, number[]>();
 
 function fail(error: unknown, ack?: Ack) {
   const e = error instanceof UnoError ? error : new UnoError('INTERNAL_ERROR', 'The request could not be completed.');
@@ -27,6 +28,13 @@ function allowChat(userId: string): void {
   if (times.length >= 8) throw new UnoError('CHAT_RATE_LIMIT', 'Please slow down before sending another message.');
   times.push(now);
   chatWindows.set(userId, times);
+}
+function allowSignal(userId: string): void {
+  const now = Date.now();
+  const times = (signalWindows.get(userId) ?? []).filter(t => now - t < 10_000);
+  if (times.length >= 40) throw new UnoError('SIGNAL_RATE_LIMIT', 'Too many voice signalling messages.');
+  times.push(now);
+  signalWindows.set(userId, times);
 }
 function payloadSize(value: unknown): number {
   try { return Buffer.byteLength(JSON.stringify(value)); } catch { return Number.MAX_SAFE_INTEGER; }
@@ -157,6 +165,7 @@ export function registerUnoSockets(io: Server, verifyToken: TokenVerifier, rooms
         const room = rooms.getRoom(payload?.code ?? '');
         if (!room.voiceEnabled) throw new UnoError('VOICE_DISABLED', 'Voice chat is disabled by the host.');
         if (!room.players.some(p => p.id === user.id) || !room.players.some(p => p.id === payload?.targetId)) throw new UnoError('NOT_A_PLAYER', 'Voice signalling is only available to seated players.');
+        allowSignal(user.id);
         if (payloadSize(payload.data) > MAX_SIGNAL_BYTES) throw new UnoError('SIGNAL_TOO_LARGE', 'Voice signalling payload is too large.');
         if (!['offer', 'answer', 'ice'].includes(payload?.kind ?? '')) throw new UnoError('INVALID_SIGNAL', 'Unsupported voice signalling message.');
         const targets = await io.in(`uno:${room.code}`).fetchSockets();
