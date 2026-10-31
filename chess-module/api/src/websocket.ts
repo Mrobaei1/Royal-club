@@ -18,6 +18,17 @@ export async function registerChessWebSocket(app: FastifyInstance, options: Opti
   }, (socket: WebSocket, request) => {
     const userId = options.getUserId(request);
     const gameId = request.query.gameId;
+    let connectionClosed = false;
+    let listenerToRelease: { release: () => void } | undefined;
+    let cleanupConnection: (() => Promise<void>) | undefined;
+    socket.on("close", () => {
+      connectionClosed = true;
+      if (cleanupConnection) void cleanupConnection();
+    });
+    socket.on("error", () => {
+      connectionClosed = true;
+      if (cleanupConnection) void cleanupConnection();
+    });
     if (!/^\d+$/.test(gameId) || !/^\d+$/.test(userId)) {
       socket.close(1008, "invalid_identity");
       return;
@@ -31,9 +42,16 @@ export async function registerChessWebSocket(app: FastifyInstance, options: Opti
         socket.close(1008, "not_a_game_participant");
         return;
       }
+      if (connectionClosed) return;
       const roomId = String(membership.rows[0].room_id);
       const channel = "chess_game_" + gameId;
       const listener = await options.pool.connect();
+      listenerToRelease = listener;
+      if (connectionClosed) {
+        listener.release();
+        listenerToRelease = undefined;
+        return;
+      }
       let closed = false;
       let cleaned = false;
       let voiceWasActive = false;
@@ -183,9 +201,22 @@ export async function registerChessWebSocket(app: FastifyInstance, options: Opti
         try { await options.pool.query("DELETE FROM chess_voice_leases WHERE room_id=$1 AND user_id=$2",[roomId,userId]); } catch {}
         try { await listener.query("UNLISTEN " + channel); } catch {}
         listener.release();
+        listenerToRelease = undefined;
       };
-      socket.on("close", () => { void cleanup(); });
-      socket.on("error", () => { void cleanup(); });
-    })().catch(() => socket.close(1011, "subscription_failed"));
+      cleanupConnection = cleanup;
+      if (connectionClosed) {
+        await cleanup();
+        return;
+      }
+    })().catch(async () => {
+      try {
+        if (cleanupConnection) await cleanupConnection();
+        else {
+          listenerToRelease?.release();
+          listenerToRelease = undefined;
+        }
+      } catch { /* cleanup must not mask subscription failure */ }
+      socket.close(1011, "subscription_failed");
+    });
   });
 }
