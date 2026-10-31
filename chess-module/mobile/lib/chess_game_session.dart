@@ -81,7 +81,7 @@ class ChessGameSession extends ChangeNotifier {
     blackProfile = results[3] == null ? null : ChessPlayerProfile.fromJson(Map<String, dynamic>.from(results[3] as Map));
     pendingDrawOfferId = offer['pending'] == true ? offer['offerId'] as String? : null;
     drawOfferedByOpponent = offer['pending'] == true && offer['offeredByMe'] != true;
-    voiceEnabled = results[0]['settings']?['voiceEnabled'] == true;
+    voiceEnabled = game?['settings']?['voiceEnabled'] == true;
     errorCode = null;
     if (!_disposed) notifyListeners();
   }
