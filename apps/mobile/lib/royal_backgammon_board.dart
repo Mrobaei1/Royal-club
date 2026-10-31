@@ -31,6 +31,14 @@ class RoyalBackgammonBoard extends StatelessWidget {
     required Size boardSize,
   }) => _RoyalBoardPainter.checkerCenter(point, stackIndex, checkerCount, boardSize);
 
+  /// Radius used by the painter for a point stack. It shrinks as needed so
+  /// every visible checker has its own non-overlapping space inside the point.
+  static double checkerRadiusForPoint({
+    required int point,
+    required int checkerCount,
+    required Size boardSize,
+  }) => _RoyalBoardPainter.checkerRadius(point, checkerCount, boardSize);
+
   @override
   Widget build(BuildContext context) => LayoutBuilder(builder: (context, c) {
     final panel = (c.maxWidth * .075).clamp(28.0, 58.0).toDouble();
@@ -221,13 +229,14 @@ class _RoyalBoardPainter extends CustomPainter {
       final count=i<points.length?points[i].toInt():0;
       if(count!=0){
         final n=count.abs().clamp(1,15), shown=math.min(n,6);
+        final stackRadius=checkerRadius(i,n,s);
         for(var k=0;k<shown;k++){
           final center=checkerCenter(i,k,n,s);
-          _checker(c,center,r,count>0);
+          _checker(c,center,stackRadius,count>0);
         }
         if(count.abs()>5) {
           _txt(c,count.abs().toString(),
-            checkerCenter(i,0,n,s),r*.8,count>0?const Color(0xFF302315):Colors.white);
+            checkerCenter(i,0,n,s),stackRadius*.8,count>0?const Color(0xFF302315):Colors.white);
         }
       }
       _txt(c,i.toString(),Offset(cx,isTop?row*.035:h-row*.035),math.max(8.0,pw*.24),const Color(0xFFE53935));
@@ -260,16 +269,31 @@ class _RoyalBoardPainter extends CustomPainter {
     final top=point<12;
     final col=top?(point<6?11-point:5-(point-6)):point-12;
     final left=col<6?m+col*pw:m+hw+bw+(col-6)*pw;
-    final radius=math.min(pw*.43,row*.17), triH=row*.56;
-    // Paint at most six checkers; space those visible checkers across the point
-    // instead of compressing them as if all 15 were individually painted.
     final visibleCount=math.min(checkerCount,6);
-    final firstCenter=radius*1.8;
-    final lastCenter=math.max(firstCenter,triH-radius);
-    final available=lastCenter-firstCenter;
-    final gap=visibleCount<=1?0.0:math.min(2*radius,available/(visibleCount-1));
+    final triH=row*.56;
+    final radius=checkerRadius(point,checkerCount,s);
+    // Checkers are distributed across the full usable point depth. The
+    // radius is constrained by the stack count, leaving a visible gap between
+    // neighboring discs instead of painting them on top of one another.
+    final firstCenter=radius*1.15;
+    final lastCenter=triH-radius*1.15;
+    final gap=visibleCount<=1?0.0:(lastCenter-firstCenter)/(visibleCount-1);
     final y=top?firstCenter+stackIndex*gap:s.height-firstCenter-stackIndex*gap;
     return Offset(left+pw/2,y);
+  }
+
+  static double checkerRadius(int point,int checkerCount,Size s){
+    if(point<0||point>=24) throw RangeError.range(point,0,23,'point');
+    if(checkerCount<1) throw RangeError.value(checkerCount,'checkerCount');
+    final m=s.width*.025, bw=(s.width*.09).clamp(24.0,42.0).toDouble();
+    final hw=(s.width-2*m-bw)/2, pw=hw/6, row=(s.height-middleHeight(s))/2;
+    final visibleCount=math.min(checkerCount,6);
+    final triangleDepth=row*.56;
+    final naturalRadius=math.min(pw*.43,row*.17);
+    // 2.3 radii per checker guarantees a small but visible gap even when six
+    // checkers occupy one point. The six-disc cap remains the visual policy.
+    final stackSafeRadius=triangleDepth/(2.3*visibleCount);
+    return math.min(naturalRadius,stackSafeRadius);
   }
 
   static void _txt(Canvas c,String t,Offset o,double size,Color color){
