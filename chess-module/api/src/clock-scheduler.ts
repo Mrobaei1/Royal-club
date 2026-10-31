@@ -14,6 +14,21 @@ type ActiveGameRow = {
 
 const scheduledApps = new WeakSet<FastifyInstance>();
 
+export async function expirePendingChessDrawOffers(pool: Pool): Promise<number> {
+  const expired = await pool.query(
+    "UPDATE chess_draw_offers SET status='cancelled',responded_at=NOW() WHERE status='pending' AND expires_at<=NOW() RETURNING game_id,id"
+  );
+  for (const offer of expired.rows as Array<{game_id:string|number;id:string|number}>) {
+    try {
+      await pool.query("SELECT pg_notify($1,$2)",[
+        "chess_game_"+String(offer.game_id),
+        JSON.stringify({type:"draw_response",offerId:String(offer.id),status:"cancelled"})
+      ]);
+    } catch { /* the offer is already expired in the database */ }
+  }
+  return expired.rowCount ?? expired.rows.length;
+}
+
 /**
  * One bounded sweep. Row locks with SKIP LOCKED make concurrent API instances safe:
  * exactly one instance can adjudicate a given expired game.
@@ -111,17 +126,7 @@ export function startChessClockScheduler(app: FastifyInstance, pool: Pool, inter
         lastCleanupAt = now;
       }
       if (now - lastDrawCleanupAt >= 2_000) {
-        const expiredOffers = await pool.query(
-          "UPDATE chess_draw_offers SET status='cancelled',responded_at=NOW() WHERE status='pending' AND expires_at<=NOW() RETURNING game_id,id"
-        );
-        for (const offer of expiredOffers.rows as Array<{game_id:string|number;id:string|number}>) {
-          try {
-            await pool.query("SELECT pg_notify($1,$2)",[
-              "chess_game_"+String(offer.game_id),
-              JSON.stringify({type:"draw_response",offerId:String(offer.id),status:"cancelled"})
-            ]);
-          } catch { /* offer is already expired in the database */ }
-        }
+        await expirePendingChessDrawOffers(pool);
         lastDrawCleanupAt = now;
       }
       await adjudicateExpiredChessClocks(pool, now);
