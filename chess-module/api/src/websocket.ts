@@ -37,6 +37,8 @@ export async function registerChessWebSocket(app: FastifyInstance, options: Opti
       let closed = false;
       let cleaned = false;
       let voiceWasActive = false;
+      let signalWindowStarted = Date.now();
+      let signalCount = 0;
       let expiryTimer: ReturnType<typeof setInterval> | undefined;
       const send = (value: unknown) => {
         if (!closed && socket.readyState === 1) socket.send(JSON.stringify(value));
@@ -125,8 +127,31 @@ export async function registerChessWebSocket(app: FastifyInstance, options: Opti
         }
         if (message.type !== "chess:voice:signal" ||
             !["offer","answer","candidate"].includes(message.signalType ?? "") ||
-            message.payload === undefined) {
+            message.payload === undefined || typeof message.payload !== "object" ||
+            message.payload === null || Array.isArray(message.payload)) {
           send({type:"chess:error",code:"unsupported_command_use_authenticated_api"});
+          return;
+        }
+        const signalPayload = message.payload as Record<string, unknown>;
+        if ((message.signalType === "offer" || message.signalType === "answer") &&
+            (typeof signalPayload.sdp !== "string" || signalPayload.sdp.length > 6000 ||
+             signalPayload.type !== message.signalType)) {
+          send({type:"chess:error",code:"invalid_sdp_signal"});
+          return;
+        }
+        if (message.signalType === "candidate" &&
+            (typeof signalPayload.candidate !== "string" || signalPayload.candidate.length > 4096)) {
+          send({type:"chess:error",code:"invalid_ice_candidate"});
+          return;
+        }
+        const signalNow = Date.now();
+        if (signalNow - signalWindowStarted >= 10_000) {
+          signalWindowStarted = signalNow;
+          signalCount = 0;
+        }
+        signalCount += 1;
+        if (signalCount > 30) {
+          send({type:"chess:error",code:"voice_signaling_rate_limited"});
           return;
         }
         void (async () => {
