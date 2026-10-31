@@ -2,6 +2,7 @@ import websocket from "@fastify/websocket";
 import type { FastifyInstance, FastifyRequest, preHandlerHookHandler } from "fastify";
 import type { Pool } from "pg";
 import type { WebSocket } from "ws";
+import { Buffer } from "node:buffer";
 
 type Options = {
   pool: Pool;
@@ -45,7 +46,7 @@ export async function registerChessWebSocket(app: FastifyInstance, options: Opti
       };
       listener.on("notification", (notification) => {
         if (!notification.payload) return;
-        let event: {type?:string; id?:string; connected?:boolean};
+        let event: {type?:string; id?:string; connected?:boolean; fromUserId?:string; signalType?:string; payload?:unknown};
         try { event = JSON.parse(notification.payload) as {type?:string;id?:string;connected?:boolean}; }
         catch { return; }
         void (async () => {
@@ -71,6 +72,9 @@ export async function registerChessWebSocket(app: FastifyInstance, options: Opti
           } else if (event.type === "presence" && event.id && typeof event.connected === "boolean") {
             const user = await options.pool.query("SELECT username FROM users WHERE id=$1",[event.id]);
             send({type:"chess:opponent:presence",userId:event.id,username:user.rows[0]?.username??"",connected:event.connected});
+          } else if (event.type === "voice:signal" && event.fromUserId !== userId &&
+                     typeof event.signalType === "string" && event.payload !== undefined) {
+            send({type:"chess:voice:signal",signalType:event.signalType,payload:event.payload});
           } else if (event.type === "voice") {
             const lease = await options.pool.query(
               "SELECT u.username,l.expires_at FROM chess_voice_leases l JOIN users u ON u.id=l.user_id WHERE l.room_id=$1 AND l.expires_at>NOW()",
@@ -102,11 +106,37 @@ export async function registerChessWebSocket(app: FastifyInstance, options: Opti
           }).catch(() => send({type:"chess:error",code:"voice_status_unavailable"}));
       },1000);
       socket.on("message", (raw) => {
-        let message: {type?:string};
-        try { message = JSON.parse(raw.toString()) as {type?:string}; }
+        let message: {type?:string; signalType?:string; payload?:unknown};
+        try { message = JSON.parse(raw.toString()) as {type?:string;signalType?:string;payload?:unknown}; }
         catch { send({type:"chess:error",code:"invalid_json"}); return; }
-        if (message.type === "ping") send({type:"chess:pong",serverTime:Date.now()});
-        else send({type:"chess:error",code:"unsupported_command_use_authenticated_api"});
+        if (message.type === "ping") {
+          send({type:"chess:pong",serverTime:Date.now()});
+          return;
+        }
+        if (message.type !== "chess:voice:signal" ||
+            !["offer","answer","candidate"].includes(message.signalType ?? "") ||
+            message.payload === undefined) {
+          send({type:"chess:error",code:"unsupported_command_use_authenticated_api"});
+          return;
+        }
+        void (async () => {
+          const allowed = await options.pool.query(
+            "SELECT 1 FROM chess_games g JOIN chess_rooms r ON r.id=g.room_id WHERE g.id=$1 AND g.status='active' AND (g.white_user_id=$2 OR g.black_user_id=$2) AND COALESCE((r.settings_snapshot->>'voiceEnabled')::boolean,false)=true",
+            [gameId,userId]
+          );
+          if (!allowed.rowCount) {
+            send({type:"chess:error",code:"voice_signaling_not_allowed"});
+            return;
+          }
+          const payload = JSON.stringify({
+            type:"voice:signal",fromUserId:userId,signalType:message.signalType,payload:message.payload
+          });
+          if (Buffer.byteLength(payload,"utf8") > 7000) {
+            send({type:"chess:error",code:"voice_signal_too_large"});
+            return;
+          }
+          await publish(JSON.parse(payload) as object);
+        })().catch(() => send({type:"chess:error",code:"voice_signal_delivery_failed"}));
       });
       const cleanup = async () => {
         if (cleaned) return;
