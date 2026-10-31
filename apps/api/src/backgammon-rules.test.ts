@@ -105,7 +105,7 @@ test('applies bear-off and increments the off counter', () => {
   board[0] = 1;
   const result = applyBackgammonMove(state(board), { from: 0, to: null, die: 1 }, true);
   assert.ok('state' in result);
-  if ('state' in result) assert.equal(result.state.off.host, 1);
+  if ('state' in result) assert.equal(result.state.off.host, 15);
 });
 
 test('supports a two-die sequence by applying each move to the previous preview state', () => {
@@ -251,7 +251,7 @@ test('rejects a persisted position with missing checkers instead of silently acc
   const missingOne = { board, bar: { host: 0, guest: 0 }, off: { host: 0, guest: 0 } };
   assert.ok('error' in applyBackgammonMove(missingOne, { from: 5, to: 4, die: 1 }, true));
   assert.equal(maxPlayableDiceCount(missingOne, [1], true), 0);
-  assert.equal(hasLegalMove(board, missingOne.bar, [1], true), false);
+  assert.equal(hasLegalMove(board, missingOne.bar, [1], true, missingOne.off), false);
 });
 
 test('valid states still preserve the normal move and bar-entry rules', () => {
