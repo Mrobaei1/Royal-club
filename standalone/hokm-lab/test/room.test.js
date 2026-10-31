@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { legalCards } from "../src/engine.js";
-import { createRoom, joinRoom, leaveRoom, setPlayerReady, startRoom, expireRoom, roomViewForUser, applyRoomCommand, startNextRound, recordMatchForfeit } from "../src/room.js";
+import { createRoom, joinRoom, leaveRoom, setPlayerReady, startRoom, expireRoom, roomViewForUser, applyRoomCommand, startNextRound, recordMatchForfeit, disconnectPlayer, reconnectPlayer, handleDisconnectTimeout } from "../src/room.js";
 
 function fullReadyRoom(now = 1000, matchTarget = 7) {
   let room = createRoom({ roomId: "test-room", hostUserId: "u0", now, matchTarget });
@@ -207,3 +207,49 @@ function awaitRecordForfeit(room,userId){
   // The exit API is synchronous; helper keeps this test focused on room lifecycle.
   return recordMatchForfeit(room,userId);
 }
+
+
+test("temporary disconnect can reconnect within grace without XP penalty", () => {
+  let room = startRoom(fullReadyRoom(), "u0", { now: 2000, rng: () => 0.5 });
+  room = disconnectPlayer(room, "u0", { now: 3000, expectedVersion: room.version });
+  assert.equal(room.players[0].connected, false);
+  assert.equal(room.players[0].botControlled, false);
+  assert.deepEqual(room.playerProgress, {});
+  assert.throws(() => handleDisconnectTimeout(room, "u0", { now: 22999, expectedVersion: room.version }), /grace period has not elapsed/);
+  room = reconnectPlayer(room, "u0", { now: 10000, expectedVersion: room.version });
+  assert.equal(room.players[0].connected, true);
+  assert.equal(room.players[0].botControlled, false);
+  assert.equal(room.players[0].reconnectDeadline, null);
+  assert.deepEqual(room.playerProgress, {});
+});
+
+test("expired disconnect grace transfers seat to temporary Hard bot and permits safe reclaim", () => {
+  let room = startRoom(fullReadyRoom(), "u0", { now: 2000, rng: () => 0.5 });
+  room = disconnectPlayer(room, "u0", { now: 3000, expectedVersion: room.version });
+  const deadline = room.players[0].reconnectDeadline;
+  room = handleDisconnectTimeout(room, "u0", { now: deadline, expectedVersion: room.version });
+  assert.equal(room.players[0].temporaryBot, true);
+  assert.equal(room.players[0].botControlled, true);
+  assert.equal(room.players[0].connected, false);
+  assert.equal(room.playerProgress.u0, undefined, "temporary disconnect must not apply the -5 XP forfeit penalty");
+  assert.equal(room.round.phase, "playing", "bot must resolve hakem choice and lead through the round validator");
+  assert.equal(room.round.currentTrick.length, 1);
+  const staleVersion = room.version - 1;
+  room = reconnectPlayer(room, "u0", { now: deadline + 1000, expectedVersion: room.version });
+  assert.equal(room.players[0].connected, true);
+  assert.equal(room.players[0].temporaryBot, false);
+  assert.equal(room.players[0].botControlled, false);
+  assert.equal(room.round.currentTrick.length, 1, "reconnect must not roll back a committed bot move");
+  assert.throws(() => handleDisconnectTimeout(room, "u0", { now: deadline + 2000, expectedVersion: staleVersion }), /Stale room version/);
+});
+
+test("intentional forfeit remains permanent after a temporary disconnect", () => {
+  let room = startRoom(fullReadyRoom(), "u0", { now: 2000, rng: () => 0.5 });
+  room = disconnectPlayer(room, "u0", { now: 3000, expectedVersion: room.version });
+  room = handleDisconnectTimeout(room, "u0", { now: room.players[0].reconnectDeadline, expectedVersion: room.version });
+  room = recordMatchForfeit(room, "u0");
+  assert.equal(room.players[0].forfeited, true);
+  assert.equal(room.players[0].temporaryBot, false);
+  assert.equal(room.playerProgress.u0.xp, 0, "XP penalty floors at zero");
+  assert.throws(() => reconnectPlayer(room, "u0", { now: 40000, expectedVersion: room.version }), /forfeited player/);
+});
