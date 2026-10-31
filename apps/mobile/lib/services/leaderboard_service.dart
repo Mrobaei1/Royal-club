@@ -4,23 +4,22 @@ import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 
-import 'auth_service.dart';
+import 'api_transport.dart';
 
 class LeaderboardService {
   static const _storage = FlutterSecureStorage();
 
   static Future<Map<String, dynamic>> fetch({bool weekly = false}) async {
-    AuthService.ensureConfigured();
+    ApiTransport.ensureConfigured();
     final token = await _storage.read(key: 'royal_club_token');
     if (token == null || token.isEmpty) {
       throw Exception('ابتدا وارد حساب شوید.');
     }
 
-    final base = AuthService.baseUrl.trim().replaceFirst(RegExp(r'/+$'), '');
     late http.Response response;
     try {
       response = await http.get(
-        Uri.parse('$base/api/v1/leaderboard${weekly ? '/weekly' : ''}'),
+        ApiTransport.uri('/api/v1/leaderboard${weekly ? '/weekly' : ''}'),
         headers: {'Authorization': 'Bearer $token', 'Accept': 'application/json'},
       ).timeout(const Duration(seconds: 15));
     } on TimeoutException {
