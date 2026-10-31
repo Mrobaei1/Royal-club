@@ -162,6 +162,15 @@ test('registered players can join an online match and history does not expose op
   assert.equal(profile.statusCode, 200, profile.body);
   assert.equal(profile.json().user.email, host.user.email);
   assert.equal(profile.json().user.xpPoints, 0, 'New players start with zero progression XP.');
+
+  const sameSessionAfterNetworkChange = await app.inject({
+    method: 'GET',
+    url: '/api/v1/me',
+    headers: { ...auth(login.json().accessToken), 'x-forwarded-for': '203.0.113.77' },
+  });
+  assert.equal(sameSessionAfterNetworkChange.statusCode, 200, sameSessionAfterNetworkChange.body);
+  assert.equal(sameSessionAfterNetworkChange.json().user.id, host.user.id,
+    'An authenticated account session must remain tied to the account, not a changed VPN/network IP.');
   assert.equal(profile.json().user.level, 1, 'New players start at permanent progression level 1.');
 
   const friendRequest = await app.inject({
