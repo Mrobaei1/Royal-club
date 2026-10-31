@@ -42,6 +42,10 @@ test("isolated chess migrations apply cleanly against a bigint users schema", { 
     const [white, black] = users.rows.map(row => String(row.id));
     const control = await db.query("SELECT id FROM chess_time_controls WHERE id='rapid' AND enabled=true");
     assert.equal(control.rowCount, 1);
+    await db.query(
+      "INSERT INTO chess_admin_audit_events(actor_user_id,action,entity_type,entity_id) VALUES($1,'time_control_upsert','time_control','rapid')",
+      [white],
+    );
 
     const room = await db.query(
       `INSERT INTO chess_rooms(room_code,host_user_id,time_control_id,settings_snapshot)
