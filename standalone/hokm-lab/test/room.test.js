@@ -98,7 +98,8 @@ test("next round is host-controlled and rotates hakem", () => {
 });
 
 function completeOneRound(room, host = "u0") {
-  room = applyRoomCommand(room, host, { type: "choose_trump", suit: "spades" }, room.version);
+  const hakemUserId = ["u0", "u1", "u2", "u3"][room.round.hakemSeat];
+  room = applyRoomCommand(room, hakemUserId, { type: "choose_trump", suit: "spades" }, room.version);
   while (room.status === "playing") {
     const seat = room.round.currentSeat;
     const legal = legalCards(room.round.hands[seat], room.round.currentTrick);
