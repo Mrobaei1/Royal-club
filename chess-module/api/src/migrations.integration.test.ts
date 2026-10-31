@@ -78,7 +78,7 @@ test("isolated chess migrations apply cleanly against a bigint users schema", { 
 
     const columns = await db.query(
       `SELECT table_name,column_name FROM information_schema.columns
-       WHERE table_schema=$1 AND table_name IN ('chess_games','chess_rooms','chess_moves','chess_draw_offers','chess_player_ratings','chess_matchmaking_queue')`,
+       WHERE table_schema=$1 AND table_name IN ('chess_games','chess_rooms','chess_moves','chess_draw_offers','chess_player_ratings','chess_matchmaking_queue','chess_admin_audit_events')`,
       [schema],
     );
     const actual = new Set(columns.rows.map(row => `${row.table_name}.${row.column_name}`));
