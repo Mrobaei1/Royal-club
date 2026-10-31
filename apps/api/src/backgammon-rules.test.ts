@@ -258,3 +258,21 @@ test('valid states still preserve the normal move and bar-entry rules', () => {
     assert.equal(entry.state.bar.guest, 1);
   }
 });
+
+
+test('fails closed for malformed dice collections and null higher-die moves', () => {
+  const board = emptyBoard();
+  board[5] = 1;
+  const validState = state(board);
+  const malformedDice = [1, 7] as unknown as number[];
+  const missingDice = null as unknown as number[];
+
+  assert.equal(hasLegalMove(board, validState.bar, malformedDice, true), false);
+  assert.equal(hasLegalMove(board, validState.bar, missingDice, true), false);
+  assert.equal(maxPlayableDiceCount(validState, malformedDice, true), 0);
+  assert.equal(maxPlayableDiceCount(validState, missingDice, true), 0);
+  assert.equal(
+    mustPlayHigherDie(validState, [1, 2], null as unknown as { from: number; to: number; die: number }, true),
+    false,
+  );
+});
