@@ -1,0 +1,60 @@
+import 'dotenv/config';
+import { createHmac, timingSafeEqual } from 'node:crypto';
+import Fastify from 'fastify';
+import cors from '@fastify/cors';
+import helmet from '@fastify/helmet';
+import { Pool } from 'pg';
+import { Server } from 'socket.io';
+import { registerUnoSockets } from './socket.js';
+import type { AuthenticatedPlayer } from './room-manager.js';
+
+const databaseUrl = process.env.DATABASE_URL ?? '';
+if (!databaseUrl) throw new Error('DATABASE_URL is required to resolve the authenticated public username.');
+const pool = new Pool({ connectionString: databaseUrl });
+const jwtSecret = process.env.JWT_SECRET ?? '';
+if (jwtSecret.length < 32) throw new Error('JWT_SECRET must contain at least 32 characters.');
+function decodePart(value: string): Record<string, unknown> {
+  return JSON.parse(Buffer.from(value, 'base64url').toString('utf8')) as Record<string, unknown>;
+}
+async function verifyRoyalToken(token: string): Promise<AuthenticatedPlayer> {
+  const parts = token.split('.');
+  if (parts.length !== 3) throw new Error('Invalid token.');
+  const [headerPart, payloadPart, signaturePart] = parts as [string, string, string];
+  const header = decodePart(headerPart);
+  const payload = decodePart(payloadPart);
+  if (header.alg !== 'HS256') throw new Error('Unsupported token algorithm.');
+  const expected = createHmac('sha256', jwtSecret).update(`${headerPart}.${payloadPart}`).digest();
+  const actual = Buffer.from(signaturePart, 'base64url');
+  if (actual.length !== expected.length || !timingSafeEqual(actual, expected)) throw new Error('Invalid token signature.');
+  const now = Math.floor(Date.now() / 1000);
+  if (typeof payload.exp !== 'number' || payload.exp <= now) throw new Error('Token expired.');
+  const id = String(payload.sub ?? payload.id ?? '');
+  if (!id) throw new Error('Token is missing the subject.');
+  const profile = await pool.query(
+    'SELECT username FROM users WHERE id = $1 LIMIT 1', [id],
+  );
+  const username = String(profile.rows[0]?.username ?? '').trim();
+  if (!username || username.length > 32) throw new Error('The account has no valid public username.');
+  return { id, username };
+}
+const app = Fastify({ logger: true, trustProxy: false, bodyLimit: 64 * 1024 });
+const origins = (process.env.CORS_ORIGINS ?? '').split(',').map(s => s.trim()).filter(Boolean);
+await app.register(helmet);
+await app.register(cors, { origin: origins.length ? origins : false, credentials: true });
+app.get('/health', async () => ({ ok: true, service: 'royal-club-uno', version: '0.1.0' }));
+const io = new Server(app.server, {
+  cors: { origin: origins.length ? origins : false, credentials: true },
+  transports: ['websocket', 'polling'],
+  maxHttpBufferSize: 64 * 1024,
+});
+registerUnoSockets(io, verifyRoyalToken);
+const port = Number(process.env.PORT ?? 4100);
+const host = process.env.HOST ?? '0.0.0.0';
+app.addHook('onClose', async () => { await pool.end(); });
+try {
+  await app.listen({ port, host });
+  app.log.info(`UNO standalone service listening on ${host}:${port}`);
+} catch (error) {
+  app.log.error(error);
+  process.exit(1);
+}
