@@ -30,3 +30,37 @@ test("detects checkmate", () => {
   assert.equal(game.snapshot().checkmate, true);
   assert.equal(game.snapshot().gameOver, true);
 });
+
+test("detects stalemate and insufficient material", () => {
+  const stalemate = new ChessGame("7k/5K2/6Q1/8/8/8/8/8 b - - 0 1").snapshot();
+  assert.equal(stalemate.check, false);
+  assert.equal(stalemate.draw, true);
+  assert.equal(stalemate.gameOver, true);
+
+  const insufficient = new ChessGame("8/8/8/8/8/2k5/8/4K3 w - - 0 1").snapshot();
+  assert.equal(insufficient.draw, true);
+  assert.equal(insufficient.gameOver, true);
+});
+
+test("detects 50-move, 75-move and threefold repetition draws", () => {
+  const fifty = new ChessGame("4k3/8/8/8/8/8/8/R3K3 w - - 100 1").snapshot();
+  assert.equal(fifty.draw, true);
+
+  const seventyFive = new ChessGame("4k3/8/8/8/8/8/8/R3K3 w - - 150 1").snapshot();
+  assert.equal(seventyFive.draw, true);
+
+  const repetition = new ChessGame();
+  for (let cycle = 0; cycle < 2; cycle++) {
+    repetition.play({from:"g1",to:"f3"});
+    repetition.play({from:"g8",to:"f6"});
+    repetition.play({from:"f3",to:"g1"});
+    repetition.play({from:"f6",to:"g8"});
+  }
+  assert.equal(repetition.snapshot().draw, true);
+  assert.equal(repetition.snapshot().gameOver, true);
+});
+
+test("rejects malformed promotion values before reaching the chess engine", () => {
+  const game = new ChessGame("7k/P7/8/8/8/8/8/7K w - - 0 1");
+  assert.throws(() => game.play({from:"a7",to:"a8",promotion:"x" as "q"}), /illegal_move/);
+});
