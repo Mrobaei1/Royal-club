@@ -10,6 +10,7 @@ Widget _screen({
   String? pendingDrawOfferId,
   bool drawOfferedByOpponent = false,
   ValueChanged<bool>? onRespondToDraw,
+  String? activeSide,
 }) => MaterialApp(
   home: Scaffold(
     body: ChessGameScreen(
@@ -31,6 +32,7 @@ Widget _screen({
       pendingDrawOfferId: pendingDrawOfferId,
       drawOfferedByOpponent: drawOfferedByOpponent,
       onRespondToDraw: onRespondToDraw,
+      activeSide: activeSide,
     ),
   ),
 );
@@ -65,3 +67,9 @@ void main() {
     expect(response, isTrue);
   });
 }
+
+  testWidgets('active server clock interpolates between authoritative updates', (tester) async {
+    await tester.pumpWidget(_screen(activeSide: 'white'));
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.text('04:59'), findsOneWidget);
+  });
