@@ -35,7 +35,11 @@ class ApiTransport {
         'سرور Royal Club هنوز تنظیم نشده است. ابتدا سرویس API را راه‌اندازی کنید.',
       );
     }
-    _normalizeOrigin(candidate);
+    try {
+      _normalizeOrigin(candidate);
+    } on ArgumentError {
+      throw Exception('آدرس سرور Royal Club معتبر نیست یا از اتصال امن HTTPS استفاده نمی‌کند.');
+    }
   }
 
   static String _normalizeOriginOrEmpty(String value) {
