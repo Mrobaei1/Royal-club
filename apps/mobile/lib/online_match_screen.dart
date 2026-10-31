@@ -15,6 +15,8 @@ class OnlineMatchScreen extends StatefulWidget {
 
 class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
   Timer? _poller;
+  Timer? _turnClock;
+  int _turnSecondsRemaining = 20;
   int _refreshSequence = 0;
   Map<String, dynamic>? _state;
   Map<String, dynamic> _matchDetails = {};
@@ -33,6 +35,23 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
   bool get _hasValidId => RegExp(r'^[1-9][0-9]*$').hasMatch(_id);
   bool get _isEnglish => Localizations.localeOf(context).languageCode == 'en';
 
+  int _remainingTurnSeconds(Map<String, dynamic> state) {
+    final startedAt = DateTime.tryParse(state['turnStartedAt']?.toString() ?? '');
+    if (startedAt == null) return 20;
+    final elapsed = DateTime.now().difference(startedAt.toLocal()).inSeconds;
+    return (20 - elapsed).clamp(0, 20).toInt();
+  }
+
+  void _tickTurnClock() {
+    final state = _state;
+    if (!mounted || state == null || _matchStatus != 'active' ||
+        state['aiTakeoverActive'] == true) return;
+    final next = _remainingTurnSeconds(state);
+    if (next != _turnSecondsRemaining) {
+      setState(() => _turnSecondsRemaining = next);
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -40,6 +59,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
     if (_hasValidId) {
       _refresh();
       _poller = Timer.periodic(const Duration(seconds: 3), (_) => _refresh(silent: true));
+      _turnClock = Timer.periodic(const Duration(seconds: 1), (_) => _tickTurnClock());
     } else {
       _error = 'شناسه اتاق بازی معتبر نیست. از فهرست بازی‌های آنلاین دوباره وارد شوید.';
     }
@@ -48,6 +68,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
   @override
   void dispose() {
     _poller?.cancel();
+    _turnClock?.cancel();
     super.dispose();
   }
 
@@ -94,6 +115,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
               _fromBar = false;
             }
             _state = state;
+            _turnSecondsRemaining = _remainingTurnSeconds(state);
             _matchStatus = match['status'].toString();
             _error = null;
             _connectionLost = false;
@@ -107,6 +129,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
           _selectedDie = null;
           _fromBar = false;
           _state = null;
+          _turnSecondsRemaining = 20;
           _matchStatus = match['status']?.toString() ?? 'waiting';
           _error = null;
           _connectionLost = false;
@@ -601,6 +624,11 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
     }
     final isMyTurn = _state?['isMyTurn'] == true;
     final isEnglish = Localizations.localeOf(context).languageCode == 'en';
+    final aiTakeoverActive = _state?['aiTakeoverActive'] == true;
+    final turnTimerText = _matchStatus == 'active' && _state != null && !aiTakeoverActive
+        ? '${_turnSecondsRemaining}s'
+        : null;
+    final timerWhite = (_state?['isHost'] == true) == isMyTurn;
     final bar = preview['bar'] as Map<String, int>;
     final off = preview['off'] as Map<String, int>;
     final ownBar = (bar[_state?['isHost'] == true ? 'host' : 'guest'] ?? 0);
@@ -885,18 +913,12 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
                           offWhite: off['host'] ?? 0,
                           offBlack: off['guest'] ?? 0,
                           dice: dice.map((d) => d.toInt()).toList(),
+                          timerText: turnTimerText,
+                          timerWhite: timerWhite,
+                          rollLabel: isEnglish ? 'Roll' : 'تاس',
+                          onRoll: _busy || _matchStatus != 'active' || !isMyTurn || dice.isNotEmpty ? null : _roll,
                           onPointTap: (point) => _tapPoint(point, board, remaining, isMyTurn),
                         ),
-                      ),
-                      const SizedBox(width: 6),
-                      IconButton.filled(
-                        tooltip: isEnglish ? 'Roll dice' : 'ریختن تاس',
-                        onPressed: _busy || _matchStatus != 'active' || !isMyTurn || dice.isNotEmpty ? null : _roll,
-                        style: IconButton.styleFrom(
-                          backgroundColor: Theme.of(context).colorScheme.primary,
-                          foregroundColor: Theme.of(context).colorScheme.onPrimary,
-                        ),
-                        icon: const Icon(Icons.casino),
                       ),
                     ],
                   ),
@@ -963,6 +985,10 @@ class OnlineBackgammonBoard extends StatelessWidget {
   final ValueChanged<int> onPointTap;
   final int barWhite, barBlack, offWhite, offBlack;
   final List<int> dice;
+  final String? timerText;
+  final bool timerWhite;
+  final String rollLabel;
+  final VoidCallback? onRoll;
 
   const OnlineBackgammonBoard({
     super.key,
@@ -974,6 +1000,10 @@ class OnlineBackgammonBoard extends StatelessWidget {
     this.offWhite = 0,
     this.offBlack = 0,
     this.dice = const <int>[],
+    this.timerText,
+    this.timerWhite = true,
+    this.rollLabel = 'Roll',
+    this.onRoll,
   });
 
   @override
@@ -987,6 +1017,10 @@ class OnlineBackgammonBoard extends StatelessWidget {
       offWhite: offWhite,
       offBlack: offBlack,
       dice: dice,
+      timerText: timerText,
+      timerWhite: timerWhite,
+      rollLabel: rollLabel,
+      onRoll: onRoll,
       onPointTap: onPointTap,
     ),
   );
