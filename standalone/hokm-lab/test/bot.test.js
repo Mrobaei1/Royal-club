@@ -123,7 +123,11 @@ test("hard bot completes 24 seeded deals without illegal actions or hidden-infor
 test("bot decisions are unchanged when hidden opponent hands are altered",()=>{
   let state=chooseTrump(createRound({deck:createDeck(),hakemSeat:0}),0,"diamonds");
   const actionA=chooseHardBotAction(state,state.currentSeat);
-  const altered={...state,hands:state.hands.map((hand,index)=>index===state.currentSeat?hand:[])};
+  const hiddenPool=createDeck();
+  let cursor=0;
+  const altered={...state,hands:state.hands.map((hand,index)=>index===state.currentSeat
+    ? hand
+    : Array.from({length:hand.length},()=>hiddenPool[cursor++]))};
   const actionB=chooseHardBotAction(altered,altered.currentSeat);
   assert.deepEqual(actionB,actionA);
 });
