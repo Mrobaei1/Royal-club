@@ -251,9 +251,7 @@ class AuthService {
     final token = await _storage.read(key: 'royal_club_token');
     if (token != null && token.isNotEmpty) {
       try {
-        final base = baseUrl.trim().replaceFirst(RegExp(r'/+
-}
-), '');
+        final base = baseUrl.trim().replaceFirst(RegExp(r'/+$'), '');
         final response = await _send(() => http.post(
           Uri.parse('$base/api/v1/auth/logout'),
           headers: {'Authorization': 'Bearer $token'},
@@ -266,4 +264,5 @@ class AuthService {
     }
     await _storage.delete(key: 'royal_club_token');
   }
+}
 }
