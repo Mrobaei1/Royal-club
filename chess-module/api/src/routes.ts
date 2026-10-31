@@ -1,4 +1,4 @@
-import { randomBytes } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import type { FastifyInstance, FastifyRequest, preHandlerHookHandler } from "fastify";
 import type { Pool, PoolClient } from "pg";
 import { ChessGame } from "./engine.js";
@@ -276,7 +276,7 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
   app.post<{Params:{gameId:string}}>("/chess/games/:gameId/voice/request",{preHandler:options.authenticate},async(request,reply)=>{
     let playerId:string;
     try{playerId=userId(request,options);}catch{return fail(reply,401,"unauthorized");}
-    const leaseId=randomBytes(16).toString("hex");
+    const leaseId=randomUUID();
     const result=await pool.query(
       "INSERT INTO chess_voice_leases(room_id,user_id,lease_id,expires_at) SELECT r.id,$2,$3,NOW()+INTERVAL '8 seconds' FROM chess_games g JOIN chess_rooms r ON r.id=g.room_id WHERE g.id=$1 AND g.status='active' AND (g.white_user_id=$2 OR g.black_user_id=$2) AND COALESCE((r.settings_snapshot->>'voiceEnabled')::boolean,false)=true ON CONFLICT(room_id) DO UPDATE SET user_id=EXCLUDED.user_id,lease_id=EXCLUDED.lease_id,expires_at=EXCLUDED.expires_at WHERE chess_voice_leases.expires_at<=NOW() OR chess_voice_leases.user_id=EXCLUDED.user_id RETURNING lease_id,expires_at,user_id",
       [request.params.gameId,playerId,leaseId]
