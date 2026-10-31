@@ -586,7 +586,7 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
       [request.params.gameId,actor]
     );
     if(!changed.rowCount)return fail(reply,403,"host_only");
-    try{await publishGameEvent(pool,request.params.gameId,{type:"voice"});}catch(error){request.log.warn({err:error},"voice enable notification failed");}
+    try{await publishGameEvent(pool,request.params.gameId,{type:"voice_settings"});}catch(error){request.log.warn({err:error},"voice enable notification failed");}
     return {voiceEnabled:true};
   });
 
