@@ -89,11 +89,7 @@ test('temporary AI can legally bear off a checker from the home board', () => {
 test('temporary AI selects a legal move in the guest direction', () => {
   const board = Array.from({ length: 24 }, () => 0);
   board[20] = -1;
-  const state = {
-    board,
-    bar: { host: 0, guest: 0 },
-    off: { host: 0, guest: 0 },
-  };
+  const state = completeState(board);
   const turn = chooseTemporaryAiTurn(state, [2], false);
 
   assert.deepEqual(turn.moves, [{ from: 20, to: 22, die: 2 }]);
@@ -116,11 +112,7 @@ test('temporary AI hits an opposing blot when the guest move lands on it', () =>
   const board = Array.from({ length: 24 }, () => 0);
   board[20] = -1;
   board[22] = 1;
-  const state = {
-    board,
-    bar: { host: 0, guest: 0 },
-    off: { host: 0, guest: 0 },
-  };
+  const state = completeState(board);
   const turn = chooseTemporaryAiTurn(state, [2], false);
 
   assert.deepEqual(turn.moves, [{ from: 20, to: 22, die: 2 }]);
