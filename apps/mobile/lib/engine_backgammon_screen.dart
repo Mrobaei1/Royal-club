@@ -146,8 +146,8 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
     _selectedPoint = null;
     _selectedBar = false;
 
-    // Keep the timeout substitute readable too: reveal a fresh roll, wait three
-    // seconds, then animate each legal move with the same three-second cadence
+    // Keep the timeout substitute readable too: reveal a fresh roll, wait two
+    // seconds, then animate each legal move with the same two-second cadence
     // used by the regular computer turn.
     if (_engine.dice.isEmpty) {
       setState(() {
@@ -157,13 +157,13 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
             : appText(context, 'زمان تمام شد؛ تاس‌ها: ${_engine.dice.join('، ')}', 'Time is up; dice: ${_engine.dice.join(', ')}');
       });
       if (_engine.dice.isNotEmpty) {
-        await Future<void>.delayed(const Duration(seconds: 3));
+        await Future<void>.delayed(const Duration(seconds: 2));
       }
     }
 
     var safety = 0;
     while (mounted && !_engine.finished && _engine.dice.isNotEmpty && safety++ < 4) {
-      await Future<void>.delayed(const Duration(seconds: 3));
+      await Future<void>.delayed(const Duration(seconds: 2));
       if (!mounted || _engine.finished) break;
       var moved = false;
       setState(() {
@@ -466,7 +466,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
       return;
     }
     _computerThinking = true;
-    Future<void>.delayed(const Duration(seconds: 3), () {
+    Future<void>.delayed(const Duration(seconds: 2), () {
       if (!mounted) return;
       setState(() {
         if (!_vsComputer || _engine.finished || _engine.currentPlayer != -1) {
