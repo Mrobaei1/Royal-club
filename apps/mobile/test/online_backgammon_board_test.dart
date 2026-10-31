@@ -162,6 +162,28 @@ void main() {
     }
   });
 
+  testWidgets('overfull point renders safely with a fifth-checker count badge', (tester) async {
+    for (final total in [6, 9, 15]) {
+      final points = List<num>.filled(24, 0)..[7] = total;
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: SizedBox(
+              width: 360,
+              height: 500,
+              child: OnlineBackgammonBoard(
+                points: points,
+                onPointTap: (_) {},
+              ),
+            ),
+          ),
+        ),
+      ));
+      expect(find.byType(OnlineBackgammonBoard), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    }
+  });
+
   testWidgets('selected point is repainted without losing the board',
       (tester) async {
     final points = List<num>.filled(24, 0)..[23] = -2;
