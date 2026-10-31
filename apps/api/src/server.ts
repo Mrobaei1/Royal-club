@@ -3141,14 +3141,14 @@ app.patch<{ Body: { avatarChangePriceCredits?: number; usernameChangePriceCredit
       return reply.code(400).send({ error: 'Customization prices must be non-negative whole credit amounts.' });
     }
     const result = await pool.query(
-      \`UPDATE account_customization_pricing SET
+      `UPDATE account_customization_pricing SET
          avatar_change_price_credits = COALESCE($1, avatar_change_price_credits),
          username_change_price_credits = COALESCE($2, username_change_price_credits),
          updated_by = $3, updated_at = NOW()
        WHERE id = 1
        RETURNING avatar_change_price_credits AS "avatarChangePriceCredits",
                  username_change_price_credits AS "usernameChangePriceCredits",
-                 updated_at AS "updatedAt"\`,
+                 updated_at AS "updatedAt"`,
       [avatarChangePriceCredits ?? null, usernameChangePriceCredits ?? null, (request.user as { sub: string }).sub],
     );
     return { settings: result.rows[0] };
