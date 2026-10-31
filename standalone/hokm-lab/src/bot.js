@@ -114,8 +114,10 @@ function shuffleItems(items, rng) {
 function sampleHiddenHands(state, seat, ledger, rng) {
   const played = [0, 1, 2, 3].map(() => 0);
   for (const trick of publicHistory(state)) for (const play of trick) played[play.seat] += 1;
-  const initialCapacity = [0, 1, 2, 3].map(id => id === seat ? 0 : 13 - played[id]);
-  if (initialCapacity.some((count, id) => id !== seat && count < 0)) return null;
+  const expectedCounts = [0, 1, 2, 3].map(id => 13 - played[id]);
+  if (expectedCounts.some(count => count < 0) ||
+      state.hands[seat].length !== expectedCounts[seat]) return null;
+  const initialCapacity = expectedCounts.map((count, id) => id === seat ? 0 : count);
 
   const visible = new Set([
     ...state.hands[seat].map(cardKey),
