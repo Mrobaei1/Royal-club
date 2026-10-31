@@ -136,11 +136,15 @@ export async function registerChessWebSocket(app: FastifyInstance, options: Opti
           }).catch(() => send({type:"chess:error",code:"voice_status_unavailable"}));
       },1000);
       socket.on("message", (raw) => {
-        let message: {type?:string; signalType?:string; payload?:unknown};
-        try { message = JSON.parse(raw.toString()) as {type?:string;signalType?:string;payload?:unknown}; }
+        let message: {type?:string; signalType?:string; payload?:unknown; clientTime?:number};
+        try { message = JSON.parse(raw.toString()) as {type?:string;signalType?:string;payload?:unknown;clientTime?:number}; }
         catch { send({type:"chess:error",code:"invalid_json"}); return; }
         if (message.type === "ping") {
-          send({type:"chess:pong",serverTime:Date.now()});
+          send({
+            type:"chess:pong",
+            serverTime:Date.now(),
+            ...(Number.isSafeInteger(message.clientTime) ? {clientTime:message.clientTime} : {})
+          });
           return;
         }
         if (message.type !== "chess:voice:signal" ||
