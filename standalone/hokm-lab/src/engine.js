@@ -121,6 +121,10 @@ export function resolveTrick(trick, trumpSuit) {
     if (seats.has(play.seat)) throw new Error("A seat cannot play twice in one trick");
     seats.add(play.seat);
   }
+  const firstSeat = trick[0].seat;
+  for (let i = 0; i < trick.length; i += 1) {
+    if (trick[i].seat !== (firstSeat + i) % 4) throw new Error("Trick plays must follow clockwise seat order");
+  }
   const leadSuit = effectiveLeadSuit(trick);
   const strength = (card) => {
     if (card.suit === trumpSuit) return 2;
