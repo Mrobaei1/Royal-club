@@ -622,11 +622,15 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
       builder: (sheetContext) => SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
-          child: ListView(
-            shrinkWrap: true,
-            children: [
-              Text(
-                isEnglish ? 'Room controls' : 'مدیریت اتاق',
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(sheetContext).size.height * 0.8,
+            ),
+            child: ListView(
+              shrinkWrap: true,
+              children: [
+                Text(
+                  isEnglish ? 'Room controls' : 'مدیریت اتاق',
                 style: Theme.of(sheetContext).textTheme.titleLarge?.copyWith(
                   color: Theme.of(sheetContext).colorScheme.primary,
                   fontWeight: FontWeight.bold,
@@ -769,7 +773,8 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
                 ]),
               ),
             ],
-            ],
+              ],
+            ),
           ),
         ),
       ),
