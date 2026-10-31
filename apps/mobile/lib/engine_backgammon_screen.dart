@@ -245,10 +245,11 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
       _blockedRollPending = false;
       return;
     }
+    _computerThinking = false;
     setState(() {
       _blockedRollPending = false;
       _message = appText(context,
-          'حرکتی با تاس‌های ${_engine.dice.isEmpty ? 'نمایش‌داده‌شده' : _engine.dice.join('، ')} ممکن نبود؛ نوبت ${_playerName(_engine.currentPlayer)} است.',
+          'حرکتی با تاس‌های نمایش‌داده‌شده ممکن نبود؛ نوبت ${_playerName(_engine.currentPlayer)} است.',
           'No legal move was possible; it is now ${_playerName(_engine.currentPlayer)}’s turn.');
     });
     _startTurnTimer(reset: true);
