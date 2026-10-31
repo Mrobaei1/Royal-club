@@ -55,14 +55,14 @@ Phase 4 home-screen implementation has started on `main`. This checklist tracks 
 
 - [x] API build/unit/integration tests, Flutter analyze/tests, and backgammon engine audit passed on PRs #55, #56, and #58.
 - [x] PR #58 integration run passed all 14 API integration subtests, including the new resignation test. PR #58 also passed API build/unit tests, Flutter analyze/tests, and the backgammon engine audit.
-- [x] Production health workflow checked the currently deployed API and database connectivity successfully (run 41019644950). This verifies deployment 79 only; it does not prove latest source or new schema is live.
-- [ ] Deploy latest API source through the manual-only Neon release workflow after owner configuration and migration review.
-- [ ] Reconcile the production database schema with the 30 tables defined by current API source; 17 were absent from the live production branch at the 2026-10-30 audit.
-- [ ] Configure and verify the scheduled Neon trigger for expired-room cleanup after the cleanup endpoint is deployed.
-- [ ] Complete owner-approved production security configuration, including confirmed numeric owner identity and SMS encryption key only if live SMS is being enabled.
-- [ ] Complete two-device manual acceptance of the merged PR #67 behavior before Production deployment; CI does not prove real network-loss or Android lifecycle behavior.
+- [x] Active Neon Function deployment 80 was created on 2026-10-31 at 06:34:28Z; the latest-main production API and database health workflow passed both checks in [run 41177353201](https://github.com/Mrobaei1/Royal-club/actions/runs/41177353201). Neon metadata does not expose the bundled Git SHA, so exact source provenance is not directly attested.
+- [x] Production schema reconciled: all 33 table names in the live public schema exactly match the 33 CREATE TABLE declarations in current apps/api/src/server.ts (no missing or extra tables).
+- [ ] Independently confirm the post-deployment production registration/login smoke-test result. The latest-main API build/unit/integration suite passed in [run 41177353219](https://github.com/Mrobaei1/Royal-club/actions/runs/41177353219), but the available Actions connector did not expose the exact non-PR deployment-run record.
+- [ ] Configure and verify the scheduled Neon trigger for expired-room cleanup; the production branch currently has no triggers.
+- [ ] Complete owner-approved production security configuration, including the confirmed numeric owner ID. OWNER_USER_ID is currently absent, so owner-only operations remain fail-closed. Keep SMS disabled unless the owner separately approves provider activation and supplies the 32-byte encryption key.
+- [ ] Complete two-device manual acceptance of the merged PR #67 behavior; CI does not prove real network-loss or Android lifecycle behavior.
 - [ ] Complete manual Android/device/network acceptance and owner sign-off.
-- [ ] No APK is built until the owner explicitly authorizes the final build.
+- [x] The owner-approved ARM64 APK 1.1.14+16 build, API/database health preflight, and artifact upload all passed in [run 41177336792](https://github.com/Mrobaei1/Royal-club/actions/runs/41177336792); artifact [13033688384](https://github.com/Mrobaei1/Royal-club/actions/runs/41177336792/artifacts/13033688384) expires 2026-11-07. The APK workflow is back to manual-dispatch-only on main commit [4171bb7](https://github.com/Mrobaei1/Royal-club/commit/4171bb7933a13eedb0bfc52ed51f7fe3c3d8b8bc).
 
 ## Latest automated verification
 
@@ -91,28 +91,27 @@ Phase 4 home-screen implementation has started on `main`. This checklist tracks 
 - [Royal Club Production API Health](https://github.com/Mrobaei1/Royal-club/actions/runs/41177353201) — the currently deployed API/database health workflow passed; this does not deploy the merged source.
 - Two-device manual acceptance and Production deployment remain open.
 
-### Production API status — distinguish deployed from merged code
+### Production API status — 2026-10-31 live audit
 
-- Neon Function `royalclubapi` remains on deployment ID `79`, created 2026-10-27. Its current environment metadata lists only `CORS_ORIGINS`, `DATABASE_URL`, `JWT_SECRET`, `NEON_FUNCTION_RUNTIME`, and `NODE_ENV`.
-- `OWNER_USER_ID` and `SMS_CREDENTIALS_ENCRYPTION_KEY` are absent from that deployment's environment metadata. Owner-only operations therefore remain fail-closed; production SMS authentication remains disabled.
-- The production branch currently exposes 13 application tables, while current API source defines 30. The 17 missing tables are: `sms_otp_settings`, `sms_otp_audit_log`, `sms_otp_challenges`, `admin_permission_settings`, `admin_permission_grants`, `admin_permission_audit_log`, `agent_task_definitions`, `agent_task_proposals`, `agent_task_audit_log`, `leagues`, `league_entries`, `league_entitlement_ledger`, `league_admin_audit_log`, `league_rounds`, `league_matches`, `league_appeals`, and `backgammon_progression_events`.
-- The production Neon branch has no scheduled triggers. Expired-room cleanup is therefore not scheduled while the serverless function is idle.
-- The production project's database IP allowlist is empty. Review this as part of production security acceptance; do not change it without checking actual API connectivity requirements.
-- Read-only function-log review (100 recent records from the last 24 hours) found 16 repeated `pg-connection-string` TLS-alias security warnings and no other ERROR-level application messages in that sample. PR #56 normalizes legacy `sslmode` aliases to `verify-full` in source, but deployment 79 has not received that code.
-- PR #58 also fixes the game-resignation SQL type error in source. Deployment 79 has not received this fix either.
-- The manual-only deployment workflow includes build/tests, bundle verification, Neon deployment, health checks, and registration/profile/friend smoke tests. It was not dispatched during this work.
-- A separate push-triggered Android APK run on 2026-10-31 (`main` SHA `23375ac6b96d50449298ea60779d658aa83307d0`, app version `1.1.14+16`) completed successfully and uploaded the `royal-club-android-arm64-release` artifact ([run 41177336792](https://github.com/Mrobaei1/Royal-club/actions/runs/41177336792)). This is not the tracked `feature/shared-royal-backgammon-board` branch at `1.1.11+11`; no APK run for that branch/version was found. Commit [`4171bb7`](https://github.com/Mrobaei1/Royal-club/commit/4171bb7933a13eedb0bfc52ed51f7fe3c3d8b8bc) restored the workflow to manual-dispatch-only.
-
-These checks distinguish source correctness, automated CI, and the currently deployed service. A green CI run or successful health check against deployment 79 does not establish that the newest API source, new schema, owner controls, OTP, or agent UI are live in production.
+- Neon Function royalclubapi reports active deployment 80, status completed, runtime nodejs24, created at 2026-10-31T06:34:28Z. Invocation URL: https://br-misty-flower-bavs47dm-royalclubapi.compute.c-8.eu-central-1.aws.neon.tech/.
+- Deployment 80 was created after PR #67 merged as 69f315b at 06:33:07Z and after API release commit d5d2d6c (API package 0.1.1) at 06:34:10Z. No apps/api/** files changed between that release commit and current main; the remaining changes were workflow policy and mobile version/build metadata. This strongly aligns deployment 80 with current API source, but Neon does not expose a source commit SHA, so exact provenance is not directly attested.
+- Deployment environment metadata lists CORS_ORIGINS, DATABASE_URL, JWT_SECRET, NEON_FUNCTION_RUNTIME, and NODE_ENV. OWNER_USER_ID and SMS_CREDENTIALS_ENCRYPTION_KEY are absent. Owner-only operations therefore remain fail-closed; real SMS/OTP remains disabled. Ordinary email/password authentication does not depend on those two optional owner/SMS settings.
+- Production schema now matches current API source exactly: 33 source table declarations, 33 production tables, zero missing, zero extra. This supersedes the 2026-10-30 audit that reported 13 tables and 17 missing tables.
+- Production API Health run 41177353201 completed successfully after deployment 80. Both /api/v1/health and /api/v1/health/db checks passed.
+- Read-only Neon log review found 29 error-classified stderr records in the 24-hour window, all repeating the old pg-connection-string TLS-alias warning; the latest was 2026-10-31T06:32:23Z, before deployment 80. A query from deployment time onward returned zero ERROR records and the WARN filter returned zero records. This is consistent with the TLS normalization in PR #56 being active; continue monitoring.
+- The production Neon branch has no scheduled triggers. Expired-room cleanup is therefore not scheduled while the serverless function is idle. The production project's database IP allowlist is empty; review it as part of security acceptance without changing it until hosting connectivity requirements are confirmed.
+- The deployment workflow includes production smoke tests for six-character registration/login, profile editing, friends, and online-match behavior. The exact non-PR deployment-run result was not available through the current Actions run-list interface, so production registration/login is not independently marked verified here. API integration tests passed on main in run 41177353219.
+- The one-time API push trigger used for the 2026-10-31 rollout was removed; the current API deployment workflow is manual-only again. The Android APK workflow is also manual-dispatch-only after commit 4171bb7.
+- Owner-approved Android ARM64 APK 1.1.14+16 was built and uploaded successfully on main commit 23375ac. Run 41177336792 passed setup, dependency install, analyze, tests, production API/database preflight, APK build, and artifact upload. Artifact ID: 13033688384; it expires 2026-11-07.
+- Latest-main CI passed: API build/unit/integration and Flutter checks in run 41177353219, additional API/Flutter validation in run 41177353226, and Web Preview build/deploy in run 41177353203.
 
 ## Current decision
 
-**Repository-side changes and automated checks have progressed, but Royal Club is not release-ready.** PR #55 restored the dormant owner agent-review UI; PR #56 fixed the PostgreSQL TLS alias warning in source; PR #58 fixed a real resignation SQL bug and added integration coverage. All three are merged.
+**Royal Club has a verified live API deployment and successful web/APK builds, but it is not yet release-ready.** Neon reports active Function deployment 80; production health and database connectivity pass, and the live 33-table schema exactly matches current API source. Latest-main API/Flutter validation and Web Preview deployment pass. The owner-approved ARM64 APK 1.1.14+16 was also built and uploaded successfully.
 
-Server-authoritative backgammon disconnect/temporary-AI handling is now merged into `main` via PR #67 (merge commit `69f315b2c2d38eba3c1e688ab48be77d17a2137c`). Latest-main CI passed API build/unit/integration tests, Flutter analyze/tests, and Web Preview build/deploy. Two-device acceptance and Production deployment remain open. Other release blockers include production API/schema rollout, confirmed owner configuration, trigger scheduling, live OTP decision, full two-device game acceptance, manual RTL/LTR and theme checks, monetization/league acceptance, VPN testing, and final owner sign-off.
+Server-authoritative backgammon disconnect/temporary-AI handling is merged into main via PR #67 (merge commit 69f315b2c2d38eba3c1e688ab48be77d17a2137c); deployment 80 was created after that merge, although Neon does not expose the exact bundled source SHA. Production registration/login still needs a directly attributable post-deploy smoke-test result. Two-device acceptance, scheduled cleanup trigger, numeric owner configuration, any SMS-provider activation, manual RTL/LTR/theme checks, monetization/league acceptance, VPN testing, and final owner sign-off remain open.
 
-Do not activate agent identities, delegated grants, schedules, paid features, real SMS, production deployment, or APK generation without the corresponding explicit owner approval.
-
+Do not activate agent identities, delegated grants, scheduled triggers, paid features, real SMS, or change production security settings without the corresponding explicit owner approval. The API deployment and APK workflows are restored to manual-only operation.
 
 ## Checkpoint verification — 2026-10-30 (main HEAD `6ef1cbe2faeb21157dff58bedc2848b22f6db238`)
 
