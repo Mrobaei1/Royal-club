@@ -1,9 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createRoom, joinRoom, setPlayerReady, startRoom, expireRoom, roomViewForUser, applyRoomCommand } from "../src/room.js";
+import { createRoom, joinRoom, leaveRoom, setPlayerReady, startRoom, expireRoom, roomViewForUser, applyRoomCommand, startNextRound } from "../src/room.js";
 
-function fullReadyRoom(now = 1000) {
-  let room = createRoom({ roomId: "test-room", hostUserId: "u0", now });
+function fullReadyRoom(now = 1000, matchTarget = 7) {
+  let room = createRoom({ roomId: "test-room", hostUserId: "u0", now, matchTarget });
   room = joinRoom(room, "u1", now + 1);
   room = joinRoom(room, "u2", now + 2);
   room = joinRoom(room, "u3", now + 3);
@@ -21,6 +21,38 @@ test("room requires four unique users and refuses a fifth", () => {
   assert.equal(joinRoom(room, "u2", 104).players.length, 4);
 });
 
+test("manager match target accepts only 3, 5, or 7 points", () => {
+  for (const target of [3, 5, 7]) assert.equal(createRoom({ roomId: "room", hostUserId: "u0", now: 0, matchTarget: target }).matchTarget, target);
+  for (const target of [0, 1, 4, 6, 8, "7"]) {
+    assert.throws(() => createRoom({ roomId: "room", hostUserId: "u0", now: 0, matchTarget: target }), /3, 5, or 7/);
+  }
+});
+
+test("waiting room never expires while occupied, regardless of elapsed time", () => {
+  const room = createRoom({ roomId: "room", hostUserId: "u0", now: 1000 });
+  const afterHours = expireRoom(room, 1000 + 24 * 60 * 60 * 1000);
+  assert.equal(afterHours.status, "waiting");
+  assert.equal(afterHours.players.length, 1);
+  assert.equal(joinRoom(afterHours, "u1", 1000 + 24 * 60 * 60 * 1000).players.length, 2);
+});
+
+test("only an empty room expires; leaving last player makes it eligible", () => {
+  let room = createRoom({ roomId: "room", hostUserId: "u0", now: 1000 });
+  room = leaveRoom(room, "u0");
+  assert.equal(room.players.length, 0);
+  const expired = expireRoom(room, 1001);
+  assert.equal(expired.status, "expired");
+  assert.throws(() => joinRoom(expired, "u1", 1002), /not accepting/);
+});
+
+test("host departure transfers host role while room remains occupied", () => {
+  let room = createRoom({ roomId: "room", hostUserId: "u0", now: 100 });
+  room = joinRoom(room, "u1", 101);
+  room = leaveRoom(room, "u0");
+  assert.equal(room.hostUserId, "u1");
+  assert.equal(expireRoom(room, 999999).status, "waiting");
+});
+
 test("host can start only after all four players are ready", () => {
   let room = createRoom({ roomId: "room", hostUserId: "u0", now: 100 });
   room = joinRoom(room, "u1", 101);
@@ -32,21 +64,17 @@ test("host can start only after all four players are ready", () => {
   const started = startRoom(room, "u0", { now: 200, rng: () => 0.25 });
   assert.equal(started.status, "playing");
   assert.equal(started.round.phase, "choose_trump");
+  assert.equal(started.matchTarget, 7);
+  assert.deepEqual(started.matchScore, [0, 0]);
 });
 
-test("waiting room expires after 60 seconds and cannot be joined", () => {
-  const room = createRoom({ roomId: "room", hostUserId: "u0", now: 1000 });
-  const expired = expireRoom(room, 61000);
-  assert.equal(expired.status, "expired");
-  assert.equal(expired.players.length, 0);
-  assert.throws(() => joinRoom(room, "u1", 61000), /expired/);
-});
-
-test("room view is membership-gated and never exposes all private hands", () => {
-  const room = fullReadyRoom();
+test("room view is membership-gated and exposes manager match settings", () => {
+  const room = fullReadyRoom(1000, 5);
   const view = roomViewForUser(room, "u2");
   assert.equal(view.players.length, 4);
   assert.equal(view.game, null);
+  assert.equal(view.matchTarget, 5);
+  assert.deepEqual(view.matchScore, [0, 0]);
   assert.throws(() => roomViewForUser(room, "outsider"), /not a member/);
 });
 
@@ -58,4 +86,12 @@ test("stale room versions and non-members cannot submit commands", () => {
   const chosen = applyRoomCommand(started, "u0", { type: "choose_trump", suit: "hearts" }, started.version);
   assert.equal(chosen.round.phase, "playing");
   assert.equal(chosen.version, started.version + 1);
+});
+
+test("next round is host-controlled and rotates hakem", () => {
+  const room = { ...fullReadyRoom(), status: "round_completed", round: { phase: "completed", hakemSeat: 1 } };
+  assert.throws(() => startNextRound(room, "u2"), /Only the host/);
+  const next = startNextRound(room, "u0", { rng: () => 0.4 });
+  assert.equal(next.status, "playing");
+  assert.equal(next.round.hakemSeat, 2);
 });
