@@ -2891,3 +2891,102 @@ test('friend acceptance serializes concurrent requests at the 100-friend boundar
   });
   assert.equal(overLimitRequest.statusCode, 409);
 });
+
+
+test('logout revokes the current bearer session while a fresh login creates a new session', async () => {
+  const user = await register('Session Lifecycle Player');
+  const beforeLogout = await app.inject({
+    method: 'GET', url: '/api/v1/me', headers: auth(user.token),
+  });
+  assert.equal(beforeLogout.statusCode, 200, beforeLogout.body);
+
+  const logout = await app.inject({
+    method: 'POST', url: '/api/v1/auth/logout', headers: auth(user.token),
+  });
+  assert.equal(logout.statusCode, 200, logout.body);
+  assert.equal(logout.json().loggedOut, true);
+
+  const revokedProfile = await app.inject({
+    method: 'GET', url: '/api/v1/me', headers: auth(user.token),
+  });
+  assert.equal(revokedProfile.statusCode, 401);
+
+  const revokedFriends = await app.inject({
+    method: 'GET', url: '/api/v1/friends', headers: auth(user.token),
+  });
+  assert.equal(revokedFriends.statusCode, 401);
+
+  const repeatLogout = await app.inject({
+    method: 'POST', url: '/api/v1/auth/logout', headers: auth(user.token),
+  });
+  assert.equal(repeatLogout.statusCode, 200, 'Logout revocation must be idempotent.');
+
+  const login = await app.inject({
+    method: 'POST', url: '/api/v1/auth/login',
+    payload: { email: user.user.email, password: 'IntegrationPass123!' },
+  });
+  assert.equal(login.statusCode, 200, login.body);
+  const freshProfile = await app.inject({
+    method: 'GET', url: '/api/v1/me', headers: auth(login.json().accessToken),
+  });
+  assert.equal(freshProfile.statusCode, 200, freshProfile.body);
+});
+
+test('phone OTP password recovery changes password, consumes code once, and revokes all prior sessions', async () => {
+  const previous = await testPool.query(
+    'SELECT enabled, delivery_mode FROM sms_otp_settings WHERE id = 1',
+  );
+  const previousSettings = previous.rows[0];
+  const user = await register('Password Recovery Player');
+  const phone = '+989123456789';
+  await testPool.query('UPDATE users SET phone_e164 = $1 WHERE id = $2', [phone, user.user.id]);
+  await testPool.query(
+    "UPDATE sms_otp_settings SET enabled = FALSE, delivery_mode = 'development_simulator' WHERE id = 1",
+  );
+
+  try {
+    const requested = await app.inject({
+      method: 'POST', url: '/api/v1/auth/phone-otp/request',
+      payload: { phone: '09123456789', purpose: 'reset_password' },
+    });
+    assert.equal(requested.statusCode, 202, requested.body);
+    const code = String(requested.json().testCode ?? '');
+    assert.match(code, /^\\d{6}$/);
+
+    const reset = await app.inject({
+      method: 'POST', url: '/api/v1/auth/phone-otp/reset-password',
+      payload: { phone: '09123456789', code, newPassword: 'RecoveredPass123!' },
+    });
+    assert.equal(reset.statusCode, 200, reset.body);
+    assert.equal(reset.json().ok, true);
+
+    const oldSession = await app.inject({
+      method: 'GET', url: '/api/v1/me', headers: auth(user.token),
+    });
+    assert.equal(oldSession.statusCode, 401,
+      'Password recovery must invalidate all access tokens issued before the reset.');
+
+    const oldPasswordLogin = await app.inject({
+      method: 'POST', url: '/api/v1/auth/login',
+      payload: { email: user.user.email, password: 'IntegrationPass123!' },
+    });
+    assert.equal(oldPasswordLogin.statusCode, 401);
+
+    const newPasswordLogin = await app.inject({
+      method: 'POST', url: '/api/v1/auth/login',
+      payload: { email: user.user.email, password: 'RecoveredPass123!' },
+    });
+    assert.equal(newPasswordLogin.statusCode, 200, newPasswordLogin.body);
+
+    const reusedCode = await app.inject({
+      method: 'POST', url: '/api/v1/auth/phone-otp/reset-password',
+      payload: { phone: '09123456789', code, newPassword: 'AnotherPass123!' },
+    });
+    assert.equal(reusedCode.statusCode, 400, 'A password-reset OTP must be single-use.');
+  } finally {
+    await testPool.query(
+      'UPDATE sms_otp_settings SET enabled = $1, delivery_mode = $2 WHERE id = 1',
+      [previousSettings.enabled, previousSettings.delivery_mode],
+    );
+  }
+});
