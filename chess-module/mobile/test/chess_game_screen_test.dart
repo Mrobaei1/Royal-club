@@ -11,6 +11,8 @@ Widget _screen({
   bool drawOfferedByOpponent = false,
   ValueChanged<bool>? onRespondToDraw,
   String? activeSide,
+  bool isHost = false,
+  ValueChanged<bool>? onToggleVoice,
 }) => MaterialApp(
   home: Scaffold(
     body: ChessGameScreen(
@@ -33,6 +35,8 @@ Widget _screen({
       drawOfferedByOpponent: drawOfferedByOpponent,
       onRespondToDraw: onRespondToDraw,
       activeSide: activeSide,
+      isHost: isHost,
+      onToggleVoice: onToggleVoice,
     ),
   ),
 );
@@ -74,30 +78,16 @@ void main() {
 
   testWidgets('host can toggle room voice but guests cannot', (tester) async {
     bool? enabled;
-    await tester.pumpWidget(MaterialApp(
-      home: Scaffold(
-        body: ChessGameScreen(
-          fen: _fen,
-          legalMoves: const [],
-          whiteUsername: 'white_player',
-          blackUsername: 'black_player',
-          whiteClock: const Duration(minutes: 5),
-          blackClock: const Duration(minutes: 5),
-          onMove: (_) {},
-          messages: const [],
-          onSendMessage: (_) {},
-          onVoicePressed: () {},
-          onVoiceReleased: () {},
-          voiceEnabled: false,
-          speakingUsername: null,
-          canManageVoice: true,
-          onVoiceEnabledChanged: (value) => enabled = value,
-        ),
-      ),
+    await tester.pumpWidget(_screen(
+      isHost: true,
+      onToggleVoice: (value) => enabled = value,
     ));
     expect(find.text('Enable room voice'), findsOneWidget);
     await tester.tap(find.byType(Switch));
     expect(enabled, isTrue);
-  });
+
+    await tester.pumpWidget(_screen());
+    expect(find.text('Enable room voice'), findsNothing);
+  });;
 
 }
