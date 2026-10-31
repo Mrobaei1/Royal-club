@@ -72,4 +72,32 @@ void main() {
     expect(find.text('04:59'), findsOneWidget);
   });
 
+  testWidgets('host can toggle room voice but guests cannot', (tester) async {
+    bool? enabled;
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: ChessGameScreen(
+          fen: _fen,
+          legalMoves: const [],
+          whiteUsername: 'white_player',
+          blackUsername: 'black_player',
+          whiteClock: const Duration(minutes: 5),
+          blackClock: const Duration(minutes: 5),
+          onMove: (_) {},
+          messages: const [],
+          onSendMessage: (_) {},
+          onVoicePressed: () {},
+          onVoiceReleased: () {},
+          voiceEnabled: false,
+          speakingUsername: null,
+          canManageVoice: true,
+          onVoiceEnabledChanged: (value) => enabled = value,
+        ),
+      ),
+    ));
+    expect(find.text('Enable room voice'), findsOneWidget);
+    await tester.tap(find.byType(Switch));
+    expect(enabled, isTrue);
+  });
+
 }
