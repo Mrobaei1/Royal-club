@@ -48,15 +48,38 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
       voiceEnabled:body.voiceEnabled??false
     };
     try{validateRoomSettings(settings);}catch{return fail(reply,400,"invalid_room_settings");}
-    const tc=await pool.query("SELECT id FROM chess_time_controls WHERE id=$1 AND enabled=true",[settings.timeControlId]);
-    if(!tc.rowCount)return fail(reply,400,"time_control_unavailable");
-    const roomCode=randomBytes(5).toString("hex").toUpperCase();
-    const inserted=await pool.query(
-      `INSERT INTO chess_rooms(room_code,host_user_id,min_opponent_level,time_control_id,settings_snapshot,expires_at)
-       VALUES($1,$2,$3,$4,$5::jsonb,NOW()+INTERVAL '10 minutes') RETURNING id,room_code`,
-      [roomCode,hostId,settings.minOpponentLevel,settings.timeControlId,JSON.stringify(settings)]
-    );
-    return reply.code(201).send({roomId:String(inserted.rows[0].id),roomCode:inserted.rows[0].room_code,settings});
+    const client=await pool.connect();
+    try{
+      await client.query("BEGIN");
+      await client.query("SELECT pg_advisory_xact_lock(hashtext('royal_chess_matchmaking'))");
+      await client.query("SELECT pg_advisory_xact_lock(hashtext('royal_chess_player'),hashtext($1))",[hostId]);
+      const active=await client.query(
+        "SELECT id FROM chess_games WHERE status='active' AND (white_user_id=$1 OR black_user_id=$1) LIMIT 1",
+        [hostId]
+      );
+      if(active.rowCount){await client.query("ROLLBACK");return fail(reply,409,"active_chess_game_exists");}
+      const queued=await client.query("SELECT 1 FROM chess_matchmaking_queue WHERE user_id=$1",[hostId]);
+      if(queued.rowCount){await client.query("ROLLBACK");return fail(reply,409,"matchmaking_in_progress");}
+      const waiting=await client.query(
+        "SELECT 1 FROM chess_rooms WHERE host_user_id=$1 AND status='waiting' AND expires_at>NOW() LIMIT 1",
+        [hostId]
+      );
+      if(waiting.rowCount){await client.query("ROLLBACK");return fail(reply,409,"waiting_room_already_exists");}
+      const tc=await client.query("SELECT id FROM chess_time_controls WHERE id=$1 AND enabled=true",[settings.timeControlId]);
+      if(!tc.rowCount){await client.query("ROLLBACK");return fail(reply,400,"time_control_unavailable");}
+      const roomCode=randomBytes(5).toString("hex").toUpperCase();
+      const inserted=await client.query(
+        `INSERT INTO chess_rooms(room_code,host_user_id,min_opponent_level,time_control_id,settings_snapshot,expires_at)
+         VALUES($1,$2,$3,$4,$5::jsonb,NOW()+INTERVAL '10 minutes') RETURNING id,room_code`,
+        [roomCode,hostId,settings.minOpponentLevel,settings.timeControlId,JSON.stringify(settings)]
+      );
+      await client.query("COMMIT");
+      return reply.code(201).send({roomId:String(inserted.rows[0].id),roomCode:inserted.rows[0].room_code,settings});
+    }catch(error){
+      await rollback(client);
+      request.log.error(error);
+      return fail(reply,500,"chess_room_create_failed");
+    }finally{client.release();}
   });
 
   app.delete<{Params:{roomCode:string}}>("/chess/rooms/:roomCode",{preHandler:options.authenticate},async(request,reply)=>{
