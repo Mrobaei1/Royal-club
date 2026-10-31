@@ -3,6 +3,13 @@ import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 
+class AuthUnauthorizedException implements Exception {
+  const AuthUnauthorizedException();
+
+  @override
+  String toString() => 'نشست کاربری معتبر نیست. لطفاً دوباره وارد شوید.';
+}
+
 class AuthService {
   static const String baseUrl = String.fromEnvironment('API_BASE_URL', defaultValue: '');
   static const FlutterSecureStorage _storage = FlutterSecureStorage();
@@ -35,6 +42,9 @@ class AuthService {
       throw Exception('پاسخ سرور قابل‌خواندن نیست.');
     }
     if (decoded is! Map<String, dynamic>) throw Exception('پاسخ سرور نامعتبر است.');
+    if (response.statusCode == 401) {
+      throw const AuthUnauthorizedException();
+    }
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw Exception(decoded['error']?.toString() ??
           decoded['message']?.toString() ?? 'خطا در ارتباط با سرور');
@@ -259,6 +269,11 @@ class AuthService {
 
   static Future<void> saveLanguagePreference(String languageCode) =>
       _storage.write(key: 'royal_club_language', value: languageCode);
+
+  static Future<bool> hasStoredToken() async {
+    final token = await _storage.read(key: 'royal_club_token');
+    return token != null && token.isNotEmpty;
+  }
 
   static Future<void> logout() => _storage.delete(key: 'royal_club_token');
 }
