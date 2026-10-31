@@ -26,7 +26,7 @@ No source code or assets from these projects are copied into this lab. This impl
 - [x] Dedicated isolated branch created.
 - [x] Initial independent rules-engine package and tests drafted.
 - [ ] Tests executed in a real Node.js environment.
-- [ ] Full dealing / hakem selection / 13-trick round state machine.
+- [x] Full dealing / hakem selection / 13-trick round state machine (regional rules still require confirmation).
 - [ ] AI, online room service, reconnection, chat/voice integration.
 - [ ] Flutter UI and accessibility/localization.
 - [ ] Security review and end-to-end tests.
@@ -40,4 +40,4 @@ npm test
 ```
 
 ## Rule assumptions to confirm before production
-This initial engine uses four seats in clockwise order, teams (0,2) and (1,3), rank order 2 through Ace, and the standard follow-suit rule. Regional rules for selecting the hakem, redeal/penalty cases, capot scoring, and match target must be confirmed before the round controller is finalized.
+This initial engine uses four seats in clockwise order, teams (0,2) and (1,3), rank order 2 through Ace, and the standard follow-suit rule. Regional rules for selecting the hakem, redeal/penalty cases, and capot scoring must be confirmed before production. Match target is supplied by trusted manager configuration (3, 5, or 7 points); it is not player-selectable.
