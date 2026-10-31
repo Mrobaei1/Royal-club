@@ -8,6 +8,11 @@ test("level cost curve matches approved thresholds", () => {
 test("XP is cumulative and level advances without spending XP", () => {
   assert.deepEqual(nextProgression({level:1,xp:295}, 20), {level:2,xp:315});
 });
+test("XP uses cumulative thresholds without spending lifetime XP", () => {
+  assert.deepEqual(nextProgression({level:1,xp:0}, 605), {level:3,xp:605});
+  assert.deepEqual(nextProgression({level:4,xp:600}, 0), {level:4,xp:600});
+  assert.deepEqual(nextProgression({level:4,xp:1231}, 0), {level:5,xp:1231});
+});
 test("XP loss clamps at zero and never lowers stored level", () => {
   assert.deepEqual(nextProgression({level:4,xp:2}, -5), {level:4,xp:0});
 });
