@@ -34,6 +34,7 @@ class ChessVoiceClient {
   RTCPeerConnection? _peer;
   MediaStream? _localStream;
   String? _leaseId;
+  Timer? _leaseRenewal;
   bool _disposed = false;
   bool _makingOffer = false;
   final List<RTCIceCandidate> _pendingCandidates = [];
@@ -80,16 +81,24 @@ class ChessVoiceClient {
     if (_disposed) return;
     if (_leaseId != null) return;
     await connect();
-    final response = await HttpClient().postUrl(_endpoint('/chess/games/$gameId/voice/request'));
-    response.headers.set(HttpHeaders.authorizationHeader, 'Bearer $token');
-    response.headers.contentType = ContentType.json;
-    final result = await response.close();
-    final body = jsonDecode(await result.transform(utf8.decoder).join()) as Map<String, dynamic>;
-    if (result.statusCode < 200 || result.statusCode >= 300 || body['granted'] != true) {
-      throw StateError((body['reason'] ?? body['error'] ?? 'voice_lease_denied').toString());
+    final client = HttpClient();
+    late Map<String, dynamic> body;
+    try {
+      final request = await client.postUrl(_endpoint('/chess/games/$gameId/voice/request'));
+      request.headers.set(HttpHeaders.authorizationHeader, 'Bearer $token');
+      request.headers.contentType = ContentType.json;
+      final response = await request.close();
+      body = jsonDecode(await response.transform(utf8.decoder).join()) as Map<String, dynamic>;
+      if (response.statusCode < 200 || response.statusCode >= 300 || body['granted'] != true) {
+        throw StateError((body['reason'] ?? body['error'] ?? 'voice_lease_denied').toString());
+      }
+    } finally {
+      client.close(force: true);
     }
     _leaseId = body['leaseId'] as String?;
     if (_leaseId == null) throw StateError('voice_lease_missing');
+    _leaseRenewal?.cancel();
+    _leaseRenewal = Timer.periodic(const Duration(seconds: 4), (_) => _renewLease());
     await _ensurePeerConnection();
     await _enableLocalAudio();
     if (_peer?.signalingState == RTCSignalingState.RTCSignalingStateStable) {
@@ -100,6 +109,8 @@ class ChessVoiceClient {
   Future<void> releaseTalk() async {
     final lease = _leaseId;
     _leaseId = null;
+    _leaseRenewal?.cancel();
+    _leaseRenewal = null;
     _disableLocalAudio();
     if (lease == null) return;
     final client = HttpClient();
@@ -109,6 +120,27 @@ class ChessVoiceClient {
       request.headers.contentType = ContentType.json;
       request.write(jsonEncode({'leaseId': lease}));
       await request.close();
+    } finally {
+      client.close(force: true);
+    }
+  }
+
+  Future<void> _renewLease() async {
+    final lease = _leaseId;
+    if (lease == null || _disposed) return;
+    final client = HttpClient();
+    try {
+      final request = await client.postUrl(_endpoint('/chess/games/$gameId/voice/renew'));
+      request.headers.set(HttpHeaders.authorizationHeader, 'Bearer $token');
+      request.headers.contentType = ContentType.json;
+      request.write(jsonEncode({'leaseId': lease}));
+      final response = await request.close();
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        await releaseTalk();
+      }
+      await response.drain<void>();
+    } catch (error) {
+      onError?.call(error);
     } finally {
       client.close(force: true);
     }
