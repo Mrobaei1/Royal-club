@@ -40,6 +40,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
   int _timerPlayer = 1;
   Timer? _turnTimer;
   bool _timeoutMoveRunning = false;
+  bool _blockedRollPending = false;
 
   static const List<List<Color>> _boardThemes = [
     [Color(0xFF6D4026), Color(0xFF76502E), Color(0xFF3B2418)],
@@ -200,28 +201,57 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
   }
 
   void _roll() {
-    if (_computerThinking || (_vsComputer && _engine.currentPlayer == -1)) {
+    if (_computerThinking || _blockedRollPending ||
+        (_vsComputer && _engine.currentPlayer == -1)) {
       return;
     }
+    var blockedRollPlayer = 0;
     setState(() {
       _selectedPoint = null;
       _selectedBar = false;
-      final before = _engine.currentPlayer;
-      final dice = _engine.rollDice();
+      final dice = _engine.rollDice(deferNoMoves: true);
       if (_engine.finished) {
         _message = appText(context, 'بازی تمام شده است.', 'The game is over.');
       } else if (dice.isEmpty) {
-        _message = appText(context, 'حرکت مجاز وجود نداشت؛ نوبت عوض شد.', 'No legal move was available; the turn changed.');
+        _message = appText(context, 'حرکت مجاز وجود نداشت.', 'No legal move was available.');
+      } else if (_engine.legalMoves().isEmpty) {
+        blockedRollPlayer = _engine.currentPlayer;
+        _blockedRollPending = true;
+        _message = appText(context,
+            'تاس: ${dice.join('، ')} · حرکت ممکن نیست؛ تاس ۲ ثانیه نمایش داده می‌شود.',
+            'Dice: ${dice.join(', ')} · No legal entry; showing the roll for 2 seconds.');
       } else {
-        _message =
-            appText(context, 'نوبت ${_playerName(_engine.currentPlayer)} · تاس: ${dice.join('، ')}', 'Turn: ${_playerName(_engine.currentPlayer)} · Dice: ${dice.join(', ')}');
-      }
-      if (before != _engine.currentPlayer && dice.isEmpty) {
-        _message =
-            appText(context, 'حرکتی نبود؛ نوبت ${_playerName(_engine.currentPlayer)} است.', 'No move was available; it is ${_playerName(_engine.currentPlayer)}’s turn.');
+        _message = appText(context,
+            'نوبت ${_playerName(_engine.currentPlayer)} · تاس: ${dice.join('، ')}',
+            'Turn: ${_playerName(_engine.currentPlayer)} · Dice: ${dice.join(', ')}');
       }
     });
+    if (blockedRollPlayer != 0) {
+      _showBlockedRollThenPass(blockedRollPlayer);
+      return;
+    }
     _startTurnTimer();
+    _scheduleComputerTurn();
+  }
+
+  Future<void> _showBlockedRollThenPass(int player) async {
+    await Future<void>.delayed(const Duration(seconds: 2));
+    if (!mounted || _engine.finished || _engine.currentPlayer != player) {
+      _blockedRollPending = false;
+      return;
+    }
+    final passed = _engine.passTurnAfterNoLegalMoves();
+    if (!passed) {
+      _blockedRollPending = false;
+      return;
+    }
+    setState(() {
+      _blockedRollPending = false;
+      _message = appText(context,
+          'حرکتی با تاس‌های ${_engine.dice.isEmpty ? 'نمایش‌داده‌شده' : _engine.dice.join('، ')} ممکن نبود؛ نوبت ${_playerName(_engine.currentPlayer)} است.',
+          'No legal move was possible; it is now ${_playerName(_engine.currentPlayer)}’s turn.');
+    });
+    _startTurnTimer(reset: true);
     _scheduleComputerTurn();
   }
 
