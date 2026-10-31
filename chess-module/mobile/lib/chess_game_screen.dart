@@ -17,6 +17,11 @@ class ChessGameScreen extends StatefulWidget {
     required this.onVoiceReleased,
     required this.voiceEnabled,
     required this.speakingUsername,
+    this.onOfferDraw,
+    this.onResign,
+    this.pendingDrawOfferId,
+    this.drawOfferedByOpponent = false,
+    this.onRespondToDraw,
   });
 
   final String fen;
@@ -32,6 +37,11 @@ class ChessGameScreen extends StatefulWidget {
   final VoidCallback onVoiceReleased;
   final bool voiceEnabled;
   final String? speakingUsername;
+  final VoidCallback? onOfferDraw;
+  final VoidCallback? onResign;
+  final String? pendingDrawOfferId;
+  final bool drawOfferedByOpponent;
+  final ValueChanged<bool>? onRespondToDraw;
 
   @override
   State<ChessGameScreen> createState() => _ChessGameScreenState();
@@ -86,6 +96,61 @@ class _ChessGameScreenState extends State<ChessGameScreen> {
         ChessBoard(fen: widget.fen, legalMoves: widget.legalMoves, onMove: widget.onMove),
         const SizedBox(height: 8),
         _player(widget.whiteUsername, widget.whiteClock, white: true),
+        if (widget.pendingDrawOfferId != null && widget.drawOfferedByOpponent)
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(8),
+              child: Row(
+                children: [
+                  Expanded(child: Text(fa ? 'حریف پیشنهاد مساوی داده است' : 'Opponent offered a draw')),
+                  TextButton(
+                    onPressed: () => widget.onRespondToDraw?.call(false),
+                    child: Text(fa ? 'رد' : 'Decline'),
+                  ),
+                  FilledButton(
+                    onPressed: () => widget.onRespondToDraw?.call(true),
+                    child: Text(fa ? 'قبول' : 'Accept'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        if (widget.onOfferDraw != null || widget.onResign != null)
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              if (widget.onOfferDraw != null)
+                TextButton.icon(
+                  onPressed: widget.onOfferDraw,
+                  icon: const Icon(Icons.handshake_outlined),
+                  label: Text(fa ? 'پیشنهاد مساوی' : 'Offer draw'),
+                ),
+              if (widget.onResign != null)
+                TextButton.icon(
+                  onPressed: () async {
+                    final confirmed = await showDialog<bool>(
+                      context: context,
+                      builder: (dialogContext) => AlertDialog(
+                        title: Text(fa ? 'تسلیم می‌شوید؟' : 'Resign game?'),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(dialogContext, false),
+                            child: Text(fa ? 'ادامه بازی' : 'Keep playing'),
+                          ),
+                          FilledButton(
+                            onPressed: () => Navigator.pop(dialogContext, true),
+                            child: Text(fa ? 'تسلیم' : 'Resign'),
+                          ),
+                        ],
+                      ),
+                    );
+                    if (confirmed == true) widget.onResign?.call();
+                  },
+                  icon: const Icon(Icons.flag_outlined),
+                  label: Text(fa ? 'تسلیم' : 'Resign'),
+                ),
+            ],
+          ),
         if (widget.voiceEnabled)
           Row(
             children: [
