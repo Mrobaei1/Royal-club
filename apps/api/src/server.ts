@@ -1318,9 +1318,10 @@ app.patch<{ Body: { username?: string } }>('/api/v1/me/username', { onRequest: [
       await client.query('ROLLBACK');
       return reply.code(404).send({ error: 'Account not found.' });
     }
-    if (String(current.rows[0].username ?? '').toLowerCase() === username.toLowerCase()) {
+    const currentUsername = String(current.rows[0].username ?? '');
+    if (currentUsername.toLowerCase() === username.toLowerCase()) {
       await client.query('COMMIT');
-      return { user: { id: claims.sub, username }, chargedCredits: 0 };
+      return { user: { id: claims.sub, username: currentUsername }, chargedCredits: 0 };
     }
     const pricing = await client.query(
       'SELECT username_change_price_credits FROM account_customization_pricing WHERE id = 1 FOR SHARE',
