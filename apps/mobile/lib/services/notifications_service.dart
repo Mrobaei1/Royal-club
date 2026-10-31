@@ -22,6 +22,7 @@ class NotificationsService {
     final response = await http.post(
       Uri.parse('$_baseUrl$path'),
       headers: await _headers(),
+      body: jsonEncode(<String, dynamic>{}),
     );
     return _decode(response);
   }
