@@ -3032,7 +3032,7 @@ test('owner-managed profile customization pricing charges atomically and keeps t
       'INSERT INTO wallet_accounts (user_id, balance) VALUES ($1, 0) ON CONFLICT (user_id) DO UPDATE SET balance = 0',
       [user.user.id],
     );
-    const pngA = Buffer.from('iVBORw0KGgo=', 'base64');
+    const pngA = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x01]);
     const firstAvatar = await app.inject({
       method: 'PATCH', url: '/api/v1/me/avatar', headers: auth(user.token),
       payload: { avatarDataUrl: `data:image/png;base64,${pngA.toString('base64')}` },
@@ -3041,7 +3041,7 @@ test('owner-managed profile customization pricing charges atomically and keeps t
     assert.equal(firstAvatar.json().chargedCredits, 0);
     assert.equal(firstAvatar.json().firstAvatarFree, true);
 
-    const pngB = Buffer.from('iVBORw0KGgo=', 'base64');
+    const pngB = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x02]);
     const insufficientAvatar = await app.inject({
       method: 'PATCH', url: '/api/v1/me/avatar', headers: auth(user.token),
       payload: { avatarDataUrl: `data:image/png;base64,${pngB.toString('base64')}` },
