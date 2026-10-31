@@ -155,13 +155,11 @@ function sampleHiddenHands(state, seat, ledger, rng) {
 function simulatedWinner(trick, trump) {
   return currentWinner(trick, trump);
 }
-function simulatedPolicy(hand, trick, trump) {
+function simulatedPolicy(hand, trick, trump, seat) {
   const legal = legalCards(hand, trick);
   const winner = simulatedWinner(trick, trump);
-  if (winner && winner.seat % 2 === (trick.length ? (trick[0].seat % 2) : winner.seat % 2) &&
-      (winner.seat + 2) % 4 !== -1) {
-    // Partnership check is applied by the caller below; this branch only keeps
-    // the deterministic fallback cheap when no sampled winning card exists.
+  if (winner && winner.seat % 2 === seat % 2) {
+    return stableBest(legal, card => -cardCost(card, trump));
   }
   const leadSuit = trick[0]?.card.suit;
   const winning = winner ? legal.filter(card => beats(card,
@@ -186,7 +184,7 @@ function searchExpectedTrickValue(state, seat, candidates, ledger) {
         const nextSeat = (seat + offset) % 4;
         const hand = nextSeat === seat ? state.hands[seat] : simulatedHands[nextSeat];
         if (!hand?.length) { valid = false; break; }
-        const card = simulatedPolicy(hand, trick, state.trumpSuit);
+        const card = simulatedPolicy(hand, trick, state.trumpSuit, nextSeat);
         const index = hand.findIndex(item => cardKey(item) === cardKey(card));
         if (index < 0) { valid = false; break; }
         hand.splice(index, 1);
