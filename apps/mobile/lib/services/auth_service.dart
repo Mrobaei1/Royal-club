@@ -45,34 +45,6 @@ class AuthService {
   static Future<Map<String, dynamic>> _post(
       String path, Map<String, dynamic> data) async {
     final base = baseUrl.trim().replaceFirst(RegExp(r'/+$'), '');
-    return _decode(await _send(() => http.get(
-          Uri.parse('$base/api/v1/me'),
-          headers: {'Authorization': 'Bearer $token'},
-        )));
-  }
-
-  static Future<Map<String, dynamic>> customizationPricing() async {
-    final token = await _storage.read(key: 'royal_club_token');
-    if (token == null || token.isEmpty) throw Exception('ابتدا وارد حساب شوید.');
-    final base = baseUrl.trim().replaceFirst(RegExp(r'/+$'), '');
-    return _decode(await _send(() => http.get(
-      Uri.parse('$base/api/v1/account/customization-pricing'),
-      headers: {'Authorization': 'Bearer $token'},
-    )));
-  }
-
-  static Future<Map<String, dynamic>> resetPasswordWithPhoneOtp({
-    required String phone,
-    required String code,
-    required String newPassword,
-  }) async {
-    final base = baseUrl.trim().replaceFirst(RegExp(r'/+$'), '');
-    return _decode(await _send(() => http.post(
-      Uri.parse('$base/api/v1/auth/phone-otp/reset-password'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'phone': phone.trim(), 'code': code.trim(), 'newPassword': newPassword}),
-    )));
-  }
     final response = await _send(() => http.post(
           Uri.parse('$base$path'),
           headers: {'Content-Type': 'application/json'},
@@ -160,108 +132,7 @@ class AuthService {
   static Future<Map<String, dynamic>> me() async {
     final token = await _storage.read(key: 'royal_club_token');
     if (token == null || token.isEmpty) throw Exception('ابتدا وارد حساب شوید.');
-    final base = baseUrl.trim().replaceFirst(RegExp(r'/+
-  static Future<Map<String, dynamic>> updateUsername(String username) async {
-    final token = await _storage.read(key: 'royal_club_token');
-    if (token == null || token.isEmpty) throw Exception('ابتدا وارد حساب شوید.');
     final base = baseUrl.trim().replaceFirst(RegExp(r'/+$'), '');
-    final response = await _send(() => http.patch(
-          Uri.parse('$base/api/v1/me/username'),
-          headers: {
-            'Authorization': 'Bearer $token',
-            'Content-Type': 'application/json'
-          },
-          body: jsonEncode({'username': username.trim().replaceFirst(RegExp(r'^@'), '')}),
-        ));
-    return _decode(response);
-  }
-
-  static Future<Map<String, dynamic>> updateProfile({
-    required String fullName,
-    required String phone,
-    required String country,
-  }) async {
-    final token = await _storage.read(key: 'royal_club_token');
-    if (token == null || token.isEmpty) throw Exception('ابتدا وارد حساب شوید.');
-    final base = baseUrl.trim().replaceFirst(RegExp(r'/+$'), '');
-    final response = await _send(() => http.patch(
-          Uri.parse('$base/api/v1/me/profile'),
-          headers: {
-            'Authorization': 'Bearer $token',
-            'Content-Type': 'application/json'
-          },
-          body: jsonEncode({
-            'fullName': fullName.trim(),
-            'phone': phone.trim(),
-            'country': country.trim(),
-          }),
-        ));
-    final decoded = await _decode(response);
-    final user = decoded['user'];
-    return user is Map<String, dynamic> ? user : decoded;
-  }
-
-  static Future<Map<String, dynamic>> updateAvatar(String avatarDataUrl) async {
-    final token = await _storage.read(key: 'royal_club_token');
-    if (token == null || token.isEmpty) throw Exception('ابتدا وارد حساب شوید.');
-    final base = baseUrl.trim().replaceFirst(RegExp(r'/+$'), '');
-    final response = await _send(() => http.patch(
-          Uri.parse('$base/api/v1/me/avatar'),
-          headers: {
-            'Authorization': 'Bearer $token',
-            'Content-Type': 'application/json'
-          },
-          body: jsonEncode({'avatarDataUrl': avatarDataUrl}),
-        ));
-    return _decode(response);
-  }
-
-  static Future<String?> rememberedEmail() =>
-      _storage.read(key: 'royal_club_remembered_email');
-
-  static Future<String?> rememberedPassword() =>
-      _storage.read(key: 'royal_club_remembered_password');
-
-  static Future<void> setRememberedCredentials(
-      String email, String password, bool remember) async {
-    if (remember) {
-      await _storage.write(
-          key: 'royal_club_remembered_email', value: email.trim());
-      await _storage.write(
-          key: 'royal_club_remembered_password', value: password);
-    } else {
-      await _storage.delete(key: 'royal_club_remembered_email');
-      await _storage.delete(key: 'royal_club_remembered_password');
-    }
-  }
-
-  // Kept for compatibility with older callers.
-  static Future<void> setRememberedEmail(String email, bool remember) async {
-    if (remember) {
-      await _storage.write(key: 'royal_club_remembered_email', value: email.trim());
-    } else {
-      await _storage.delete(key: 'royal_club_remembered_email');
-      await _storage.delete(key: 'royal_club_remembered_password');
-    }
-  }
-
-  static Future<int?> readThemePreference() async {
-    final value = await _storage.read(key: 'royal_club_theme');
-    return value == null ? null : int.tryParse(value);
-  }
-
-  static Future<void> saveThemePreference(int index) =>
-      _storage.write(key: 'royal_club_theme', value: index.toString());
-
-  static Future<String?> readLanguagePreference() =>
-      _storage.read(key: 'royal_club_language');
-
-  static Future<void> saveLanguagePreference(String languageCode) =>
-      _storage.write(key: 'royal_club_language', value: languageCode);
-
-  static Future<void> logout() => _storage.delete(key: 'royal_club_token');
-}
-), '');
     return _decode(await _send(() => http.get(
           Uri.parse('$base/api/v1/me'),
           headers: {'Authorization': 'Bearer $token'},
@@ -271,111 +142,23 @@ class AuthService {
   static Future<Map<String, dynamic>> customizationPricing() async {
     final token = await _storage.read(key: 'royal_club_token');
     if (token == null || token.isEmpty) throw Exception('ابتدا وارد حساب شوید.');
-    final base = baseUrl.trim().replaceFirst(RegExp(r'/+
-  static Future<Map<String, dynamic>> updateUsername(String username) async {
-    final token = await _storage.read(key: 'royal_club_token');
-    if (token == null || token.isEmpty) throw Exception('ابتدا وارد حساب شوید.');
     final base = baseUrl.trim().replaceFirst(RegExp(r'/+$'), '');
-    final response = await _send(() => http.patch(
-          Uri.parse('$base/api/v1/me/username'),
-          headers: {
-            'Authorization': 'Bearer $token',
-            'Content-Type': 'application/json'
-          },
-          body: jsonEncode({'username': username.trim().replaceFirst(RegExp(r'^@'), '')}),
-        ));
-    return _decode(response);
-  }
-
-  static Future<Map<String, dynamic>> updateProfile({
-    required String fullName,
-    required String phone,
-    required String country,
-  }) async {
-    final token = await _storage.read(key: 'royal_club_token');
-    if (token == null || token.isEmpty) throw Exception('ابتدا وارد حساب شوید.');
-    final base = baseUrl.trim().replaceFirst(RegExp(r'/+$'), '');
-    final response = await _send(() => http.patch(
-          Uri.parse('$base/api/v1/me/profile'),
-          headers: {
-            'Authorization': 'Bearer $token',
-            'Content-Type': 'application/json'
-          },
-          body: jsonEncode({
-            'fullName': fullName.trim(),
-            'phone': phone.trim(),
-            'country': country.trim(),
-          }),
-        ));
-    final decoded = await _decode(response);
-    final user = decoded['user'];
-    return user is Map<String, dynamic> ? user : decoded;
-  }
-
-  static Future<Map<String, dynamic>> updateAvatar(String avatarDataUrl) async {
-    final token = await _storage.read(key: 'royal_club_token');
-    if (token == null || token.isEmpty) throw Exception('ابتدا وارد حساب شوید.');
-    final base = baseUrl.trim().replaceFirst(RegExp(r'/+$'), '');
-    final response = await _send(() => http.patch(
-          Uri.parse('$base/api/v1/me/avatar'),
-          headers: {
-            'Authorization': 'Bearer $token',
-            'Content-Type': 'application/json'
-          },
-          body: jsonEncode({'avatarDataUrl': avatarDataUrl}),
-        ));
-    return _decode(response);
-  }
-
-  static Future<String?> rememberedEmail() =>
-      _storage.read(key: 'royal_club_remembered_email');
-
-  static Future<String?> rememberedPassword() =>
-      _storage.read(key: 'royal_club_remembered_password');
-
-  static Future<void> setRememberedCredentials(
-      String email, String password, bool remember) async {
-    if (remember) {
-      await _storage.write(
-          key: 'royal_club_remembered_email', value: email.trim());
-      await _storage.write(
-          key: 'royal_club_remembered_password', value: password);
-    } else {
-      await _storage.delete(key: 'royal_club_remembered_email');
-      await _storage.delete(key: 'royal_club_remembered_password');
-    }
-  }
-
-  // Kept for compatibility with older callers.
-  static Future<void> setRememberedEmail(String email, bool remember) async {
-    if (remember) {
-      await _storage.write(key: 'royal_club_remembered_email', value: email.trim());
-    } else {
-      await _storage.delete(key: 'royal_club_remembered_email');
-      await _storage.delete(key: 'royal_club_remembered_password');
-    }
-  }
-
-  static Future<int?> readThemePreference() async {
-    final value = await _storage.read(key: 'royal_club_theme');
-    return value == null ? null : int.tryParse(value);
-  }
-
-  static Future<void> saveThemePreference(int index) =>
-      _storage.write(key: 'royal_club_theme', value: index.toString());
-
-  static Future<String?> readLanguagePreference() =>
-      _storage.read(key: 'royal_club_language');
-
-  static Future<void> saveLanguagePreference(String languageCode) =>
-      _storage.write(key: 'royal_club_language', value: languageCode);
-
-  static Future<void> logout() => _storage.delete(key: 'royal_club_token');
-}
-), '');
     return _decode(await _send(() => http.get(
       Uri.parse('$base/api/v1/account/customization-pricing'),
       headers: {'Authorization': 'Bearer $token'},
+    )));
+  }
+
+  static Future<Map<String, dynamic>> resetPasswordWithPhoneOtp({
+    required String phone,
+    required String code,
+    required String newPassword,
+  }) async {
+    final base = baseUrl.trim().replaceFirst(RegExp(r'/+$'), '');
+    return _decode(await _send(() => http.post(
+      Uri.parse('$base/api/v1/auth/phone-otp/reset-password'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'phone': phone.trim(), 'code': code.trim(), 'newPassword': newPassword}),
     )));
   }
 
