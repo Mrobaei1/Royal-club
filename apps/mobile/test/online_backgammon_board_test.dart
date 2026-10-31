@@ -107,6 +107,26 @@ void main() {
     }
   });
 
+  test('six visible checkers fill the point inward without crossing its tip', () {
+    const size = Size(900, 600);
+    final topFirst = RoyalBackgammonBoard.checkerCenterForPoint(
+      point: 0, stackIndex: 0, checkerCount: 15, boardSize: size);
+    final topLast = RoyalBackgammonBoard.checkerCenterForPoint(
+      point: 0, stackIndex: 5, checkerCount: 15, boardSize: size);
+    final bottomFirst = RoyalBackgammonBoard.checkerCenterForPoint(
+      point: 12, stackIndex: 0, checkerCount: 15, boardSize: size);
+    final bottomLast = RoyalBackgammonBoard.checkerCenterForPoint(
+      point: 12, stackIndex: 5, checkerCount: 15, boardSize: size);
+
+    const rowHeight = (600 - 44) / 2;
+    const pointTip = rowHeight * .56;
+    const bottomTip = rowHeight + 44 + rowHeight - pointTip;
+    expect(topLast.dy - topFirst.dy, greaterThan(60));
+    expect(topLast.dy, lessThan(pointTip));
+    expect(bottomFirst.dy - bottomLast.dy, greaterThan(60));
+    expect(bottomLast.dy, greaterThan(bottomTip));
+  });
+
   testWidgets('selected point is repainted without losing the board',
       (tester) async {
     final points = List<num>.filled(24, 0)..[23] = -2;

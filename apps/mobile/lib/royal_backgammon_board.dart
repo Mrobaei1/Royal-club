@@ -261,9 +261,14 @@ class _RoyalBoardPainter extends CustomPainter {
     final col=top?(point<6?11-point:5-(point-6)):point-12;
     final left=col<6?m+col*pw:m+hw+bw+(col-6)*pw;
     final radius=math.min(pw*.43,row*.17), triH=row*.56;
-    final n=checkerCount.clamp(1,15);
-    final gap=n*2*radius<=triH?2*radius:(triH-2*radius)/math.max(1,n-1);
-    final y=top?radius*1.8+stackIndex*gap:s.height-radius*1.8-stackIndex*gap;
+    // Paint at most six checkers; space those visible checkers across the point
+    // instead of compressing them as if all 15 were individually painted.
+    final visibleCount=math.min(checkerCount,6);
+    final firstCenter=radius*1.8;
+    final lastCenter=math.max(firstCenter,triH-radius);
+    final available=lastCenter-firstCenter;
+    final gap=visibleCount<=1?0.0:math.min(2*radius,available/(visibleCount-1));
+    final y=top?firstCenter+stackIndex*gap:s.height-firstCenter-stackIndex*gap;
     return Offset(left+pw/2,y);
   }
 
