@@ -15,6 +15,7 @@ class AccountScreen extends StatefulWidget {
 
 class _AccountScreenState extends State<AccountScreen> {
   Map<String, dynamic>? _user;
+  Map<String, dynamic> _customizationPricing = {};
   bool _loading = true;
   String? _error;
   bool _avatarSaving = false;
@@ -42,6 +43,12 @@ class _AccountScreenState extends State<AccountScreen> {
       } catch (_) {
         if (mounted) setState(() => _phoneOtpAvailable = false);
       }
+      try {
+        final pricing = await AuthService.customizationPricing();
+        if (mounted) setState(() => _customizationPricing = pricing);
+      } catch (_) {
+        if (mounted) setState(() => _customizationPricing = {});
+      }
     } catch (error) {
       if (mounted) {
         setState(() {
@@ -59,7 +66,18 @@ class _AccountScreenState extends State<AccountScreen> {
       builder: (dialogContext) => AlertDialog(
         backgroundColor: Theme.of(context).colorScheme.surface,
         title: Text(appText(context, 'تغییر نام کاربری', 'Change username')),
-        content: TextField(controller: controller, textDirection: TextDirection.ltr, decoration: InputDecoration(labelText: appText(context, 'نام کاربری', 'Username'), hintText: 'royal_player7', prefixText: '@', helperText: appText(context, '۳ تا ۲۴ حرف؛ حروف انگلیسی، عدد، نقطه یا زیرخط', '3–24 characters; English letters, numbers, dots or underscores'))),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(controller: controller, textDirection: TextDirection.ltr, decoration: InputDecoration(labelText: appText(context, 'نام کاربری', 'Username'), hintText: 'royal_player7', prefixText: '@', helperText: appText(context, '۳ تا ۲۴ حرف؛ حروف انگلیسی، عدد، نقطه یا زیرخط', '3–24 characters; English letters, numbers, dots or underscores'))),
+            if (_customizationPricing.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              Text(appText(context,
+                'هزینه تغییر نام کاربری: ${_customizationPricing['usernameChangePriceCredits'] ?? 0} اعتبار',
+                'Username change cost: ${_customizationPricing['usernameChangePriceCredits'] ?? 0} credits')),
+            ],
+          ],
+        ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(dialogContext), child: Text(appText(context, 'انصراف', 'Cancel'))),
           FilledButton(onPressed: () => Navigator.pop(dialogContext, controller.text.trim()), child: Text(appText(context, 'ذخیره', 'Save'))),
@@ -171,11 +189,30 @@ class _AccountScreenState extends State<AccountScreen> {
         _ => 'image/jpeg',
       };
       final dataUrl = 'data:$mime;base64,${base64Encode(bytes)}';
+      final firstAvatarFree = _customizationPricing['avatarFirstChangeFree'] == true;
+      final avatarPrice = (_customizationPricing['avatarChangePriceCredits'] as num?)?.toInt() ?? 0;
+      if (!firstAvatarFree && avatarPrice > 0) {
+        final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+            title: Text(appText(context, 'تأیید هزینه تغییر تصویر', 'Confirm avatar change cost')),
+            content: Text(appText(context,
+              'این تغییر تصویر پروفایل ${avatarPrice} اعتبار هزینه دارد. ادامه می‌دهید؟',
+              'This profile photo change costs ${avatarPrice} credits. Continue?')),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: Text(appText(context, 'انصراف', 'Cancel'))),
+              FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: Text(appText(context, 'تأیید و ادامه', 'Confirm and continue'))),
+            ],
+          ),
+        );
+        if (confirmed != true || !mounted) return;
+      }
       setState(() { _avatarSaving = true; _error = null; });
       final result = await AuthService.updateAvatar(dataUrl);
       if (!mounted) return;
       setState(() {
         _user?['avatarDataUrl'] = result['avatarDataUrl'] ?? dataUrl;
+        _customizationPricing['avatarFirstChangeFree'] = false;
         _avatarSaving = false;
       });
     } catch (error) {
