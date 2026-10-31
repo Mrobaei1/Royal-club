@@ -16,6 +16,12 @@ This document describes the intended adapter boundary. It does not wire anything
 - Hard strategy may use only the bot's own hand and information legitimately visible to that seat.
 - Every bot move passes through the same authoritative legal-move validator as a human move.
 
+## Fixed hard bot policy — first implementation
+- The isolated lab has a deterministic policy entry point in `src/bot.js` for hakem trump selection and legal card selection.
+- It uses the bot's own hand, current public trick and publicly completed trick history only; it does not inspect opponents' hidden hands or the undealt deck.
+- Every proposed play is selected from `legalCards`, and the normal `playCard`/room validator remains the authority.
+- This is a first heuristic milestone, not yet a strategically proven expert bot. Card counting across all public plays, deeper trick-outcome search, partner signaling strategy and full-match simulation remain required.
+
 ## Authoritative server commands
 Every command must be authenticated and scoped to a room: create/join/leave, ready/start, choose trump, play card, reconnect and chat.
 The server derives seat from authenticated membership. Never accept client-supplied seat/team/score/hand as authoritative input. Match target (3, 5, or 7) comes from trusted manager configuration.
