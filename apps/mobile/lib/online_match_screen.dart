@@ -625,6 +625,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
     final isMyTurn = _state?['isMyTurn'] == true;
     final isEnglish = Localizations.localeOf(context).languageCode == 'en';
     final aiTakeoverActive = _state?['aiTakeoverActive'] == true;
+    final canAct = isMyTurn && !aiTakeoverActive;
     final turnTimerText = _matchStatus == 'active' && _state != null && !aiTakeoverActive
         ? '${_turnSecondsRemaining}s'
         : null;
@@ -916,8 +917,8 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
                           timerText: turnTimerText,
                           timerWhite: timerWhite,
                           rollLabel: isEnglish ? 'Roll' : 'تاس',
-                          onRoll: _busy || _matchStatus != 'active' || !isMyTurn || dice.isNotEmpty ? null : _roll,
-                          onPointTap: (point) => _tapPoint(point, board, remaining, isMyTurn),
+                          onRoll: _busy || _matchStatus != 'active' || !canAct || dice.isNotEmpty ? null : _roll,
+                          onPointTap: (point) => _tapPoint(point, board, remaining, canAct),
                         ),
                       ),
                     ],
