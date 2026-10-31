@@ -235,6 +235,7 @@ class ChessVoiceClient {
           final enabled = event['enabled'] == true;
           onVoiceEnabledChanged?.call(enabled);
           if (!enabled) {
+            _talkRequested = false;
             onSpeakingChanged?.call(null);
             _disableLocalAudio();
             _leaseId = null;
@@ -244,6 +245,7 @@ class ChessVoiceClient {
           break;
         case 'chess:voice:released':
         case 'chess:voice:disabled':
+          _talkRequested = false;
           onSpeakingChanged?.call(null);
           _disableLocalAudio();
           _leaseId = null;
