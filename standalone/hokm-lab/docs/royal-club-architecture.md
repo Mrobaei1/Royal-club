@@ -36,7 +36,7 @@ For each command, verify membership, room phase, turn, card ownership, follow-su
 - Never log full hidden hands in production telemetry.
 
 ## Room lifecycle
-Use server time for invitation expiration and turn deadlines. Cleanup jobs must be idempotent. Reconnection restores a seat only after authenticating the original seat owner. A disconnected player may be replaced by a bot only under a defined manager-controlled policy.
+Use server time for invitation expiration and turn deadlines. Cleanup jobs must be idempotent. Reconnection restores a seat only after authenticating the original seat owner. An intentional active-match departure is penalized −5 XP once, marks the original seat as bot-controlled, and immediately hands control to the fixed Hard bot. The match continues with the same seat/team; the departed user cannot issue further commands. Bot-generated trump/card actions use the same server-side round validators as human actions. Reconnection/seat reclaim policy must be defined separately before production.
 
 ## Royal Club compatibility
 Flutter/Dart UI, existing Fastify/TypeScript API and existing PostgreSQL infrastructure. No second account or wallet system. Voice requires explicit permission, consent, moderation and provider/cost review. No production routes, database schema, deployments or APKs are changed by this lab.
