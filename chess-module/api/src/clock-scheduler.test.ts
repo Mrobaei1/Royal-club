@@ -4,7 +4,7 @@ import type { Pool, PoolClient } from "pg";
 import { adjudicateExpiredChessClocks } from "./clock-scheduler.js";
 
 test("expired active clock is atomically adjudicated and releases room voice lease", async () => {
-  const calls: Array<{ sql: string; values?: unknown[] }> = [];
+  const calls: Array<{ sql: string; values?: unknown[] | undefined }> = [];
   const game = {
     id: 41,
     room_id: 9,
