@@ -2,7 +2,7 @@
 
 | Area | Automated coverage | Remaining acceptance |
 |---|---|---|
-| Legal chess | Engine unit tests for ordinary moves, illegal moves, castling, en passant, promotion and checkmate | Full edge-case suite: stalemate, repetition, 50/75-move, insufficient material, pinned pieces |
+| Legal chess | Engine unit tests for ordinary/illegal moves, castling, en passant, promotion, checkmate, stalemate, repetition, 50/75-move and insufficient material | Remaining rare FEN edge cases and property-based legal-move fuzzing |
 | Time controls | Defaults, active-player decrement/increment, automatic server timeout scheduler, row-lock adjudication and reconnect snapshot API | Simultaneous clock/move race tests and physical-device reconnect acceptance |
 | Progression | Cost curve, cumulative thresholds, permanent levels, zero floor, win/draw/resignation deltas | PostgreSQL transactional/idempotency integration tests |
 | Room level gate | Unit tests for threshold boundary | Authenticated route and hostile-client tests |
