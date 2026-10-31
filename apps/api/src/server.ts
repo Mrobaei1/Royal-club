@@ -2813,6 +2813,49 @@ app.post<{ Body: { phone?: string; code?: string } }>(
   },
 );
 
+app.post<{ Body: { phone?: string; code?: string; newPassword?: string } }>(
+  '/api/v1/auth/phone-otp/reset-password',
+  { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } },
+  async (request, reply) => {
+    const phone = normalizeIranianMobile(request.body?.phone);
+    const code = typeof request.body?.code === 'string' ? request.body.code.trim() : '';
+    const newPassword = request.body?.newPassword;
+    if (!phone || !/^\d{6}$/.test(code) || !isValidRegistrationPassword(newPassword)) {
+      return reply.code(400).send({ error: 'Enter a valid Iranian mobile, six-digit code, and a password of at least six characters.' });
+    }
+    const settingsResult = await pool.query('SELECT enabled, delivery_mode, provider FROM sms_otp_settings WHERE id = 1');
+    const runtime = otpRuntimeAllowed(settingsResult.rows[0]);
+    if (!runtime.simulator && !runtime.live) return reply.code(503).send({ error: 'Phone password recovery is not available.' });
+
+    const salt = randomBytes(16);
+    const derived = await scrypt(newPassword, salt, 64) as Buffer;
+    const passwordHash = `${salt.toString('hex')}:${derived.toString('hex')}`;
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const verified = await consumeOtpChallenge(client, phone, code, 'reset_password');
+      if (!verified) {
+        await client.query('COMMIT');
+        return reply.code(400).send({ error: 'The verification code is invalid or expired.' });
+      }
+      // Do not reveal whether the phone is linked to an account. Incrementing
+      // token_version invalidates every previously issued session for that account.
+      await client.query(
+        'UPDATE users SET password_hash = $1, token_version = token_version + 1 WHERE phone_e164 = $2',
+        [passwordHash, phone],
+      );
+      await client.query('COMMIT');
+      return { ok: true, message: 'If the number is linked to an account, its password has been reset.' };
+    } catch (error) {
+      await client.query('ROLLBACK').catch(() => undefined);
+      request.log.error({ err: error }, 'Phone password recovery failed');
+      return reply.code(500).send({ error: 'Could not reset the password.' });
+    } finally {
+      client.release();
+    }
+  },
+);
+
 app.post<{ Body: { phone?: string; code?: string } }>(
   '/api/v1/auth/phone-otp/link',
   { onRequest: [requireMatchAuth], config: { rateLimit: { max: 5, timeWindow: '1 minute' } } },
