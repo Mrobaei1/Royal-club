@@ -655,38 +655,6 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
                   ],
                 ),
               ),
-            const SizedBox(height: 12),
-            Card(
-              color: Theme.of(context).colorScheme.surface,
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Row(
-                  children: [
-                    Expanded(child: InkWell(
-                      borderRadius: BorderRadius.circular(12),
-                      onTap: () => _showHeadToHeadSummary(isHost: true),
-                      child: Column(children: [
-                        RoyalAvatar(dataUrl: _matchDetails['hostAvatarDataUrl']?.toString(), radius: 25),
-                        const SizedBox(height: 5),
-                        Text(_matchDetails['hostName']?.toString() ?? (isEnglish ? 'Host' : 'میزبان'), textAlign: TextAlign.center,
-                          style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7)), maxLines: 1, overflow: TextOverflow.ellipsis),
-                      ]),
-                    )),
-                    Padding(padding: const EdgeInsets.symmetric(horizontal: 8), child: Text(isEnglish ? 'vs.' : 'در برابر', style: TextStyle(color: Theme.of(context).colorScheme.primary))),
-                    Expanded(child: InkWell(
-                      borderRadius: BorderRadius.circular(12),
-                      onTap: _matchDetails['guestName'] == null ? null : () => _showHeadToHeadSummary(isHost: false),
-                      child: Column(children: [
-                        RoyalAvatar(dataUrl: _matchDetails['guestAvatarDataUrl']?.toString(), radius: 25),
-                        const SizedBox(height: 5),
-                        Text(_matchDetails['guestName']?.toString() ?? (isEnglish ? 'Waiting for opponent' : 'در انتظار حریف'), textAlign: TextAlign.center,
-                          style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7)), maxLines: 1, overflow: TextOverflow.ellipsis),
-                      ]),
-                    )),
-                  ],
-                ),
-              ),
-            ),
             if (_matchDetails['guestName'] != null && _matchStatus == 'waiting') ...[
               const SizedBox(height: 12),
               Container(
@@ -903,6 +871,38 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
                 Text(_state == null ? (isEnglish ? 'Room status refreshes automatically.' : 'این صفحه به‌صورت خودکار هر ۳ ثانیه وضعیت اتاق را بررسی می‌کند.') : (isEnglish ? 'State version: ${_state!['version']}' : 'نسخه وضعیت: ${_state!['version']}'),
                   style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.54), fontSize: 12)),
               ]),
+            ),
+            const SizedBox(height: 12),
+            Card(
+              color: Theme.of(context).colorScheme.surface,
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Row(
+                  children: [
+                    Expanded(child: InkWell(
+                      borderRadius: BorderRadius.circular(12),
+                      onTap: () => _showHeadToHeadSummary(isHost: true),
+                      child: Column(children: [
+                        RoyalAvatar(dataUrl: _matchDetails['hostAvatarDataUrl']?.toString(), radius: 25),
+                        const SizedBox(height: 5),
+                        Text(_matchDetails['hostName']?.toString() ?? (isEnglish ? 'Host' : 'میزبان'), textAlign: TextAlign.center,
+                          style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7)), maxLines: 1, overflow: TextOverflow.ellipsis),
+                      ]),
+                    )),
+                    Padding(padding: const EdgeInsets.symmetric(horizontal: 8), child: Text(isEnglish ? 'vs.' : 'در برابر', style: TextStyle(color: Theme.of(context).colorScheme.primary))),
+                    Expanded(child: InkWell(
+                      borderRadius: BorderRadius.circular(12),
+                      onTap: _matchDetails['guestName'] == null ? null : () => _showHeadToHeadSummary(isHost: false),
+                      child: Column(children: [
+                        RoyalAvatar(dataUrl: _matchDetails['guestAvatarDataUrl']?.toString(), radius: 25),
+                        const SizedBox(height: 5),
+                        Text(_matchDetails['guestName']?.toString() ?? (isEnglish ? 'Waiting for opponent' : 'در انتظار حریف'), textAlign: TextAlign.center,
+                          style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7)), maxLines: 1, overflow: TextOverflow.ellipsis),
+                      ]),
+                    )),
+                  ],
+                ),
+              ),
             ),
             if (_state != null) ...[
               const SizedBox(height: 16),
