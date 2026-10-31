@@ -62,7 +62,7 @@ class ChessGameSession extends ChangeNotifier {
     _heartbeat?.cancel();
     _heartbeat = Timer.periodic(const Duration(seconds: 15), (_) {
       if (_socket?.readyState == WebSocket.open) {
-        _socket!.add(jsonEncode({'type': 'ping'}));
+        _socket!.add(jsonEncode({'type': 'ping', 'clientTime': DateTime.now().millisecondsSinceEpoch}));
       }
     });
   }
@@ -148,6 +148,7 @@ class ChessGameSession extends ChangeNotifier {
   }
 
   Future<void> _handleEvent(dynamic raw) async {
+    if (_disposed) return;
     try {
       final event = jsonDecode(raw as String) as Map<String, dynamic>;
       switch (event['type']) {
@@ -155,7 +156,9 @@ class ChessGameSession extends ChangeNotifier {
           _reconnectAttempt = 0;
           final serverTime = (event['serverTime'] as num?)?.toInt();
           if (serverTime != null) {
-            _serverOffsetMs = serverTime - DateTime.now().millisecondsSinceEpoch;
+            final receivedAt = DateTime.now().millisecondsSinceEpoch;
+            final sentAt = (event['clientTime'] as num?)?.toInt() ?? receivedAt;
+            _serverOffsetMs = (serverTime - ((sentAt + receivedAt) / 2)).round();
             _applyClock(game?['clock'] as Map<String, dynamic>?);
             notifyListeners();
           }
@@ -212,8 +215,10 @@ class ChessGameSession extends ChangeNotifier {
           break;
       }
     } catch (error) {
-      errorCode = 'invalid_realtime_event';
-      notifyListeners();
+      if (!_disposed) {
+        errorCode = 'invalid_realtime_event';
+        notifyListeners();
+      }
     }
   }
 
