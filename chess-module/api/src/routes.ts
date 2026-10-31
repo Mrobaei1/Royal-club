@@ -76,6 +76,7 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
     const client=await pool.connect();
     try{
       await client.query("BEGIN");
+      await client.query("SELECT pg_advisory_xact_lock(hashtext('royal_chess_matchmaking'))");
       const roomResult=await client.query("SELECT * FROM chess_rooms WHERE room_code=$1 FOR UPDATE",[request.params.roomCode]);
       const room=roomResult.rows[0];
       if(!room||room.status!=="waiting"){await client.query("ROLLBACK");return fail(reply,404,"room_unavailable");}
@@ -673,6 +674,11 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
          JOIN users u ON u.id=q.user_id
          WHERE q.time_control_id=$1 AND q.user_id<>$2
            AND COALESCE(p.level,1)>=$3 AND $4>=q.min_opponent_level
+           AND NOT EXISTS (
+             SELECT 1 FROM chess_games active
+             WHERE active.status='active'
+               AND (active.white_user_id=q.user_id OR active.black_user_id=q.user_id)
+           )
          ORDER BY q.created_at,q.user_id FOR UPDATE OF q SKIP LOCKED LIMIT 1`,
         [timeControlId,playerId,minOpponentLevel,ownLevel]
       );
