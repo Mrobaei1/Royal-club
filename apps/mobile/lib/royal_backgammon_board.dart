@@ -22,6 +22,15 @@ class RoyalBackgammonBoard extends StatelessWidget {
   final String? timerText;
   final bool timerWhite;
 
+  /// Returns a checker's center on the player's outer half of the board.
+  /// Kept public so regression tests can enforce the board-side invariant.
+  static Offset checkerCenterForPoint({
+    required int point,
+    required int stackIndex,
+    required int checkerCount,
+    required Size boardSize,
+  }) => _RoyalBoardPainter.checkerCenter(point, stackIndex, checkerCount, boardSize);
+
   @override
   Widget build(BuildContext context) => LayoutBuilder(builder: (context, c) {
     final panel = (c.maxWidth * .075).clamp(28.0, 58.0).toDouble();
@@ -169,7 +178,8 @@ class _RoyalBoardPainter extends CustomPainter {
   void paint(Canvas c, Size s) {
     final w=s.width, h=s.height, m=w*.025, bw=(w*.09).clamp(24.0,42.0).toDouble();
     final hw=(w-2*m-bw)/2, pw=hw/6, mid=middleHeight(s), row=(h-mid)/2;
-    final topBase=row*.98, bottomBase=row+mid+row*.02;
+    // Point bases belong to the players' outer edges; tips face the central bar.
+    final topBase=0.0, bottomBase=h;
     final triH=row*.56, r=math.min(pw*.43, row*.17);
     double colX(int col)=>col<6?m+col*pw:m+hw+bw+(col-6)*pw;
     final bounds=Offset.zero&s;
@@ -198,7 +208,7 @@ class _RoyalBoardPainter extends CustomPainter {
       final col=isTop?(i<6?11-i:5-(i-6)):i-12;
       final x=colX(col), cx=x+pw/2;
       final base=isTop?topBase:bottomBase;
-      final tip=isTop?topBase+triH:bottomBase-triH;
+      final tip=isTop?row*.56:row+mid+row-triH;
       final color=(col%6).isEven?const Color(0xFFFFFFFF):paleGreen;
       final path=Path()..moveTo(x+pw*.04,base)..lineTo(x+pw*.96,base)..lineTo(cx,tip)..close();
       c.drawPath(path,Paint()..color=color);
@@ -211,12 +221,12 @@ class _RoyalBoardPainter extends CustomPainter {
       final count=i<points.length?points[i].toInt():0;
       if(count!=0){
         final n=count.abs().clamp(1,15), shown=math.min(n,6);
-        final gap=n*2*r<=triH?2*r:(triH-2*r)/math.max(1,n-1);
         for(var k=0;k<shown;k++){
-          final cy=isTop?topBase+r*1.8+k*gap:bottomBase-r*1.8-k*gap;
-          _checker(c,Offset(cx,cy),r,count>0);
+          final center=checkerCenter(i,k,n,s);
+          _checker(c,center,r,count>0);
         }
-        if(count.abs()>5)_txt(c,count.abs().toString(),Offset(cx,isTop?topBase+r*1.8:bottomBase-r*1.8),r*.8,count>0?const Color(0xFF302315):Colors.white);
+        if(count.abs()>5)_txt(c,count.abs().toString(),
+          checkerCenter(i,0,n,s),r*.8,count>0?const Color(0xFF302315):Colors.white);
       }
       _txt(c,i.toString(),Offset(cx,isTop?row*.035:h-row*.035),math.max(8.0,pw*.24),const Color(0xFFE53935));
     }
@@ -236,6 +246,23 @@ class _RoyalBoardPainter extends CustomPainter {
       final dx=dice.length==1?0:(j==0?-w*.035:w*.035);
       _die(c,Offset(w*.75+dx,row+mid/2),math.min(mid*.64,w*.055),dice[j]);
     }
+  }
+
+  /// Canonical stack geometry: top-player checkers stay in the top half and
+  /// bottom-player checkers stay in the bottom half, growing inward from edges.
+  static Offset checkerCenter(int point,int stackIndex,int checkerCount,Size s){
+    if(point<0||point>=24) throw RangeError.range(point,0,23,'point');
+    if(stackIndex<0||stackIndex>=checkerCount) throw RangeError.range(stackIndex,0,checkerCount-1,'stackIndex');
+    final m=s.width*.025, bw=(s.width*.09).clamp(24.0,42.0).toDouble();
+    final hw=(s.width-2*m-bw)/2, pw=hw/6, mid=middleHeight(s), row=(s.height-mid)/2;
+    final top=point<12;
+    final col=top?(point<6?11-point:5-(point-6)):point-12;
+    final left=col<6?m+col*pw:m+hw+bw+(col-6)*pw;
+    final radius=math.min(pw*.43,row*.17), triH=row*.56;
+    final n=checkerCount.clamp(1,15);
+    final gap=n*2*radius<=triH?2*radius:(triH-2*radius)/math.max(1,n-1);
+    final y=top?radius*1.8+stackIndex*gap:s.height-radius*1.8-stackIndex*gap;
+    return Offset(left+pw/2,y);
   }
 
   static void _txt(Canvas c,String t,Offset o,double size,Color color){
