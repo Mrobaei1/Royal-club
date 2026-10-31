@@ -349,6 +349,20 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
       const row=game.rows[0];
       if(!row||row.status!=="active"){await client.query("ROLLBACK");return fail(reply,404,"active_game_not_found");}
       if(playerId!==String(row.white_user_id)&&playerId!==String(row.black_user_id)){await client.query("ROLLBACK");return fail(reply,403,"not_a_player");}
+      const control=(row.settings_snapshot as {timeControl:TimeControl}).timeControl;
+      const clock=row.clock_snapshot as ClockSnapshot;
+      const elapsed=settleClock(clock,control,Date.now(),false);
+      if(elapsed.finished){
+        const white=String(row.white_user_id),black=String(row.black_user_id);
+        const winner=clock.active==="white"?black:white;
+        const terminal=winner===white?"white_win":"black_win";
+        await client.query("UPDATE chess_games SET status=$2,clock_snapshot=$3::jsonb,finished_at=NOW(),revision=revision+1 WHERE id=$1",[row.id,terminal,JSON.stringify({...elapsed,active:null,lastStartedAt:null,finished:true})]);
+        await client.query("UPDATE chess_rooms SET status='finished' WHERE id=$1",[row.room_id]);
+        await client.query("DELETE FROM chess_voice_leases WHERE room_id=$1",[row.room_id]);
+        await awardChessResult(client,String(row.id),"final_result",white,black,{outcome:"win",winnerId:winner,loserId:winner===white?black:white});
+        await client.query("COMMIT");
+        return fail(reply,409,"clock_expired");
+      }
       const pending=await client.query("SELECT id FROM chess_draw_offers WHERE game_id=$1 AND status='pending'",[row.id]);
       if(pending.rowCount){await client.query("ROLLBACK");return fail(reply,409,"draw_offer_pending");}
       const offer=await client.query("INSERT INTO chess_draw_offers(game_id,offered_by) VALUES($1,$2) RETURNING id,created_at",[row.id,playerId]);
@@ -370,6 +384,19 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
       if(!row||row.status!=="active"){await client.query("ROLLBACK");return fail(reply,404,"active_game_not_found");}
       const white=String(row.white_user_id),black=String(row.black_user_id);
       if(playerId!==white&&playerId!==black){await client.query("ROLLBACK");return fail(reply,403,"not_a_player");}
+      const control=(row.settings_snapshot as {timeControl:TimeControl}).timeControl;
+      const clockNow=row.clock_snapshot as ClockSnapshot;
+      const elapsed=settleClock(clockNow,control,Date.now(),false);
+      if(elapsed.finished){
+        const winner=clockNow.active==="white"?black:white;
+        const terminal=winner===white?"white_win":"black_win";
+        await client.query("UPDATE chess_games SET status=$2,clock_snapshot=$3::jsonb,finished_at=NOW(),revision=revision+1 WHERE id=$1",[row.id,terminal,JSON.stringify({...elapsed,active:null,lastStartedAt:null,finished:true})]);
+        await client.query("UPDATE chess_rooms SET status='finished' WHERE id=$1",[row.room_id]);
+        await client.query("DELETE FROM chess_voice_leases WHERE room_id=$1",[row.room_id]);
+        await awardChessResult(client,String(row.id),"final_result",white,black,{outcome:"win",winnerId:winner,loserId:winner===white?black:white});
+        await client.query("COMMIT");
+        return fail(reply,409,"clock_expired");
+      }
       const offer=await client.query("SELECT * FROM chess_draw_offers WHERE id=$1 AND game_id=$2 AND status='pending' FOR UPDATE",[request.params.offerId,row.id]);
       if(!offer.rowCount||String(offer.rows[0].offered_by)===playerId){await client.query("ROLLBACK");return fail(reply,409,"draw_offer_unavailable");}
       if(request.body?.accept===true){
