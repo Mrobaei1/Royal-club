@@ -927,6 +927,19 @@ test('registered players can join an online match and history does not expose op
   assert.ok(Number.isFinite(emptyRoomCreatedAt) && Number.isFinite(emptyRoomExpiresAt));
   assert.ok(emptyRoomExpiresAt - emptyRoomCreatedAt <= 60_000 && emptyRoomExpiresAt - emptyRoomCreatedAt >= 59_000,
     'An empty online room should expire after 60 seconds.');
+  const scheduledCleanupRoom = await app.inject({
+    method: 'POST',
+    url: '/api/v1/matches',
+    headers: auth(host.token),
+  });
+  assert.equal(scheduledCleanupRoom.statusCode, 201, scheduledCleanupRoom.body);
+  const scheduledCleanupRoomId = String(scheduledCleanupRoom.json().match.id);
+  await testPool.query(
+    `UPDATE backgammon_matches SET expires_at = NOW() - INTERVAL '1 second'
+      WHERE id = $1 AND status = 'waiting'`,
+    [scheduledCleanupRoomId],
+  );
+
   const cleanupWithoutTrigger = await app.inject({
     method: 'POST',
     url: '/internal/cleanup-expired-empty-rooms',
@@ -939,6 +952,13 @@ test('registered players can join an online match and history does not expose op
   });
   assert.equal(scheduledCleanup.statusCode, 200, scheduledCleanup.body);
   assert.equal(scheduledCleanup.json().ok, true);
+  assert.ok(scheduledCleanup.json().deletedRooms >= 1);
+  const scheduledRoomAfterCleanup = await testPool.query(
+    'SELECT id FROM backgammon_matches WHERE id = $1',
+    [scheduledCleanupRoomId],
+  );
+  assert.equal(scheduledRoomAfterCleanup.rowCount, 0,
+    'A verified scheduled trigger must physically remove expired empty rooms.');
   const emptyRoomId = String(emptyRoomToClose.json().match.id);
   const guestCannotCloseHostRoom = await app.inject({
     method: 'DELETE',

@@ -69,6 +69,9 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
         return;
       }
       if (mounted) setState(() => _matchDetails = Map<String, dynamic>.from(match));
+      if (match['status'] == 'active') {
+        await MatchService.heartbeat(_id);
+      }
       if (match['status'] == 'active' || match['status'] == 'finished') {
         final state = await MatchService.getState(_id);
         if (sequence != _refreshSequence) {
@@ -604,6 +607,25 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
                 const SizedBox(width: 10),
                 Expanded(child: Text(isEnglish ? 'Server connection is unstable. Reconnecting…' : 'اتصال به سرور قطع یا ناپایدار است؛ تلاش برای اتصال مجدد ادامه دارد.', style: const TextStyle(color: Colors.redAccent))),
                 IconButton(tooltip: isEnglish ? 'Retry' : 'تلاش دوباره', onPressed: _refreshing ? null : () => _refresh(), icon: const Icon(Icons.refresh, color: Colors.redAccent)),
+              ]),
+            ),
+            if (_state?['aiTakeoverActive'] == true) Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primary.withValues(alpha: .12),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Theme.of(context).colorScheme.primary.withValues(alpha: .45)),
+              ),
+              child: Row(children: [
+                Icon(Icons.smart_toy_outlined, color: Theme.of(context).colorScheme.primary),
+                const SizedBox(width: 10),
+                Expanded(child: Text(
+                  isEnglish
+                    ? 'Temporary AI is playing for the disconnected player. Human control returns automatically after reconnecting.'
+                    : 'هوش مصنوعی موقتاً به‌جای بازیکن قطع‌شده بازی می‌کند؛ با اتصال مجدد، کنترل به بازیکن بازمی‌گردد.',
+                  style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
+                )),
               ]),
             ),
             Container(

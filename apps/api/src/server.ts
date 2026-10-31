@@ -14,6 +14,7 @@ import { normalizeDatabaseConnectionString } from './database-config.js';
 import { INITIAL_BACKGAMMON_BOARD, applyBackgammonMove, hasLegalMove, maxPlayableDiceCount, mustPlayHigherDie } from './backgammon-rules.js';
 import { calculateEloRatings } from './backgammon-rating.js';
 import { nextProgressionState } from './player-progression.js';
+import { chooseTemporaryAiTurn } from './disconnect-takeover.js';
 import { AGENT_TEMPLATES, gameAgentTemplateCode, getAgentTemplate } from './agent-catalog.js';
 import { hasRoyalPermission, isRoyalPermission } from './permissions.js';
 import { promisify } from 'node:util';
@@ -547,6 +548,41 @@ await pool.query(`
   ALTER TABLE backgammon_matches ADD COLUMN IF NOT EXISTS winner_user_id BIGINT REFERENCES users(id) ON DELETE SET NULL;
   ALTER TABLE backgammon_matches ADD COLUMN IF NOT EXISTS spectators_enabled BOOLEAN NOT NULL DEFAULT FALSE;
   ALTER TABLE backgammon_matches ADD COLUMN IF NOT EXISTS finish_reason TEXT CHECK (finish_reason IS NULL OR finish_reason IN ('bear_off', 'resignation'));
+  CREATE TABLE IF NOT EXISTS backgammon_match_presence (
+    match_id BIGINT NOT NULL REFERENCES backgammon_matches(id) ON DELETE CASCADE,
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    last_heartbeat_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    disconnected_at TIMESTAMPTZ,
+    takeover_active BOOLEAN NOT NULL DEFAULT FALSE,
+    takeover_started_at TIMESTAMPTZ,
+    last_ai_action_at TIMESTAMPTZ,
+    PRIMARY KEY (match_id, user_id)
+  );
+  CREATE INDEX IF NOT EXISTS backgammon_match_presence_heartbeat_idx
+    ON backgammon_match_presence (last_heartbeat_at, match_id);
+  CREATE TABLE IF NOT EXISTS game_disconnect_policies (
+    game_type TEXT PRIMARY KEY CHECK (game_type IN ('backgammon', 'cards', 'chess')),
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,
+    grace_seconds INTEGER NOT NULL DEFAULT 18 CHECK (grace_seconds BETWEEN 5 AND 120),
+    takeover_mode TEXT NOT NULL DEFAULT 'temporary_ai'
+      CHECK (takeover_mode IN ('temporary_ai', 'wait_until_game_end', 'disabled')),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+  INSERT INTO game_disconnect_policies (game_type, enabled, grace_seconds, takeover_mode)
+  VALUES ('backgammon', TRUE, 18, 'temporary_ai'),
+         ('cards', TRUE, 18, 'temporary_ai'),
+         ('chess', TRUE, 18, 'wait_until_game_end')
+  ON CONFLICT (game_type) DO NOTHING;
+  CREATE TABLE IF NOT EXISTS game_disconnect_policy_audit (
+    id BIGSERIAL PRIMARY KEY,
+    actor_user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+    game_type TEXT NOT NULL REFERENCES game_disconnect_policies(game_type) ON DELETE RESTRICT,
+    previous_policy JSONB NOT NULL,
+    next_policy JSONB NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+  CREATE INDEX IF NOT EXISTS game_disconnect_policy_audit_created_idx
+    ON game_disconnect_policy_audit (created_at DESC);
   CREATE TABLE IF NOT EXISTS backgammon_match_invites (
     id BIGSERIAL PRIMARY KEY,
     match_id BIGINT NOT NULL REFERENCES backgammon_matches(id) ON DELETE CASCADE,
@@ -910,6 +946,163 @@ async function awardProgression(
   }
 }
 
+
+/** Returns true when the player has lost control to the temporary AI. Must be called while the match row is locked. */
+async function isTemporaryAiControlActive(client: PoolClient, matchId: string, userId: string): Promise<boolean> {
+  const result = await client.query(
+    `SELECT p.takeover_active, p.last_heartbeat_at, d.enabled, d.takeover_mode, d.grace_seconds,
+            p.last_heartbeat_at <= NOW() - make_interval(secs => d.grace_seconds) AS overdue
+       FROM backgammon_match_presence p
+       JOIN game_disconnect_policies d ON d.game_type = 'backgammon'
+      WHERE p.match_id = $1 AND p.user_id = $2
+      FOR UPDATE OF p`,
+    [matchId, userId],
+  );
+  const presence = result.rows[0];
+  if (!presence || presence.takeover_mode === 'disabled' || !presence.enabled) return false;
+  return Boolean(presence.takeover_active ||
+    (presence.takeover_mode === 'temporary_ai' && presence.overdue));
+}
+
+/** Process one overdue disconnected turn. The match row lock serializes AI, human moves and reconnects. */
+async function processTemporaryAiTakeover(matchId: string, requesterId?: string): Promise<boolean> {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const found = await client.query(
+      `SELECT id, status, host_user_id, guest_user_id, current_turn_user_id,
+              board_state, bar_state, off_state, dice, remaining_dice,
+              match_to_win, host_game_wins, guest_game_wins
+         FROM backgammon_matches
+        WHERE id = $1 AND expires_at > NOW()
+        FOR UPDATE`,
+      [matchId],
+    );
+    const game = found.rows[0];
+    if (!game || game.status !== 'active' || !game.guest_user_id ||
+        !game.current_turn_user_id ||
+        (requesterId && ![String(game.host_user_id), String(game.guest_user_id)].includes(requesterId))) {
+      await client.query('ROLLBACK');
+      return false;
+    }
+    const policyResult = await client.query(
+      `SELECT enabled, grace_seconds, takeover_mode FROM game_disconnect_policies
+        WHERE game_type = 'backgammon' FOR SHARE`,
+    );
+    const policy = policyResult.rows[0];
+    if (!policy?.enabled || policy.takeover_mode !== 'temporary_ai') {
+      await client.query('ROLLBACK');
+      return false;
+    }
+    const presenceResult = await client.query(
+      `SELECT last_heartbeat_at, takeover_active,
+              last_heartbeat_at <= NOW() - make_interval(secs => $3::int) AS overdue
+         FROM backgammon_match_presence
+        WHERE match_id = $1 AND user_id = $2
+        FOR UPDATE`,
+      [matchId, game.current_turn_user_id, policy.grace_seconds],
+    );
+    const presence = presenceResult.rows[0];
+    if (!presence || (!presence.takeover_active && !presence.overdue)) {
+      await client.query('ROLLBACK');
+      return false;
+    }
+    await client.query(
+      `UPDATE backgammon_match_presence
+          SET takeover_active = TRUE,
+              disconnected_at = COALESCE(disconnected_at, last_heartbeat_at),
+              takeover_started_at = COALESCE(takeover_started_at, NOW())
+        WHERE match_id = $1 AND user_id = $2`,
+      [matchId, game.current_turn_user_id],
+    );
+
+    const hostTurn = String(game.current_turn_user_id) === String(game.host_user_id);
+    let dice = Array.isArray(game.remaining_dice) ? [...game.remaining_dice] : [];
+    let rolledDice = Array.isArray(game.dice) ? [...game.dice] : [];
+    if (dice.length === 0 && rolledDice.length === 0) {
+      const first = randomInt(1, 7);
+      const second = randomInt(1, 7);
+      rolledDice = [first, second];
+      dice = first === second ? [first, first, first, first] : [...rolledDice];
+    }
+
+    const selected = chooseTemporaryAiTurn({
+      board: [...game.board_state],
+      bar: { host: Number(game.bar_state?.host ?? 0), guest: Number(game.bar_state?.guest ?? 0) },
+      off: { host: Number(game.off_state?.host ?? 0), guest: Number(game.off_state?.guest ?? 0) },
+    }, dice, hostTurn);
+
+    const finalState = selected.state;
+    const gameFinished = finalState.off.host >= 15 || finalState.off.guest >= 15;
+    const hostWonGame = finalState.off.host >= 15;
+    const nextHostWins = Number(game.host_game_wins ?? 0) + (gameFinished && hostWonGame ? 1 : 0);
+    const nextGuestWins = Number(game.guest_game_wins ?? 0) + (gameFinished && !hostWonGame ? 1 : 0);
+    const matchFinished = gameFinished && Math.max(nextHostWins, nextGuestWins) >= Number(game.match_to_win ?? 1);
+    const winnerId = gameFinished
+      ? (hostWonGame ? String(game.host_user_id) : String(game.guest_user_id))
+      : null;
+    const loserId = winnerId
+      ? (winnerId === String(game.host_user_id) ? String(game.guest_user_id) : String(game.host_user_id))
+      : null;
+    const nextBoard = gameFinished && !matchFinished ? INITIAL_BACKGAMMON_BOARD : finalState.board;
+    const nextBar = gameFinished && !matchFinished ? { host: 0, guest: 0 } : finalState.bar;
+    const nextOff = gameFinished && !matchFinished ? { host: 0, guest: 0 } : finalState.off;
+
+    await client.query(
+      `UPDATE backgammon_matches
+          SET board_state = $1::jsonb, bar_state = $2::jsonb, off_state = $3::jsonb,
+              current_turn_user_id = $4, dice = '[]'::jsonb, remaining_dice = '[]'::jsonb,
+              status = $5, winner_user_id = $6, finish_reason = $7,
+              host_game_wins = $8, guest_game_wins = $9,
+              state_version = state_version + 1, updated_at = NOW()
+        WHERE id = $10`,
+      [JSON.stringify(nextBoard), JSON.stringify(nextBar), JSON.stringify(nextOff),
+       gameFinished ? game.host_user_id : (hostTurn ? game.guest_user_id : game.host_user_id),
+       matchFinished ? 'finished' : 'active',
+       matchFinished ? winnerId : null, matchFinished ? 'bear_off' : null,
+       nextHostWins, nextGuestWins, matchId],
+    );
+    if (gameFinished && winnerId && loserId) {
+      const gameNumber = Number(game.host_game_wins ?? 0) + Number(game.guest_game_wins ?? 0) + 1;
+      await awardProgression(client, matchId, `game:${gameNumber}`, winnerId, loserId, 'loss');
+      if (matchFinished) await updateBackgammonRatings(client, winnerId, loserId);
+    }
+    await client.query(
+      `UPDATE backgammon_match_presence SET last_ai_action_at = NOW()
+        WHERE match_id = $1 AND user_id = $2`,
+      [matchId, game.current_turn_user_id],
+    );
+    await client.query('COMMIT');
+    return true;
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    app.log.error({ err: error, matchId }, 'Temporary AI takeover failed');
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+async function processDueTemporaryAiTakeovers(): Promise<void> {
+  const due = await pool.query(
+    `SELECT m.id
+       FROM backgammon_matches m
+       JOIN backgammon_match_presence p
+         ON p.match_id = m.id AND p.user_id = m.current_turn_user_id
+       JOIN game_disconnect_policies d ON d.game_type = 'backgammon'
+      WHERE m.status = 'active' AND d.enabled = TRUE
+        AND d.takeover_mode = 'temporary_ai'
+        AND (p.takeover_active OR
+             p.last_heartbeat_at <= NOW() - make_interval(secs => d.grace_seconds))
+      ORDER BY p.last_heartbeat_at ASC
+      LIMIT 25`,
+  );
+  for (const row of due.rows) {
+    try { await processTemporaryAiTakeover(String(row.id)); }
+    catch (error) { app.log.error({ err: error, matchId: row.id }, 'Could not process due temporary AI turn'); }
+  }
+}
+
 app.patch<{ Body: { fullName?: string; phone?: string; country?: string } }>('/api/v1/me/profile', { onRequest: [requireMatchAuth], config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request, reply) => {
   const claims = request.user as { sub: string };
   const fullName = typeof request.body?.fullName === 'string' ? request.body.fullName.trim() : '';
@@ -1086,6 +1279,68 @@ const requireOwnerAuth = async (request: any, reply: any) => {
     return reply.code(403).send({ error: 'Owner access is not configured or is not permitted.' });
   }
 };
+
+app.get('/api/v1/admin/game-disconnect-policies', { onRequest: [requireOwnerAuth] }, async () => {
+  const result = await pool.query('SELECT game_type AS "gameType", enabled, grace_seconds AS "graceSeconds", takeover_mode AS "takeoverMode", updated_at AS "updatedAt" FROM game_disconnect_policies ORDER BY game_type');
+  return { policies: result.rows };
+});
+
+app.patch<{ Params: { gameType: string }; Body: { enabled?: boolean; graceSeconds?: number; takeoverMode?: string } }>('/api/v1/admin/game-disconnect-policies/:gameType', { onRequest: [requireOwnerAuth] }, async (request, reply) => {
+  const { gameType } = request.params;
+  const { enabled, graceSeconds, takeoverMode } = request.body ?? {};
+  if (!['backgammon', 'cards', 'chess'].includes(gameType) ||
+      (enabled !== undefined && typeof enabled !== 'boolean') ||
+      (graceSeconds !== undefined && (!Number.isInteger(graceSeconds) || graceSeconds < 5 || graceSeconds > 120)) ||
+      (takeoverMode !== undefined && !['temporary_ai', 'wait_until_game_end', 'disabled'].includes(takeoverMode))) {
+    return reply.code(400).send({ error: 'Invalid disconnect policy.' });
+  }
+  const actor = request.user as { sub: string };
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const previous = await client.query(
+      `SELECT game_type AS "gameType", enabled, grace_seconds AS "graceSeconds",
+              takeover_mode AS "takeoverMode"
+         FROM game_disconnect_policies WHERE game_type = $1 FOR UPDATE`,
+      [gameType],
+    );
+    if (!previous.rowCount) {
+      await client.query('ROLLBACK');
+      return reply.code(404).send({ error: 'Disconnect policy not found.' });
+    }
+    const updated = await client.query(
+      `UPDATE game_disconnect_policies SET enabled = COALESCE($2, enabled),
+         grace_seconds = COALESCE($3, grace_seconds), takeover_mode = COALESCE($4, takeover_mode),
+         updated_at = NOW() WHERE game_type = $1
+         RETURNING game_type AS "gameType", enabled, grace_seconds AS "graceSeconds",
+                   takeover_mode AS "takeoverMode", updated_at AS "updatedAt"`,
+      [gameType, enabled ?? null, graceSeconds ?? null, takeoverMode ?? null],
+    );
+    await client.query(
+      `INSERT INTO game_disconnect_policy_audit
+         (actor_user_id, game_type, previous_policy, next_policy)
+       VALUES ($1, $2, $3::jsonb, $4::jsonb)`,
+      [actor.sub, gameType, JSON.stringify(previous.rows[0]), JSON.stringify(updated.rows[0])],
+    );
+    if (gameType === 'backgammon' && (enabled === false || takeoverMode === 'disabled' || takeoverMode === 'wait_until_game_end')) {
+      await client.query(
+        `UPDATE backgammon_match_presence p
+            SET takeover_active = FALSE, takeover_started_at = NULL
+           FROM backgammon_matches m
+          WHERE p.match_id = m.id AND m.status = 'active'`,
+      );
+    }
+    await client.query('COMMIT');
+    return { policy: updated.rows[0] };
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    request.log.error({ err: error }, 'Could not update game disconnect policy');
+    return reply.code(500).send({ error: 'Could not update game disconnect policy.' });
+  } finally {
+    client.release();
+  }
+});
+
 
 // Weekly league rules are server-owned and audited.
 type WeeklyLeagueRules = {
@@ -3530,6 +3785,14 @@ app.post<{ Params: { id: string }; Body: { matchToWin?: number; acceptSettings?:
           `UPDATE backgammon_matches SET status = 'active', current_turn_user_id = host_user_id,
              dice = '[]'::jsonb, remaining_dice = '[]'::jsonb, state_version = 0,
              expires_at = NOW() + INTERVAL '30 minutes', updated_at = NOW() WHERE id = $1 AND status = 'waiting'`, [request.params.id]);
+        await client.query(
+          `INSERT INTO backgammon_match_presence (match_id, user_id)
+           VALUES ($1, $2), ($1, $3)
+           ON CONFLICT (match_id, user_id) DO UPDATE
+             SET last_heartbeat_at = NOW(), disconnected_at = NULL,
+                 takeover_active = FALSE, takeover_started_at = NULL`,
+          [request.params.id, m.host_user_id, m.guest_user_id],
+        );
         status = 'active';
       }
       await client.query('COMMIT');
@@ -3734,6 +3997,10 @@ app.post<{ Params: { id: string }; Body: { moves: Array<{ from: number | null; t
       await client.query('ROLLBACK');
       return reply.code(409).send({ error: 'It is not your turn.' });
     }
+    if (await isTemporaryAiControlActive(client, game.id, claims.sub)) {
+      await client.query('ROLLBACK');
+      return reply.code(409).send({ error: 'Temporary AI control is active for this disconnected player. Reconnect with a heartbeat to regain control.' });
+    }
     if (game.state_version !== body.expectedVersion) {
       await client.query('ROLLBACK');
       return reply.code(409).send({ error: 'Game state changed. Refresh the board and try again.' });
@@ -3873,6 +4140,10 @@ app.post<{ Params: { id: string }; Body: { from: number | null; to: number | nul
     if (game.current_turn_user_id !== claims.sub) {
       await client.query('ROLLBACK');
       return reply.code(409).send({ error: 'It is not your turn.' });
+    }
+    if (await isTemporaryAiControlActive(client, game.id, claims.sub)) {
+      await client.query('ROLLBACK');
+      return reply.code(409).send({ error: 'Temporary AI control is active for this disconnected player. Reconnect with a heartbeat to regain control.' });
     }
     if (game.state_version !== body.expectedVersion) {
       await client.query('ROLLBACK');
@@ -4052,6 +4323,10 @@ app.post<{ Params: { id: string }; Body: { expectedVersion: number } }>('/api/v1
       await client.query('ROLLBACK');
       return reply.code(409).send({ error: 'It is not your active turn.' });
     }
+    if (await isTemporaryAiControlActive(client, game.id, claims.sub)) {
+      await client.query('ROLLBACK');
+      return reply.code(409).send({ error: 'Temporary AI control is active for this disconnected player. Reconnect with a heartbeat to regain control.' });
+    }
     if (game.state_version !== request.body.expectedVersion) {
       await client.query('ROLLBACK');
       return reply.code(409).send({ error: 'Game state changed. Refresh the board and try again.' });
@@ -4133,17 +4408,65 @@ app.get<{ Params: { id: string } }>('/api/v1/matches/:id/spectate', { onRequest:
     },
   };
 });
+app.post<{ Params: { id: string } }>('/api/v1/matches/:id/heartbeat', { onRequest: [requireMatchAuth] }, async (request, reply) => {
+  const claims = request.user as { sub: string };
+  if (!isNumericId(request.params.id)) return reply.code(400).send({ error: 'Invalid match id.' });
+  // Process an overdue disconnected turn before this heartbeat clears the lease.
+  // This is essential on serverless hosts where no background timer runs while idle.
+  await processTemporaryAiTakeover(request.params.id, claims.sub);
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const found = await client.query(
+      `SELECT id, status, host_user_id, guest_user_id FROM backgammon_matches WHERE id = $1 FOR UPDATE`,
+      [request.params.id],
+    );
+    const match = found.rows[0];
+    if (!match || ![String(match.host_user_id), String(match.guest_user_id)].includes(claims.sub)) {
+      await client.query('ROLLBACK');
+      return reply.code(404).send({ error: 'Match not found.' });
+    }
+    if (match.status !== 'active') {
+      await client.query('ROLLBACK');
+      return reply.code(409).send({ error: 'Only an active match accepts presence heartbeats.' });
+    }
+    const result = await client.query(
+      `INSERT INTO backgammon_match_presence
+         (match_id, user_id, last_heartbeat_at, disconnected_at, takeover_active, takeover_started_at)
+       VALUES ($1, $2, NOW(), NULL, FALSE, NULL)
+       ON CONFLICT (match_id, user_id) DO UPDATE
+         SET last_heartbeat_at = NOW(), disconnected_at = NULL,
+             takeover_active = FALSE, takeover_started_at = NULL
+       RETURNING last_heartbeat_at AS "lastHeartbeatAt", takeover_active AS "takeoverActive"`,
+      [request.params.id, claims.sub],
+    );
+    await client.query('COMMIT');
+    return { presence: result.rows[0], control: 'human' };
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    request.log.error({ err: error }, 'Could not update match heartbeat');
+    return reply.code(500).send({ error: 'Could not update match heartbeat.' });
+  } finally { client.release(); }
+});
+
 app.get<{ Params: { id: string } }>('/api/v1/matches/:id/state', { onRequest: [requireMatchAuth] }, async (request, reply) => {
   const claims = request.user as { sub: string };
   if (!isNumericId(request.params.id)) return reply.code(400).send({ error: 'Invalid match id.' });
+  await processTemporaryAiTakeover(request.params.id, claims.sub);
   const result = await pool.query(
-    `SELECT id, status, board_state AS board, bar_state AS bar, off_state AS off,
-            current_turn_user_id AS "currentTurnUserId",
-            current_turn_user_id = $2::bigint AS "isMyTurn",
-            host_user_id = $2::bigint AS "isHost",
-            dice, remaining_dice AS "remainingDice", state_version AS version, updated_at AS "updatedAt"
-       FROM backgammon_matches
-      WHERE id = $1 AND (host_user_id = $2 OR guest_user_id = $2) AND expires_at > NOW()`,
+    `SELECT m.id, m.status, m.board_state AS board, m.bar_state AS bar, m.off_state AS off,
+            m.current_turn_user_id AS "currentTurnUserId",
+            m.current_turn_user_id = $2::bigint AS "isMyTurn",
+            m.host_user_id = $2::bigint AS "isHost",
+            m.dice, m.remaining_dice AS "remainingDice", m.state_version AS version,
+            m.updated_at AS "updatedAt",
+            EXISTS (SELECT 1 FROM backgammon_match_presence active_presence
+                     WHERE active_presence.match_id = m.id AND active_presence.takeover_active = TRUE) AS "aiTakeoverActive",
+            COALESCE(p.takeover_active, FALSE) AS "myAiTakeoverActive",
+            p.last_heartbeat_at AS "lastHeartbeatAt"
+       FROM backgammon_matches m
+       LEFT JOIN backgammon_match_presence p ON p.match_id = m.id AND p.user_id = $2
+      WHERE m.id = $1 AND (m.host_user_id = $2 OR m.guest_user_id = $2) AND m.expires_at > NOW()`,
     [request.params.id, claims.sub]);
   if (!result.rowCount) return reply.code(404).send({ error: 'Match not found.' });
   if (!['active', 'finished'].includes(result.rows[0].status)) return reply.code(409).send({ error: 'The match is not active yet.' });
@@ -4174,6 +4497,10 @@ app.post<{ Params: { id: string }; Body: { expectedVersion?: number } }>('/api/v
     if (match.current_turn_user_id !== claims.sub) {
       await client.query('ROLLBACK');
       return reply.code(409).send({ error: 'It is not your turn.' });
+    }
+    if (await isTemporaryAiControlActive(client, match.id, claims.sub)) {
+      await client.query('ROLLBACK');
+      return reply.code(409).send({ error: 'Temporary AI control is active for this disconnected player. Reconnect with a heartbeat to regain control.' });
     }
     if (Array.isArray(match.dice) && match.dice.length > 0) {
       await client.query('ROLLBACK');
@@ -4250,6 +4577,13 @@ if (process.env.NEON_FUNCTION_RUNTIME !== '1') {
   }, 5_000);
   cleanupTimer.unref();
   app.addHook('onClose', async () => { clearInterval(cleanupTimer); });
+  const disconnectTakeoverTimer = setInterval(() => {
+    void processDueTemporaryAiTakeovers().catch((error) => {
+      app.log.error({ err: error }, 'Temporary AI takeover scan failed');
+    });
+  }, 2_000);
+  disconnectTakeoverTimer.unref();
+  app.addHook('onClose', async () => { clearInterval(disconnectTakeoverTimer); });
   const port = Number(process.env.PORT ?? 3000);
   const host = process.env.HOST ?? '0.0.0.0';
   try {

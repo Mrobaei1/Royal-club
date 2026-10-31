@@ -43,7 +43,7 @@ Phase 4 home-screen implementation has started on `main`. This checklist tracks 
 - [x] Source implements 60-second invitation/empty-room expiry, server-authoritative move handling, invitation cancellation, match cancellation proposals, and both game/match resignation scopes.
 - [x] PR #58 added integration tests for game-scope and match-scope resignation, invalid scope, non-participant access, board/turn/dice reset, winner recording, and repeat-resignation rejection. The test exposed and fixed a PostgreSQL bigint/text CASE-expression bug in the game-resignation path.
 - [ ] Complete full online-match acceptance on two independent accounts/devices: invite expiry, notification lifecycle, server-authoritative legal/cumulative moves, bar entry, surrender/cancel, reconnect, and host re-invitation.
-- [ ] **Temporary AI takeover after disconnect is not implemented in current `main`.** Source inspection found no online heartbeat/presence tracking, disconnect lease, or server-side AI substitute. This is a feature implementation gap, not merely a manual test. The approved design calls for manager-configurable wait periods (about 15–20 seconds for backgammon/card games; chess can wait until game end).
+- [ ] **Temporary AI takeover is implemented on Draft PR #67, based on the current main HEAD, but is not yet in `main`.** All four GitHub Actions workflows passed on source head [`8bd4040`](https://github.com/Mrobaei1/Royal-club/commit/8bd4040891fc49079b796706d72e0525c0516944) (API build/tests, integration tests, Flutter analyze/widget tests, backgammon engine audit, and Web Preview build). Two-device manual acceptance remains pending. See [PR #67](https://github.com/Mrobaei1/Royal-club/pull/67) and `docs/ONLINE-DISCONNECT-AI-TAKEOVER.md`. Card and chess execution remain future integrations.
 - [ ] Verify invitation expiry, notification lifecycle, and physical room cleanup while the serverless function is idle. The protected cleanup endpoint exists, but no scheduled Neon trigger is configured.
 - [x] API regression tests cover username-only public payloads and no full-name/email exposure in friend search/list, match history, leaderboard, and spectator views.
 - [ ] Finish a manual username-only audit across every screen/API, including empty or legacy profiles.
@@ -60,7 +60,7 @@ Phase 4 home-screen implementation has started on `main`. This checklist tracks 
 - [ ] Reconcile the production database schema with the 30 tables defined by current API source; 17 were absent from the live production branch at the 2026-10-30 audit.
 - [ ] Configure and verify the scheduled Neon trigger for expired-room cleanup after the cleanup endpoint is deployed.
 - [ ] Complete owner-approved production security configuration, including confirmed numeric owner identity and SMS encryption key only if live SMS is being enabled.
-- [ ] Implement and test the online disconnect/temporary-AI takeover feature with manager-configurable grace periods.
+- [ ] Complete review and two-device manual acceptance for Draft PR #67; merge only after both are satisfactory.
 - [ ] Complete manual Android/device/network acceptance and owner sign-off.
 - [ ] No APK is built until the owner explicitly authorizes the final build.
 
@@ -102,7 +102,7 @@ These checks distinguish source correctness, automated CI, and the currently dep
 
 **Repository-side changes and automated checks have progressed, but Royal Club is not release-ready.** PR #55 restored the dormant owner agent-review UI; PR #56 fixed the PostgreSQL TLS alias warning in source; PR #58 fixed a real resignation SQL bug and added integration coverage. All three are merged.
 
-The main remaining product feature gap is online disconnect handling with a temporary server-side AI substitute and manager-configurable wait periods. Remaining release blockers also include production API/schema rollout, confirmed owner configuration, trigger scheduling, live OTP decision, two-device game acceptance, manual RTL/LTR and theme checks, monetization/league acceptance, VPN testing, and final owner sign-off.
+The current `main` branch still lacks online disconnect handling; implementation and automated checks exist on Draft PR #67, pending review and two-device acceptance. Remaining release blockers also include production API/schema rollout, confirmed owner configuration, trigger scheduling, live OTP decision, two-device game acceptance, manual RTL/LTR and theme checks, monetization/league acceptance, VPN testing, and final owner sign-off.
 
 Do not activate agent identities, delegated grants, schedules, paid features, real SMS, production deployment, or APK generation without the corresponding explicit owner approval.
 
