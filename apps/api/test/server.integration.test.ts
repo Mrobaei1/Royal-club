@@ -295,7 +295,8 @@ test('registered players can join an online match and history does not expose op
     .some((message) => message.body === 'Hello, friend!'));
   const messageId = String((sentMessage.json().message as Record<string, unknown>).id);
 
-  const imageBody = `data:image/png;base64,${'A'.repeat(4000)}`;
+  const pngBytes = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+  const imageBody = `data:image/png;base64,${pngBytes.toString('base64')}`;
   const sentImageMessage = await app.inject({
     method: 'POST',
     url: `/api/v1/chat/${guest.user.id}/messages`,
