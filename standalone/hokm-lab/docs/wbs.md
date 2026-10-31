@@ -38,11 +38,11 @@
 | 4.0 | In-memory lifecycle, readiness, host transfer, empty-only cleanup and match target tracking | 80% |
 | 5.0 | No production Fastify/network/persistence adapter yet | 0% |
 | 6.0 | In-memory transient disconnect grace (20s default/configurable), version-checked timeout takeover and authenticated-identity contract for reclaim; production scheduler/session binding and distributed race handling remain open | 55% |
-| 7.0 | Fixed hard-only policy uses public card counts and void-suit inference; deterministic full-hand plus 24 seeded-deal simulations and hidden-hand invariance pass; automatic room takeover now uses shared validators; deeper search pending | 55% |
+| 7.0 | Fixed hard-only policy uses public card counts and void-suit inference; deterministic full-hand, 24 seeded-deal and 24 seeded full-match simulations to target 3 pass; hidden-hand invariance and shared-validator takeover pass; deeper search and comparative strategy benchmarking pending | 65% |
 | 8.0 | Not implemented | 0% |
 | 9.0 | Not implemented | 0% |
 | 10.0 | Core accepts only 3/5/7 and architecture reserves source for trusted manager config; admin auth/UI/audit pending | 20% |
-| 11.0 | Engine/room/round/progression tests plus 24 seeded bot deals, hidden-information invariance, public-history privacy, permanent forfeit takeover, temporary disconnect/reclaim and stale-version race checks; production integration/concurrency/security suites pending | 50% |
+| 11.0 | Engine/room/round/progression tests plus 24 seeded bot deals, 24 seeded full matches, hidden-information invariance, public-history privacy, permanent forfeit takeover, temporary disconnect/reclaim and stale-version race checks; production integration/concurrency/security suites pending | 52% |
 | 12.0 | WBS, architecture contract and setup README documented; final handoff pending | 20% |
 
 ## Confirmed match scoring and progression rules (2026-10-31)
@@ -52,4 +52,4 @@
 - Level curve: level 1 starts at 0 XP; advancement cost from level L is round(300 + 5(L−1) + 0.08(L−1)^2). Level 100 starts at 79,439 XP; 95,000 XP is level 109. XP floors at zero and achieved level never decreases.
 - In-memory calculation and unit tests are now in the isolated lab. Production persistence, atomic ledger transactions and server identity integration remain open.
 
-These are planning estimates, not a claim of completed production functionality. On 2026-10-31 the bot public-card ledger, void-suit inference, full-hand simulation, round-history tests and in-memory disconnect/reclaim lifecycle were added. CI evidence for the newest lifecycle tests is tracked by the latest run linked from the branch Actions page; the earlier bot simulation run 41227379369 passed with 24 seeded deals. Recalculate after each verified milestone.
+These are planning estimates, not a claim of completed production functionality. On 2026-10-31 the bot public-card ledger, void-suit inference, full-hand simulation, round-history tests and in-memory disconnect/reclaim lifecycle were added. CI evidence for the newest lifecycle tests is tracked by the latest run linked from the branch Actions page; the latest bot simulation run 41231943065 passed with 24 seeded full matches to target 3 (and all existing tests); an earlier bot run 41227379369 passed with 24 seeded deals. Recalculate after each verified milestone.
