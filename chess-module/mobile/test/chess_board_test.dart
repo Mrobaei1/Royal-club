@@ -4,6 +4,8 @@ import 'package:royal_club_chess/chess_board.dart';
 
 void main() {
   testWidgets('renders white at bottom and emits only server-approved UCI moves', (tester) async {
+    final semantics = tester.ensureSemantics();
+    addTearDown(semantics.dispose);
     String? submitted;
     await tester.pumpWidget(MaterialApp(
       home: Scaffold(
@@ -24,6 +26,8 @@ void main() {
   });
 
   testWidgets('non-interactive board ignores taps', (tester) async {
+    final semantics = tester.ensureSemantics();
+    addTearDown(semantics.dispose);
     String? submitted;
     await tester.pumpWidget(MaterialApp(
       home: Scaffold(
