@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../lib/room_controls_menu.dart';
+import 'package:royal_club/room_controls_menu.dart';
 
 void main() {
   testWidgets('opens the shared room controls menu', (tester) async {
