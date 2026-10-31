@@ -145,6 +145,7 @@ export function applyRoomCommand(room, userId, command, expectedVersion) {
   }
   const player = room.players.find((candidate) => candidate.userId === userId);
   if (!player) throw new Error("User is not a member of this room");
+  if (player.forfeited) throw new Error("A player who left the match cannot submit game commands");
   if (room.status !== "playing" || !room.round) throw new Error("Room is not playing");
   let round;
   if (command?.type === "choose_trump") {
