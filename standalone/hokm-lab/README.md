@@ -26,8 +26,9 @@ Build and verify an independent, Royal Club-compatible Hokm/Court Piece game mod
 - [x] Match XP calculation and level progression module.
 - [x] Active-match leaver penalty helper with duplicate-event protection.
 - [ ] Persistent per-user XP ledger and atomic match-result transaction.
-- [x] First fixed-hard bot policy module with legal-card selection and public-information-only tests.
-- [ ] Stronger card-counting/search strategy, automated bot-seat orchestration and full-match bot simulations.
+- [x] Fixed-hard bot with legal-card selection, public unseen-card counting, void-suit inference and deterministic full-hand simulation tests.
+- [ ] Deeper trick-outcome search, multi-deal benchmarking, automated bot-seat orchestration and full-match simulations.
+- [x] Public completed-trick history retained in round state and sanitized per-seat views.
 - [ ] Online service, reconnect, chat/voice.
 - [ ] Flutter UI, manager controls and end-to-end/security testing.
 
