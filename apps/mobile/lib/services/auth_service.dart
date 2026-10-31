@@ -265,4 +265,3 @@ class AuthService {
     await _storage.delete(key: 'royal_club_token');
   }
 }
-}
