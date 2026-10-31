@@ -22,6 +22,10 @@ class NotificationsService {
     final response = await http.post(
       Uri.parse('$_baseUrl$path'),
       headers: await _headers(),
+      // Fastify rejects an empty request body when Content-Type is
+      // application/json. These action endpoints take no fields, so send
+      // a valid empty JSON object instead of a zero-byte body.
+      body: jsonEncode(<String, dynamic>{}),
     );
     return _decode(response);
   }
