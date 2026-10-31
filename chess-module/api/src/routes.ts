@@ -132,7 +132,7 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
       }
       const played=game.play(request.body);
       const after=game.snapshot();
-      const nextClock=settleClock({...elapsed,active:clock.active,lastStartedAt:clock.lastStartedAt},control,now,true);
+      const nextClock=settleClock(elapsed,control,now,true);
       const ply=Number(row.revision)+1;
       await client.query(
         `INSERT INTO chess_moves(game_id,ply,user_id,from_square,to_square,promotion,san,fen_after)
@@ -215,4 +215,75 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
     );
     return {timeControl:saved.rows[0],activeGamesUnchanged:true};
   });
+
+  app.get<{Params:{userId:string}}>("/chess/players/:userId/profile",{preHandler:options.authenticate},async(request,reply)=>{
+    let viewer:string;
+    try{viewer=userId(request,options);}catch{return fail(reply,401,"unauthorized");}
+    if(!/^\d+$/.test(request.params.userId))return fail(reply,400,"invalid_user_id");
+    const profile=await pool.query(
+      'SELECT u.id,u.username,COALESCE(p.level,1) AS level,COALESCE(p.xp,0) AS xp FROM users u LEFT JOIN chess_player_progression p ON p.user_id=u.id WHERE u.id=$1',
+      [request.params.userId]
+    );
+    if(!profile.rowCount)return fail(reply,404,"player_not_found");
+    const stats=await pool.query(
+      "WITH played AS (SELECT CASE WHEN white_user_id=$1 THEN CASE status WHEN 'white_win' THEN 'win' WHEN 'black_win' THEN 'loss' ELSE 'draw' END ELSE CASE status WHEN 'black_win' THEN 'win' WHEN 'white_win' THEN 'loss' ELSE 'draw' END END AS outcome, COALESCE(settings_snapshot->'timeControl'->>'id','unknown') AS mode FROM chess_games WHERE status<>'active' AND (white_user_id=$1 OR black_user_id=$1)) SELECT mode,COUNT(*)::int AS games,COUNT(*) FILTER(WHERE outcome='win')::int AS wins,COUNT(*) FILTER(WHERE outcome='loss')::int AS losses,COUNT(*) FILTER(WHERE outcome='draw')::int AS draws FROM played GROUP BY mode ORDER BY mode",
+      [request.params.userId]
+    );
+    const total=stats.rows.reduce((sum,row)=>sum+Number(row.games),0);
+    const wins=stats.rows.reduce((sum,row)=>sum+Number(row.wins),0);
+    return {username:profile.rows[0].username,level:Number(profile.rows[0].level),xp:Number(profile.rows[0].xp),
+      games:total,wins,losses:stats.rows.reduce((sum,row)=>sum+Number(row.losses),0),
+      draws:stats.rows.reduce((sum,row)=>sum+Number(row.draws),0),winRate:total?Math.round(wins*1000/total)/10:0,
+      byMode:stats.rows};
+  });
+
+  app.post<{Params:{gameId:string}}>("/chess/games/:gameId/voice/request",{preHandler:options.authenticate},async(request,reply)=>{
+    let playerId:string;
+    try{playerId=userId(request,options);}catch{return fail(reply,401,"unauthorized");}
+    const leaseId=randomBytes(16).toString("hex");
+    const result=await pool.query(
+      "INSERT INTO chess_voice_leases(room_id,user_id,lease_id,expires_at) SELECT r.id,$2,$3,NOW()+INTERVAL '8 seconds' FROM chess_games g JOIN chess_rooms r ON r.id=g.room_id WHERE g.id=$1 AND g.status='active' AND (g.white_user_id=$2 OR g.black_user_id=$2) AND COALESCE((r.settings_snapshot->>'voiceEnabled')::boolean,false)=true ON CONFLICT(room_id) DO UPDATE SET user_id=EXCLUDED.user_id,lease_id=EXCLUDED.lease_id,expires_at=EXCLUDED.expires_at WHERE chess_voice_leases.expires_at<=NOW() OR chess_voice_leases.user_id=EXCLUDED.user_id RETURNING lease_id,expires_at,user_id",
+      [request.params.gameId,playerId,leaseId]
+    );
+    if(!result.rowCount){
+      const occupied=await pool.query("SELECT u.username FROM chess_voice_leases l JOIN chess_games g ON g.room_id=l.room_id JOIN users u ON u.id=l.user_id WHERE g.id=$1 AND l.expires_at>NOW()",[request.params.gameId]);
+      return reply.code(409).send({granted:false,reason:"occupied",speakingUsername:occupied.rows[0]?.username??null});
+    }
+    return {granted:true,leaseId:result.rows[0].lease_id,expiresAt:result.rows[0].expires_at};
+  });
+
+  app.post<{Params:{gameId:string};Body:{leaseId:string}}>("/chess/games/:gameId/voice/release",{preHandler:options.authenticate},async(request,reply)=>{
+    let playerId:string;
+    try{playerId=userId(request,options);}catch{return fail(reply,401,"unauthorized");}
+    const result=await pool.query("DELETE FROM chess_voice_leases l USING chess_games g WHERE g.id=$1 AND l.room_id=g.room_id AND l.user_id=$2 AND l.lease_id=$3 RETURNING l.room_id",
+      [request.params.gameId,playerId,request.body?.leaseId]);
+    return {released:Boolean(result.rowCount)};
+  });
+
+  app.post<{Params:{gameId:string}}>("/chess/games/:gameId/voice/disable",{preHandler:options.authenticate},async(request,reply)=>{
+    let actor:string;
+    try{actor=userId(request,options);}catch{return fail(reply,401,"unauthorized");}
+    const client=await pool.connect();
+    try{
+      await client.query("BEGIN");
+      const room=await client.query("SELECT r.id,r.host_user_id,r.settings_snapshot FROM chess_rooms r JOIN chess_games g ON g.room_id=r.id WHERE g.id=$1 FOR UPDATE OF r",[request.params.gameId]);
+      if(!room.rowCount||String(room.rows[0].host_user_id)!==actor){await client.query("ROLLBACK");return fail(reply,403,"host_only");}
+      const settings={...(room.rows[0].settings_snapshot??{}),voiceEnabled:false};
+      await client.query("UPDATE chess_rooms SET settings_snapshot=$2::jsonb WHERE id=$1",[room.rows[0].id,JSON.stringify(settings)]);
+      await client.query("DELETE FROM chess_voice_leases WHERE room_id=$1",[room.rows[0].id]);
+      await client.query("COMMIT");
+      return {voiceEnabled:false};
+    }catch(error){await rollback(client);request.log.error(error);return fail(reply,500,"voice_disable_failed");}
+    finally{client.release();}
+  });
+
+  app.delete<{Params:{id:string}}>("/chess/admin/time-controls/:id",{preHandler:options.authenticate},async(request,reply)=>{
+    let actor:string;
+    try{actor=userId(request,options);}catch{return fail(reply,401,"unauthorized");}
+    if(!await options.canManageSettings(actor))return fail(reply,403,"forbidden");
+    const deleted=await pool.query("DELETE FROM chess_time_controls t WHERE t.id=$1 AND NOT EXISTS(SELECT 1 FROM chess_rooms r WHERE r.time_control_id=t.id) RETURNING t.id",[request.params.id]);
+    if(!deleted.rowCount)return fail(reply,409,"time_control_in_use_or_missing");
+    return {deleted:true,id:request.params.id};
+  });
+
 }
