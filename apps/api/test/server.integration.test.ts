@@ -1066,6 +1066,7 @@ test('registered players can join an online match and history does not expose op
     method: 'POST',
     url: '/internal/cleanup-expired-empty-rooms',
     headers: { 'x-neon-trigger-invocation-id': 'integration-test' },
+    payload: { invocation_id: 'integration-test' },
   });
   assert.equal(scheduledCleanup.statusCode, 200, scheduledCleanup.body);
   assert.equal(scheduledCleanup.json().ok, true);
