@@ -29,7 +29,7 @@ test('authenticated sockets enforce host start and keep hands and voice signals 
     ['guest-token', { id: 'guest-id', username: 'guest_handle' }],
     ['outsider-token', { id: 'outsider-id', username: 'outside_handle' }],
   ]);
-  registerUnoSockets(io, async token => {
+  const roomManager = registerUnoSockets(io, async token => {
     const player = identities.get(token);
     if (!player) throw new Error('bad token');
     return player;
@@ -93,6 +93,15 @@ test('authenticated sockets enforce host start and keep hands and voice signals 
     const updated = await roomUpdate as Record<string, unknown>;
     const guestSeat = (updated.players as Array<Record<string, unknown>>).find(p => p.id === 'guest-id');
     assert.equal(guestSeat?.muted, true);
+
+    const secondHostDevice = await connectClient(url, 'host-token');
+    clients.push(secondHostDevice);
+    const restoredHost = await emitAck(secondHostDevice, 'uno:room:reconnect', { code });
+    assert.equal(restoredHost.ok, true);
+    host.disconnect();
+    await new Promise(resolve => setTimeout(resolve, 50));
+    assert.equal(roomManager.getRoom(code).players[0]!.connected, true);
+
   } finally {
     for (const client of clients) client.disconnect();
     await new Promise<void>(resolve => io.close(() => resolve()));

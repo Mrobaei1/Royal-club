@@ -11,6 +11,7 @@ const MAX_CHAT_LENGTH = 500;
 const MAX_SIGNAL_BYTES = 48_000;
 const chatWindows = new Map<string, number[]>();
 const signalWindows = new Map<string, number[]>();
+const userSockets = new Map<string, Set<string>>();
 
 function fail(error: unknown, ack?: Ack) {
   const e = error instanceof UnoError ? error : new UnoError('INTERNAL_ERROR', 'The request could not be completed.');
@@ -52,6 +53,9 @@ export function registerUnoSockets(io: Server, verifyToken: TokenVerifier, rooms
   io.on('connection', raw => {
     const socket = raw as ClientSocket;
     const user = socket.data.player;
+    const activeSockets = userSockets.get(user.id) ?? new Set<string>();
+    activeSockets.add(socket.id);
+    userSockets.set(user.id, activeSockets);
     const joinSocketRoom = async (code: string) => socket.join(`uno:${code}`);
     const publicRoom = (room: ReturnType<typeof rooms.getRoom>) => ({
       code: room.code, hostId: room.hostId, status: room.status,
@@ -187,6 +191,10 @@ export function registerUnoSockets(io: Server, verifyToken: TokenVerifier, rooms
       } catch (e) { fail(e, ack); }
     });
     socket.on('disconnect', () => {
+      const active = userSockets.get(user.id);
+      active?.delete(socket.id);
+      if (active && active.size > 0) return;
+      userSockets.delete(user.id);
       const code = rooms.getRoomForUser(user.id);
       if (!code) return;
       try {
