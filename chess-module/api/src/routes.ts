@@ -315,7 +315,7 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
       await client.query("UPDATE chess_rooms SET settings_snapshot=$2::jsonb WHERE id=$1",[room.rows[0].id,JSON.stringify(settings)]);
       await client.query("DELETE FROM chess_voice_leases WHERE room_id=$1",[room.rows[0].id]);
       await client.query("COMMIT");
-      try{await publishGameEvent(pool,request.params.gameId,{type:"voice"});}catch(error){request.log.warn({err:error},"voice disable notification failed");}
+      try{await publishGameEvent(pool,request.params.gameId,{type:"voice_settings"});}catch(error){request.log.warn({err:error},"voice disable notification failed");}
       return {voiceEnabled:false};
     }catch(error){await rollback(client);request.log.error(error);return fail(reply,500,"voice_disable_failed");}
     finally{client.release();}
