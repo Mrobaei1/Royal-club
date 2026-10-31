@@ -204,6 +204,32 @@ test('does not count an overshoot bear-off when a higher checker can still be bo
   assert.equal(maxPlayableDiceCount(state(board), [6], true), 1);
 });
 
+test('mirrors oversized bear-off priority correctly for host and guest', () => {
+  const hostBoard = emptyBoard();
+  hostBoard[1] = 1;
+  hostBoard[3] = 1;
+  const hostCanBearOffFarther = applyBackgammonMove(
+    state(hostBoard), { from: 3, to: null, die: 6 }, true,
+  );
+  const hostCannotSkipFarther = applyBackgammonMove(
+    state(hostBoard), { from: 1, to: null, die: 6 }, true,
+  );
+  assert.ok('state' in hostCanBearOffFarther);
+  assert.ok('error' in hostCannotSkipFarther);
+
+  const guestBoard = emptyBoard();
+  guestBoard[20] = -1;
+  guestBoard[22] = -1;
+  const guestCanBearOffCloser = applyBackgammonMove(
+    state(guestBoard), { from: 20, to: null, die: 6 }, false,
+  );
+  const guestCannotSkipFarther = applyBackgammonMove(
+    state(guestBoard), { from: 22, to: null, die: 6 }, false,
+  );
+  assert.ok('state' in guestCanBearOffCloser);
+  assert.ok('error' in guestCannotSkipFarther);
+});
+
 test('requires the higher die when only one of two individually legal dice can be played', () => {
   const board = emptyBoard();
   board[5] = 1;
