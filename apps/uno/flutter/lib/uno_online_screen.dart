@@ -6,6 +6,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 import 'uno_voice_mesh.dart';
 import 'uno_chat_panel.dart';
+import 'uno_mic_button.dart';
 
 class UnoOnlineScreen extends StatefulWidget {
   const UnoOnlineScreen({
@@ -282,11 +283,12 @@ class _UnoOnlineScreenState extends State<UnoOnlineScreen> {
     final room = _room;
     return Scaffold(
       appBar: AppBar(title: const Text('UNO آنلاین'), actions: [
-        if (room != null) IconButton(
-          tooltip: _micMuted ? 'روشن‌کردن میکروفون' : 'خاموش‌کردن میکروفون',
-          icon: Icon(_micMuted ? Icons.mic_off : Icons.mic),
-          onPressed: room['voiceEnabled'] == true ? _toggleMic : null,
-        ),
+        if (room != null)
+          UnoMicButton(
+            muted: _micMuted,
+            enabled: room['voiceEnabled'] == true,
+            onPressed: _toggleMic,
+          ),
       ]),
       body: _busy ? const Center(child: CircularProgressIndicator()) : room == null ? _buildLobby() : _buildRoom(room),
     );
