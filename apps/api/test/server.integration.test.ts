@@ -781,6 +781,51 @@ test('registered players can join an online match and history does not expose op
   assert.equal((notificationsAfterOpeningInvite.json().notifications as Array<Record<string, unknown>>)
     .some((notice) => String(notice.id) === openedNoticeId), false);
 
+  // A still-fresh invitation cannot revive a room whose own expiry has passed.
+  const expiredRoomInvite = await app.inject({
+    method: 'POST',
+    url: '/api/v1/matches',
+    headers: auth(host.token),
+  });
+  assert.equal(expiredRoomInvite.statusCode, 201, expiredRoomInvite.body);
+  const expiredRoomInviteId = String(expiredRoomInvite.json().match.id);
+  const expiredRoomInviteSent = await app.inject({
+    method: 'POST',
+    url: `/api/v1/matches/${expiredRoomInviteId}/invites`,
+    headers: auth(host.token),
+    payload: { inviteeId: String(guest.user.id) },
+  });
+  assert.equal(expiredRoomInviteSent.statusCode, 201, expiredRoomInviteSent.body);
+  const freshExpiredRoomInvite = await testPool.query(
+    `SELECT id FROM backgammon_match_invites
+      WHERE match_id = $1 AND invitee_id = $2 AND status = 'pending'
+      ORDER BY id DESC LIMIT 1`,
+    [expiredRoomInviteId, guest.user.id],
+  );
+  assert.ok(freshExpiredRoomInvite.rows[0]);
+  await testPool.query(
+    `UPDATE backgammon_matches SET expires_at = NOW() - INTERVAL '1 second' WHERE id = $1`,
+    [expiredRoomInviteId],
+  );
+  const rejectExpiredRoomAcceptance = await app.inject({
+    method: 'POST',
+    url: `/api/v1/match-invites/${freshExpiredRoomInvite.rows[0].id}/respond`,
+    headers: auth(guest.token),
+    payload: { accept: true },
+  });
+  assert.equal(rejectExpiredRoomAcceptance.statusCode, 410, rejectExpiredRoomAcceptance.body);
+  const expiredRoomMembership = await testPool.query(
+    'SELECT guest_user_id FROM backgammon_matches WHERE id = $1',
+    [expiredRoomInviteId],
+  );
+  assert.equal(expiredRoomMembership.rows[0].guest_user_id, null,
+    'An expired room must not acquire a guest through a still-fresh invitation.');
+  const expiredRoomInviteStatus = await testPool.query(
+    'SELECT status FROM backgammon_match_invites WHERE id = $1',
+    [freshExpiredRoomInvite.rows[0].id],
+  );
+  assert.equal(expiredRoomInviteStatus.rows[0].status, 'rejected');
+
   const acceptInvite = await app.inject({
     method: 'POST',
     url: `/api/v1/match-invites/${incomingInvite.id}/respond`,
