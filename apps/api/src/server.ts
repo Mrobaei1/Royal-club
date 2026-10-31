@@ -11,7 +11,7 @@ import { createOtpCode, digestOtp, normalizeIranianMobile, verifyOtpDigest } fro
 import { createKavenegarProvider } from './sms-provider.js';
 import { getAllowedCorsOrigins } from './cors-config.js';
 import { normalizeDatabaseConnectionString } from './database-config.js';
-import { INITIAL_BACKGAMMON_BOARD, applyBackgammonMove, hasLegalMove, maxPlayableDiceCount, mustPlayHigherDie } from './backgammon-rules.js';
+import { INITIAL_BACKGAMMON_BOARD, applyBackgammonMove, hasLegalMove, isValidBackgammonState, maxPlayableDiceCount, mustPlayHigherDie } from './backgammon-rules.js';
 import { calculateEloRatings } from './backgammon-rating.js';
 import { nextProgressionState } from './player-progression.js';
 import { chooseTemporaryAiTurn } from './disconnect-takeover.js';
@@ -1116,11 +1116,17 @@ async function processTemporaryAiTakeover(matchId: string, requesterId?: string)
       dice = first === second ? [first, first, first, first] : [...rolledDice];
     }
 
-    const selected = chooseTemporaryAiTurn({
+    const aiState = {
       board: [...game.board_state],
       bar: { host: Number(game.bar_state?.host ?? 0), guest: Number(game.bar_state?.guest ?? 0) },
       off: { host: Number(game.off_state?.host ?? 0), guest: Number(game.off_state?.guest ?? 0) },
-    }, dice, hostTurn);
+    };
+    if (!isValidBackgammonState(aiState)) {
+      await client.query('ROLLBACK');
+      app.log.error({ matchId }, 'Temporary AI refused an invalid persisted backgammon state');
+      return false;
+    }
+    const selected = chooseTemporaryAiTurn(aiState, dice, hostTurn);
 
     const finalState = selected.state;
     const gameFinished = finalState.off.host >= 15 || finalState.off.guest >= 15;
@@ -4724,10 +4730,10 @@ app.post<{ Params: { id: string }; Body: { expectedVersion?: number } }>('/api/v
     await client.query('BEGIN');
     const result = await client.query(
       `SELECT id, status, host_user_id, guest_user_id, current_turn_user_id,
-              dice, remaining_dice, state_version
+              board_state, bar_state, off_state, dice, remaining_dice, state_version
          FROM backgammon_matches WHERE id = $1 AND expires_at > NOW() FOR UPDATE`,
       [request.params.id]);
-    const match = result.rows[0] as { id: string; status: string; host_user_id: string; guest_user_id: string | null; current_turn_user_id: string | null; dice: number[]; remaining_dice: number[]; state_version: number } | undefined;
+    const match = result.rows[0] as { id: string; status: string; host_user_id: string; guest_user_id: string | null; current_turn_user_id: string | null; board_state: number[]; bar_state: { host: number; guest: number }; off_state: { host: number; guest: number }; dice: number[]; remaining_dice: number[]; state_version: number } | undefined;
     if (!match || ![match.host_user_id, match.guest_user_id].includes(claims.sub)) {
       await client.query('ROLLBACK');
       return reply.code(404).send({ error: 'Match not found.' });
@@ -4744,7 +4750,19 @@ app.post<{ Params: { id: string }; Body: { expectedVersion?: number } }>('/api/v
       await client.query('ROLLBACK');
       return reply.code(409).send({ error: 'Temporary AI control is active for this disconnected player. Reconnect with a heartbeat to regain control.' });
     }
-    if (Array.isArray(match.dice) && match.dice.length > 0) {
+    if (!isValidBackgammonState({
+      board: match.board_state,
+      bar: match.bar_state,
+      off: match.off_state,
+    })) {
+      await client.query('ROLLBACK');
+      return reply.code(409).send({ error: 'Invalid board state.' });
+    }
+    if (!Array.isArray(match.dice) || !Array.isArray(match.remaining_dice)) {
+      await client.query('ROLLBACK');
+      return reply.code(409).send({ error: 'Invalid dice state.' });
+    }
+    if (match.dice.length > 0 || match.remaining_dice.length > 0) {
       await client.query('ROLLBACK');
       return reply.code(409).send({ error: 'Dice have already been rolled for this turn.' });
     }
