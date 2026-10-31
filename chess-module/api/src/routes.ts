@@ -444,6 +444,22 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
     return {messages:result.rows.map(row=>({id:String(row.id),username:row.username,message:row.message,createdAt:row.created_at}))};
   });
 
+  app.get<{Params:{gameId:string}}>("/chess/games/:gameId/draw-offers",{preHandler:options.authenticate},async(request,reply)=>{
+    let playerId:string;
+    try{playerId=userId(request,options);}catch{return fail(reply,401,"unauthorized");}
+    const game=await pool.query(
+      "SELECT id FROM chess_games WHERE id=$1 AND (white_user_id=$2 OR black_user_id=$2)",
+      [request.params.gameId,playerId]
+    );
+    if(!game.rowCount)return fail(reply,404,"game_not_found");
+    const pending=await pool.query(
+      "SELECT id,offered_by,created_at FROM chess_draw_offers WHERE game_id=$1 AND status='pending' ORDER BY created_at DESC LIMIT 1",
+      [request.params.gameId]
+    );
+    if(!pending.rowCount)return {pending:false};
+    return {pending:true,offerId:String(pending.rows[0].id),offeredByMe:String(pending.rows[0].offered_by)===playerId,createdAt:pending.rows[0].created_at};
+  });
+
   app.post<{Params:{gameId:string}}>("/chess/games/:gameId/draw-offers",{preHandler:options.authenticate},async(request,reply)=>{
     let playerId:string;
     try{playerId=userId(request,options);}catch{return fail(reply,401,"unauthorized");}
