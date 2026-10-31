@@ -25,7 +25,7 @@ No source code or assets from these projects are copied into this lab. This impl
 ## Current status
 - [x] Dedicated isolated branch created.
 - [x] Initial independent rules-engine package and tests drafted.
-- [ ] Tests executed in a real Node.js environment.
+- [x] Unit tests executed in GitHub Actions on Node.js 20 (check latest run for current revision).
 - [x] Full dealing / hakem selection / 13-trick round state machine (regional rules still require confirmation).
 - [ ] AI, online room service, reconnection, chat/voice integration.
 - [ ] Flutter UI and accessibility/localization.
