@@ -293,3 +293,37 @@ test('rejects sparse board and dice arrays instead of skipping missing entries',
   assert.equal(hasLegalMove(validBoard, { host: 0, guest: 0 }, sparseDice, true), false);
   assert.equal(maxPlayableDiceCount(state(validBoard), sparseDice, true), 0);
 });
+
+
+test('rejects a player inventory above fifteen across board points', () => {
+  const board = emptyBoard();
+  board[5] = 8;
+  board[4] = 8;
+  const invalid = state(board);
+  assert.ok('error' in applyBackgammonMove(invalid, { from: 5, to: 3, die: 2 }, true));
+  assert.equal(hasLegalMove(board, invalid.bar, [1], true), false);
+  assert.equal(maxPlayableDiceCount(invalid, [1, 2], true), 0);
+});
+
+test('includes bar and borne-off checkers in the fifteen-checker inventory', () => {
+  const board = emptyBoard();
+  board[5] = 15;
+  const invalidBar = state(board, { host: 1, guest: 0 });
+  const invalidOff = state(board, { host: 0, guest: 0 }, { host: 1, guest: 0 });
+  assert.ok('error' in applyBackgammonMove(invalidBar, { from: 5, to: 4, die: 1 }, true));
+  assert.ok('error' in applyBackgammonMove(invalidOff, { from: 5, to: 4, die: 1 }, true));
+  assert.equal(maxPlayableDiceCount(invalidBar, [1], true), 0);
+  assert.equal(maxPlayableDiceCount(invalidOff, [1], true), 0);
+});
+
+test('rejects impossible dice collection lengths and non-double triples', () => {
+  const board = emptyBoard();
+  board[10] = 1;
+  const invalidFiveDice = [1, 1, 1, 1, 1];
+  const invalidTriple = [1, 2, 3];
+  assert.equal(hasLegalMove(board, { host: 0, guest: 0 }, invalidFiveDice, true), false);
+  assert.equal(hasLegalMove(board, { host: 0, guest: 0 }, invalidTriple, true), false);
+  assert.equal(maxPlayableDiceCount(state(board), invalidFiveDice, true), 0);
+  assert.equal(maxPlayableDiceCount(state(board), invalidTriple, true), 0);
+  assert.equal(maxPlayableDiceCount(state(board), [2, 2, 2], true), 3);
+});
