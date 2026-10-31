@@ -40,7 +40,7 @@ async function waitForHealth(child: ChildProcess, getLogs: () => string): Promis
 
 function startService(database: string): { child: ChildProcess; logs: () => string } {
   let output = '';
-  const child = spawn(process.execPath, ['dist/server.js'], {
+  const child = spawn(process.execPath, ['dist/src/server.js'], {
     cwd: process.cwd(),
     env: {
       ...process.env,
