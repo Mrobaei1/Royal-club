@@ -20,7 +20,17 @@ const scheduledApps = new WeakSet<FastifyInstance>();
  */
 export async function adjudicateExpiredChessClocks(pool: Pool, now = Date.now()): Promise<number> {
   const candidates = await pool.query(
-    "SELECT id FROM chess_games WHERE status='active' AND clock_snapshot->>'active' IN ('white','black') ORDER BY id LIMIT 100"
+    `SELECT id FROM chess_games
+     WHERE status='active'
+       AND clock_snapshot->>'active' IN ('white','black')
+       AND clock_snapshot->>'lastStartedAt' IS NOT NULL
+       AND (clock_snapshot->>'lastStartedAt')::numeric +
+         CASE WHEN clock_snapshot->>'active'='white'
+           THEN (clock_snapshot->>'whiteMs')::numeric
+           ELSE (clock_snapshot->>'blackMs')::numeric
+         END <= $1
+     ORDER BY id LIMIT 100`,
+    [now]
   );
   let adjudicated = 0;
 
