@@ -7,6 +7,7 @@ import 'backgammon_engine.dart';
 import 'backgammon_ai.dart';
 import 'online_lobby_screen.dart';
 import 'royal_backgammon_board.dart';
+import 'services/auth_service.dart';
 
 const _boardNavy = Color(0xFF10182B);
 const _boardGold = Color(0xFFD8B45A);
@@ -14,7 +15,7 @@ const _boardLight = Color(0xFFE7D4B2);
 
 /// Engine-connected local backgammon screen. No network or account required.
 class EngineBackgammonScreen extends StatefulWidget {
-  const EngineBackgammonScreen({super.key, this.engineForTesting, this.vsComputerForTesting = true});
+  const EngineBackgammonScreen({super.key, this.engineForTesting, this.vsComputerForTesting = true, this.usernameForTesting});
 
   /// Optional engine injection keeps rule-driven UI tests deterministic.
   @visibleForTesting
@@ -22,6 +23,10 @@ class EngineBackgammonScreen extends StatefulWidget {
 
   @visibleForTesting
   final bool vsComputerForTesting;
+
+  /// Authenticated username override for deterministic widget tests.
+  @visibleForTesting
+  final String? usernameForTesting;
 
   @override
   State<EngineBackgammonScreen> createState() => _EngineBackgammonScreenState();
@@ -41,6 +46,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
   Timer? _turnTimer;
   bool _timeoutMoveRunning = false;
   bool _blockedRollPending = false;
+  String _profileUsername = '';
 
   static const List<List<Color>> _boardThemes = [
     [Color(0xFF6D4026), Color(0xFF76502E), Color(0xFF3B2418)],
@@ -64,7 +70,9 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
   void initState() {
     super.initState();
     _vsComputer = widget.vsComputerForTesting;
+    _profileUsername = widget.usernameForTesting?.trim() ?? '';
     _timerPlayer = _engine.currentPlayer;
+    if (_profileUsername.isEmpty) _loadProfileUsername();
     _lockLandscapeOnMobile();
   }
 
@@ -274,10 +282,26 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
     _startTurnTimer(reset: true);
   }
 
+  Future<void> _loadProfileUsername() async {
+    try {
+      final response = await AuthService.me();
+      final user = response['user'] is Map
+          ? Map<String, dynamic>.from(response['user'] as Map)
+          : response;
+      final username = user['username']?.toString().trim() ?? '';
+      if (!mounted || username.isEmpty) return;
+      setState(() => _profileUsername = username);
+    } catch (_) {
+      // Keep a neutral player label if the account cannot be refreshed.
+    }
+  }
+
   String _playerName(int player) => player == 1 ? appText(context, 'طلایی', 'Gold') : appText(context, 'روشن', 'Light');
 
   String _profileName(int player) => _vsComputer
-      ? (player == 1 ? appText(context, 'شما', 'You') : appText(context, 'هوش مصنوعی', 'AI'))
+      ? (player == 1
+          ? (_profileUsername.isNotEmpty ? _profileUsername : appText(context, 'بازیکن', 'Player'))
+          : appText(context, 'هوش مصنوعی', 'AI'))
       : (player == 1 ? appText(context, 'بازیکن ۱', 'Player 1') : appText(context, 'بازیکن ۲', 'Player 2'));
 
   void _tapPoint(int point) {
