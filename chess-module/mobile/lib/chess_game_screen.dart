@@ -78,6 +78,7 @@ class _ChessGameScreenState extends State<ChessGameScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final fa = Localizations.localeOf(context).languageCode == 'fa';
     return Column(
       children: [
         _player(widget.blackUsername, widget.blackClock, white: false),
@@ -90,14 +91,18 @@ class _ChessGameScreenState extends State<ChessGameScreen> {
             children: [
               Expanded(
                 child: Text(widget.speakingUsername == null
-                    ? 'Voice channel ready'
-                    : '${widget.speakingUsername} is speaking'),
+                    ? (fa ? 'کانال صوتی آماده است' : 'Voice channel ready')
+                    : (fa ? '${widget.speakingUsername} در حال صحبت است' : '${widget.speakingUsername} is speaking')),
               ),
               GestureDetector(
                 onTapDown: (_) => widget.onVoicePressed(),
                 onTapUp: (_) => widget.onVoiceReleased(),
                 onTapCancel: widget.onVoiceReleased,
-                child: const CircleAvatar(child: Icon(Icons.mic)),
+                child: Semantics(
+                  button: true,
+                  label: fa ? 'برای صحبت نگه دارید' : 'Hold to talk',
+                  child: const CircleAvatar(child: Icon(Icons.mic)),
+                ),
               ),
             ],
           ),
@@ -124,7 +129,7 @@ class _ChessGameScreenState extends State<ChessGameScreen> {
               child: TextField(
                 controller: _messageController,
                 maxLength: 2000,
-                decoration: const InputDecoration(hintText: 'Message', counterText: ''),
+                decoration: InputDecoration(hintText: fa ? 'پیام' : 'Message', counterText: ''),
                 onSubmitted: (_) => _send(),
               ),
             ),
