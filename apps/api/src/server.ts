@@ -4699,6 +4699,13 @@ app.post<{ Params: { id: string } }>('/api/v1/matches/:id/heartbeat', { onReques
        RETURNING last_heartbeat_at AS "lastHeartbeatAt", takeover_active AS "takeoverActive"`,
       [request.params.id, claims.sub],
     );
+    // An active match stays alive while a participant is present; the 30-minute
+    // expiry is an inactivity lease, not a hard match-duration limit.
+    await client.query(
+      `UPDATE backgammon_matches SET expires_at = NOW() + INTERVAL '30 minutes'
+        WHERE id = $1 AND status = 'active'`,
+      [request.params.id],
+    );
     await client.query('COMMIT');
     return { presence: result.rows[0], control: 'human' };
   } catch (error) {
