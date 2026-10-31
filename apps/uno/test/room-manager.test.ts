@@ -75,3 +75,29 @@ test('host disabling voice forces every seat into muted state', () => {
   const updated = manager.setCommunication(room.code, host.id, 'voiceEnabled', false);
   assert.equal(updated.players.every(p => p.muted), true);
 });
+
+test('host mute cannot be overridden by a player and respects self-mute', () => {
+  const manager = new UnoRoomManager();
+  const room = manager.createRoom(host);
+  manager.joinRoom(room.code, guest);
+  manager.setMuted(room.code, host.id, guest.id, true);
+  assert.throws(
+    () => manager.setMuted(room.code, guest.id, guest.id, false),
+    (error: unknown) => error instanceof UnoError && error.code === 'HOST_MUTED',
+  );
+  const hostUnmuted = manager.setMuted(room.code, host.id, guest.id, false);
+  assert.equal(hostUnmuted.players[1]!.muted, true);
+  manager.setMuted(room.code, guest.id, guest.id, false);
+  assert.equal(manager.getRoom(room.code).players[1]!.muted, false);
+});
+
+test('re-enabling voice preserves each player self-mute preference', () => {
+  const manager = new UnoRoomManager();
+  const room = manager.createRoom(host);
+  manager.joinRoom(room.code, guest);
+  manager.setMuted(room.code, guest.id, guest.id, true);
+  manager.setCommunication(room.code, host.id, 'voiceEnabled', false);
+  const enabled = manager.setCommunication(room.code, host.id, 'voiceEnabled', true);
+  assert.equal(enabled.players[0]!.muted, true);
+  assert.equal(enabled.players[1]!.muted, true);
+});

@@ -18,7 +18,7 @@ export class UnoRoomManager {
     while (this.rooms.has(code)) code = makeCode();
     const room: UnoRoom = {
       code, hostId: host.id, status: 'waiting',
-      players: [{ ...host, ready: false, connected: true, muted: true }],
+      players: [{ ...host, ready: false, connected: true, muted: true, selfMuted: true, hostMuted: false }],
       chatEnabled: true, voiceEnabled: true, createdAt: Date.now(), game: null,
     };
     this.rooms.set(code, room);
@@ -37,7 +37,7 @@ export class UnoRoomManager {
       existing.ready = false;
     } else {
       if (room.players.length >= 6) throw new UnoError('ROOM_FULL', 'UNO tables support at most 6 players.');
-      room.players.push({ ...player, ready: false, connected: true, muted: true });
+      room.players.push({ ...player, ready: false, connected: true, muted: true, selfMuted: true, hostMuted: false });
       this.userRooms.set(player.id, code);
     }
     room.status = 'waiting';
@@ -84,15 +84,26 @@ export class UnoRoomManager {
     this.requirePlayer(room, actorId);
     const target = this.requirePlayer(room, targetId);
     if (actorId !== targetId && room.hostId !== actorId) throw new UnoError('HOST_ONLY', 'Only the player or host can change this microphone state.');
-    target.muted = muted;
+    if (actorId === targetId) {
+      if (!muted && target.hostMuted) {
+        throw new UnoError('HOST_MUTED', 'The host has muted your microphone.');
+      }
+      target.selfMuted = muted;
+    } else {
+      target.hostMuted = muted;
+    }
+    target.muted = target.selfMuted || target.hostMuted;
     return structuredClone(room);
   }
   setCommunication(code: string, actorId: string, setting: 'chatEnabled' | 'voiceEnabled', enabled: boolean): UnoRoom {
     const room = this.requireRoom(code);
     if (room.hostId !== actorId) throw new UnoError('HOST_ONLY', 'Only the host can change table communication settings.');
     room[setting] = enabled;
-    if (setting === 'voiceEnabled' && !enabled) {
-      for (const player of room.players) player.muted = true;
+    if (setting === 'voiceEnabled') {
+      for (const player of room.players) {
+        player.hostMuted = !enabled;
+        player.muted = player.selfMuted || player.hostMuted;
+      }
     }
     return structuredClone(room);
   }
@@ -102,6 +113,7 @@ export class UnoRoomManager {
     if (index < 0) throw new UnoError('NOT_A_PLAYER', 'You are not seated at this table.');
     if (room.status === 'playing') {
       room.players[index]!.connected = false;
+      room.players[index]!.selfMuted = true;
       room.players[index]!.muted = true;
       return structuredClone(room);
     }

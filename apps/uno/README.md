@@ -35,7 +35,7 @@ The isolated Flutter package is in `flutter/`. It is not added to `apps/mobile/p
 ## Important deployment boundaries
 - The first room manager is in-memory and designed for one service instance. It is suitable for development and test; it is **not** a multi-instance production room store. Before production, replace it with an atomic PostgreSQL/Redis room repository and configure a Socket.IO Redis adapter.
 - WebRTC voice uses a peer mesh for at most six participants. Configure `TURN_URL` and `TURN_SHARED_SECRET` on the UNO service to issue short-lived Coturn REST credentials through `/ice-config`; without TURN, the client falls back to STUN and may fail behind restrictive NATs. A managed SFU is the preferred production scaling path.
-- The socket gateway accepts an injected token verifier; the server's HS256 verifier is intentionally isolated and must be checked against the current API token claims before deployment.
+- The socket gateway verifies Royal Club HS256 tokens, expiry and `token_version` revocation against the existing users table; only the public username is loaded. The service rejects tokens with a stale version.
 - No production secrets, database credentials, or TURN credentials belong in this repository.
 - No APK is built by this package.
 

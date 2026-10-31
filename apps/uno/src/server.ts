@@ -1,5 +1,6 @@
 import 'dotenv/config';
-import { createHmac, timingSafeEqual } from 'node:crypto';
+import { createCipheriv, createDecipheriv, createHmac, randomBytes, randomInt, randomUUID, scrypt as scryptCallback, timingSafeEqual } from 'node:crypto';
+import { verifyRoyalHs256Token } from './royal-token.js';
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
@@ -26,29 +27,16 @@ function normalizeDatabaseUrl(value: string): string {
 const pool = new Pool({ connectionString: normalizeDatabaseUrl(databaseUrl) });
 const jwtSecret = process.env.JWT_SECRET ?? '';
 if (jwtSecret.length < 32) throw new Error('JWT_SECRET must contain at least 32 characters.');
-function decodePart(value: string): Record<string, unknown> {
-  return JSON.parse(Buffer.from(value, 'base64url').toString('utf8')) as Record<string, unknown>;
-}
 async function verifyRoyalToken(token: string): Promise<AuthenticatedPlayer> {
-  const parts = token.split('.');
-  if (parts.length !== 3) throw new Error('Invalid token.');
-  const [headerPart, payloadPart, signaturePart] = parts as [string, string, string];
-  const header = decodePart(headerPart);
-  const payload = decodePart(payloadPart);
-  if (header.alg !== 'HS256') throw new Error('Unsupported token algorithm.');
-  const expected = createHmac('sha256', jwtSecret).update(`${headerPart}.${payloadPart}`).digest();
-  const actual = Buffer.from(signaturePart, 'base64url');
-  if (actual.length !== expected.length || !timingSafeEqual(actual, expected)) throw new Error('Invalid token signature.');
-  const now = Math.floor(Date.now() / 1000);
-  if (typeof payload.exp !== 'number' || payload.exp <= now) throw new Error('Token expired.');
-  const id = String(payload.sub ?? payload.id ?? '');
-  if (!id) throw new Error('Token is missing the subject.');
+  const claims = verifyRoyalHs256Token(token, jwtSecret);
   const profile = await pool.query(
-    'SELECT username FROM users WHERE id = $1 LIMIT 1', [id],
+    'SELECT username, token_version FROM users WHERE id = $1 LIMIT 1', [claims.sub],
   );
-  const username = String(profile.rows[0]?.username ?? '').trim();
+  const row = profile.rows[0];
+  const username = String(row?.username ?? '').trim();
   if (!username || username.length > 32) throw new Error('The account has no valid public username.');
-  return { id, username };
+  if (Number(row?.token_version) !== claims.ver) throw new Error('Token has been revoked.');
+  return { id: claims.sub, username };
 }
 const app = Fastify({ logger: true, trustProxy: false, bodyLimit: 64 * 1024 });
 const origins = (process.env.CORS_ORIGINS ?? '').split(',').map(s => s.trim()).filter(Boolean);

@@ -2,7 +2,7 @@ export const UNO_COLORS = ['red', 'yellow', 'green', 'blue'] as const;
 export type UnoColor = (typeof UNO_COLORS)[number];
 export type UnoFace = number | 'skip' | 'reverse' | 'draw2' | 'wild' | 'wild4';
 export interface UnoCard { id: string; color: UnoColor | 'wild'; face: UnoFace; }
-export interface UnoPlayer { id: string; username: string; ready: boolean; connected: boolean; muted: boolean; }
+export interface UnoPlayer { id: string; username: string; ready: boolean; connected: boolean; muted: boolean; selfMuted: boolean; hostMuted: boolean; }
 export type RoomStatus = 'waiting' | 'ready' | 'playing' | 'finished';
 export interface UnoRoom {
   code: string;
