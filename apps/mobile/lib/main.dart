@@ -781,7 +781,7 @@ class _AuthScreenState extends State<AuthScreen> {
       await _requestPhoneOtp();
       return;
     }
-    if (!RegExp(r'^\d{6}
+    if (!RegExp(r'^\d{6}$').hasMatch(_otpCode.text.trim())) {
       setState(() => _message = appText(context, 'کد شش‌رقمی را وارد کنید.', 'Enter the six-digit verification code.'));
       return;
     }
