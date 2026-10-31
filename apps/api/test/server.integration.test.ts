@@ -220,6 +220,33 @@ test('registered players can join an online match and history does not expose op
 
   // Profile photos are exposed to accepted friends and private chat is free,
   // while the API still rejects messages to non-friends.
+  // Read-all is scoped to the authenticated account and does not clear another user's unread rows.
+  const readAllHostNotice = await testPool.query(
+    `INSERT INTO notifications (user_id, actor_user_id, type, title, body, data)
+      VALUES ($1, $2, 'system', 'Host unread', 'Host unread', '{}'::jsonb) RETURNING id`,
+    [host.user.id, guest.user.id],
+  );
+  const readAllGuestNotice = await testPool.query(
+    `INSERT INTO notifications (user_id, actor_user_id, type, title, body, data)
+      VALUES ($1, $2, 'system', 'Guest unread', 'Guest unread', '{}'::jsonb) RETURNING id`,
+    [guest.user.id, host.user.id],
+  );
+  const readAllGuest = await app.inject({
+    method: 'POST',
+    url: '/api/v1/notifications/read-all',
+    headers: auth(guest.token),
+    payload: {},
+  });
+  assert.equal(readAllGuest.statusCode, 200, readAllGuest.body);
+  const readAllRows = await testPool.query(
+    'SELECT id::text, read_at FROM notifications WHERE id = ANY($1::bigint[])',
+    [[readAllHostNotice.rows[0].id, readAllGuestNotice.rows[0].id]],
+  );
+  const readAllHostRow = readAllRows.rows.find((row) => row.id === String(readAllHostNotice.rows[0].id));
+  const readAllGuestRow = readAllRows.rows.find((row) => row.id === String(readAllGuestNotice.rows[0].id));
+  assert.equal(readAllHostRow?.read_at, null, 'Read-all must not mark the host account notifications as read.');
+  assert.ok(readAllGuestRow?.read_at, 'Read-all must mark the guest account notification as read.');
+
   const avatar = 'data:image/png;base64,aGVsbG8=';
   const avatarUpdate = await app.inject({
     method: 'PATCH',
@@ -781,6 +808,51 @@ test('registered players can join an online match and history does not expose op
   assert.equal((notificationsAfterOpeningInvite.json().notifications as Array<Record<string, unknown>>)
     .some((notice) => String(notice.id) === openedNoticeId), false);
 
+  // A still-fresh invitation cannot revive a room whose own expiry has passed.
+  const expiredRoomInvite = await app.inject({
+    method: 'POST',
+    url: '/api/v1/matches',
+    headers: auth(host.token),
+  });
+  assert.equal(expiredRoomInvite.statusCode, 201, expiredRoomInvite.body);
+  const expiredRoomInviteId = String(expiredRoomInvite.json().match.id);
+  const expiredRoomInviteSent = await app.inject({
+    method: 'POST',
+    url: `/api/v1/matches/${expiredRoomInviteId}/invites`,
+    headers: auth(host.token),
+    payload: { inviteeId: String(guest.user.id) },
+  });
+  assert.equal(expiredRoomInviteSent.statusCode, 201, expiredRoomInviteSent.body);
+  const freshExpiredRoomInvite = await testPool.query(
+    `SELECT id FROM backgammon_match_invites
+      WHERE match_id = $1 AND invitee_id = $2 AND status = 'pending'
+      ORDER BY id DESC LIMIT 1`,
+    [expiredRoomInviteId, guest.user.id],
+  );
+  assert.ok(freshExpiredRoomInvite.rows[0]);
+  await testPool.query(
+    `UPDATE backgammon_matches SET expires_at = NOW() - INTERVAL '1 second' WHERE id = $1`,
+    [expiredRoomInviteId],
+  );
+  const rejectExpiredRoomAcceptance = await app.inject({
+    method: 'POST',
+    url: `/api/v1/match-invites/${freshExpiredRoomInvite.rows[0].id}/respond`,
+    headers: auth(guest.token),
+    payload: { accept: true },
+  });
+  assert.equal(rejectExpiredRoomAcceptance.statusCode, 410, rejectExpiredRoomAcceptance.body);
+  const expiredRoomMembership = await testPool.query(
+    'SELECT guest_user_id FROM backgammon_matches WHERE id = $1',
+    [expiredRoomInviteId],
+  );
+  assert.equal(expiredRoomMembership.rows[0].guest_user_id, null,
+    'An expired room must not acquire a guest through a still-fresh invitation.');
+  const expiredRoomInviteStatus = await testPool.query(
+    'SELECT status FROM backgammon_match_invites WHERE id = $1',
+    [freshExpiredRoomInvite.rows[0].id],
+  );
+  assert.equal(expiredRoomInviteStatus.rows[0].status, 'rejected');
+
   const acceptInvite = await app.inject({
     method: 'POST',
     url: `/api/v1/match-invites/${incomingInvite.id}/respond`,
@@ -789,6 +861,8 @@ test('registered players can join an online match and history does not expose op
   });
   assert.equal(acceptInvite.statusCode, 200, acceptInvite.body);
   assert.equal(acceptInvite.json().response, 'accepted');
+  assert.equal(String(acceptInvite.json().match.id), invitedRoomId,
+    'The accepted invitation response must carry the canonical numeric room ID used by the client.');
   const acceptedRoomExpiry = await testPool.query(
     'SELECT expires_at > NOW() + INTERVAL \'5 minutes\' AS extended FROM backgammon_matches WHERE id = $1',
     [invitedRoomId],

@@ -62,10 +62,16 @@ class _OnlineLobbyScreenState extends State<OnlineLobbyScreen> {
 
   Future<void> _showNewInvite(Map<String, dynamic> invite) async {
     final id = invite['id']?.toString();
-    if (!mounted || id == null || _popupInviteId != null || !_shownInviteIds.add(id)) return;
+    final expiresAt = DateTime.tryParse(invite['expiresAt']?.toString() ?? '')?.toLocal();
+    final remaining = expiresAt?.difference(DateTime.now()) ?? Duration.zero;
+    if (!mounted || id == null || remaining <= Duration.zero ||
+        _popupInviteId != null || !_shownInviteIds.add(id)) {
+      return;
+    }
     _popupInviteId = id;
     final isEnglish = Localizations.localeOf(context).languageCode == 'en';
-    final timeout = Timer(const Duration(seconds: 60), () {
+    final remainingSeconds = (remaining.inMilliseconds + 999) ~/ 1000;
+    final timeout = Timer(remaining, () {
       if (mounted && _popupInviteId == id) {
         Navigator.of(context, rootNavigator: true).pop('expired');
       }
@@ -76,8 +82,8 @@ class _OnlineLobbyScreenState extends State<OnlineLobbyScreen> {
       builder: (dialogContext) => AlertDialog(
         title: Text(appText(context, 'دعوت بازی تخته‌نرد', 'Backgammon invitation')),
         content: Text(isEnglish
-            ? '@${invite['inviterUsername'] ?? 'friend'} invited you to play. This invitation expires in 60 seconds.'
-            : '@${invite['inviterUsername'] ?? 'دوست'} شما را به بازی دعوت کرده است. این دعوت تا ۶۰ ثانیه دیگر منقضی می‌شود.'),
+            ? '@${invite['inviterUsername'] ?? 'friend'} invited you to play. This invitation expires in $remainingSeconds seconds.'
+            : '@${invite['inviterUsername'] ?? 'دوست'} شما را به بازی دعوت کرده است. این دعوت تا $remainingSeconds ثانیه دیگر منقضی می‌شود.'),
         actions: [
           TextButton(onPressed: () => Navigator.of(dialogContext).pop('decline'), child: Text(appText(context, 'رد دعوت', 'Decline'))),
           FilledButton(onPressed: () => Navigator.of(dialogContext).pop('accept'), child: Text(appText(context, 'پذیرش و ورود', 'Accept & join'))),
