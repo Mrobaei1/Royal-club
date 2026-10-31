@@ -205,7 +205,7 @@ class _AccountScreenState extends State<AccountScreen> {
             title: Text(confirmTitle),
             content: Text(confirmBody),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: Text(cancelLabel),
+              TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: Text(cancelLabel)),
               FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: Text(continueLabel)),
             ],
           ),
