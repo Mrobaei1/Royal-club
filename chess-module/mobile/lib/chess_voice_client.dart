@@ -75,6 +75,10 @@ class ChessVoiceClient {
       onError: (Object error) => onError?.call(error),
       onDone: () {
         _socket = null;
+        _socketSubscription = null;
+        _leaseId = null; // Server releases the lease when this socket disconnects.
+        _leaseRenewal?.cancel();
+        _leaseRenewal = null;
         onSpeakingChanged?.call(null);
         _disableLocalAudio();
       },
