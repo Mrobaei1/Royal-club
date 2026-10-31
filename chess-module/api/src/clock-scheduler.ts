@@ -121,13 +121,21 @@ export function startChessClockScheduler(app: FastifyInstance, pool: Pool, inter
     try {
       const now = Date.now();
       if (now - lastCleanupAt >= 60_000) {
-        await pool.query("UPDATE chess_rooms SET status='cancelled' WHERE status='waiting' AND expires_at<=NOW()");
-        await pool.query("DELETE FROM chess_matchmaking_queue WHERE created_at<NOW()-INTERVAL '10 minutes'");
-        lastCleanupAt = now;
+        try {
+          await pool.query("UPDATE chess_rooms SET status='cancelled' WHERE status='waiting' AND expires_at<=NOW()");
+          await pool.query("DELETE FROM chess_matchmaking_queue WHERE created_at<NOW()-INTERVAL '10 minutes'");
+          lastCleanupAt = now;
+        } catch (error) {
+          app.log.warn({err:error},"chess room and matchmaking cleanup failed");
+        }
       }
       if (now - lastDrawCleanupAt >= 2_000) {
-        await expirePendingChessDrawOffers(pool);
-        lastDrawCleanupAt = now;
+        try {
+          await expirePendingChessDrawOffers(pool);
+          lastDrawCleanupAt = now;
+        } catch (error) {
+          app.log.warn({err:error},"chess draw-offer cleanup failed");
+        }
       }
       await adjudicateExpiredChessClocks(pool, now);
     } catch (error) {
