@@ -13,7 +13,7 @@ test("supports legal moves, SAN and PGN", () => {
   assert.equal(game.play({from:"e2",to:"e4"}).san, "e4");
   assert.equal(game.play({from:"e7",to:"e5"}).san, "e5");
   assert.equal(game.play({from:"g1",to:"f3"}).san, "Nf3");
-  assert.match(game.snapshot().pgn, /1\. e4 e5 2\. Nf3/);
+  assert.match(game.snapshot().pgn ?? '', /1\. e4 e5 2\. Nf3/);
 });
 test("supports castling, en passant and promotion", () => {
   const castle = new ChessGame("r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1");
