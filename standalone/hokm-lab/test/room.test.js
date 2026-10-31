@@ -121,14 +121,17 @@ test("completed hands award one match point and preserve the configured target",
 
 test("match completes exactly when a team reaches the manager target", () => {
   let room = startRoom(fullReadyRoom(1000, 3), "u0", { now: 2000, rng: () => 0.37 });
-  const rounds = [];
-  for (let i = 0; i < 3; i += 1) {
+  let roundsPlayed = 0;
+  while (room.status !== "completed" && roundsPlayed < 12) {
     room = completeOneRound(room);
-    rounds.push(room);
-    if (i < 2) room = startNextRound(room, "u0", { rng: () => 0.37 + i * 0.1 });
+    roundsPlayed += 1;
+    if (room.status === "round_completed") {
+      const sample = (0.17 + roundsPlayed * 0.061) % 0.99;
+      room = startNextRound(room, "u0", { rng: () => sample });
+    }
   }
   assert.equal(room.status, "completed");
   assert.equal(Math.max(...room.matchScore), 3);
-  assert.equal(room.matchScore[0] + room.matchScore[1], 3);
+  assert.equal(room.matchScore[0] + room.matchScore[1], roundsPlayed);
   assert.throws(() => startNextRound(room, "u0"), /previous round is not completed/);
 });
