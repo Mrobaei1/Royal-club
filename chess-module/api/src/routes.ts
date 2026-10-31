@@ -69,6 +69,8 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
       const room=roomResult.rows[0];
       if(!room||room.status!=="waiting"){await client.query("ROLLBACK");return fail(reply,404,"room_unavailable");}
       if(String(room.host_user_id)===playerId){await client.query("ROLLBACK");return fail(reply,400,"cannot_play_self");}
+      const activeGame=await client.query("SELECT id FROM chess_games WHERE status='active' AND (white_user_id=$1 OR black_user_id=$1) LIMIT 1",[playerId]);
+      if(activeGame.rowCount){await client.query("ROLLBACK");return fail(reply,409,"active_chess_game_exists");}
       const progression=await client.query("SELECT level FROM chess_player_progression WHERE user_id=$1",[playerId]);
       const level=Number(progression.rows[0]?.level??1);
       const settings=(room.settings_snapshot??{}) as ChessRoomSettings;
