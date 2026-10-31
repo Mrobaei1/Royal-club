@@ -238,6 +238,7 @@ class ChessGameSession extends ChangeNotifier {
       if (_disposed) return;
       try {
         await refresh();
+        if (voiceEnabled) await voiceClient?.connect();
         await _openSocket();
         await refresh();
       } catch (_) {
