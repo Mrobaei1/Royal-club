@@ -182,6 +182,7 @@ void main() {
     // Arrange a deterministic one-die turn after the screen's setup reset.
     engine.points.fillRange(0, 24, 0);
     engine.points[0] = 1;
+    engine.points[23] = -1; // Ensure the AI has a legal move after the handover.
     engine.dice = [1];
     engine.currentPlayer = 1;
     await tester.pump();
@@ -197,8 +198,8 @@ void main() {
     expect(engine.currentPlayer, -1);
     expect(find.text('⏱ 20'), findsNothing);
 
-    // Drain the scheduled AI-turn callback so the widget test leaves no timer behind.
-    await tester.pump(const Duration(seconds: 3));
+    // Drain the AI roll and its legal move cadence until the human turn resumes.
+    await tester.pump(const Duration(seconds: 10));
   });
 
 

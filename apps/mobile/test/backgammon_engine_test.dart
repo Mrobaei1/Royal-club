@@ -87,6 +87,33 @@ void main() {
       expect(moves.every((move) => move.to == 1 && move.die == 2), isTrue);
     });
 
+    test('a blocked bar roll can remain visible until the turn is explicitly passed', () {
+      clearPosition(rolledDice: [1, 2]);
+      game.bar[1] = 1;
+      game.points[0] = -2;
+      game.points[1] = -2;
+
+      expect(game.legalMoves(), isEmpty);
+      expect(game.currentPlayer, 1);
+      expect(game.dice, [1, 2]);
+
+      expect(game.passTurnAfterNoLegalMoves(), isTrue);
+      expect(game.currentPlayer, -1);
+      expect(game.dice, isEmpty);
+      expect(game.bar[1], 1);
+    });
+
+    test('a turn cannot be passed while a legal bar entry exists', () {
+      clearPosition(rolledDice: [1, 2]);
+      game.bar[1] = 1;
+      game.points[0] = -2;
+
+      expect(game.legalMoves(), isNotEmpty);
+      expect(game.passTurnAfterNoLegalMoves(), isFalse);
+      expect(game.currentPlayer, 1);
+      expect(game.dice, [1, 2]);
+    });
+
     test('negative player enters from the correct side of the bar', () {
       clearPosition(player: -1, rolledDice: [1, 2]);
       game.bar[0] = 1;

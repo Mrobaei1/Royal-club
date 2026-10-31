@@ -72,6 +72,14 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  test('dice are rendered 70 percent larger than the previous board scale', () {
+    const size = Size(900, 600);
+    final previousSize = (600 * .09).clamp(26.0, 44.0).toDouble() * .64 < size.width * .055
+        ? (600 * .09).clamp(26.0, 44.0).toDouble() * .64
+        : size.width * .055;
+    expect(RoyalBackgammonBoard.diceSizeForBoard(size), closeTo(previousSize * 1.7, 0.001));
+  });
+
   test('checker stacks stay on the outer side of each player, never the center band', () {
     const size = Size(900, 600);
     final middleTop = 600 * .455;
