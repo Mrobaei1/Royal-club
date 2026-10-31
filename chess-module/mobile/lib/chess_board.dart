@@ -84,7 +84,7 @@ class _ChessBoardState extends State<ChessBoard> {
         content: Wrap(
           spacing: 8,
           children: [
-            for (final entry in const [('q', fa ? 'وزیر' : 'Queen'), ('r', fa ? 'رخ' : 'Rook'), ('b', fa ? 'فیل' : 'Bishop'), ('n', fa ? 'اسب' : 'Knight')])
+            for (final entry in [('q', fa ? 'وزیر' : 'Queen'), ('r', fa ? 'رخ' : 'Rook'), ('b', fa ? 'فیل' : 'Bishop'), ('n', fa ? 'اسب' : 'Knight')])
               TextButton(
                 onPressed: () => Navigator.pop(context, entry.$1),
                 child: Text(entry.$2),
