@@ -45,7 +45,9 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
   void _tickTurnClock() {
     final state = _state;
     if (!mounted || state == null || _matchStatus != 'active' ||
-        state['aiTakeoverActive'] == true) return;
+        state['aiTakeoverActive'] == true) {
+      return;
+    }
     final next = _remainingTurnSeconds(state);
     if (next != _turnSecondsRemaining) {
       setState(() => _turnSecondsRemaining = next);
