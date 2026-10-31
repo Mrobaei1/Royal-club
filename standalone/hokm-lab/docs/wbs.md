@@ -33,16 +33,16 @@
 | WBS | Evidence-based status | Estimate |
 |---|---|---:|
 | 1.0 | Initial assumptions documented; regional rule sign-off pending | 25% |
-| 2.0 | Core engine, duplicate-deck validation, deterministic tests | 80% |
-| 3.0 | Round/match transitions and full-hand regression tests implemented; final CI confirmation pending | 80% |
+| 2.0 | Core engine, duplicate-deck validation, deterministic tests; public completed-trick history retained | 85% |
+| 3.0 | Round/match transitions, public trick-history views and full-hand regression tests; CI green | 85% |
 | 4.0 | In-memory lifecycle, readiness, host transfer, empty-only cleanup and match target tracking | 80% |
 | 5.0 | No production Fastify/network/persistence adapter yet | 0% |
 | 6.0 | Not implemented | 0% |
-| 7.0 | Initial hard-only heuristic and legality/privacy tests implemented; strategic simulations and orchestration pending | 25% |
+| 7.0 | Fixed hard-only policy now uses public card counts and void-suit inference; deterministic full-hand simulation passes; deeper search and room orchestration pending | 40% |
 | 8.0 | Not implemented | 0% |
 | 9.0 | Not implemented | 0% |
 | 10.0 | Core accepts only 3/5/7 and architecture reserves source for trusted manager config; admin auth/UI/audit pending | 20% |
-| 11.0 | Engine/room/round unit tests; full-match and malformed-deck regression checks added, CI confirmation pending | 30% |
+| 11.0 | Engine/room/round/progression tests plus full-hand bot simulation and public-history privacy checks; latest CI green; integration/concurrency/security suites pending | 35% |
 | 12.0 | WBS, architecture contract and setup README documented; final handoff pending | 20% |
 
 ## Confirmed match scoring and progression rules (2026-10-31)
@@ -52,4 +52,4 @@
 - Level curve: level 1 starts at 0 XP; advancement cost from level L is round(300 + 5(L−1) + 0.08(L−1)^2). Level 100 starts at 79,439 XP; 95,000 XP is level 109. XP floors at zero and achieved level never decreases.
 - In-memory calculation and unit tests are now in the isolated lab. Production persistence, atomic ledger transactions and server identity integration remain open.
 
-These are planning estimates, not a claim of completed production functionality. Recalculate after each verified milestone.
+These are planning estimates, not a claim of completed production functionality. On 2026-10-31 the bot public-card ledger, void-suit inference, full-hand simulation and round-history tests were added; latest isolated CI run passed (run 41227267640). Recalculate after each verified milestone.
