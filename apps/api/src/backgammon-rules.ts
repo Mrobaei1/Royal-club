@@ -26,8 +26,10 @@ function isValidGameState(state: MutableGameState): boolean {
   // points. A legal game can never contain more than 15 checkers per player.
   const hostOnBoard = state.board.reduce((sum, count) => sum + Math.max(count, 0), 0);
   const guestOnBoard = state.board.reduce((sum, count) => sum + Math.max(-count, 0), 0);
-  return hostOnBoard + state.bar.host + state.off.host <= 15 &&
-    guestOnBoard + state.bar.guest + state.off.guest <= 15;
+  // Every game always owns exactly fifteen checkers per player. Missing
+  // checkers are just as corrupt as duplicated ones.
+  return hostOnBoard + state.bar.host + state.off.host === 15 &&
+    guestOnBoard + state.bar.guest + state.off.guest === 15;
 }
 
 function isValidRemainingDice(remainingDice: number[]): boolean {
@@ -117,9 +119,17 @@ export function hasLegalMove(
   bar: PlayerBar,
   remainingDice: number[],
   hostTurn: boolean,
+  off?: PlayerOff,
 ): boolean {
-  if (!isValidGameState({ board, bar, off: { host: 0, guest: 0 } }) ||
+  if (!Array.isArray(board) || board.length !== 24 || !bar ||
+      !board.every((count) => Number.isInteger(count) && Math.abs(count) <= 15) ||
+      ![bar.host, bar.guest].every((count) => Number.isInteger(count) && count >= 0 && count <= 15) ||
       !isValidRemainingDice(remainingDice)) return false;
+  const inferredOff = off ?? {
+    host: 15 - board.reduce((sum, count) => sum + Math.max(count, 0), 0) - bar.host,
+    guest: 15 - board.reduce((sum, count) => sum + Math.max(-count, 0), 0) - bar.guest,
+  };
+  if (!isValidGameState({ board, bar, off: inferredOff })) return false;
   const sign = hostTurn ? 1 : -1;
   const ownBar = hostTurn ? bar.host : bar.guest;
   const allHome = board.every((count, point) =>
@@ -170,7 +180,7 @@ export function mustPlayHigherDie(
   const higher = Math.max(...remainingDice);
   const lower = Math.min(...remainingDice);
   if (selectedMove.die !== lower) return false;
-  if (!hasLegalMove(state.board, state.bar, [higher], hostTurn)) return false;
+  if (!hasLegalMove(state.board, state.bar, [higher], hostTurn, state.off)) return false;
   if (maxPlayableDiceCount(state, remainingDice, hostTurn) === 1) return true;
   const afterLower = applyBackgammonMove(state, selectedMove, hostTurn);
   if ('error' in afterLower) return false;
