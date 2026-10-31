@@ -14,7 +14,7 @@ Every command must be authenticated and scoped to a room:
 - `request_reconnect`
 - `send_chat_message`
 
-The server derives the seat from the authenticated room membership. It must never accept a client-supplied seat/team/score/hand as authoritative input.
+The server derives the seat from the authenticated room membership. It must never accept a client-supplied seat/team/score/hand as authoritative input. The match target (3, 5, or 7) is loaded from trusted manager-controlled configuration after role authorization; never accept this setting from a player or public room-create payload.
 
 ## Server-side validation
 For each command, verify:
