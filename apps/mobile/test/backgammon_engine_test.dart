@@ -293,7 +293,7 @@ void main() {
       expect(game.bar, beforeBar);
       expect(game.borneOff, beforeOff);
       expect(game.dice, beforeDice);
-    });
+
 
     test('turn ends when no remaining die can be played', () {
       clearPosition(rolledDice: [1, 2]);
@@ -309,6 +309,8 @@ void main() {
       expect(game.currentPlayer, -1);
 
 
+    });
+
     test('positive player cannot oversized-bear off past a checker closer to point 24', () {
       clearPosition(rolledDice: [6]);
       game.points[20] = 1;
@@ -318,7 +320,7 @@ void main() {
       expect(moves.any((move) => move.from == 20 && move.to == -1), isFalse);
       expect(moves.any((move) => move.from == 23 && move.to == -1), isTrue);
     });
-    });
+
   });
 }
 
