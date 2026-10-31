@@ -75,7 +75,7 @@ export async function registerChessWebSocket(app: FastifyInstance, options: Opti
             send({type:"chess:draw:response",offerId:event.offerId,status:event.status});
           } else if (event.type === "presence" && event.id && typeof event.connected === "boolean") {
             const user = await options.pool.query("SELECT username FROM users WHERE id=$1",[event.id]);
-            send({type:"chess:opponent:presence",userId:event.id,username:user.rows[0]?.username??"",connected:event.connected});
+            send({type:"chess:opponent:presence",username:user.rows[0]?.username??"",connected:event.connected});
           } else if (event.type === "voice:signal" && event.fromUserId !== userId &&
                      typeof event.signalType === "string" && event.payload !== undefined) {
             send({type:"chess:voice:signal",signalType:event.signalType,payload:event.payload});
