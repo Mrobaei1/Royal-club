@@ -6,7 +6,7 @@ import rateLimit from '@fastify/rate-limit';
 import jwt from '@fastify/jwt';
 import { Pool, type PoolClient } from 'pg';
 import { createCipheriv, createDecipheriv, createHmac, randomBytes, randomInt, scrypt as scryptCallback, timingSafeEqual } from 'node:crypto';
-import { isNumericId, isReservedUsername, isValidRegistrationPassword } from './validation.js';
+import { isNumericId, isReservedUsername, isValidAvatarDataUrl, isValidRegistrationPassword } from './validation.js';
 import { createOtpCode, digestOtp, normalizeIranianMobile, verifyOtpDigest } from './otp-security.js';
 import { createKavenegarProvider } from './sms-provider.js';
 import { getAllowedCorsOrigins } from './cors-config.js';
@@ -1131,10 +1131,8 @@ app.patch<{ Body: { fullName?: string; phone?: string; country?: string } }>('/a
 app.patch<{ Body: { avatarDataUrl?: string | null } }>('/api/v1/me/avatar', { onRequest: [requireMatchAuth], config: { rateLimit: { max: 6, timeWindow: '1 minute' } } }, async (request, reply) => {
   const claims = request.user as { sub: string };
   const avatar = request.body?.avatarDataUrl;
-  if (avatar !== null && (typeof avatar !== 'string' ||
-      avatar.length > 900_000 ||
-      !/^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/]+={0,2}$/.test(avatar))) {
-    return reply.code(400).send({ error: 'تصویر باید JPG یا PNG یا WebP و کمتر از 650 کیلوبایت باشد.' });
+  if (avatar !== null && !isValidAvatarDataUrl(avatar)) {
+    return reply.code(400).send({ error: 'تصویر باید فایل معتبر JPG، PNG یا WebP و حداکثر 650 کیلوبایت باشد.' });
   }
   const result = await pool.query(
     'UPDATE users SET avatar_data_url = $1 WHERE id = $2 RETURNING avatar_data_url',
