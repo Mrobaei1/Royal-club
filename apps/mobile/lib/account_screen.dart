@@ -86,6 +86,28 @@ class _AccountScreenState extends State<AccountScreen> {
     );
     controller.dispose();
     if (picked == null || picked.trim().isEmpty || !mounted) return;
+    final currentUsername = _user?['username']?.toString() ?? '';
+    final usernamePrice = (_customizationPricing['usernameChangePriceCredits'] as num?)?.toInt() ?? 0;
+    if (picked.trim().toLowerCase() != currentUsername.toLowerCase() && usernamePrice > 0) {
+      final confirmTitle = appText(context, 'تأیید هزینه تغییر نام کاربری', 'Confirm username change cost');
+      final confirmBody = appText(context,
+        'تغییر نام کاربری شما $usernamePrice اعتبار هزینه دارد. ادامه می‌دهید؟',
+        'Changing your username costs $usernamePrice credits. Continue?');
+      final cancelLabel = appText(context, 'انصراف', 'Cancel');
+      final continueLabel = appText(context, 'تأیید و ادامه', 'Confirm and continue');
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: Text(confirmTitle),
+          content: Text(confirmBody),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: Text(cancelLabel)),
+            FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: Text(continueLabel)),
+          ],
+        ),
+      );
+      if (confirmed != true || !mounted) return;
+    }
     setState(() { _loading = true; _error = null; });
     try {
       final updated = await AuthService.updateUsername(picked);
