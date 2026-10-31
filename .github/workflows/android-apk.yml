@@ -1,8 +1,10 @@
 name: Royal Club Android APK
 
 on:
-  # Never run the APK workflow automatically on a push. The owner explicitly
-  # authorizes a release build only through workflow_dispatch with build_apk=true.
+  push:
+    branches: [main]
+    paths:
+      - 'apps/mobile/pubspec.yaml'
   workflow_dispatch:
     inputs:
       build_apk:
