@@ -206,17 +206,22 @@ function searchExpectedTrickValue(state, seat, candidates, ledger) {
   const seedBase = hashSeed(`${seat}:${state.trumpSuit}:${historyKey}:${state.hands[seat].map(cardKey).sort().join(",")}`);
   const samples = 12;
   const values = new Map(candidates.map(card => [cardKey(card), { score: 0, samples: 0 }]));
+
   for (let sample = 0; sample < samples; sample += 1) {
     const rng = seededRandom(seedBase + sample * 104729);
     const hidden = sampleHiddenHands(state, seat, ledger, rng);
     if (!hidden) continue;
+
     for (const candidate of candidates) {
-      const trick = [...state.currentTrick, { seat, card: candidate }];
       const simulatedHands = hidden.map(hand => [...hand]);
+      simulatedHands[seat] = state.hands[seat]
+        .filter(card => cardKey(card) !== cardKey(candidate)).map(card => ({ ...card }));
+      const trick = [...state.currentTrick, { seat, card: { ...candidate } }];
       let valid = true;
+
       for (let offset = 1; offset < 4 - state.currentTrick.length; offset += 1) {
         const nextSeat = (seat + offset) % 4;
-        const hand = nextSeat === seat ? state.hands[seat] : simulatedHands[nextSeat];
+        const hand = simulatedHands[nextSeat];
         if (!hand?.length) { valid = false; break; }
         const card = simulatedPolicy(hand, trick, state.trumpSuit, nextSeat);
         const index = hand.findIndex(item => cardKey(item) === cardKey(card));
@@ -225,13 +230,35 @@ function searchExpectedTrickValue(state, seat, candidates, ledger) {
         trick.push({ seat: nextSeat, card });
       }
       if (!valid || trick.length !== 4) continue;
-      const winner = simulatedWinner(trick, state.trumpSuit);
-      const won = winner.seat % 2 === seat % 2;
+
+      const firstWinner = simulatedWinner(trick, state.trumpSuit);
+      const firstWon = firstWinner.seat % 2 === seat % 2;
+      let sampleScore = firstWon ? 1 : 0;
+
+      // One additional complete trick provides a bounded two-trick lookahead.
+      // Every seat uses the same public-information-only partner-aware policy.
+      const nextTrick = [];
+      let leader = firstWinner.seat;
+      for (let offset = 0; offset < 4; offset += 1) {
+        const nextSeat = (leader + offset) % 4;
+        const hand = simulatedHands[nextSeat];
+        if (!hand?.length) { valid = false; break; }
+        const card = simulatedPolicy(hand, nextTrick, state.trumpSuit, nextSeat);
+        const index = hand.findIndex(item => cardKey(item) === cardKey(card));
+        if (index < 0) { valid = false; break; }
+        hand.splice(index, 1);
+        nextTrick.push({ seat: nextSeat, card });
+      }
+      if (!valid || nextTrick.length !== 4) continue;
+      const secondWinner = simulatedWinner(nextTrick, state.trumpSuit);
+      if (secondWinner.seat % 2 === seat % 2) sampleScore += 0.35;
+
       const entry = values.get(cardKey(candidate));
-      entry.score += won ? 1 : 0;
+      entry.score += sampleScore;
       entry.samples += 1;
     }
   }
+
   if (![...values.values()].some(entry => entry.samples > 0)) return null;
   const scored = candidates.map(card => {
     const entry = values.get(cardKey(card));
