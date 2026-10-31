@@ -20,7 +20,7 @@ This document describes the intended adapter boundary. It does not wire anything
 - The isolated lab has a deterministic policy entry point in `src/bot.js` for hakem trump selection and legal card selection.
 - It uses the bot's own hand, current public trick and publicly completed trick history only; its visible ledger counts unseen cards by suit and infers opponent void suits from public off-suit plays. It does not inspect opponents' hidden hands or the undealt deck.
 - Every proposed play is selected from `legalCards`, and the normal `playCard`/room validator remains the authority.
-- This is an improved heuristic milestone, not yet a strategically proven expert bot. Deterministic full-hand simulation is covered by CI; deeper trick-outcome search, robust partner strategy, seeded multi-deal benchmarking and room-level bot orchestration remain required.
+- This is an improved heuristic milestone, not yet a strategically proven expert bot. CI covers deterministic full-hand simulation, 24 seeded-deal simulations and 24 seeded full-match simulations to the configured three-point target. These tests establish legal completion and deterministic lifecycle behavior, not strategic strength or competitive win-rate. Deeper trick-outcome search, robust partner strategy, balanced seeded benchmarking against varied strategies and production room-level bot orchestration remain required.
 
 ## Authoritative server commands
 Every command must be authenticated and scoped to a room: create/join/leave, ready/start, choose trump, play card, reconnect and chat.
