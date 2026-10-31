@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { legalCards } from "../src/engine.js";
 import { createRoom, joinRoom, leaveRoom, setPlayerReady, startRoom, expireRoom, roomViewForUser, applyRoomCommand, startNextRound } from "../src/room.js";
 
 function fullReadyRoom(now = 1000, matchTarget = 7) {
@@ -94,4 +95,39 @@ test("next round is host-controlled and rotates hakem", () => {
   const next = startNextRound(room, "u0", { rng: () => 0.4 });
   assert.equal(next.status, "playing");
   assert.equal(next.round.hakemSeat, 2);
+});
+
+function completeOneRound(room, host = "u0") {
+  room = applyRoomCommand(room, host, { type: "choose_trump", suit: "spades" }, room.version);
+  while (room.status === "playing") {
+    const seat = room.round.currentSeat;
+    const legal = legalCards(room.round.hands[seat], room.round.currentTrick);
+    room = applyRoomCommand(room, ["u0", "u1", "u2", "u3"][seat], { type: "play_card", card: legal[0] }, room.version);
+  }
+  return room;
+}
+
+test("completed hands award one match point and preserve the configured target", () => {
+  let room = startRoom(fullReadyRoom(1000, 3), "u0", { now: 2000, rng: () => 0.37 });
+  room = completeOneRound(room);
+  assert.equal(room.status, "round_completed");
+  assert.equal(room.matchScore[0] + room.matchScore[1], 1);
+  assert.equal(room.matchTarget, 3);
+  room = startNextRound(room, "u0", { rng: () => 0.61 });
+  assert.equal(room.status, "playing");
+  assert.equal(room.round.hakemSeat, 1);
+});
+
+test("match completes exactly when a team reaches the manager target", () => {
+  let room = startRoom(fullReadyRoom(1000, 3), "u0", { now: 2000, rng: () => 0.37 });
+  const rounds = [];
+  for (let i = 0; i < 3; i += 1) {
+    room = completeOneRound(room);
+    rounds.push(room);
+    if (i < 2) room = startNextRound(room, "u0", { rng: () => 0.37 + i * 0.1 });
+  }
+  assert.equal(room.status, "completed");
+  assert.equal(Math.max(...room.matchScore), 3);
+  assert.equal(room.matchScore[0] + room.matchScore[1], 3);
+  assert.throws(() => startNextRound(room, "u0"), /previous round is not completed/);
 });
