@@ -42,3 +42,12 @@ This is a source/configuration review of the repository branch, not a penetratio
 ## Decision
 
 **Open — not cleared for Phase 1 sign-off.** Code-level OTP request/verify/register/login/link flows and automated tests are present but real SMS remains disabled. Production configuration/activation, full RBAC acceptance, localization device review, and live/manual evidence remain open. This review must not be represented as a completed penetration test.
+
+## Follow-up evidence — 2026-10-31
+
+- The later Phase 1 readiness record reports that the numeric `OWNER_USER_ID` was validated and is present in active Neon Function deployment 81. This supersedes the 2026-10-28 observation that it was absent from the then-active deployment, but does not by itself close the complete production configuration/security review.
+- The API logger now uses a centralized redaction policy for the entire request body, authorization/cookie/API-key headers, and response cookies. This is source-level protection on branch `phase1/backgammon-integrity-20261031`; exact-head API tests must pass before treating the change as verified. It is not a substitute for reviewing external host logs or secret-store access.
+- The integration suite now also checks that the same authenticated account session remains valid when the apparent client network header changes. This is automated evidence for IP-independent identity, not a substitute for the requested real-device VPN-on/VPN-off acceptance.
+- Production deployment, schema mutation, SMS activation, real SMS delivery, and privileged grant creation remain untouched and approval-gated.
+
+**Current decision remains Open.** The source-level controls and CI can be completed independently, but production security acceptance and manual device checks must remain explicit sign-off gates.
