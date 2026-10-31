@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'room_controls_menu.dart';
 import 'l10n/app_text.dart';
 import 'profile_avatar.dart';
 import 'services/match_service.dart';
@@ -613,22 +614,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
     }
   }
 
-  void _showRoomControls() {
-    final isEnglish = _isEnglish;
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      builder: (sheetContext) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              maxHeight: MediaQuery.of(sheetContext).size.height * 0.8,
-            ),
-            child: ListView(
-              shrinkWrap: true,
-              children: [
+  List<Widget> _buildRoomControlItems(BuildContext sheetContext) => [
                 Text(
                   isEnglish ? 'Room controls' : 'مدیریت اتاق',
                 style: Theme.of(sheetContext).textTheme.titleLarge?.copyWith(
@@ -773,13 +759,8 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
                 ]),
               ),
             ],
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+    ];
+
 
   @override
   Widget build(BuildContext context) {
@@ -812,10 +793,9 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
           foregroundColor: Theme.of(context).colorScheme.primary,
           title: Text(isEnglish ? 'Room ${widget.match['roomCode'] ?? _id}' : 'اتاق ${widget.match['roomCode'] ?? _id}'),
           actions: [
-            IconButton(
-              onPressed: _showRoomControls,
+            RoomControlsMenuButton(
               tooltip: isEnglish ? 'Room controls' : 'مدیریت اتاق',
-              icon: const Icon(Icons.menu_rounded),
+              itemsBuilder: _buildRoomControlItems,
             ),
             IconButton(onPressed: _busy ? null : _refresh, icon: const Icon(Icons.refresh)),
           ],
