@@ -11,6 +11,7 @@ All events are authenticated by the existing account JWT. The server derives use
 - `chess:chat:send`: `{requestId, gameId, text}`
 - `chess:voice:request`: `{requestId, gameId, leaseId}`
 - `chess:voice:release`: `{requestId, gameId, leaseId}`
+- `chess:voice:signal`: `{gameId, signalType: offer|answer|candidate, payload}` (authenticated, active-game and host-enabled checks; payload capped for PostgreSQL notification limits)
 - `chess:clock:sync`: `{requestId, gameId}`
 
 ## Server → client
@@ -20,6 +21,7 @@ All events are authenticated by the existing account JWT. The server derives use
 - `chess:clock`: server timestamp and remaining milliseconds for both sides
 - `chess:chat:message`: username, message, server timestamp
 - `chess:voice:granted`, `chess:voice:occupied`, `chess:voice:released`, `chess:voice:disabled`
+- `chess:voice:signal`: relayed to the other participant; sender identity is server-derived
 - `chess:opponent:disconnected` / `chess:opponent:reconnected`
 
 Public player payloads contain username and public chess statistics only. They must never include legal name, phone, email, or other private account fields.
