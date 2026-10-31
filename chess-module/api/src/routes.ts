@@ -496,6 +496,11 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
     try{playerId=userId(request,options);}catch{return fail(reply,401,"unauthorized");}
     const afterId=request.query.afterId??"0";
     if(!/^[0-9]{1,20}$/.test(afterId))return fail(reply,400,"invalid_chat_cursor");
+    const membership=await pool.query(
+      "SELECT 1 FROM chess_games WHERE id=$1 AND (white_user_id=$2 OR black_user_id=$2)",
+      [request.params.gameId,playerId]
+    );
+    if(!membership.rowCount)return fail(reply,404,"game_not_found");
     const result=await pool.query(
       "SELECT c.id,c.message,c.created_at,u.username FROM chess_chat_messages c JOIN users u ON u.id=c.user_id JOIN chess_games g ON g.id=c.game_id WHERE g.id=$1 AND (g.white_user_id=$2 OR g.black_user_id=$2) AND c.id>$3 ORDER BY c.id ASC LIMIT 100",
       [request.params.gameId,playerId,afterId]
