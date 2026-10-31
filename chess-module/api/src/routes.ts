@@ -224,7 +224,7 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
     try{viewer=userId(request,options);}catch{return fail(reply,401,"unauthorized");}
     if(!/^\d+$/.test(request.params.userId))return fail(reply,400,"invalid_user_id");
     const profile=await pool.query(
-      'SELECT u.id,u.username,COALESCE(p.level,1) AS level,COALESCE(p.xp,0) AS xp FROM users u LEFT JOIN chess_player_progression p ON p.user_id=u.id WHERE u.id=$1',
+      'SELECT u.id,u.username,COALESCE(p.level,1) AS level,COALESCE(p.xp,0) AS xp,COALESCE(r.rating,1200) AS rating FROM users u LEFT JOIN chess_player_progression p ON p.user_id=u.id LEFT JOIN chess_player_ratings r ON r.user_id=u.id WHERE u.id=$1',
       [request.params.userId]
     );
     if(!profile.rowCount)return fail(reply,404,"player_not_found");
@@ -234,7 +234,7 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
     );
     const total=stats.rows.reduce((sum,row)=>sum+Number(row.games),0);
     const wins=stats.rows.reduce((sum,row)=>sum+Number(row.wins),0);
-    return {username:profile.rows[0].username,level:Number(profile.rows[0].level),xp:Number(profile.rows[0].xp),
+    return {username:profile.rows[0].username,level:Number(profile.rows[0].level),xp:Number(profile.rows[0].xp),rating:Number(profile.rows[0].rating),
       games:total,wins,losses:stats.rows.reduce((sum,row)=>sum+Number(row.losses),0),
       draws:stats.rows.reduce((sum,row)=>sum+Number(row.draws),0),winRate:total?Math.round(wins*1000/total)/10:0,
       byMode:stats.rows};
@@ -293,6 +293,87 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
     const deleted=await pool.query("DELETE FROM chess_time_controls WHERE id=$1 RETURNING id",[request.params.id]);
     if(!deleted.rowCount)return fail(reply,404,"time_control_not_found");
     return {deleted:true,id:request.params.id};
+  });
+
+
+  app.get<{Params:{gameId:string};Querystring:{afterId?:string}}>("/chess/games/:gameId/chat",{preHandler:options.authenticate},async(request,reply)=>{
+    let playerId:string;
+    try{playerId=userId(request,options);}catch{return fail(reply,401,"unauthorized");}
+    const result=await pool.query(
+      "SELECT c.id,c.message,c.created_at,u.username FROM chess_chat_messages c JOIN users u ON u.id=c.user_id JOIN chess_games g ON g.id=c.game_id WHERE g.id=$1 AND (g.white_user_id=$2 OR g.black_user_id=$2) AND c.id>$3 ORDER BY c.id ASC LIMIT 100",
+      [request.params.gameId,playerId,request.query.afterId??"0"]
+    );
+    return {messages:result.rows.map(row=>({id:String(row.id),username:row.username,message:row.message,createdAt:row.created_at}))};
+  });
+
+  app.post<{Params:{gameId:string}}>("/chess/games/:gameId/draw-offers",{preHandler:options.authenticate},async(request,reply)=>{
+    let playerId:string;
+    try{playerId=userId(request,options);}catch{return fail(reply,401,"unauthorized");}
+    const client=await pool.connect();
+    try{
+      await client.query("BEGIN");
+      const game=await client.query("SELECT id,white_user_id,black_user_id,status FROM chess_games WHERE id=$1 FOR UPDATE",[request.params.gameId]);
+      const row=game.rows[0];
+      if(!row||row.status!=="active"){await client.query("ROLLBACK");return fail(reply,404,"active_game_not_found");}
+      if(playerId!==String(row.white_user_id)&&playerId!==String(row.black_user_id)){await client.query("ROLLBACK");return fail(reply,403,"not_a_player");}
+      const pending=await client.query("SELECT id FROM chess_draw_offers WHERE game_id=$1 AND status='pending'",[row.id]);
+      if(pending.rowCount){await client.query("ROLLBACK");return fail(reply,409,"draw_offer_pending");}
+      const offer=await client.query("INSERT INTO chess_draw_offers(game_id,offered_by) VALUES($1,$2) RETURNING id,created_at",[row.id,playerId]);
+      await client.query("COMMIT");
+      return reply.code(201).send({offerId:String(offer.rows[0].id),status:"pending",createdAt:offer.rows[0].created_at});
+    }catch(error){await rollback(client);request.log.error(error);return fail(reply,500,"draw_offer_failed");}
+    finally{client.release();}
+  });
+
+  app.post<{Params:{gameId:string;offerId:string};Body:{accept:boolean}}>("/chess/games/:gameId/draw-offers/:offerId/respond",{preHandler:options.authenticate},async(request,reply)=>{
+    let playerId:string;
+    try{playerId=userId(request,options);}catch{return fail(reply,401,"unauthorized");}
+    const client=await pool.connect();
+    try{
+      await client.query("BEGIN");
+      const game=await client.query("SELECT * FROM chess_games WHERE id=$1 FOR UPDATE",[request.params.gameId]);
+      const row=game.rows[0];
+      if(!row||row.status!=="active"){await client.query("ROLLBACK");return fail(reply,404,"active_game_not_found");}
+      const white=String(row.white_user_id),black=String(row.black_user_id);
+      if(playerId!==white&&playerId!==black){await client.query("ROLLBACK");return fail(reply,403,"not_a_player");}
+      const offer=await client.query("SELECT * FROM chess_draw_offers WHERE id=$1 AND game_id=$2 AND status='pending' FOR UPDATE",[request.params.offerId,row.id]);
+      if(!offer.rowCount||String(offer.rows[0].offered_by)===playerId){await client.query("ROLLBACK");return fail(reply,409,"draw_offer_unavailable");}
+      if(request.body?.accept===true){
+        const clock={...(row.clock_snapshot as ClockSnapshot),active:null,lastStartedAt:null,finished:true};
+        await client.query("UPDATE chess_games SET status='draw',clock_snapshot=$2::jsonb,finished_at=NOW(),revision=revision+1 WHERE id=$1",[row.id,JSON.stringify(clock)]);
+        await client.query("UPDATE chess_rooms SET status='finished' WHERE id=$1",[row.room_id]);
+        await client.query("UPDATE chess_draw_offers SET status='accepted',responded_by=$2,responded_at=NOW() WHERE id=$1",[offer.rows[0].id,playerId]);
+        await awardChessResult(client,String(row.id),"final_result",white,black,{outcome:"draw",winnerId:null,loserId:null});
+        await client.query("COMMIT");
+        return {status:"draw"};
+      }
+      await client.query("UPDATE chess_draw_offers SET status='declined',responded_by=$2,responded_at=NOW() WHERE id=$1",[offer.rows[0].id,playerId]);
+      await client.query("COMMIT");
+      return {status:"declined"};
+    }catch(error){await rollback(client);request.log.error(error);return fail(reply,500,"draw_response_failed");}
+    finally{client.release();}
+  });
+
+  app.post<{Params:{gameId:string};Body:{leaseId:string}}>("/chess/games/:gameId/voice/renew",{preHandler:options.authenticate},async(request,reply)=>{
+    let playerId:string;
+    try{playerId=userId(request,options);}catch{return fail(reply,401,"unauthorized");}
+    const renewed=await pool.query(
+      "UPDATE chess_voice_leases l SET expires_at=NOW()+INTERVAL '8 seconds' FROM chess_games g WHERE g.id=$1 AND g.room_id=l.room_id AND l.user_id=$2 AND l.lease_id=$3 RETURNING l.expires_at",
+      [request.params.gameId,playerId,request.body?.leaseId]
+    );
+    if(!renewed.rowCount)return fail(reply,409,"voice_lease_expired");
+    return {renewed:true,expiresAt:renewed.rows[0].expires_at};
+  });
+
+  app.post<{Params:{gameId:string}}>("/chess/games/:gameId/voice/enable",{preHandler:options.authenticate},async(request,reply)=>{
+    let actor:string;
+    try{actor=userId(request,options);}catch{return fail(reply,401,"unauthorized");}
+    const changed=await pool.query(
+      "UPDATE chess_rooms r SET settings_snapshot=jsonb_set(COALESCE(r.settings_snapshot,'{}'::jsonb),'{voiceEnabled}','true'::jsonb) FROM chess_games g WHERE g.id=$1 AND g.room_id=r.id AND r.host_user_id=$2 RETURNING r.id",
+      [request.params.gameId,actor]
+    );
+    if(!changed.rowCount)return fail(reply,403,"host_only");
+    return {voiceEnabled:true};
   });
 
 }
