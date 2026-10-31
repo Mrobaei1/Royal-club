@@ -74,6 +74,18 @@ test("authenticated chess routes support private game, draw, chat, voice, profil
       ...(payload === undefined ? {} : { payload }),
     } as never) as unknown as Promise<TestResponse>);
 
+    const levelGateRoom = await request(white, "POST", "/chess/rooms", {
+      timeControlId: "rapid",
+      minOpponentLevel: 3,
+      chatEnabled: true,
+      voiceEnabled: false,
+    });
+    assert.equal(levelGateRoom.statusCode, 201, levelGateRoom.body);
+    const underLevel = await request(black, "POST", `/chess/rooms/${levelGateRoom.json().roomCode}/join`);
+    assert.equal(underLevel.statusCode, 403, underLevel.body);
+    const cancelLevelGateRoom = await request(white, "DELETE", `/chess/rooms/${levelGateRoom.json().roomCode}`);
+    assert.equal(cancelLevelGateRoom.statusCode, 200, cancelLevelGateRoom.body);
+
     const created = await request(white, "POST", "/chess/rooms", {
       timeControlId: "rapid",
       minOpponentLevel: 1,
