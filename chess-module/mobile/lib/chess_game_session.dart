@@ -50,6 +50,7 @@ class ChessGameSession extends ChangeNotifier {
     if (_disposed) throw StateError('chess_session_disposed');
     await refresh();
     await _openSocket();
+    await refresh(); // Close the snapshot-to-subscription race window.
     _heartbeat?.cancel();
     _heartbeat = Timer.periodic(const Duration(seconds: 15), (_) {
       if (_socket?.readyState == WebSocket.open) {
@@ -214,6 +215,7 @@ class ChessGameSession extends ChangeNotifier {
       try {
         await refresh();
         await _openSocket();
+        await refresh();
       } catch (_) {
         _scheduleReconnect();
       }
