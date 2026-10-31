@@ -72,7 +72,7 @@ export async function registerChessWebSocket(app: FastifyInstance, options: Opti
               send({type:"chess:chat:message",id:String(row.id),username:row.username,message:row.message,createdAt:row.created_at});
             }
           } else if (event.type === "draw_offer" && event.offerId && event.offeredBy !== userId) {
-            send({type:"chess:draw:offered",offerId:event.offerId,offeredBy:event.offeredBy});
+            send({type:"chess:draw:offered",offerId:event.offerId});
           } else if (event.type === "draw_response" && event.offerId) {
             send({type:"chess:draw:response",offerId:event.offerId,status:event.status});
           } else if (event.type === "presence" && event.id && typeof event.connected === "boolean") {
