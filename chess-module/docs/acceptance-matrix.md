@@ -14,6 +14,6 @@
 
 A row is not complete merely because a contract or placeholder exists. Integration readiness requires every automated test to pass, the remaining acceptance items to be closed or explicitly accepted, and owner approval for the separate merge step.
 
-| Room lifecycle | Private-room expiry, host cancellation, matchmaking queue expiry and status polling | Concurrent room join/cancel race tests and two-client matchmaking acceptance |
+| Room lifecycle | Private-room expiry, host cancellation, matchmaking queue expiry/status polling, pending draw expiry and terminal draw cleanup | Concurrent room join/cancel race tests and two-client matchmaking acceptance |
 | PostgreSQL migrations | Migrations 001–006 applied in an isolated PostgreSQL 16 integration test; timeout adjudication and progression side effects exercised against a real database | Production schema review and multi-instance contention tests |
 | Flutter API transport | Authenticated HTTP/WebSocket client for lobby, moves, chat, profiles, draw, admin and voice | Full host application wiring and device-level reconnect tests |
