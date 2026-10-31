@@ -45,6 +45,8 @@ class ChessVoiceClient {
   Timer? _leaseRenewal;
   bool _disposed = false;
   bool _makingOffer = false;
+  bool _talkRequested = false;
+  bool _requestingLease = false;
   final List<RTCIceCandidate> _pendingCandidates = [];
 
   Uri _endpoint(String path) {
@@ -82,39 +84,50 @@ class ChessVoiceClient {
 
   Future<void> pressToTalk() async {
     if (_disposed) return;
-    if (_leaseId != null) return;
-    await connect();
-    final client = HttpClient();
-    late Map<String, dynamic> body;
+    _talkRequested = true;
+    if (_leaseId != null || _requestingLease) return;
+    _requestingLease = true;
     try {
-      final request = await client.postUrl(_endpoint('/chess/games/$gameId/voice/request'));
-      request.headers.set(HttpHeaders.authorizationHeader, 'Bearer $token');
-      request.headers.contentType = ContentType.json;
-      final response = await request.close();
-      body = jsonDecode(await response.transform(utf8.decoder).join()) as Map<String, dynamic>;
-      if (response.statusCode < 200 || response.statusCode >= 300 || body['granted'] != true) {
-        throw StateError((body['reason'] ?? body['error'] ?? 'voice_lease_denied').toString());
+      await connect();
+      final client = HttpClient();
+      late Map<String, dynamic> body;
+      try {
+        final request = await client.postUrl(_endpoint('/chess/games/$gameId/voice/request'));
+        request.headers.set(HttpHeaders.authorizationHeader, 'Bearer $token');
+        request.headers.contentType = ContentType.json;
+        final response = await request.close();
+        body = jsonDecode(await response.transform(utf8.decoder).join()) as Map<String, dynamic>;
+        if (response.statusCode < 200 || response.statusCode >= 300 || body['granted'] != true) {
+          throw StateError((body['reason'] ?? body['error'] ?? 'voice_lease_denied').toString());
+        }
+      } finally {
+        client.close(force: true);
+      }
+      _leaseId = body['leaseId'] as String?;
+      if (_leaseId == null) throw StateError('voice_lease_missing');
+      if (!_talkRequested || _disposed) {
+        await releaseTalk();
+        return;
+      }
+      _leaseRenewal?.cancel();
+      _leaseRenewal = Timer.periodic(const Duration(seconds: 4), (_) => _renewLease());
+      try {
+        await _ensurePeerConnection();
+        await _enableLocalAudio();
+        if (_peer?.signalingState == RTCSignalingState.RTCSignalingStateStable) {
+          await _createAndSendOffer();
+        }
+      } catch (_) {
+        await releaseTalk();
+        rethrow;
       }
     } finally {
-      client.close(force: true);
-    }
-    _leaseId = body['leaseId'] as String?;
-    if (_leaseId == null) throw StateError('voice_lease_missing');
-    _leaseRenewal?.cancel();
-    _leaseRenewal = Timer.periodic(const Duration(seconds: 4), (_) => _renewLease());
-    try {
-      await _ensurePeerConnection();
-      await _enableLocalAudio();
-      if (_peer?.signalingState == RTCSignalingState.RTCSignalingStateStable) {
-        await _createAndSendOffer();
-      }
-    } catch (_) {
-      await releaseTalk();
-      rethrow;
+      _requestingLease = false;
     }
   }
 
   Future<void> releaseTalk() async {
+    _talkRequested = false;
     final lease = _leaseId;
     _leaseId = null;
     _leaseRenewal?.cancel();
