@@ -38,11 +38,11 @@
 | 4.0 | In-memory lifecycle, readiness, host transfer, empty-only cleanup and match target tracking | 80% |
 | 5.0 | No production Fastify/network/persistence adapter yet | 0% |
 | 6.0 | Not implemented | 0% |
-| 7.0 | Fixed hard-only policy now uses public card counts and void-suit inference; deterministic full-hand simulation passes; deeper search and room orchestration pending | 40% |
+| 7.0 | Fixed hard-only policy uses public card counts and void-suit inference; deterministic full-hand plus 24 seeded-deal simulations and hidden-hand invariance pass; deeper search and room orchestration pending | 45% |
 | 8.0 | Not implemented | 0% |
 | 9.0 | Not implemented | 0% |
 | 10.0 | Core accepts only 3/5/7 and architecture reserves source for trusted manager config; admin auth/UI/audit pending | 20% |
-| 11.0 | Engine/room/round/progression tests plus full-hand bot simulation and public-history privacy checks; latest CI green; integration/concurrency/security suites pending | 35% |
+| 11.0 | Engine/room/round/progression tests plus 24 seeded bot deals, hidden-information invariance and public-history privacy checks; latest CI green; integration/concurrency/security suites pending | 40% |
 | 12.0 | WBS, architecture contract and setup README documented; final handoff pending | 20% |
 
 ## Confirmed match scoring and progression rules (2026-10-31)
@@ -52,4 +52,4 @@
 - Level curve: level 1 starts at 0 XP; advancement cost from level L is round(300 + 5(L−1) + 0.08(L−1)^2). Level 100 starts at 79,439 XP; 95,000 XP is level 109. XP floors at zero and achieved level never decreases.
 - In-memory calculation and unit tests are now in the isolated lab. Production persistence, atomic ledger transactions and server identity integration remain open.
 
-These are planning estimates, not a claim of completed production functionality. On 2026-10-31 the bot public-card ledger, void-suit inference, full-hand simulation and round-history tests were added; latest isolated CI run passed (run 41227267640). Recalculate after each verified milestone.
+These are planning estimates, not a claim of completed production functionality. On 2026-10-31 the bot public-card ledger, void-suit inference, full-hand simulation and round-history tests were added; latest isolated CI run passed (run 41227379369; 24 seeded bot deals included). Recalculate after each verified milestone.
