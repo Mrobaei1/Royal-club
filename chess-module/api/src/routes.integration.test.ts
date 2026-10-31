@@ -7,7 +7,7 @@ import { Pool } from "pg";
 import type { FastifyRequest } from "fastify";
 import { registerChessRoutes } from "./routes.js";
 import { awardChessResult } from "./progression-store.js";
-import { adjudicateExpiredChessClocks } from "./clock-scheduler.js";
+import { adjudicateExpiredChessClocks, expirePendingChessDrawOffers } from "./clock-scheduler.js";
 
 const databaseUrl = process.env.CHESS_TEST_DATABASE_URL;
 const migrationFiles = [
@@ -220,6 +220,15 @@ test("authenticated chess routes support private game, draw, chat, voice, profil
     const timeoutJoin = await request(black, "POST", `/chess/rooms/${timeoutRoom.json().roomCode}/join`);
     assert.equal(timeoutJoin.statusCode, 201, timeoutJoin.body);
     const timeoutGameId = timeoutJoin.json().gameId as string;
+    const expiringOffer = await request(white, "POST", `/chess/games/${timeoutGameId}/draw-offers`);
+    assert.equal(expiringOffer.statusCode, 201, expiringOffer.body);
+    await pool.query(
+      "UPDATE chess_draw_offers SET expires_at=NOW()-INTERVAL '1 second' WHERE id=$1",
+      [expiringOffer.json().offerId],
+    );
+    assert.equal(await expirePendingChessDrawOffers(pool), 1);
+    const expiredOffer = await pool.query("SELECT status FROM chess_draw_offers WHERE id=$1", [expiringOffer.json().offerId]);
+    assert.equal(expiredOffer.rows[0].status, "cancelled");
     const timeoutNow = Date.now();
     await pool.query(
       "UPDATE chess_games SET clock_snapshot=jsonb_set(jsonb_set(clock_snapshot,'{whiteMs}','1'::jsonb),'{lastStartedAt}',to_jsonb($2::bigint)) WHERE id=$1",
