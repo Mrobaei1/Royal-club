@@ -17,6 +17,7 @@ import { nextProgressionState } from './player-progression.js';
 import { chooseTemporaryAiTurn } from './disconnect-takeover.js';
 import { AGENT_TEMPLATES, gameAgentTemplateCode, getAgentTemplate } from './agent-catalog.js';
 import { hasRoyalPermission, isRoyalPermission } from './permissions.js';
+import { isValidNeonTriggerInvocation } from './neon-trigger-auth.js';
 import { promisify } from 'node:util';
 
 const scrypt = promisify(scryptCallback);
@@ -4581,10 +4582,10 @@ app.delete<{ Params: { id: string } }>('/api/v1/matches/:id', { onRequest: [requ
 // Neon Function Trigger calls this route on its schedule to remove expired rooms
 // even when the API runtime has scaled to zero and no user is making requests.
 app.post('/internal/cleanup-expired-empty-rooms', async (request, reply) => {
-  const triggerInvocationId = request.headers['x-neon-trigger-invocation-id'];
-  const invocationId = (request.body as { invocation_id?: unknown } | undefined)?.invocation_id;
-  if (typeof triggerInvocationId !== 'string' || !triggerInvocationId ||
-      typeof invocationId !== 'string' || invocationId !== triggerInvocationId) {
+  if (!isValidNeonTriggerInvocation(
+    request.headers['x-neon-trigger-invocation-id'],
+    request.body,
+  )) {
     return reply.code(403).send({ error: 'Valid scheduled trigger invocation required.' });
   }
   try {
