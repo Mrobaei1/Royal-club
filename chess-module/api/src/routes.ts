@@ -363,17 +363,31 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
     let actor:string;
     try{actor=userId(request,options);}catch{return fail(reply,401,"unauthorized");}
     if(!await options.canManageSettings(actor))return fail(reply,403,"forbidden");
-    const referenced=await pool.query("SELECT 1 FROM chess_rooms WHERE time_control_id=$1 LIMIT 1",[request.params.id]);
-    if(referenced.rowCount){
-      const disabled=await pool.query("UPDATE chess_time_controls SET enabled=false,updated_at=NOW() WHERE id=$1 RETURNING id",[request.params.id]);
-      if(!disabled.rowCount)return fail(reply,404,"time_control_not_found");
-      return {deleted:false,disabled:true,id:request.params.id};
-    }
-    const deleted=await pool.query("DELETE FROM chess_time_controls WHERE id=$1 RETURNING id",[request.params.id]);
-    if(!deleted.rowCount)return fail(reply,404,"time_control_not_found");
-    return {deleted:true,id:request.params.id};
+    const client=await pool.connect();
+    try{
+      await client.query("BEGIN");
+      const before=await client.query("SELECT id,display_name,base_ms,increment_ms,enabled FROM chess_time_controls WHERE id=$1 FOR UPDATE",[request.params.id]);
+      if(!before.rowCount){await client.query("ROLLBACK");return fail(reply,404,"time_control_not_found");}
+      const referenced=await client.query("SELECT 1 FROM chess_rooms WHERE time_control_id=$1 LIMIT 1",[request.params.id]);
+      if(referenced.rowCount){
+        const disabled=await client.query("UPDATE chess_time_controls SET enabled=false,updated_at=NOW() WHERE id=$1 RETURNING id,display_name,base_ms,increment_ms,enabled",[request.params.id]);
+        await client.query(
+          "INSERT INTO chess_admin_audit_events(actor_user_id,action,entity_type,entity_id,before_data,after_data) VALUES($1,'time_control_disable','time_control',$2,$3::jsonb,$4::jsonb)",
+          [actor,request.params.id,JSON.stringify(before.rows[0]),JSON.stringify(disabled.rows[0])]
+        );
+        await client.query("COMMIT");
+        return {deleted:false,disabled:true,id:request.params.id};
+      }
+      await client.query("DELETE FROM chess_time_controls WHERE id=$1",[request.params.id]);
+      await client.query(
+        "INSERT INTO chess_admin_audit_events(actor_user_id,action,entity_type,entity_id,before_data,after_data) VALUES($1,'time_control_delete','time_control',$2,$3::jsonb,NULL)",
+        [actor,request.params.id,JSON.stringify(before.rows[0])]
+      );
+      await client.query("COMMIT");
+      return {deleted:true,id:request.params.id};
+    }catch(error){await rollback(client);request.log.error(error);return fail(reply,500,"time_control_delete_failed");}
+    finally{client.release();}
   });
-
 
   app.get<{Params:{gameId:string};Querystring:{afterId?:string}}>("/chess/games/:gameId/chat",{preHandler:options.authenticate},async(request,reply)=>{
     let playerId:string;
