@@ -15,11 +15,18 @@ class ChessGameSessionView extends StatelessWidget {
   final ChessGameSession session;
   final VoidCallback? onClose;
 
-  void _report(BuildContext context, Object error) {
-    if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(error.toString())),
-    );
+  void _report(ScaffoldMessengerState messenger, Object error) {
+    if (!messenger.mounted) return;
+    messenger.showSnackBar(SnackBar(content: Text(error.toString())));
+  }
+
+  Future<T?> _guard<T>(Future<T> action, ScaffoldMessengerState messenger) async {
+    try {
+      return await action;
+    } catch (error) {
+      _report(messenger, error);
+      return null;
+    }
   }
 
   @override
@@ -27,6 +34,7 @@ class ChessGameSessionView extends StatelessWidget {
         animation: session,
         builder: (context, _) {
           final game = session.game;
+          final messenger = ScaffoldMessenger.of(context);
           if (game == null) {
             return Scaffold(
               appBar: AppBar(
@@ -45,7 +53,7 @@ class ChessGameSessionView extends StatelessWidget {
                           Text(session.errorCode!),
                           const SizedBox(height: 12),
                           FilledButton(
-                            onPressed: () => unawaited(session.connect().catchError((e) => _report(context, e))),
+                            onPressed: () => unawaited(_guard(session.connect(), messenger)),
                             child: const Text('Retry'),
                           ),
                         ],
@@ -81,7 +89,7 @@ class ChessGameSessionView extends StatelessWidget {
                     content: Text(session.errorCode!),
                     actions: [
                       TextButton(
-                        onPressed: () => unawaited(session.refresh().catchError((e) => _report(context, e))),
+                        onPressed: () => unawaited(_guard(session.refresh(), messenger)),
                         child: Text(fa ? 'تلاش دوباره' : 'Retry'),
                       ),
                     ],
@@ -99,23 +107,23 @@ class ChessGameSessionView extends StatelessWidget {
                     blackProfile: session.blackProfile,
                     onMove: (uci) {
                       if (uci.length < 4) return;
-                      unawaited(session.submitMove(
+                      unawaited(_guard(session.submitMove(
                         from: uci.substring(0, 2),
                         to: uci.substring(2, 4),
                         promotion: uci.length > 4 ? uci.substring(4, 5) : null,
-                      ).catchError((e) => _report(context, e)));
+                      ), messenger));
                     },
                     messages: session.messages,
-                    onSendMessage: (message) => unawaited(session.sendChat(message).catchError((e) => _report(context, e))),
-                    onVoicePressed: () => unawaited(session.pressToTalk().catchError((e) => _report(context, e))),
-                    onVoiceReleased: () => unawaited(session.releaseTalk().catchError((e) => _report(context, e))),
+                    onSendMessage: (message) => unawaited(_guard(session.sendChat(message), messenger)),
+                    onVoicePressed: () => unawaited(_guard(session.pressToTalk(), messenger)),
+                    onVoiceReleased: () => unawaited(_guard(session.releaseTalk(), messenger)),
                     voiceEnabled: session.voiceEnabled,
                     speakingUsername: session.speakingUsername,
-                    onOfferDraw: () => unawaited(session.offerDraw().catchError((e) => _report(context, e))),
-                    onResign: () => unawaited(session.resign().catchError((e) => _report(context, e))),
+                    onOfferDraw: () => unawaited(_guard(session.offerDraw(), messenger)),
+                    onResign: () => unawaited(_guard(session.resign(), messenger)),
                     pendingDrawOfferId: session.pendingDrawOfferId,
                     drawOfferedByOpponent: session.drawOfferedByOpponent,
-                    onRespondToDraw: (accept) => unawaited(session.respondToDraw(accept).catchError((e) => _report(context, e))),
+                    onRespondToDraw: (accept) => unawaited(_guard(session.respondToDraw(accept), messenger)),
                   ),
                 ),
               ],
