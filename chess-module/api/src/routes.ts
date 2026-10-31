@@ -267,6 +267,19 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
       if(!row||row.status!=="active"){await client.query("ROLLBACK");return fail(reply,404,"active_game_not_found");}
       const white=String(row.white_user_id),black=String(row.black_user_id);
       if(playerId!==white&&playerId!==black){await client.query("ROLLBACK");return fail(reply,403,"not_a_player");}
+      const settings=row.settings_snapshot as {timeControl:TimeControl};
+      const activeClock=row.clock_snapshot as ClockSnapshot;
+      const elapsed=settleClock(activeClock,settings.timeControl,Date.now(),false);
+      if(elapsed.finished){
+        const timeoutWinner=activeClock.active==="white"?black:white;
+        const timeoutStatus=timeoutWinner===white?"white_win":"black_win";
+        await client.query("UPDATE chess_games SET status=$2,clock_snapshot=$3::jsonb,finished_at=NOW(),revision=revision+1 WHERE id=$1",[row.id,timeoutStatus,JSON.stringify({...elapsed,active:null,lastStartedAt:null,finished:true})]);
+        await client.query("UPDATE chess_rooms SET status='finished' WHERE id=$1",[row.room_id]);
+        await client.query("DELETE FROM chess_voice_leases WHERE room_id=$1",[row.room_id]);
+        await awardChessResult(client,String(row.id),"final_result",white,black,{outcome:"win",winnerId:timeoutWinner,loserId:timeoutWinner===white?black:white});
+        await client.query("COMMIT");
+        return fail(reply,409,"clock_expired");
+      }
       const winner=playerId===white?black:white;
       const status=winner===white?"white_win":"black_win";
       const clock={...(row.clock_snapshot as ClockSnapshot),active:null,lastStartedAt:null,finished:true};
