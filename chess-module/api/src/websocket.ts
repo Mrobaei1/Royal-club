@@ -125,8 +125,8 @@ export async function registerChessWebSocket(app: FastifyInstance, options: Opti
         }
         void (async () => {
           const allowed = await options.pool.query(
-            "SELECT 1 FROM chess_games g JOIN chess_rooms r ON r.id=g.room_id WHERE g.id=$1 AND g.status='active' AND (g.white_user_id=$2 OR g.black_user_id=$2) AND COALESCE((r.settings_snapshot->>'voiceEnabled')::boolean,false)=true",
-            [gameId,userId]
+            "SELECT 1 FROM chess_games g JOIN chess_rooms r ON r.id=g.room_id JOIN chess_voice_leases l ON l.room_id=r.id WHERE g.id=$1 AND g.status='active' AND (g.white_user_id=$2 OR g.black_user_id=$2) AND COALESCE((r.settings_snapshot->>'voiceEnabled')::boolean,false)=true AND l.expires_at>NOW() AND (($3='offer' AND l.user_id=$2) OR ($3='answer' AND l.user_id<>$2) OR $3='candidate')",
+            [gameId,userId,message.signalType]
           );
           if (!allowed.rowCount) {
             send({type:"chess:error",code:"voice_signaling_not_allowed"});
