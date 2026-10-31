@@ -5,7 +5,7 @@
 **Merge commit:** [69f315b](https://github.com/Mrobaei1/Royal-club/commit/69f315b2c2d38eba3c1e688ab48be77d17a2137c).  
 **Original implementation commit:** [8bd4040](https://github.com/Mrobaei1/Royal-club/commit/8bd4040891fc49079b796706d72e0525c0516944).  
 **Latest main HEAD verified:** [facba04](https://github.com/Mrobaei1/Royal-club/commit/facba0469d431f7b223e308879637a41959faf9a), including the merged invitation-lifecycle fix in PR #77.  
-**Status:** Server-authoritative temporary AI takeover for backgammon is merged into `main`. Neon reports active Function deployment 80, created at 2026-10-31T06:34:28Z after PR #67 merged. The post-PR-77 main production API/database health check passed in [run 41185590568](https://github.com/Mrobaei1/Royal-club/actions/runs/41185590568). Neon does not expose the deployed source SHA, so the exact bundled commit is not directly attested. Two-device manual acceptance remains pending.
+**Status:** Server-authoritative temporary AI takeover for backgammon is merged into `main`. Neon reports active Function deployment 80, created at 2026-10-31T06:34:28Z after PR #67 merged but **before PR #77**. The post-PR-77 main production API/database health check passed in [run 41185590568](https://github.com/Mrobaei1/Royal-club/actions/runs/41185590568); this health check tested the already-active deployment and did not deploy PR #77. PR #77's expired-room acceptance guard is merged to `main` but not yet deployed to Production. Neon does not expose the deployed source SHA, so exact bundle provenance is not directly attested. Deployment 80 predates PR #77's API change. Two-device manual acceptance remains pending.
 
 ## Behavior and defaults
 
