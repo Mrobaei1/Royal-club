@@ -31,6 +31,8 @@ class ChessGameSession extends ChangeNotifier {
   String? errorCode;
   ChessPlayerProfile? whiteProfile;
   ChessPlayerProfile? blackProfile;
+  String? _whiteProfileUsername;
+  String? _blackProfileUsername;
 
   WebSocket? _socket;
   StreamSubscription<dynamic>? _subscription;
@@ -75,8 +77,10 @@ class ChessGameSession extends ChangeNotifier {
     final results = await Future.wait<dynamic>([
       api.chatHistory(gameId),
       api.pendingDrawOffer(gameId),
-      if (whiteName.isNotEmpty) api.playerProfileByUsername(whiteName) else Future.value(null),
-      if (blackName.isNotEmpty) api.playerProfileByUsername(blackName) else Future.value(null),
+      if (whiteName.isNotEmpty && (whiteProfile == null || _whiteProfileUsername != whiteName))
+        api.playerProfileByUsername(whiteName) else Future.value(null),
+      if (blackName.isNotEmpty && (blackProfile == null || _blackProfileUsername != blackName))
+        api.playerProfileByUsername(blackName) else Future.value(null),
     ]);
     if (_disposed || generation != _refreshGeneration) return;
     game = gameResult;
@@ -84,8 +88,14 @@ class ChessGameSession extends ChangeNotifier {
     final rawMessages = (results[0] as List).cast<Map<String, dynamic>>();
     messages = rawMessages.map(_chatMessage).toList(growable: false);
     final offer = Map<String, dynamic>.from(results[1] as Map);
-    whiteProfile = results[2] == null ? null : ChessPlayerProfile.fromJson(Map<String, dynamic>.from(results[2] as Map));
-    blackProfile = results[3] == null ? null : ChessPlayerProfile.fromJson(Map<String, dynamic>.from(results[3] as Map));
+    if (results[2] != null) {
+      whiteProfile = ChessPlayerProfile.fromJson(Map<String, dynamic>.from(results[2] as Map));
+      _whiteProfileUsername = whiteName;
+    }
+    if (results[3] != null) {
+      blackProfile = ChessPlayerProfile.fromJson(Map<String, dynamic>.from(results[3] as Map));
+      _blackProfileUsername = blackName;
+    }
     pendingDrawOfferId = offer['pending'] == true ? offer['offerId'] as String? : null;
     drawOfferedByOpponent = offer['pending'] == true && offer['offeredByMe'] != true;
     voiceEnabled = game?['settings']?['voiceEnabled'] == true;
