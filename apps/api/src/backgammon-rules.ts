@@ -12,7 +12,7 @@ export type MoveResult = { state: MutableGameState } | { error: string };
  * from the database, but defensive checks keep corrupted/stale state from
  * producing legal-looking moves or negative bar/off counts.
  */
-function isValidGameState(state: MutableGameState): boolean {
+export function isValidBackgammonState(state: MutableGameState): boolean {
   if (!state || !Array.isArray(state.board) || state.board.length !== 24) return false;
   for (let point = 0; point < state.board.length; point++) {
     const count = state.board[point];
@@ -48,7 +48,7 @@ export function applyBackgammonMove(
   move: BackgammonMove,
   hostTurn: boolean,
 ): MoveResult {
-  if (!isValidGameState(current)) return { error: 'Invalid board state.' };
+  if (!isValidBackgammonState(current)) return { error: 'Invalid board state.' };
   if (!move || typeof move !== 'object') return { error: 'Invalid move format.' };
   const { from, to, die } = move;
   if (!Number.isInteger(die) || die < 1 || die > 6 ||
@@ -129,7 +129,7 @@ export function hasLegalMove(
     host: 15 - board.reduce((sum, count) => sum + Math.max(count, 0), 0) - bar.host,
     guest: 15 - board.reduce((sum, count) => sum + Math.max(-count, 0), 0) - bar.guest,
   };
-  if (!isValidGameState({ board, bar, off: inferredOff })) return false;
+  if (!isValidBackgammonState({ board, bar, off: inferredOff })) return false;
   const sign = hostTurn ? 1 : -1;
   const ownBar = hostTurn ? bar.host : bar.guest;
   const allHome = board.every((count, point) =>
@@ -174,7 +174,7 @@ export function mustPlayHigherDie(
   selectedMove: BackgammonMove,
   hostTurn: boolean,
 ): boolean {
-  if (!isValidGameState(state) || !isValidRemainingDice(remainingDice) ||
+  if (!isValidBackgammonState(state) || !isValidRemainingDice(remainingDice) ||
       remainingDice.length !== 2 || !selectedMove || typeof selectedMove !== 'object' ||
       remainingDice[0] === remainingDice[1]) return false;
   const higher = Math.max(...remainingDice);
@@ -193,7 +193,7 @@ export function maxPlayableDiceCount(
   remainingDice: number[],
   hostTurn: boolean,
 ): number {
-  if (!isValidGameState(state) || !isValidRemainingDice(remainingDice)) return 0;
+  if (!isValidBackgammonState(state) || !isValidRemainingDice(remainingDice)) return 0;
   const sign = hostTurn ? 1 : -1;
   const ownBar = hostTurn ? 'host' : 'guest';
   const candidates: BackgammonMove[] = [];
