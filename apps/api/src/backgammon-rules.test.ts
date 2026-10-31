@@ -3,7 +3,18 @@ import assert from 'node:assert/strict';
 import { INITIAL_BACKGAMMON_BOARD, applyBackgammonMove, hasLegalMove, maxPlayableDiceCount, mustPlayHigherDie } from './backgammon-rules.js';
 
 const emptyBoard = () => Array<number>(24).fill(0);
-const state = (board: number[], bar = { host: 0, guest: 0 }, off = { host: 0, guest: 0 }) => ({ board, bar, off });
+const state = (
+  board: number[],
+  bar = { host: 0, guest: 0 },
+  off?: { host: number; guest: number },
+) => ({
+  board,
+  bar,
+  off: off ?? {
+    host: 15 - board.reduce((sum, count) => sum + Math.max(count, 0), 0) - bar.host,
+    guest: 15 - board.reduce((sum, count) => sum + Math.max(-count, 0), 0) - bar.guest,
+  },
+});
 
 test('detects a regular legal move for either player', () => {
   const board = emptyBoard();
@@ -232,6 +243,15 @@ test('rejects invalid bar and borne-off counters instead of allowing corrupt sta
   assert.ok('error' in applyBackgammonMove(fractionalOff, { from: 5, to: 4, die: 1 }, true));
   assert.equal(maxPlayableDiceCount(negativeBar, [1], true), 0);
   assert.equal(maxPlayableDiceCount(fractionalOff, [1], true), 0);
+});
+
+test('rejects a persisted position with missing checkers instead of silently accepting it', () => {
+  const board = emptyBoard();
+  board[5] = 14;
+  const missingOne = { board, bar: { host: 0, guest: 0 }, off: { host: 0, guest: 0 } };
+  assert.ok('error' in applyBackgammonMove(missingOne, { from: 5, to: 4, die: 1 }, true));
+  assert.equal(maxPlayableDiceCount(missingOne, [1], true), 0);
+  assert.equal(hasLegalMove(board, missingOne.bar, [1], true), false);
 });
 
 test('valid states still preserve the normal move and bar-entry rules', () => {
