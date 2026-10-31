@@ -209,3 +209,52 @@ test('initial board has the correct orientation and allows both players to move'
   assert.equal(hasLegalMove([...INITIAL_BACKGAMMON_BOARD], { host: 0, guest: 0 }, [1], true), true);
   assert.equal(hasLegalMove([...INITIAL_BACKGAMMON_BOARD], { host: 0, guest: 0 }, [1], false), true);
 });
+
+
+test('rejects malformed board counts without mutating the supplied state', () => {
+  const board = emptyBoard();
+  board[5] = 1.5;
+  const original = state([...board]);
+  const result = applyBackgammonMove(original, { from: 5, to: 4, die: 1 }, true);
+  assert.ok('error' in result);
+  assert.equal(original.board[5], 1.5);
+  assert.equal(hasLegalMove(board, { host: 0, guest: 0 }, [1], true), false);
+  assert.equal(maxPlayableDiceCount(original, [1, 2], true), 0);
+});
+
+test('rejects invalid bar and borne-off counters instead of allowing corrupt state', () => {
+  const board = emptyBoard();
+  board[5] = 1;
+  const negativeBar = state(board, { host: -1, guest: 0 });
+  const fractionalOff = state(board, { host: 0, guest: 0 }, { host: 0.5, guest: 0 });
+
+  assert.ok('error' in applyBackgammonMove(negativeBar, { from: 5, to: 4, die: 1 }, true));
+  assert.ok('error' in applyBackgammonMove(fractionalOff, { from: 5, to: 4, die: 1 }, true));
+  assert.equal(maxPlayableDiceCount(negativeBar, [1], true), 0);
+  assert.equal(maxPlayableDiceCount(fractionalOff, [1], true), 0);
+});
+
+test('valid states still preserve the normal move and bar-entry rules', () => {
+  const board = emptyBoard();
+  board[5] = 1;
+  const move = applyBackgammonMove(state(board), { from: 5, to: 4, die: 1 }, true);
+  assert.ok('state' in move);
+  if ('state' in move) {
+    assert.equal(move.state.board[5], 0);
+    assert.equal(move.state.board[4], 1);
+  }
+
+  const barBoard = emptyBoard();
+  barBoard[23] = -1;
+  const entry = applyBackgammonMove(
+    state(barBoard, { host: 1, guest: 0 }),
+    { from: null, to: 23, die: 1 },
+    true,
+  );
+  assert.ok('state' in entry);
+  if ('state' in entry) {
+    assert.equal(entry.state.bar.host, 0);
+    assert.equal(entry.state.board[23], 1);
+    assert.equal(entry.state.bar.guest, 1);
+  }
+});
