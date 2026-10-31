@@ -254,7 +254,7 @@ test('registered players can join an online match and history does not expose op
   assert.equal(readAllHostRow?.read_at, null, 'Read-all must not mark the host account notifications as read.');
   assert.ok(readAllGuestRow?.read_at, 'Read-all must mark the guest account notification as read.');
 
-  const avatar = 'data:image/png;base64,aGVsbG8=';
+  const avatar = 'data:image/png;base64,iVBORw0KGgo=';
   const avatarUpdate = await app.inject({
     method: 'PATCH',
     url: '/api/v1/me/avatar',
@@ -2797,4 +2797,97 @@ test('automatic schedule generation rejects manager-created formats without crea
     if (previousOwnerId === undefined) delete process.env.OWNER_USER_ID;
     else process.env.OWNER_USER_ID = previousOwnerId;
   }
+});
+
+
+test('avatar endpoint rejects spoofed, malformed, and oversized image data and supports clearing', async () => {
+  const user = await register('Avatar Validation Player');
+  const authHeaders = auth(user.token);
+  const spoofed = await app.inject({
+    method: 'PATCH', url: '/api/v1/me/avatar', headers: authHeaders,
+    payload: { avatarDataUrl: 'data:image/png;base64,/9j/2Q==' },
+  });
+  assert.equal(spoofed.statusCode, 400, 'JPEG bytes must not be accepted under a PNG MIME type.');
+
+  const malformed = await app.inject({
+    method: 'PATCH', url: '/api/v1/me/avatar', headers: authHeaders,
+    payload: { avatarDataUrl: 'data:image/png;base64,A' },
+  });
+  assert.equal(malformed.statusCode, 400);
+
+  const pngHeader = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+  const oversizedBytes = Buffer.concat([pngHeader, Buffer.alloc(650 * 1024 + 1 - pngHeader.length)]);
+  const oversized = await app.inject({
+    method: 'PATCH', url: '/api/v1/me/avatar', headers: authHeaders,
+    payload: { avatarDataUrl: `data:image/png;base64,${oversizedBytes.toString('base64')}` },
+  });
+  assert.equal(oversized.statusCode, 400, 'Decoded image bytes must stay within 650 KiB.');
+
+  const accepted = await app.inject({
+    method: 'PATCH', url: '/api/v1/me/avatar', headers: authHeaders,
+    payload: { avatarDataUrl: `data:image/png;base64,${pngHeader.toString('base64')}` },
+  });
+  assert.equal(accepted.statusCode, 200, accepted.body);
+
+  const cleared = await app.inject({
+    method: 'PATCH', url: '/api/v1/me/avatar', headers: authHeaders,
+    payload: { avatarDataUrl: null },
+  });
+  assert.equal(cleared.statusCode, 200, cleared.body);
+  assert.equal(cleared.json().avatarDataUrl, null);
+});
+
+test('friend acceptance serializes concurrent requests at the 100-friend boundary', async () => {
+  const target = await register('Friend Limit Target');
+  const requesterA = await register('Friend Limit Requester A');
+  const requesterB = await register('Friend Limit Requester B');
+  const suffix = randomUUID().replaceAll('-', '');
+  const seeded = await testPool.query(
+    `INSERT INTO users (email, password_hash, username, full_name)
+     SELECT 'friend-cap-' || $1 || '-' || n || '@example.test',
+            'test-only-password-hash',
+            'friendcap' || $1 || 'x' || n,
+            ''
+       FROM generate_series(1, 99) AS n
+       RETURNING id`,
+    [suffix],
+  );
+  const seededIds = seeded.rows.map((row) => String(row.id));
+  assert.equal(seededIds.length, 99);
+  await testPool.query(
+    `INSERT INTO friendships (requester_id, addressee_id, status)
+     SELECT id, $1, 'accepted' FROM users WHERE id = ANY($2::bigint[])`,
+    [target.user.id, seededIds],
+  );
+  await testPool.query(
+    `INSERT INTO friendships (requester_id, addressee_id, status)
+     VALUES ($1, $2, 'pending'), ($3, $2, 'pending')`,
+    [requesterA.user.id, target.user.id, requesterB.user.id],
+  );
+
+  const [acceptA, acceptB] = await Promise.all([
+    app.inject({
+      method: 'POST', url: `/api/v1/friends/${requesterA.user.id}/accept`,
+      headers: auth(target.token), payload: {},
+    }),
+    app.inject({
+      method: 'POST', url: `/api/v1/friends/${requesterB.user.id}/accept`,
+      headers: auth(target.token), payload: {},
+    }),
+  ]);
+  assert.deepEqual([acceptA.statusCode, acceptB.statusCode].sort(), [200, 409]);
+  const count = await testPool.query(
+    `SELECT COUNT(*)::int AS total FROM friendships
+      WHERE status = 'accepted' AND (requester_id = $1 OR addressee_id = $1)`,
+    [target.user.id],
+  );
+  assert.equal(Number(count.rows[0].total), 100,
+    'Concurrent accepts must not allow an account to exceed the 100-friend limit.');
+
+  const outsider = await register('Friend Limit Outsider');
+  const overLimitRequest = await app.inject({
+    method: 'POST', url: `/api/v1/friends/${target.user.id}/request`,
+    headers: auth(outsider.token), payload: {},
+  });
+  assert.equal(overLimitRequest.statusCode, 409);
 });
