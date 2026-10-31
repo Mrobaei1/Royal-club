@@ -100,6 +100,9 @@ export function reconnectPlayer(room, userId, { now, expectedVersion } = {}) {
   if (!player) throw new Error("User is not a member of this room");
   if (player.forfeited) throw new Error("A forfeited player cannot reclaim their seat");
   if (player.connected) return room;
+  if (!player.temporaryBot && Number.isFinite(player.reconnectDeadline) && now > player.reconnectDeadline) {
+    throw new Error("Reconnect grace period expired; process the bot takeover first");
+  }
   const players = room.players.map((candidate) => candidate.userId === userId
     ? { ...candidate, connected: true, botControlled: false, temporaryBot: false, disconnectedAt: null, reconnectDeadline: null }
     : candidate);
