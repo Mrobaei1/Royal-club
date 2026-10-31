@@ -108,7 +108,7 @@ class _UnoOnlineScreenState extends State<UnoOnlineScreen> {
       final data = Map<String, dynamic>.from(result['data'] as Map);
       final room = Map<String, dynamic>.from(data['room'] as Map);
       setState(() => _room = room);
-      await _setupVoice();
+      _setupVoice();
       _syncRemoteMute(room);
       if (data['game'] is Map) {
         setState(() => _game = Map<String, dynamic>.from(data['game'] as Map));
@@ -160,7 +160,7 @@ class _UnoOnlineScreenState extends State<UnoOnlineScreen> {
         final map = Map<String, dynamic>.from(data as Map);
         final room = Map<String, dynamic>.from(map['room'] as Map);
         setState(() => _room = room);
-        await _setupVoice();
+        _setupVoice();
       }
       if (event == 'uno:room:start') {
         final map = Map<String, dynamic>.from(data as Map);
@@ -173,24 +173,6 @@ class _UnoOnlineScreenState extends State<UnoOnlineScreen> {
     }
   }
 
-  Future<void> _setupVoice() async {
-    _voice ??= UnoVoiceMesh(
-      localPlayerId: widget.playerId,
-      turnUrl: widget.turnUrl,
-      turnUsername: widget.turnUsername,
-      turnCredential: widget.turnCredential,
-      sendSignal: (targetId, kind, data) {
-        final code = _room?['code']?.toString();
-        if (code != null) _socket?.emit('uno:voice:signal', {'code': code, 'targetId': targetId, 'kind': kind, 'data': data});
-      },
-    );
-    try {
-      await _voice!.setIceServers(await _fetchIceServers());
-    } catch (_) {
-      // STUN fallback remains configured if the optional TURN service is unavailable.
-    }
-  }
-
   Future<List<Map<String, dynamic>>> _fetchIceServers() async {
     var baseUrl = widget.serverUrl;
     while (baseUrl.endsWith('/')) {
@@ -199,15 +181,43 @@ class _UnoOnlineScreenState extends State<UnoOnlineScreen> {
     final response = await http.get(
       Uri.parse('$baseUrl/ice-config'),
       headers: {'Authorization': 'Bearer ${widget.accessToken}'},
-    );
+    ).timeout(const Duration(seconds: 8));
     if (response.statusCode != 200) {
       throw StateError('تنظیمات ارتباط صوتی از سرور دریافت نشد.');
     }
     final decoded = Map<String, dynamic>.from(jsonDecode(response.body) as Map);
-    return List<Map<String, dynamic>>.from(
-      (decoded['iceServers'] as List)
-          .map((item) => Map<String, dynamic>.from(item as Map)),
+    final rawServers = decoded['iceServers'];
+    if (rawServers is! List || rawServers.isEmpty) {
+      throw StateError('فهرست سرورهای ارتباط صوتی معتبر نیست.');
+    }
+    return rawServers
+        .map((item) => Map<String, dynamic>.from(item as Map))
+        .toList();
+  }
+
+  Future<void> _setupVoice() async {
+    _voice ??= UnoVoiceMesh(
+      localPlayerId: widget.playerId,
+      turnUrl: widget.turnUrl,
+      turnUsername: widget.turnUsername,
+      turnCredential: widget.turnCredential,
+      sendSignal: (targetId, kind, data) {
+        final code = _room?['code']?.toString();
+        if (code != null) {
+          _socket?.emit('uno:voice:signal', {
+            'code': code,
+            'targetId': targetId,
+            'kind': kind,
+            'data': data,
+          });
+        }
+      },
     );
+    try {
+      await _voice!.setIceServers(await _fetchIceServers());
+    } catch (_) {
+      // Keep the built-in STUN configuration if optional TURN is unavailable.
+    }
   }
 
   Future<void> _toggleMic() async {
