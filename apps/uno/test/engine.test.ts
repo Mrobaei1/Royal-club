@@ -42,6 +42,7 @@ test('UNO can be called after the player has yielded the turn, and an opponent c
     {id:'keep-me',color:'blue',face:4},
   ];
   base.discardPile = [{id:'top',color:'red',face:1}];
+  base.activeColor = 'red';
   base.currentPlayerIndex = 0;
   const played = applyUnoAction(base, 'a', {type:'play',cardId:'play-me'});
   assert.equal(played.unoPendingPlayerId, 'a');
