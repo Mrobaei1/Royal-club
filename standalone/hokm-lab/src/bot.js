@@ -111,6 +111,15 @@ function shuffle(items, rng) {
   return result;
 }
 
+function shuffleItems(items, rng) {
+  const result = [...items];
+  for (let index = result.length - 1; index > 0; index -= 1) {
+    const other = Math.floor(rng() * (index + 1));
+    [result[index], result[other]] = [result[other], result[index]];
+  }
+  return result;
+}
+
 function sampleHiddenHands(state, seat, ledger, rng) {
   const played = [0, 1, 2, 3].map(() => 0);
   for (const trick of publicHistory(state)) for (const play of trick) played[play.seat] += 1;
@@ -159,7 +168,7 @@ function sampleHiddenHands(state, seat, ledger, rng) {
     const suit = SUITS[suitIndex];
     const eligible = eligibleBySuit[suit];
     const options = distributions(cardsBySuit[suit].length, eligible, capacities);
-    for (const allocation of shuffle(options, rng)) {
+    for (const allocation of shuffleItems(options, rng)) {
       const next = [...capacities];
       eligible.forEach((id, index) => { next[id] -= allocation[index]; });
       if (next.some((count, id) => id !== seat && count < 0)) continue;
@@ -175,7 +184,7 @@ function sampleHiddenHands(state, seat, ledger, rng) {
   const hands = [[], [], [], []];
   for (let index = 0; index < SUITS.length; index += 1) {
     const suit = SUITS[index];
-    const suitCards = shuffle(cardsBySuit[suit], rng);
+    const suitCards = shuffleItems(cardsBySuit[suit], rng);
     let cursor = 0;
     for (const [idText, count] of Object.entries(allocation[index])) {
       const id = Number(idText);
