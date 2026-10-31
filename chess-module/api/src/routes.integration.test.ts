@@ -55,13 +55,18 @@ test("authenticated chess routes support private game, draw, chat, voice, profil
     });
     await app.ready();
 
-    const request = (userId: string, method: 'GET' | 'POST' | 'PUT' | 'DELETE', url: string, payload?: unknown) =>
-      app.inject({
-        method,
-        url,
-        headers: { "x-user-id": userId },
-        ...(payload === undefined ? {} : { payload }),
-      });
+    type TestResponse = { statusCode: number; body: string; json: () => any };
+    const request = async (
+      userId: string,
+      method: 'GET' | 'POST' | 'PUT' | 'DELETE',
+      url: string,
+      payload?: unknown,
+    ): Promise<TestResponse> => await (app.inject({
+      method,
+      url,
+      headers: { "x-user-id": userId },
+      ...(payload === undefined ? {} : { payload }),
+    }) as unknown as Promise<TestResponse>);
 
     const created = await request(white, "POST", "/chess/rooms", {
       timeControlId: "rapid",
