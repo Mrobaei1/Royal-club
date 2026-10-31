@@ -23,12 +23,28 @@ function validText(value: unknown): string {
   if (!text || text.length > MAX_CHAT_LENGTH) throw new UnoError('INVALID_MESSAGE', 'Message must contain 1 to 500 characters.');
   return text;
 }
+function pruneRateWindows(windows: Map<string, number[]>): void {
+  if (windows.size <= 4096) return;
+  const cutoff = Date.now() - 10_000;
+  for (const [userId, times] of windows) {
+    const active = times.filter(time => time >= cutoff);
+    if (active.length === 0) windows.delete(userId);
+    else windows.set(userId, active);
+    if (windows.size <= 4096) return;
+  }
+  while (windows.size > 4096) {
+    const oldest = windows.keys().next().value;
+    if (oldest === undefined) break;
+    windows.delete(oldest);
+  }
+}
 function allowChat(userId: string): void {
   const now = Date.now();
   const times = (chatWindows.get(userId) ?? []).filter(t => now - t < 10_000);
   if (times.length >= 8) throw new UnoError('CHAT_RATE_LIMIT', 'Please slow down before sending another message.');
   times.push(now);
   chatWindows.set(userId, times);
+  pruneRateWindows(chatWindows);
 }
 function allowSignal(userId: string): void {
   const now = Date.now();
@@ -36,6 +52,7 @@ function allowSignal(userId: string): void {
   if (times.length >= 40) throw new UnoError('SIGNAL_RATE_LIMIT', 'Too many voice signalling messages.');
   times.push(now);
   signalWindows.set(userId, times);
+  pruneRateWindows(signalWindows);
 }
 function payloadSize(value: unknown): number {
   try { return Buffer.byteLength(JSON.stringify(value)); } catch { return Number.MAX_SAFE_INTEGER; }
