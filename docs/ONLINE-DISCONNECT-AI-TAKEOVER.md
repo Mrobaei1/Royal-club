@@ -4,8 +4,8 @@
 **Pull request:** [PR #67](https://github.com/Mrobaei1/Royal-club/pull/67) — merged 2026-10-31.  
 **Merge commit:** [69f315b](https://github.com/Mrobaei1/Royal-club/commit/69f315b2c2d38eba3c1e688ab48be77d17a2137c).  
 **Original implementation commit:** [8bd4040](https://github.com/Mrobaei1/Royal-club/commit/8bd4040891fc49079b796706d72e0525c0516944).  
-**Latest main HEAD verified:** [4171bb7](https://github.com/Mrobaei1/Royal-club/commit/4171bb7933a13eedb0bfc52ed51f7fe3c3d8b8bc).  
-**Status:** Server-authoritative temporary AI takeover for backgammon is merged into `main`. Neon reports active Function deployment 80, created at 2026-10-31T06:34:28Z after PR #67 merged. The latest-main production API/database health check passed in [run 41177353201](https://github.com/Mrobaei1/Royal-club/actions/runs/41177353201). Neon does not expose the deployed source SHA, so the exact bundled commit is not directly attested. Two-device manual acceptance remains pending.
+**Latest main HEAD verified:** [facba04](https://github.com/Mrobaei1/Royal-club/commit/facba0469d431f7b223e308879637a41959faf9a), including the merged invitation-lifecycle fix in PR #77.  
+**Status:** Server-authoritative temporary AI takeover for backgammon is merged into `main`. Neon reports active Function deployment 80, created at 2026-10-31T06:34:28Z after PR #67 merged. The post-PR-77 main production API/database health check passed in [run 41185590568](https://github.com/Mrobaei1/Royal-club/actions/runs/41185590568). Neon does not expose the deployed source SHA, so the exact bundled commit is not directly attested. Two-device manual acceptance remains pending.
 
 ## Behavior and defaults
 
@@ -28,16 +28,16 @@
 - On serverless hosts, the reconnect heartbeat first processes an overdue turn before refreshing presence; this prevents a returning player from bypassing the AI turn when no background worker or opponent poll ran during the idle period.
 - Long-running API hosts scan for due turns every two seconds. Authenticated match-state polling also attempts a due takeover.
 - **Serverless idle limitation:** if all clients stop polling and the API scales to zero, no background execution is guaranteed. A due takeover is processed on the next authenticated state poll. No scheduled trigger was created or activated.
-- **Live Neon configuration check (2026-10-31):** the production branch has no Function Triggers configured. Neon reports active `royalclubapi` deployment 80, created at 2026-10-31T06:34:28Z after merge commit `69f315b`. The production API health and database-connectivity checks passed in run 41177353201. The 33 production tables exactly match current API source. Neon metadata does not expose the deployed source SHA, so exact bundle provenance is not directly attested. No scheduled cleanup trigger exists; serverless idle behavior remains as described above.
+- **Live Neon configuration check (2026-10-31):** the production branch has no Function Triggers configured. Neon reports active `royalclubapi` deployment 80, created at 2026-10-31T06:34:28Z after merge commit `69f315b`. The post-PR-77 production API health and database-connectivity checks passed in run 41185590568. The 33 production tables exactly match current API source. Neon metadata does not expose the deployed source SHA, so exact bundle provenance is not directly attested. No scheduled cleanup trigger exists; serverless idle behavior remains as described above.
 
 ## Automated verification
 
-Latest-main verification on 2026-10-31, SHA `4171bb7933a13eedb0bfc52ed51f7fe3c3d8b8bc`:
+Latest-main verification on 2026-10-31, SHA `facba0469d431f7b223e308879637a41959faf9a`:
 
-- [Validate Royal Club](https://github.com/Mrobaei1/Royal-club/actions/runs/41177353219): API build/unit/integration tests and Flutter analyze/tests passed.
-- [Royal Club validation](https://github.com/Mrobaei1/Royal-club/actions/runs/41177353226): API build/tests and Flutter analyze/widget tests passed.
-- [Royal Club Web Preview](https://github.com/Mrobaei1/Royal-club/actions/runs/41177353203): API and Flutter checks, Web Preview build, and GitHub Pages deployment passed.
-- [Royal Club Production API Health](https://github.com/Mrobaei1/Royal-club/actions/runs/41177353201): the currently deployed API/database health workflow passed; this does not deploy the merged source.
+- [Validate Royal Club](https://github.com/Mrobaei1/Royal-club/actions/runs/41185590481): API build/unit/integration tests and Flutter analyze/tests passed.
+- [Royal Club validation](https://github.com/Mrobaei1/Royal-club/actions/runs/41185590482): API build/tests and Flutter analyze/widget tests passed.
+- [Royal Club Web Preview](https://github.com/Mrobaei1/Royal-club/actions/runs/41185590489): API and Flutter checks, Web Preview build, and GitHub Pages deployment passed.
+- [Royal Club Production API Health](https://github.com/Mrobaei1/Royal-club/actions/runs/41185590568): the currently deployed API/database health workflow passed; this does not deploy the merged source.
 
 The earlier exact-PR-head runs (including the backgammon engine audit on PR head `987a045`) remain historical evidence. The main-head runs above are the latest post-merge checks; the main-head workflow set did not include a separate backgammon engine audit.
 
