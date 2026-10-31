@@ -23,6 +23,8 @@ Replace the current long, owner-only admin screen with a navigable, responsive c
    - کارهای نیازمند بررسی
    - هشدارها و رخدادهای مهم
    - وضعیت سرویس‌ها و آخرین گزارش‌ها
+   - نمای کلی زنده اختصاصی مدیر کل و هشدارهای فوری
+   - ورود به مرکز تحلیل پیشرفته مدیر کل (طبق سند OWNER-EXECUTIVE-ANALYTICS-DASHBOARD.md)
 
 2. **مدیریت کاربران و اعضا**
    - جست‌وجو و پرونده کاربر
@@ -126,6 +128,9 @@ Replace the current long, owner-only admin screen with a navigable, responsive c
     - عملکرد دپارتمان‌ها
     - عملکرد Agentها
     - خروجی و بایگانی گزارش‌ها
+   - نمودارهای روند، مقایسه‌ای، ترکیبی، KPI، نقشه حرارتی، قیف و ماندگاری کاربران
+   - فیلترهای زمانی و موضوعی، مقایسه دوره‌ها، جزئیات و خروجی CSV/PDF
+   - وضعیت تازگی داده، منبع، تعریف شاخص و هشدار داده ناقص/قدیمی
 
 14. **پشتیبانی و ارتباط با ما**
     - درخواست‌های پشتیبانی
@@ -138,6 +143,16 @@ Replace the current long, owner-only admin screen with a navigable, responsive c
     - ترتیب و جمع/بازشدن گروه‌ها
     - اعلان‌های مدیریتی
     - ترجیحات نمایش
+
+## Owner analytics dashboard requirements
+- The Owner dashboard has two modes: **Live Overview** and **Advanced Analytics**; both are part of the admin command center.
+- The live view shows only verified operational/business indicators, critical alerts, pending owner approvals, and last successful refresh.
+- Advanced analytics provides diverse, metric-appropriate charts, historical comparisons, filters, drill-down, and audited CSV/PDF exports.
+- Every metric must disclose its definition, authoritative source, reporting window/timezone, and freshness state.
+- Stale, delayed, unavailable, estimated, and not-yet-instrumented values must be explicitly distinguished. Never show demo or fabricated data as real.
+- Finance analytics must reconcile with the authoritative ledger and distinguish internal credit-token movement from cash revenue. Analytics remains read-only.
+- Sensitive data and exports are Owner-only unless narrowly delegated; every endpoint independently enforces authorization.
+- Detailed specification: `docs/OWNER-EXECUTIVE-ANALYTICS-DASHBOARD.md`.
 
 ## UX requirements
 - Mobile: drawer or full-screen navigation with expandable accordions, clear back navigation, and persistent section title.
