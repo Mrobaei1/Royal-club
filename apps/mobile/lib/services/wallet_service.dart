@@ -18,7 +18,7 @@ class WalletService {
     final headers = await _headers();
     final response = body == null
         ? await http.get(ApiTransport.uri(path), headers: headers)
-        : await http.post(Uri.parse('${AuthService.baseUrl}$path'), headers: headers, body: jsonEncode(body));
+        : await http.post(ApiTransport.uri(path), headers: headers, body: jsonEncode(body));
     final decoded = jsonDecode(response.body);
     if (decoded is! Map<String, dynamic>) throw Exception('پاسخ سرور نامعتبر است.');
     if (response.statusCode < 200 || response.statusCode >= 300) {
