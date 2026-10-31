@@ -123,6 +123,26 @@ test("sampled search remains legal when deciding second and third in a trick", (
   }
 });
 
+test("sample search safely falls back when public hand-count constraints are inconsistent", () => {
+  const state = chooseTrump(createRound({
+    deck: shuffleDeck(createDeck(), seededRng(4401)),
+    hakemSeat: 0
+  }), 0, "hearts");
+  const seat = state.currentSeat;
+  const inconsistent = {
+    ...state,
+    hands: state.hands.map((hand, index) =>
+      index === seat ? hand.slice(1) : hand)
+  };
+  const first = chooseHardBotAction(inconsistent, seat);
+  const second = chooseHardBotAction(inconsistent, seat);
+  assert.equal(first.type, "play_card");
+  assert.equal(first.difficulty, "hard");
+  assert.ok(inconsistent.hands[seat].some(card =>
+    card.suit === first.card.suit && card.rank === first.card.rank));
+  assert.deepEqual(second, first);
+});
+
 test("hard bot completes 24 seeded deals without illegal actions or hidden-information dependence",()=>{
   for(let seed=1;seed<=24;seed++){
     let state=chooseTrump(createRound({deck:shuffleDeck(createDeck(),seededRng(seed)),hakemSeat:seed%4}),seed%4,"hearts");
