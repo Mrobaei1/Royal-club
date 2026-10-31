@@ -24,12 +24,16 @@ export class ChessGame {
     if (!/^[a-h][1-8]$/.test(command.from) || !/^[a-h][1-8]$/.test(command.to)) {
       throw new Error("invalid_square");
     }
-    const move = this.game.move({
-      from: command.from as Square,
-      to: command.to as Square,
-      ...(command.promotion ? { promotion: command.promotion } : {})
-    });
-    if (!move) throw new Error("illegal_move");
+    let move;
+    try {
+      move = this.game.move({
+        from: command.from as Square,
+        to: command.to as Square,
+        ...(command.promotion ? { promotion: command.promotion } : {})
+      });
+    } catch {
+      throw new Error("illegal_move");
+    }
     return this.snapshot(move.san);
   }
 
