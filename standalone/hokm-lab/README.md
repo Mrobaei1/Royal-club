@@ -13,10 +13,14 @@ Build and verify an independent, Royal Club-compatible Hokm/Court Piece game mod
 
 No source code or assets from these projects are copied into this lab. This implementation is an independent compatibility-oriented design based on game rules and the documented requirements.
 
+## Fixed product decisions
+- **Bot difficulty is permanently Hard.** Hard is the default and the only supported bot difficulty. Players cannot change it in game settings, room settings, or client requests. Do not add an Easy/Medium selector or accept a client-supplied difficulty value.
+- Hard difficulty must mean strategically strong, fair play: the bot may use only information legitimately available to that seat and must submit moves through the same authoritative legal-move validator as a human player. It must never inspect opponents' hidden cards or undealt cards.
+
 ## Requirements and planned modules
 1. Rules engine: deck, dealing, legal follow-suit validation, trick resolution, team score, round/match state.
 2. Deterministic tests: legal/illegal play, trump and led-suit comparison, tie handling, scoring, complete-hand invariants, randomized/property-style checks.
-3. AI: easy/medium/hard bots; all moves still pass the same rules validator.
+3. AI: fixed hard-only bot; no user-selectable difficulty; all moves still pass the same rules validator.
 4. Online session: 4 seats, private invitations, ready/start flow, authoritative server state, reconnect, timeouts, stale-room cleanup.
 5. Security: each client receives only its own hand and public state; never trust client-provided cards, score, seat, or turn; validate every command on server.
 6. UX adapter: Flutter-friendly state/events, Persian/English labels, responsive table, chat and optional microphone feature gated by permissions.
@@ -27,7 +31,9 @@ No source code or assets from these projects are copied into this lab. This impl
 - [x] Initial independent rules-engine package and tests drafted.
 - [x] Unit tests executed in GitHub Actions on Node.js 20 (check latest run for current revision).
 - [x] Full dealing / hakem selection / 13-trick round state machine (regional rules still require confirmation).
-- [ ] AI, online room service, reconnection, chat/voice integration.
+- [x] Fixed product decision recorded: bot difficulty is Hard-only and non-configurable.
+- [ ] Hard-only AI policy implementation and strategic-strength tests.
+- [ ] Online room service, reconnection, chat/voice integration.
 - [ ] Flutter UI and accessibility/localization.
 - [ ] Security review and end-to-end tests.
 
