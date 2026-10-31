@@ -76,14 +76,15 @@ class _ChessBoardState extends State<ChessBoard> {
       widget.onMove(candidates.single);
       return;
     }
+    final fa = Localizations.localeOf(context).languageCode == 'fa';
     final promotion = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Choose promotion'),
+        title: Text(fa ? 'انتخاب مهرهٔ ارتقا' : 'Choose promotion'),
         content: Wrap(
           spacing: 8,
           children: [
-            for (final entry in const [('q', 'Queen'), ('r', 'Rook'), ('b', 'Bishop'), ('n', 'Knight')])
+            for (final entry in const [('q', fa ? 'وزیر' : 'Queen'), ('r', fa ? 'رخ' : 'Rook'), ('b', fa ? 'فیل' : 'Bishop'), ('n', fa ? 'اسب' : 'Knight')])
               TextButton(
                 onPressed: () => Navigator.pop(context, entry.$1),
                 child: Text(entry.$2),
@@ -112,7 +113,10 @@ class _ChessBoardState extends State<ChessBoard> {
             .toSet();
     return AspectRatio(
       aspectRatio: 1,
-      child: GridView.builder(
+      child: Directionality(
+        // Chess coordinates and board orientation remain canonical in RTL locales.
+        textDirection: TextDirection.ltr,
+        child: GridView.builder(
         physics: const NeverScrollableScrollPhysics(),
         itemCount: 64,
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 8),
@@ -169,6 +173,7 @@ class _ChessBoardState extends State<ChessBoard> {
             ),
           );
         },
+      ),
       ),
     );
   }
