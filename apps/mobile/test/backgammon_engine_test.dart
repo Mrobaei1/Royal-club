@@ -271,7 +271,10 @@ void main() {
       game.points[20] = 1;
 
       final moves = game.legalMoves();
-      expect(moves.any((move) => move.from == 23 && move.to == -1), isFalse);
+      // Point 23 is closest to the bear-off edge and may use the oversized die;
+      // point 20 must not skip over it.
+      expect(moves.any((move) => move.from == 23 && move.to == -1), isTrue);
+      expect(moves.any((move) => move.from == 20 && move.to == -1), isFalse);
     });
 
     test(
@@ -308,6 +311,17 @@ void main() {
       expect(game.dice, isEmpty);
       expect(game.currentPlayer, -1);
     });
+
+    test('positive player cannot oversized-bear off past a checker closer to point 24', () {
+      clearPosition(rolledDice: [6]);
+      game.points[20] = 1;
+      game.points[23] = 1;
+
+      final moves = game.legalMoves();
+      expect(moves.any((move) => move.from == 20 && move.to == -1), isFalse);
+      expect(moves.any((move) => move.from == 23 && move.to == -1), isTrue);
+    });
+
   });
 }
 

@@ -159,21 +159,46 @@ void main() {
   });
 
 
-  testWidgets('shows a 20-second timer for the human and hides the AI timer',
+  testWidgets('shows the human timer and hides it after a legal move hands over to AI',
       (tester) async {
-    tester.view.physicalSize = const Size(390, 844);
+    tester.view.physicalSize = const Size(900, 540);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    await tester.pumpWidget(const MaterialApp(locale: Locale('fa'), localizationsDelegates: GlobalMaterialLocalizations.delegates,
-      supportedLocales: [Locale('fa'), Locale('en')], home: EngineBackgammonScreen()));
+    final engine = BackgammonEngine();
+    await tester.pumpWidget(MaterialApp(
+      locale: const Locale('fa'),
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
+      supportedLocales: const [Locale('fa'), Locale('en')],
+      home: EngineBackgammonScreen(
+        engineForTesting: engine,
+        vsComputerForTesting: true,
+      ),
+    ));
     await tester.tap(find.text('بازی آفلاین با هوش مصنوعی'));
     await tester.pumpAndSettle();
 
-    expect(find.text('⏱ 20'), findsOneWidget);
+    // Arrange a deterministic one-die turn after the screen's setup reset.
+    engine.points.fillRange(0, 24, 0);
+    engine.points[0] = 1;
+    engine.dice = [1];
+    engine.currentPlayer = 1;
+    await tester.pump();
 
     expect(find.text('⏱ 20'), findsOneWidget);
+
+    // Drive the real widget interaction so its timer lifecycle is updated.
+    await tester.tap(find.byKey(const ValueKey('backgammon-point-0')));
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('backgammon-point-1')));
+    await tester.pump();
+
+    expect(engine.currentPlayer, -1);
+    expect(find.text('⏱ 20'), findsNothing);
+
+    // Drain the scheduled AI-turn callback so the widget test leaves no timer behind.
+    await tester.pump(const Duration(seconds: 3));
   });
 
 

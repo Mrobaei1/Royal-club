@@ -11,7 +11,7 @@ import { createOtpCode, digestOtp, normalizeIranianMobile, verifyOtpDigest } fro
 import { createKavenegarProvider } from './sms-provider.js';
 import { getAllowedCorsOrigins } from './cors-config.js';
 import { normalizeDatabaseConnectionString } from './database-config.js';
-import { INITIAL_BACKGAMMON_BOARD, applyBackgammonMove, hasLegalMove, maxPlayableDiceCount, mustPlayHigherDie } from './backgammon-rules.js';
+import { INITIAL_BACKGAMMON_BOARD, applyBackgammonMove, hasLegalMove, isValidBackgammonState, maxPlayableDiceCount, mustPlayHigherDie } from './backgammon-rules.js';
 import { calculateEloRatings } from './backgammon-rating.js';
 import { nextProgressionState } from './player-progression.js';
 import { chooseTemporaryAiTurn } from './disconnect-takeover.js';
@@ -19,6 +19,7 @@ import { AGENT_TEMPLATES, gameAgentTemplateCode, getAgentTemplate } from './agen
 import { hasRoyalPermission, isRoyalPermission } from './permissions.js';
 import { isValidNeonTriggerInvocation } from './neon-trigger-auth.js';
 import { promisify } from 'node:util';
+import { createRoyalLoggerOptions } from './logging-config.js';
 
 const scrypt = promisify(scryptCallback);
 
@@ -87,7 +88,7 @@ async function consumeOtpChallenge(
   return true;
 }
 
-const app = Fastify({ logger: true, trustProxy: false });
+const app = Fastify({ logger: createRoyalLoggerOptions(), trustProxy: false });
 const pool = new Pool({ connectionString: normalizeDatabaseConnectionString(process.env.DATABASE_URL) });
 
 // Expire empty waiting rooms after 60 seconds and remove their related notices.
@@ -534,6 +535,7 @@ await pool.query(`
     dice JSONB NOT NULL DEFAULT '[]'::jsonb,
     remaining_dice JSONB NOT NULL DEFAULT '[]'::jsonb,
     state_version INTEGER NOT NULL DEFAULT 0,
+    turn_started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     expires_at TIMESTAMPTZ NOT NULL DEFAULT (NOW() + INTERVAL '60 seconds'),
@@ -547,6 +549,7 @@ await pool.query(`
   ALTER TABLE backgammon_matches ADD COLUMN IF NOT EXISTS dice JSONB NOT NULL DEFAULT '[]'::jsonb;
   ALTER TABLE backgammon_matches ADD COLUMN IF NOT EXISTS remaining_dice JSONB NOT NULL DEFAULT '[]'::jsonb;
   ALTER TABLE backgammon_matches ADD COLUMN IF NOT EXISTS state_version INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE backgammon_matches ADD COLUMN IF NOT EXISTS turn_started_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
   ALTER TABLE backgammon_matches ALTER COLUMN board_state SET DEFAULT '${JSON.stringify(INITIAL_BACKGAMMON_BOARD)}'::jsonb;
   CREATE INDEX IF NOT EXISTS backgammon_matches_waiting_idx ON backgammon_matches (created_at DESC) WHERE status = 'waiting';
   CREATE INDEX IF NOT EXISTS backgammon_matches_players_idx ON backgammon_matches (host_user_id, guest_user_id, status);
@@ -1115,11 +1118,17 @@ async function processTemporaryAiTakeover(matchId: string, requesterId?: string)
       dice = first === second ? [first, first, first, first] : [...rolledDice];
     }
 
-    const selected = chooseTemporaryAiTurn({
+    const aiState = {
       board: [...game.board_state],
       bar: { host: Number(game.bar_state?.host ?? 0), guest: Number(game.bar_state?.guest ?? 0) },
       off: { host: Number(game.off_state?.host ?? 0), guest: Number(game.off_state?.guest ?? 0) },
-    }, dice, hostTurn);
+    };
+    if (!isValidBackgammonState(aiState)) {
+      await client.query('ROLLBACK');
+      app.log.error({ matchId }, 'Temporary AI refused an invalid persisted backgammon state');
+      return false;
+    }
+    const selected = chooseTemporaryAiTurn(aiState, dice, hostTurn);
 
     const finalState = selected.state;
     const gameFinished = finalState.off.host >= 15 || finalState.off.guest >= 15;
@@ -1140,7 +1149,8 @@ async function processTemporaryAiTakeover(matchId: string, requesterId?: string)
     await client.query(
       `UPDATE backgammon_matches
           SET board_state = $1::jsonb, bar_state = $2::jsonb, off_state = $3::jsonb,
-              current_turn_user_id = $4, dice = '[]'::jsonb, remaining_dice = '[]'::jsonb,
+              current_turn_user_id = $4, turn_started_at = NOW(),
+              dice = '[]'::jsonb, remaining_dice = '[]'::jsonb,
               status = $5, winner_user_id = $6, finish_reason = $7,
               host_game_wins = $8, guest_game_wins = $9,
               state_version = state_version + 1, updated_at = NOW()
@@ -4091,6 +4101,7 @@ app.post<{ Params: { id: string }; Body: { matchToWin?: number; acceptSettings?:
         await client.query(
           `UPDATE backgammon_matches SET status = 'active', current_turn_user_id = host_user_id,
              dice = '[]'::jsonb, remaining_dice = '[]'::jsonb, state_version = 0,
+             turn_started_at = NOW(),
              expires_at = NOW() + INTERVAL '30 minutes', updated_at = NOW() WHERE id = $1 AND status = 'waiting'`, [request.params.id]);
         await client.query(
           `INSERT INTO backgammon_match_presence (match_id, user_id)
@@ -4212,7 +4223,7 @@ app.post<{ Params: { id: string }; Body: { scope?: 'game' | 'match' } }>(
         await client.query(
           `UPDATE backgammon_matches
               SET status = 'finished', winner_user_id = $1, finish_reason = 'resignation',
-                  dice = '[]'::jsonb, remaining_dice = '[]'::jsonb,
+                  dice = '[]'::jsonb, remaining_dice = '[]'::jsonb, turn_started_at = NOW(),
                   cancellation_proposed_by = NULL, cancellation_accepted_by = NULL,
                   state_version = state_version + 1, updated_at = NOW()
             WHERE id = $2`,
@@ -4238,7 +4249,7 @@ app.post<{ Params: { id: string }; Body: { scope?: 'game' | 'match' } }>(
                 bar_state = CASE WHEN $1 = 'active' THEN '{"host":0,"guest":0}'::jsonb ELSE bar_state END,
                 off_state = CASE WHEN $1 = 'active' THEN '{"host":0,"guest":0}'::jsonb ELSE off_state END,
                 current_turn_user_id = CASE WHEN $1 = 'active' THEN $6::bigint ELSE NULL END,
-                dice = '[]'::jsonb, remaining_dice = '[]'::jsonb,
+                turn_started_at = NOW(), dice = '[]'::jsonb, remaining_dice = '[]'::jsonb,
                 cancellation_proposed_by = NULL, cancellation_accepted_by = NULL,
                 state_version = state_version + 1, updated_at = NOW()
           WHERE id = $7`,
@@ -4379,6 +4390,7 @@ app.post<{ Params: { id: string }; Body: { moves: Array<{ from: number | null; t
               off_state = $3::jsonb, current_turn_user_id = $4, dice = $5::jsonb,
               remaining_dice = $6::jsonb, status = $7,
               host_game_wins = $8, guest_game_wins = $9,
+              turn_started_at = CASE WHEN $11::boolean THEN NOW() ELSE turn_started_at END,
               state_version = state_version + 1, updated_at = NOW()
          WHERE id = $10
          RETURNING id, status, board_state AS board, bar_state AS bar, off_state AS off,
@@ -4389,7 +4401,7 @@ app.post<{ Params: { id: string }; Body: { moves: Array<{ from: number | null; t
       [JSON.stringify(nextBoard), JSON.stringify(nextBar), JSON.stringify(nextOff),
        gameFinished ? game.host_user_id : nextTurn, JSON.stringify(gameFinished ? [] : nextDice),
        JSON.stringify(gameFinished ? [] : nextRemaining), matchFinished ? 'finished' : 'active',
-       nextHostWins, nextGuestWins, game.id]);
+       nextHostWins, nextGuestWins, game.id, turnComplete || gameFinished]);
     if (gameFinished && game.guest_user_id) {
       const winnerId = simulated.off.host >= 15 ? game.host_user_id : game.guest_user_id;
       const loserId = winnerId === game.host_user_id ? game.guest_user_id : game.host_user_id;
@@ -4471,81 +4483,14 @@ app.post<{ Params: { id: string }; Body: { from: number | null; to: number | nul
       await client.query('ROLLBACK');
       return reply.code(409).send({ error: 'You must play the higher die first when the lower die would prevent it.' });
     }
-    const sign = hostTurn ? 1 : -1;
-    const bar = { host: Number(game.bar_state?.host ?? 0), guest: Number(game.bar_state?.guest ?? 0) };
-    const off = { host: Number(game.off_state?.host ?? 0), guest: Number(game.off_state?.guest ?? 0) };
-    const board = [...game.board_state];
-    const ownBar = hostTurn ? 'host' : 'guest';
-    const otherBar = hostTurn ? 'guest' : 'host';
-    let target = -1;
-
-    if (bar[ownBar] > 0) {
-      if (body.from !== null || body.to === null) {
-        await client.query('ROLLBACK');
-        return reply.code(409).send({ error: 'A checker on the bar must enter before other checkers can move.' });
-      }
-      target = hostTurn ? 24 - body.die : body.die - 1;
-      if (body.to !== target) {
-        await client.query('ROLLBACK');
-        return reply.code(409).send({ error: 'Invalid bar-entry point for that die.' });
-      }
-    } else {
-      if (body.from === null) {
-        await client.query('ROLLBACK');
-        return reply.code(409).send({ error: 'No checker is available on the bar.' });
-      }
-      if (board[body.from] * sign <= 0) {
-        await client.query('ROLLBACK');
-        return reply.code(409).send({ error: 'Select one of your own checkers.' });
-      }
-      const rawTarget = hostTurn ? body.from - body.die : body.from + body.die;
-      if (body.to === null) {
-        const inHome = hostTurn ? body.from <= 5 : body.from >= 18;
-        const allHome = board.every((count, point) => hostTurn
-          ? point <= 5 || count <= 0
-          : point >= 18 || count >= 0);
-        const overshootClear = hostTurn
-          ? !board.some((count, point) => point > body.from! && point <= 5 && count > 0)
-          : !board.some((count, point) => point < body.from! && point >= 18 && count < 0);
-        const distanceToOff = hostTurn ? body.from + 1 : 24 - body.from;
-        const overshootsDie = body.die > distanceToOff;
-        if (!inHome || !allHome || body.die < distanceToOff || (overshootsDie && !overshootClear)) {
-          await client.query('ROLLBACK');
-          return reply.code(409).send({ error: 'That checker cannot bear off with this die.' });
-        }
-        off[ownBar] += 1;
-      } else {
-        if (rawTarget < 0 || rawTarget > 23 || body.to !== rawTarget) {
-          await client.query('ROLLBACK');
-          return reply.code(409).send({ error: 'Move distance does not match the selected die.' });
-        }
-        target = rawTarget;
-        if (board[target] * sign <= -2) {
-          await client.query('ROLLBACK');
-          return reply.code(409).send({ error: 'That point is blocked by the opponent.' });
-        }
-        board[body.from] -= sign;
-        if (board[target] * sign < 0) {
-          board[target] = 0;
-          bar[otherBar] += 1;
-        }
-        board[target] += sign;
-      }
-      if (body.to === null) board[body.from] -= sign;
+    // Use the same canonical rule engine as batch moves and AI turns.
+    // This also rejects malformed persisted board/bar/off state before mutation.
+    const applied = applyBackgammonMove(moveState, body, hostTurn);
+    if ('error' in applied) {
+      await client.query('ROLLBACK');
+      return reply.code(409).send({ error: applied.error });
     }
-
-    if (body.from === null) {
-      bar[ownBar] -= 1;
-      if (board[target] * sign <= -2) {
-        await client.query('ROLLBACK');
-        return reply.code(409).send({ error: 'That entry point is blocked by the opponent.' });
-      }
-      if (board[target] * sign < 0) {
-        board[target] = 0;
-        bar[otherBar] += 1;
-      }
-      board[target] += sign;
-    }
+    const { board, bar, off } = applied.state;
 
     const remaining = [...game.remaining_dice];
     remaining.splice(remaining.indexOf(body.die), 1);
@@ -4574,6 +4519,7 @@ app.post<{ Params: { id: string }; Body: { from: number | null; to: number | nul
               off_state = $3::jsonb, current_turn_user_id = $4, dice = $5::jsonb,
               remaining_dice = $6::jsonb, status = $7,
               host_game_wins = $8, guest_game_wins = $9,
+              turn_started_at = CASE WHEN $11::boolean THEN NOW() ELSE turn_started_at END,
               state_version = state_version + 1, updated_at = NOW()
          WHERE id = $10
          RETURNING id, status, board_state AS board, bar_state AS bar, off_state AS off,
@@ -4584,7 +4530,7 @@ app.post<{ Params: { id: string }; Body: { from: number | null; to: number | nul
       [JSON.stringify(nextBoard), JSON.stringify(nextBar), JSON.stringify(nextOff),
        gameFinished ? game.host_user_id : nextTurn, JSON.stringify(gameFinished ? [] : nextDice),
        JSON.stringify(gameFinished ? [] : nextRemaining), matchFinished ? 'finished' : 'active',
-       nextHostWins, nextGuestWins, game.id]);
+       nextHostWins, nextGuestWins, game.id, turnComplete || gameFinished]);
     if (gameFinished && game.guest_user_id) {
       const winnerId = off.host >= 15 ? game.host_user_id : game.guest_user_id;
       const loserId = winnerId === game.host_user_id ? game.guest_user_id : game.host_user_id;
@@ -4614,13 +4560,13 @@ app.post<{ Params: { id: string }; Body: { expectedVersion: number } }>('/api/v1
     await client.query('BEGIN');
     const result = await client.query(
       `SELECT id, status, host_user_id, guest_user_id, current_turn_user_id,
-              board_state, bar_state, remaining_dice, state_version
+              board_state, bar_state, off_state, remaining_dice, state_version
          FROM backgammon_matches WHERE id = $1 AND expires_at > NOW() FOR UPDATE`,
       [request.params.id]);
     const game = result.rows[0] as {
       id: string; status: string; host_user_id: string; guest_user_id: string | null;
       current_turn_user_id: string | null; board_state: number[];
-      bar_state: { host: number; guest: number }; remaining_dice: number[]; state_version: number;
+      bar_state: { host: number; guest: number }; off_state: { host: number; guest: number }; remaining_dice: number[]; state_version: number;
     } | undefined;
     if (!game || ![game.host_user_id, game.guest_user_id].includes(claims.sub)) {
       await client.query('ROLLBACK');
@@ -4649,6 +4595,7 @@ app.post<{ Params: { id: string }; Body: { expectedVersion: number } }>('/api/v1
       game.bar_state,
       remaining,
       hostTurn,
+      game.off_state,
     );
     if (canMove) {
       await client.query('ROLLBACK');
@@ -4657,7 +4604,8 @@ app.post<{ Params: { id: string }; Body: { expectedVersion: number } }>('/api/v1
     const nextTurn = hostTurn ? game.guest_user_id : game.host_user_id;
     const updated = await client.query(
       `UPDATE backgammon_matches SET current_turn_user_id = $1, dice = '[]'::jsonb,
-              remaining_dice = '[]'::jsonb, state_version = state_version + 1, updated_at = NOW()
+              remaining_dice = '[]'::jsonb, turn_started_at = NOW(),
+              state_version = state_version + 1, updated_at = NOW()
          WHERE id = $2
          RETURNING id, status, state_version AS version, current_turn_user_id AS "currentTurnUserId"`,
       [nextTurn, game.id]);
@@ -4683,7 +4631,7 @@ app.get<{ Params: { id: string } }>('/api/v1/matches/:id/spectate', { onRequest:
             m.board_state AS board, m.bar_state AS bar, m.off_state AS off,
             m.current_turn_user_id AS "currentTurnUserId",
             m.dice, m.remaining_dice AS "remainingDice", m.state_version AS version,
-            m.updated_at AS "updatedAt", m.spectators_enabled AS "spectatorsEnabled"
+            m.updated_at AS "updatedAt", m.turn_started_at AS "turnStartedAt", m.spectators_enabled AS "spectatorsEnabled"
        FROM backgammon_matches m
        JOIN users host ON host.id = m.host_user_id
        JOIN users guest ON guest.id = m.guest_user_id
@@ -4701,6 +4649,9 @@ app.get<{ Params: { id: string } }>('/api/v1/matches/:id/spectate', { onRequest:
   );
   if (!result.rowCount) return reply.code(404).send({ error: 'This match is not available for your spectator access.' });
   const row = result.rows[0];
+  if (!isValidBackgammonState({ board: row.board, bar: row.bar, off: row.off })) {
+    return reply.code(409).send({ error: 'Invalid board state.' });
+  }
   return {
     match: {
       id: row.id, roomCode: row.roomCode, status: row.status,
@@ -4711,7 +4662,8 @@ app.get<{ Params: { id: string } }>('/api/v1/matches/:id/spectate', { onRequest:
     state: {
       id: row.id, status: row.status, board: row.board, bar: row.bar, off: row.off,
       currentTurnUserId: row.currentTurnUserId, isMyTurn: false, isHost: false,
-      dice: row.dice, remainingDice: row.remainingDice, version: row.version, updatedAt: row.updatedAt,
+      dice: row.dice, remainingDice: row.remainingDice, version: row.version,
+      updatedAt: row.updatedAt, turnStartedAt: row.turnStartedAt,
     },
   };
 });
@@ -4747,6 +4699,13 @@ app.post<{ Params: { id: string } }>('/api/v1/matches/:id/heartbeat', { onReques
        RETURNING last_heartbeat_at AS "lastHeartbeatAt", takeover_active AS "takeoverActive"`,
       [request.params.id, claims.sub],
     );
+    // An active match stays alive while a participant is present; the 30-minute
+    // expiry is an inactivity lease, not a hard match-duration limit.
+    await client.query(
+      `UPDATE backgammon_matches SET expires_at = NOW() + INTERVAL '30 minutes'
+        WHERE id = $1 AND status = 'active'`,
+      [request.params.id],
+    );
     await client.query('COMMIT');
     return { presence: result.rows[0], control: 'human' };
   } catch (error) {
@@ -4766,7 +4725,7 @@ app.get<{ Params: { id: string } }>('/api/v1/matches/:id/state', { onRequest: [r
             m.current_turn_user_id = $2::bigint AS "isMyTurn",
             m.host_user_id = $2::bigint AS "isHost",
             m.dice, m.remaining_dice AS "remainingDice", m.state_version AS version,
-            m.updated_at AS "updatedAt",
+            m.updated_at AS "updatedAt", m.turn_started_at AS "turnStartedAt",
             EXISTS (SELECT 1 FROM backgammon_match_presence active_presence
                      WHERE active_presence.match_id = m.id AND active_presence.takeover_active = TRUE) AS "aiTakeoverActive",
             COALESCE(p.takeover_active, FALSE) AS "myAiTakeoverActive",
@@ -4777,6 +4736,11 @@ app.get<{ Params: { id: string } }>('/api/v1/matches/:id/state', { onRequest: [r
     [request.params.id, claims.sub]);
   if (!result.rowCount) return reply.code(404).send({ error: 'Match not found.' });
   if (!['active', 'finished'].includes(result.rows[0].status)) return reply.code(409).send({ error: 'The match is not active yet.' });
+  if (!isValidBackgammonState({
+    board: result.rows[0].board,
+    bar: result.rows[0].bar,
+    off: result.rows[0].off,
+  })) return reply.code(409).send({ error: 'Invalid board state.' });
   return { state: result.rows[0] };
 });
 
@@ -4789,10 +4753,10 @@ app.post<{ Params: { id: string }; Body: { expectedVersion?: number } }>('/api/v
     await client.query('BEGIN');
     const result = await client.query(
       `SELECT id, status, host_user_id, guest_user_id, current_turn_user_id,
-              dice, remaining_dice, state_version
+              board_state, bar_state, off_state, dice, remaining_dice, state_version
          FROM backgammon_matches WHERE id = $1 AND expires_at > NOW() FOR UPDATE`,
       [request.params.id]);
-    const match = result.rows[0] as { id: string; status: string; host_user_id: string; guest_user_id: string | null; current_turn_user_id: string | null; dice: number[]; remaining_dice: number[]; state_version: number } | undefined;
+    const match = result.rows[0] as { id: string; status: string; host_user_id: string; guest_user_id: string | null; current_turn_user_id: string | null; board_state: number[]; bar_state: { host: number; guest: number }; off_state: { host: number; guest: number }; dice: number[]; remaining_dice: number[]; state_version: number } | undefined;
     if (!match || ![match.host_user_id, match.guest_user_id].includes(claims.sub)) {
       await client.query('ROLLBACK');
       return reply.code(404).send({ error: 'Match not found.' });
@@ -4809,7 +4773,19 @@ app.post<{ Params: { id: string }; Body: { expectedVersion?: number } }>('/api/v
       await client.query('ROLLBACK');
       return reply.code(409).send({ error: 'Temporary AI control is active for this disconnected player. Reconnect with a heartbeat to regain control.' });
     }
-    if (Array.isArray(match.dice) && match.dice.length > 0) {
+    if (!isValidBackgammonState({
+      board: match.board_state,
+      bar: match.bar_state,
+      off: match.off_state,
+    })) {
+      await client.query('ROLLBACK');
+      return reply.code(409).send({ error: 'Invalid board state.' });
+    }
+    if (!Array.isArray(match.dice) || !Array.isArray(match.remaining_dice)) {
+      await client.query('ROLLBACK');
+      return reply.code(409).send({ error: 'Invalid dice state.' });
+    }
+    if (match.dice.length > 0 || match.remaining_dice.length > 0) {
       await client.query('ROLLBACK');
       return reply.code(409).send({ error: 'Dice have already been rolled for this turn.' });
     }

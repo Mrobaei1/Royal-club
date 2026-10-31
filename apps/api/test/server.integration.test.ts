@@ -162,6 +162,15 @@ test('registered players can join an online match and history does not expose op
   assert.equal(profile.statusCode, 200, profile.body);
   assert.equal(profile.json().user.email, host.user.email);
   assert.equal(profile.json().user.xpPoints, 0, 'New players start with zero progression XP.');
+
+  const sameSessionAfterNetworkChange = await app.inject({
+    method: 'GET',
+    url: '/api/v1/me',
+    headers: { ...auth(login.json().accessToken), 'x-forwarded-for': '203.0.113.77' },
+  });
+  assert.equal(sameSessionAfterNetworkChange.statusCode, 200, sameSessionAfterNetworkChange.body);
+  assert.equal(sameSessionAfterNetworkChange.json().user.id, host.user.id,
+    'An authenticated account session must remain tied to the account, not a changed VPN/network IP.');
   assert.equal(profile.json().user.level, 1, 'New players start at permanent progression level 1.');
 
   const friendRequest = await app.inject({
@@ -532,6 +541,24 @@ test('registered players can join an online match and history does not expose op
   const state = snapshot.json().state;
   assert.equal(state.isHost, true);
   assert.equal(state.isMyTurn, true);
+  assert.ok(Number.isFinite(Date.parse(state.turnStartedAt)));
+  const initialTurnStartedAt = state.turnStartedAt;
+  await testPool.query(
+    "UPDATE backgammon_matches SET expires_at = NOW() + INTERVAL '1 second' WHERE id = $1",
+    [matchId],
+  );
+  const heartbeat = await app.inject({
+    method: 'POST',
+    url: `/api/v1/matches/${matchId}/heartbeat`,
+    headers: auth(host.token),
+  });
+  assert.equal(heartbeat.statusCode, 200, heartbeat.body);
+  const activeLease = await testPool.query(
+    "SELECT expires_at > NOW() + INTERVAL '29 minutes' AS extended FROM backgammon_matches WHERE id = $1",
+    [matchId],
+  );
+  assert.equal(activeLease.rows[0].extended, true,
+    'An active match must not expire while a participant keeps heartbeating.');
   assert.deepEqual(state.board, [
     -2, 0, 0, 0, 0, 5, 0, 3, 0, 0, 0, -5,
     5, 0, 0, 0, -3, 0, -5, 0, 0, 0, 0, 2,
@@ -547,6 +574,15 @@ test('registered players can join an online match and history does not expose op
   const rolledState = roll.json().state;
   assert.equal(rolledState.dice.length, 2);
   assert.ok(rolledState.dice.every((die: number) => Number.isInteger(die) && die >= 1 && die <= 6));
+  const afterRollClock = await testPool.query(
+    'SELECT turn_started_at FROM backgammon_matches WHERE id = $1',
+    [matchId],
+  );
+  assert.equal(
+    new Date(afterRollClock.rows[0].turn_started_at).toISOString(),
+    new Date(initialTurnStartedAt).toISOString(),
+    'Rolling dice must not restart the player turn clock.',
+  );
   assert.ok([2, 4].includes(rolledState.remainingDice.length));
 
   const guestRoll = await app.inject({
@@ -556,6 +592,47 @@ test('registered players can join an online match and history does not expose op
     payload: { expectedVersion: rolledState.version },
   });
   assert.equal(guestRoll.statusCode, 409);
+
+  // A malformed persisted board must be rejected by the single-move endpoint
+  // before it can be mutated or accepted as a legal turn.
+  const corruptBoard = Array<number>(24).fill(0);
+  corruptBoard[5] = 16;
+  await testPool.query(
+    `UPDATE backgammon_matches
+        SET status = 'active', board_state = $1::jsonb,
+            bar_state = $2::jsonb, off_state = $3::jsonb,
+            current_turn_user_id = host_user_id, dice = '[2,3]'::jsonb,
+            remaining_dice = '[2,3]'::jsonb, state_version = 98,
+            expires_at = NOW() + INTERVAL '30 minutes', updated_at = NOW()
+      WHERE id = $4`,
+    [JSON.stringify(corruptBoard), JSON.stringify({ host: 0, guest: 0 }),
+     JSON.stringify({ host: 0, guest: 0 }), matchId],
+  );
+  const corruptStateMove = await app.inject({
+    method: 'POST',
+    url: `/api/v1/matches/${matchId}/moves`,
+    headers: auth(host.token),
+    payload: { from: 5, to: 3, die: 2, expectedVersion: 98 },
+  });
+  assert.equal(corruptStateMove.statusCode, 409, corruptStateMove.body);
+  assert.match(corruptStateMove.body, /Invalid board state/);
+
+  const corruptStateRead = await app.inject({
+    method: 'GET',
+    url: `/api/v1/matches/${matchId}/state`,
+    headers: auth(host.token),
+  });
+  assert.equal(corruptStateRead.statusCode, 409, corruptStateRead.body);
+  assert.match(corruptStateRead.body, /Invalid board state/);
+
+  const corruptStateRoll = await app.inject({
+    method: 'POST',
+    url: `/api/v1/matches/${matchId}/roll`,
+    headers: auth(host.token),
+    payload: { expectedVersion: 98 },
+  });
+  assert.equal(corruptStateRoll.statusCode, 409, corruptStateRoll.body);
+  assert.match(corruptStateRoll.body, /Invalid board state/);
 
   // Apply two dice in one atomic online turn (the same 2+3 cumulative move
   // the board UI supports) and assert the server owns the resulting position.
@@ -575,6 +652,10 @@ test('registered players can join an online match and history does not expose op
     [JSON.stringify(batchBoard), JSON.stringify({ host: 0, guest: 0 }),
      JSON.stringify({ host: 13, guest: 13 }), matchId],
   );
+  const beforeBatchClock = await testPool.query(
+    'SELECT turn_started_at FROM backgammon_matches WHERE id = $1',
+    [matchId],
+  );
   const batchMove = await app.inject({
     method: 'POST',
     url: `/api/v1/matches/${matchId}/moves/batch`,
@@ -591,6 +672,12 @@ test('registered players can join an online match and history does not expose op
   assert.equal(batchMove.json().state.board[0], 1);
   assert.deepEqual(batchMove.json().state.remainingDice, []);
   assert.equal(String(batchMove.json().state.currentTurnUserId), String(guest.user.id));
+  const afterBatchClock = await testPool.query(
+    'SELECT turn_started_at > $2::timestamptz AS advanced FROM backgammon_matches WHERE id = $1',
+    [matchId, beforeBatchClock.rows[0].turn_started_at],
+  );
+  assert.equal(afterBatchClock.rows[0].advanced, true,
+    'Completing the turn must start the next player clock.');
 
   // Mark a test match as finished to exercise the real history endpoint without
   // having to simulate 15 bear-offs. This database is disposable and CI-only.
@@ -695,7 +782,7 @@ test('registered players can join an online match and history does not expose op
             state_version = 100, match_to_win = 1, host_game_wins = 0,
             guest_game_wins = 0, updated_at = NOW()
       WHERE id = $3`,
-    [JSON.stringify(nearWinBoard), JSON.stringify({ host: 14, guest: 0 }), matchId],
+    [JSON.stringify(nearWinBoard), JSON.stringify({ host: 14, guest: 15 }), matchId],
   );
   const winningMove = await app.inject({
     method: 'POST',
@@ -1014,7 +1101,7 @@ test('registered players can join an online match and history does not expose op
   await testPool.query(
     `UPDATE backgammon_matches
         SET board_state = $1::jsonb, bar_state = '{"host":0,"guest":0}'::jsonb,
-            off_state = '{"host":14,"guest":0}'::jsonb, current_turn_user_id = host_user_id,
+            off_state = '{"host":14,"guest":15}'::jsonb, current_turn_user_id = host_user_id,
             dice = '[1,2]'::jsonb, remaining_dice = '[1]'::jsonb, state_version = 7
       WHERE id = $2`,
     [JSON.stringify(onePointBoard), seriesId],
