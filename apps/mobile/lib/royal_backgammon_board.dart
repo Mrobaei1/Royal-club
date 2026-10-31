@@ -269,7 +269,10 @@ class _RoyalBoardPainter extends CustomPainter {
     }
     for(var j=0;j<math.min(2,dice.length);j++){
       final dx=dice.length==1?0:(j==0?-w*.035:w*.035);
-      _die(c,Offset(w*.75+dx,row+mid/2),math.min(mid*.64,w*.055),dice[j]);
+      // Dice are 70% larger than the previous board rendering.
+      // Keep the same center alignment so both dice remain balanced on the strip.
+      final dieSize=math.min(mid*.64,w*.055)*1.7;
+      _die(c,Offset(w*.75+dx,row+mid/2),dieSize,dice[j]);
     }
   }
 
