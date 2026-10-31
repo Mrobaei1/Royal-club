@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'room_controls_menu.dart';
 import 'l10n/app_text.dart';
 import 'profile_avatar.dart';
 import 'services/match_service.dart';
@@ -230,26 +231,6 @@ class _OnlineLobbyScreenState extends State<OnlineLobbyScreen> {
     if (mounted) setState(() => _created = null);
   });
 
-  void _showLobbyControls() {
-    final isEnglish = Localizations.localeOf(context).languageCode == 'en';
-    showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      builder: (sheetContext) => SafeArea(
-        child: ListTile(
-          leading: const Icon(Icons.cancel_outlined, color: Colors.redAccent),
-          title: Text(
-            isEnglish ? 'Cancel waiting room' : 'لغو اتاق در انتظار',
-            style: const TextStyle(color: Colors.redAccent),
-          ),
-          onTap: _loading ? null : () {
-            Navigator.of(sheetContext).pop();
-            _cancelCreated();
-          },
-        ),
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -261,10 +242,21 @@ class _OnlineLobbyScreenState extends State<OnlineLobbyScreen> {
       appBar: AppBar(title: Text(appText(context, 'بازی آنلاین', 'Online backgammon')), backgroundColor: Theme.of(context).scaffoldBackgroundColor, foregroundColor: Theme.of(context).colorScheme.primary,
         actions: [
           if (_created != null)
-            IconButton(
-              onPressed: _showLobbyControls,
-              icon: const Icon(Icons.menu_rounded),
+            RoomControlsMenuButton(
               tooltip: appText(context, 'مدیریت اتاق', 'Room controls'),
+              itemsBuilder: (sheetContext) => [
+                ListTile(
+                  leading: const Icon(Icons.cancel_outlined, color: Colors.redAccent),
+                  title: Text(
+                    appText(context, 'لغو اتاق در انتظار', 'Cancel waiting room'),
+                    style: const TextStyle(color: Colors.redAccent),
+                  ),
+                  onTap: _loading ? null : () {
+                    Navigator.of(sheetContext).pop();
+                    _cancelCreated();
+                  },
+                ),
+              ],
             ),
           IconButton(
             onPressed: _loading ? null : () {
