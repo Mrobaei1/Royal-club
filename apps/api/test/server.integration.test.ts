@@ -566,6 +566,30 @@ test('registered players can join an online match and history does not expose op
   });
   assert.equal(guestRoll.statusCode, 409);
 
+  // A malformed persisted board must be rejected by the single-move endpoint
+  // before it can be mutated or accepted as a legal turn.
+  const corruptBoard = Array<number>(24).fill(0);
+  corruptBoard[5] = 16;
+  await testPool.query(
+    `UPDATE backgammon_matches
+        SET status = 'active', board_state = $1::jsonb,
+            bar_state = $2::jsonb, off_state = $3::jsonb,
+            current_turn_user_id = host_user_id, dice = '[2,3]'::jsonb,
+            remaining_dice = '[2,3]'::jsonb, state_version = 98,
+            expires_at = NOW() + INTERVAL '30 minutes', updated_at = NOW()
+      WHERE id = $4`,
+    [JSON.stringify(corruptBoard), JSON.stringify({ host: 0, guest: 0 }),
+     JSON.stringify({ host: 0, guest: 0 }), matchId],
+  );
+  const corruptStateMove = await app.inject({
+    method: 'POST',
+    url: `/api/v1/matches/${matchId}/moves`,
+    headers: auth(host.token),
+    payload: { from: 5, to: 3, die: 2, expectedVersion: 98 },
+  });
+  assert.equal(corruptStateMove.statusCode, 409, corruptStateMove.body);
+  assert.match(corruptStateMove.body, /Invalid board state/);
+
   // Apply two dice in one atomic online turn (the same 2+3 cumulative move
   // the board UI supports) and assert the server owns the resulting position.
   const batchBoard = Array<number>(24).fill(0);
