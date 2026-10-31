@@ -543,6 +543,22 @@ test('registered players can join an online match and history does not expose op
   assert.equal(state.isMyTurn, true);
   assert.ok(Number.isFinite(Date.parse(state.turnStartedAt)));
   const initialTurnStartedAt = state.turnStartedAt;
+  await testPool.query(
+    "UPDATE backgammon_matches SET expires_at = NOW() + INTERVAL '1 second' WHERE id = $1",
+    [matchId],
+  );
+  const heartbeat = await app.inject({
+    method: 'POST',
+    url: `/api/v1/matches/${matchId}/heartbeat`,
+    headers: auth(host.token),
+  });
+  assert.equal(heartbeat.statusCode, 200, heartbeat.body);
+  const activeLease = await testPool.query(
+    "SELECT expires_at > NOW() + INTERVAL '29 minutes' AS extended FROM backgammon_matches WHERE id = $1",
+    [matchId],
+  );
+  assert.equal(activeLease.rows[0].extended, true,
+    'An active match must not expire while a participant keeps heartbeating.');
   assert.deepEqual(state.board, [
     -2, 0, 0, 0, 0, 5, 0, 3, 0, 0, 0, -5,
     5, 0, 0, 0, -3, 0, -5, 0, 0, 0, 0, 2,
