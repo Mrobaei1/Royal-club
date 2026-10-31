@@ -159,21 +159,32 @@ void main() {
   });
 
 
-  testWidgets('shows a 20-second timer for the human and hides the AI timer',
+  testWidgets('shows the timer for the human and hides it on the AI turn',
       (tester) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    await tester.pumpWidget(const MaterialApp(locale: Locale('fa'), localizationsDelegates: GlobalMaterialLocalizations.delegates,
-      supportedLocales: [Locale('fa'), Locale('en')], home: EngineBackgammonScreen()));
+    final engine = BackgammonEngine();
+    await tester.pumpWidget(MaterialApp(
+      locale: const Locale('fa'),
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
+      supportedLocales: const [Locale('fa'), Locale('en')],
+      home: EngineBackgammonScreen(
+        engineForTesting: engine,
+        vsComputerForTesting: true,
+      ),
+    ));
     await tester.tap(find.text('بازی آفلاین با هوش مصنوعی'));
     await tester.pumpAndSettle();
 
     expect(find.text('⏱ 20'), findsOneWidget);
 
-    expect(find.text('⏱ 20'), findsOneWidget);
+    // The computer's turn must not display the human countdown.
+    engine.currentPlayer = -1;
+    await tester.pump();
+    expect(find.text('⏱ 20'), findsNothing);
   });
 
 
