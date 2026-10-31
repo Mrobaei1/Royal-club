@@ -8,7 +8,7 @@ Build and verify an independent, Royal Club-compatible Hokm/Court Piece game mod
 ## Fixed product decisions
 - Bot difficulty is permanently **Hard**; no player or room selector may change it. The bot may use only its own hand and public information and must use the normal legal-move validator.
 - Personal XP is awarded only after the entire match ends: each winning-team player receives +20 XP; each losing-team player receives +5 XP. Intermediate hands change only the team match score.
-- A player leaving during an active match receives −5 XP. The penalty is for that player only and is idempotent. The seat remains reserved until match/AI takeover rules are implemented.
+- An intentional active-match exit receives −5 XP once for that player only; the seat is permanently controlled by the fixed-Hard bot and the leaver cannot reclaim it. A transient network disconnect is different: it has a configurable grace period (20 seconds by default), no XP penalty, temporary bot takeover after expiry, and authenticated seat reclaim without rolling back bot moves.
 - Level 1 starts at 0 XP. Advancement from level L to L+1 costs round(300 + 5(L−1) + 0.08(L−1)^2). Level 100 starts at 79,439 XP; 95,000 XP is level 109. XP is non-spendable, cannot fall below zero, and achieved level never decreases.
 - Offline/practice games do not award XP.
 
@@ -24,12 +24,13 @@ Build and verify an independent, Royal Club-compatible Hokm/Court Piece game mod
 ## Current status
 - [x] Isolated branch and independent engine/round/room foundation.
 - [x] Match XP calculation and level progression module.
-- [x] Active-match leaver penalty helper with duplicate-event protection and automatic fixed-Hard bot seat takeover; match continues.
+- [x] Intentional forfeit penalty with duplicate-event protection and permanent fixed-Hard bot takeover.
+- [x] Transient disconnect grace, timeout-triggered temporary bot takeover, version-checked reconnect and no-rollback seat reclaim.
 - [ ] Persistent per-user XP ledger and atomic match-result transaction.
 - [x] Fixed-hard bot with legal-card selection, public unseen-card counting, void-suit inference, deterministic full-hand simulation, 24 seeded-deal simulations and hidden-hand invariance tests.
 - [ ] Deeper trick-outcome search, multi-deal benchmarking, automated bot-seat orchestration and full-match simulations.
 - [x] Public completed-trick history retained in round state and sanitized per-seat views.
-- [ ] Online service, authenticated reconnect/seat reclaim, chat/voice.
+- [ ] Production online service, network-driven deadline scheduler, authenticated session binding/persistent reconnect; chat/voice.
 - [ ] Flutter UI, manager controls and end-to-end/security testing.
 
 ## Run tests
