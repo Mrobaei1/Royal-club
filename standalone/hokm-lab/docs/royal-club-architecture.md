@@ -16,6 +16,15 @@ Every command must be authenticated and scoped to a room:
 
 The server derives the seat from the authenticated room membership. It must never accept a client-supplied seat/team/score/hand as authoritative input. The match target (3, 5, or 7) is loaded from trusted manager-controlled configuration after role authorization; never accept this setting from a player or public room-create payload.
 
+## Fixed bot policy
+- Bot difficulty is fixed to **Hard** for every bot-controlled seat, by default and permanently.
+- There is no player-facing or room-facing difficulty selector, and no client/API command may override the difficulty.
+- The server owns the bot policy; clients cannot submit strategy parameters or hidden information.
+- Hard strategy may use only the bot's own hand, public cards already played, trump, turn/round state and other information legitimately visible to that seat.
+- The bot must never read opponents' private hands or the undealt deck to choose a move.
+- Every bot move is passed through the same authoritative legal-move validator used for human moves.
+- Acceptance tests must prove the policy cannot be downgraded by client input and that hidden-card information is not exposed to the bot decision layer.
+
 ## Server-side validation
 For each command, verify:
 1. authenticated user is a member of this room;
