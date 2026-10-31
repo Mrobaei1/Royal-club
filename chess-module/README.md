@@ -15,7 +15,7 @@ This module is intentionally isolated from the production Flutter app and API. I
 ## Structure
 - `api/`: Fastify routes, chess engine, clocks, scheduler, matchmaking, progression, rating, WebSocket signaling and tests.
 - `mobile/`: Flutter UI, authenticated API client and WebRTC voice client.
-- `database/migrations/`: isolated migrations `001` through `005`; never included in the production migration runner.
+- `database/migrations/`: isolated migrations `001` through `007`; never included in the production migration runner.
 - `contracts/`: WebSocket event contract.
 - `docs/`: architecture, security boundaries and acceptance matrix.
 
