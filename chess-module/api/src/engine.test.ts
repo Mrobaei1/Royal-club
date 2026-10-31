@@ -6,6 +6,8 @@ import { Chess } from "chess.js";
 test("starts from the standard position and rejects illegal moves", () => {
   const game = new ChessGame();
   assert.equal(game.snapshot().turn, "w");
+  assert.ok(game.snapshot().legalMoves.includes("e2e4"));
+  assert.ok(game.snapshot().legalMoves.includes("g1f3"));
   assert.throws(() => game.play({from:"e2",to:"e5"}), /illegal_move/);
   assert.equal(game.snapshot().fen, "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
 });
