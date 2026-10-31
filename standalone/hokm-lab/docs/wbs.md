@@ -13,11 +13,11 @@
 | 4.0 | Room and invitation lifecycle | Four seats, private invite, ready/start, host transfer, empty-room cleanup, no occupied-room TTL | 8% |
 | 5.0 | Authoritative online service | Fastify adapter, authenticated membership, atomic/versioned commands, persistence and event delivery | 12% |
 | 6.0 | Reconnect and availability | Disconnect grace period, seat recovery, bot substitution policy, reconnect idempotency | 8% |
-| 7.0 | Fixed hard-only policy uses deterministic public-information determinization; 24 seeded allocations respect public void-suit evidence and remaining-card counts; candidate evaluation includes partner-aware play and a two-trick lookahead; 300-deal benchmarks: 86.67% wins vs legal-random and 55.67% vs deterministic greedy, with 70.87% and 54.47% trick share; determinism, hidden-hand invariance and legal-action tests pass; expert baselines and broader match-level strategy evaluation remain pending | 84% |
+| 7.0 | Hard-only AI strategy | Fixed Hard policy with deterministic public-information sampling, void-suit constraints, partner-aware two-trick lookahead; 300-deal benchmarks and hidden-hand / legality tests | 7% |
 | 8.0 | Chat and voice | Room chat, abuse controls, mic permission/consent, mute/report and provider decision | 7% |
 | 9.0 | Flutter game UI | Responsive RTL table, cards, hands, trick animation, score, invite/waiting room and accessibility | 12% |
 | 10.0 | Manager controls | Authenticated manager-only target selector (3/5/7), room/connection policy and audit trail | 5% |
-| 11.0 | Engine/room/round/progression tests plus 2,000 seeded deal, 5,000 seeded trick, 3,000 scoring and 52 malformed-deck property cases; 24 seeded bot deals, 100 seeded full matches, 300-deal random and greedy benchmarks with two-trick search, determinism/privacy checks, partnership edge cases, public-history privacy, forfeit takeover, disconnect/reclaim and stale-version checks; production integration/concurrency/security suites pending | 64% |
+| 11.0 | QA and security | Engine/room/round/progression tests, seeded property tests, full-match simulations, AI benchmarks, privacy and reconnect checks; production integration/concurrency/security suites still pending | 8% |
 | 12.0 | Handoff readiness | API contract, setup/deployment guide, integration checklist and evidence-based completion report | 3% |
 
 ## Completion rules
