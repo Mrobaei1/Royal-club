@@ -225,7 +225,11 @@ test("authenticated chess routes support private game, draw, chat, voice, profil
       "UPDATE chess_games SET clock_snapshot=jsonb_set(jsonb_set(clock_snapshot,'{whiteMs}','1'::jsonb),'{lastStartedAt}',to_jsonb($2::bigint)) WHERE id=$1",
       [timeoutGameId, timeoutNow - 5000],
     );
-    assert.equal(await adjudicateExpiredChessClocks(pool, timeoutNow), 1);
+    const concurrentTimeouts = await Promise.all([
+      adjudicateExpiredChessClocks(pool, timeoutNow),
+      adjudicateExpiredChessClocks(pool, timeoutNow),
+    ]);
+    assert.deepEqual(concurrentTimeouts.sort(), [0, 1]);
     const timeoutResult = await pool.query(
       "SELECT status,clock_snapshot->>'finished' AS finished FROM chess_games WHERE id=$1",
       [timeoutGameId],
