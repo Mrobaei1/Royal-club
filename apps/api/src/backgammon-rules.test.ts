@@ -276,3 +276,20 @@ test('fails closed for malformed dice collections and null higher-die moves', ()
     false,
   );
 });
+
+
+test('rejects sparse board and dice arrays instead of skipping missing entries', () => {
+  const sparseBoard = emptyBoard();
+  delete sparseBoard[5];
+  const sparseState = state(sparseBoard);
+  const validBoard = emptyBoard();
+  validBoard[5] = 1;
+  const sparseDice = [1, 2];
+  delete sparseDice[1];
+
+  assert.ok('error' in applyBackgammonMove(sparseState, { from: 5, to: 4, die: 1 }, true));
+  assert.equal(hasLegalMove(sparseBoard, { host: 0, guest: 0 }, [1], true), false);
+  assert.equal(maxPlayableDiceCount(sparseState, [1], true), 0);
+  assert.equal(hasLegalMove(validBoard, { host: 0, guest: 0 }, sparseDice, true), false);
+  assert.equal(maxPlayableDiceCount(state(validBoard), sparseDice, true), 0);
+});
