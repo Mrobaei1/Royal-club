@@ -80,6 +80,24 @@ test("public ledger counts cards from completed tricks and infers revoked suits"
 });
 
 
+
+test("sampled trick search is deterministic and independent of hidden opponent hands", () => {
+  const base = chooseTrump(createRound({deck:shuffleDeck(createDeck(), seededRng(9876)),hakemSeat:0}),0,"hearts");
+  const seat = base.currentSeat;
+  const first = chooseHardBotAction(base,seat);
+  const hiddenAltered = {
+    ...base,
+    hands: base.hands.map((hand,index) => index === seat ? hand : [])
+  };
+  const second = chooseHardBotAction(hiddenAltered,seat);
+  const repeated = chooseHardBotAction(base,seat);
+  assert.deepEqual(first,second);
+  assert.deepEqual(first,repeated);
+  assert.equal(first.difficulty,"hard");
+  assert.ok(legalCards(base.hands[seat],base.currentTrick)
+    .some(card => card.suit === first.card.suit && card.rank === first.card.rank));
+});
+
 function seededRng(seed) {
   let value=seed>>>0;
   return ()=>{ value=(1664525*value+1013904223)>>>0; return value/0x100000000; };
