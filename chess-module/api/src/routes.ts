@@ -276,14 +276,25 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
        !Number.isSafeInteger(baseMs)||baseMs<1000||baseMs>86_400_000||
        !Number.isSafeInteger(incrementMs)||incrementMs<0||incrementMs>60_000||
        typeof enabled!=="boolean")return fail(reply,400,"invalid_time_control");
-    const saved=await pool.query(
-      `INSERT INTO chess_time_controls(id,display_name,base_ms,increment_ms,enabled)
-       VALUES($1,$2,$3,$4,$5) ON CONFLICT(id) DO UPDATE SET display_name=EXCLUDED.display_name,
-       base_ms=EXCLUDED.base_ms,increment_ms=EXCLUDED.increment_ms,enabled=EXCLUDED.enabled,updated_at=NOW()
-       RETURNING id,display_name AS name,base_ms,increment_ms,enabled`,
-      [id,displayName,baseMs,incrementMs,enabled]
-    );
-    return {timeControl:saved.rows[0],activeGamesUnchanged:true};
+    const client=await pool.connect();
+    try{
+      await client.query("BEGIN");
+      const before=await client.query("SELECT id,display_name,base_ms,increment_ms,enabled FROM chess_time_controls WHERE id=$1 FOR UPDATE",[id]);
+      const saved=await client.query(
+        `INSERT INTO chess_time_controls(id,display_name,base_ms,increment_ms,enabled)
+         VALUES($1,$2,$3,$4,$5) ON CONFLICT(id) DO UPDATE SET display_name=EXCLUDED.display_name,
+         base_ms=EXCLUDED.base_ms,increment_ms=EXCLUDED.increment_ms,enabled=EXCLUDED.enabled,updated_at=NOW()
+         RETURNING id,display_name AS name,base_ms,increment_ms,enabled`,
+        [id,displayName.trim(),baseMs,incrementMs,enabled]
+      );
+      await client.query(
+        "INSERT INTO chess_admin_audit_events(actor_user_id,action,entity_type,entity_id,before_data,after_data) VALUES($1,'time_control_upsert','time_control',$2,$3::jsonb,$4::jsonb)",
+        [actor,id,before.rowCount?JSON.stringify(before.rows[0]):null,JSON.stringify(saved.rows[0])]
+      );
+      await client.query("COMMIT");
+      return {timeControl:saved.rows[0],activeGamesUnchanged:true};
+    }catch(error){await rollback(client);request.log.error(error);return fail(reply,500,"time_control_save_failed");}
+    finally{client.release();}
   });
 
   app.get<{Params:{userId:string}}>("/chess/players/:userId/profile",{preHandler:options.authenticate},async(request,reply)=>{
