@@ -61,19 +61,28 @@ class BackgammonEngine {
     winner = null;
   }
 
-  List<int> rollDice() {
+  List<int> rollDice({bool deferNoMoves = false}) {
     if (finished || dice.isNotEmpty) return List.unmodifiable(dice);
 
     final a = _random.nextInt(6) + 1;
     final b = _random.nextInt(6) + 1;
     dice = a == b ? [a, a, a, a] : [a, b];
 
-    // Automatically pass if no die can be played.
-    if (legalMoves().isEmpty) {
+    // UI callers may keep an unplayable roll visible before passing the turn.
+    if (!deferNoMoves && legalMoves().isEmpty) {
       dice.clear();
       currentPlayer *= -1;
     }
     return List.unmodifiable(dice);
+  }
+
+  /// Passes a roll only when the current player has no legal move.
+  /// Used after the UI has displayed an unplayable roll for its required delay.
+  bool passTurnAfterNoLegalMoves() {
+    if (finished || dice.isEmpty || legalMoves().isNotEmpty) return false;
+    dice.clear();
+    currentPlayer *= -1;
+    return true;
   }
 
   bool _allInHome(int player, List<int> board, List<int> bars) {
