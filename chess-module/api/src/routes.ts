@@ -376,4 +376,49 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
     return {voiceEnabled:true};
   });
 
+
+  // Any authenticated participant may ask the server to adjudicate an expired clock.
+  // The row lock makes simultaneous claims idempotent across API instances.
+  app.post<{Params:{gameId:string}}>("/chess/games/:gameId/clock/claim-timeout",{preHandler:options.authenticate},async(request,reply)=>{
+    let claimant:string;
+    try{claimant=userId(request,options);}catch{return fail(reply,401,"unauthorized");}
+    const client=await pool.connect();
+    try{
+      await client.query("BEGIN");
+      const result=await client.query("SELECT * FROM chess_games WHERE id=$1 FOR UPDATE",[request.params.gameId]);
+      const row=result.rows[0];
+      if(!row){await client.query("ROLLBACK");return fail(reply,404,"game_not_found");}
+      const white=String(row.white_user_id),black=String(row.black_user_id);
+      if(claimant!==white&&claimant!==black){await client.query("ROLLBACK");return fail(reply,403,"not_a_player");}
+      if(row.status!=="active"){await client.query("COMMIT");return {adjudicated:false,status:row.status};}
+      const settings=row.settings_snapshot as {timeControl:TimeControl};
+      const clock=row.clock_snapshot as ClockSnapshot;
+      if(clock.finished||clock.active===null||clock.lastStartedAt===null){
+        await client.query("COMMIT");
+        return {adjudicated:false,status:row.status,clock};
+      }
+      const settled=settleClock(clock,settings.timeControl,Date.now(),false);
+      if(!settled.finished){
+        await client.query("COMMIT");
+        return {adjudicated:false,status:"active",clock:settled};
+      }
+      const winner=clock.active==="white"?black:white;
+      const terminal=winner===white?"white_win":"black_win";
+      const frozen={...settled,active:null,lastStartedAt:null,finished:true};
+      await client.query(
+        "UPDATE chess_games SET status=$2,clock_snapshot=$3::jsonb,finished_at=NOW(),revision=revision+1 WHERE id=$1",
+        [row.id,terminal,JSON.stringify(frozen)]
+      );
+      await client.query("UPDATE chess_rooms SET status='finished' WHERE id=$1",[row.room_id]);
+      await client.query("DELETE FROM chess_voice_leases WHERE room_id=$1",[row.room_id]);
+      await awardChessResult(client,String(row.id),"final_result",white,black,{outcome:"win",winnerId:winner,loserId:winner===white?black:white});
+      await client.query("COMMIT");
+      return {adjudicated:true,status:terminal,winnerId:winner,clock:frozen};
+    }catch(error){
+      await rollback(client);
+      request.log.error(error);
+      return fail(reply,500,"clock_timeout_adjudication_failed");
+    }finally{client.release();}
+  });
+
 }
