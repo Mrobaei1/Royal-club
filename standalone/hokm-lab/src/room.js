@@ -5,6 +5,10 @@ import { chooseHardBotAction } from "./bot.js";
 
 const MAX_PLAYERS = 4;
 const VALID_MATCH_TARGETS = Object.freeze([3, 5, 7]);
+const DEFAULT_DISCONNECT_GRACE_MS = 20_000;
+function requireExpectedVersion(room, expectedVersion) {
+  if (!Number.isInteger(expectedVersion) || expectedVersion !== room.version) throw new Error("Stale room version");
+}
 
 function requireUserId(userId) {
   if (typeof userId !== "string" || userId.trim().length < 1 || userId.length > 128) {
@@ -23,10 +27,11 @@ function requireMatchTarget(matchTarget) {
   }
 }
 
-export function createRoom({ roomId, hostUserId, now, privateRoom = true, matchTarget = 7 }) {
+export function createRoom({ roomId, hostUserId, now, privateRoom = true, matchTarget = 7, disconnectGraceMs = DEFAULT_DISCONNECT_GRACE_MS }) {
   requireUserId(hostUserId);
   requireNow(now);
   requireMatchTarget(matchTarget);
+  if (!Number.isInteger(disconnectGraceMs) || disconnectGraceMs < 0 || disconnectGraceMs > 300000) throw new RangeError("disconnectGraceMs must be an integer between 0 and 300000");
   if (typeof roomId !== "string" || !roomId.trim()) throw new TypeError("roomId is required");
   return {
     roomId,
@@ -36,10 +41,11 @@ export function createRoom({ roomId, hostUserId, now, privateRoom = true, matchT
     // No wall-clock TTL: a room remains alive while at least one player is in it.
     status: "waiting",
     matchTarget,
+    disconnectGraceMs,
     matchScore: [0, 0],
     playerProgress: {},
     penalizedLeavers: [],
-    players: [{ userId: hostUserId, seat: 0, ready: false, connected: true }],
+    players: [{ userId: hostUserId, seat: 0, ready: false, connected: true, botControlled: false }],
     version: 1,
     round: null
   };
@@ -57,7 +63,7 @@ export function joinRoom(room, userId, now) {
   return {
     ...room,
     hostUserId: room.hostUserId ?? userId,
-    players: [...room.players, { userId, seat, ready: false, connected: true }],
+    players: [...room.players, { userId, seat, ready: false, connected: true, botControlled: false }],
     version: room.version + 1
   };
 }
@@ -72,6 +78,48 @@ export function leaveRoom(room, userId) {
   return { ...room, hostUserId, players, version: room.version + 1 };
 }
 
+/** Temporary network loss; authenticated user identity must be supplied by the server. */
+export function disconnectPlayer(room, userId, { now, expectedVersion } = {}) {
+  requireUserId(userId); requireNow(now); requireExpectedVersion(room, expectedVersion);
+  if (room.status !== "playing") throw new Error("Only an active match can record a disconnect");
+  const player = room.players.find((candidate) => candidate.userId === userId);
+  if (!player) throw new Error("User is not a member of this room");
+  if (player.forfeited) throw new Error("A forfeited player cannot disconnect again");
+  if (!player.connected) return room;
+  const players = room.players.map((candidate) => candidate.userId === userId
+    ? { ...candidate, connected: false, disconnectedAt: now, reconnectDeadline: now + room.disconnectGraceMs, temporaryBot: false }
+    : candidate);
+  return { ...room, players, version: room.version + 1 };
+}
+
+/** Reclaim a temporary disconnect; already committed bot moves are never rolled back. */
+export function reconnectPlayer(room, userId, { now, expectedVersion } = {}) {
+  requireUserId(userId); requireNow(now); requireExpectedVersion(room, expectedVersion);
+  if (room.status !== "playing") throw new Error("Only an active match can reconnect");
+  const player = room.players.find((candidate) => candidate.userId === userId);
+  if (!player) throw new Error("User is not a member of this room");
+  if (player.forfeited) throw new Error("A forfeited player cannot reclaim their seat");
+  if (player.connected) return room;
+  const players = room.players.map((candidate) => candidate.userId === userId
+    ? { ...candidate, connected: true, botControlled: false, temporaryBot: false, disconnectedAt: null, reconnectDeadline: null }
+    : candidate);
+  return { ...room, players, version: room.version + 1 };
+}
+
+/** Transfer a disconnected seat to the fixed-Hard bot after grace expires. */
+export function handleDisconnectTimeout(room, userId, { now, expectedVersion } = {}) {
+  requireUserId(userId); requireNow(now); requireExpectedVersion(room, expectedVersion);
+  if (room.status !== "playing") throw new Error("Only an active match can process a disconnect timeout");
+  const player = room.players.find((candidate) => candidate.userId === userId);
+  if (!player) throw new Error("User is not a member of this room");
+  if (player.forfeited || player.connected || player.temporaryBot) return room;
+  if (!Number.isFinite(player.reconnectDeadline) || now < player.reconnectDeadline) throw new Error("Disconnect grace period has not elapsed");
+  const players = room.players.map((candidate) => candidate.userId === userId
+    ? { ...candidate, botControlled: true, temporaryBot: true }
+    : candidate);
+  return advanceHardBotTurn({ ...room, players, version: room.version + 1 });
+}
+
 /** Active-match exit: charge the leaver once, reserve their seat for match resolution. */
 export function recordMatchForfeit(room, userId) {
   if (room.status !== "playing") throw new Error("Only an active match can record a player exit");
@@ -80,7 +128,7 @@ export function recordMatchForfeit(room, userId) {
   if ((room.penalizedLeavers ?? []).includes(userId)) return room;
   const playerProgress = penalizeMatchLeaver(room.playerProgress ?? {}, userId);
   const players = room.players.map((candidate) =>
-    candidate.userId === userId ? { ...candidate, connected: false, forfeited: true, botControlled: true } : candidate
+    candidate.userId === userId ? { ...candidate, connected: false, forfeited: true, botControlled: true, temporaryBot: false, disconnectedAt: null, reconnectDeadline: null } : candidate
   );
   const updated = { ...room, players, playerProgress,
     penalizedLeavers: [...(room.penalizedLeavers ?? []), userId], version: room.version + 1 };
@@ -142,9 +190,7 @@ export function roomViewForUser(room, userId) {
 }
 
 function applyCommandForSeat(room, seat, command, expectedVersion) {
-  if (!Number.isInteger(expectedVersion) || expectedVersion !== room.version) {
-    throw new Error("Stale room version");
-  }
+  requireExpectedVersion(room, expectedVersion);
   const player = room.players.find((candidate) => candidate.seat === seat);
   if (!player) throw new Error("Seat is not occupied");
   if (room.status !== "playing" || !room.round) throw new Error("Room is not playing");
