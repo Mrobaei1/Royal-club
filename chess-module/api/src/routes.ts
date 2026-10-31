@@ -453,7 +453,7 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
     );
     if(!game.rowCount)return fail(reply,404,"game_not_found");
     const pending=await pool.query(
-      "SELECT id,offered_by,created_at FROM chess_draw_offers WHERE game_id=$1 AND status='pending' ORDER BY created_at DESC LIMIT 1",
+      "SELECT id,offered_by,created_at,expires_at FROM chess_draw_offers WHERE game_id=$1 AND status='pending' AND expires_at>NOW() ORDER BY created_at DESC LIMIT 1",
       [request.params.gameId]
     );
     if(!pending.rowCount)return {pending:false};
@@ -486,10 +486,10 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
       }
       const pending=await client.query("SELECT id FROM chess_draw_offers WHERE game_id=$1 AND status='pending'",[row.id]);
       if(pending.rowCount){await client.query("ROLLBACK");return fail(reply,409,"draw_offer_pending");}
-      const offer=await client.query("INSERT INTO chess_draw_offers(game_id,offered_by) VALUES($1,$2) RETURNING id,created_at",[row.id,playerId]);
+      const offer=await client.query("INSERT INTO chess_draw_offers(game_id,offered_by) VALUES($1,$2) RETURNING id,created_at,expires_at",[row.id,playerId]);
       await client.query("COMMIT");
       try{await publishGameEvent(pool,row.id,{type:"draw_offer",offerId:String(offer.rows[0].id),offeredBy:playerId});}catch(error){request.log.warn({err:error},"chess draw offer notification failed");}
-      return reply.code(201).send({offerId:String(offer.rows[0].id),status:"pending",createdAt:offer.rows[0].created_at});
+      return reply.code(201).send({offerId:String(offer.rows[0].id),status:"pending",createdAt:offer.rows[0].created_at,expiresAt:offer.rows[0].expires_at});
     }catch(error){await rollback(client);request.log.error(error);return fail(reply,500,"draw_offer_failed");}
     finally{client.release();}
   });
@@ -518,7 +518,7 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
         await client.query("COMMIT");
         return fail(reply,409,"clock_expired");
       }
-      const offer=await client.query("SELECT * FROM chess_draw_offers WHERE id=$1 AND game_id=$2 AND status='pending' FOR UPDATE",[request.params.offerId,row.id]);
+      const offer=await client.query("SELECT * FROM chess_draw_offers WHERE id=$1 AND game_id=$2 AND status='pending' AND expires_at>NOW() FOR UPDATE",[request.params.offerId,row.id]);
       if(!offer.rowCount||String(offer.rows[0].offered_by)===playerId){await client.query("ROLLBACK");return fail(reply,409,"draw_offer_unavailable");}
       if(request.body?.accept===true){
         const clock={...(row.clock_snapshot as ClockSnapshot),active:null,lastStartedAt:null,finished:true};
