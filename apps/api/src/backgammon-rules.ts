@@ -14,15 +14,22 @@ export type MoveResult = { state: MutableGameState } | { error: string };
  */
 function isValidGameState(state: MutableGameState): boolean {
   if (!state || !Array.isArray(state.board) || state.board.length !== 24) return false;
-  if (!state.board.every((count) => Number.isInteger(count) && Math.abs(count) <= 15)) return false;
+  for (let point = 0; point < state.board.length; point++) {
+    const count = state.board[point];
+    if (!Number.isInteger(count) || Math.abs(count) > 15) return false;
+  }
   if (!state.bar || !state.off) return false;
   return [state.bar.host, state.bar.guest, state.off.host, state.off.guest]
     .every((count) => Number.isInteger(count) && count >= 0 && count <= 15);
 }
 
 function isValidRemainingDice(remainingDice: number[]): boolean {
-  return Array.isArray(remainingDice) && remainingDice.length > 0 &&
-    remainingDice.every((die) => Number.isInteger(die) && die >= 1 && die <= 6);
+  if (!Array.isArray(remainingDice) || remainingDice.length === 0) return false;
+  for (let index = 0; index < remainingDice.length; index++) {
+    const die = remainingDice[index];
+    if (!Number.isInteger(die) || die < 1 || die > 6) return false;
+  }
+  return true;
 }
 
 export function applyBackgammonMove(
