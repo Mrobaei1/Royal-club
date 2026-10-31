@@ -1215,18 +1215,83 @@ app.patch<{ Body: { fullName?: string; phone?: string; country?: string } }>('/a
   return { user: result.rows[0] };
 });
 
+app.get('/api/v1/account/customization-pricing', { onRequest: [requireMatchAuth] }, async () => {
+  const result = await pool.query(
+    'SELECT avatar_change_price_credits AS "avatarChangePriceCredits", username_change_price_credits AS "usernameChangePriceCredits" FROM account_customization_pricing WHERE id = 1',
+  );
+  const row = result.rows[0] ?? {};
+  return {
+    avatarFirstChangeFree: true,
+    avatarChangePriceCredits: Number(row.avatarChangePriceCredits ?? 0),
+    usernameChangePriceCredits: Number(row.usernameChangePriceCredits ?? 0),
+  };
+});
+
 app.patch<{ Body: { avatarDataUrl?: string | null } }>('/api/v1/me/avatar', { onRequest: [requireMatchAuth], config: { rateLimit: { max: 6, timeWindow: '1 minute' } } }, async (request, reply) => {
   const claims = request.user as { sub: string };
   const avatar = request.body?.avatarDataUrl;
   if (avatar !== null && !isValidAvatarDataUrl(avatar)) {
     return reply.code(400).send({ error: 'تصویر باید فایل معتبر JPG، PNG یا WebP و حداکثر 650 کیلوبایت باشد.' });
   }
-  const result = await pool.query(
-    'UPDATE users SET avatar_data_url = $1 WHERE id = $2 RETURNING avatar_data_url',
-    [avatar ?? null, claims.sub],
-  );
-  if (!result.rowCount) return reply.code(404).send({ error: 'Account not found.' });
-  return { avatarDataUrl: result.rows[0].avatar_data_url ?? null };
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const current = await client.query(
+      'SELECT avatar_data_url, avatar_change_count FROM users WHERE id = $1 FOR UPDATE',
+      [claims.sub],
+    );
+    if (!current.rowCount) {
+      await client.query('ROLLBACK');
+      return reply.code(404).send({ error: 'Account not found.' });
+    }
+    if (avatar === null) {
+      await client.query('UPDATE users SET avatar_data_url = NULL WHERE id = $1', [claims.sub]);
+      await client.query('COMMIT');
+      return { avatarDataUrl: null, chargedCredits: 0 };
+    }
+    if (current.rows[0].avatar_data_url === avatar) {
+      await client.query('COMMIT');
+      return { avatarDataUrl: avatar, chargedCredits: 0 };
+    }
+
+    const firstAvatar = Number(current.rows[0].avatar_change_count ?? 0) === 0;
+    let price = 0;
+    if (!firstAvatar) {
+      const pricing = await client.query(
+        'SELECT avatar_change_price_credits FROM account_customization_pricing WHERE id = 1 FOR SHARE',
+      );
+      price = Number(pricing.rows[0]?.avatar_change_price_credits ?? 0);
+    }
+    if (price > 0) {
+      await client.query('INSERT INTO wallet_accounts (user_id) VALUES ($1) ON CONFLICT (user_id) DO NOTHING', [claims.sub]);
+      const wallet = await client.query('SELECT balance FROM wallet_accounts WHERE user_id = $1 FOR UPDATE', [claims.sub]);
+      const balance = Number(wallet.rows[0]?.balance ?? 0);
+      if (balance < price) {
+        await client.query('ROLLBACK');
+        return reply.code(409).send({ error: 'Insufficient wallet credits for this avatar change.', required: price, balance });
+      }
+      const debit = await client.query(
+        'UPDATE wallet_accounts SET balance = balance - $1, updated_at = NOW() WHERE user_id = $2 RETURNING balance',
+        [price, claims.sub],
+      );
+      await client.query(
+        'INSERT INTO wallet_transactions (user_id, amount, balance_after, type, description) VALUES ($1, $2, $3, $4, $5)',
+        [claims.sub, -price, debit.rows[0].balance, 'avatar_change', 'Profile avatar change'],
+      );
+    }
+    const updated = await client.query(
+      'UPDATE users SET avatar_data_url = $1, avatar_change_count = avatar_change_count + 1 WHERE id = $2 RETURNING avatar_data_url',
+      [avatar, claims.sub],
+    );
+    await client.query('COMMIT');
+    return { avatarDataUrl: updated.rows[0].avatar_data_url, chargedCredits: price, firstAvatarFree: firstAvatar };
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    request.log.error({ err: error }, 'Could not update avatar');
+    return reply.code(500).send({ error: 'Could not update avatar.' });
+  } finally {
+    client.release();
+  }
 });
 
 app.patch<{ Body: { username?: string } }>('/api/v1/me/username', { onRequest: [requireMatchAuth], config: { rateLimit: { max: 5, timeWindow: '1 minute' } } }, async (request, reply) => {
@@ -1241,23 +1306,57 @@ app.patch<{ Body: { username?: string } }>('/api/v1/me/username', { onRequest: [
       return reply.code(403).send({ error: 'This username is reserved for the verified platform owner.' });
     }
   }
+  const client = await pool.connect();
   try {
-    const result = await pool.query(
+    await client.query('BEGIN');
+    const current = await client.query('SELECT username FROM users WHERE id = $1 FOR UPDATE', [claims.sub]);
+    if (!current.rowCount) {
+      await client.query('ROLLBACK');
+      return reply.code(404).send({ error: 'Account not found.' });
+    }
+    if (String(current.rows[0].username ?? '').toLowerCase() === username.toLowerCase()) {
+      await client.query('COMMIT');
+      return { user: { id: claims.sub, username }, chargedCredits: 0 };
+    }
+    const pricing = await client.query(
+      'SELECT username_change_price_credits FROM account_customization_pricing WHERE id = 1 FOR SHARE',
+    );
+    const price = Number(pricing.rows[0]?.username_change_price_credits ?? 0);
+    if (price > 0) {
+      await client.query('INSERT INTO wallet_accounts (user_id) VALUES ($1) ON CONFLICT (user_id) DO NOTHING', [claims.sub]);
+      const wallet = await client.query('SELECT balance FROM wallet_accounts WHERE user_id = $1 FOR UPDATE', [claims.sub]);
+      const balance = Number(wallet.rows[0]?.balance ?? 0);
+      if (balance < price) {
+        await client.query('ROLLBACK');
+        return reply.code(409).send({ error: 'Insufficient wallet credits for this username change.', required: price, balance });
+      }
+      const debit = await client.query(
+        'UPDATE wallet_accounts SET balance = balance - $1, updated_at = NOW() WHERE user_id = $2 RETURNING balance',
+        [price, claims.sub],
+      );
+      await client.query(
+        'INSERT INTO wallet_transactions (user_id, amount, balance_after, type, description) VALUES ($1, $2, $3, $4, $5)',
+        [claims.sub, -price, debit.rows[0].balance, 'username_change', 'Profile username change'],
+      );
+    }
+    const updated = await client.query(
       'UPDATE users SET username = $1 WHERE id = $2 RETURNING id, username',
       [username, claims.sub],
     );
-    if (!result.rowCount) return reply.code(404).send({ error: 'Account not found.' });
-    return { user: result.rows[0] };
-  } catch (error: unknown) {
+    await client.query('COMMIT');
+    return { user: updated.rows[0], chargedCredits: price };
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
     if (typeof error === 'object' && error !== null && 'code' in error && error.code === '23505') {
       return reply.code(409).send({ error: 'این نام کاربری قبلاً انتخاب شده است.' });
     }
     request.log.error({ err: error }, 'Could not update username');
     return reply.code(500).send({ error: 'Could not update username.' });
+  } finally {
+    client.release();
   }
 });
 
-// Wallet balances are server-owned; credits are non-transferable and every change is ledgered.
 app.get('/api/v1/wallet', { onRequest: [requireMatchAuth] }, async (request) => {
   const claims = request.user as { sub: string };
   await pool.query('INSERT INTO wallet_accounts (user_id) VALUES ($1) ON CONFLICT (user_id) DO NOTHING', [claims.sub]);
@@ -3018,6 +3117,38 @@ app.post<{ Body: { userId?: string; title?: string; body?: string } }>('/api/v1/
   );
   return { sent: result.rowCount ?? 0, scope: userId ? 'user' : 'all' };
 });
+
+app.get('/api/v1/admin/account-customization-pricing', { onRequest: [requireOwnerAuth] }, async () => {
+  const result = await pool.query(
+    'SELECT avatar_change_price_credits AS "avatarChangePriceCredits", username_change_price_credits AS "usernameChangePriceCredits", updated_at AS "updatedAt" FROM account_customization_pricing WHERE id = 1',
+  );
+  return { settings: result.rows[0] ?? { avatarChangePriceCredits: 0, usernameChangePriceCredits: 0 } };
+});
+
+app.patch<{ Body: { avatarChangePriceCredits?: number; usernameChangePriceCredits?: number } }>(
+  '/api/v1/admin/account-customization-pricing',
+  { onRequest: [requireOwnerAuth] },
+  async (request, reply) => {
+    const { avatarChangePriceCredits, usernameChangePriceCredits } = request.body ?? {};
+    if ((avatarChangePriceCredits === undefined && usernameChangePriceCredits === undefined) ||
+        (avatarChangePriceCredits !== undefined && (!Number.isSafeInteger(avatarChangePriceCredits) || avatarChangePriceCredits < 0 || avatarChangePriceCredits > 1000000000)) ||
+        (usernameChangePriceCredits !== undefined && (!Number.isSafeInteger(usernameChangePriceCredits) || usernameChangePriceCredits < 0 || usernameChangePriceCredits > 1000000000))) {
+      return reply.code(400).send({ error: 'Customization prices must be non-negative whole credit amounts.' });
+    }
+    const result = await pool.query(
+      \`UPDATE account_customization_pricing SET
+         avatar_change_price_credits = COALESCE($1, avatar_change_price_credits),
+         username_change_price_credits = COALESCE($2, username_change_price_credits),
+         updated_by = $3, updated_at = NOW()
+       WHERE id = 1
+       RETURNING avatar_change_price_credits AS "avatarChangePriceCredits",
+                 username_change_price_credits AS "usernameChangePriceCredits",
+                 updated_at AS "updatedAt"\`,
+      [avatarChangePriceCredits ?? null, usernameChangePriceCredits ?? null, (request.user as { sub: string }).sub],
+    );
+    return { settings: result.rows[0] };
+  },
+);
 
 app.get('/api/v1/admin/subscription-plans', { onRequest: [requireOwnerAuth] }, async () => {
   const result = await pool.query(
