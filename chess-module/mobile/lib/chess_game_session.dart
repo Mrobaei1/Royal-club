@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 
 import 'chess_api_client.dart';
 import 'chess_game_screen.dart';
+import 'chess_player_profile_card.dart';
 
 /// Orchestrates the HTTP snapshot, live WebSocket events, chat, draw offers
 /// and server-synchronized display clocks for one authenticated chess game.
@@ -26,6 +27,8 @@ class ChessGameSession extends ChangeNotifier {
   String? speakingUsername;
   bool connected = false;
   String? errorCode;
+  ChessPlayerProfile? whiteProfile;
+  ChessPlayerProfile? blackProfile;
 
   WebSocket? _socket;
   StreamSubscription<dynamic>? _subscription;
@@ -56,16 +59,23 @@ class ChessGameSession extends ChangeNotifier {
   }
 
   Future<void> refresh() async {
+    final gameResult = await api.game(gameId);
+    final players = gameResult['players'] as Map<String, dynamic>;
+    final whiteName = players['white']?['username'] as String? ?? '';
+    final blackName = players['black']?['username'] as String? ?? '';
     final results = await Future.wait<dynamic>([
-      api.game(gameId),
       api.chatHistory(gameId),
       api.pendingDrawOffer(gameId),
+      if (whiteName.isNotEmpty) api.playerProfileByUsername(whiteName) else Future.value(null),
+      if (blackName.isNotEmpty) api.playerProfileByUsername(blackName) else Future.value(null),
     ]);
-    game = Map<String, dynamic>.from(results[0] as Map);
+    game = gameResult;
     _applyClock(game?['clock'] as Map<String, dynamic>?);
-    final rawMessages = (results[1] as List).cast<Map<String, dynamic>>();
+    final rawMessages = (results[0] as List).cast<Map<String, dynamic>>();
     messages = rawMessages.map(_chatMessage).toList(growable: false);
-    final offer = Map<String, dynamic>.from(results[2] as Map);
+    final offer = Map<String, dynamic>.from(results[1] as Map);
+    whiteProfile = results[2] == null ? null : ChessPlayerProfile.fromJson(Map<String, dynamic>.from(results[2] as Map));
+    blackProfile = results[3] == null ? null : ChessPlayerProfile.fromJson(Map<String, dynamic>.from(results[3] as Map));
     pendingDrawOfferId = offer['pending'] == true ? offer['offerId'] as String? : null;
     drawOfferedByOpponent = offer['pending'] == true && offer['offeredByMe'] != true;
     voiceEnabled = results[0]['settings']?['voiceEnabled'] == true;
