@@ -44,7 +44,7 @@ void main() {
     ));
 
     expect(tester.widget<TextField>(find.byType(TextField)).enabled, isFalse);
-    expect(tester.widget<IconButton>(find.byTooltip('ارسال پیام')).onPressed, isNull);
+    expect(tester.widget<IconButton>(find.ancestor(of: find.byIcon(Icons.send), matching: find.byType(IconButton))).onPressed, isNull);
     controller.dispose();
   });
 }

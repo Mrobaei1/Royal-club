@@ -29,7 +29,7 @@ void main() {
       ),
     ));
 
-    final button = tester.widget<IconButton>(find.byTooltip('روشن‌کردن میکروفون'));
+    final button = tester.widget<IconButton>(find.ancestor(of: find.byIcon(Icons.mic_off), matching: find.byType(IconButton)));
     expect(button.onPressed, isNull);
     await tester.tap(find.byTooltip('روشن‌کردن میکروفون'));
     expect(presses, 0);
