@@ -1,3 +1,4 @@
+import { calculateEloPair } from "./rating.js";
 import type { PoolClient } from "pg";
 import { chessAwardDeltas, nextProgression, type ChessResult } from "./progression.js";
 
@@ -33,5 +34,30 @@ export async function awardChessResult(
       "UPDATE chess_player_progression SET level=$2,xp=$3,updated_at=NOW() WHERE user_id=$1",
       [userId,next.level,next.xp],
     );
+  }
+
+  await client.query(
+    "INSERT INTO chess_player_ratings(user_id) VALUES($1),($2) ON CONFLICT(user_id) DO NOTHING",
+    [whiteUserId,blackUserId]
+  );
+  const ratingRows=await client.query(
+    "SELECT user_id,rating FROM chess_player_ratings WHERE user_id=ANY($1::bigint[]) ORDER BY user_id FOR UPDATE",
+    [[whiteUserId,blackUserId]]
+  );
+  const ratingMap=new Map<string,number>(ratingRows.rows.map((row:{user_id:string|number;rating:number|string})=>[String(row.user_id),Number(row.rating)]));
+  const pair=calculateEloPair(
+    {white:ratingMap.get(whiteUserId)??1200,black:ratingMap.get(blackUserId)??1200},
+    result.outcome==="draw"?"draw":result.winnerId===whiteUserId?"white_win":"black_win"
+  );
+  for(const [userId,nextRating] of [[whiteUserId,pair.white],[blackUserId,pair.black]] as const){
+    const previous=ratingMap.get(userId)??1200;
+    const delta=nextRating-previous;
+    const event=await client.query(
+      "INSERT INTO chess_rating_events(game_id,user_id,rating_delta,rating_after) VALUES($1,$2,$3,$4) ON CONFLICT(game_id,user_id) DO NOTHING RETURNING id",
+      [gameId,userId,delta,nextRating]
+    );
+    if(event.rowCount===1){
+      await client.query("UPDATE chess_player_ratings SET rating=$2,updated_at=NOW() WHERE user_id=$1",[userId,nextRating]);
+    }
   }
 }
