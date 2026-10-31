@@ -56,16 +56,16 @@ class ChessGameSession extends ChangeNotifier {
   }
 
   Future<void> refresh() async {
-    final results = await Future.wait([
+    final results = await Future.wait<dynamic>([
       api.game(gameId),
       api.chatHistory(gameId),
       api.pendingDrawOffer(gameId),
     ]);
-    game = results[0];
-    _applyClock(results[0]['clock'] as Map<String, dynamic>?);
-    final rawMessages = results[1] as List<Map<String, dynamic>>;
+    game = Map<String, dynamic>.from(results[0] as Map);
+    _applyClock(game?['clock'] as Map<String, dynamic>?);
+    final rawMessages = (results[1] as List).cast<Map<String, dynamic>>();
     messages = rawMessages.map(_chatMessage).toList(growable: false);
-    final offer = results[2];
+    final offer = Map<String, dynamic>.from(results[2] as Map);
     pendingDrawOfferId = offer['pending'] == true ? offer['offerId'] as String? : null;
     drawOfferedByOpponent = offer['pending'] == true && offer['offeredByMe'] != true;
     voiceEnabled = results[0]['settings']?['voiceEnabled'] == true;
@@ -81,10 +81,10 @@ class ChessGameSession extends ChangeNotifier {
     final started = (clock['lastStartedAt'] as num?)?.toInt();
     var elapsed = 0;
     if (activeSide != null && started != null) {
-      elapsed = (DateTime.now().millisecondsSinceEpoch + _serverOffsetMs - started).clamp(0, 86_400_000);
+      elapsed = (DateTime.now().millisecondsSinceEpoch + _serverOffsetMs - started).clamp(0, 86_400_000).toInt();
     }
-    whiteClock = Duration(milliseconds: activeSide == 'white' ? (whiteMs - elapsed).clamp(0, whiteMs) : whiteMs);
-    blackClock = Duration(milliseconds: activeSide == 'black' ? (blackMs - elapsed).clamp(0, blackMs) : blackMs);
+    whiteClock = Duration(milliseconds: activeSide == 'white' ? (whiteMs - elapsed).clamp(0, whiteMs).toInt() : whiteMs);
+    blackClock = Duration(milliseconds: activeSide == 'black' ? (blackMs - elapsed).clamp(0, blackMs).toInt() : blackMs);
   }
 
   ChessChatMessage _chatMessage(Map<String, dynamic> row) => ChessChatMessage(
@@ -195,7 +195,7 @@ class ChessGameSession extends ChangeNotifier {
   void _scheduleReconnect() {
     if (_disposed || _reconnectScheduled) return;
     _reconnectScheduled = true;
-    final seconds = (1 << _reconnectAttempt.clamp(0, 5)).clamp(1, 30);
+    final seconds = (1 << _reconnectAttempt.clamp(0, 5).toInt()).clamp(1, 30).toInt();
     _reconnectAttempt++;
     _reconnect = Timer(Duration(seconds: seconds), () async {
       _reconnectScheduled = false;
