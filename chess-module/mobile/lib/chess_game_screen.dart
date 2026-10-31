@@ -50,6 +50,8 @@ class ChessGameScreen extends StatefulWidget {
   final bool drawOfferedByOpponent;
   final ValueChanged<bool>? onRespondToDraw;
   final String? activeSide; // white, black, or null; server remains authoritative.
+  final ChessPlayerProfile? whiteProfile;
+  final ChessPlayerProfile? blackProfile;
 
   @override
   State<ChessGameScreen> createState() => _ChessGameScreenState();
