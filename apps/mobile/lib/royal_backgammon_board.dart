@@ -31,6 +31,10 @@ class RoyalBackgammonBoard extends StatelessWidget {
     required Size boardSize,
   }) => _RoyalBoardPainter.checkerCenter(point, stackIndex, checkerCount, boardSize);
 
+  /// Dice edge length, increased by 70% from the original board scale.
+  static double diceSizeForBoard(Size boardSize) =>
+      math.min(_RoyalBoardPainter.middleHeight(boardSize) * .64, boardSize.width * .055) * 1.7;
+
   /// Number of physical checkers painted for a stack; the sixth carries overflow count.
   static int visibleCheckerCountForPoint(int checkerCount) =>
       math.min(checkerCount.abs(), 6);
@@ -271,7 +275,7 @@ class _RoyalBoardPainter extends CustomPainter {
       final dx=dice.length==1?0:(j==0?-w*.035:w*.035);
       // Dice are 70% larger than the previous board rendering.
       // Keep the same center alignment so both dice remain balanced on the strip.
-      final dieSize=math.min(mid*.64,w*.055)*1.7;
+      final dieSize=RoyalBackgammonBoard.diceSizeForBoard(s);
       _die(c,Offset(w*.75+dx,row+mid/2),dieSize,dice[j]);
     }
   }
