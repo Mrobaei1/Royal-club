@@ -1,9 +1,12 @@
 # Royal Club — WBS v1.0 Evidence Ledger (initial audit)
 
-- **Audit date:** 2026-10-30
+- **Audit date:** 2026-10-31
 - **Governing baseline:** `docs/PROJECT-WBS-BASELINE.md`, WBS v1.0
-- **Live main at initial audit:** `ce80d6723371b250d233ff2f06d467c7fef4bad2`
-- **Documentation follow-up merged after initial audit:** PR #70, merge commit `22dbff4caf81e3507da31e38bc2905cc964baf41` (WBS count correction and evidence ledger; no application code changed).
+- **Live main at this audit:** `4171bb7933a13eedb0bfc52ed51f7fe3c3d8b8bc`
+- **Documentation follow-up:** PR #70 merged as `22dbff4caf81e3507da31e38bc2905cc964baf41` (WBS count correction and evidence ledger; no application code changed).
+- **Online disconnect implementation:** PR #67 merged as `69f315b2c2d38eba3c1e688ab48be77d17a2137c`.
+- **Notification/empty-bar fixes:** PR #75 merged as `227563f82c63ec5e9e4d4fa6c3e78e27cd059d26`.
+- **Current implementation candidate:** PR #77 is open; its latest head is `a3f019f6b79a67a9a9a8ac535730fe7222b9d1bc`. API build/unit/integration, Flutter analyze/tests, and engine audit passed on that head; Web Preview was still running at this audit.
 - **Leaf package count:** **53** (six + seven + ten + seven + seven + eight + eight)
 - **Total baseline weight:** **1,000 points**; the package weights below sum to exactly 1,000.
 - **Purpose:** evidence inventory and status register; this is not yet the scored baseline.
@@ -17,7 +20,7 @@ The roadmap previously said 47 packages. Counting the actual leaf IDs in the app
 - Status and earned points are separate. A source implementation or green CI does not complete a package whose manual, production or owner-approval criteria remain open.
 - **No points are awarded in this initial inventory yet.** In-progress packages must first have their acceptance criteria split into explicit, evidence-backed sub-criteria and sub-weights under WBS §4. This prevents subjective partial credit and duplicate counting.
 - Accordingly, **the official aggregate percentage remains pending baseline scoring**. This is not a claim that the project is 0% complete.
-- A draft PR is evidence of work in progress, not merged implementation. PR #67 remains Draft and is excluded from main-branch implementation completion.
+- A PR is evidence of work in progress until merged. PR #67 is now merged, but its two-device acceptance gate remains open. PR #77 is still unmerged and earns no merged-implementation points.
 - Production deployment, schema mutation, real SMS, paid activation, agent execution/schedules and APK generation remain separately approval-gated.
 
 ## Status summary
@@ -49,7 +52,7 @@ The roadmap previously said 47 packages. Counting the actual leaf IDs in the app
 | 3.2 | 35 | In progress | apps/mobile/lib/royal_backgammon_board.dart; online/offline screens | Complete cross-mode visual, responsive, theme and device acceptance. |
 | 3.3 | 25 | In progress | apps/api/src/server.ts routes /matches and /match-invites; server integration tests | Verify expiry/cancellation/races and physical cleanup during serverless idle. |
 | 3.4 | 25 | In progress | apps/api/src/server.ts move/state routes; API integration tests | Complete two-device acceptance of authoritative state, cumulative moves, reconnect and races. |
-| 3.5 | 25 | In progress | PR #67 code commit `8bd4040`; latest branch head `18986e5`; four successful exact-head workflows 41060683295, 41060683281, 41060683309, 41060683272 | PR remains Draft and unmerged; code review and two-device disconnect/grace/AI/reconnect/handback acceptance are pending. |
+| 3.5 | 25 | In progress | PR #67 merged as `69f315b`; main `4171bb7`; server-authoritative heartbeat/presence and temporary-AI implementation; main CI passed | Complete two-device disconnect/grace/AI/reconnect/handback acceptance; do not mark field-accepted on CI alone. |
 | 3.6 | 15 | In progress | PR #58; apps/api/src/server.ts resignation route; integration tests | Verify UI confirmation/cancel, match-vs-game scope and duplicate behavior on devices. |
 | 3.7 | 15 | In progress | Offline backgammon screen and engine tests | Verify offline restart/AI/local two-player and isolation from online/ranking state. |
 | 3.8 | 20 | In progress | Main navigation/game entry screens; WBS §6 | Verify chess and card-game entry points and complete their agreed MVP flows. |
@@ -57,7 +60,7 @@ The roadmap previously said 47 packages. Counting the actual leaf IDs in the app
 | 3.10 | 15 | Blocked | PR #67 two-device gate; readiness checklist | Complete full game acceptance on two independent accounts/devices and supported Android sizes. |
 | 4.1 | 20 | In progress | apps/api friend routes; readiness friend-limit checklist | Complete username-based lifecycle and API limit verification including boundary/race cases. |
 | 4.2 | 25 | In progress | API chat/image-message integration tests; readiness checklist | Verify full emoji set, approved audience, delivery behavior and mobile UX. |
-| 4.3 | 15 | In progress | apps/mobile/lib/notifications_screen.dart (_deleteAll); apps/mobile/lib/services/notifications_service.dart; API DELETE /api/v1/notifications; server integration test | Verify targeting/localization and clear-all without cross-user side effects. |
+| 4.3 | 15 | In progress | PR #75 merged: read-all request body and DELETE /api/v1/notifications; API clear-all cross-account test; PR #77 adds read-all account-isolation integration test (unmerged) | Complete exact-head CI after PR #77 and manual notification UX acceptance on Android. |
 | 4.4 | 15 | In progress | apps/api/test/server.integration.test.ts spectator scenarios | Complete host-permission and friend/follower device acceptance; retain no-replay rule. |
 | 4.5 | 15 | In progress | apps/api/test/server.integration.test.ts public payload assertions | Static API scan found fullName only in own-account registration/auth/profile responses; public endpoints use usernames and have regression assertions. Complete manual UI and legacy/empty-profile audit. |
 | 4.6 | 15 | In progress | Account/profile screens; readiness privacy checklist | Verify avatar/username edit pricing and private account-detail visibility. |
@@ -77,9 +80,9 @@ The roadmap previously said 47 packages. Counting the actual leaf IDs in the app
 | 6.6 | 15 | Not started | WBS §6 scope only; no complete evidence identified in this audit | Implement and verify Agent Center categories/monitoring UX without activating external actions. |
 | 6.7 | 10 | Not started | No provider-validated deposit/payment adapter evidence identified | Only proceed after separate provider/security design and owner approval. |
 | 6.8 | 10 | Blocked | WBS approval gate; no manual owner acceptance evidence | Complete owner-facing acceptance; do not activate identities, grants, schedules or financial actions. |
-| 7.1 | 25 | In progress | PR #67 latest exact-head workflows on `18986e5`: 41060683295, 41060683281, 41060683309, 41060683272 (all success); PR #70/#71 documentation-head workflows also green | Record exact-head job-level evidence for each implementation candidate; the latest PR #67 CI includes API build/unit/integration, Flutter analyze/tests, engine/AI audit and Web Preview build. |
-| 7.2 | 20 | Blocked | Checkpoint production audit: deployment 79 predates current source | Owner-approved deployment plan, latest-source deploy and health/smoke verification. |
-| 7.3 | 25 | Blocked | Checkpoint production audit: 13 production tables vs 30 source tables | Reconcile migrations, review sequence, rollback and recovery; no production mutation without approval. |
+| 7.1 | 25 | In progress | Main `4171bb7`: runs 41177353219, 41177353226, 41177353203 passed; PR #77 head `a3f019f`: runs 41185385429, 41185385432, 41185385431 passed; Web Preview run 41185385433 was still in progress at audit time | Record final Web Preview result and exact-head job evidence; require all checks on the final PR head. |
+| 7.2 | 20 | Blocked | Neon `Royal-Club-API` production branch reports active Function deployment 80; health/database workflow 41177353201 passed; Neon does not expose bundled Git SHA | Independently attest deployed source provenance and complete production registration/login smoke tests; no new deployment without approval. |
+| 7.3 | 25 | Blocked | Read-only Neon inspection: 33 public tables; 33 current `server.ts` table declarations; table names match with no missing/extra table | Complete column/index/migration-sequence reconciliation and documented rollback/recovery review; no production mutation without approval. |
 | 7.4 | 15 | Blocked | apps/api/src/server.ts cleanup endpoint; checkpoint says no scheduled Neon trigger | Configure/verify approved scheduled trigger and idle/serverless cleanup observability. |
 | 7.5 | 20 | Not started | WBS §6 and execution roadmap P5; no tested backup/restore evidence identified | Complete monitoring/runbooks and owner-approved latest-three backup/restore test. |
 | 7.6 | 20 | Blocked | Checkpoint production security audit; owner/SMS secrets absent | Complete network/CORS/secrets/owner-ID/least-privilege acceptance with owner approval. |
@@ -95,10 +98,11 @@ The roadmap previously said 47 packages. Counting the actual leaf IDs in the app
 
 ## Critical current blockers
 
-1. **PR #67:** code changes are based on `8bd4040891fc49079b796706d72e0525c0516944`; the branch was synchronized with current main using merge commit `18986e5ab12d376a6577bb79a58c72893520c153` and is now 24 commits ahead / 0 behind. All four workflows on that exact PR head passed (API build/unit/integration, Flutter analyze/tests, engine/AI audit, Web Preview build; deploy skipped). PR remains Draft with no review submissions/threads; code review and two-device manual acceptance remain open. Do not merge on CI alone.
+1. **PR #67 / disconnect takeover:** merged into main as `69f315b`; automated checks passed, but the two-device acceptance gate is still open. Do not mark the takeover field-accepted until both accounts/devices verify grace period, exactly one AI turn, reconnect hand-back and concurrent polling.
+2. **PR #77 / invite lifecycle:** open, unmerged; fixes stale-room invitation acceptance and synchronizes popup timeout with server expiry. API build/unit/integration, Flutter analyze/tests and engine audit passed on head `a3f019f`; Web Preview was still running. The added regression tests do not replace two-device acceptance.
 2. **Online board:** main's mobile screen obtains the match state from the authenticated `/matches/:id/state` endpoint and labels it server state. The rendering path also supports a local, explicitly unsubmitted batch-move preview. The user's reported incorrect-board symptom still requires real-device reproduction; no source change is justified from static inspection alone.
 3. **Room/invite expiry:** source creates empty rooms with a 60-second expiry and invite cards are checked against a 60-second age. The API cleanup endpoint exists and is called by room/invite polling, but there is no configured Neon scheduled trigger in the latest production audit; serverless idle cleanup is therefore not proven.
-4. **Production:** latest checkpoint reports deployment 79 predates current source, 13 production tables versus 30 defined by source, no scheduled Neon trigger, and missing owner/SMS configuration. No production deployment or migration is authorized by this audit.
+4. **Production:** Neon reports active Function deployment 80 and 33 public tables; read-only comparison found all 33 current source table declarations present with no extra/missing table names. The exact deployed Git SHA is not exposed. No scheduled Neon trigger is configured; owner/SMS configuration and registration/login smoke acceptance remain separate gates. No Production mutation or deployment was performed.
 5. **Manual acceptance:** two-device match behavior, RTL/LTR, theme consistency, VPN continuity and Android layout/accessibility/performance remain open.
 
 ## Evidence sources
@@ -116,4 +120,6 @@ The roadmap previously said 47 packages. Counting the actual leaf IDs in the app
 |---|---|---|
 | 2026-10-30 | Initial 53-package evidence inventory; corrected roadmap count from 47 to 53. | None; WBS v1.0 scope and all weights unchanged. |
 | 2026-10-30 | Recorded PR #70 merge (`22dbff4`) and its four successful exact-head workflows. | Documentation/evidence only; no earned WBS points assigned by merge or CI alone. |
-| 2026-10-30 | Recorded PR #67 synchronization with current main (`18986e5`) and four successful exact-head workflows; two-device acceptance remains pending. | PR remains unmerged; no manual acceptance points awarded. |
+| 2026-10-30 | Recorded PR #67 synchronization with current main (`18986e5`) and four successful exact-head workflows; two-device acceptance remains pending. | Historical record; later superseded by PR #67 merge. |
+| 2026-10-31 | Recorded PR #67 merge (`69f315b`), PR #75 merge (`227563f`), Neon deployment 80, and read-only 33-table reconciliation. | Evidence/status refresh only; no partial points awarded. |
+| 2026-10-31 | Added PR #77 stale-room invitation regression, notification read-all isolation test, and server-aligned invitation popup expiry. | PR remains unmerged; no WBS completion points awarded before final CI and acceptance. |
