@@ -99,7 +99,7 @@ class UnoVoiceMesh {
       if (candidate != null) {
         await peer.addCandidate(RTCIceCandidate(
           candidate,
-          data['sdpMid'] as String?,
+          (data['sdpMid'] as String?) ?? '',
           data['sdpMLineIndex'] as int?,
         ));
       }
