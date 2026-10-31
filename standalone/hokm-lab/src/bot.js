@@ -125,8 +125,22 @@ function sampleHiddenHands(state, seat, ledger, rng) {
   const hands = [[], [], [], []];
   function assign(index) {
     if (index === cards.length) return capacities.every((count, id) => id === seat || count === 0);
+    const remaining = cards.length - index;
+    if (capacities.reduce((sum, count) => sum + count, 0) !== remaining) return false;
+    for (const id of [0, 1, 2, 3]) {
+      if (id === seat || capacities[id] === 0) continue;
+      let possible = 0;
+      for (let cursor = index; cursor < cards.length; cursor += 1) {
+        if (!(voids[id] ?? []).includes(cards[cursor].suit)) possible += 1;
+      }
+      if (possible < capacities[id]) return false;
+    }
     const card = cards[index];
-    const choices = eligible(card).sort(() => rng() - 0.5);
+    const choices = eligible(card);
+    for (let i = choices.length - 1; i > 0; i -= 1) {
+      const j = Math.floor(rng() * (i + 1));
+      [choices[i], choices[j]] = [choices[j], choices[i]];
+    }
     for (const id of choices) {
       capacities[id] -= 1;
       hands[id].push(card);
