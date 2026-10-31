@@ -127,6 +127,44 @@ void main() {
     expect(bottomLast.dy, greaterThan(bottomTip));
   });
 
+  test('visible checkers in one point never overlap at phone and tablet sizes', () {
+    const boardSizes = <Size>[
+      Size(360, 500),
+      Size(640, 480),
+      Size(900, 600),
+      Size(1200, 700),
+    ];
+    for (final size in boardSizes) {
+      for (var point = 0; point < 24; point++) {
+        for (var count = 2; count <= 15; count++) {
+          final visible = count < 6 ? count : 6;
+          final radius = RoyalBackgammonBoard.checkerRadiusForPoint(
+            point: point,
+            checkerCount: count,
+            boardSize: size,
+          );
+          final centers = List<Offset>.generate(
+            visible,
+            (index) => RoyalBackgammonBoard.checkerCenterForPoint(
+              point: point,
+              stackIndex: index,
+              checkerCount: count,
+              boardSize: size,
+            ),
+          );
+          for (var index = 1; index < centers.length; index++) {
+            expect(
+              (centers[index] - centers[index - 1]).distance,
+              greaterThan(2 * radius + 0.5),
+              reason: 'Point $point, count $count, size $size: '
+                  'checker discs must not overlap.',
+            );
+          }
+        }
+      }
+    }
+  });
+
   testWidgets('selected point is repainted without losing the board',
       (tester) async {
     final points = List<num>.filled(24, 0)..[23] = -2;
