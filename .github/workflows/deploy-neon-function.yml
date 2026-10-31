@@ -625,6 +625,12 @@ jobs:
           }
           NODE
 
+      - name: Verify source/database table-name parity (read-only)
+        env:
+          DATABASE_URL: ${{ steps.database.outputs.url }}
+        working-directory: apps/api
+        run: npm run schema:check
+
       - name: Collect Neon function logs after smoke-test failure
         if: failure()
         env:
