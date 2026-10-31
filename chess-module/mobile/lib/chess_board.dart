@@ -93,8 +93,11 @@ class _ChessBoardState extends State<ChessBoard> {
       ),
     );
     if (promotion != null && mounted) {
-      final move = candidates.where((candidate) => candidate.endsWith(promotion)).firstOrNull;
-      if (move != null) widget.onMove(move);
+      final move = candidates.firstWhere(
+        (candidate) => candidate.endsWith(promotion),
+        orElse: () => '',
+      );
+      if (move.isNotEmpty) widget.onMove(move);
     }
   }
 
