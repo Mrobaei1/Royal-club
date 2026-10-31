@@ -4590,6 +4590,10 @@ app.post('/internal/cleanup-expired-empty-rooms', async (request, reply) => {
   }
   try {
     const deletedRooms = await cleanupExpiredEmptyRooms();
+    request.log.info({
+      invocationId: (request.body as { invocation_id: string }).invocation_id,
+      deletedRooms,
+    }, 'Scheduled empty-room cleanup completed');
     return { ok: true, deletedRooms };
   } catch (error) {
     request.log.error({ err: error }, 'Scheduled empty-room cleanup failed');
