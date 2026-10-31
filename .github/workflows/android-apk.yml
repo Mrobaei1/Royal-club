@@ -1,10 +1,6 @@
 name: Royal Club Android APK
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'apps/mobile/pubspec.yaml'
   workflow_dispatch:
     inputs:
       build_apk:
