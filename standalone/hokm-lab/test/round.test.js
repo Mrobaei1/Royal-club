@@ -6,7 +6,7 @@ import { createRound, chooseTrump, playCard, roundViewForSeat } from "../src/rou
 function makeState(hakemSeat = 0) {
   const deck = createDeck();
   const state = createRound({ deck, hakemSeat });
-  return { state, remaining: deck.slice(20) };
+  return { state };
 }
 
 test("round starts with five cards per player and waits for hakem", () => {
@@ -17,10 +17,10 @@ test("round starts with five cards per player and waits for hakem", () => {
 });
 
 test("only hakem may choose a valid trump; then each hand has 13 cards", () => {
-  const { state, remaining } = makeState(1);
-  assert.throws(() => chooseTrump(state, 0, "hearts", remaining), /hakem/);
-  assert.throws(() => chooseTrump(state, 1, "joker", remaining), /Invalid trump/);
-  const playing = chooseTrump(state, 1, "spades", remaining);
+  const { state } = makeState(1);
+  assert.throws(() => chooseTrump(state, 0, "hearts"), /hakem/);
+  assert.throws(() => chooseTrump(state, 1, "joker"), /Invalid trump/);
+  const playing = chooseTrump(state, 1, "spades");
   assert.equal(playing.phase, "playing");
   assert.equal(playing.trumpSuit, "spades");
   assert.deepEqual(playing.hands.map((h) => h.length), [13, 13, 13, 13]);
@@ -29,7 +29,7 @@ test("only hakem may choose a valid trump; then each hand has 13 cards", () => {
 
 test("play rejects wrong turn and a card not in the seat's hand", () => {
   const { state, remaining } = makeState();
-  const playing = chooseTrump(state, 0, "clubs", remaining);
+  const playing = chooseTrump(state, 0, "clubs");
   assert.throws(() => playCard(playing, 1, playing.hands[1][0]), /turn/);
   assert.throws(() => playCard(playing, 0, { suit: "spades", rank: "A" }), /not in this player's hand/);
 });
@@ -48,7 +48,7 @@ test("playCard enforces follow-suit when a legal off-suit card is attempted", ()
   // Use a deck arrangement that makes the first seat hold clubs and hearts.
   const deck = createDeck();
   const { state, remaining } = makeState();
-  const playing = chooseTrump(state, 0, "spades", remaining);
+  const playing = chooseTrump(state, 0, "spades");
   const first = playing.hands[0][0];
   const secondSeat = 1;
   const afterFirst = playCard(playing, 0, first);
@@ -57,4 +57,10 @@ test("playCard enforces follow-suit when a legal off-suit card is attempted", ()
     const illegal = afterFirst.hands[secondSeat].find((card) => card.suit !== first.suit);
     if (illegal) assert.throws(() => playCard(afterFirst, secondSeat, illegal), /must follow/);
   }
+});
+
+test("round rejects a malformed deck with duplicate cards before dealing", () => {
+  const deck = createDeck();
+  deck[51] = deck[0];
+  assert.throws(() => createRound({ deck }), /52 unique/);
 });
