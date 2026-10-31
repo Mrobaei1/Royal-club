@@ -322,6 +322,12 @@ void main() {
       final moves = game.legalMoves();
       expect(moves.any((move) => move.from == 19 && move.to == -1), isTrue);
       expect(moves.any((move) => move.from == 23 && move.to == -1), isFalse);
+
+      final selected = moves.singleWhere((move) => move.from == 19);
+      expect(game.playMove(selected), isTrue);
+      expect(game.points[19], 0);
+      expect(game.points[23], 1);
+      expect(game.borneOff[1], 1);
     });
 
     test('a checker on point 6 must be borne off before point 5 with die 6', () {
