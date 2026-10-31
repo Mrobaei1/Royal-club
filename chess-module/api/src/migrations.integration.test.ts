@@ -29,6 +29,7 @@ test("isolated chess migrations apply cleanly against a bigint users schema", { 
       "003_draws_and_ratings.sql",
       "004_matchmaking_queue.sql",
       "005_room_lifecycle.sql",
+      "006_admin_audit.sql",
     ]) {
       const sql = await readFile(new URL(`../../database/migrations/${file}`, import.meta.url), "utf8");
       await db.query(sql);
@@ -84,7 +85,7 @@ test("isolated chess migrations apply cleanly against a bigint users schema", { 
     for (const required of [
       "chess_games.revision", "chess_games.clock_snapshot", "chess_rooms.settings_snapshot", "chess_rooms.expires_at",
       "chess_moves.ply", "chess_draw_offers.status", "chess_player_ratings.rating",
-      "chess_matchmaking_queue.min_opponent_level",
+      "chess_matchmaking_queue.min_opponent_level", "chess_admin_audit_events.action",
     ]) assert.ok(actual.has(required), `missing ${required}`);
   } finally {
     await db.end();
