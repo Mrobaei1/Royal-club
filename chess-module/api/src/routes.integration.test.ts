@@ -7,6 +7,7 @@ import { Pool } from "pg";
 import type { FastifyRequest } from "fastify";
 import { registerChessRoutes } from "./routes.js";
 import { awardChessResult } from "./progression-store.js";
+import { adjudicateExpiredChessClocks } from "./clock-scheduler.js";
 
 const databaseUrl = process.env.CHESS_TEST_DATABASE_URL;
 const migrationFiles = [
@@ -212,6 +213,31 @@ test("authenticated chess routes support private game, draw, chat, voice, profil
       [[white, black]],
     );
     assert.deepEqual(progressionAfter.rows.map(row => Number(row.xp)), [0, 20]);
+
+    const timeoutRoom = await request(white, "POST", "/chess/rooms", {
+      timeControlId: "rapid", minOpponentLevel: 1, chatEnabled: true, voiceEnabled: false,
+    });
+    const timeoutJoin = await request(black, "POST", `/chess/rooms/${timeoutRoom.json().roomCode}/join`);
+    assert.equal(timeoutJoin.statusCode, 201, timeoutJoin.body);
+    const timeoutGameId = timeoutJoin.json().gameId as string;
+    const timeoutNow = Date.now();
+    await pool.query(
+      "UPDATE chess_games SET clock_snapshot=jsonb_set(jsonb_set(clock_snapshot,'{whiteMs}','1'::jsonb),'{lastStartedAt}',to_jsonb($2::bigint)) WHERE id=$1",
+      [timeoutGameId, timeoutNow - 5000],
+    );
+    assert.equal(await adjudicateExpiredChessClocks(pool, timeoutNow), 1);
+    const timeoutResult = await pool.query(
+      "SELECT status,clock_snapshot->>'finished' AS finished FROM chess_games WHERE id=$1",
+      [timeoutGameId],
+    );
+    assert.equal(timeoutResult.rows[0].status, "black_win");
+    assert.equal(timeoutResult.rows[0].finished, "true");
+    assert.equal(await adjudicateExpiredChessClocks(pool, timeoutNow + 1000), 0);
+    const timeoutRoomStatus = await pool.query(
+      "SELECT status FROM chess_rooms WHERE room_code=$1",
+      [timeoutRoom.json().roomCode],
+    );
+    assert.equal(timeoutRoomStatus.rows[0].status, "finished");
 
     const cancellable = await request(white, "POST", "/chess/rooms", {
       timeControlId: "rapid", minOpponentLevel: 1, chatEnabled: true, voiceEnabled: false,
