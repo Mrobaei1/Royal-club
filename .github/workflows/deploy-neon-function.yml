@@ -339,6 +339,119 @@ jobs:
               throw new Error('Accepted friend did not appear in the sender friend list.');
             }
 
+            // Exercise the complete invitation and notification lifecycle against the deployed API.
+            const inviteRoomResponse = await fetch(`${base}/api/v1/matches`, {
+              method: 'POST',
+              headers: { authorization: `Bearer ${firstToken}`, 'content-type': 'application/json' },
+              body: JSON.stringify({}),
+            });
+            if (inviteRoomResponse.status !== 201) {
+              throw new Error(`Invite room creation failed: ${inviteRoomResponse.status} ${await inviteRoomResponse.text()}`);
+            }
+            const inviteRoom = (await inviteRoomResponse.json()).match;
+            const sendInviteResponse = await fetch(`${base}/api/v1/matches/${inviteRoom.id}/invites`, {
+              method: 'POST',
+              headers: { authorization: `Bearer ${firstToken}`, 'content-type': 'application/json' },
+              body: JSON.stringify({ inviteeId: String(secondUser.id) }),
+            });
+            if (sendInviteResponse.status !== 201) {
+              throw new Error(`Sending match invitation failed: ${sendInviteResponse.status} ${await sendInviteResponse.text()}`);
+            }
+            const sentInvite = (await sendInviteResponse.json()).invite;
+            const inviteInboxResponse = await fetch(`${base}/api/v1/match-invites`, {
+              headers: { authorization: `Bearer ${secondToken}` },
+            });
+            const inviteInbox = await inviteInboxResponse.json();
+            if (inviteInboxResponse.status !== 200 ||
+                !inviteInbox.invites?.some((invite) => String(invite.id) === String(sentInvite.id))) {
+              throw new Error('The recipient match-invites inbox did not return the pending invitation.');
+            }
+            const notificationResponse = await fetch(`${base}/api/v1/notifications`, {
+              headers: { authorization: `Bearer ${secondToken}` },
+            });
+            const notificationPayload = await notificationResponse.json();
+            const inviteNotification = notificationPayload.notifications?.find((item) =>
+              String(item.data?.inviteId) === String(sentInvite.id));
+            if (notificationResponse.status !== 200 || !inviteNotification) {
+              throw new Error('The match invitation did not appear in the recipient notification feed.');
+            }
+            const readAllResponse = await fetch(`${base}/api/v1/notifications/read-all`, {
+              method: 'POST',
+              headers: { authorization: `Bearer ${secondToken}`, 'content-type': 'application/json' },
+              body: JSON.stringify({}),
+            });
+            if (readAllResponse.status !== 200) {
+              throw new Error(`Mark-all-read failed: ${readAllResponse.status} ${await readAllResponse.text()}`);
+            }
+            const readBackResponse = await fetch(`${base}/api/v1/notifications`, {
+              headers: { authorization: `Bearer ${secondToken}` },
+            });
+            const readBack = await readBackResponse.json();
+            if (!readBack.notifications?.find((item) => String(item.data?.inviteId) === String(sentInvite.id))?.readAt) {
+              throw new Error('Mark-all-read did not mark the invitation notification as read.');
+            }
+            const deleteAllResponse = await fetch(`${base}/api/v1/notifications`, {
+              method: 'DELETE',
+              headers: { authorization: `Bearer ${secondToken}` },
+            });
+            if (deleteAllResponse.status !== 200) {
+              throw new Error(`Clear-all notifications failed: ${deleteAllResponse.status} ${await deleteAllResponse.text()}`);
+            }
+            const emptyNotificationsResponse = await fetch(`${base}/api/v1/notifications`, {
+              headers: { authorization: `Bearer ${secondToken}` },
+            });
+            const emptyNotifications = await emptyNotificationsResponse.json();
+            if (emptyNotificationsResponse.status !== 200 || emptyNotifications.notifications?.length !== 0) {
+              throw new Error('Clear-all notifications left notifications in the recipient feed.');
+            }
+            const acceptInviteResponse = await fetch(`${base}/api/v1/match-invites/${sentInvite.id}/respond`, {
+              method: 'POST',
+              headers: { authorization: `Bearer ${secondToken}`, 'content-type': 'application/json' },
+              body: JSON.stringify({ accept: true }),
+            });
+            const acceptedInvite = await acceptInviteResponse.json();
+            if (acceptInviteResponse.status !== 200 ||
+                acceptedInvite.response !== 'accepted' ||
+                String(acceptedInvite.match?.id) !== String(inviteRoom.id)) {
+              throw new Error(`Accepting invitation did not return the correct room: ${acceptInviteResponse.status} ${JSON.stringify(acceptedInvite)}`);
+            }
+            const inviteCleanup = await fetch(`${base}/api/v1/match-invites`, {
+              headers: { authorization: `Bearer ${secondToken}` },
+            });
+            if (inviteCleanup.status !== 200) {
+              throw new Error('Could not refresh invitation inbox after acceptance.');
+            }
+
+            // An unaccepted invite and its empty room must both disappear after expiry.
+            const expiryRoomResponse = await fetch(`${base}/api/v1/matches`, {
+              method: 'POST',
+              headers: { authorization: `Bearer ${firstToken}`, 'content-type': 'application/json' },
+              body: JSON.stringify({}),
+            });
+            const expiryRoom = (await expiryRoomResponse.json()).match;
+            if (expiryRoomResponse.status !== 201 || !expiryRoom?.id) {
+              throw new Error('Could not create the expiry smoke-test room.');
+            }
+            const expiryInviteResponse = await fetch(`${base}/api/v1/matches/${expiryRoom.id}/invites`, {
+              method: 'POST',
+              headers: { authorization: `Bearer ${firstToken}`, 'content-type': 'application/json' },
+              body: JSON.stringify({ inviteeId: String(secondUser.id) }),
+            });
+            if (expiryInviteResponse.status !== 201) {
+              throw new Error(`Could not create expiry smoke-test invitation: ${expiryInviteResponse.status}`);
+            }
+            await pool.query('UPDATE backgammon_matches SET expires_at = NOW() - INTERVAL \'1 second\' WHERE id = $1', [expiryRoom.id]);
+            const expiredInboxResponse = await fetch(`${base}/api/v1/match-invites`, {
+              headers: { authorization: `Bearer ${secondToken}` },
+            });
+            const expiredInbox = await expiredInboxResponse.json();
+            const expiredRoomCount = await pool.query('SELECT COUNT(*)::int AS count FROM backgammon_matches WHERE id = $1', [expiryRoom.id]);
+            if (expiredInboxResponse.status !== 200 ||
+                expiredInbox.invites?.some((invite) => String(invite.matchId) === String(expiryRoom.id)) ||
+                expiredRoomCount.rows[0].count !== 0) {
+              throw new Error('Expired invitation or its empty room was not physically cleaned up.');
+            }
+
             const removeFriendResponse = await fetch(`${base}/api/v1/friends/${secondUser.id}`, {
               method: 'DELETE',
               headers: { authorization: `Bearer ${firstToken}` },
