@@ -10,7 +10,19 @@ import type { AuthenticatedPlayer } from './room-manager.js';
 
 const databaseUrl = process.env.DATABASE_URL ?? '';
 if (!databaseUrl) throw new Error('DATABASE_URL is required to resolve the authenticated public username.');
-const pool = new Pool({ connectionString: databaseUrl });
+function normalizeDatabaseUrl(value: string): string {
+  try {
+    const url = new URL(value);
+    const mode = url.searchParams.get('sslmode')?.toLowerCase();
+    if (mode && ['prefer', 'require', 'verify-ca'].includes(mode)) {
+      url.searchParams.set('sslmode', 'verify-full');
+    }
+    return url.toString();
+  } catch {
+    return value;
+  }
+}
+const pool = new Pool({ connectionString: normalizeDatabaseUrl(databaseUrl) });
 const jwtSecret = process.env.JWT_SECRET ?? '';
 if (jwtSecret.length < 32) throw new Error('JWT_SECRET must contain at least 32 characters.');
 function decodePart(value: string): Record<string, unknown> {
