@@ -284,6 +284,7 @@ class ChessGameSession extends ChangeNotifier {
     unawaited(_subscription?.cancel());
     unawaited(_socket?.close());
     _socket = null;
+    unawaited(voiceClient?.releaseTalk());
     super.dispose();
   }
 }
