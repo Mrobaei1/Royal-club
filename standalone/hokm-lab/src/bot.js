@@ -158,7 +158,7 @@ function searchExpectedTrickValue(state, seat, candidates, ledger) {
   const historyKey = publicHistory(state).flatMap(trick =>
     trick.map(play => `${play.seat}:${cardKey(play.card)}`)).join("|");
   const seedBase = hashSeed(`${seat}:${state.trumpSuit}:${historyKey}:${state.hands[seat].map(cardKey).sort().join(",")}`);
-  const samples = 32;
+  const samples = 12;
   const values = new Map(candidates.map(card => [cardKey(card), { score: 0, samples: 0 }]));
   for (let sample = 0; sample < samples; sample += 1) {
     const rng = seededRandom(seedBase + sample * 104729);
