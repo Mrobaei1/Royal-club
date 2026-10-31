@@ -163,6 +163,10 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
       const played=game.play(request.body);
       const after=game.snapshot();
       const nextClock=settleClock(elapsed,control,now,true);
+      const cancelledOffers=await client.query(
+        "UPDATE chess_draw_offers SET status='cancelled',responded_by=$2,responded_at=NOW() WHERE game_id=$1 AND status='pending' RETURNING id",
+        [row.id,playerId]
+      );
       const ply=Number(row.revision)+1;
       await client.query(
         `INSERT INTO chess_moves(game_id,ply,user_id,from_square,to_square,promotion,san,fen_after)
@@ -184,6 +188,10 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
         else {const winner=status==="white_win"?white:black;await awardChessResult(client,String(row.id),"final_result",white,black,{outcome:"win",winnerId:winner,loserId:winner===white?black:white});}
       }
       await client.query("COMMIT");
+      for(const offer of cancelledOffers.rows){
+        try{await publishGameEvent(pool,row.id,{type:"draw_response",offerId:String(offer.id),status:"cancelled"});}
+        catch(error){request.log.warn({err:error},"chess draw cancellation notification failed");}
+      }
       return {fen:played.fen,pgn:played.pgn,revision:ply,status,clock:nextClock,move:played.san};
     }catch(error){
       await rollback(client);
