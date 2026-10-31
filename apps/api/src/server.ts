@@ -1215,13 +1215,17 @@ app.patch<{ Body: { fullName?: string; phone?: string; country?: string } }>('/a
   return { user: result.rows[0] };
 });
 
-app.get('/api/v1/account/customization-pricing', { onRequest: [requireMatchAuth] }, async () => {
-  const result = await pool.query(
-    'SELECT avatar_change_price_credits AS "avatarChangePriceCredits", username_change_price_credits AS "usernameChangePriceCredits" FROM account_customization_pricing WHERE id = 1',
-  );
-  const row = result.rows[0] ?? {};
+app.get('/api/v1/account/customization-pricing', { onRequest: [requireMatchAuth] }, async (request) => {
+  const claims = request.user as { sub: string };
+  const [pricing, user] = await Promise.all([
+    pool.query(
+      'SELECT avatar_change_price_credits AS "avatarChangePriceCredits", username_change_price_credits AS "usernameChangePriceCredits" FROM account_customization_pricing WHERE id = 1',
+    ),
+    pool.query('SELECT avatar_change_count FROM users WHERE id = $1', [claims.sub]),
+  ]);
+  const row = pricing.rows[0] ?? {};
   return {
-    avatarFirstChangeFree: true,
+    avatarFirstChangeFree: Number(user.rows[0]?.avatar_change_count ?? 0) === 0,
     avatarChangePriceCredits: Number(row.avatarChangePriceCredits ?? 0),
     usernameChangePriceCredits: Number(row.usernameChangePriceCredits ?? 0),
   };
