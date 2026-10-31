@@ -27,8 +27,8 @@ Build and verify an independent, Royal Club-compatible Hokm/Court Piece game mod
 - [x] Intentional forfeit penalty with duplicate-event protection and permanent fixed-Hard bot takeover.
 - [x] Transient disconnect grace, timeout-triggered temporary bot takeover, version-checked reconnect and no-rollback seat reclaim.
 - [ ] Persistent per-user XP ledger and atomic match-result transaction.
-- [x] Fixed-hard bot with legal-card selection, public unseen-card counting, void-suit inference, deterministic full-hand simulation, 24 seeded-deal simulations, 100 seeded full-match simulations to target 3 and hidden-hand invariance tests.
-- [ ] Deeper trick-outcome search, multi-deal benchmarking, automated bot-seat orchestration and full-match simulations.
+- [x] Fixed-hard bot with legal-card selection, public unseen-card counting, void-suit inference, deterministic full-hand simulation, 24 seeded-deal simulations, 100 seeded full-match simulations to target 3, a 300-deal comparison against a legal-random baseline (Hard team: 269/300 wins, 89.67%; 67.6% trick share) and hidden-hand invariance tests.
+- [ ] Deeper trick-outcome search, stronger strategic baselines (including partnership-aware opponents), automated bot-seat orchestration and full-match simulations.
 - [x] Public completed-trick history retained in round state and sanitized per-seat views.
 - [ ] Production online service, network-driven deadline scheduler, authenticated session binding/persistent reconnect; chat/voice.
 - [ ] Flutter UI, manager controls and end-to-end/security testing.
