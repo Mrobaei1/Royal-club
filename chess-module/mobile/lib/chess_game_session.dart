@@ -47,6 +47,7 @@ class ChessGameSession extends ChangeNotifier {
   List<String> get legalMoves =>
       (game?['legalMoves'] as List? ?? const []).whereType<String>().toList(growable: false);
   String? get status => game?['status'] as String?;
+  bool get isHost => game?['isHost'] == true;
 
   Future<void> connect() async {
     if (_disposed) throw StateError('chess_session_disposed');
