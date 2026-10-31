@@ -121,7 +121,10 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
     );
     if(!result.rowCount)return fail(reply,404,"game_not_found");
     const row=result.rows[0];
+    const engine=new ChessGame(row.current_fen);
+    const engineState=engine.snapshot();
     return {gameId:String(row.id),fen:row.current_fen,pgn:row.pgn,status:row.status,revision:Number(row.revision),
+      turn:engineState.turn,legalMoves:engineState.legalMoves,
       clock:row.clock_snapshot,settings:row.settings_snapshot,
       players:{white:{username:row.white_username},black:{username:row.black_username}}};
   });
