@@ -31,6 +31,18 @@ class RoyalBackgammonBoard extends StatelessWidget {
     required Size boardSize,
   }) => _RoyalBoardPainter.checkerCenter(point, stackIndex, checkerCount, boardSize);
 
+  /// Number of physical checkers painted for a stack; the fifth carries the count.
+  static int visibleCheckerCountForPoint(int checkerCount) =>
+      math.min(checkerCount.abs(), 5);
+
+  /// Position where the total stack count is painted when more than five exist.
+  static Offset checkerCountBadgeCenterForPoint({
+    required int point,
+    required int checkerCount,
+    required Size boardSize,
+  }) => _RoyalBoardPainter.checkerCenter(
+        point, 4, checkerCount.abs().clamp(1, 15), boardSize);
+
   /// Fixed checker radius. The visual size is independent of stack count.
   static double checkerRadiusForPoint({
     required int point,
