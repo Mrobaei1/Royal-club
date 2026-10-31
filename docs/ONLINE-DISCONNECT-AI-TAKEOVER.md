@@ -5,7 +5,7 @@
 **Merge commit:** [69f315b](https://github.com/Mrobaei1/Royal-club/commit/69f315b2c2d38eba3c1e688ab48be77d17a2137c).  
 **Original implementation commit:** [8bd4040](https://github.com/Mrobaei1/Royal-club/commit/8bd4040891fc49079b796706d72e0525c0516944).  
 **Latest main HEAD verified:** [4171bb7](https://github.com/Mrobaei1/Royal-club/commit/4171bb7933a13eedb0bfc52ed51f7fe3c3d8b8bc).  
-**Status:** Server-authoritative temporary AI takeover for backgammon is merged into `main`. Latest-main GitHub Actions passed API build/unit/integration tests, Flutter analyze/tests, and Web Preview build/deploy. Two-device manual acceptance remains pending; the merged code has not been deployed to Production.
+**Status:** Server-authoritative temporary AI takeover for backgammon is merged into `main`. Neon reports active Function deployment 80, created at 2026-10-31T06:34:28Z after PR #67 merged. The latest-main production API/database health check passed in [run 41177353201](https://github.com/Mrobaei1/Royal-club/actions/runs/41177353201). Neon does not expose the deployed source SHA, so the exact bundled commit is not directly attested. Two-device manual acceptance remains pending.
 
 ## Behavior and defaults
 
@@ -28,7 +28,7 @@
 - On serverless hosts, the reconnect heartbeat first processes an overdue turn before refreshing presence; this prevents a returning player from bypassing the AI turn when no background worker or opponent poll ran during the idle period.
 - Long-running API hosts scan for due turns every two seconds. Authenticated match-state polling also attempts a due takeover.
 - **Serverless idle limitation:** if all clients stop polling and the API scales to zero, no background execution is guaranteed. A due takeover is processed on the next authenticated state poll. No scheduled trigger was created or activated.
-- **Live Neon configuration check (2026-10-30):** the `Royal-Club-API` production branch had no Function Triggers configured; its active `royalclubapi` deployment was version 79 from 2026-10-27 and predates merge commit `69f315b`. The implementation is merged into source but is not active in Production.
+- **Live Neon configuration check (2026-10-31):** the production branch has no Function Triggers configured. Neon reports active `royalclubapi` deployment 80, created at 2026-10-31T06:34:28Z after merge commit `69f315b`. The production API health and database-connectivity checks passed in run 41177353201. The 33 production tables exactly match current API source. Neon metadata does not expose the deployed source SHA, so exact bundle provenance is not directly attested. No scheduled cleanup trigger exists; serverless idle behavior remains as described above.
 
 ## Automated verification
 
@@ -48,7 +48,7 @@ Tests cover legal AI sequence selection, immutable input, bar entry, blocked ent
 
 ## Explicit boundaries
 
-- No Production deployment or database migration was performed. The implementation/schema changes are merged into source on `main`; Production deployment remains pending.
-- No APK was built as part of PR #67.
-- No SMS, Agent runtime, delegated permission, paid feature, scheduled Neon trigger, or Production configuration was activated.
+- Neon reports active Function deployment 80, created after PR #67 merged; production health and database checks pass, and all 33 current source tables exist. Exact deployed Git SHA is not exposed by Neon metadata.
+- A separate owner-approved ARM64 APK build 1.1.14+16 completed successfully in [run 41177336792](https://github.com/Mrobaei1/Royal-club/actions/runs/41177336792); this build is not part of PR #67.
+- No SMS, Agent runtime, delegated permission, paid feature, or scheduled Neon trigger was activated.
 - Chess and card-game takeover execution are not implemented by this backgammon-specific change.
