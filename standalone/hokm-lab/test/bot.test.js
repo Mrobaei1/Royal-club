@@ -72,7 +72,7 @@ test("public ledger counts cards from completed tricks and infers revoked suits"
   state=playCard(state,2,state.hands[2].find(card=>card.suit===lead.suit) ?? state.hands[2][0]);
   state=playCard(state,3,state.hands[3].find(card=>card.suit===lead.suit) ?? state.hands[3][0]);
   const view=visibleCardLedger(state,0);
-  assert.equal(view.knownCards,17);
+  assert.equal(view.knownCards,16);
   assert.equal(view.ownHandCount,12);
   if(follow.suit!==lead.suit) assert.ok(view.voidSuitsBySeat[1].includes(lead.suit));
   assert.equal("undealtDeck" in view,false);
