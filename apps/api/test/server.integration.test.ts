@@ -590,6 +590,23 @@ test('registered players can join an online match and history does not expose op
   assert.equal(corruptStateMove.statusCode, 409, corruptStateMove.body);
   assert.match(corruptStateMove.body, /Invalid board state/);
 
+  const corruptStateRead = await app.inject({
+    method: 'GET',
+    url: `/api/v1/matches/${matchId}/state`,
+    headers: auth(host.token),
+  });
+  assert.equal(corruptStateRead.statusCode, 409, corruptStateRead.body);
+  assert.match(corruptStateRead.body, /Invalid board state/);
+
+  const corruptStateRoll = await app.inject({
+    method: 'POST',
+    url: `/api/v1/matches/${matchId}/roll`,
+    headers: auth(host.token),
+    payload: { expectedVersion: 98 },
+  });
+  assert.equal(corruptStateRoll.statusCode, 409, corruptStateRoll.body);
+  assert.match(corruptStateRoll.body, /Invalid board state/);
+
   // Apply two dice in one atomic online turn (the same 2+3 cumulative move
   // the board UI supports) and assert the server owns the resulting position.
   const batchBoard = Array<number>(24).fill(0);
