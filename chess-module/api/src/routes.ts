@@ -297,6 +297,21 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
     finally{client.release();}
   });
 
+  app.get<{Querystring:{limit?:string}}>("/chess/admin/audit",{preHandler:options.authenticate},async(request,reply)=>{
+    let actor:string;
+    try{actor=userId(request,options);}catch{return fail(reply,401,"unauthorized");}
+    if(!await options.canManageSettings(actor))return fail(reply,403,"forbidden");
+    const limit=request.query.limit===undefined?50:Number(request.query.limit);
+    if(!Number.isSafeInteger(limit)||limit<1||limit>100)return fail(reply,400,"invalid_audit_limit");
+    const result=await pool.query(
+      `SELECT a.id,a.action,a.entity_type,a.entity_id,a.before_data,a.after_data,a.created_at,u.username AS actor_username
+       FROM chess_admin_audit_events a JOIN users u ON u.id=a.actor_user_id
+       ORDER BY a.created_at DESC,a.id DESC LIMIT $1`,
+      [limit]
+    );
+    return {events:result.rows.map(row=>({...row,id:String(row.id)}))};
+  });
+
   app.get<{Params:{userId:string}}>("/chess/players/:userId/profile",{preHandler:options.authenticate},async(request,reply)=>{
     let viewer:string;
     try{viewer=userId(request,options);}catch{return fail(reply,401,"unauthorized");}
