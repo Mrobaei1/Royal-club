@@ -253,7 +253,11 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
           'No legal move was possible; it is now ${_playerName(_engine.currentPlayer)}’s turn.');
     });
     _startTurnTimer(reset: true);
-    _scheduleComputerTurn();
+    if (_vsComputer && _engine.currentPlayer == -1) {
+      _scheduleComputerTurn(delay: Duration.zero);
+    } else {
+      _scheduleComputerTurn();
+    }
   }
 
   void _reset() {
@@ -453,7 +457,7 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
     _scheduleComputerTurn();
   }
 
-  void _scheduleComputerTurn() {
+  void _scheduleComputerTurn({Duration delay = const Duration(seconds: 2)}) {
     if (!_vsComputer ||
         _engine.finished ||
         _engine.currentPlayer != -1 ||
