@@ -151,11 +151,11 @@ void main() {
           );
         }
         for (final count in [7, 9, 15]) {
-          final fifth = RoyalBackgammonBoard.checkerCenterForPoint(
-            point: point, stackIndex: 4, checkerCount: count, boardSize: size);
+          final sixth = RoyalBackgammonBoard.checkerCenterForPoint(
+            point: point, stackIndex: 5, checkerCount: count, boardSize: size);
           final badge = RoyalBackgammonBoard.checkerCountBadgeCenterForPoint(
             point: point, checkerCount: count, boardSize: size);
-          expect(badge, fifth,
+          expect(badge, sixth,
             reason: 'Overflow total must be drawn on the sixth checker.');
         }
       }
