@@ -86,6 +86,8 @@ test("authenticated chess routes support private game, draw, chat, voice, profil
     });
     assert.equal(duplicateRoom.statusCode, 409);
 
+    const selfJoin = await request(white, "POST", `/chess/rooms/${roomCode}/join`);
+    assert.equal(selfJoin.statusCode, 400);
     const joined = await request(black, "POST", `/chess/rooms/${roomCode}/join`);
     assert.equal(joined.statusCode, 201, joined.body);
     const gameId = joined.json().gameId as string;
@@ -162,6 +164,26 @@ test("authenticated chess routes support private game, draw, chat, voice, profil
     const resigned = await request(white, "POST", `/chess/games/${gameId}/resign`);
     assert.equal(resigned.statusCode, 200, resigned.body);
     assert.equal(resigned.json().status, "black_win");
+
+    const cancellable = await request(white, "POST", "/chess/rooms", {
+      timeControlId: "rapid", minOpponentLevel: 1, chatEnabled: true, voiceEnabled: false,
+    });
+    const cancellableCode = cancellable.json().roomCode as string;
+    const guestCancel = await request(black, "DELETE", `/chess/rooms/${cancellableCode}`);
+    assert.equal(guestCancel.statusCode, 404);
+    const hostCancel = await request(white, "DELETE", `/chess/rooms/${cancellableCode}`);
+    assert.equal(hostCancel.statusCode, 200);
+    assert.equal(hostCancel.json().cancelled, true);
+
+    const expiring = await request(white, "POST", "/chess/rooms", {
+      timeControlId: "rapid", minOpponentLevel: 1, chatEnabled: true, voiceEnabled: false,
+    });
+    const expiringCode = expiring.json().roomCode as string;
+    await pool.query("UPDATE chess_rooms SET expires_at=NOW()-INTERVAL '1 second' WHERE room_code=$1", [expiringCode]);
+    const expiredJoin = await request(black, "POST", `/chess/rooms/${expiringCode}/join`);
+    assert.equal(expiredJoin.statusCode, 410);
+    const expiredRoom = await pool.query("SELECT status FROM chess_rooms WHERE room_code=$1", [expiringCode]);
+    assert.equal(expiredRoom.rows[0].status, "cancelled");
 
     const queued = await request(queueOne, "POST", "/chess/matchmaking/join", { timeControlId: "rapid" });
     assert.equal(queued.statusCode, 202, queued.body);
