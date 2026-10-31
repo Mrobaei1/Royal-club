@@ -62,7 +62,7 @@ class ChessChatMessage {
 class _ChessGameScreenState extends State<ChessGameScreen> {
   final _messageController = TextEditingController();
   Timer? _clockTimer;
-  DateTime? _clockAnchor;
+  Duration _elapsedSinceSync = Duration.zero;
   Duration _whiteDisplay = Duration.zero;
   Duration _blackDisplay = Duration.zero;
 
@@ -75,14 +75,15 @@ class _ChessGameScreenState extends State<ChessGameScreen> {
   void _resetClockDisplay() {
     _whiteDisplay = widget.whiteClock;
     _blackDisplay = widget.blackClock;
-    _clockAnchor = DateTime.now();
+    _elapsedSinceSync = Duration.zero;
     if (widget.activeSide == null) {
       _clockTimer?.cancel();
       _clockTimer = null;
     } else {
       _clockTimer ??= Timer.periodic(const Duration(milliseconds: 200), (_) {
-        if (!mounted || _clockAnchor == null || widget.activeSide == null) return;
-        final elapsed = DateTime.now().difference(_clockAnchor!);
+        if (!mounted || widget.activeSide == null) return;
+        _elapsedSinceSync += const Duration(milliseconds: 200);
+        final elapsed = _elapsedSinceSync;
         setState(() {
           if (widget.activeSide == 'white') {
             _whiteDisplay = widget.whiteClock - elapsed;
