@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createRoom, joinRoom, setPlayerReady, startRoom, expireRoom, roomViewForUser } from "../src/room.js";
+import { createRoom, joinRoom, setPlayerReady, startRoom, expireRoom, roomViewForUser, applyRoomCommand } from "../src/room.js";
 
 function fullReadyRoom(now = 1000) {
   let room = createRoom({ roomId: "test-room", hostUserId: "u0", now });
@@ -53,9 +53,9 @@ test("room view is membership-gated and never exposes all private hands", () => 
 test("stale room versions and non-members cannot submit commands", () => {
   const room = fullReadyRoom();
   const started = startRoom(room, "u0", { now: 2000, rng: () => 0.5 });
-  // Version is checked before command execution; callers cannot mutate old state.
-  assert.throws(() => {
-    // Importing a command handler here is intentionally avoided for this pre-trump state.
-    if (started.version !== started.version - 1) throw new Error("Stale room version");
-  }, /Stale room version/);
+  assert.throws(() => applyRoomCommand(started, "u0", { type: "choose_trump", suit: "hearts" }, started.version - 1), /Stale room version/);
+  assert.throws(() => applyRoomCommand(started, "outsider", { type: "choose_trump", suit: "hearts" }, started.version), /not a member/);
+  const chosen = applyRoomCommand(started, "u0", { type: "choose_trump", suit: "hearts" }, started.version);
+  assert.equal(chosen.round.phase, "playing");
+  assert.equal(chosen.version, started.version + 1);
 });
