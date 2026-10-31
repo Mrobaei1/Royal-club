@@ -572,8 +572,10 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
       const controlRow=controlResult.rows[0];
       if(!controlRow){await client.query("ROLLBACK");return fail(reply,400,"time_control_unavailable");}
       const opponentResult=await client.query(
-        `SELECT q.user_id,q.min_opponent_level,COALESCE(p.level,1) AS level
-         FROM chess_matchmaking_queue q LEFT JOIN chess_player_progression p ON p.user_id=q.user_id
+        `SELECT q.user_id,q.min_opponent_level,COALESCE(p.level,1) AS level,u.username
+         FROM chess_matchmaking_queue q
+         LEFT JOIN chess_player_progression p ON p.user_id=q.user_id
+         JOIN users u ON u.id=q.user_id
          WHERE q.time_control_id=$1 AND q.user_id<>$2
            AND COALESCE(p.level,1)>=$3 AND $4>=q.min_opponent_level
          ORDER BY q.created_at,q.user_id FOR UPDATE OF q SKIP LOCKED LIMIT 1`,
@@ -610,9 +612,11 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
         [room.rows[0].id,opponentId,playerId,initialFen,JSON.stringify(clock),JSON.stringify(settings)]
       );
       await client.query("DELETE FROM chess_matchmaking_queue WHERE user_id=ANY($1::bigint[])",[[playerId,opponentId]]);
+      const ownProfile=await client.query("SELECT username FROM users WHERE id=$1",[playerId]);
       await client.query("COMMIT");
       return reply.code(201).send({status:"matched",gameId:String(game.rows[0].id),roomCode:room.rows[0].room_code,
-        whiteUserId:opponentId,blackUserId:playerId,fen:initialFen,clock,settings});
+        whiteUsername:opponentResult.rows[0].username,blackUsername:ownProfile.rows[0]?.username??"",
+        fen:initialFen,clock,settings});
     }catch(error){
       await rollback(client);
       request.log.error(error);
