@@ -853,6 +853,7 @@ app.post('/api/v1/auth/logout', async (request, reply) => {
     if (!claims.sub || !isNumericId(claims.sub) || !claims.jti || typeof claims.exp !== 'number' || !Number.isFinite(claims.exp)) {
       return reply.code(401).send({ error: 'Session cannot be revoked. Please sign in again.' });
     }
+    await pool.query('DELETE FROM auth_token_revocations WHERE expires_at <= NOW()');
     await pool.query(
       `INSERT INTO auth_token_revocations (jti, user_id, expires_at)
        VALUES ($1, $2, TO_TIMESTAMP($3))
@@ -2581,6 +2582,16 @@ app.post<{ Body: { phone?: string; purpose?: string } }>('/api/v1/auth/phone-otp
     if (runtime.live && !String(settings.template_id ?? '').trim()) {
       await client.query('ROLLBACK');
       return reply.code(503).send({ error: 'Phone verification provider is not fully configured.' });
+    }
+    if (purpose === 'reset_password') {
+      const eligible = await client.query('SELECT 1 FROM users WHERE phone_e164 = $1 LIMIT 1', [phone]);
+      if (!eligible.rowCount) {
+        await client.query('COMMIT');
+        return reply.code(202).send({
+          ok: true,
+          message: 'If the number is linked to an account, a verification code will be sent.',
+        });
+      }
     }
     const usage = await client.query(
       `SELECT COUNT(*)::int AS global_daily_count,
