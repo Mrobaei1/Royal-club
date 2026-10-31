@@ -66,6 +66,8 @@ export function registerUnoSockets(
       code: room.code, hostId: room.hostId, status: room.status,
       players: room.players.map(p => ({ id: p.id, username: p.username, ready: p.ready, connected: p.connected, muted: p.muted })),
       chatEnabled: room.chatEnabled, voiceEnabled: room.voiceEnabled,
+      matchToWin: room.matchToWin, roundsWon: room.roundsWon,
+      roundsPlayed: room.roundsPlayed, matchWinnerId: room.matchWinnerId,
     });
     const publishRoom = (room: ReturnType<typeof rooms.getRoom>) => io.to(`uno:${room.code}`).emit('uno:room:state', publicRoom(room));
     const publishPrivateHands = async (code: string) => {
@@ -122,6 +124,15 @@ export function registerUnoSockets(
         ack?.({ ok: true, data: { status: room.status } });
       } catch (e) { fail(e, ack); }
     });
+    socket.on('uno:room:match-to-win', async (payload: { code?: string; rounds?: number }, ack?: Ack) => {
+      try {
+        if (typeof payload?.rounds !== 'number') throw new UnoError('INVALID_MATCH_LENGTH', 'Choose 1, 3 or 5 wins.');
+        const room = rooms.setMatchToWin(payload.code ?? '', user.id, payload.rounds);
+        await persistRooms();
+        publishRoom(room);
+        ack?.({ ok: true });
+      } catch (e) { fail(e, ack); }
+    });
     socket.on('uno:room:start', async (payload: { code?: string }, ack?: Ack) => {
       try {
         const started = rooms.start(payload.code ?? '', user.id);
@@ -139,6 +150,7 @@ export function registerUnoSockets(
         }
         const result = rooms.act(payload.code ?? '', user.id, payload.action);
         await persistRooms();
+        publishRoom(result.room);
         io.to(`uno:${payload.code}`).emit('uno:game:state', result.game);
         await publishPrivateHands(payload.code ?? '');
         ack?.({ ok: true, data: { game: result.game } });

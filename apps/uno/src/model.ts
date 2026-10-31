@@ -4,6 +4,7 @@ export type UnoFace = number | 'skip' | 'reverse' | 'draw2' | 'wild' | 'wild4';
 export interface UnoCard { id: string; color: UnoColor | 'wild'; face: UnoFace; }
 export interface UnoPlayer { id: string; username: string; ready: boolean; connected: boolean; muted: boolean; selfMuted: boolean; hostMuted: boolean; }
 export type RoomStatus = 'waiting' | 'ready' | 'playing' | 'finished';
+export type MatchToWin = 1 | 3 | 5;
 export interface UnoRoom {
   code: string;
   hostId: string;
@@ -12,6 +13,10 @@ export interface UnoRoom {
   chatEnabled: boolean;
   voiceEnabled: boolean;
   createdAt: number;
+  matchToWin: MatchToWin;
+  roundsWon: Record<string, number>;
+  roundsPlayed: number;
+  matchWinnerId: string | null;
   game: UnoGame | null;
 }
 export interface UnoGame {

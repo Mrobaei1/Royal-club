@@ -7,6 +7,7 @@ This package is deliberately standalone. It is not imported by the Royal Club mo
 - The host creates the table; players join with its short code.
 - Every seated player must explicitly mark ready.
 - Readiness never starts a match automatically. Only the host can press Start.
+- The host selects a match target of 1, 3 or 5 round wins before the first round; all players must ready again between rounds.
 - Joining before start resets readiness; joining after start is rejected.
 - Player-facing identity is the public username only.
 - Private hands are sent only to their owner; public game state exposes card counts.
@@ -40,7 +41,7 @@ The isolated Flutter package is in `flutter/`. It is not added to `apps/mobile/p
 - No APK is built by this package.
 
 ## Socket event contract
-Client events: `uno:room:create`, `uno:room:join`, `uno:room:ready`, `uno:room:start`, `uno:game:action`, `uno:chat:send`, `uno:voice:mute`, `uno:voice:signal`, `uno:room:communication`, `uno:room:leave`.
+Client events: `uno:room:create`, `uno:room:join`, `uno:room:ready`, `uno:room:match-to-win`, `uno:room:start`, `uno:game:action`, `uno:chat:send`, `uno:voice:mute`, `uno:voice:signal`, `uno:room:communication`, `uno:room:leave`.
 
 Server events: `uno:room:state`, `uno:game:state`, `uno:game:hand`, `uno:chat:message`, `uno:voice:signal`.
 

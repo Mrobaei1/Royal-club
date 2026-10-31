@@ -368,10 +368,26 @@ class _UnoOnlineScreenState extends State<UnoOnlineScreen> {
       Card(child: Padding(padding: const EdgeInsets.all(14), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text('کد میز: $code', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20)),
         Text('ظرفیت: ${players.length}/6 — حداقل ۲ نفر'),
+        Text('برد لازم برای قهرمانی: ${room['matchToWin'] ?? 1}  |  دست‌های انجام‌شده: ${room['roundsPlayed'] ?? 0}'),
+        if (isHost && (room['roundsPlayed'] ?? 0) == 0)
+          Row(children: [
+            const Expanded(child: Text('تعداد برد لازم برای قهرمانی')),
+            DropdownButton<int>(
+              value: (room['matchToWin'] as int?) ?? 1,
+              items: const [1, 3, 5].map((value) => DropdownMenuItem<int>(
+                value: value,
+                child: Text('$value برد'),
+              )).toList(),
+              onChanged: (value) {
+                if (value != null) _run('uno:room:match-to-win', {'code': code, 'rounds': value});
+              },
+            ),
+          ]),
         const Divider(),
         ...players.map((p) => ListTile(
           dense: true, leading: Icon(p['id'] == room['hostId'] ? Icons.workspace_premium : Icons.person),
-          title: Text('@${p['username']}'), subtitle: Text(p['ready'] == true ? 'آماده' : 'در انتظار آمادگی'),
+          title: Text('@${p['username']}'),
+          subtitle: Text('${p['ready'] == true ? 'آماده' : 'در انتظار آمادگی'} • برد: ${(room['roundsWon'] as Map?)?[p['id']] ?? 0}'),
           trailing: isHost && p['id'] != widget.playerId
               ? IconButton(icon: Icon(p['muted'] == true ? Icons.mic_off : Icons.mic), onPressed: () => _run('uno:voice:mute', {'code': code, 'targetId': p['id'], 'muted': p['muted'] != true}))
               : Icon(p['muted'] == true ? Icons.mic_off : Icons.mic),
@@ -382,7 +398,12 @@ class _UnoOnlineScreenState extends State<UnoOnlineScreen> {
             const SizedBox(width: 8),
             if (isHost) Expanded(child: FilledButton(onPressed: room['status'] == 'ready' ? () => _run('uno:room:start', {'code': code}) : null, child: const Text('شروع بازی'))),
           ]),
-        if (room['status'] == 'waiting') const Text('شروع بازی فقط پس از آمادگی همه و با دستور میزبان امکان‌پذیر است.'),
+        if (room['status'] == 'waiting')
+          Text((room['roundsPlayed'] ?? 0) > 0
+              ? 'این دست تمام شد؛ برای دست بعد همه بازیکنان باید دوباره آماده شوند.'
+              : 'شروع بازی فقط پس از آمادگی همه و با دستور میزبان امکان‌پذیر است.'),
+        if (room['status'] == 'finished')
+          Text('قهرمان مسابقه: @${players.firstWhere((p) => p['id'] == room['matchWinnerId'], orElse: () => {})['username'] ?? ''}'),
         if (isHost) SwitchListTile(title: const Text('فعال‌بودن چت'), value: room['chatEnabled'] == true, onChanged: (value) => _run('uno:room:communication', {'code': code, 'setting': 'chatEnabled', 'enabled': value})),
         if (isHost) SwitchListTile(title: const Text('فعال‌بودن گفت‌وگوی صوتی'), value: room['voiceEnabled'] == true, onChanged: (value) => _run('uno:room:communication', {'code': code, 'setting': 'voiceEnabled', 'enabled': value})),
         if (room['status'] != 'playing') TextButton.icon(onPressed: () => _run('uno:room:leave', {'code': code}), icon: const Icon(Icons.exit_to_app), label: const Text('خروج از میز')),
@@ -402,7 +423,11 @@ class _UnoOnlineScreenState extends State<UnoOnlineScreen> {
     final winner = gameOver ? List<Map<String, dynamic>>.from((game['players'] as List).map((p) => Map<String, dynamic>.from(p as Map))).firstWhere((p) => p['id'] == game['winnerId'], orElse: () => {}) : <String, dynamic>{};
     final color = game['activeColor']?.toString() ?? top['color'].toString();
     return Card(child: Padding(padding: const EdgeInsets.all(14), child: Column(children: [
-      Text(gameOver ? 'برنده: @${winner['username'] ?? ''}' : (myTurn ? 'نوبت شماست' : 'نوبت بازیکن دیگر')),
+      Text(gameOver
+          ? (_room?['matchWinnerId'] != null
+              ? 'قهرمان مسابقه: @${winner['username'] ?? ''}'
+              : 'برنده این دست: @${winner['username'] ?? ''}')
+          : (myTurn ? 'نوبت شماست' : 'نوبت بازیکن دیگر')),
       const SizedBox(height: 8),
       Row(mainAxisAlignment: MainAxisAlignment.center, children: [
         _unoCard(top, large: true),

@@ -170,3 +170,83 @@ test('snapshot restoration upgrades older microphone state safely', () => {
   assert.equal(player.hostMuted, false);
   assert.equal(player.muted, false);
 });
+
+test('a room accepts six seats and rejects a seventh player', () => {
+  const manager = new UnoRoomManager();
+  const room = manager.createRoom(host);
+  for (let index = 1; index <= 5; index++) {
+    manager.joinRoom(room.code, { id: `player-${index}`, username: `player_${index}` });
+  }
+  assert.equal(manager.getRoom(room.code).players.length, 6);
+  assert.throws(
+    () => manager.joinRoom(room.code, { id: 'player-7', username: 'player_7' }),
+    (error: unknown) => error instanceof UnoError && error.code === 'ROOM_FULL',
+  );
+});
+
+test('revoking readiness blocks the host from starting the table', () => {
+  const manager = new UnoRoomManager();
+  const room = manager.createRoom(host);
+  manager.joinRoom(room.code, guest);
+  manager.setReady(room.code, host.id, true);
+  manager.setReady(room.code, guest.id, true);
+  assert.equal(manager.getRoom(room.code).status, 'ready');
+  manager.setReady(room.code, guest.id, false);
+  assert.equal(manager.getRoom(room.code).status, 'waiting');
+  assert.throws(
+    () => manager.start(room.code, host.id),
+    (error: unknown) => error instanceof UnoError && error.code === 'PLAYERS_NOT_READY',
+  );
+});
+
+test('match length is host-controlled and restricted to one, three or five wins', () => {
+  const manager = new UnoRoomManager();
+  const room = manager.createRoom(host);
+  assert.throws(() => manager.setMatchToWin(room.code, guest.id, 3), /Only the host/);
+  assert.throws(() => manager.setMatchToWin(room.code, host.id, 2), /Choose 1, 3 or 5/);
+  assert.equal(manager.setMatchToWin(room.code, host.id, 3).matchToWin, 3);
+});
+
+test('a best-of-three UNO match requires three round wins and readiness between rounds', () => {
+  let manager = new UnoRoomManager();
+  const room = manager.createRoom(host);
+  manager.joinRoom(room.code, guest);
+  manager.setMatchToWin(room.code, host.id, 3);
+
+  for (let round = 1; round <= 3; round++) {
+    if (round > 1) {
+      manager.setReady(room.code, host.id, true);
+      manager.setReady(room.code, guest.id, true);
+      manager.start(room.code, host.id);
+    } else {
+      manager.setReady(room.code, host.id, true);
+      manager.setReady(room.code, guest.id, true);
+      manager.start(room.code, host.id);
+    }
+    const snapshot = manager.exportSnapshot();
+    const savedRoom = snapshot.rooms[0]!;
+    savedRoom.game!.players[0]!.hand = [{id:'round-final',color:'red',face:1}];
+    savedRoom.game!.discardPile = [{id:'top',color:'red',face:2}];
+    savedRoom.game!.activeColor = 'red';
+    const restarted = new UnoRoomManager();
+    restarted.restoreSnapshot(snapshot);
+    const result = restarted.act(room.code, host.id, {type:'play',cardId:'round-final'});
+    manager = restarted;
+    assert.equal(result.room.roundsPlayed, round);
+    assert.equal(result.room.roundsWon[host.id], round);
+    if (round < 3) {
+      assert.equal(result.room.status, 'waiting');
+      assert.equal(result.room.players.every(player => !player.ready), true);
+      assert.equal(result.room.matchWinnerId, null);
+      assert.throws(() => manager.setMatchToWin(room.code, host.id, 5), /locked/);
+      assert.throws(() => manager.joinRoom(room.code, {id:'late',username:'late'}), /after the first round/);
+    } else {
+      assert.equal(result.room.status, 'finished');
+      assert.equal(result.room.matchWinnerId, host.id);
+      assert.equal(manager.getRoomForUser(host.id), null);
+      assert.equal(manager.getRoomForUser(guest.id), null);
+      manager.leave(room.code, guest.id);
+      assert.equal(manager.getRoom(room.code).status, 'finished');
+    }
+  }
+});

@@ -53,9 +53,13 @@ test('authenticated sockets enforce host start and keep hands and voice signals 
     const roomData = created.data as { code: string; room: Record<string, unknown> };
     const code = roomData.code;
     assert.equal('game' in roomData.room, false);
+    assert.equal((await emitAck(host, 'uno:room:match-to-win', { code, rounds: 3 })).ok, true);
 
     const joined = await emitAck(guest, 'uno:room:join', { code });
     assert.equal(joined.ok, true);
+    const deniedMatchSetting = await emitAck(guest, 'uno:room:match-to-win', { code, rounds: 5 });
+    assert.equal(deniedMatchSetting.ok, false);
+    assert.equal(deniedMatchSetting.error?.code, 'HOST_ONLY');
     assert.equal((await emitAck(host, 'uno:room:ready', { code, ready: true })).ok, true);
     assert.equal((await emitAck(guest, 'uno:room:ready', { code, ready: true })).ok, true);
 
@@ -74,6 +78,12 @@ test('authenticated sockets enforce host start and keep hands and voice signals 
     const publicState = publicGame as Record<string, unknown>;
     assert.equal('drawnCardId' in publicState, false);
     assert.equal('hand' in (publicState.players as Array<Record<string, unknown>>)[0]!, false);
+    const actionRoomEvent = nextEvent(guest, 'uno:room:state');
+    const drawAck = await emitAck(host, 'uno:game:action', { code, action: { type: 'draw' } });
+    assert.equal(drawAck.ok, true);
+    const actionRoom = await actionRoomEvent as Record<string, unknown>;
+    assert.equal(actionRoom.status, 'playing');
+    assert.equal(actionRoom.matchToWin, 3);
 
     const chatEvent = nextEvent(guest, 'uno:chat:message');
     assert.equal((await emitAck(host, 'uno:chat:send', { code, text: 'Hello from the table' })).ok, true);

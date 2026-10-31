@@ -20,7 +20,8 @@ export class UnoRoomManager {
     const room: UnoRoom = {
       code, hostId: host.id, status: 'waiting',
       players: [{ ...host, ready: false, connected: true, muted: true, selfMuted: true, hostMuted: false }],
-      chatEnabled: true, voiceEnabled: true, createdAt: Date.now(), game: null,
+      chatEnabled: true, voiceEnabled: true, createdAt: Date.now(),
+      matchToWin: 1, roundsWon: { [host.id]: 0 }, roundsPlayed: 0, matchWinnerId: null, game: null,
     };
     this.rooms.set(code, room);
     this.userRooms.set(host.id, code);
@@ -32,6 +33,9 @@ export class UnoRoomManager {
     if (!room) throw new UnoError('ROOM_NOT_FOUND', 'This UNO table does not exist or has expired.');
     if (room.status === 'playing' || room.status === 'finished') throw new UnoError('GAME_ALREADY_STARTED', 'You cannot join after the game starts.');
     if (this.userRooms.has(player.id)) throw new UnoError('ALREADY_IN_ROOM', 'Leave your current UNO table first.');
+    if (room.roundsPlayed > 0 && !room.players.some(p => p.id === player.id)) {
+      throw new UnoError('MATCH_IN_PROGRESS', 'New players cannot join after the first round has started.');
+    }
     if (room.players.some(p => p.id === player.id)) {
       const existing = room.players.find(p => p.id === player.id)!;
       existing.connected = true;
@@ -39,6 +43,7 @@ export class UnoRoomManager {
     } else {
       if (room.players.length >= 6) throw new UnoError('ROOM_FULL', 'UNO tables support at most 6 players.');
       room.players.push({ ...player, ready: false, connected: true, muted: true, selfMuted: true, hostMuted: false });
+      room.roundsWon[player.id] = 0;
       this.userRooms.set(player.id, code);
     }
     room.status = 'waiting';
@@ -60,6 +65,18 @@ export class UnoRoomManager {
     room.status = room.players.length >= 2 && room.players.every(p => p.ready) ? 'ready' : 'waiting';
     return structuredClone(room);
   }
+  setMatchToWin(code: string, playerId: string, rounds: number): UnoRoom {
+    const room = this.requireRoom(code);
+    if (room.hostId !== playerId) throw new UnoError('HOST_ONLY', 'Only the host can change match settings.');
+    if (room.roundsPlayed > 0 || room.status === 'playing' || room.status === 'finished') {
+      throw new UnoError('MATCH_ALREADY_STARTED', 'The match length is locked after the first round starts.');
+    }
+    if (![1, 3, 5].includes(rounds)) {
+      throw new UnoError('INVALID_MATCH_LENGTH', 'Choose 1, 3 or 5 wins to take the match.');
+    }
+    room.matchToWin = rounds as 1 | 3 | 5;
+    return structuredClone(room);
+  }
   start(code: string, playerId: string) {
     const room = this.requireRoom(code);
     if (room.hostId !== playerId) throw new UnoError('HOST_ONLY', 'Only the host can start this game.');
@@ -75,8 +92,17 @@ export class UnoRoomManager {
     if (room.status !== 'playing' || !room.game) throw new UnoError('GAME_NOT_STARTED', 'The game has not started.');
     room.game = applyUnoAction(room.game, playerId, action);
     if (room.game.winnerId) {
-      room.status = 'finished';
-      for (const participant of room.players) this.userRooms.delete(participant.id);
+      const winnerId = room.game.winnerId;
+      room.roundsPlayed += 1;
+      room.roundsWon[winnerId] = (room.roundsWon[winnerId] ?? 0) + 1;
+      if (room.roundsWon[winnerId] >= room.matchToWin) {
+        room.status = 'finished';
+        room.matchWinnerId = winnerId;
+        for (const participant of room.players) this.userRooms.delete(participant.id);
+      } else {
+        room.status = 'waiting';
+        for (const participant of room.players) participant.ready = false;
+      }
     }
     return { game: publicGameState(room.game), hand: privateHand(room.game, playerId), room: structuredClone(room) };
   }
@@ -121,13 +147,16 @@ export class UnoRoomManager {
       return structuredClone(room);
     }
     room.players.splice(index, 1);
+    delete room.roundsWon[playerId];
     this.userRooms.delete(playerId);
     if (room.players.length === 0) {
       this.rooms.delete(room.code);
       return null;
     }
     if (room.hostId === playerId) room.hostId = room.players[0]!.id;
-    room.status = room.players.length >= 2 && room.players.every(p => p.ready) ? 'ready' : 'waiting';
+    if (room.status !== 'finished') {
+      room.status = room.players.length >= 2 && room.players.every(p => p.ready) ? 'ready' : 'waiting';
+    }
     return structuredClone(room);
   }
   getRoom(code: string): UnoRoom { return structuredClone(this.requireRoom(code)); }
@@ -146,7 +175,14 @@ export class UnoRoomManager {
       const room = candidate as UnoRoom;
       if (typeof room.code !== 'string' || !Array.isArray(room.players) ||
           !['waiting', 'ready', 'playing', 'finished'].includes(room.status)) continue;
+      room.matchToWin = [1, 3, 5].includes(room.matchToWin) ? room.matchToWin : 1;
+      room.roundsPlayed = Number.isInteger(room.roundsPlayed) && room.roundsPlayed >= 0 ? room.roundsPlayed : 0;
+      room.matchWinnerId = typeof room.matchWinnerId === 'string' ? room.matchWinnerId : null;
+      room.roundsWon = room.roundsWon && typeof room.roundsWon === 'object'
+        ? room.roundsWon
+        : Object.fromEntries(room.players.map(player => [player.id, 0]));
       for (const player of room.players) {
+        room.roundsWon[player.id] ??= 0;
         player.selfMuted = typeof player.selfMuted === 'boolean' ? player.selfMuted : player.muted !== false;
         player.hostMuted = typeof player.hostMuted === 'boolean' ? player.hostMuted : false;
         player.muted = player.selfMuted || player.hostMuted;
