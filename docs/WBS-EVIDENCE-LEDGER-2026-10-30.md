@@ -2,11 +2,12 @@
 
 - **Audit date:** 2026-10-31
 - **Governing baseline:** `docs/PROJECT-WBS-BASELINE.md`, WBS v1.0
-- **Live main at this audit:** `4171bb7933a13eedb0bfc52ed51f7fe3c3d8b8bc`
+- **Live main at this audit:** `facba0469d431f7b223e308879637a41959faf9a`
 - **Documentation follow-up:** PR #70 merged as `22dbff4caf81e3507da31e38bc2905cc964baf41` (WBS count correction and evidence ledger; no application code changed).
 - **Online disconnect implementation:** PR #67 merged as `69f315b2c2d38eba3c1e688ab48be77d17a2137c`.
 - **Notification/empty-bar fixes:** PR #75 merged as `227563f82c63ec5e9e4d4fa6c3e78e27cd059d26`.
 - **Invitation lifecycle fix:** PR #77 merged into `main` as `facba0469d431f7b223e308879637a41959faf9a` after all four exact-head workflows passed on `a3f019f6b79a67a9a9a8ac535730fe7222b9d1bc`.
+- **Post-merge main verification:** API build/integration and Flutter checks passed in runs `41185590481` and `41185590482`; Production API/database health passed in `41185590568`; Web Preview run `41185590489` was in progress at this audit.
 - **Leaf package count:** **53** (six + seven + ten + seven + seven + eight + eight)
 - **Total baseline weight:** **1,000 points**; the package weights below sum to exactly 1,000.
 - **Purpose:** evidence inventory and status register; this is not yet the scored baseline.
@@ -80,8 +81,8 @@ The roadmap previously said 47 packages. Counting the actual leaf IDs in the app
 | 6.6 | 15 | Not started | WBS §6 scope only; no complete evidence identified in this audit | Implement and verify Agent Center categories/monitoring UX without activating external actions. |
 | 6.7 | 10 | Not started | No provider-validated deposit/payment adapter evidence identified | Only proceed after separate provider/security design and owner approval. |
 | 6.8 | 10 | Blocked | WBS approval gate; no manual owner acceptance evidence | Complete owner-facing acceptance; do not activate identities, grants, schedules or financial actions. |
-| 7.1 | 25 | In progress | Main `4171bb7`: runs 41177353219, 41177353226, 41177353203 passed; PR #77 head `a3f019f`: runs 41185385429, 41185385432, 41185385431, 41185385433 all passed; PR #77 merged as `facba046` | Continue requiring exact-head API build/unit/integration, Flutter analyze/tests, engine audit and Web Preview checks for every implementation PR. |
-| 7.2 | 20 | Blocked | Neon `Royal-Club-API` production branch reports active Function deployment 80; health/database workflow 41177353201 passed; Neon does not expose bundled Git SHA | Independently attest deployed source provenance and complete production registration/login smoke tests; no new deployment without approval. |
+| 7.1 | 25 | In progress | Main `facba046`: runs 41185590481 and 41185590482 passed; Web Preview run 41185590489 was in progress; PR #77 head `a3f019f`: runs 41185385429, 41185385432, 41185385431, 41185385433 all passed; PR #77 merged as `facba046` | Continue requiring exact-head API build/unit/integration, Flutter analyze/tests, engine audit and Web Preview checks for every implementation PR. |
+| 7.2 | 20 | Blocked | Neon `Royal-Club-API` production branch reports active Function deployment 80; post-merge health/database workflow 41185590568 passed; Neon does not expose bundled Git SHA | Independently attest deployed source provenance and complete production registration/login smoke tests; no new deployment without approval. |
 | 7.3 | 25 | Blocked | Read-only Neon inspection: 33 public tables; 33 current `server.ts` table declarations; table names match with no missing/extra table | Complete column/index/migration-sequence reconciliation and documented rollback/recovery review; no production mutation without approval. |
 | 7.4 | 15 | Blocked | apps/api/src/server.ts cleanup endpoint; checkpoint says no scheduled Neon trigger | Configure/verify approved scheduled trigger and idle/serverless cleanup observability. |
 | 7.5 | 20 | Not started | WBS §6 and execution roadmap P5; no tested backup/restore evidence identified | Complete monitoring/runbooks and owner-approved latest-three backup/restore test. |
@@ -104,7 +105,7 @@ The roadmap previously said 47 packages. Counting the actual leaf IDs in the app
 2. **PR #77 / invite lifecycle:** merged into main as `facba046`; fixes stale-room invitation acceptance, server-aligned popup expiry, and adds read-all account-isolation and accepted-room-ID regression tests. All four exact-head workflows passed. The added regression tests do not replace two-device acceptance.
 3. **Online board:** main's mobile screen obtains the match state from the authenticated `/matches/:id/state` endpoint and labels it server state. The rendering path also supports a local, explicitly unsubmitted batch-move preview. The user's reported incorrect-board symptom still requires real-device reproduction; no source change is justified from static inspection alone.
 4. **Room/invite expiry:** source creates empty rooms with a 60-second expiry and invite cards are checked against a 60-second age. The API cleanup endpoint exists and is called by room/invite polling, but there is no configured Neon scheduled trigger in the latest production audit; serverless idle cleanup is therefore not proven.
-5. **Production:** Neon reports active Function deployment 80 and 33 public tables; read-only comparison found all 33 current source table declarations present with no extra/missing table names. The exact deployed Git SHA is not exposed. No scheduled Neon trigger is configured; owner/SMS configuration and registration/login smoke acceptance remain separate gates. No Production mutation or deployment was performed.
+5. **Production:** Neon reports active Function deployment 80 and 33 public tables; read-only comparison found all 33 current source table declarations present with no extra/missing table names. The exact deployed Git SHA is not exposed. No scheduled Neon trigger is configured; owner/SMS configuration and registration/login smoke acceptance remain separate gates. Post-merge production health workflow `41185590568` passed. No Production mutation or deployment was performed.
 6. **Manual acceptance:** two-device match behavior, RTL/LTR, theme consistency, VPN continuity and Android layout/accessibility/performance remain open.
 
 ## Evidence sources
