@@ -325,3 +325,14 @@ class _FixedRandom implements Random {
   @override
   int nextInt(int max) => values[index++ % values.length] % max;
 }
+
+
+    test('positive player cannot oversized-bear off past a checker closer to point 24', () {
+      clearPosition(rolledDice: [6]);
+      game.points[20] = 1;
+      game.points[23] = 1;
+
+      final moves = game.legalMoves();
+      expect(moves.any((move) => move.from == 20 && move.to == -1), isFalse);
+      expect(moves.any((move) => move.from == 23 && move.to == -1), isTrue);
+    });
