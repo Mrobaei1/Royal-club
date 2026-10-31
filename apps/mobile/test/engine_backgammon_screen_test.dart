@@ -202,5 +202,25 @@ void main() {
     await tester.pump(const Duration(seconds: 10));
   });
 
+  testWidgets('shows the authenticated username instead of the generic you label',
+      (tester) async {
+    tester.view.physicalSize = const Size(900, 540);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(MaterialApp(
+      locale: const Locale('fa'),
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
+      supportedLocales: const [Locale('fa'), Locale('en')],
+      home: const EngineBackgammonScreen(usernameForTesting: 'RoyalUser42'),
+    ));
+    await tester.tap(find.text('بازی آفلاین با هوش مصنوعی'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('RoyalUser42'), findsOneWidget);
+    expect(find.text('شما'), findsNothing);
+  });
+
 
 }
