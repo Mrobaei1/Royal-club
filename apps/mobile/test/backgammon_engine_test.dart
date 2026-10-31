@@ -293,7 +293,7 @@ void main() {
       expect(game.bar, beforeBar);
       expect(game.borneOff, beforeOff);
       expect(game.dice, beforeDice);
-
+    });
 
     test('turn ends when no remaining die can be played', () {
       clearPosition(rolledDice: [1, 2]);
