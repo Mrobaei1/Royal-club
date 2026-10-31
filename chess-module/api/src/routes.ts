@@ -421,4 +421,79 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
     }finally{client.release();}
   });
 
+
+  app.post<{Body:{timeControlId?:string;minOpponentLevel?:number}}>("/chess/matchmaking/join",{preHandler:options.authenticate},async(request,reply)=>{
+    let playerId:string;
+    try{playerId=userId(request,options);}catch{return fail(reply,401,"unauthorized");}
+    const timeControlId=request.body?.timeControlId??"rapid";
+    const minOpponentLevel=request.body?.minOpponentLevel??1;
+    if(!/^[a-zA-Z0-9_-]{1,40}$/.test(timeControlId)||!Number.isSafeInteger(minOpponentLevel)||minOpponentLevel<1||minOpponentLevel>10000)
+      return fail(reply,400,"invalid_matchmaking_settings");
+    const client=await pool.connect();
+    try{
+      await client.query("BEGIN");
+      // Serialize matching decisions across API instances; row locks still protect queue records.
+      await client.query("SELECT pg_advisory_xact_lock(hashtext('royal_chess_matchmaking'))");
+      const ownLevelResult=await client.query("SELECT level FROM chess_player_progression WHERE user_id=$1",[playerId]);
+      const ownLevel=Number(ownLevelResult.rows[0]?.level??1);
+      if(ownLevel<minOpponentLevel){await client.query("ROLLBACK");return fail(reply,403,"minimum_chess_level_required");}
+      const controlResult=await client.query("SELECT id,display_name,base_ms,increment_ms,enabled FROM chess_time_controls WHERE id=$1 AND enabled=true",[timeControlId]);
+      const controlRow=controlResult.rows[0];
+      if(!controlRow){await client.query("ROLLBACK");return fail(reply,400,"time_control_unavailable");}
+      const opponentResult=await client.query(
+        `SELECT q.user_id,q.min_opponent_level,COALESCE(p.level,1) AS level
+         FROM chess_matchmaking_queue q LEFT JOIN chess_player_progression p ON p.user_id=q.user_id
+         WHERE q.time_control_id=$1 AND q.user_id<>$2
+           AND COALESCE(p.level,1)>=$3 AND $4>=q.min_opponent_level
+         ORDER BY q.created_at,q.user_id FOR UPDATE OF q SKIP LOCKED LIMIT 1`,
+        [timeControlId,playerId,minOpponentLevel,ownLevel]
+      );
+      if(!opponentResult.rowCount){
+        await client.query(
+          `INSERT INTO chess_matchmaking_queue(user_id,time_control_id,min_opponent_level)
+           VALUES($1,$2,$3) ON CONFLICT(user_id) DO UPDATE SET time_control_id=EXCLUDED.time_control_id,
+           min_opponent_level=EXCLUDED.min_opponent_level,created_at=NOW()`,
+          [playerId,timeControlId,minOpponentLevel]
+        );
+        await client.query("COMMIT");
+        return reply.code(202).send({status:"waiting",timeControlId,minOpponentLevel});
+      }
+      const opponentId=String(opponentResult.rows[0].user_id);
+      const roomCode=randomBytes(5).toString("hex").toUpperCase();
+      const settings={minOpponentLevel:Math.max(minOpponentLevel,Number(opponentResult.rows[0].min_opponent_level)),
+        timeControlId,chatEnabled:true,voiceEnabled:false,
+        timeControl:{id:controlRow.id,name:controlRow.id,baseMs:Number(controlRow.base_ms),
+          incrementMs:Number(controlRow.increment_ms),enabled:controlRow.enabled}};
+      const room=await client.query(
+        `INSERT INTO chess_rooms(room_code,host_user_id,min_opponent_level,time_control_id,settings_snapshot,status)
+         VALUES($1,$2,$3,$4,$5::jsonb,'active') RETURNING id,room_code`,
+        [roomCode,opponentId,settings.minOpponentLevel,timeControlId,JSON.stringify(settings)]
+      );
+      const control:TimeControl={id:controlRow.id,name:controlRow.id,baseMs:Number(controlRow.base_ms),
+        incrementMs:Number(controlRow.increment_ms),enabled:controlRow.enabled};
+      const now=Date.now();
+      const clock=startClock(snapshotClock(control,now),"white",now);
+      const game=await client.query(
+        `INSERT INTO chess_games(room_id,white_user_id,black_user_id,initial_fen,current_fen,pgn,clock_snapshot,settings_snapshot)
+         VALUES($1,$2,$3,$4,$4,'',$5::jsonb,$6::jsonb) RETURNING id`,
+        [room.rows[0].id,opponentId,playerId,initialFen,JSON.stringify(clock),JSON.stringify(settings)]
+      );
+      await client.query("DELETE FROM chess_matchmaking_queue WHERE user_id=ANY($1::bigint[])",[[playerId,opponentId]]);
+      await client.query("COMMIT");
+      return reply.code(201).send({status:"matched",gameId:String(game.rows[0].id),roomCode:room.rows[0].room_code,
+        whiteUserId:opponentId,blackUserId:playerId,fen:initialFen,clock,settings});
+    }catch(error){
+      await rollback(client);
+      request.log.error(error);
+      return fail(reply,500,"matchmaking_failed");
+    }finally{client.release();}
+  });
+
+  app.delete("/chess/matchmaking/queue",{preHandler:options.authenticate},async(request,reply)=>{
+    let playerId:string;
+    try{playerId=userId(request,options);}catch{return fail(reply,401,"unauthorized");}
+    const removed=await pool.query("DELETE FROM chess_matchmaking_queue WHERE user_id=$1 RETURNING user_id",[playerId]);
+    return {cancelled:Boolean(removed.rowCount)};
+  });
+
 }
