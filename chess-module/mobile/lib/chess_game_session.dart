@@ -48,10 +48,12 @@ class ChessGameSession extends ChangeNotifier {
       (game?['legalMoves'] as List? ?? const []).whereType<String>().toList(growable: false);
   String? get status => game?['status'] as String?;
   bool get isHost => game?['isHost'] == true;
+  bool get isHost => game?['isHost'] == true;
 
   Future<void> connect() async {
     if (_disposed) throw StateError('chess_session_disposed');
     await refresh();
+    if (voiceEnabled) await voiceClient?.connect();
     await _openSocket();
     await refresh(); // Close the snapshot-to-subscription race window.
     _heartbeat?.cancel();
@@ -272,6 +274,7 @@ class ChessGameSession extends ChangeNotifier {
 
   Future<void> setVoiceEnabled(bool enabled) async {
     await api.setVoiceEnabled(gameId, enabled);
+    if (enabled) await voiceClient?.connect();
     voiceEnabled = enabled;
     if (!enabled) speakingUsername = null;
     if (!_disposed) notifyListeners();
@@ -285,7 +288,7 @@ class ChessGameSession extends ChangeNotifier {
     unawaited(_subscription?.cancel());
     unawaited(_socket?.close());
     _socket = null;
-    unawaited(voiceClient?.releaseTalk());
+    unawaited(voiceClient?.dispose());
     super.dispose();
   }
 }
