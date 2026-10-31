@@ -33,16 +33,16 @@
 | WBS | Evidence-based status | Estimate |
 |---|---|---:|
 | 1.0 | Initial assumptions documented; regional rule sign-off pending | 25% |
-| 2.0 | Core engine and deterministic tests exist; malformed-deck guard being strengthened | 75% |
-| 3.0 | Round and match state machines exist; full-hand and match-target regression tests being added | 65% |
-| 4.0 | In-memory room lifecycle, readiness, host transfer and empty-only cleanup exist | 75% |
+| 2.0 | Core engine, duplicate-deck validation, deterministic tests | 80% |
+| 3.0 | Round/match transitions and full-hand regression tests implemented; final CI confirmation pending | 80% |
+| 4.0 | In-memory lifecycle, readiness, host transfer, empty-only cleanup and match target tracking | 80% |
 | 5.0 | No production Fastify/network/persistence adapter yet | 0% |
 | 6.0 | Not implemented | 0% |
 | 7.0 | Not implemented | 0% |
 | 8.0 | Not implemented | 0% |
 | 9.0 | Not implemented | 0% |
-| 10.0 | Pure-core target validation exists; authenticated admin UI/API and audit trail pending | 20% |
-| 11.0 | Unit tests and CI exist; integration/security/property/e2e coverage pending | 20% |
-| 12.0 | Initial architecture/readme exist; final handoff pending | 15% |
+| 10.0 | Core accepts only 3/5/7 and architecture reserves source for trusted manager config; admin auth/UI/audit pending | 20% |
+| 11.0 | Engine/room/round unit tests; full-match and malformed-deck regression checks added, CI confirmation pending | 30% |
+| 12.0 | WBS, architecture contract and setup README documented; final handoff pending | 20% |
 
 These are planning estimates, not a claim of completed production functionality. Recalculate after each verified milestone.
