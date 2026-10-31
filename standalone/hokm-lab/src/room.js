@@ -52,6 +52,7 @@ export function joinRoom(room, userId, now) {
   const seat = [0, 1, 2, 3].find((candidate) => !occupied.has(candidate));
   return {
     ...room,
+    hostUserId: room.hostUserId ?? userId,
     players: [...room.players, { userId, seat, ready: false, connected: true }],
     version: room.version + 1
   };
