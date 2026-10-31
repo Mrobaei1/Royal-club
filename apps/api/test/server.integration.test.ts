@@ -2964,7 +2964,7 @@ test('phone OTP password recovery changes password, consumes code once, and revo
     });
     assert.equal(requested.statusCode, 202, requested.body);
     const code = String(requested.json().testCode ?? '');
-    assert.match(code, /^\\d{6}$/);
+    assert.match(code, /^\d{6}$/);
 
     const reset = await app.inject({
       method: 'POST', url: '/api/v1/auth/phone-otp/reset-password',
