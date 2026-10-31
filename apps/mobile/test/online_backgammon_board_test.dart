@@ -107,12 +107,12 @@ void main() {
     }
   });
 
-  test('five full-size checkers fill the point and the fifth is the count badge position', () {
+  test('six full-size checkers fill the point and the sixth is the count badge position', () {
     const size = Size(900, 600);
     final topFirst = RoyalBackgammonBoard.checkerCenterForPoint(
       point: 0, stackIndex: 0, checkerCount: 15, boardSize: size);
     final topLast = RoyalBackgammonBoard.checkerCenterForPoint(
-      point: 0, stackIndex: 4, checkerCount: 15, boardSize: size);
+      point: 0, stackIndex: 5, checkerCount: 15, boardSize: size);
     final bottomFirst = RoyalBackgammonBoard.checkerCenterForPoint(
       point: 12, stackIndex: 0, checkerCount: 15, boardSize: size);
     final bottomLast = RoyalBackgammonBoard.checkerCenterForPoint(
@@ -127,7 +127,7 @@ void main() {
     expect(bottomLast.dy, greaterThan(bottomTip));
   });
 
-  test('checker size stays fixed and overflow count is placed on checker five', () {
+  test('checker size stays fixed and overflow count is placed on checker six', () {
     const boardSizes = <Size>[
       Size(360, 500),
       Size(640, 480),
@@ -147,23 +147,23 @@ void main() {
           );
           expect(
             RoyalBackgammonBoard.visibleCheckerCountForPoint(count),
-            count < 5 ? count : 5,
+            count < 6 ? count : 6,
           );
         }
-        for (final count in [6, 9, 15]) {
+        for (final count in [7, 9, 15]) {
           final fifth = RoyalBackgammonBoard.checkerCenterForPoint(
             point: point, stackIndex: 4, checkerCount: count, boardSize: size);
           final badge = RoyalBackgammonBoard.checkerCountBadgeCenterForPoint(
             point: point, checkerCount: count, boardSize: size);
           expect(badge, fifth,
-            reason: 'Overflow total must be drawn on the fifth checker.');
+            reason: 'Overflow total must be drawn on the sixth checker.');
         }
       }
     }
   });
 
-  testWidgets('overfull point renders safely with a fifth-checker count badge', (tester) async {
-    for (final total in [6, 9, 15]) {
+  testWidgets('overfull point renders safely with a sixth-checker count badge', (tester) async {
+    for (final total in [7, 9, 15]) {
       final points = List<num>.filled(24, 0)..[7] = total;
       await tester.pumpWidget(MaterialApp(
         home: Scaffold(
