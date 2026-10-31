@@ -227,6 +227,7 @@ test("expired disconnect grace transfers seat to temporary Hard bot and permits 
   let room = startRoom(fullReadyRoom(), "u0", { now: 2000, rng: () => 0.5 });
   room = disconnectPlayer(room, "u0", { now: 3000, expectedVersion: room.version });
   const deadline = room.players[0].reconnectDeadline;
+  assert.throws(() => reconnectPlayer(room, "u0", { now: deadline + 1, expectedVersion: room.version }), /grace period expired/);
   room = handleDisconnectTimeout(room, "u0", { now: deadline, expectedVersion: room.version });
   assert.equal(room.players[0].temporaryBot, true);
   assert.equal(room.players[0].botControlled, true);
