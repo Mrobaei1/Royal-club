@@ -198,8 +198,8 @@ void main() {
     expect(engine.currentPlayer, -1);
     expect(find.text('⏱ 20'), findsNothing);
 
-    // Drain the scheduled AI-turn callback so the widget test leaves no timer behind.
-    await tester.pump(const Duration(seconds: 2));
+    // Drain the AI roll and its legal move cadence until the human turn resumes.
+    await tester.pump(const Duration(seconds: 10));
   });
 
 
