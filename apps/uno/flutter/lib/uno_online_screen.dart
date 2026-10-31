@@ -132,6 +132,10 @@ class _UnoOnlineScreenState extends State<UnoOnlineScreen> {
         unawaited(voice.setRemoteMuted(player['id'] as String, player['muted'] == true));
       }
     }
+    final peerIds = room['voiceEnabled'] == true
+        ? players.where((p) => p['id'] != widget.playerId && p['connected'] == true).map((p) => p['id'] as String)
+        : const <String>[];
+    unawaited(voice.syncPeers(peerIds));
     if (room['voiceEnabled'] != true && !_micMuted) {
       unawaited(voice.setMuted(true));
       if (mounted) setState(() => _micMuted = true);

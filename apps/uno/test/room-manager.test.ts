@@ -133,3 +133,40 @@ test('room snapshots survive manager recreation and restore user membership', ()
   restarted.setReady(room.code, guest.id, true);
   assert.equal(restarted.getRoom(room.code).status, 'ready');
 });
+
+test('active match state and private hands survive snapshot restoration', () => {
+  const first = new UnoRoomManager();
+  const room = first.createRoom(host);
+  first.joinRoom(room.code, guest);
+  first.setReady(room.code, host.id, true);
+  first.setReady(room.code, guest.id, true);
+  first.start(room.code, host.id);
+  const original = first.getRoom(room.code);
+  const restored = new UnoRoomManager();
+  restored.restoreSnapshot(first.exportSnapshot());
+  const afterRestart = restored.getRoom(room.code);
+  assert.equal(afterRestart.status, 'playing');
+  assert.equal(afterRestart.game?.players[0]!.hand.length, 7);
+  assert.deepEqual(afterRestart.game?.players[0]!.hand, original.game?.players[0]!.hand);
+  assert.equal(restored.getRoomForUser(guest.id), room.code);
+});
+
+test('snapshot restoration upgrades older microphone state safely', () => {
+  const manager = new UnoRoomManager();
+  manager.restoreSnapshot({
+    rooms: [{
+      code: 'OLD123',
+      hostId: 'host',
+      status: 'waiting',
+      players: [{id:'host',username:'host_name',ready:false,connected:true,muted:false}],
+      chatEnabled: true,
+      voiceEnabled: true,
+      createdAt: 1,
+      game: null,
+    }],
+  });
+  const player = manager.getRoom('OLD123').players[0]!;
+  assert.equal(player.selfMuted, false);
+  assert.equal(player.hostMuted, false);
+  assert.equal(player.muted, false);
+});

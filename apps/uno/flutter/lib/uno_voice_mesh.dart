@@ -60,11 +60,22 @@ class UnoVoiceMesh {
     for (final track in _localStream!.getAudioTracks()) {
       track.enabled = true;
     }
-    for (final peerId in peerIds) {
-      if (peerId == localPlayerId) continue;
+    await syncPeers(peerIds);
+  }
+
+  Future<void> syncPeers(Iterable<String> peerIds) async {
+    final desired = peerIds.where((id) => id != localPlayerId).toSet();
+    for (final existingId in _peers.keys.toList()) {
+      if (!desired.contains(existingId)) await closePeer(existingId);
+    }
+    if (_localStream == null || _muted) return;
+    for (final peerId in desired) {
+      final existed = _peers.containsKey(peerId);
+      final tracksBefore = _addedTrackIds[peerId]?.length ?? 0;
       final peer = await _peer(peerId);
-      await _attachLocalTracks(peerId, peer);
-      if (peer.signalingState == RTCSignalingState.RTCSignalingStateStable) {
+      final tracksAfter = _addedTrackIds[peerId]?.length ?? 0;
+      if ((!existed || tracksAfter > tracksBefore) &&
+          peer.signalingState == RTCSignalingState.RTCSignalingStateStable) {
         await _createOffer(peerId);
       }
     }
