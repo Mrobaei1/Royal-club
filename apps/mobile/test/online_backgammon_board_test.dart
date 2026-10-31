@@ -107,7 +107,7 @@ void main() {
     }
   });
 
-  test('six visible checkers fill the point inward without crossing its tip', () {
+  test('six full-size checkers fill the point and the sixth is the count badge position', () {
     const size = Size(900, 600);
     final topFirst = RoyalBackgammonBoard.checkerCenterForPoint(
       point: 0, stackIndex: 0, checkerCount: 15, boardSize: size);
@@ -116,15 +116,72 @@ void main() {
     final bottomFirst = RoyalBackgammonBoard.checkerCenterForPoint(
       point: 12, stackIndex: 0, checkerCount: 15, boardSize: size);
     final bottomLast = RoyalBackgammonBoard.checkerCenterForPoint(
-      point: 12, stackIndex: 5, checkerCount: 15, boardSize: size);
+      point: 12, stackIndex: 4, checkerCount: 15, boardSize: size);
 
     const rowHeight = (600 - 44) / 2;
     const pointTip = rowHeight * .56;
     const bottomTip = rowHeight + 44 + rowHeight - pointTip;
-    expect(topLast.dy - topFirst.dy, greaterThan(60));
+    expect(topLast.dy - topFirst.dy, greaterThan(40));
     expect(topLast.dy, lessThan(pointTip));
-    expect(bottomFirst.dy - bottomLast.dy, greaterThan(60));
+    expect(bottomFirst.dy - bottomLast.dy, greaterThan(40));
     expect(bottomLast.dy, greaterThan(bottomTip));
+  });
+
+  test('checker size stays fixed and overflow count is placed on checker six', () {
+    const boardSizes = <Size>[
+      Size(360, 500),
+      Size(640, 480),
+      Size(900, 600),
+      Size(1200, 700),
+    ];
+    for (final size in boardSizes) {
+      for (var point = 0; point < 24; point++) {
+        final fiveRadius = RoyalBackgammonBoard.checkerRadiusForPoint(
+          point: point, checkerCount: 5, boardSize: size);
+        for (var count = 1; count <= 15; count++) {
+          expect(
+            RoyalBackgammonBoard.checkerRadiusForPoint(
+              point: point, checkerCount: count, boardSize: size),
+            fiveRadius,
+            reason: 'Checker diameter must not change for point $point, count $count.',
+          );
+          expect(
+            RoyalBackgammonBoard.visibleCheckerCountForPoint(count),
+            count < 6 ? count : 6,
+          );
+        }
+        for (final count in [7, 9, 15]) {
+          final fifth = RoyalBackgammonBoard.checkerCenterForPoint(
+            point: point, stackIndex: 4, checkerCount: count, boardSize: size);
+          final badge = RoyalBackgammonBoard.checkerCountBadgeCenterForPoint(
+            point: point, checkerCount: count, boardSize: size);
+          expect(badge, fifth,
+            reason: 'Overflow total must be drawn on the sixth checker.');
+        }
+      }
+    }
+  });
+
+  testWidgets('overfull point renders safely with a sixth-checker count badge', (tester) async {
+    for (final total in [7, 9, 15]) {
+      final points = List<num>.filled(24, 0)..[7] = total;
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: SizedBox(
+              width: 360,
+              height: 500,
+              child: OnlineBackgammonBoard(
+                points: points,
+                onPointTap: (_) {},
+              ),
+            ),
+          ),
+        ),
+      ));
+      expect(find.byType(OnlineBackgammonBoard), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    }
   });
 
   testWidgets('selected point is repainted without losing the board',
