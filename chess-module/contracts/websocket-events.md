@@ -24,7 +24,7 @@ The authoritative commands are exposed through authenticated Fastify routes:
 - chess:connected: authenticated game subscription is ready.
 - chess:state: canonical FEN, PGN, status, clocks and revision.
 - chess:chat:message: username, message and server timestamp.
-- chess:draw:offered: offer ID and offering participant ID for the authenticated game participant.
+- chess:draw:offered: offer ID only; sender identity remains private.
 - chess:draw:response: offer ID and accepted/declined/cancelled status.
 - chess:voice:granted / chess:voice:released: current speaker username and lease status.
 - chess:voice:settings: whether the host has enabled voice.
