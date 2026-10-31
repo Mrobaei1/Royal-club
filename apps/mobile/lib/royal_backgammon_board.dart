@@ -113,11 +113,14 @@ class _BarCount extends StatelessWidget {
   final bool white;
 
   @override
-  Widget build(BuildContext context) => Column(mainAxisSize: MainAxisSize.min, children: [
-    CustomPaint(size: const Size(22, 22), painter: _CheckerPainter(white)),
-    const SizedBox(height: 2),
-    FittedBox(child: Text('$count', style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w800))),
-  ]);
+  Widget build(BuildContext context) {
+    if (count <= 0) return const SizedBox.shrink();
+    return Column(mainAxisSize: MainAxisSize.min, children: [
+      CustomPaint(size: const Size(22, 22), painter: _CheckerPainter(white)),
+      const SizedBox(height: 2),
+      FittedBox(child: Text('$count', style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w800))),
+    ]);
+  }
 }
 
 class _CheckerPainter extends CustomPainter {
