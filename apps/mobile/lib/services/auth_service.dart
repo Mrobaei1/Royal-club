@@ -45,6 +45,34 @@ class AuthService {
   static Future<Map<String, dynamic>> _post(
       String path, Map<String, dynamic> data) async {
     final base = baseUrl.trim().replaceFirst(RegExp(r'/+$'), '');
+    return _decode(await _send(() => http.get(
+          Uri.parse('$base/api/v1/me'),
+          headers: {'Authorization': 'Bearer $token'},
+        )));
+  }
+
+  static Future<Map<String, dynamic>> customizationPricing() async {
+    final token = await _storage.read(key: 'royal_club_token');
+    if (token == null || token.isEmpty) throw Exception('ابتدا وارد حساب شوید.');
+    final base = baseUrl.trim().replaceFirst(RegExp(r'/+$'), '');
+    return _decode(await _send(() => http.get(
+      Uri.parse('$base/api/v1/account/customization-pricing'),
+      headers: {'Authorization': 'Bearer $token'},
+    )));
+  }
+
+  static Future<Map<String, dynamic>> resetPasswordWithPhoneOtp({
+    required String phone,
+    required String code,
+    required String newPassword,
+  }) async {
+    final base = baseUrl.trim().replaceFirst(RegExp(r'/+$'), '');
+    return _decode(await _send(() => http.post(
+      Uri.parse('$base/api/v1/auth/phone-otp/reset-password'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'phone': phone.trim(), 'code': code.trim(), 'newPassword': newPassword}),
+    )));
+  }
     final response = await _send(() => http.post(
           Uri.parse('$base$path'),
           headers: {'Content-Type': 'application/json'},
