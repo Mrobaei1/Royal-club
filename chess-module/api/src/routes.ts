@@ -228,17 +228,32 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
     try{playerId=userId(request,options);}catch{return fail(reply,401,"unauthorized");}
     const message=(request.body?.message??"").trim();
     if(!message||message.length>2000)return fail(reply,400,"invalid_message");
-    const inserted=await pool.query(
-      `INSERT INTO chess_chat_messages(game_id,user_id,message)
-       SELECT g.id,$2,$3 FROM chess_games g
-       WHERE g.id=$1 AND g.status='active' AND (g.white_user_id=$2 OR g.black_user_id=$2)
-         AND COALESCE((g.settings_snapshot->>'chatEnabled')::boolean,true)=true
-       RETURNING id,created_at`,
-      [request.params.gameId,playerId,message]
-    );
-    if(!inserted.rowCount)return fail(reply,403,"chat_not_allowed");
-    const profile=await pool.query("SELECT username FROM users WHERE id=$1",[playerId]);
-    return reply.code(201).send({id:String(inserted.rows[0].id),username:profile.rows[0]?.username??"",message,createdAt:inserted.rows[0].created_at});
+    const client=await pool.connect();
+    try{
+      await client.query("BEGIN");
+      await client.query("SELECT pg_advisory_xact_lock(hashtext('royal_chess_chat'),hashtext($1))",[playerId]);
+      const recent=await client.query(
+        "SELECT COUNT(*)::int AS count FROM chess_chat_messages WHERE user_id=$1 AND created_at>NOW()-INTERVAL '10 seconds'",
+        [playerId]
+      );
+      if(Number(recent.rows[0]?.count??0)>=8){
+        await client.query("ROLLBACK");
+        return fail(reply,429,"chat_rate_limited");
+      }
+      const inserted=await client.query(
+        `INSERT INTO chess_chat_messages(game_id,user_id,message)
+         SELECT g.id,$2,$3 FROM chess_games g
+         WHERE g.id=$1 AND g.status='active' AND (g.white_user_id=$2 OR g.black_user_id=$2)
+           AND COALESCE((g.settings_snapshot->>'chatEnabled')::boolean,true)=true
+         RETURNING id,created_at`,
+        [request.params.gameId,playerId,message]
+      );
+      if(!inserted.rowCount){await client.query("ROLLBACK");return fail(reply,403,"chat_not_allowed");}
+      const profile=await client.query("SELECT username FROM users WHERE id=$1",[playerId]);
+      await client.query("COMMIT");
+      return reply.code(201).send({id:String(inserted.rows[0].id),username:profile.rows[0]?.username??"",message,createdAt:inserted.rows[0].created_at});
+    }catch(error){await rollback(client);request.log.error(error);return fail(reply,500,"chess_chat_failed");}
+    finally{client.release();}
   });
 
   app.post<{Params:{gameId:string}}>("/chess/games/:gameId/resign",{preHandler:options.authenticate},async(request,reply)=>{
