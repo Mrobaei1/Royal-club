@@ -79,7 +79,7 @@ class _AccountScreenState extends State<AccountScreen> {
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext), child: Text(cancelLabel)),
+          TextButton(onPressed: () => Navigator.pop(dialogContext), child: Text(appText(context, 'انصراف', 'Cancel'))),
           FilledButton(onPressed: () => Navigator.pop(dialogContext, controller.text.trim()), child: Text(appText(context, 'ذخیره', 'Save'))),
         ],
       ),
@@ -178,6 +178,7 @@ class _AccountScreenState extends State<AccountScreen> {
       );
       if (image == null || !mounted) return;
       final bytes = await image.readAsBytes();
+      if (!mounted) return;
       if (bytes.length > 650 * 1024) {
         setState(() => _error = appText(context, 'حجم تصویر انتخابی زیاد است؛ لطفاً تصویر کوچک‌تری انتخاب کنید.', 'The selected image is too large. Please choose a smaller image.'));
         return;
@@ -204,7 +205,7 @@ class _AccountScreenState extends State<AccountScreen> {
             title: Text(confirmTitle),
             content: Text(confirmBody),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: Text(appText(context, 'انصراف', 'Cancel'))),
+              TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: Text(cancelLabel),
               FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: Text(continueLabel)),
             ],
           ),
