@@ -31,17 +31,17 @@ class RoyalBackgammonBoard extends StatelessWidget {
     required Size boardSize,
   }) => _RoyalBoardPainter.checkerCenter(point, stackIndex, checkerCount, boardSize);
 
-  /// Number of physical checkers painted for a stack; the fifth carries the count.
+  /// Number of physical checkers painted for a stack; the sixth carries overflow count.
   static int visibleCheckerCountForPoint(int checkerCount) =>
-      math.min(checkerCount.abs(), 5);
+      math.min(checkerCount.abs(), 6);
 
-  /// Position where the total stack count is painted when more than five exist.
+  /// Position where the total stack count is painted when more than six exist.
   static Offset checkerCountBadgeCenterForPoint({
     required int point,
     required int checkerCount,
     required Size boardSize,
   }) => _RoyalBoardPainter.checkerCenter(
-        point, 4, checkerCount.abs().clamp(1, 15), boardSize);
+        point, 5, checkerCount.abs().clamp(1, 15), boardSize);
 
   /// Fixed checker radius. The visual size is independent of stack count.
   static double checkerRadiusForPoint({
@@ -239,17 +239,18 @@ class _RoyalBoardPainter extends CustomPainter {
       }
       final count=i<points.length?points[i].toInt():0;
       if(count!=0){
-        final n=count.abs().clamp(1,15), shown=math.min(n,5);
+        final n=count.abs().clamp(1,15), shown=math.min(n,6);
         final stackRadius=checkerRadius(i,n,s);
         for(var k=0;k<shown;k++){
           final center=checkerCenter(i,k,n,s);
           _checker(c,center,stackRadius,count>0);
         }
-        // Five full-size checkers are the display limit. Any additional
-        // checkers are represented by their total count on the fifth checker.
-        if(count.abs()>5) {
+        // Six full-size checkers are the display limit. Above six, the total
+        // stack count is shown on checker six in a high-contrast color.
+        if(count.abs()>6) {
           _txt(c,count.abs().toString(),
-            checkerCenter(i,4,n,s),stackRadius*.8,count>0?const Color(0xFF302315):Colors.white);
+            checkerCenter(i,5,n,s),stackRadius*.88,
+            count>0?const Color(0xFF21170B):const Color(0xFFFFE7A0));
         }
       }
       _txt(c,i.toString(),Offset(cx,isTop?row*.035:h-row*.035),math.max(8.0,pw*.24),const Color(0xFFE53935));
@@ -282,11 +283,11 @@ class _RoyalBoardPainter extends CustomPainter {
     final top=point<12;
     final col=top?(point<6?11-point:5-(point-6)):point-12;
     final left=col<6?m+col*pw:m+hw+bw+(col-6)*pw;
-    final visibleCount=math.min(checkerCount,5);
+    final visibleCount=math.min(checkerCount,6);
     final triH=row*.56;
     final radius=checkerRadius(point,checkerCount,s);
     // Keep the original full-size checker diameter. Five checkers are shown
-    // as a conventional offset stack; further pieces are summarized on piece 5.
+    // as a conventional offset stack; further pieces are summarized on piece 6.
     final firstCenter=radius*1.05;
     final lastCenter=math.max(firstCenter,triH-radius*1.05);
     final gap=visibleCount<=1?0.0:(lastCenter-firstCenter)/(visibleCount-1);
