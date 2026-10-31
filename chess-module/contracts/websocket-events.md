@@ -1,27 +1,38 @@
-# Chess WebSocket contract (v1)
+# Chess real-time contract (v1)
 
-All events are authenticated by the existing account JWT. The server derives user identity from the authenticated connection; client-supplied user IDs are ignored. Every command carries `requestId` for retry correlation. Room membership and permissions are checked server-side.
+All WebSocket connections are authenticated by the account JWT and scoped to a game in which the user is a participant. The server derives identity from the authenticated connection; client-supplied user IDs are ignored.
 
-## Client → server
-- `chess:room:create`: `{requestId, settings}`
-- `chess:room:join`: `{requestId, roomCode}`
-- `chess:move`: `{requestId, gameId, from, to, promotion?}`
-- `chess:draw:offer` / `chess:draw:respond`
-- `chess:resign`
-- `chess:chat:send`: `{requestId, gameId, text}`
-- `chess:voice:request`: `{requestId, gameId, leaseId}`
-- `chess:voice:release`: `{requestId, gameId, leaseId}`
-- `chess:voice:signal`: `{gameId, signalType: offer|answer|candidate, payload}` (authenticated, active-game and host-enabled checks; payload capped for PostgreSQL notification limits)
-- `chess:clock:sync`: `{requestId, gameId}`
+## HTTP commands
+The authoritative commands are exposed through authenticated Fastify routes:
+- Room creation, join, host cancellation and time-control listing.
+- Matchmaking join, queue cancellation and status polling.
+- Move submission, game snapshot and paginated move history.
+- Chat send/history, draw offer/respond and resignation.
+- Clock timeout claim (automatic server scheduler remains authoritative).
+- Voice lease request, renew, release, host enable/disable.
+- Player profile and manager time-control CRUD.
 
-## Server → client
-- `chess:room:created`, `chess:room:joined`, `chess:room:error`
-- `chess:state`: canonical FEN, PGN, side to move, status, clocks, revision
-- `chess:move:accepted` / `chess:move:rejected`
-- `chess:clock`: server timestamp and remaining milliseconds for both sides
-- `chess:chat:message`: username, message, server timestamp
-- `chess:voice:granted`, `chess:voice:occupied`, `chess:voice:released`, `chess:voice:disabled`
-- `chess:voice:signal`: relayed to the other participant; sender identity is server-derived
-- `chess:opponent:disconnected` / `chess:opponent:reconnected`
+## WebSocket client → server
+- ping: {type:"ping"}; server replies with chess:pong.
+- chess:voice:signal: {type, signalType:"offer"|"answer"|"candidate", payload}.
+  - offer is accepted only from the active lease owner.
+  - answer is accepted only from the other participant.
+  - ICE candidates are accepted only while a valid lease exists.
+  - SDP/candidate payloads are validated and capped; signaling is rate-limited per socket.
 
-Public player payloads contain username and public chess statistics only. They must never include legal name, phone, email, or other private account fields.
+## WebSocket server → client
+- chess:connected: authenticated game subscription is ready.
+- chess:state: canonical FEN, PGN, status, clocks and revision.
+- chess:chat:message: username, message and server timestamp.
+- chess:draw:offered: offer ID and offering participant ID for the authenticated game participant.
+- chess:draw:response: offer ID and accepted/declined/cancelled status.
+- chess:voice:granted / chess:voice:released: current speaker username and lease status.
+- chess:voice:settings: whether the host has enabled voice.
+- chess:voice:signal: relayed offer/answer/ICE payload; sender identity is not exposed.
+- chess:opponent:presence: username and connected state; internal user IDs are not exposed.
+- chess:pong and chess:error.
+
+Move, chat and voice-lease events are emitted by PostgreSQL triggers so updates committed by any API instance reach subscribed clients. Draw-offer lifecycle events are emitted by the API after the transaction commits.
+
+## Privacy
+Public player payloads contain username and public chess statistics only. They must never include legal name, phone, email, or internal user IDs. Internal IDs may be used inside database operations and authenticated route paths but are not broadcast to other players.
