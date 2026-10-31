@@ -174,4 +174,33 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('online board shows the active-player turn clock and central roll control',
+      (tester) async {
+    var rolled = false;
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: Center(
+          child: SizedBox(
+            width: 360,
+            child: OnlineBackgammonBoard(
+              points: List<num>.filled(24, 0),
+              timerText: '17s',
+              timerWhite: false,
+              rollLabel: 'Roll',
+              onRoll: () => rolled = true,
+              onPointTap: (_) {},
+            ),
+          ),
+        ),
+      ),
+    ));
+
+    expect(find.text('17s'), findsOneWidget);
+    expect(find.text('Roll'), findsOneWidget);
+    await tester.tap(find.text('Roll'));
+    await tester.pump();
+    expect(rolled, isTrue);
+    expect(tester.takeException(), isNull);
+  });
+
 }
