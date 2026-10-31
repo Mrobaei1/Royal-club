@@ -479,6 +479,8 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
       await client.query("BEGIN");
       // Serialize matching decisions across API instances; row locks still protect queue records.
       await client.query("SELECT pg_advisory_xact_lock(hashtext('royal_chess_matchmaking'))");
+      const activeGame=await client.query("SELECT id FROM chess_games WHERE status='active' AND (white_user_id=$1 OR black_user_id=$1) LIMIT 1",[playerId]);
+      if(activeGame.rowCount){await client.query("ROLLBACK");return fail(reply,409,"active_chess_game_exists");}
       const ownLevelResult=await client.query("SELECT level FROM chess_player_progression WHERE user_id=$1",[playerId]);
       const ownLevel=Number(ownLevelResult.rows[0]?.level??1);
       if(ownLevel<minOpponentLevel){await client.query("ROLLBACK");return fail(reply,403,"minimum_chess_level_required");}
@@ -532,6 +534,32 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
       request.log.error(error);
       return fail(reply,500,"matchmaking_failed");
     }finally{client.release();}
+  });
+
+  app.get("/chess/matchmaking/status",{preHandler:options.authenticate},async(request,reply)=>{
+    let playerId:string;
+    try{playerId=userId(request,options);}catch{return fail(reply,401,"unauthorized");}
+    const active=await pool.query(
+      `SELECT g.id,g.status,g.current_fen,g.clock_snapshot,g.settings_snapshot,
+              CASE WHEN g.white_user_id=$1 THEN bu.username ELSE wu.username END AS opponent_username
+       FROM chess_games g
+       JOIN users wu ON wu.id=g.white_user_id JOIN users bu ON bu.id=g.black_user_id
+       WHERE g.status='active' AND (g.white_user_id=$1 OR g.black_user_id=$1)
+       ORDER BY g.started_at DESC LIMIT 1`,
+      [playerId]
+    );
+    if(active.rowCount){
+      const row=active.rows[0];
+      return {status:"matched",gameId:String(row.id),fen:row.current_fen,clock:row.clock_snapshot,
+        settings:row.settings_snapshot,opponentUsername:row.opponent_username};
+    }
+    const queued=await pool.query(
+      "SELECT time_control_id,min_opponent_level,created_at FROM chess_matchmaking_queue WHERE user_id=$1",
+      [playerId]
+    );
+    return queued.rowCount
+      ? {status:"waiting",timeControlId:queued.rows[0].time_control_id,minOpponentLevel:Number(queued.rows[0].min_opponent_level),createdAt:queued.rows[0].created_at}
+      : {status:"idle"};
   });
 
   app.delete("/chess/matchmaking/queue",{preHandler:options.authenticate},async(request,reply)=>{
