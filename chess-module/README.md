@@ -38,7 +38,7 @@ flutter test
 ```
 
 ## Voice deployment requirements
-The host Android application must request microphone permission (`RECORD_AUDIO`) and internet access. iOS hosts must provide `NSMicrophoneUsageDescription`. The sample client includes STUN servers for development; production deployments should configure TURN over UDP/TCP/TLS and verify real-device NAT traversal. Microphone permission prompts and audio routing must be accepted on physical devices before voice is considered production-ready.
+The host Android application must request microphone permission (`RECORD_AUDIO`) and internet access. iOS hosts must provide `NSMicrophoneUsageDescription`. The sample client includes STUN defaults and accepts injected ICE server configuration; production deployments must supply TURN over UDP/TCP/TLS credentials and verify real-device NAT traversal. Microphone permission prompts and audio routing must be accepted on physical devices before voice is considered production-ready.
 
 ## Acceptance boundary
 Green CI proves static analysis, automated tests and migration smoke tests only. It does not replace two-physical-device voice tests, reconnect/network-loss tests, accessibility and RTL/LTR device acceptance, production database review, or security review. The acceptance matrix tracks these separately.
