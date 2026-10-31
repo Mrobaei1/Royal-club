@@ -1,0 +1,53 @@
+# Online Disconnect / Temporary AI Takeover
+
+**Implementation branch:** `fix/pr61-rebased-on-current-main`  
+**Pull request:** [PR #67](https://github.com/Mrobaei1/Royal-club/pull/67)  
+**Implementation commit:** [8bd4040](https://github.com/Mrobaei1/Royal-club/commit/8bd4040891fc49079b796706d72e0525c0516944), including reconnect-race handling and expanded temporary-AI unit coverage.  
+**Latest tested PR head before this documentation sync:** [987a045](https://github.com/Mrobaei1/Royal-club/commit/987a04587c66d06a8aed01b4cfb0ea15c7f82844), including a test-only assertion that the scheduled cleanup route physically deletes an expired empty room. The branch is 27 commits ahead and 0 behind `main`.  
+**Status:** Automated checks pass. The PR remains Draft pending code review and two-device manual acceptance. This change is not merged into `main` and is not deployed to Production.
+
+## Behavior and defaults
+
+- The online-match screen sends an authenticated heartbeat during its existing refresh cycle (approximately every three seconds while the screen is active).
+- When a match becomes active, the API creates a presence row for both participants.
+- Backgammon's default disconnect grace period is 18 seconds after the last successful heartbeat.
+- The owner policy supports an enabled flag, a 5–120 second grace period, and a takeover mode.
+- Default policy rows: backgammon = temporary AI after 18 seconds; cards = temporary AI after 18 seconds (policy only; card-game execution is not implemented); chess = wait until game end (no temporary AI moves).
+- Policy reads and updates require the configured numeric owner identity. Updates are written to an audit table in the same transaction. No owner ID is guessed or seeded.
+
+## Server authority and concurrency
+
+- Presence records store the last heartbeat, disconnect time, takeover state/start, and last AI action per match/player.
+- Human heartbeat/reconnect and AI processing lock the match row before changing control.
+- AI processing rechecks match status, current player, policy, and heartbeat age while holding the row lock.
+- Human roll, move, batch-move, and end-turn endpoints reject requests when the disconnected player's turn is overdue or takeover is active.
+- The AI selector uses the existing server-side backgammon rules, including bar entry, bearing off, maximum playable dice, and the higher-die rule.
+- A complete AI turn is committed in one transaction and increments the match state version once.
+- A successful reconnect heartbeat clears takeover and restores human control. An AI turn committed before reconnect remains a completed action.
+- On serverless hosts, the reconnect heartbeat first processes an overdue turn before refreshing presence; this prevents a returning player from bypassing the AI turn when no background worker or opponent poll ran during the idle period.
+- Long-running API hosts scan for due turns every two seconds. Authenticated match-state polling also attempts a due takeover.
+- **Serverless idle limitation:** if all clients stop polling and the API scales to zero, no background execution is guaranteed. A due takeover is processed on the next authenticated state poll. No scheduled trigger was created or activated.
+- **Live Neon configuration check (2026-10-30):** the `Royal-Club-API` production branch has no Function Triggers configured; its active `royalclubapi` deployment is version 79 from 2026-10-27 and predates this PR. Do not treat the branch implementation or cleanup route as active in Production.
+
+## Automated verification
+
+All four GitHub Actions workflows completed successfully on the latest tested PR head `987a04587c66d06a8aed01b4cfb0ea15c7f82844` (including the test-only cleanup assertion). The exact-head run set is:
+
+- [Royal Club validation](https://github.com/Mrobaei1/Royal-club/actions/runs/41081567733): API build/unit tests passed.
+- [Validate Royal Club](https://github.com/Mrobaei1/Royal-club/actions/runs/41081567720): API build/unit/integration tests and Flutter analyze/tests passed.
+- [Backgammon engine audit](https://github.com/Mrobaei1/Royal-club/actions/runs/41081567762): passed.
+- [Royal Club Web Preview](https://github.com/Mrobaei1/Royal-club/actions/runs/41081567721): API, Flutter analyze/tests and Web Preview build passed; deployment was skipped.
+
+The earlier implementation-commit runs remain historical evidence; the four run IDs above correspond to the synchronized PR head.
+
+
+Tests cover legal AI sequence selection, immutable input, bar entry, blocked entry, higher-die handling, grace-period behavior, stale-human-request fencing, takeover, reconnect, restored human control, reconnect-triggered takeover after serverless idle, concurrent state polls, a single state-version increment when a disconnected player has no legal move, owner-only audited policy changes, and physical deletion of an expired empty room by the scheduled cleanup route.
+
+**Still required:** review the full diff and complete manual acceptance on two independent devices/accounts. CI does not prove real network-loss behavior or Android lifecycle behavior.
+
+## Explicit boundaries
+
+- No Production deployment or database migration was performed. The schema changes exist only in source on this branch.
+- No APK was built.
+- No SMS, Agent runtime, delegated permission, paid feature, scheduled Neon trigger, or Production configuration was activated.
+- Chess and card-game takeover execution are not implemented by this backgammon-specific change.
