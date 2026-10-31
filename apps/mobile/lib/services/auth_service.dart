@@ -111,16 +111,6 @@ class AuthService {
         'code': code.trim(),
       });
 
-  static Future<Map<String, dynamic>> resetPasswordWithPhoneOtp({
-    required String phone,
-    required String code,
-    required String newPassword,
-  }) => _post('/api/v1/auth/phone-otp/reset-password', {
-        'phone': phone.trim(),
-        'code': code.trim(),
-        'newPassword': newPassword,
-      });
-
   static Future<Map<String, dynamic>> linkPhoneWithOtp({
     required String phone,
     required String code,
@@ -241,23 +231,7 @@ class AuthService {
   static Future<void> saveLanguagePreference(String languageCode) =>
       _storage.write(key: 'royal_club_language', value: languageCode);
 
-  static Future<void> logout() async {
-    final token = await _storage.read(key: 'royal_club_token');
-    if (token != null && token.isNotEmpty) {
-      try {
-        final base = baseUrl.trim().replaceFirst(RegExp(r'/+$'), '');
-        final response = await _send(() => http.post(
-          Uri.parse('$base/api/v1/auth/logout'),
-          headers: {'Authorization': 'Bearer $token'},
-        ));
-        await _decode(response);
-      } catch (_) {
-        // Always clear local credentials, even when the device is offline.
-        // The server-side token then remains bounded by its one-hour expiry.
-      }
-    }
-    await _storage.delete(key: 'royal_club_token');
-  }
+  static Future<void> logout() => _storage.delete(key: 'royal_club_token');
 }
 ), '');
     return _decode(await _send(() => http.get(
@@ -368,23 +342,7 @@ class AuthService {
   static Future<void> saveLanguagePreference(String languageCode) =>
       _storage.write(key: 'royal_club_language', value: languageCode);
 
-  static Future<void> logout() async {
-    final token = await _storage.read(key: 'royal_club_token');
-    if (token != null && token.isNotEmpty) {
-      try {
-        final base = baseUrl.trim().replaceFirst(RegExp(r'/+$'), '');
-        final response = await _send(() => http.post(
-          Uri.parse('$base/api/v1/auth/logout'),
-          headers: {'Authorization': 'Bearer $token'},
-        ));
-        await _decode(response);
-      } catch (_) {
-        // Always clear local credentials, even when the device is offline.
-        // The server-side token then remains bounded by its one-hour expiry.
-      }
-    }
-    await _storage.delete(key: 'royal_club_token');
-  }
+  static Future<void> logout() => _storage.delete(key: 'royal_club_token');
 }
 ), '');
     return _decode(await _send(() => http.get(
@@ -491,21 +449,5 @@ class AuthService {
   static Future<void> saveLanguagePreference(String languageCode) =>
       _storage.write(key: 'royal_club_language', value: languageCode);
 
-  static Future<void> logout() async {
-    final token = await _storage.read(key: 'royal_club_token');
-    if (token != null && token.isNotEmpty) {
-      try {
-        final base = baseUrl.trim().replaceFirst(RegExp(r'/+$'), '');
-        final response = await _send(() => http.post(
-          Uri.parse('$base/api/v1/auth/logout'),
-          headers: {'Authorization': 'Bearer $token'},
-        ));
-        await _decode(response);
-      } catch (_) {
-        // Always clear local credentials, even when the device is offline.
-        // The server-side token then remains bounded by its one-hour expiry.
-      }
-    }
-    await _storage.delete(key: 'royal_club_token');
-  }
+  static Future<void> logout() => _storage.delete(key: 'royal_club_token');
 }
