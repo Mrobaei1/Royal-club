@@ -65,7 +65,9 @@ class _OnlineLobbyScreenState extends State<OnlineLobbyScreen> {
     final expiresAt = DateTime.tryParse(invite['expiresAt']?.toString() ?? '')?.toLocal();
     final remaining = expiresAt?.difference(DateTime.now()) ?? Duration.zero;
     if (!mounted || id == null || remaining <= Duration.zero ||
-        _popupInviteId != null || !_shownInviteIds.add(id)) return;
+        _popupInviteId != null || !_shownInviteIds.add(id)) {
+      return;
+    }
     _popupInviteId = id;
     final isEnglish = Localizations.localeOf(context).languageCode == 'en';
     final remainingSeconds = (remaining.inMilliseconds + 999) ~/ 1000;
