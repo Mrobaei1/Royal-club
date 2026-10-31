@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import { Pool } from "pg";
+import { adjudicateExpiredChessClocks } from "./clock-scheduler.js";
 
 const databaseUrl = process.env.CHESS_TEST_DATABASE_URL;
 
@@ -67,6 +68,18 @@ test("isolated chess migrations apply cleanly against a bigint users schema", { 
       "INSERT INTO chess_chat_messages(game_id,user_id,message) VALUES($1,$2,'migration smoke test')",
       [game.rows[0].id, white],
     );
+
+    const adjudicated = await adjudicateExpiredChessClocks(db, 1200);
+    assert.equal(adjudicated, 1);
+    const finished = await db.query("SELECT status FROM chess_games WHERE id=$1",[game.rows[0].id]);
+    assert.equal(finished.rows[0].status, "black_win");
+    const roomState = await db.query("SELECT status FROM chess_rooms WHERE id=$1",[room.rows[0].id]);
+    assert.equal(roomState.rows[0].status, "finished");
+    const leases = await db.query("SELECT 1 FROM chess_voice_leases WHERE room_id=$1",[room.rows[0].id]);
+    assert.equal(leases.rowCount, 0);
+    const progression = await db.query("SELECT user_id,xp FROM chess_player_progression ORDER BY user_id");
+    assert.deepEqual(progression.rows.map(row => Number(row.xp)), [5, 20]);
+    assert.equal(await adjudicateExpiredChessClocks(db, 1200), 0);
 
     const triggers = await db.query(
       `SELECT COUNT(*)::int AS count FROM pg_trigger
