@@ -97,7 +97,7 @@ void main() {
         expect(_checkerCount(clone, 1), 15);
         expect(_checkerCount(clone, -1), 15);
       }
-
+    });
 
     test('deterministic random play never loses checkers or leaves invalid dice', () {
       final random = Random(20261027);
@@ -124,8 +124,6 @@ void main() {
           }
         }
       }
-
-
     });
 
     test('positive-player oversized bear-off checks higher points, mirrored from negative player', () {
