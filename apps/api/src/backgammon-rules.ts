@@ -180,11 +180,11 @@ export function mustPlayHigherDie(
   const higher = Math.max(...remainingDice);
   const lower = Math.min(...remainingDice);
   if (selectedMove.die !== lower) return false;
-  if (!hasLegalMove(state.board, state.bar, [higher], hostTurn, state.off)) return false;
-  if (maxPlayableDiceCount(state, remainingDice, hostTurn) === 1) return true;
   const afterLower = applyBackgammonMove(state, selectedMove, hostTurn);
   if ('error' in afterLower) return false;
-  return !hasLegalMove(afterLower.state.board, afterLower.state.bar, [higher], hostTurn);
+  if (!hasLegalMove(state.board, state.bar, [higher], hostTurn, state.off)) return false;
+  if (maxPlayableDiceCount(state, remainingDice, hostTurn) === 1) return true;
+  return !hasLegalMove(afterLower.state.board, afterLower.state.bar, [higher], hostTurn, afterLower.state.off);
 }
 
 /** Returns the greatest number of remaining dice that can legally be played. */
