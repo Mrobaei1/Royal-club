@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -24,6 +25,7 @@ class ChessGameScreen extends StatefulWidget {
     this.pendingDrawOfferId,
     this.drawOfferedByOpponent = false,
     this.onRespondToDraw,
+    this.activeSide,
   });
 
   final String fen;
@@ -44,6 +46,7 @@ class ChessGameScreen extends StatefulWidget {
   final String? pendingDrawOfferId;
   final bool drawOfferedByOpponent;
   final ValueChanged<bool>? onRespondToDraw;
+  final String? activeSide; // white, black, or null; server remains authoritative.
 
   @override
   State<ChessGameScreen> createState() => _ChessGameScreenState();
@@ -58,9 +61,56 @@ class ChessChatMessage {
 
 class _ChessGameScreenState extends State<ChessGameScreen> {
   final _messageController = TextEditingController();
+  Timer? _clockTimer;
+  DateTime? _clockAnchor;
+  Duration _whiteDisplay = Duration.zero;
+  Duration _blackDisplay = Duration.zero;
+
+  @override
+  void initState() {
+    super.initState();
+    _resetClockDisplay();
+  }
+
+  void _resetClockDisplay() {
+    _whiteDisplay = widget.whiteClock;
+    _blackDisplay = widget.blackClock;
+    _clockAnchor = DateTime.now();
+    if (widget.activeSide == null) {
+      _clockTimer?.cancel();
+      _clockTimer = null;
+    } else {
+      _clockTimer ??= Timer.periodic(const Duration(milliseconds: 200), (_) {
+        if (!mounted || _clockAnchor == null || widget.activeSide == null) return;
+        final elapsed = DateTime.now().difference(_clockAnchor!);
+        setState(() {
+          if (widget.activeSide == 'white') {
+            _whiteDisplay = widget.whiteClock - elapsed;
+            if (_whiteDisplay.isNegative) _whiteDisplay = Duration.zero;
+            _blackDisplay = widget.blackClock;
+          } else {
+            _blackDisplay = widget.blackClock - elapsed;
+            if (_blackDisplay.isNegative) _blackDisplay = Duration.zero;
+            _whiteDisplay = widget.whiteClock;
+          }
+        });
+      });
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant ChessGameScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.whiteClock != widget.whiteClock ||
+        oldWidget.blackClock != widget.blackClock ||
+        oldWidget.activeSide != widget.activeSide) {
+      _resetClockDisplay();
+    }
+  }
 
   @override
   void dispose() {
+    _clockTimer?.cancel();
     _messageController.dispose();
     super.dispose();
   }
@@ -72,12 +122,12 @@ class _ChessGameScreenState extends State<ChessGameScreen> {
     return '${minutes.toString().padLeft(2, '0')}:${remainder.toString().padLeft(2, '0')}';
   }
 
-  Widget _player(String username, Duration clock, {required bool white}) => Row(
+  Widget _player(String username, Duration clock, {required bool white, required bool active}) => Row(
         children: [
           CircleAvatar(child: Text(username.isEmpty ? '?' : username.substring(0, 1).toUpperCase())),
           const SizedBox(width: 8),
           Expanded(child: Text(username, maxLines: 1, overflow: TextOverflow.ellipsis)),
-          Text(_clock(clock), style: const TextStyle(fontFeatures: [])),
+          Text(_clock(clock), style: TextStyle(fontFeatures: const [], fontWeight: active ? FontWeight.bold : FontWeight.normal)),
         ],
       );
 
@@ -98,7 +148,7 @@ class _ChessGameScreenState extends State<ChessGameScreen> {
         final boardSize = math.min(constraints.maxWidth, availableHeight * 0.38);
         return Column(
       children: [
-        _player(widget.blackUsername, widget.blackClock, white: false),
+        _player(widget.blackUsername, _blackDisplay, white: false, active: widget.activeSide == 'black'),
         const SizedBox(height: 8),
         Center(
           child: SizedBox(
@@ -107,7 +157,7 @@ class _ChessGameScreenState extends State<ChessGameScreen> {
           ),
         ),
         const SizedBox(height: 8),
-        _player(widget.whiteUsername, widget.whiteClock, white: true),
+        _player(widget.whiteUsername, _whiteDisplay, white: true, active: widget.activeSide == 'white'),
         if (widget.pendingDrawOfferId != null && widget.drawOfferedByOpponent)
           Card(
             child: Padding(
