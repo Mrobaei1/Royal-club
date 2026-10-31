@@ -297,14 +297,19 @@ test('temporary AI passes a turn exactly once when the disconnected player has n
   await testPool.query(
     `UPDATE backgammon_matches
         SET board_state = $2::jsonb,
-            bar_state = '{"host":0,"guest":0}'::jsonb,
-            off_state = '{"host":0,"guest":0}'::jsonb,
+            bar_state = '{"host":15,"guest":0}'::jsonb,
+            off_state = '{"host":0,"guest":11}'::jsonb,
             dice = '[1,2]'::jsonb,
             remaining_dice = '[1,2]'::jsonb,
             current_turn_user_id = $3,
             state_version = state_version + 1
       WHERE id = $1`,
-    [matchId, JSON.stringify(Array.from({ length: 24 }, () => 0)), host.user.id],
+    [matchId, JSON.stringify([
+      ...Array.from({ length: 18 }, () => 0),
+      ...Array.from({ length: 4 }, () => -2),
+      0,
+      0,
+    ]), host.user.id],
   );
   await testPool.query(
     `UPDATE backgammon_match_presence
