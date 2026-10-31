@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { isNumericId, isReservedUsername, isValidAvatarDataUrl, isValidRegistrationPassword } from './validation.js';
+import { isNumericId, isReservedUsername, isValidAvatarDataUrl, isValidImageDataUrl, isValidRegistrationPassword } from './validation.js';
 
 test('accepts positive decimal database IDs', () => {
   assert.equal(isNumericId('1'), true);
@@ -55,4 +55,13 @@ test('avatar decoded payload is capped at 650 KiB', () => {
   const over = Buffer.concat([header, Buffer.alloc(650 * 1024 + 1 - header.length)]);
   assert.equal(isValidAvatarDataUrl(`data:image/png;base64,${within.toString('base64')}`), true);
   assert.equal(isValidAvatarDataUrl(`data:image/png;base64,${over.toString('base64')}`), false);
+});
+
+test('chat image validation enforces the 500 KiB decoded limit and MIME signatures', () => {
+  const header = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+  const within = Buffer.concat([header, Buffer.alloc(500 * 1024 - header.length)]);
+  const over = Buffer.concat([header, Buffer.alloc(500 * 1024 + 1 - header.length)]);
+  assert.equal(isValidImageDataUrl(`data:image/png;base64,${within.toString('base64')}`, 500 * 1024), true);
+  assert.equal(isValidImageDataUrl(`data:image/png;base64,${over.toString('base64')}`, 500 * 1024), false);
+  assert.equal(isValidImageDataUrl('data:image/png;base64,/9j/2Q==', 500 * 1024), false);
 });
