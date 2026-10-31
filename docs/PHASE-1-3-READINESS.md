@@ -6,6 +6,7 @@ Phase 4 home-screen implementation has started on `main`. This checklist tracks 
 
 - [x] Password registration validation rejects passwords shorter than six characters.
 - [x] Authentication uses account credentials and does not bind identity to client IP/VPN exit IP; registration/login rate-limit keys use the submitted email after body parsing.
+- [x] Automated regression now verifies that an existing authenticated session remains valid when the apparent client network header changes; this covers IP-independent account/session identity but does not replace manual VPN-on/VPN-off acceptance on Android.
 - [x] Public profile, friend, chat, match-history, leaderboard, and spectator payload tests check that another user's full name is not exposed.
 - [x] Wallet credits are stored server-side with a transaction ledger; subscription activation checks available balance and uses a database transaction.
 - [x] Non-owner authorization is enforced server-side for owner-only wallet-credit operations.
