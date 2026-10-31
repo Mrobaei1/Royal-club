@@ -52,4 +52,6 @@
 - Level curve: level 1 starts at 0 XP; advancement cost from level L is round(300 + 5(L−1) + 0.08(L−1)^2). Level 100 starts at 79,439 XP; 95,000 XP is level 109. XP floors at zero and achieved level never decreases.
 - In-memory calculation and unit tests are now in the isolated lab. Production persistence, atomic ledger transactions and server identity integration remain open.
 
+**Weighted overall progress: 41.81%** (sum of each WBS weight multiplied by its current estimate). This is a planning estimate only; packages with no implementation remain at 0%, and the standalone lab is not production-ready.
+
 These are planning estimates, not a claim of completed production functionality. On 2026-10-31 the bot public-card ledger, void-suit inference, full-hand simulation, round-history tests and in-memory disconnect/reclaim lifecycle were added. CI evidence for the newest lifecycle tests is tracked by the latest run linked from the branch Actions page; the latest bot simulation run 41231943065 passed with 100 seeded full matches to target 3 (and all existing tests); an earlier bot run 41227379369 passed with 24 seeded deals. Recalculate after each verified milestone.
