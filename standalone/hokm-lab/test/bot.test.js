@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createDeck } from "../src/engine.js";
+import { createDeck, shuffleDeck } from "../src/engine.js";
 import { createRound, chooseTrump, playCard } from "../src/round.js";
 import { chooseHardBotAction, visibleCardLedger } from "../src/bot.js";
 
@@ -77,4 +77,47 @@ test("public ledger counts cards from completed tricks and infers revoked suits"
   if(follow.suit!==lead.suit) assert.ok(view.voidSuitsBySeat[1].includes(lead.suit));
   assert.equal("undealtDeck" in view,false);
   assert.equal("hands" in view,false);
+});
+
+
+function seededRng(seed) {
+  let value=seed>>>0;
+  return ()=>{ value=(1664525*value+1013904223)>>>0; return value/0x100000000; };
+}
+
+test("hard bot completes 24 seeded deals without illegal actions or hidden-information dependence",()=>{
+  for(let seed=1;seed<=24;seed++){
+    let state=chooseTrump(createRound({deck:shuffleDeck(createDeck(),seededRng(seed)),hakemSeat:seed%4}),seed%4,"hearts");
+    let actions=0;
+    while(state.phase==="playing" && actions<52){
+      const seat=state.currentSeat;
+      const action=chooseHardBotAction(state,seat);
+      assert.ok(state.hands[seat].some(card=>card.rank===action.card.rank&&card.suit===action.card.suit));
+      state=playCard(state,seat,action.card);
+      actions++;
+    }
+    assert.equal(state.phase,"completed",`seed ${seed} did not finish`);
+    assert.equal(actions%4,0);
+    assert.equal(state.completedTricks.length,actions/4);
+  }
+});
+
+test("bot decisions are unchanged when hidden opponent hands are altered",()=>{
+  let state=chooseTrump(createRound({deck:createDeck(),hakemSeat:0}),0,"diamonds");
+  const actionA=chooseHardBotAction(state,state.currentSeat);
+  const altered={...state,hands:state.hands.map((hand,index)=>index===state.currentSeat?hand:[])};
+  const actionB=chooseHardBotAction(altered,altered.currentSeat);
+  assert.deepEqual(actionB,actionA);
+});
+
+test("visible-card ledger conserves the 52-card count",()=>{
+  let state=chooseTrump(createRound({deck:createDeck(),hakemSeat:0}),0,"clubs");
+  for(let i=0;i<4;i++){
+    const seat=state.currentSeat;
+    const lead=state.currentTrick[0]?.card.suit;
+    const card=state.hands[seat].find(c=>!lead||c.suit===lead) ?? state.hands[seat][0];
+    state=playCard(state,seat,card);
+  }
+  const ledger=visibleCardLedger(state,0);
+  assert.equal(ledger.knownCards+Object.values(ledger.unseenBySuit).reduce((a,b)=>a+b,0),52);
 });
