@@ -1,5 +1,4 @@
 import { SUITS, RANKS, legalCards } from "./engine.js";
-import { chooseSearchCard } from "./bot-search.js";
 
 const rank = Object.freeze(Object.fromEntries(RANKS.map((value, index) => [value, index + 2])));
 const cardKey = card => `${card.rank}_of_${card.suit}`;
