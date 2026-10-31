@@ -59,7 +59,7 @@ async function consumeOtpChallenge(
   client: PoolClient,
   phone: string,
   code: string,
-  purpose: 'verify' | 'register' | 'login' | 'link',
+  purpose: 'verify' | 'register' | 'login' | 'link' | 'reset_password',
 ): Promise<boolean> {
   const found = await client.query(
     `SELECT id, otp_salt, otp_digest, attempts, max_attempts, expires_at, consumed_at
@@ -133,9 +133,11 @@ await pool.query(`
     phone TEXT NOT NULL DEFAULT '',
     country TEXT NOT NULL DEFAULT '',
     avatar_data_url TEXT,
+    token_version INTEGER NOT NULL DEFAULT 0 CHECK (token_version >= 0),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   );
   ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_data_url TEXT;
+  ALTER TABLE users ADD COLUMN IF NOT EXISTS token_version INTEGER NOT NULL DEFAULT 0;
   ALTER TABLE users ADD COLUMN IF NOT EXISTS username TEXT;
   UPDATE users SET username = 'p' || id::text WHERE username IS NULL OR username = '';
   CREATE UNIQUE INDEX IF NOT EXISTS users_username_unique_idx ON users (LOWER(username)) WHERE username IS NOT NULL;
@@ -175,7 +177,7 @@ await pool.query(`
   CREATE TABLE IF NOT EXISTS sms_otp_challenges (
     id BIGSERIAL PRIMARY KEY,
     phone_e164 TEXT NOT NULL,
-    purpose TEXT NOT NULL DEFAULT 'verify' CHECK (purpose IN ('verify', 'register', 'login', 'link')),
+    purpose TEXT NOT NULL DEFAULT 'verify' CHECK (purpose IN ('verify', 'register', 'login', 'link', 'reset_password')),
     otp_salt TEXT NOT NULL,
     otp_digest TEXT NOT NULL,
     attempts INTEGER NOT NULL DEFAULT 0,
@@ -185,6 +187,9 @@ await pool.query(`
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   );
   ALTER TABLE sms_otp_challenges ADD COLUMN IF NOT EXISTS purpose TEXT NOT NULL DEFAULT 'verify';
+  ALTER TABLE sms_otp_challenges DROP CONSTRAINT IF EXISTS sms_otp_challenges_purpose_check;
+  ALTER TABLE sms_otp_challenges ADD CONSTRAINT sms_otp_challenges_purpose_check
+    CHECK (purpose IN ('verify', 'register', 'login', 'link', 'reset_password'));
   CREATE INDEX IF NOT EXISTS sms_otp_challenges_phone_created_idx
     ON sms_otp_challenges (phone_e164, created_at DESC);
   CREATE INDEX IF NOT EXISTS sms_otp_challenges_expiry_idx
@@ -626,6 +631,16 @@ await pool.query(`
     ON backgammon_player_stats (rating DESC, wins DESC, games_played ASC);
 `);
 
+await pool.query(`
+  CREATE TABLE IF NOT EXISTS auth_token_revocations (
+    jti TEXT PRIMARY KEY,
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    expires_at TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+  CREATE INDEX IF NOT EXISTS auth_token_revocations_expiry_idx ON auth_token_revocations (expires_at);
+`);
+
 const messageBodyConstraint = await pool.query(
   'SELECT pg_get_constraintdef(oid) AS definition FROM pg_constraint WHERE conrelid = \'private_messages\'::regclass AND conname = \'private_messages_body_check\'',
 );
@@ -738,7 +753,7 @@ app.post<{ Body: { email?: string; password?: string; fullName?: string; phone?:
       );
       const user = { ...created, username: profile.rows[0]?.username ?? null };
       const accessToken = app.jwt.sign(
-        { sub: user.id, email: user.email },
+        { sub: user.id, email: user.email, jti: randomUUID(), ver: 0 },
         { expiresIn: '1h' }
       );
       return reply.code(201).send({
@@ -787,7 +802,7 @@ app.post<{ Body: { email?: string; password?: string } }>(
     }
 
     const result = await pool.query(
-      'SELECT id, email, password_hash FROM users WHERE email = $1',
+      'SELECT id, email, password_hash, token_version FROM users WHERE email = $1',
       [email]
     );
     const user = result.rows[0] as
@@ -808,7 +823,7 @@ app.post<{ Body: { email?: string; password?: string } }>(
     }
 
     const accessToken = app.jwt.sign(
-      { sub: user.id, email: user.email },
+      { sub: user.id, email: user.email, jti: randomUUID(), ver: Number(user.token_version ?? 0) },
       { expiresIn: '1h' }
     );
     return {
@@ -820,10 +835,43 @@ app.post<{ Body: { email?: string; password?: string } }>(
   }
 );
 
+async function isTokenSessionActive(claims: { sub?: string; jti?: string; ver?: number }): Promise<boolean> {
+  if (!claims.sub || !isNumericId(claims.sub)) return false;
+  const user = await pool.query('SELECT token_version FROM users WHERE id = $1', [claims.sub]);
+  if (!user.rowCount || Number(user.rows[0].token_version ?? 0) !== Number(claims.ver ?? 0)) return false;
+  if (typeof claims.jti === 'string' && claims.jti.length > 0) {
+    const revoked = await pool.query('SELECT 1 FROM auth_token_revocations WHERE jti = $1 AND expires_at > NOW()', [claims.jti]);
+    if (revoked.rowCount) return false;
+  }
+  return true;
+}
+
+app.post('/api/v1/auth/logout', async (request, reply) => {
+  try {
+    await request.jwtVerify();
+    const claims = request.user as { sub?: string; jti?: string; exp?: number };
+    if (!claims.sub || !isNumericId(claims.sub) || !claims.jti || !Number.isFinite(claims.exp)) {
+      return reply.code(401).send({ error: 'Session cannot be revoked. Please sign in again.' });
+    }
+    await pool.query(
+      `INSERT INTO auth_token_revocations (jti, user_id, expires_at)
+       VALUES ($1, $2, TO_TIMESTAMP($3))
+       ON CONFLICT (jti) DO NOTHING`,
+      [claims.jti, claims.sub, claims.exp],
+    );
+    return { loggedOut: true };
+  } catch {
+    return reply.code(401).send({ error: 'Authentication required.' });
+  }
+});
+
 app.get('/api/v1/me', {
   onRequest: [async (request, reply) => {
     try {
       await request.jwtVerify();
+      if (!await isTokenSessionActive(request.user as { sub?: string; jti?: string; ver?: number })) {
+        return reply.code(401).send({ error: 'Session expired or revoked. Please sign in again.' });
+      }
     } catch {
       return reply.code(401).send({ error: 'Authentication required.' });
     }
@@ -849,8 +897,8 @@ app.get('/api/v1/me', {
 const requireMatchAuth = async (request: any, reply: any) => {
   try {
     await request.jwtVerify();
-    const claims = request.user as { sub?: string };
-    if (!claims.sub || !isNumericId(claims.sub)) return reply.code(401).send({ error: 'Invalid token.' });
+    const claims = request.user as { sub?: string; jti?: string; ver?: number };
+    if (!await isTokenSessionActive(claims)) return reply.code(401).send({ error: 'Session expired or revoked. Please sign in again.' });
   } catch {
     return reply.code(401).send({ error: 'Authentication required.' });
   }
@@ -2505,7 +2553,7 @@ app.post<{ Body: { phone?: string; purpose?: string } }>('/api/v1/auth/phone-otp
   const phone = normalizeIranianMobile(request.body?.phone);
   const purpose = request.body?.purpose ?? 'verify';
   if (!phone) return reply.code(400).send({ error: 'Enter a valid Iranian mobile number.' });
-  if (!['verify', 'register', 'login', 'link'].includes(purpose)) {
+  if (!['verify', 'register', 'login', 'link', 'reset_password'].includes(purpose)) {
     return reply.code(400).send({ error: 'Invalid verification purpose.' });
   }
   const client = await pool.connect();
@@ -2692,7 +2740,7 @@ app.post<{ Body: { phone?: string; code?: string; email?: string; password?: str
         [`p${userId}${randomInt(1000, 9999)}`, userId],
       );
       const user = { ...created.rows[0], username: usernameResult.rows[0]?.username ?? null };
-      const accessToken = app.jwt.sign({ sub: userId, email }, { expiresIn: '1h' });
+      const accessToken = app.jwt.sign({ sub: userId, email, jti: randomUUID(), ver: 0 }, { expiresIn: '1h' });
       await client.query('COMMIT');
       return reply.code(201).send({
         user: { id: userId, username: user.username, email: user.email, fullName: user.full_name, phone: user.phone, country: user.country, createdAt: user.created_at },
@@ -2739,7 +2787,7 @@ app.post<{ Body: { phone?: string; code?: string } }>(
         return reply.code(400).send({ error: 'The verification code is invalid or expired.' });
       }
       const found = await client.query(
-        'SELECT id, email, username, full_name, phone, country, created_at FROM users WHERE phone_e164 = $1 LIMIT 1',
+        'SELECT id, email, username, full_name, phone, country, created_at, token_version FROM users WHERE phone_e164 = $1 LIMIT 1',
         [phone],
       );
       if (!found.rowCount) {
@@ -2747,7 +2795,7 @@ app.post<{ Body: { phone?: string; code?: string } }>(
         return reply.code(401).send({ error: 'Phone number or verification code is invalid.' });
       }
       const user = found.rows[0];
-      const accessToken = app.jwt.sign({ sub: String(user.id), email: user.email }, { expiresIn: '1h' });
+      const accessToken = app.jwt.sign({ sub: String(user.id), email: user.email, jti: randomUUID(), ver: Number(user.token_version ?? 0) }, { expiresIn: '1h' });
       await client.query('COMMIT');
       return {
         user: { id: String(user.id), username: user.username, email: user.email, fullName: user.full_name, phone: user.phone, country: user.country, createdAt: user.created_at },
