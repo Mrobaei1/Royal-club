@@ -16,13 +16,14 @@ export function nextProgression(current: Progression, delta: number): Progressio
     throw new RangeError("invalid progression values");
   }
   const xp = Math.max(0, current.xp + delta);
-  let level = current.level;
-  let remaining = xp;
-  while (remaining >= levelUpCost(level)) {
-    remaining -= levelUpCost(level);
+  let level = 1;
+  let cumulativeThreshold = 0;
+  while (xp >= cumulativeThreshold + levelUpCost(level)) {
+    cumulativeThreshold += levelUpCost(level);
     level += 1;
   }
-  // Level is permanent: XP loss never lowers a previously stored level.
+  // XP is a lifetime total: thresholds accumulate and are never deducted.
+  // Stored level is permanent even if a later penalty reduces XP.
   return { level: Math.max(current.level, level), xp };
 }
 
