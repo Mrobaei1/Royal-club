@@ -86,7 +86,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
             // Pending local batch moves are only a preview. If another device,
             // a timeout takeover, or a completed game changed the authoritative
             // version/turn, discard the stale preview before accepting new input.
-            if (_pendingMoves.isNotEmpty && (serverStateChanged || turnChanged)) {
+            if (serverStateChanged || turnChanged) {
               _pendingMoves.clear();
               _batchMode = false;
               _selectedFrom = null;
