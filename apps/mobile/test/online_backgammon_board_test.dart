@@ -118,10 +118,13 @@ void main() {
     final bottomLast = RoyalBackgammonBoard.checkerCenterForPoint(
       point: 12, stackIndex: 5, checkerCount: 15, boardSize: size);
 
+    const rowHeight = (600 - 44) / 2;
+    const pointTip = rowHeight * .56;
+    const bottomTip = rowHeight + 44 + rowHeight - pointTip;
     expect(topLast.dy - topFirst.dy, greaterThan(60));
-    expect(topLast.dy, lessThan(600 * .455));
+    expect(topLast.dy, lessThan(pointTip));
     expect(bottomFirst.dy - bottomLast.dy, greaterThan(60));
-    expect(bottomLast.dy, greaterThan(600 * .545));
+    expect(bottomLast.dy, greaterThan(bottomTip));
   });
 
   testWidgets('selected point is repainted without losing the board',
