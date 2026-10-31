@@ -79,6 +79,20 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
         }
         if (mounted) {
           setState(() {
+            final previousVersion = (_state?['version'] as num?)?.toInt();
+            final nextVersion = (state['version'] as num?)?.toInt();
+            final turnChanged = _state != null && _state!['isMyTurn'] != state['isMyTurn'];
+            final serverStateChanged = _state != null && previousVersion != nextVersion;
+            // Pending local batch moves are only a preview. If another device,
+            // a timeout takeover, or a completed game changed the authoritative
+            // version/turn, discard the stale preview before accepting new input.
+            if (_pendingMoves.isNotEmpty && (serverStateChanged || turnChanged)) {
+              _pendingMoves.clear();
+              _batchMode = false;
+              _selectedFrom = null;
+              _selectedDie = null;
+              _fromBar = false;
+            }
             _state = state;
             _matchStatus = match['status'].toString();
             _error = null;
@@ -87,6 +101,11 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
         }
       } else if (mounted) {
         setState(() {
+          _pendingMoves.clear();
+          _batchMode = false;
+          _selectedFrom = null;
+          _selectedDie = null;
+          _fromBar = false;
           _state = null;
           _matchStatus = match['status']?.toString() ?? 'waiting';
           _error = null;
