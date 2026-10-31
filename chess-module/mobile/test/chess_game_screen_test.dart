@@ -88,6 +88,6 @@ void main() {
 
     await tester.pumpWidget(_screen());
     expect(find.text('Enable room voice'), findsNothing);
-  });;
+  });
 
 }
