@@ -42,5 +42,6 @@ jobs:
           channel: stable
       - run: flutter pub get
       - run: dart format lib test
+      - run: nl -ba lib/uno_voice_mesh.dart | sed -n '138,152p'
       - run: flutter analyze
       - run: flutter test
