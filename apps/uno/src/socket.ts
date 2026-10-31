@@ -210,7 +210,10 @@ export function registerUnoSockets(
       try {
         const room = rooms.getRoom(payload?.code ?? '');
         if (!room.voiceEnabled) throw new UnoError('VOICE_DISABLED', 'Voice chat is disabled by the host.');
-        if (!room.players.some(p => p.id === user.id) || !room.players.some(p => p.id === payload?.targetId)) throw new UnoError('NOT_A_PLAYER', 'Voice signalling is only available to seated players.');
+        const sender = room.players.find(p => p.id === user.id);
+        const target = room.players.find(p => p.id === payload?.targetId);
+        if (!sender || !target) throw new UnoError('NOT_A_PLAYER', 'Voice signalling is only available to seated players.');
+        if (sender.muted) throw new UnoError('MICROPHONE_MUTED', 'Unmute your microphone before sending voice signalling.');
         allowSignal(user.id);
         if (payloadSize(payload.data) > MAX_SIGNAL_BYTES) throw new UnoError('SIGNAL_TOO_LARGE', 'Voice signalling payload is too large.');
         if (!['offer', 'answer', 'ice'].includes(payload?.kind ?? '')) throw new UnoError('INVALID_SIGNAL', 'Unsupported voice signalling message.');
