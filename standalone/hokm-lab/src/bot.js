@@ -232,6 +232,7 @@ function searchExpectedTrickValue(state, seat, candidates, ledger) {
       entry.samples += 1;
     }
   }
+  if (![...values.values()].some(entry => entry.samples > 0)) return null;
   const scored = candidates.map(card => {
     const entry = values.get(cardKey(card));
     return { card, rate: entry.samples ? entry.score / entry.samples : -1,
