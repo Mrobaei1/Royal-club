@@ -305,10 +305,9 @@ test('temporary AI passes a turn exactly once when the disconnected player has n
             state_version = state_version + 1
       WHERE id = $1`,
     [matchId, JSON.stringify([
-      ...Array.from({ length: 18 }, () => 0),
-      ...Array.from({ length: 4 }, () => -2),
-      0,
-      0,
+      ...Array.from({ length: 22 }, () => 0),
+      -2,
+      -2,
     ]), host.user.id],
   );
   await testPool.query(
