@@ -112,7 +112,6 @@ class ChessGameSession extends ChangeNotifier {
         return;
       }
       _socket = socket;
-      _reconnectAttempt = 0;
       connected = true;
       errorCode = null;
       notifyListeners();
@@ -122,6 +121,7 @@ class ChessGameSession extends ChangeNotifier {
         onDone: () => _socketEnded(null),
         cancelOnError: true,
       );
+      socket.add(jsonEncode({'type': 'ping'}));
     } catch (error) {
       _socketEnded(error);
     }
@@ -132,6 +132,7 @@ class ChessGameSession extends ChangeNotifier {
       final event = jsonDecode(raw as String) as Map<String, dynamic>;
       switch (event['type']) {
         case 'chess:pong':
+          _reconnectAttempt = 0;
           final serverTime = (event['serverTime'] as num?)?.toInt();
           if (serverTime != null) {
             _serverOffsetMs = serverTime - DateTime.now().millisecondsSinceEpoch;
