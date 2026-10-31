@@ -127,7 +127,9 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
         const winner=clock.active==="white"?black:white;
         const terminal=winner===white?"white_win":"black_win";
         await client.query("UPDATE chess_games SET status=$2,clock_snapshot=$3::jsonb,finished_at=NOW(),revision=revision+1 WHERE id=$1",
-          [row.id,terminal,JSON.stringify(elapsed)]);
+          [row.id,terminal,JSON.stringify({...elapsed,active:null,lastStartedAt:null,finished:true})]);
+        await client.query("UPDATE chess_rooms SET status='finished' WHERE id=$1",[row.room_id]);
+        await client.query("DELETE FROM chess_voice_leases WHERE room_id=$1",[row.room_id]);
         await awardChessResult(client,String(row.id),"final_result",white,black,{outcome:"win",winnerId:winner,loserId:winner===white?black:white});
         await client.query("COMMIT");
         return fail(reply,409,"clock_expired");
