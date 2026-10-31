@@ -1,4 +1,5 @@
 import { SUITS, RANKS, legalCards } from "./engine.js";
+import { chooseSearchCard } from "./bot-search.js";
 
 const rank = Object.freeze(Object.fromEntries(RANKS.map((value, index) => [value, index + 2])));
 const cardKey = card => `${card.rank}_of_${card.suit}`;
@@ -241,5 +242,12 @@ export function chooseHardBotAction(state, seat) {
   }
   const searched = searchExpectedTrickValue(state, seat, legal, ledger);
   if (searched) chosen = searched;
+  // Fixed Hard policy uses a public-information determinization search to
+  // evaluate candidate cards. The heuristic remains a deterministic fallback
+  // only if the sampled search cannot form a valid hidden-hand allocation.
+  const searched = chooseSearchCard(state, seat, legal, { samples: 64 });
+  if (searched && legal.some(card => card.suit === searched.suit && card.rank === searched.rank)) {
+    chosen = searched;
+  }
   return Object.freeze({ type: "play_card", card: { ...chosen }, difficulty: "hard" });
 }
