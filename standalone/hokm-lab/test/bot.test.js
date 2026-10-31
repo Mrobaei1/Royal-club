@@ -123,8 +123,8 @@ test("visible-card ledger conserves the 52-card count",()=>{
 });
 
 
-test("four fixed-Hard bots complete 24 seeded full matches to the configured target", () => {
-  for (let seed = 101; seed <= 124; seed += 1) {
+test("four fixed-Hard bots complete 100 seeded full matches to the configured target", () => {
+  for (let seed = 101; seed <= 200; seed += 1) {
     const rng = seededRng(seed);
     const matchTarget = 3;
     const matchScore = [0, 0];
