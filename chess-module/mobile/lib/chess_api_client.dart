@@ -109,9 +109,11 @@ class ChessApiClient {
       _request('POST', '/chess/games/${Uri.encodeComponent(gameId)}/chat',
           body: {'message': message});
 
-  Future<List<Map<String, dynamic>>> chatHistory(String gameId, {String afterId = '0'}) =>
-      (await _request('GET', '/chess/games/${Uri.encodeComponent(gameId)}/chat',
-          query: {'afterId': afterId}))['messages'].cast<Map<String, dynamic>>();
+  Future<List<Map<String, dynamic>>> chatHistory(String gameId, {String afterId = '0'}) async {
+    final response = await _request('GET', '/chess/games/${Uri.encodeComponent(gameId)}/chat',
+        query: {'afterId': afterId});
+    return (response['messages'] as List).cast<Map<String, dynamic>>();
+  }
 
   Future<Map<String, dynamic>> resign(String gameId) =>
       _request('POST', '/chess/games/${Uri.encodeComponent(gameId)}/resign');
