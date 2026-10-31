@@ -40,6 +40,7 @@ class ChessGameSession extends ChangeNotifier {
   bool _reconnectScheduled = false;
   int _reconnectAttempt = 0;
   int _serverOffsetMs = 0;
+  int _refreshGeneration = 0;
 
   String get whiteUsername => game?['players']?['white']?['username'] as String? ?? '';
   String get blackUsername => game?['players']?['black']?['username'] as String? ?? '';
@@ -65,6 +66,8 @@ class ChessGameSession extends ChangeNotifier {
   }
 
   Future<void> refresh() async {
+    if (_disposed) return;
+    final generation = ++_refreshGeneration;
     final gameResult = await api.game(gameId);
     final players = gameResult['players'] as Map<String, dynamic>;
     final whiteName = players['white']?['username'] as String? ?? '';
@@ -75,6 +78,7 @@ class ChessGameSession extends ChangeNotifier {
       if (whiteName.isNotEmpty) api.playerProfileByUsername(whiteName) else Future.value(null),
       if (blackName.isNotEmpty) api.playerProfileByUsername(blackName) else Future.value(null),
     ]);
+    if (_disposed || generation != _refreshGeneration) return;
     game = gameResult;
     _applyClock(game?['clock'] as Map<String, dynamic>?);
     final rawMessages = (results[0] as List).cast<Map<String, dynamic>>();
