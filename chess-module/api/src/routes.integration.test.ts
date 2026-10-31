@@ -45,7 +45,11 @@ test("authenticated chess routes support private game, draw, chat, voice, profil
     const users = await pool.query(
       "INSERT INTO users(username) VALUES ('route_white'),('route_black'),('queue_one'),('queue_two') RETURNING id,username"
     );
-    const [white, black, queueOne, queueTwo] = users.rows.map(row => String(row.id));
+    const ids = users.rows.map(row => String(row.id));
+    const white = ids[0]!;
+    const black = ids[1]!;
+    const queueOne = ids[2]!;
+    const queueTwo = ids[3]!;
 
     await registerChessRoutes(app, {
       pool,
