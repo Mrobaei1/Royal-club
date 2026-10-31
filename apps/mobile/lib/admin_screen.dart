@@ -27,6 +27,8 @@ class _AdminScreenState extends State<AdminScreen> {
   List<dynamic> _permissionAudit = [];
   List<dynamic> _agentTaskProposals = [];
   List<dynamic> _agentTasks = [];
+  List<dynamic> _agentAudit = [];
+  bool _agentAuditUnavailable = false;
   List<dynamic> _agentRoleTemplates = [];
   Map<String, dynamic>? _futureGameAgentTemplate;
   bool _agentTemplatesUnavailable = false;
@@ -122,6 +124,12 @@ class _AdminScreenState extends State<AdminScreen> {
       if (mounted) setState(() { _agentTaskProposals = proposals; _agentProposalsUnavailable = false; });
     } catch (_) {
       if (mounted) setState(() { _agentTaskProposals = []; _agentProposalsUnavailable = true; });
+    }
+    try {
+      final audit = await AdminService.agentTaskAudit();
+      if (mounted) setState(() { _agentAudit = audit; _agentAuditUnavailable = false; });
+    } catch (_) {
+      if (mounted) setState(() { _agentAudit = []; _agentAuditUnavailable = true; });
     }
     try {
       final tasks = await AdminService.agentTasks();
@@ -1575,6 +1583,38 @@ class _AdminScreenState extends State<AdminScreen> {
                               ]),
                             ),
                           ),
+                      const Divider(height: 24),
+                      ExpansionTile(
+                        title: Text(appText(context, 'سوابق ممیزی ایجنت‌ها', 'Agent audit history')),
+                        subtitle: Text(appText(context, 'ثبت تعریف‌ها، ایجاد پیشنهادها و تصمیم‌های انسانی', 'Task definitions, proposals, and human review decisions')),
+                        children: [
+                          if (_agentAuditUnavailable)
+                            Padding(
+                              padding: const EdgeInsets.all(12),
+                              child: Text(appText(context, 'سوابق ممیزی از سرور در دسترس نیست.', 'Agent audit history is unavailable from the server.')),
+                            )
+                          else if (_agentAudit.isEmpty)
+                            Padding(
+                              padding: const EdgeInsets.all(12),
+                              child: Text(appText(context, 'هنوز رویدادی ثبت نشده است.', 'No audit events have been recorded yet.')),
+                            )
+                          else
+                            for (final entry in _agentAudit.take(30))
+                              ListTile(
+                                dense: true,
+                                leading: Icon(
+                                  entry['result'] == 'success' ? Icons.check_circle_outline : Icons.info_outline,
+                                ),
+                                title: Text('${entry['action'] ?? ''} · ${entry['result'] ?? ''}'),
+                                subtitle: Text(
+                                  '${entry['taskCode'] ?? appText(context, 'وظیفه نامشخص', 'Unknown task')} · '
+                                  '${entry['actorUsername'] ?? appText(context, 'سامانه', 'system')} · '
+                                  '${entry['createdAt'] ?? ''}'
+                                  '${(entry['reason']?.toString().isNotEmpty ?? false) ? '\\n${entry['reason']}' : ''}',
+                                ),
+                              ),
+                        ],
+                      ),
                     ],
                   ),
                 ),
