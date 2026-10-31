@@ -2945,6 +2945,19 @@ test('phone OTP password recovery changes password, consumes code once, and revo
   );
 
   try {
+    const unknownPhoneRequest = await app.inject({
+      method: 'POST', url: '/api/v1/auth/phone-otp/request',
+      payload: { phone: '09111111111', purpose: 'reset_password' },
+    });
+    assert.equal(unknownPhoneRequest.statusCode, 202);
+    assert.equal(Object.hasOwn(unknownPhoneRequest.json(), 'testCode'), false,
+      'Unknown recovery numbers must not trigger a billable SMS or expose account existence.');
+    const unknownChallenge = await testPool.query(
+      'SELECT id FROM sms_otp_challenges WHERE phone_e164 = $1 AND purpose = $2 AND consumed_at IS NULL',
+      ['+989111111111', 'reset_password'],
+    );
+    assert.equal(unknownChallenge.rowCount, 0);
+
     const requested = await app.inject({
       method: 'POST', url: '/api/v1/auth/phone-otp/request',
       payload: { phone: '09123456789', purpose: 'reset_password' },
