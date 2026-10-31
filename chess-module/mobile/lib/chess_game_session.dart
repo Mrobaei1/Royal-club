@@ -55,16 +55,24 @@ class ChessGameSession extends ChangeNotifier {
 
   Future<void> connect() async {
     if (_disposed) throw StateError('chess_session_disposed');
-    await refresh();
-    if (voiceEnabled) await voiceClient?.connect();
-    await _openSocket();
-    await refresh(); // Close the snapshot-to-subscription race window.
-    _heartbeat?.cancel();
-    _heartbeat = Timer.periodic(const Duration(seconds: 15), (_) {
-      if (_socket?.readyState == WebSocket.open) {
-        _socket!.add(jsonEncode({'type': 'ping', 'clientTime': DateTime.now().millisecondsSinceEpoch}));
+    try {
+      await refresh();
+      if (voiceEnabled) await voiceClient?.connect();
+      await _openSocket();
+      await refresh(); // Close the snapshot-to-subscription race window.
+      _heartbeat?.cancel();
+      _heartbeat = Timer.periodic(const Duration(seconds: 15), (_) {
+        if (_socket?.readyState == WebSocket.open) {
+          _socket!.add(jsonEncode({'type': 'ping', 'clientTime': DateTime.now().millisecondsSinceEpoch}));
+        }
+      });
+    } catch (error) {
+      if (!_disposed) {
+        errorCode = error is ChessApiException ? error.code : 'connection_failed';
+        notifyListeners();
       }
-    });
+      rethrow;
+    }
   }
 
   Future<void> refresh() async {
