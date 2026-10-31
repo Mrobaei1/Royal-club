@@ -161,17 +161,12 @@ void main() {
 
   testWidgets('shows the human timer and hides it after a legal move hands over to AI',
       (tester) async {
-    tester.view.physicalSize = const Size(390, 844);
+    tester.view.physicalSize = const Size(900, 540);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
     final engine = BackgammonEngine();
-    engine.points.fillRange(0, 24, 0);
-    engine.points[0] = 1;
-    engine.dice = [1];
-    engine.currentPlayer = 1;
-
     await tester.pumpWidget(MaterialApp(
       locale: const Locale('fa'),
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
@@ -183,6 +178,13 @@ void main() {
     ));
     await tester.tap(find.text('بازی آفلاین با هوش مصنوعی'));
     await tester.pumpAndSettle();
+
+    // Arrange a deterministic one-die turn after the screen's setup reset.
+    engine.points.fillRange(0, 24, 0);
+    engine.points[0] = 1;
+    engine.dice = [1];
+    engine.currentPlayer = 1;
+    await tester.pump();
 
     expect(find.text('⏱ 20'), findsOneWidget);
 
