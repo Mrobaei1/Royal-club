@@ -158,6 +158,12 @@ test("authenticated chess routes support private game, draw, chat, voice, profil
     assert.equal(profile.json().username, "route_white");
     assert.equal("fullName" in profile.json(), false);
     assert.equal("phone" in profile.json(), false);
+    assert.equal("email" in profile.json(), false);
+    assert.equal("id" in profile.json(), false);
+    const privateGame = await request(queueCancel, "GET", `/chess/games/${gameId}`);
+    assert.equal(privateGame.statusCode, 404);
+    const privateChat = await request(queueCancel, "GET", `/chess/games/${gameId}/chat`);
+    assert.equal(privateChat.statusCode, 404);
 
     const deniedAdmin = await request(black, "PUT", "/chess/admin/time-controls", {
       id: "forbidden", displayName: "Forbidden", baseMs: 180000, incrementMs: 0, enabled: true,
