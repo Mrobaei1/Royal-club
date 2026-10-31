@@ -307,8 +307,6 @@ void main() {
       expect(game.playMove(moves.single), isTrue);
       expect(game.dice, isEmpty);
       expect(game.currentPlayer, -1);
-
-
     });
 
     test('positive player cannot oversized-bear off past a checker closer to point 24', () {
