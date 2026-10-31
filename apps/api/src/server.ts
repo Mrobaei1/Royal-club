@@ -4548,13 +4548,13 @@ app.post<{ Params: { id: string }; Body: { expectedVersion: number } }>('/api/v1
     await client.query('BEGIN');
     const result = await client.query(
       `SELECT id, status, host_user_id, guest_user_id, current_turn_user_id,
-              board_state, bar_state, remaining_dice, state_version
+              board_state, bar_state, off_state, remaining_dice, state_version
          FROM backgammon_matches WHERE id = $1 AND expires_at > NOW() FOR UPDATE`,
       [request.params.id]);
     const game = result.rows[0] as {
       id: string; status: string; host_user_id: string; guest_user_id: string | null;
       current_turn_user_id: string | null; board_state: number[];
-      bar_state: { host: number; guest: number }; remaining_dice: number[]; state_version: number;
+      bar_state: { host: number; guest: number }; off_state: { host: number; guest: number }; remaining_dice: number[]; state_version: number;
     } | undefined;
     if (!game || ![game.host_user_id, game.guest_user_id].includes(claims.sub)) {
       await client.query('ROLLBACK');
@@ -4583,6 +4583,7 @@ app.post<{ Params: { id: string }; Body: { expectedVersion: number } }>('/api/v1
       game.bar_state,
       remaining,
       hostTurn,
+      game.off_state,
     );
     if (canMove) {
       await client.query('ROLLBACK');
