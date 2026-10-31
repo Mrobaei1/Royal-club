@@ -3648,13 +3648,27 @@ app.post<{ Params: { id: string }; Body: { accept: boolean } }>(
     try {
       await client.query('BEGIN');
       const found = await client.query(
-        `SELECT i.id, i.match_id, i.invitee_id, i.status, m.status AS "matchStatus", m.guest_user_id
+        `SELECT i.id, i.match_id, i.invitee_id, i.status, m.status AS "matchStatus",
+                m.guest_user_id, m.expires_at AS "matchExpiresAt"
            FROM backgammon_match_invites i JOIN backgammon_matches m ON m.id = i.match_id
           WHERE i.id = $1 FOR UPDATE OF i, m`, [request.params.id]);
       const invite = found.rows[0];
       if (!invite || invite.invitee_id !== claims.sub || invite.status !== 'pending') {
         await client.query('ROLLBACK');
         return reply.code(404).send({ error: 'Pending invitation not found.' });
+      }
+      // Lock and validate the room lifetime independently from the invitation.
+      // A fresh invite must never attach a guest to a room that has already expired.
+      if (new Date(invite.matchExpiresAt).getTime() <= Date.now()) {
+        await client.query(
+          `UPDATE backgammon_match_invites
+              SET status = 'rejected', responded_at = NOW() WHERE id = $1`,
+          [request.params.id]);
+        await client.query(
+          `DELETE FROM notifications WHERE data->>'inviteId' = $1`,
+          [request.params.id]);
+        await client.query('COMMIT');
+        return reply.code(410).send({ error: 'This room has expired.' });
       }
       const freshInvite = await client.query(
         `SELECT created_at > NOW() - INTERVAL '60 seconds' AS fresh
