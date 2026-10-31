@@ -94,7 +94,7 @@ class ChessGameSession extends ChangeNotifier {
     final started = (clock['lastStartedAt'] as num?)?.toInt();
     var elapsed = 0;
     if (activeSide != null && started != null) {
-      elapsed = (DateTime.now().millisecondsSinceEpoch + _serverOffsetMs - started).clamp(0, 86_400_000).toInt();
+      elapsed = (DateTime.now().millisecondsSinceEpoch + _serverOffsetMs - started).clamp(0, 86400000).toInt();
     }
     whiteClock = Duration(milliseconds: activeSide == 'white' ? (whiteMs - elapsed).clamp(0, whiteMs).toInt() : whiteMs);
     blackClock = Duration(milliseconds: activeSide == 'black' ? (blackMs - elapsed).clamp(0, blackMs).toInt() : blackMs);
