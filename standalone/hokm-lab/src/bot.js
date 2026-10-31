@@ -102,6 +102,15 @@ function seededRandom(seed) {
     return value / 0x100000000;
   };
 }
+function shuffle(items, rng) {
+  const result = [...items];
+  for (let index = result.length - 1; index > 0; index -= 1) {
+    const target = Math.floor(rng() * (index + 1));
+    [result[index], result[target]] = [result[target], result[index]];
+  }
+  return result;
+}
+
 function sampleHiddenHands(state, seat, ledger, rng) {
   const played = [0, 1, 2, 3].map(() => 0);
   for (const trick of publicHistory(state)) for (const play of trick) played[play.seat] += 1;
