@@ -114,7 +114,9 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
     let playerId:string;
     try{playerId=userId(request,options);}catch{return fail(reply,401,"unauthorized");}
     const result=await pool.query(
-      `SELECT g.*, wu.username AS white_username, bu.username AS black_username, r.host_user_id
+      `SELECT g.*, wu.username AS white_username, bu.username AS black_username, r.host_user_id,
+         jsonb_set(COALESCE(g.settings_snapshot,'{}'::jsonb),'{voiceEnabled}',
+           to_jsonb(COALESCE((r.settings_snapshot->>'voiceEnabled')::boolean,false)),true) AS live_settings_snapshot
        FROM chess_games g JOIN users wu ON wu.id=g.white_user_id JOIN users bu ON bu.id=g.black_user_id
        JOIN chess_rooms r ON r.id=g.room_id
        WHERE g.id=$1 AND (g.white_user_id=$2 OR g.black_user_id=$2)`,
@@ -126,7 +128,7 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
     const engineState=engine.snapshot();
     return {gameId:String(row.id),fen:row.current_fen,pgn:row.pgn,status:row.status,revision:Number(row.revision),
       turn:engineState.turn,legalMoves:engineState.legalMoves,
-      clock:row.clock_snapshot,settings:row.settings_snapshot,isHost:String(row.host_user_id)===playerId,
+      clock:row.clock_snapshot,settings:row.live_settings_snapshot,isHost:String(row.host_user_id)===playerId,
       players:{white:{username:row.white_username},black:{username:row.black_username}}};
   });
 
