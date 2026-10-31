@@ -1231,7 +1231,7 @@ app.get('/api/v1/account/customization-pricing', { onRequest: [requireMatchAuth]
   };
 });
 
-app.patch<{ Body: { avatarDataUrl?: string | null } }>('/api/v1/me/avatar', { onRequest: [requireMatchAuth], config: { rateLimit: { max: 6, timeWindow: '1 minute' } } }, async (request, reply) => {
+app.patch<{ Body: { avatarDataUrl?: string | null } }>('/api/v1/me/avatar', { onRequest: [requireMatchAuth], config: { rateLimit: { max: 6, timeWindow: '1 minute', hook: 'preHandler', keyGenerator: (request) => `avatar:${(request.user as { sub: string }).sub}` } } }, async (request, reply) => {
   const claims = request.user as { sub: string };
   const avatar = request.body?.avatarDataUrl;
   if (avatar !== null && !isValidAvatarDataUrl(avatar)) {
