@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { legalCards } from "../src/engine.js";
-import { createRoom, joinRoom, leaveRoom, setPlayerReady, startRoom, expireRoom, roomViewForUser, applyRoomCommand, startNextRound } from "../src/room.js";
+import { createRoom, joinRoom, leaveRoom, setPlayerReady, startRoom, expireRoom, roomViewForUser, applyRoomCommand, startNextRound, recordMatchForfeit } from "../src/room.js";
 
 function fullReadyRoom(now = 1000, matchTarget = 7) {
   let room = createRoom({ roomId: "test-room", hostUserId: "u0", now, matchTarget });
@@ -175,3 +175,35 @@ test("a player marked as having left cannot continue sending game commands", asy
     /left the match/
   );
 });
+
+
+test("an active-match leaver is replaced by the fixed hard bot and the hand continues",()=>{
+  let room=startRoom(fullReadyRoom(1000,3),"u0",{now:2000,rng:()=>0.5});
+  room={...room,playerProgress:{u0:{xp:100,level:1},u1:{xp:50,level:1}}};
+  const leaverSeat=room.players.find(p=>p.userId==="u0").seat;
+  room=(awaitRecordForfeit(room,"u0"));
+  assert.equal(room.playerProgress.u0.xp,95);
+  assert.equal(room.players[leaverSeat].botControlled,true);
+  assert.equal(room.players[leaverSeat].connected,false);
+  assert.equal(room.round.phase,"playing");
+  assert.equal(room.round.hands[leaverSeat].length,12,"bot should choose trump and play its first card when hakem");
+  assert.equal(room.round.currentTrick.length,1);
+  assert.equal(room.round.currentSeat,1);
+  assert.throws(()=>applyRoomCommand(room,"u0",{type:"play_card",card:room.round.hands[0][0]},room.version),/left the match/);
+  // Complete the hand. The server automatically plays whenever the forfeited seat becomes current.
+  let safety=0;
+  while(room.status==="playing" && safety++<60){
+    const seat=room.round.currentSeat;
+    const player=room.players.find(p=>p.seat===seat);
+    if(player.botControlled) throw new Error("Bot turn was not advanced automatically");
+    const card=legalCards(room.round.hands[seat],room.round.currentTrick)[0];
+    room=applyRoomCommand(room,player.userId,{type:"play_card",card},room.version);
+  }
+  assert.ok(["round_completed","completed"].includes(room.status));
+  assert.equal(room.round.phase,"completed");
+});
+
+function awaitRecordForfeit(room,userId){
+  // The exit API is synchronous; helper keeps this test focused on room lifecycle.
+  return recordMatchForfeit(room,userId);
+}
