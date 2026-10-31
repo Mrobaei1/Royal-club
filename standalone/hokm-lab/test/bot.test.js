@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createDeck, shuffleDeck } from "../src/engine.js";
+import { createDeck, shuffleDeck, legalCards } from "../src/engine.js";
 import { createRound, chooseTrump, playCard } from "../src/round.js";
 import { chooseHardBotAction, visibleCardLedger } from "../src/bot.js";
 
