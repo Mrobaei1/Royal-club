@@ -121,3 +121,43 @@ test("visible-card ledger conserves the 52-card count",()=>{
   const ledger=visibleCardLedger(state,0);
   assert.equal(ledger.knownCards+Object.values(ledger.unseenBySuit).reduce((a,b)=>a+b,0),52);
 });
+
+
+test("four fixed-Hard bots complete 24 seeded full matches to the configured target", () => {
+  for (let seed = 101; seed <= 124; seed += 1) {
+    const rng = seededRng(seed);
+    const matchTarget = 3;
+    const matchScore = [0, 0];
+    let hakemSeat = seed % 4;
+    let rounds = 0;
+    while (Math.max(...matchScore) < matchTarget && rounds < 20) {
+      let state = createRound({
+        deck: shuffleDeck(createDeck(), rng),
+        hakemSeat
+      });
+      const trumpAction = chooseHardBotAction(state, hakemSeat);
+      assert.equal(trumpAction.type, "choose_trump");
+      state = chooseTrump(state, hakemSeat, trumpAction.suit);
+      assert.deepEqual(state.hands.map(hand => hand.length), [13, 13, 13, 13]);
+      let actions = 0;
+      while (state.phase === "playing" && actions < 52) {
+        const seat = state.currentSeat;
+        const action = chooseHardBotAction(state, seat);
+        assert.equal(action.type, "play_card");
+        assert.ok(legalCards(state.hands[seat], state.currentTrick)
+          .some(card => card.suit === action.card.suit && card.rank === action.card.rank));
+        state = playCard(state, seat, action.card);
+        actions += 1;
+      }
+      assert.equal(state.phase, "completed", "round must finish for seed " + seed);
+      assert.ok(actions >= 28 && actions <= 52);
+      assert.equal(actions % 4, 0);
+      const winner = state.scores[0] > state.scores[1] ? 0 : 1;
+      matchScore[winner] += 1;
+      rounds += 1;
+      hakemSeat = (hakemSeat + 1) % 4;
+    }
+    assert.equal(Math.max(...matchScore), matchTarget, "match target not reached for seed " + seed);
+    assert.ok(rounds >= matchTarget && rounds <= 20);
+  }
+});
