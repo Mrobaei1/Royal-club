@@ -43,19 +43,20 @@ test("authenticated chess routes support private game, draw, chat, voice, profil
     }
 
     const users = await pool.query(
-      "INSERT INTO users(username) VALUES ('route_white'),('route_black'),('queue_one'),('queue_two') RETURNING id,username"
+      "INSERT INTO users(username) VALUES ('route_white'),('route_black'),('queue_one'),('queue_two'),('queue_cancel') RETURNING id,username"
     );
     const ids = users.rows.map(row => String(row.id));
     const white = ids[0]!;
     const black = ids[1]!;
     const queueOne = ids[2]!;
     const queueTwo = ids[3]!;
+    const queueCancel = ids[4]!;
 
     await registerChessRoutes(app, {
       pool,
       authenticate: async (_request: FastifyRequest) => {},
       getUserId: (request: FastifyRequest) => String(request.headers["x-user-id"] ?? ""),
-      canManageSettings: async () => true,
+      canManageSettings: async (userId: string) => userId === white,
     });
     await app.ready();
 
@@ -80,6 +81,10 @@ test("authenticated chess routes support private game, draw, chat, voice, profil
     });
     assert.equal(created.statusCode, 201, created.body);
     const roomCode = created.json().roomCode as string;
+    const duplicateRoom = await request(white, "POST", "/chess/rooms", {
+      timeControlId: "rapid", minOpponentLevel: 1, chatEnabled: true, voiceEnabled: false,
+    });
+    assert.equal(duplicateRoom.statusCode, 409);
 
     const joined = await request(black, "POST", `/chess/rooms/${roomCode}/join`);
     assert.equal(joined.statusCode, 201, joined.body);
@@ -107,6 +112,8 @@ test("authenticated chess routes support private game, draw, chat, voice, profil
     assert.equal(history.json().messages[0].message, "hello chess");
     assert.equal(history.json().messages[0].username, "route_white");
 
+    const deniedEnable = await request(black, "POST", `/chess/games/${gameId}/voice/enable`);
+    assert.equal(deniedEnable.statusCode, 403);
     const enabled = await request(white, "POST", `/chess/games/${gameId}/voice/enable`);
     assert.equal(enabled.statusCode, 200, enabled.body);
     const lease = await request(white, "POST", `/chess/games/${gameId}/voice/request`);
@@ -119,6 +126,8 @@ test("authenticated chess routes support private game, draw, chat, voice, profil
     });
     assert.equal(released.statusCode, 200);
     assert.equal(released.json().released, true);
+    const deniedDisable = await request(black, "POST", `/chess/games/${gameId}/voice/disable`);
+    assert.equal(deniedDisable.statusCode, 403);
     const disabled = await request(white, "POST", `/chess/games/${gameId}/voice/disable`);
     assert.equal(disabled.statusCode, 200, disabled.body);
 
@@ -135,6 +144,10 @@ test("authenticated chess routes support private game, draw, chat, voice, profil
     assert.equal("fullName" in profile.json(), false);
     assert.equal("phone" in profile.json(), false);
 
+    const deniedAdmin = await request(black, "PUT", "/chess/admin/time-controls", {
+      id: "forbidden", displayName: "Forbidden", baseMs: 180000, incrementMs: 0, enabled: true,
+    });
+    assert.equal(deniedAdmin.statusCode, 403);
     const savedControl = await request(white, "PUT", "/chess/admin/time-controls", {
       id: "blitz_test",
       displayName: "Test Blitz",
@@ -153,11 +166,26 @@ test("authenticated chess routes support private game, draw, chat, voice, profil
     const queued = await request(queueOne, "POST", "/chess/matchmaking/join", { timeControlId: "rapid" });
     assert.equal(queued.statusCode, 202, queued.body);
     assert.equal(queued.json().status, "waiting");
+    const queuedRoom = await request(queueOne, "POST", "/chess/rooms", {
+      timeControlId: "rapid", minOpponentLevel: 1, chatEnabled: true, voiceEnabled: false,
+    });
+    assert.equal(queuedRoom.statusCode, 409);
     const matched = await request(queueTwo, "POST", "/chess/matchmaking/join", { timeControlId: "rapid" });
     assert.equal(matched.statusCode, 201, matched.body);
     assert.equal(matched.json().status, "matched");
     const matchStatus = await request(queueOne, "GET", "/chess/matchmaking/status");
     assert.equal(matchStatus.json().status, "matched");
+    const activeRoom = await request(queueOne, "POST", "/chess/rooms", {
+      timeControlId: "rapid", minOpponentLevel: 1, chatEnabled: true, voiceEnabled: false,
+    });
+    assert.equal(activeRoom.statusCode, 409);
+
+    const cancelQueue = await request(queueCancel, "POST", "/chess/matchmaking/join", { timeControlId: "rapid" });
+    assert.equal(cancelQueue.statusCode, 202);
+    const cancelled = await request(queueCancel, "DELETE", "/chess/matchmaking/queue");
+    assert.equal(cancelled.json().cancelled, true);
+    const idle = await request(queueCancel, "GET", "/chess/matchmaking/status");
+    assert.equal(idle.json().status, "idle");
   } finally {
     await app.close();
     await pool.end();
