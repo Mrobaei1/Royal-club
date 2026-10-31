@@ -365,6 +365,27 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
       byMode:stats.rows};
   });
 
+  app.get<{Params:{username:string}}>("/chess/players/username/:username/profile",{preHandler:options.authenticate},async(request,reply)=>{
+    try{userId(request,options);}catch{return fail(reply,401,"unauthorized");}
+    const username=request.params.username.trim();
+    if(!/^[a-zA-Z0-9_.-]{2,32}$/.test(username))return fail(reply,400,"invalid_username");
+    const profile=await pool.query(
+      "SELECT u.id,u.username,COALESCE(p.level,1) AS level,COALESCE(p.xp,0) AS xp,COALESCE(r.rating,1200) AS rating FROM users u LEFT JOIN chess_player_progression p ON p.user_id=u.id LEFT JOIN chess_player_ratings r ON r.user_id=u.id WHERE u.username=$1",
+      [username]
+    );
+    if(!profile.rowCount)return fail(reply,404,"player_not_found");
+    const stats=await pool.query(
+      "WITH played AS (SELECT CASE WHEN white_user_id=$1 THEN CASE status WHEN 'white_win' THEN 'win' WHEN 'black_win' THEN 'loss' ELSE 'draw' END ELSE CASE status WHEN 'black_win' THEN 'win' WHEN 'white_win' THEN 'loss' ELSE 'draw' END END AS outcome, COALESCE(settings_snapshot->'timeControl'->>'id','unknown') AS mode FROM chess_games WHERE status IN ('white_win','black_win','draw') AND (white_user_id=$1 OR black_user_id=$1)) SELECT mode,COUNT(*)::int AS games,COUNT(*) FILTER(WHERE outcome='win')::int AS wins,COUNT(*) FILTER(WHERE outcome='loss')::int AS losses,COUNT(*) FILTER(WHERE outcome='draw')::int AS draws FROM played GROUP BY mode ORDER BY mode",
+      [profile.rows[0].id]
+    );
+    const total=stats.rows.reduce((sum,row)=>sum+Number(row.games),0);
+    const wins=stats.rows.reduce((sum,row)=>sum+Number(row.wins),0);
+    return {username:profile.rows[0].username,level:Number(profile.rows[0].level),xp:Number(profile.rows[0].xp),rating:Number(profile.rows[0].rating),
+      games:total,wins,losses:stats.rows.reduce((sum,row)=>sum+Number(row.losses),0),
+      draws:stats.rows.reduce((sum,row)=>sum+Number(row.draws),0),winRate:total?Math.round(wins*1000/total)/10:0,
+      byMode:stats.rows};
+  });
+
   app.post<{Params:{gameId:string}}>("/chess/games/:gameId/voice/request",{preHandler:options.authenticate},async(request,reply)=>{
     let playerId:string;
     try{playerId=userId(request,options);}catch{return fail(reply,401,"unauthorized");}
