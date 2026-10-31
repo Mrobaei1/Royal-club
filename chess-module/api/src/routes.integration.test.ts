@@ -70,7 +70,7 @@ test("authenticated chess routes support private game, draw, chat, voice, profil
       url,
       headers: { "x-user-id": userId },
       ...(payload === undefined ? {} : { payload }),
-    }) as unknown as Promise<TestResponse>);
+    } as never) as unknown as Promise<TestResponse>);
 
     const created = await request(white, "POST", "/chess/rooms", {
       timeControlId: "rapid",
