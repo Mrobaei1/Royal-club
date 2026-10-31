@@ -19,9 +19,6 @@ const scheduledApps = new WeakSet<FastifyInstance>();
  * exactly one instance can adjudicate a given expired game.
  */
 export async function adjudicateExpiredChessClocks(pool: Pool, now = Date.now()): Promise<number> {
-  await pool.query("UPDATE chess_rooms SET status='cancelled' WHERE status='waiting' AND expires_at<=NOW()");
-  await pool.query("DELETE FROM chess_matchmaking_queue WHERE created_at<NOW()-INTERVAL '10 minutes'");
-
   const candidates = await pool.query(
     `SELECT id FROM chess_games
      WHERE status='active'
@@ -99,13 +96,20 @@ export function startChessClockScheduler(app: FastifyInstance, pool: Pool, inter
   if (scheduledApps.has(app)) return;
   scheduledApps.add(app);
   let running = false;
+  let lastCleanupAt = 0;
   let timer: ReturnType<typeof setInterval>;
 
   const tick = async () => {
     if (running) return;
     running = true;
     try {
-      await adjudicateExpiredChessClocks(pool);
+      const now = Date.now();
+      if (now - lastCleanupAt >= 60_000) {
+        await pool.query("UPDATE chess_rooms SET status='cancelled' WHERE status='waiting' AND expires_at<=NOW()");
+        await pool.query("DELETE FROM chess_matchmaking_queue WHERE created_at<NOW()-INTERVAL '10 minutes'");
+        lastCleanupAt = now;
+      }
+      await adjudicateExpiredChessClocks(pool, now);
     } catch (error) {
       app.log.error({ err: error }, "chess clock scheduler sweep failed");
     } finally {
