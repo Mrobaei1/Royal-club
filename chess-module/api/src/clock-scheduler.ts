@@ -79,7 +79,7 @@ export async function adjudicateExpiredChessClocks(pool: Pool, now = Date.now())
       });
       await client.query("COMMIT");
       try{await pool.query("SELECT pg_notify($1,$2)",["chess_game_"+String(row.id),JSON.stringify({type:"state"})]);}
-      catch(error){app.log.warn({err:error,gameId:row.id},"chess timeout notification failed");}
+      catch{/* best-effort notification after committed result */}
       adjudicated += 1;
     } catch (error) {
       try { await client.query("ROLLBACK"); } catch { /* retain original error */ }
