@@ -26,6 +26,8 @@ function nextSeat(seat) {
 export function createRound({ deck = shuffleDeck(createDeck()), hakemSeat = 0 } = {}) {
   assertSeat(hakemSeat);
   if (!Array.isArray(deck) || deck.length !== 52) throw new TypeError("Expected a 52-card deck");
+  const deckIds = new Set(deck.map(cardId));
+  if (deckIds.size !== 52) throw new Error("Deck must contain 52 unique valid cards");
   const hands = [[], [], [], []];
   let cursor = 0;
   for (let i = 0; i < 5; i += 1) {
