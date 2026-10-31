@@ -1,6 +1,7 @@
 import { createRound, chooseTrump, playCard, roundViewForSeat } from "./round.js";
 import { createDeck, shuffleDeck } from "./engine.js";
 import { awardCompletedMatch, penalizeMatchLeaver } from "./progression.js";
+import { chooseHardBotAction } from "./bot.js";
 
 const MAX_PLAYERS = 4;
 const VALID_MATCH_TARGETS = Object.freeze([3, 5, 7]);
@@ -79,10 +80,11 @@ export function recordMatchForfeit(room, userId) {
   if ((room.penalizedLeavers ?? []).includes(userId)) return room;
   const playerProgress = penalizeMatchLeaver(room.playerProgress ?? {}, userId);
   const players = room.players.map((candidate) =>
-    candidate.userId === userId ? { ...candidate, connected: false, forfeited: true } : candidate
+    candidate.userId === userId ? { ...candidate, connected: false, forfeited: true, botControlled: true } : candidate
   );
-  return { ...room, players, playerProgress,
+  const updated = { ...room, players, playerProgress,
     penalizedLeavers: [...(room.penalizedLeavers ?? []), userId], version: room.version + 1 };
+  return advanceHardBotTurn(updated);
 }
 
 export function setPlayerReady(room, userId, ready) {
@@ -133,19 +135,18 @@ export function roomViewForUser(room, userId) {
     matchScore: [...room.matchScore],
     version: room.version,
     hostUserId: room.hostUserId,
-    players: room.players.map(({ userId: id, seat, ready, connected }) => ({ userId: id, seat, ready, connected })),
+    players: room.players.map(({ userId: id, seat, ready, connected, botControlled }) => ({ userId: id, seat, ready, connected, botControlled: Boolean(botControlled) })),
     ownProgress: room.playerProgress?.[userId] ?? { xp: 0, level: 1 },
     game: room.round ? roundViewForSeat(room.round, player.seat) : null
   });
 }
 
-export function applyRoomCommand(room, userId, command, expectedVersion) {
+function applyCommandForSeat(room, seat, command, expectedVersion) {
   if (!Number.isInteger(expectedVersion) || expectedVersion !== room.version) {
     throw new Error("Stale room version");
   }
-  const player = room.players.find((candidate) => candidate.userId === userId);
-  if (!player) throw new Error("User is not a member of this room");
-  if (player.forfeited) throw new Error("A player who left the match cannot submit game commands");
+  const player = room.players.find((candidate) => candidate.seat === seat);
+  if (!player) throw new Error("Seat is not occupied");
   if (room.status !== "playing" || !room.round) throw new Error("Room is not playing");
   let round;
   if (command?.type === "choose_trump") {
@@ -167,4 +168,34 @@ export function applyRoomCommand(room, userId, command, expectedVersion) {
     if (status === "completed") playerProgress = awardCompletedMatch(room.players, winningTeam, playerProgress);
   }
   return { ...room, round, matchScore, playerProgress, status, version: room.version + 1 };
+}
+
+/** Execute at most the current bot-controlled seat's required action(s), always through the same round validator. */
+function advanceHardBotTurn(room) {
+  let next = room;
+  let steps = 0;
+  while (next.status === "playing" && next.round && steps < 2) {
+    const seat = next.round.phase === "choose_trump" ? next.round.hakemSeat : next.round.currentSeat;
+    const occupant = next.players.find((player) => player.seat === seat);
+    if (!occupant?.botControlled) break;
+    const action = chooseHardBotAction(next.round, seat);
+    const command = action.type === "choose_trump"
+      ? { type: "choose_trump", suit: action.suit }
+      : { type: "play_card", card: action.card };
+    next = applyCommandForSeat(next, seat, command, next.version);
+    steps += 1;
+  }
+  return next;
+}
+
+/** Human commands are authenticated by user ID; bot actions are server-generated and never client supplied. */
+export function applyRoomCommand(room, userId, command, expectedVersion) {
+  if (!Number.isInteger(expectedVersion) || expectedVersion !== room.version) {
+    throw new Error("Stale room version");
+  }
+  const player = room.players.find((candidate) => candidate.userId === userId);
+  if (!player) throw new Error("User is not a member of this room");
+  if (player.forfeited || player.botControlled) throw new Error("A player who left the match cannot submit game commands");
+  const updated = applyCommandForSeat(room, player.seat, command, expectedVersion);
+  return advanceHardBotTurn(updated);
 }
