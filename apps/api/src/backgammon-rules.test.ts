@@ -159,6 +159,17 @@ test('requires the higher die first when a lower move would make it unusable', (
   );
 });
 
+test('does not report higher-die priority for an invalid selected move', () => {
+  const board = emptyBoard();
+  board[6] = 1;
+  board[10] = 1;
+  board[5] = -2;
+  assert.equal(
+    mustPlayHigherDie(state(board), [2, 5], { from: 6, to: 3, die: 2 }, true),
+    false,
+  );
+});
+
 test('does not force the higher die first when both dice can still be used', () => {
   const board = emptyBoard();
   board[5] = 1;
