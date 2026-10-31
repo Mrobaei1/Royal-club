@@ -117,7 +117,15 @@ class ChessVoiceClient {
       _leaseRenewal = Timer.periodic(const Duration(seconds: 4), (_) => _renewLease());
       try {
         await _ensurePeerConnection();
+        if (!_talkRequested || _leaseId == null || _disposed) {
+          await releaseTalk();
+          return;
+        }
         await _enableLocalAudio();
+        if (!_talkRequested || _leaseId == null || _disposed) {
+          await releaseTalk();
+          return;
+        }
         if (_peer?.signalingState == RTCSignalingState.RTCSignalingStateStable) {
           await _createAndSendOffer();
         }
