@@ -12,7 +12,7 @@ type ActiveGameRow = {
   settings_snapshot: { timeControl: TimeControl };
 };
 
-let schedulerStarted = false;
+const scheduledApps = new WeakSet<FastifyInstance>();
 
 /**
  * One bounded sweep. Row locks with SKIP LOCKED make concurrent API instances safe:
@@ -81,8 +81,8 @@ export async function adjudicateExpiredChessClocks(pool: Pool, now = Date.now())
 }
 
 export function startChessClockScheduler(app: FastifyInstance, pool: Pool, intervalMs = 500): void {
-  if (schedulerStarted) return;
-  schedulerStarted = true;
+  if (scheduledApps.has(app)) return;
+  scheduledApps.add(app);
   let running = false;
   let timer: ReturnType<typeof setInterval>;
 
@@ -104,6 +104,5 @@ export function startChessClockScheduler(app: FastifyInstance, pool: Pool, inter
     clearInterval(timer);
     // Wait for an in-flight sweep before the pool is closed by the host.
     while (running) await new Promise(resolve => setTimeout(resolve, 10));
-    schedulerStarted = false;
   });
 }
