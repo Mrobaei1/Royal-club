@@ -86,7 +86,7 @@ class _ChessLobbyScreenState extends State<ChessLobbyScreen> {
           Text(fa ? 'تنظیمات بازی' : 'Game settings', style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 12),
           DropdownButtonFormField<String>(
-            value: selected,
+            initialValue: selected,
             decoration: InputDecoration(labelText: fa ? 'زمان بازی' : 'Time control'),
             items: [
               for (final item in enabledControls)
