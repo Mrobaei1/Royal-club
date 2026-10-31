@@ -283,6 +283,7 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
       const occupied=await pool.query("SELECT u.username FROM chess_voice_leases l JOIN chess_games g ON g.room_id=l.room_id JOIN users u ON u.id=l.user_id WHERE g.id=$1 AND l.expires_at>NOW()",[request.params.gameId]);
       return reply.code(409).send({granted:false,reason:"occupied",speakingUsername:occupied.rows[0]?.username??null});
     }
+    try{await publishGameEvent(pool,request.params.gameId,{type:"voice"});}catch(error){request.log.warn({err:error},"voice grant notification failed");}
     return {granted:true,leaseId:result.rows[0].lease_id,expiresAt:result.rows[0].expires_at};
   });
 
@@ -291,6 +292,7 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
     try{playerId=userId(request,options);}catch{return fail(reply,401,"unauthorized");}
     const result=await pool.query("DELETE FROM chess_voice_leases l USING chess_games g WHERE g.id=$1 AND l.room_id=g.room_id AND l.user_id=$2 AND l.lease_id=$3 RETURNING l.room_id",
       [request.params.gameId,playerId,request.body?.leaseId]);
+    if(result.rowCount){try{await publishGameEvent(pool,request.params.gameId,{type:"voice"});}catch(error){request.log.warn({err:error},"voice release notification failed");}}
     return {released:Boolean(result.rowCount)};
   });
 
@@ -399,6 +401,7 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
       [request.params.gameId,playerId,request.body?.leaseId]
     );
     if(!renewed.rowCount)return fail(reply,409,"voice_lease_expired");
+    try{await publishGameEvent(pool,request.params.gameId,{type:"voice"});}catch(error){request.log.warn({err:error},"voice renewal notification failed");}
     return {renewed:true,expiresAt:renewed.rows[0].expires_at};
   });
 
