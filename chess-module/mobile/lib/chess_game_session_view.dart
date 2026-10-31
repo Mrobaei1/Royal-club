@@ -105,6 +105,7 @@ class ChessGameSessionView extends StatelessWidget {
                     activeSide: session.activeSide,
                     whiteProfile: session.whiteProfile,
                     blackProfile: session.blackProfile,
+                    gameStatus: session.status ?? 'active',
                     canManageVoice: session.isHost,
                     onVoiceEnabledChanged: (enabled) => unawaited(_guard(session.setVoiceEnabled(enabled), messenger)),
                     isHost: session.isHost,
