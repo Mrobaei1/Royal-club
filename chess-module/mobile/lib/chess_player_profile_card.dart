@@ -53,7 +53,7 @@ class ChessPlayerProfileCard extends StatelessWidget {
             Row(
               children: [
                 CircleAvatar(
-                  child: Text(profile.username.isEmpty ? '?' : profile.username.characters.first.toUpperCase()),
+                  child: Text(profile.username.isEmpty ? '?' : profile.username.substring(0, 1).toUpperCase()),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
