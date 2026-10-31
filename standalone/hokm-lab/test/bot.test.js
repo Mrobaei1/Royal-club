@@ -103,6 +103,26 @@ function seededRng(seed) {
   return ()=>{ value=(1664525*value+1013904223)>>>0; return value/0x100000000; };
 }
 
+test("sampled search remains legal when deciding second and third in a trick", () => {
+  for (const seed of [31, 72, 119]) {
+    let state = chooseTrump(createRound({
+      deck: shuffleDeck(createDeck(), seededRng(seed * 13)),
+      hakemSeat: seed % 4
+    }), seed % 4, "spades");
+    const botSeat = (state.currentSeat + 2) % 4;
+    while (state.currentSeat !== botSeat) {
+      const seat = state.currentSeat;
+      const legal = legalCards(state.hands[seat], state.currentTrick);
+      state = playCard(state, seat, legal[0]);
+    }
+    const legal = legalCards(state.hands[botSeat], state.currentTrick);
+    const action = chooseHardBotAction(state, botSeat);
+    assert.ok(legal.some(card => card.suit === action.card.suit && card.rank === action.card.rank));
+    const repeated = chooseHardBotAction(state, botSeat);
+    assert.deepEqual(repeated, action);
+  }
+});
+
 test("hard bot completes 24 seeded deals without illegal actions or hidden-information dependence",()=>{
   for(let seed=1;seed<=24;seed++){
     let state=chooseTrump(createRound({deck:shuffleDeck(createDeck(),seededRng(seed)),hakemSeat:seed%4}),seed%4,"hearts");
