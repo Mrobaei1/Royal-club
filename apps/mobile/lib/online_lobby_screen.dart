@@ -230,6 +230,27 @@ class _OnlineLobbyScreenState extends State<OnlineLobbyScreen> {
     if (mounted) setState(() => _created = null);
   });
 
+  void _showLobbyControls() {
+    final isEnglish = Localizations.localeOf(context).languageCode == 'en';
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: ListTile(
+          leading: const Icon(Icons.cancel_outlined, color: Colors.redAccent),
+          title: Text(
+            isEnglish ? 'Cancel waiting room' : 'لغو اتاق در انتظار',
+            style: const TextStyle(color: Colors.redAccent),
+          ),
+          onTap: _loading ? null : () {
+            Navigator.of(sheetContext).pop();
+            _cancelCreated();
+          },
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isEnglish = Localizations.localeOf(context).languageCode == 'en';
@@ -239,6 +260,12 @@ class _OnlineLobbyScreenState extends State<OnlineLobbyScreen> {
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(title: Text(appText(context, 'بازی آنلاین', 'Online backgammon')), backgroundColor: Theme.of(context).scaffoldBackgroundColor, foregroundColor: Theme.of(context).colorScheme.primary,
         actions: [
+          if (_created != null)
+            IconButton(
+              onPressed: _showLobbyControls,
+              icon: const Icon(Icons.menu_rounded),
+              tooltip: appText(context, 'مدیریت اتاق', 'Room controls'),
+            ),
           IconButton(
             onPressed: _loading ? null : () {
               Navigator.of(context).push(MaterialPageRoute<void>(
@@ -262,7 +289,6 @@ class _OnlineLobbyScreenState extends State<OnlineLobbyScreen> {
           const SizedBox(height: 6),
           Text(isEnglish ? 'Code: ${_created!['roomCode'] ?? '—'}' : 'کد: ${_created!['roomCode'] ?? '—'}', style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
           const SizedBox(height: 8),
-          OutlinedButton.icon(onPressed: _loading ? null : _cancelCreated, icon: const Icon(Icons.cancel_outlined), label: Text(isEnglish ? 'Cancel waiting room' : 'لغو اتاق در انتظار')),
         ]))),
         if (_error != null) Container(margin: const EdgeInsets.only(top: 12), padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: Colors.red.withValues(alpha: .12), borderRadius: BorderRadius.circular(10)), child: Text(appError(context, _error), style: const TextStyle(color: Colors.redAccent))),
         if (_loading) Padding(padding: const EdgeInsets.all(16), child: Center(child: CircularProgressIndicator(color: Theme.of(context).colorScheme.primary))),
