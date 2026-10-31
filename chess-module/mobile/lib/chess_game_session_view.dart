@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'chess_game_screen.dart';
 import 'chess_game_session.dart';
 
-class ChessGameSessionView extends StatelessWidget {
+class ChessGameSessionView extends StatefulWidget {
   const ChessGameSessionView({
     super.key,
     required this.session,
@@ -14,6 +14,33 @@ class ChessGameSessionView extends StatelessWidget {
 
   final ChessGameSession session;
   final VoidCallback? onClose;
+
+  @override
+  State<ChessGameSessionView> createState() => _ChessGameSessionViewState();
+}
+
+class _ChessGameSessionViewState extends State<ChessGameSessionView> {
+  ChessGameSession get session => widget.session;
+
+  @override
+  void initState() {
+    super.initState();
+    _connectAfterBuild();
+  }
+
+  @override
+  void didUpdateWidget(covariant ChessGameSessionView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.session != widget.session) _connectAfterBuild();
+  }
+
+  void _connectAfterBuild() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final messenger = ScaffoldMessenger.of(context);
+      unawaited(_guard(session.connect(), messenger));
+    });
+  }
 
   void _report(ScaffoldMessengerState messenger, Object error) {
     if (!messenger.mounted) return;
@@ -33,16 +60,18 @@ class ChessGameSessionView extends StatelessWidget {
   Widget build(BuildContext context) => AnimatedBuilder(
         animation: session,
         builder: (context, _) {
-          final game = session.game;
           final messenger = ScaffoldMessenger.of(context);
+          final game = session.game;
           if (game == null) {
             return Scaffold(
               appBar: AppBar(
                 title: const Text('Chess'),
-                leading: onClose == null ? null : IconButton(
-                  onPressed: onClose,
-                  icon: const Icon(Icons.arrow_back),
-                ),
+                leading: widget.onClose == null
+                    ? null
+                    : IconButton(
+                        onPressed: widget.onClose,
+                        icon: const Icon(Icons.arrow_back),
+                      ),
               ),
               body: Center(
                 child: session.errorCode == null
@@ -66,10 +95,12 @@ class ChessGameSessionView extends StatelessWidget {
           return Scaffold(
             appBar: AppBar(
               title: Text(fa ? 'بازی شطرنج' : 'Chess game'),
-              leading: onClose == null ? null : IconButton(
-                onPressed: onClose,
-                icon: const Icon(Icons.arrow_back),
-              ),
+              leading: widget.onClose == null
+                  ? null
+                  : IconButton(
+                      onPressed: widget.onClose,
+                      icon: const Icon(Icons.arrow_back),
+                    ),
               actions: [
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -108,15 +139,16 @@ class ChessGameSessionView extends StatelessWidget {
                     gameStatus: session.status ?? 'active',
                     isHost: session.isHost,
                     onToggleVoice: (enabled) => unawaited(_guard(session.setVoiceEnabled(enabled), messenger)),
-                    isHost: session.isHost,
-                    onToggleVoice: (enabled) => unawaited(session.setVoiceEnabled(enabled).catchError((e) => _report(messenger, e))),
                     onMove: (uci) {
                       if (uci.length < 4) return;
-                      unawaited(_guard(session.submitMove(
-                        from: uci.substring(0, 2),
-                        to: uci.substring(2, 4),
-                        promotion: uci.length > 4 ? uci.substring(4, 5) : null,
-                      ), messenger));
+                      unawaited(_guard(
+                        session.submitMove(
+                          from: uci.substring(0, 2),
+                          to: uci.substring(2, 4),
+                          promotion: uci.length > 4 ? uci.substring(4, 5) : null,
+                        ),
+                        messenger,
+                      ));
                     },
                     messages: session.messages,
                     onSendMessage: (message) => unawaited(_guard(session.sendChat(message), messenger)),
