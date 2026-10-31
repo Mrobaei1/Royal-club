@@ -1,5 +1,5 @@
 export function isNumericId(value: unknown): value is string {
-  return typeof value === 'string' && /^[1-9]\\d*$/.test(value);
+  return typeof value === 'string' && /^[1-9]\d*$/.test(value);
 }
 
 /** Reserved platform identity names cannot be claimed by ordinary accounts. */
@@ -17,7 +17,7 @@ export function isValidRegistrationPassword(value: unknown): value is string {
 /** Accept only canonical, correctly typed raster image data within the 650 KiB decoded limit. */
 export function isValidAvatarDataUrl(value: unknown): value is string {
   if (typeof value !== 'string') return false;
-  const match = /^data:image\\/(jpeg|png|webp);base64,([A-Za-z0-9+/]+={0,2})$/.exec(value);
+  const match = /^data:image\/(jpeg|png|webp);base64,([A-Za-z0-9+/]+={0,2})$/.exec(value);
   if (!match) return false;
 
   const [, format, encoded] = match;
