@@ -1047,7 +1047,7 @@ test('registered players can join an online match and history does not expose op
   await testPool.query(
     `UPDATE backgammon_matches
         SET board_state = $1::jsonb, bar_state = '{"host":0,"guest":0}'::jsonb,
-            off_state = '{"host":14,"guest":0}'::jsonb, current_turn_user_id = host_user_id,
+            off_state = '{"host":14,"guest":15}'::jsonb, current_turn_user_id = host_user_id,
             dice = '[1,2]'::jsonb, remaining_dice = '[1]'::jsonb, state_version = 7
       WHERE id = $2`,
     [JSON.stringify(onePointBoard), seriesId],
