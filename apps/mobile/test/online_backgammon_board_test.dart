@@ -37,6 +37,40 @@ void main() {
     expect(tapped, [11]);
   });
 
+  testWidgets('standard opening position renders all 24 unique point hit targets',
+      (tester) async {
+    const opening = <num>[
+      -2, 0, 0, 0, 0, 5, 0, 3, 0, 0, 0, -5,
+      5, 0, 0, 0, -3, 0, -5, 0, 0, 0, 0, 2,
+    ];
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: Center(
+          child: SizedBox(
+            width: 360,
+            child: OnlineBackgammonBoard(
+              points: opening,
+              onPointTap: (_) {},
+            ),
+          ),
+        ),
+      ),
+    ));
+
+    for (var point = 0; point < 24; point++) {
+      expect(find.byKey(ValueKey('backgammon-point-$point')), findsOneWidget,
+          reason: 'Opening position point $point must have exactly one hit target.');
+    }
+    expect(
+      find.descendant(
+        of: find.byType(OnlineBackgammonBoard),
+        matching: find.byType(CustomPaint),
+      ),
+      findsWidgets,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('selected point is repainted without losing the board',
       (tester) async {
     final points = List<num>.filled(24, 0)..[23] = -2;

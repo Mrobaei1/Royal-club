@@ -905,6 +905,29 @@ test('registered players can join an online match and history does not expose op
 
 
 
+  // Concurrent join attempts must serialize so exactly one guest occupies a room.
+  const raceGuestOne = await register('Race Guest One');
+  const raceGuestTwo = await register('Race Guest Two');
+  const raceRoom = await app.inject({
+    method: 'POST',
+    url: '/api/v1/matches',
+    headers: auth(host.token),
+  });
+  assert.equal(raceRoom.statusCode, 201, raceRoom.body);
+  const raceRoomId = String(raceRoom.json().match.id);
+  const concurrentJoins = await Promise.all([
+    app.inject({ method: 'POST', url: `/api/v1/matches/${raceRoomId}/join`, headers: auth(raceGuestOne.token) }),
+    app.inject({ method: 'POST', url: `/api/v1/matches/${raceRoomId}/join`, headers: auth(raceGuestTwo.token) }),
+  ]);
+  assert.deepEqual(concurrentJoins.map((response) => response.statusCode).sort(), [200, 409],
+    'A waiting room must accept exactly one guest when two accounts race to join.');
+  const raceRoomMembership = await testPool.query(
+    'SELECT guest_user_id::text AS guest_user_id FROM backgammon_matches WHERE id = $1',
+    [raceRoomId],
+  );
+  assert.ok([raceGuestOne.user.id, raceGuestTwo.user.id].includes(raceRoomMembership.rows[0].guest_user_id),
+    'The room guest must be exactly the account whose join request succeeded.');
+
   const seriesRoom = await app.inject({
     method: 'POST',
     url: '/api/v1/matches',
@@ -964,6 +987,19 @@ test('registered players can join an online match and history does not expose op
   });
   assert.equal(seriesGuestReady.statusCode, 200, seriesGuestReady.body);
   assert.equal(seriesGuestReady.json().setup.status, 'active');
+
+  const initialSeriesState = await app.inject({
+    method: 'GET',
+    url: `/api/v1/matches/${seriesId}/state`,
+    headers: auth(host.token),
+  });
+  assert.equal(initialSeriesState.statusCode, 200, initialSeriesState.body);
+  assert.deepEqual(initialSeriesState.json().state.board, [
+    -2, 0, 0, 0, 0, 5, 0, 3, 0, 0, 0, -5,
+    5, 0, 0, 0, -3, 0, -5, 0, 0, 0, 0, 2,
+  ], 'A newly activated online match must expose the canonical 24-point opening position.');
+  assert.deepEqual(initialSeriesState.json().state.bar, { host: 0, guest: 0 });
+  assert.deepEqual(initialSeriesState.json().state.off, { host: 0, guest: 0 });
 
   const onePointBoard = Array<number>(24).fill(0);
   onePointBoard[0] = 1;
