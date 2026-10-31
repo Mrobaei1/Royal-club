@@ -172,7 +172,12 @@ class ChessGameSession extends ChangeNotifier {
           break;
         case 'chess:voice:settings':
           voiceEnabled = event['enabled'] == true;
-          if (!voiceEnabled) speakingUsername = null;
+          if (voiceEnabled) {
+            await voiceClient?.connect();
+          } else {
+            speakingUsername = null;
+            await voiceClient?.releaseTalk();
+          }
           notifyListeners();
           break;
         case 'chess:voice:granted':
