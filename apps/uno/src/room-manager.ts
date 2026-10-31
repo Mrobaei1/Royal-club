@@ -54,7 +54,11 @@ export class UnoRoomManager {
     if (!room || !room.players.some(p => p.id === player.id)) throw new UnoError('ROOM_NOT_FOUND', 'Your seat could not be restored.');
     const seat = room.players.find(p => p.id === player.id)!;
     seat.connected = true;
+    seat.ready = false;
     seat.username = player.username;
+    if (room.status !== 'playing' && room.status !== 'finished') {
+      room.status = room.players.length >= 2 && room.players.every(p => p.ready && p.connected) ? 'ready' : 'waiting';
+    }
     return structuredClone(room);
   }
   setReady(code: string, playerId: string, ready: boolean): UnoRoom {
@@ -134,6 +138,19 @@ export class UnoRoomManager {
         player.muted = player.selfMuted || player.hostMuted;
       }
     }
+    return structuredClone(room);
+  }
+  disconnect(code: string, playerId: string): UnoRoom | null {
+    const room = this.requireRoom(code);
+    if (room.status === 'finished' || (room.roundsPlayed === 0 && room.status !== 'playing')) {
+      return this.leave(code, playerId);
+    }
+    const player = this.requirePlayer(room, playerId);
+    player.connected = false;
+    player.ready = false;
+    player.selfMuted = true;
+    player.muted = true;
+    if (room.status !== 'playing' && room.status !== 'finished') room.status = 'waiting';
     return structuredClone(room);
   }
   leave(code: string, playerId: string): UnoRoom | null {

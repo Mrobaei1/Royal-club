@@ -224,7 +224,7 @@ export function registerUnoSockets(
       const code = rooms.getRoomForUser(user.id);
       if (!code) return;
       try {
-        const room = rooms.leave(code, user.id);
+        const room = rooms.disconnect(code, user.id);
         await persistRooms();
         if (room) publishRoom(room);
       } catch { /* A room may have expired between disconnect and cleanup. */ }

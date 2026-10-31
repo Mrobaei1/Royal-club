@@ -250,3 +250,28 @@ test('a best-of-three UNO match requires three round wins and readiness between 
     }
   }
 });
+
+test('disconnect between rounds preserves the seat for reconnection', () => {
+  const manager = new UnoRoomManager();
+  const room = manager.createRoom(host);
+  manager.joinRoom(room.code, guest);
+  manager.setMatchToWin(room.code, host.id, 3);
+  manager.setReady(room.code, host.id, true);
+  manager.setReady(room.code, guest.id, true);
+  manager.start(room.code, host.id);
+  const snapshot = manager.exportSnapshot();
+  snapshot.rooms[0]!.game!.players[0]!.hand = [{id:'last',color:'red',face:1}];
+  snapshot.rooms[0]!.game!.discardPile = [{id:'top',color:'red',face:2}];
+  snapshot.rooms[0]!.game!.activeColor = 'red';
+  manager.restoreSnapshot(snapshot);
+  manager.act(room.code, host.id, {type:'play',cardId:'last'});
+  assert.equal(manager.getRoom(room.code).status, 'waiting');
+  const disconnected = manager.disconnect(room.code, guest.id)!;
+  assert.equal(disconnected.players.some(player => player.id === guest.id), true);
+  assert.equal(disconnected.players.find(player => player.id === guest.id)!.connected, false);
+  assert.equal(manager.getRoomForUser(guest.id), room.code);
+  const restored = manager.reconnect(room.code, guest);
+  assert.equal(restored.players.find(player => player.id === guest.id)!.connected, true);
+  assert.equal(restored.players.find(player => player.id === guest.id)!.ready, false);
+  assert.equal(restored.status, 'waiting');
+});
