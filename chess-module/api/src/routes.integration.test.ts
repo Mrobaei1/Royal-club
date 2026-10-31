@@ -6,6 +6,7 @@ import Fastify from "fastify";
 import { Pool } from "pg";
 import type { FastifyRequest } from "fastify";
 import { registerChessRoutes } from "./routes.js";
+import { awardChessResult } from "./progression-store.js";
 
 const databaseUrl = process.env.CHESS_TEST_DATABASE_URL;
 const migrationFiles = [
@@ -164,6 +165,35 @@ test("authenticated chess routes support private game, draw, chat, voice, profil
     const resigned = await request(white, "POST", `/chess/games/${gameId}/resign`);
     assert.equal(resigned.statusCode, 200, resigned.body);
     assert.equal(resigned.json().status, "black_win");
+
+    const progressionBefore = await pool.query(
+      "SELECT user_id,xp FROM chess_player_progression WHERE user_id=ANY($1::bigint[]) ORDER BY user_id",
+      [[white, black]],
+    );
+    assert.deepEqual(progressionBefore.rows.map(row => Number(row.xp)), [0, 20]);
+    const ratingBefore = await pool.query(
+      "SELECT user_id,rating FROM chess_player_ratings WHERE user_id=ANY($1::bigint[]) ORDER BY user_id",
+      [[white, black]],
+    );
+    assert.deepEqual(ratingBefore.rows.map(row => Number(row.rating)), [1184, 1216]);
+    const idempotencyClient = await pool.connect();
+    try {
+      await idempotencyClient.query("BEGIN");
+      await awardChessResult(idempotencyClient, gameId, "final_result", white, black, {
+        outcome: "resignation", winnerId: black, loserId: white,
+      });
+      await idempotencyClient.query("COMMIT");
+    } catch (error) {
+      await idempotencyClient.query("ROLLBACK");
+      throw error;
+    } finally {
+      idempotencyClient.release();
+    }
+    const progressionAfter = await pool.query(
+      "SELECT user_id,xp FROM chess_player_progression WHERE user_id=ANY($1::bigint[]) ORDER BY user_id",
+      [[white, black]],
+    );
+    assert.deepEqual(progressionAfter.rows.map(row => Number(row.xp)), [0, 20]);
 
     const cancellable = await request(white, "POST", "/chess/rooms", {
       timeControlId: "rapid", minOpponentLevel: 1, chatEnabled: true, voiceEnabled: false,
