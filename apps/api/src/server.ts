@@ -187,9 +187,6 @@ await pool.query(`
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   );
   ALTER TABLE sms_otp_challenges ADD COLUMN IF NOT EXISTS purpose TEXT NOT NULL DEFAULT 'verify';
-  ALTER TABLE sms_otp_challenges DROP CONSTRAINT IF EXISTS sms_otp_challenges_purpose_check;
-  ALTER TABLE sms_otp_challenges ADD CONSTRAINT sms_otp_challenges_purpose_check
-    CHECK (purpose IN ('verify', 'register', 'login', 'link', 'reset_password'));
   CREATE INDEX IF NOT EXISTS sms_otp_challenges_phone_created_idx
     ON sms_otp_challenges (phone_e164, created_at DESC);
   CREATE INDEX IF NOT EXISTS sms_otp_challenges_expiry_idx
@@ -630,6 +627,21 @@ await pool.query(`
   CREATE INDEX IF NOT EXISTS backgammon_player_stats_leaderboard_idx
     ON backgammon_player_stats (rating DESC, wins DESC, games_played ASC);
 `);
+
+const otpPurposeConstraint = await pool.query(
+  `SELECT pg_get_constraintdef(oid) AS definition
+     FROM pg_constraint
+    WHERE conrelid = 'sms_otp_challenges'::regclass
+      AND conname = 'sms_otp_challenges_purpose_check'`,
+);
+if (!String(otpPurposeConstraint.rows[0]?.definition ?? '').includes('reset_password')) {
+  await pool.query('ALTER TABLE sms_otp_challenges DROP CONSTRAINT IF EXISTS sms_otp_challenges_purpose_check');
+  await pool.query(
+    `ALTER TABLE sms_otp_challenges
+       ADD CONSTRAINT sms_otp_challenges_purpose_check
+       CHECK (purpose IN ('verify', 'register', 'login', 'link', 'reset_password'))`,
+  );
+}
 
 await pool.query(`
   CREATE TABLE IF NOT EXISTS auth_token_revocations (
