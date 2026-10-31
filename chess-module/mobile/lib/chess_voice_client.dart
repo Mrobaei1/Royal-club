@@ -20,6 +20,10 @@ class ChessVoiceClient {
     this.onVoiceEnabledChanged,
     this.onRemoteStream,
     this.onError,
+    this.iceServers = const [
+      {'urls': 'stun:stun.l.google.com:19302'},
+      {'urls': 'stun:stun1.l.google.com:19302'},
+    ],
   });
 
   final Uri apiBaseUri;
@@ -31,6 +35,7 @@ class ChessVoiceClient {
   final ValueChanged<bool>? onVoiceEnabledChanged;
   final ValueChanged<MediaStream>? onRemoteStream;
   final ValueChanged<Object>? onError;
+  final List<Map<String, dynamic>> iceServers; // Inject TURN credentials for production NAT traversal.
 
   WebSocket? _socket;
   StreamSubscription<dynamic>? _socketSubscription;
@@ -152,10 +157,7 @@ class ChessVoiceClient {
   Future<void> _ensurePeerConnection() async {
     if (_peer != null) return;
     final peer = await createPeerConnection({
-      'iceServers': [
-        {'urls': 'stun:stun.l.google.com:19302'},
-        {'urls': 'stun:stun1.l.google.com:19302'},
-      ],
+      'iceServers': iceServers,
       'sdpSemantics': 'unified-plan',
     });
     _peer = peer;
