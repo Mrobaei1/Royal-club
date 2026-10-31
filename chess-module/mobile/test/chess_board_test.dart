@@ -16,11 +16,11 @@ void main() {
         ),
       ),
     ));
-    expect(find.byWidgetPredicate((widget) => widget is Semantics && widget.properties.label.startsWith('e1 ')), findsOneWidget);
-    expect(find.byWidgetPredicate((widget) => widget is Semantics && widget.properties.label.startsWith('e8 ')), findsOneWidget);
-    await tester.tap(find.byWidgetPredicate((widget) => widget is Semantics && widget.properties.label.startsWith('e2 ')));
+    expect(find.byWidgetPredicate((widget) => widget is Semantics && (widget.properties.label ?? '').startsWith('e1 ')), findsOneWidget);
+    expect(find.byWidgetPredicate((widget) => widget is Semantics && (widget.properties.label ?? '').startsWith('e8 ')), findsOneWidget);
+    await tester.tap(find.byWidgetPredicate((widget) => widget is Semantics && (widget.properties.label ?? '').startsWith('e2 ')));
     await tester.pump();
-    await tester.tap(find.byWidgetPredicate((widget) => widget is Semantics && widget.properties.label.startsWith('e4 ')));
+    await tester.tap(find.byWidgetPredicate((widget) => widget is Semantics && (widget.properties.label ?? '').startsWith('e4 ')));
     await tester.pump();
     expect(submitted, 'e2e4');
   });
