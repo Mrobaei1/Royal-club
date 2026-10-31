@@ -22,10 +22,15 @@ class UnoVoiceMesh {
   final Map<String, bool> _remoteMuted = {};
   MediaStream? _localStream;
   bool _muted = true;
+  List<Map<String, dynamic>>? _providedIceServers;
   bool get isMuted => _muted;
 
+  void setIceServers(List<Map<String, dynamic>> servers) {
+    _providedIceServers = servers;
+  }
+
   Map<String, dynamic> get _configuration => {
-        'iceServers': [
+        'iceServers': _providedIceServers ?? [
           {'urls': 'stun:stun.l.google.com:19302'},
           if (turnUrl != null && turnUrl!.isNotEmpty)
             {
