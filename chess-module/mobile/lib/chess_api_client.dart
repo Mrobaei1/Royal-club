@@ -118,6 +118,9 @@ class ChessApiClient {
   Future<Map<String, dynamic>> resign(String gameId) =>
       _request('POST', '/chess/games/${Uri.encodeComponent(gameId)}/resign');
 
+  Future<Map<String, dynamic>> pendingDrawOffer(String gameId) =>
+      _request('GET', '/chess/games/${Uri.encodeComponent(gameId)}/draw-offers');
+
   Future<Map<String, dynamic>> offerDraw(String gameId) =>
       _request('POST', '/chess/games/${Uri.encodeComponent(gameId)}/draw-offers');
 
