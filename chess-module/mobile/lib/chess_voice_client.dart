@@ -17,6 +17,7 @@ class ChessVoiceClient {
     required this.userId,
     required this.username,
     this.onSpeakingChanged,
+    this.onVoiceEnabledChanged,
     this.onRemoteStream,
     this.onError,
   });
@@ -27,6 +28,7 @@ class ChessVoiceClient {
   final String userId;
   final String username;
   final ValueChanged<String?>? onSpeakingChanged;
+  final ValueChanged<bool>? onVoiceEnabledChanged;
   final ValueChanged<MediaStream>? onRemoteStream;
   final ValueChanged<Object>? onError;
 
@@ -212,11 +214,24 @@ class ChessVoiceClient {
           onSpeakingChanged?.call(speaker);
           if (speaker != username) _disableLocalAudio();
           break;
+        case 'chess:voice:settings':
+          final enabled = event['enabled'] == true;
+          onVoiceEnabledChanged?.call(enabled);
+          if (!enabled) {
+            onSpeakingChanged?.call(null);
+            _disableLocalAudio();
+            _leaseId = null;
+            _leaseRenewal?.cancel();
+            _leaseRenewal = null;
+          }
+          break;
         case 'chess:voice:released':
         case 'chess:voice:disabled':
           onSpeakingChanged?.call(null);
           _disableLocalAudio();
           _leaseId = null;
+          _leaseRenewal?.cancel();
+          _leaseRenewal = null;
           break;
       }
     } catch (error) {
