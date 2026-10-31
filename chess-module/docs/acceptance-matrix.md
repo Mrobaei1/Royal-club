@@ -8,7 +8,7 @@
 | Room level gate | Unit tests for threshold boundary | Authenticated route and hostile-client tests |
 | Voice PTT | Exclusive lease, expiry, release, disconnect and disable unit tests; DB-backed lease, authenticated signaling relay, lease renewal and Flutter WebRTC client implemented | Multi-instance PostgreSQL atomicity, device permission, TURN/NAT traversal and two-device media acceptance |
 | Mobile board | Widget tests for orientation and legal-move callback | Device layout, RTL/LTR, accessibility and promotion dialog acceptance |
-| Chat | Persisted chat API, participant authorization, PostgreSQL notification trigger and WebSocket delivery implemented | Spam/rate-limit and two-device live test |
+| Chat | Persisted chat API, participant authorization, transactional per-player rate limit, PostgreSQL notification trigger and WebSocket delivery implemented | Spam/rate-limit and two-device live test |
 | Profiles | Authenticated username-only profile API and aggregate stats implemented | API payload privacy regression tests and full public profile stats |
 | Admin settings | Time-control CRUD API, manager permission check, transactional audit trail, immutable active-game snapshots and bilingual manager screen | API permission regression tests and full host-app wiring |
 
