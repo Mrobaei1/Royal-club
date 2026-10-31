@@ -20,6 +20,11 @@ function isValidGameState(state: MutableGameState): boolean {
     .every((count) => Number.isInteger(count) && count >= 0 && count <= 15);
 }
 
+function isValidRemainingDice(remainingDice: number[]): boolean {
+  return Array.isArray(remainingDice) && remainingDice.length > 0 &&
+    remainingDice.every((die) => Number.isInteger(die) && die >= 1 && die <= 6);
+}
+
 export function applyBackgammonMove(
   current: MutableGameState,
   move: BackgammonMove,
@@ -97,7 +102,8 @@ export function hasLegalMove(
   remainingDice: number[],
   hostTurn: boolean,
 ): boolean {
-  if (!isValidGameState({ board, bar, off: { host: 0, guest: 0 } }) || remainingDice.length === 0) return false;
+  if (!isValidGameState({ board, bar, off: { host: 0, guest: 0 } }) ||
+      !isValidRemainingDice(remainingDice)) return false;
   const sign = hostTurn ? 1 : -1;
   const ownBar = hostTurn ? bar.host : bar.guest;
   const allHome = board.every((count, point) =>
@@ -142,7 +148,9 @@ export function mustPlayHigherDie(
   selectedMove: BackgammonMove,
   hostTurn: boolean,
 ): boolean {
-  if (!isValidGameState(state) || remainingDice.length !== 2 || remainingDice[0] === remainingDice[1]) return false;
+  if (!isValidGameState(state) || !isValidRemainingDice(remainingDice) ||
+      remainingDice.length !== 2 || !selectedMove || typeof selectedMove !== 'object' ||
+      remainingDice[0] === remainingDice[1]) return false;
   const higher = Math.max(...remainingDice);
   const lower = Math.min(...remainingDice);
   if (selectedMove.die !== lower) return false;
@@ -159,7 +167,7 @@ export function maxPlayableDiceCount(
   remainingDice: number[],
   hostTurn: boolean,
 ): number {
-  if (!isValidGameState(state) || remainingDice.length === 0) return 0;
+  if (!isValidGameState(state) || !isValidRemainingDice(remainingDice)) return 0;
   const sign = hostTurn ? 1 : -1;
   const ownBar = hostTurn ? 'host' : 'guest';
   const candidates: BackgammonMove[] = [];
