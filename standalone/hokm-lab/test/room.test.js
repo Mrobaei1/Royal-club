@@ -135,3 +135,33 @@ test("match completes exactly when a team reaches the manager target", () => {
   assert.equal(room.matchScore[0] + room.matchScore[1], roundsPlayed);
   assert.throws(() => startNextRound(room, "u0"), /previous round is not completed/);
 });
+
+test("personal XP is awarded only after the entire match finishes", () => {
+  let room = startRoom(fullReadyRoom(1000, 3), "u0", { now: 2000, rng: () => 0.37 });
+  room = completeOneRound(room);
+  assert.equal(room.status, "round_completed");
+  assert.deepEqual(room.playerProgress, {});
+  let rounds = 1;
+  while (room.status !== "completed" && rounds < 12) {
+    room = startNextRound(room, "u0", { rng: () => (0.17 + rounds * 0.061) % 0.99 });
+    room = completeOneRound(room);
+    rounds += 1;
+  }
+  assert.equal(room.status, "completed");
+  assert.deepEqual(Object.keys(room.playerProgress).sort(), ["u0", "u1", "u2", "u3"]);
+  for (const player of room.players) {
+    const winningTeam = room.matchScore[0] > room.matchScore[1] ? 0 : 1;
+    assert.equal(room.playerProgress[player.userId].xp, (player.seat % 2 === winningTeam) ? 20 : 5);
+  }
+});
+
+test("active-match exit applies -5 XP to the leaver once only", async () => {
+  const { recordMatchForfeit } = await import("../src/room.js");
+  let room = startRoom(fullReadyRoom(), "u0", { now: 2000, rng: () => 0.5 });
+  room = { ...room, playerProgress: { u0: { xp: 100, level: 1 }, u1: { xp: 50, level: 1 } } };
+  const exited = recordMatchForfeit(room, "u0");
+  assert.equal(exited.playerProgress.u0.xp, 95);
+  assert.equal(exited.playerProgress.u1.xp, 50);
+  assert.equal(exited.players[0].forfeited, true);
+  assert.equal(recordMatchForfeit(exited, "u0").playerProgress.u0.xp, 95);
+});
