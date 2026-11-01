@@ -47,6 +47,33 @@ String localizedNotificationBody(Map<String, dynamic> item, bool isEnglish) {
   }
 }
 
+class NotificationDetailsDialog extends StatelessWidget {
+  const NotificationDetailsDialog({
+    super.key,
+    required this.title,
+    required this.body,
+    required this.closeLabel,
+  });
+
+  final String title;
+  final String body;
+  final String closeLabel;
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+        title: Text(title),
+        content: SingleChildScrollView(
+          child: SelectableText(body),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(closeLabel),
+          ),
+        ],
+      );
+}
+
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
 
@@ -133,6 +160,23 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         setState(() => _loading = false);
       }
     }
+  }
+
+  Future<void> _openNotification(Map<String, dynamic> item) async {
+    if (_busy) return;
+    final isEnglish = Localizations.localeOf(context).languageCode == 'en';
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => Directionality(
+        textDirection: isEnglish ? TextDirection.ltr : TextDirection.rtl,
+        child: NotificationDetailsDialog(
+          title: _localizedTitle(item, isEnglish),
+          body: _localizedBody(item, isEnglish),
+          closeLabel: appText(context, 'بستن اعلان', 'Close notification'),
+        ),
+      ),
+    );
+    if (mounted) await _markRead(item);
   }
 
   Future<void> _respondToInvite(Map<String, dynamic> item, {required bool accept}) async {
@@ -328,7 +372,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                       crossAxisAlignment: CrossAxisAlignment.stretch,
                                       children: [
                                         ListTile(
-                                          onTap: isInvite || _busy ? null : () => _markRead(item),
+                                          onTap: _busy ? null : () => _openNotification(item),
                                           leading: Icon(
                                             unread
                                                 ? Icons.notifications_active_outlined
