@@ -75,6 +75,15 @@ test('Manch online rooms join, roll and persist server-authoritative moves', asy
   assert.equal(waitingMatch.players.length, 1);
   assert.equal(waitingMatch.players[0].seatColour, 'red');
 
+  const hostMineWaiting = await app.inject({
+    method: 'GET',
+    url: '/api/v1/manch/matches/mine',
+    headers: auth(host.accessToken),
+  });
+  assert.equal(hostMineWaiting.statusCode, 200);
+  assert.equal(hostMineWaiting.json().match.id, waitingMatch.id);
+  assert.equal(hostMineWaiting.json().match.status, 'waiting');
+
   const lobby = await app.inject({
     method: 'GET',
     url: '/api/v1/manch/matches',
@@ -94,6 +103,15 @@ test('Manch online rooms join, roll and persist server-authoritative moves', asy
   assert.equal(joined.json().match.players.length, 2);
   assert.equal(joined.json().match.players[1].seatColour, 'yellow');
   assert.equal(joined.json().match.currentTurnUserId, host.user.id);
+
+  const guestMineActive = await app.inject({
+    method: 'GET',
+    url: '/api/v1/manch/matches/mine',
+    headers: auth(guest.accessToken),
+  });
+  assert.equal(guestMineActive.statusCode, 200);
+  assert.equal(guestMineActive.json().match.id, waitingMatch.id);
+  assert.equal(guestMineActive.json().match.status, 'active');
 
   const detail = await app.inject({
     method: 'GET',
