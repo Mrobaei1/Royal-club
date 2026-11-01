@@ -208,3 +208,51 @@ test('drawing fails cleanly when no draw cards can be recovered', () => {
   assert.equal(game.players[0]!.hand.length, originalHandSize);
   assert.equal(game.discardPile.length, 1);
 });
+
+
+test('Wild Draw Four challenge succeeds when offender held the active color', () => {
+  const game = startUnoGame([{id:'a',username:'a'},{id:'b',username:'b'},{id:'c',username:'c'}]);
+  game.players[0]!.hand = [
+    {id:'wild4',color:'wild',face:'wild4'},
+    {id:'red-card',color:'red',face:8},
+    {id:'spare',color:'blue',face:2},
+  ];
+  game.discardPile = [{id:'top',color:'red',face:1}];
+  game.activeColor = 'red';
+  const pending = applyUnoAction(game, 'a', {type:'play',cardId:'wild4',chosenColor:'green'});
+  assert.equal(pending.pendingWild4?.targetId, 'b');
+  assert.equal(pending.players[1]!.hand.length, 7);
+  const challenged = applyUnoAction(pending, 'b', {type:'challengeWild4'});
+  assert.equal(challenged.players[0]!.hand.length, 6);
+  assert.equal(challenged.players[1]!.hand.length, 7);
+  assert.equal(challenged.currentPlayerIndex, 0);
+  assert.equal(challenged.pendingWild4, null);
+});
+
+test('Wild Draw Four challenge fails when offender had no active color; challenger draws six and loses turn', () => {
+  const game = startUnoGame([{id:'a',username:'a'},{id:'b',username:'b'},{id:'c',username:'c'}]);
+  game.players[0]!.hand = [
+    {id:'wild4',color:'wild',face:'wild4'},
+    {id:'blue-card',color:'blue',face:8},
+    {id:'spare',color:'yellow',face:2},
+  ];
+  game.discardPile = [{id:'top',color:'red',face:1}];
+  game.activeColor = 'red';
+  const pending = applyUnoAction(game, 'a', {type:'play',cardId:'wild4',chosenColor:'green'});
+  const challenged = applyUnoAction(pending, 'b', {type:'challengeWild4'});
+  assert.equal(challenged.players[1]!.hand.length, 13);
+  assert.equal(challenged.currentPlayerIndex, 2);
+  assert.equal(challenged.pendingWild4, null);
+});
+
+test('accepting Wild Draw Four draws four and skips the targeted player', () => {
+  const game = startUnoGame([{id:'a',username:'a'},{id:'b',username:'b'},{id:'c',username:'c'}]);
+  game.players[0]!.hand = [{id:'wild4',color:'wild',face:'wild4'},{id:'spare',color:'blue',face:2}];
+  game.discardPile = [{id:'top',color:'red',face:1}];
+  game.activeColor = 'red';
+  const pending = applyUnoAction(game, 'a', {type:'play',cardId:'wild4',chosenColor:'green'});
+  const accepted = applyUnoAction(pending, 'b', {type:'draw'});
+  assert.equal(accepted.players[1]!.hand.length, 11);
+  assert.equal(accepted.currentPlayerIndex, 2);
+  assert.equal(accepted.pendingWild4, null);
+});
