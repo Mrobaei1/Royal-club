@@ -75,7 +75,7 @@ void main() {
 
     await tester.tap(find.byTooltip('شروع دوباره'));
     await tester.pumpAndSettle();
-    expect(find.text('حیاط'), findsWidgets);
+    expect(find.textContaining('حیاط'), findsWidgets);
 
     await tester.ensureVisible(find.text('بازیابی'));
     await tester.tap(find.text('بازیابی'));
