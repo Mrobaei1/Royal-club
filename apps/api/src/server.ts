@@ -4905,59 +4905,6 @@ app.post<{ Params: { id: string } }>('/api/v1/matches/:id/heartbeat', { onReques
  );
 
 
- app.post<{
-   Params: { id: string };
-   Body: { kind?: string; payload?: Record<string, unknown> };
- }>(
-   '/api/v1/matches/:id/voice/signals',
-   { onRequest: [requireMatchAuth], config: { rateLimit: { max: 90, timeWindow: '1 minute' } } },
-   async (request, reply) => {
-     const claims = request.user as { sub: string };
-     const matchId = request.params.id;
-     const kind = request.body?.kind;
-     const payload = request.body?.payload;
-     if (!isNumericId(matchId) ||
-         !['offer', 'answer', 'candidate', 'hangup'].includes(String(kind)) ||
-         !payload || typeof payload !== 'object' || Array.isArray(payload) ||
-         JSON.stringify(payload).length > 12000) {
-       return reply.code(400).send({ error: 'Invalid voice signal.' });
-     }
-     const callId = payload.callId;
-     if (typeof callId !== 'string' || callId.length < 12 || callId.length > 100) {
-       return reply.code(400).send({ error: 'A valid voice call id is required.' });
-     }
-     if ((kind === 'offer' || kind === 'answer') &&
-         (payload.type !== kind || typeof payload.sdp !== 'string' ||
-          payload.sdp.length < 1 || payload.sdp.length > 10000)) {
-       return reply.code(400).send({ error: 'Invalid session description.' });
-     }
-     if (kind === 'candidate' &&
-         (typeof payload.candidate !== 'string' || payload.candidate.length > 4096 ||
-          (payload.sdpMid != null && typeof payload.sdpMid !== 'string') ||
-          !Number.isInteger(payload.sdpMLineIndex))) {
-       return reply.code(400).send({ error: 'Invalid ICE candidate.' });
-     }
-     const match = await pool.query(
-       "SELECT CASE WHEN host_user_id = $2 THEN guest_user_id ELSE host_user_id END AS peer_id FROM backgammon_matches WHERE id = $1 AND status = 'active' AND guest_user_id IS NOT NULL AND (host_user_id = $2 OR guest_user_id = $2)",
-       [matchId, claims.sub],
-     );
-     if (!match.rowCount || !match.rows[0].peer_id) {
-       return reply.code(404).send({ error: 'Voice is not available for this match.' });
-     }
-     if (kind === 'offer') {
-       await pool.query(
-         'DELETE FROM backgammon_match_voice_signals WHERE match_id = $1 AND expires_at <= NOW()',
-         [matchId],
-       );
-     }
-     const inserted = await pool.query(
-       'INSERT INTO backgammon_match_voice_signals (match_id, sender_id, recipient_id, kind, payload, expires_at) VALUES ($1, $2, $3, $4, $5::jsonb, NOW() + INTERVAL \'2 minutes\') RETURNING id::text AS id',
-       [matchId, claims.sub, match.rows[0].peer_id, kind, JSON.stringify(payload)],
-     );
-     return reply.code(201).send({ sent: true, signalId: inserted.rows[0].id });
-   },
- );
-
 app.get<{ Params: { id: string } }>('/api/v1/matches/:id/state', { onRequest: [requireMatchAuth] }, async (request, reply) => {
   const claims = request.user as { sub: string };
   if (!isNumericId(request.params.id)) return reply.code(400).send({ error: 'Invalid match id.' });
