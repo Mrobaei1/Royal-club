@@ -44,6 +44,19 @@ function drawOne(game: UnoGame, playerIndex: number): UnoCard {
   return card;
 }
 function currentPlayer(game: UnoGame) { return game.players[game.currentPlayerIndex]!; }
+export function cardPointValue(card: UnoCard): number {
+  if (typeof card.face === 'number') return card.face;
+  return card.face === 'wild' || card.face === 'wild4' ? 50 : 20;
+}
+function finishRound(game: UnoGame, winnerId: string): void {
+  game.winnerId = winnerId;
+  game.winnerScore = game.players
+    .filter(player => player.id !== winnerId)
+    .flatMap(player => player.hand)
+    .reduce((total, card) => total + cardPointValue(card), 0);
+  game.unoPendingPlayerId = null;
+  game.pendingWild4 = null;
+}
 function cardIsPlayable(card: UnoCard, game: UnoGame): boolean {
   const top = game.discardPile.at(-1)!;
   return card.color === 'wild' || card.color === game.activeColor || card.face === top.face;
@@ -78,7 +91,7 @@ export function startUnoGame(players: Array<{ id: string; username: string }>): 
   return {
     players: gamePlayers, drawPile: deck, discardPile: [first], currentPlayerIndex,
     direction, activeColor: first.color as UnoColor, drawnCardId: null,
-    unoPendingPlayerId: null, pendingWild4: null, winnerId: null, turnNumber: 1,
+    unoPendingPlayerId: null, pendingWild4: null, winnerId: null, winnerScore: 0, turnNumber: 1,
   };
 }
 export function applyUnoAction(source: UnoGame, playerId: string, action: GameAction): UnoGame {
@@ -120,7 +133,7 @@ export function applyUnoAction(source: UnoGame, playerId: string, action: GameAc
       game.pendingWild4 = null;
       advance(game);
       if (game.players[game.players.findIndex(p => p.id === pending.offenderId)]!.hand.length === 0) {
-        game.winnerId = pending.offenderId;
+        finishRound(game, pending.offenderId);
       }
     }
     game.pendingWild4 = null;
@@ -132,7 +145,7 @@ export function applyUnoAction(source: UnoGame, playerId: string, action: GameAc
       for (let i = 0; i < 4; i++) drawOne(game, index);
       game.pendingWild4 = null;
       advance(game);
-      if (game.players.find(p => p.id === offenderId)!.hand.length === 0) game.winnerId = offenderId;
+      if (game.players.find(p => p.id === offenderId)!.hand.length === 0) finishRound(game, offenderId);
       return game;
     }
     if (game.drawnCardId) throw new UnoError('ALREADY_DREW', 'You have already drawn this turn.');
@@ -175,9 +188,7 @@ export function applyUnoAction(source: UnoGame, playerId: string, action: GameAc
     game.pendingWild4 = { offenderId: playerId, targetId: game.players[target]!.id, offenderHadActiveColor };
   }
   if (player.hand.length === 0 && card.face !== 'wild4') {
-    game.winnerId = player.id;
-    game.unoPendingPlayerId = null;
-    game.pendingWild4 = null;
+    finishRound(game, player.id);
     return game;
   }
   if (player.hand.length === 1) game.unoPendingPlayerId = player.id;
@@ -195,7 +206,7 @@ export function publicGameState(game: UnoGame) {
   return {
     players: game.players.map(p => ({ id: p.id, username: p.username, cardCount: p.hand.length })),
     discardTop: top, currentPlayerId: currentPlayer(game).id, activeColor: game.activeColor,
-    direction: game.direction, drawCount: game.drawPile.length, winnerId: game.winnerId,
+    direction: game.direction, drawCount: game.drawPile.length, winnerId: game.winnerId, winnerScore: game.winnerScore,
     turnNumber: game.turnNumber, unoPendingPlayerId: game.unoPendingPlayerId, pendingWild4: game.pendingWild4 ? { offenderId: game.pendingWild4.offenderId, targetId: game.pendingWild4.targetId } : null,
   };
 }
