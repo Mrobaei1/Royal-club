@@ -162,3 +162,49 @@ test('recycling the discard pile preserves its top card and makes prior discards
   assert.equal(next.players[0]!.hand.length, 2);
   assert.equal(next.drawPile.length, 1);
 });
+
+
+test('Skip advances past exactly one player in a three-player game', () => {
+  const game = startUnoGame([{id:'a',username:'a'},{id:'b',username:'b'},{id:'c',username:'c'}]);
+  game.players[0]!.hand = [{id:'skip',color:'red',face:'skip'},{id:'spare',color:'blue',face:2}];
+  game.discardPile = [{id:'top',color:'red',face:1}];
+  game.activeColor = 'red';
+  const next = applyUnoAction(game, 'a', {type:'play',cardId:'skip'});
+  assert.equal(next.currentPlayerIndex, 2);
+});
+
+test('Draw Two gives exactly two cards and skips the targeted player', () => {
+  const game = startUnoGame([{id:'a',username:'a'},{id:'b',username:'b'},{id:'c',username:'c'}]);
+  game.players[0]!.hand = [{id:'draw2',color:'red',face:'draw2'},{id:'spare',color:'blue',face:2}];
+  game.discardPile = [{id:'top',color:'red',face:1}];
+  game.activeColor = 'red';
+  const next = applyUnoAction(game, 'a', {type:'play',cardId:'draw2'});
+  assert.equal(next.players[1]!.hand.length, 9);
+  assert.equal(next.currentPlayerIndex, 2);
+});
+
+test('a wild card requires one of the four supported colors and failed play is atomic', () => {
+  const game = startUnoGame([{id:'a',username:'a'},{id:'b',username:'b'}]);
+  game.players[0]!.hand = [{id:'wild',color:'wild',face:'wild'},{id:'spare',color:'blue',face:2}];
+  game.discardPile = [{id:'top',color:'red',face:1}];
+  game.activeColor = 'red';
+  assert.throws(
+    () => applyUnoAction(game, 'a', {type:'play',cardId:'wild'}),
+    (error: unknown) => error instanceof UnoError && error.code === 'CHOOSE_COLOR',
+  );
+  assert.equal(game.players[0]!.hand.length, 2);
+  assert.equal(game.discardPile.length, 1);
+});
+
+test('drawing fails cleanly when no draw cards can be recovered', () => {
+  const game = startUnoGame([{id:'a',username:'a'},{id:'b',username:'b'}]);
+  game.drawPile = [];
+  game.discardPile = [{id:'only-top',color:'red',face:1}];
+  const originalHandSize = game.players[0]!.hand.length;
+  assert.throws(
+    () => applyUnoAction(game, 'a', {type:'draw'}),
+    (error: unknown) => error instanceof UnoError && error.code === 'DRAW_PILE_EMPTY',
+  );
+  assert.equal(game.players[0]!.hand.length, originalHandSize);
+  assert.equal(game.discardPile.length, 1);
+});
