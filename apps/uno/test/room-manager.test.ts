@@ -428,3 +428,20 @@ test('round winner receives official remaining-card points in cumulative match t
   assert.equal(result.room.totalPoints[host.id],79);
   assert.equal(result.room.roundsWon[host.id],1);
 });
+
+
+test('server restart marks every restored seat offline until authenticated reconnect', () => {
+  const first = new UnoRoomManager();
+  const room = first.createRoom(host);
+  first.joinRoom(room.code, guest);
+  first.setReady(room.code, host.id, true);
+  first.setReady(room.code, guest.id, true);
+  first.start(room.code, host.id);
+  const restarted = new UnoRoomManager();
+  restarted.restoreSnapshot(first.exportSnapshot());
+  restarted.markAllPlayersDisconnected();
+  const offline = restarted.getRoom(room.code);
+  assert.equal(offline.status, 'playing');
+  assert.equal(offline.players.every(player => !player.connected && player.muted), true);
+  assert.equal(restarted.reconnect(room.code, guest).players.find(player => player.id === guest.id)!.connected, true);
+});
