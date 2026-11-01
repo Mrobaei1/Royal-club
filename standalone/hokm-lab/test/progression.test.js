@@ -30,3 +30,17 @@ test("only the player who leaves receives the -5 XP penalty", () => {
     u0:{xp:95,level:1},u1:{xp:100,level:1}
   });
 });
+
+test("large XP level lookup remains linear and respects exact level boundaries", () => {
+  const threshold = totalXpForLevel(200000);
+  assert.equal(levelForXp(threshold - 1), 199999);
+  assert.equal(levelForXp(threshold), 200000);
+  assert.equal(levelForXp(threshold + xpRequiredForNextLevel(200000) - 1), 200000);
+  assert.equal(levelForXp(threshold + xpRequiredForNextLevel(200000)), 200001);
+});
+
+test("level lookup rejects negative and non-finite XP", () => {
+  assert.throws(() => levelForXp(-1), RangeError);
+  assert.throws(() => levelForXp(Number.NaN), RangeError);
+  assert.throws(() => levelForXp(Number.POSITIVE_INFINITY), RangeError);
+});
