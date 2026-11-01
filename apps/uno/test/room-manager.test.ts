@@ -399,3 +399,27 @@ test('a disconnected seat between rounds cannot change readiness until it reconn
   manager.reconnect(room.code, guest);
   assert.equal(manager.setReady(room.code, guest.id, true).players[1]!.ready, true);
 });
+
+
+test('round winner receives official remaining-card points in cumulative match totals', () => {
+  const manager = new UnoRoomManager();
+  const room = manager.createRoom(host);
+  manager.joinRoom(room.code, guest);
+  manager.setReady(room.code, host.id, true);
+  manager.setReady(room.code, guest.id, true);
+  manager.start(room.code, host.id);
+  const snapshot = manager.exportSnapshot();
+  snapshot.rooms[0]!.game!.players[0]!.hand = [{id:'last',color:'red',face:1}];
+  snapshot.rooms[0]!.game!.players[1]!.hand = [
+    {id:'n',color:'red',face:9},
+    {id:'skip',color:'red',face:'skip'},
+    {id:'wild',color:'wild',face:'wild'},
+  ];
+  snapshot.rooms[0]!.game!.discardPile = [{id:'top',color:'red',face:2}];
+  snapshot.rooms[0]!.game!.activeColor = 'red';
+  manager.restoreSnapshot(snapshot);
+  const result = manager.act(room.code,host.id,{type:'play',cardId:'last'});
+  assert.equal(result.game.winnerScore,79);
+  assert.equal(result.room.totalPoints[host.id],79);
+  assert.equal(result.room.roundsWon[host.id],1);
+});
