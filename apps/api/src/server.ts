@@ -153,6 +153,30 @@ await pool.query(`
 
 
 
+  CREATE TABLE IF NOT EXISTS analytics_user_activity_daily (
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    activity_date DATE NOT NULL DEFAULT CURRENT_DATE,
+    first_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    last_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    request_count INTEGER NOT NULL DEFAULT 1 CHECK (request_count > 0),
+    PRIMARY KEY (user_id, activity_date)
+  );
+  CREATE INDEX IF NOT EXISTS analytics_user_activity_date_idx
+    ON analytics_user_activity_daily (activity_date, user_id);
+  CREATE TABLE IF NOT EXISTS analytics_game_events (
+    id BIGSERIAL PRIMARY KEY,
+    game_type TEXT NOT NULL CHECK (game_type IN ('backgammon', 'chess', 'cards', 'uno', 'mafia')),
+    event_type TEXT NOT NULL CHECK (event_type IN ('room_created', 'player_joined', 'game_started', 'game_finished')),
+    match_id BIGINT,
+    user_id BIGINT REFERENCES users(id) ON DELETE SET NULL,
+    occurred_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    metadata JSONB NOT NULL DEFAULT '{}'::jsonb CHECK (jsonb_typeof(metadata) = 'object')
+  );
+  CREATE INDEX IF NOT EXISTS analytics_game_events_time_idx
+    ON analytics_game_events (game_type, occurred_at DESC);
+  CREATE INDEX IF NOT EXISTS analytics_game_events_match_idx
+    ON analytics_game_events (match_id, event_type);
+
   CREATE TABLE IF NOT EXISTS sms_otp_settings (
     id INTEGER PRIMARY KEY CHECK (id = 1),
     enabled BOOLEAN NOT NULL DEFAULT FALSE,
@@ -941,6 +965,15 @@ const requireMatchAuth = async (request: any, reply: any) => {
     await request.jwtVerify();
     const claims = request.user as { sub?: string; jti?: string; ver?: number };
     if (!await isTokenSessionActive(claims)) return reply.code(401).send({ error: 'Session expired or revoked. Please sign in again.' });
+    if (claims.sub && isNumericId(claims.sub)) {
+      await pool.query(
+        `INSERT INTO analytics_user_activity_daily (user_id, activity_date, request_count)
+         VALUES ($1, CURRENT_DATE, 1)
+         ON CONFLICT (user_id, activity_date) DO UPDATE
+           SET last_seen_at = NOW(), request_count = analytics_user_activity_daily.request_count + 1`,
+        [claims.sub],
+      );
+    }
   } catch {
     return reply.code(401).send({ error: 'Authentication required.' });
   }
@@ -3078,7 +3111,7 @@ app.post<{ Body: { phone?: string; code?: string } }>(
 app.get('/api/v1/admin/analytics/overview', { onRequest: [requireOwnerAuth] }, async (request, reply) => {
   const generatedAt = new Date().toISOString();
   try {
-    const [users, registrations, matches, matchTrend, wallet, subscriptions] = await Promise.all([
+    const [users, registrations, matches, matchTrend, wallet, subscriptions, activity, gameEvents] = await Promise.all([
       pool.query('SELECT COUNT(*)::int AS total FROM users'),
       pool.query(`SELECT COUNT(*)::int AS total FROM users WHERE created_at >= NOW() - INTERVAL '30 days'`),
       pool.query(`SELECT status, COUNT(*)::int AS count FROM backgammon_matches GROUP BY status`),
@@ -3092,6 +3125,17 @@ app.get('/api/v1/admin/analytics/overview', { onRequest: [requireOwnerAuth] }, a
         FROM wallet_transactions WHERE created_at >= NOW() - INTERVAL '30 days'`),
       pool.query(`SELECT COUNT(*) FILTER (WHERE status = 'active' AND ends_at > NOW())::int AS active,
         COUNT(*)::int AS total FROM user_subscriptions`),
+      pool.query(`SELECT
+        COUNT(DISTINCT user_id) FILTER (WHERE activity_date = CURRENT_DATE)::int AS dau,
+        COUNT(DISTINCT user_id) FILTER (WHERE activity_date >= CURRENT_DATE - 6)::int AS wau,
+        COUNT(DISTINCT user_id) FILTER (WHERE activity_date >= CURRENT_DATE - 29)::int AS mau,
+        COUNT(DISTINCT user_id) FILTER (WHERE activity_date >= CURRENT_DATE - 29
+          AND user_id IN (SELECT user_id FROM analytics_user_activity_daily
+            WHERE activity_date >= CURRENT_DATE - 29 GROUP BY user_id HAVING COUNT(DISTINCT activity_date) > 1))::int AS returning_users
+        FROM analytics_user_activity_daily WHERE activity_date >= CURRENT_DATE - 29`),
+      pool.query(`SELECT game_type, event_type, COUNT(*)::int AS count
+        FROM analytics_game_events WHERE occurred_at >= NOW() - INTERVAL '30 days'
+        GROUP BY game_type, event_type ORDER BY game_type, event_type`),
     ]);
     const matchCounts = Object.fromEntries(matches.rows.map((row: { status: string; count: number }) => [row.status, row.count]));
     return {
@@ -3101,6 +3145,17 @@ app.get('/api/v1/admin/analytics/overview', { onRequest: [requireOwnerAuth] }, a
       metrics: {
         registeredUsers: users.rows[0]?.total ?? null,
         registrationsLast30Days: registrations.rows[0]?.total ?? null,
+        activeUsers: {
+          dau: activity.rows[0]?.dau ?? null,
+          wau: activity.rows[0]?.wau ?? null,
+          mau: activity.rows[0]?.mau ?? null,
+          returningUsers30Days: activity.rows[0]?.returning_users ?? null,
+          definition: 'distinct authenticated users with at least one successful authenticated API request per calendar day',
+          freshness: 'daily-upsert-on-authenticated-request',
+        },
+        gameActivityLast30Days: gameEvents.rows.map((row: { game_type: string; event_type: string; count: number }) => ({
+          game: row.game_type, event: row.event_type, count: row.count,
+        })),
         backgammonMatches: {
           waiting: matchCounts.waiting ?? 0,
           active: matchCounts.active ?? 0,
@@ -3126,10 +3181,11 @@ app.get('/api/v1/admin/analytics/overview', { onRequest: [requireOwnerAuth] }, a
         })),
       },
       coverage: {
-        available: ['registeredUsers', 'registrationsLast30Days', 'backgammonMatches', 'walletCreditsLast30Days', 'subscriptions', 'backgammonMatchesLast30Days'],
-        notInstrumented: ['DAU/WAU/MAU', 'retention', 'session duration', 'chess activity', 'card-game activity', 'UNO/Mafia activity', 'API latency percentiles', 'infrastructure cost', 'agent task cost and quality'],
+        available: ['registeredUsers', 'registrationsLast30Days', 'DAU/WAU/MAU', 'returningUsers30Days', 'backgammonMatches', 'backgammonRoomEvents', 'walletCreditsLast30Days', 'subscriptions', 'backgammonMatchesLast30Days'],
+        partial: ['retention cohorts (requires longer history and cohort policy)', 'chess/card/UNO/Mafia (no game execution/event source currently wired)'],
+        notInstrumented: ['session duration', 'API latency percentiles', 'infrastructure resource usage and cost', 'agent execution cost and quality'],
       },
-      sources: ['users', 'backgammon_matches', 'wallet_transactions', 'user_subscriptions'],
+      sources: ['users', 'analytics_user_activity_daily', 'analytics_game_events', 'backgammon_matches', 'wallet_transactions', 'user_subscriptions'],
     };
   } catch (error) {
     request.log.error({ err: error }, 'Owner analytics overview query failed');
@@ -3805,6 +3861,20 @@ app.post('/api/v1/matches', { onRequest: [requireMatchAuth] }, async (request, r
         `INSERT INTO backgammon_matches (room_code, host_user_id, expires_at)
          VALUES ($1, $2, NOW() + INTERVAL '60 seconds')
          RETURNING id, room_code AS "roomCode", status, created_at AS "createdAt", expires_at AS "expiresAt"`, [roomCode, claims.sub]);
+       await pool.query(
+         `INSERT INTO analytics_game_events (game_type, event_type, match_id, user_id)
+          VALUES ('backgammon', 'room_created', app.post('/api/v1/matches', { onRequest: [requireMatchAuth] }, async (request, reply) => {
+  const claims = request.user as { sub: string };
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const roomCode = randomBytes(3).toString('hex').toUpperCase();
+    try {
+      const result = await pool.query(
+        `INSERT INTO backgammon_matches (room_code, host_user_id, expires_at)
+         VALUES ($1, $2, NOW() + INTERVAL '60 seconds')
+         RETURNING id, room_code AS "roomCode", status, created_at AS "createdAt", expires_at AS "expiresAt"`, [roomCode, claims.sub]);
+,       return reply.code(201).send({ match: result.rows[0] });)`,
+         [result.rows[0].id, claims.sub],
+       );
       return reply.code(201).send({ match: result.rows[0] });
     } catch (error: any) {
       if (error?.code !== '23505') {
@@ -3846,6 +3916,12 @@ app.post<{ Params: { id: string } }>('/api/v1/matches/:id/join', { onRequest: [r
          WHERE id = $2`,
       [claims.sub, match.id]);
     await client.query('COMMIT');
+    await pool.query(
+      `INSERT INTO analytics_game_events (game_type, event_type, match_id, user_id)
+       VALUES ('backgammon', 'player_joined', await client.query('COMMIT');
+,     const joined = await pool.query()`,
+      [match.id, claims.sub],
+    );
     const joined = await pool.query(
       `SELECT m.id, m.room_code AS "roomCode", m.status, host.username AS "hostName",
               guest.username AS "guestName", host.avatar_data_url AS "hostAvatarDataUrl",
