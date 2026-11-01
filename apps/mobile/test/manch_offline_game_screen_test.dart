@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:royal_club/games/manch/manch_game_state.dart';
 import 'package:royal_club/games/manch/manch_offline_game_screen.dart';
 
 void main() {
@@ -42,6 +43,26 @@ void main() {
     expect(find.text('نوبت بازیکن زرد'), findsOneWidget);
     expect(find.text('حرکت قانونی نداشتی؛ نوبت بازیکن بعدی است.'),
         findsOneWidget);
+    expect(find.text('انداختن تاس'), findsOneWidget);
+  });
+
+  testWidgets('configured bot plays its turn and returns control to human',
+      (tester) async {
+    var rollCount = 0;
+    int diceRoller() => rollCount++ == 0 ? 6 : 1;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ManchOfflineGameScreen(
+          botPlayers: const {ManchColour.red},
+          diceRoller: diceRoller,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('نوبت بازیکن زرد'), findsOneWidget);
+    expect(find.text('مسیر 2 از 52'), findsWidgets);
     expect(find.text('انداختن تاس'), findsOneWidget);
   });
 }
