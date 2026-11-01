@@ -50,7 +50,7 @@ function startService(database: string): { child: ChildProcess; logs: () => stri
       JWT_SECRET: jwtSecret,
       DATABASE_URL: database,
       CORS_ORIGINS: 'http://localhost:3000',
-      TURN_URL: 'turn:turn.test.invalid:3478?transport=udp',
+      TURN_URLS: 'turn:turn.test.invalid:3478?transport=udp,turn:turn.test.invalid:3478?transport=tcp,turns:turn.test.invalid:5349?transport=tcp',
       TURN_SHARED_SECRET: 'test-turn-shared-secret',
       TURN_TTL_SECONDS: '300',
     },
@@ -131,9 +131,13 @@ test('PostgreSQL-backed UNO service authenticates, issues TURN credentials and r
       headers: { Authorization: `Bearer ${hostToken}` },
     });
     assert.equal(iceResponse.status, 200);
-    const iceConfig = await iceResponse.json() as { iceServers: Array<Record<string, string>> };
+    const iceConfig = await iceResponse.json() as { iceServers: Array<Record<string, unknown>> };
     assert.equal(iceConfig.iceServers.length, 2);
-    assert.equal(iceConfig.iceServers[1]!.urls, 'turn:turn.test.invalid:3478?transport=udp');
+    assert.deepEqual(iceConfig.iceServers[1]!.urls, [
+      'turn:turn.test.invalid:3478?transport=udp',
+      'turn:turn.test.invalid:3478?transport=tcp',
+      'turns:turn.test.invalid:5349?transport=tcp',
+    ]);
     const turnUsername = iceConfig.iceServers[1]!.username!;
     assert.match(turnUsername, /^\d+:\d+$/);
     assert.equal(
