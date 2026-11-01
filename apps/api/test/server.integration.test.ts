@@ -490,6 +490,14 @@ test('registered players can join an online match and history does not expose op
   assert.equal(matchChatRead.statusCode, 200, matchChatRead.body);
   assert.equal(matchChatRead.json().messages.length, 1);
   assert.equal(matchChatRead.json().messages[0].body, 'Hello from the match room');
+  const incrementalMatchChatRead = await app.inject({
+    method: 'GET',
+    url: `/api/v1/matches/${matchId}/chat?afterId=${matchChatSend.json().message.id}`,
+    headers: auth(guest.token),
+  });
+  assert.equal(incrementalMatchChatRead.statusCode, 200, incrementalMatchChatRead.body);
+  assert.equal(incrementalMatchChatRead.json().messages.length, 0,
+    'Incremental chat polling must not resend messages at or before the cursor.');
   const outsiderMatchChatRead = await app.inject({
     method: 'GET',
     url: `/api/v1/matches/${matchId}/chat`,
