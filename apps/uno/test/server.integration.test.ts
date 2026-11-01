@@ -138,10 +138,10 @@ test('PostgreSQL-backed UNO service authenticates, issues TURN credentials and r
       'turn:turn.test.invalid:3478?transport=tcp',
       'turns:turn.test.invalid:5349?transport=tcp',
     ]);
-    const turnUsername = iceConfig.iceServers[1]!.username!;
+    const turnUsername = String(iceConfig.iceServers[1]!.username);
     assert.match(turnUsername, /^\d+:\d+$/);
     assert.equal(
-      iceConfig.iceServers[1]!.credential,
+      String(iceConfig.iceServers[1]!.credential),
       createHmac('sha1', 'test-turn-shared-secret').update(turnUsername).digest('base64'),
     );
 
