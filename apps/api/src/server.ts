@@ -39,6 +39,17 @@ function decryptSmsApiKey(encrypted: string): string | null {
     return null;
   }
 }
+
+function encryptVoiceTurnToken(value: string): string | null {
+  const keyText = process.env.SMS_CREDENTIALS_ENCRYPTION_KEY?.trim() ?? '';
+  const key = Buffer.from(keyText, 'base64');
+  if (key.length !== 32) return null;
+  const iv = randomBytes(12);
+  const cipher = createCipheriv('aes-256-gcm', key, iv);
+  const ciphertext = Buffer.concat([cipher.update(value, 'utf8'), cipher.final()]);
+  return [iv.toString('base64'), cipher.getAuthTag().toString('base64'), ciphertext.toString('base64')].join('.');
+}
+
 const secret = process.env.JWT_SECRET;
 if (!secret || secret.length < 32) {
   throw new Error('JWT_SECRET must contain at least 32 characters.');
@@ -177,6 +188,27 @@ await pool.query(`
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   );
   CREATE INDEX IF NOT EXISTS sms_otp_audit_log_created_idx ON sms_otp_audit_log (created_at DESC);
+
+
+  CREATE TABLE IF NOT EXISTS voice_call_settings (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    enabled BOOLEAN NOT NULL DEFAULT FALSE,
+    provider TEXT NOT NULL DEFAULT 'cloudflare_turn' CHECK (provider IN ('cloudflare_turn')),
+    turn_key_id TEXT NOT NULL DEFAULT '',
+    encrypted_turn_api_token TEXT NOT NULL DEFAULT '',
+    connection_verified_at TIMESTAMPTZ,
+    updated_by BIGINT REFERENCES users(id) ON DELETE SET NULL,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+  INSERT INTO voice_call_settings (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
+  CREATE TABLE IF NOT EXISTS voice_call_audit_log (
+    id BIGSERIAL PRIMARY KEY,
+    actor_user_id BIGINT REFERENCES users(id) ON DELETE SET NULL,
+    action TEXT NOT NULL,
+    details JSONB NOT NULL DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+  CREATE INDEX IF NOT EXISTS voice_call_audit_log_created_idx ON voice_call_audit_log (created_at DESC);
 
   CREATE TABLE IF NOT EXISTS sms_otp_challenges (
     id BIGSERIAL PRIMARY KEY,
@@ -2693,6 +2725,84 @@ app.post<{ Params: { userId: string }; Body: { reason?: string } }>('/api/v1/use
 
 
 
+
+// Online voice is provisioned here but remains disabled until a separate owner activation.
+// TURN credentials are encrypted at rest and are never returned by the settings API.
+app.get('/api/v1/admin/communication/voice', { onRequest: [requireOwnerAuth] }, async () => {
+  const result = await pool.query(`SELECT enabled, provider, turn_key_id AS "turnKeyId",
+      (encrypted_turn_api_token <> '') AS "turnApiTokenConfigured",
+      connection_verified_at AS "connectionVerifiedAt", updated_at AS "updatedAt"
+    FROM voice_call_settings WHERE id = 1`);
+  const settings = result.rows[0] ?? { enabled: false, provider: 'cloudflare_turn', turnKeyId: '', turnApiTokenConfigured: false, connectionVerifiedAt: null };
+  return { settings: { ...settings, enabled: false, activationLocked: true } };
+});
+
+app.patch<{ Body: { provider?: string; turnKeyId?: string; turnApiToken?: string; clearTurnApiToken?: boolean; enabled?: boolean } }>(
+  '/api/v1/admin/communication/voice', { onRequest: [requireOwnerAuth] }, async (request, reply) => {
+    const body = request.body ?? {};
+    if (body.enabled === true) return reply.code(409).send({ error: 'Voice activation is reserved for a separate owner decision and is not available in configuration save.' });
+    if (body.enabled !== undefined && body.enabled !== false) return reply.code(400).send({ error: 'Invalid voice activation setting.' });
+    const currentResult = await pool.query('SELECT * FROM voice_call_settings WHERE id = 1');
+    const current = currentResult.rows[0];
+    const provider = body.provider ?? current.provider;
+    const turnKeyId = typeof body.turnKeyId === 'string' ? body.turnKeyId.trim() : current.turn_key_id;
+    if (provider !== 'cloudflare_turn' || turnKeyId.length > 128 ||
+        (turnKeyId !== '' && !/^[a-f0-9]{32}$/i.test(turnKeyId)) ||
+        (body.turnApiToken !== undefined && (typeof body.turnApiToken !== 'string' || body.turnApiToken.length > 512)) ||
+        (body.clearTurnApiToken !== undefined && typeof body.clearTurnApiToken !== 'boolean')) {
+      return reply.code(400).send({ error: 'Invalid voice service configuration.' });
+    }
+    let encryptedToken = body.clearTurnApiToken === true ? '' : current.encrypted_turn_api_token;
+    if (body.turnApiToken) {
+      if (!/^[a-f0-9]{64}$/i.test(body.turnApiToken)) return reply.code(400).send({ error: 'Cloudflare TURN key format is invalid.' });
+      const encrypted = encryptVoiceTurnToken(body.turnApiToken);
+      if (!encrypted) return reply.code(503).send({ error: 'Server-side credentials encryption is not configured.' });
+      encryptedToken = encrypted;
+    }
+    const claims = request.user as { sub?: string };
+    await pool.query(`UPDATE voice_call_settings SET enabled = FALSE, provider = $1, turn_key_id = $2,
+      encrypted_turn_api_token = $3, connection_verified_at = NULL, updated_by = $4, updated_at = NOW() WHERE id = 1`,
+      [provider, turnKeyId, encryptedToken, claims.sub ?? null]);
+    await pool.query('INSERT INTO voice_call_audit_log (actor_user_id, action, details) VALUES ($1, $2, $3::jsonb)',
+      [claims.sub ?? null, 'configuration_saved_disabled', JSON.stringify({ provider, turnKeyIdConfigured: Boolean(turnKeyId), turnApiTokenConfigured: Boolean(encryptedToken) })]);
+    return { ok: true, settings: { enabled: false, activationLocked: true, provider, turnKeyId,
+      turnApiTokenConfigured: Boolean(encryptedToken), connectionVerifiedAt: null } };
+  },
+);
+
+app.post('/api/v1/admin/communication/voice/test-connection', { onRequest: [requireOwnerAuth], config: { rateLimit: { max: 5, timeWindow: '1 hour' } } }, async (request, reply) => {
+  const result = await pool.query('SELECT turn_key_id, encrypted_turn_api_token FROM voice_call_settings WHERE id = 1');
+  const current = result.rows[0];
+  const token = current ? decryptSmsApiKey(String(current.encrypted_turn_api_token ?? '')) : null;
+  if (!current?.turn_key_id || !token) return reply.code(409).send({ ok: false, error: 'Save valid TURN credentials before testing the connection.' });
+  try {
+    const response = await fetch('https://rtc.live.cloudflare.com/v1/turn/keys/' + encodeURIComponent(String(current.turn_key_id)) + '/credentials/generate-ice-servers', {
+      method: 'POST', headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' }, body: JSON.stringify({ ttl: 60 }),
+    });
+    if (!response.ok) {
+      await pool.query('INSERT INTO voice_call_audit_log (actor_user_id, action, details) VALUES ($1, $2, $3::jsonb)',
+        [(request.user as { sub?: string }).sub ?? null, 'connection_check', JSON.stringify({ result: 'failed', status: response.status })]);
+      return reply.code(502).send({ ok: false, error: 'Cloudflare TURN connection check failed.' });
+    }
+    const payload = await response.json() as { iceServers?: unknown };
+    if (!Array.isArray(payload.iceServers) || payload.iceServers.length === 0) return reply.code(502).send({ ok: false, error: 'TURN returned an invalid ICE server configuration.' });
+    await pool.query('UPDATE voice_call_settings SET connection_verified_at = NOW(), updated_at = NOW() WHERE id = 1');
+    await pool.query('INSERT INTO voice_call_audit_log (actor_user_id, action, details) VALUES ($1, $2, $3::jsonb)',
+      [(request.user as { sub?: string }).sub ?? null, 'connection_check', JSON.stringify({ result: 'success' })]);
+    return { ok: true, enabled: false, message: 'TURN connection verified. Voice calling remains disabled.' };
+  } catch (error) {
+    request.log.warn({ err: error }, 'Cloudflare TURN configuration test failed');
+    return reply.code(502).send({ ok: false, error: 'Could not reach Cloudflare TURN.' });
+  }
+});
+
+app.get('/api/v1/admin/communication/voice/audit', { onRequest: [requireOwnerAuth] }, async () => {
+  const result = await pool.query(`SELECT l.id, l.action, l.details, l.created_at AS "createdAt", u.username AS "actorUsername"
+    FROM voice_call_audit_log l LEFT JOIN users u ON u.id = l.actor_user_id ORDER BY l.created_at DESC LIMIT 100`);
+  return { entries: result.rows };
+});
+
+
 // SMS OTP configuration is owner-only and disabled by default. This endpoint only
 // manages settings; it deliberately does not send messages or switch authentication flows.
 app.get('/api/v1/admin/security/sms-otp', { onRequest: [requireOwnerAuth] }, async () => {
@@ -4874,6 +4984,8 @@ app.post<{ Params: { id: string } }>('/api/v1/matches/:id/heartbeat', { onReques
  // Match chat is separate from private friend conversations and participant-only.
  app.get<{ Params: { id: string }; Querystring: { afterId?: string } }>(
    '/api/v1/matches/:id/chat', { onRequest: [requireMatchAuth] }, async (request, reply) => {
+     const voiceFeature = await pool.query('SELECT enabled FROM voice_call_settings WHERE id = 1');
+     if (voiceFeature.rows[0]?.enabled !== true) return reply.code(503).send({ error: 'Voice calling is disabled by management.' });
      const claims = request.user as { sub: string };
      const matchId = request.params.id;
      const afterId = request.query.afterId ?? '0';
@@ -4934,11 +5046,12 @@ app.post<{ Params: { id: string } }>('/api/v1/matches/:id/heartbeat', { onReques
        [matchId, claims.sub],
      );
      if (!access.rowCount) return reply.code(404).send({ error: 'Voice is not available for this match.' });
-     const keyId = process.env.CLOUDFLARE_TURN_KEY_ID?.trim();
-     const apiToken = process.env.CLOUDFLARE_TURN_API_TOKEN?.trim();
-     if (!keyId || !apiToken) {
-       return reply.code(503).send({ error: 'Voice calling is not configured on the server yet.' });
-     }
+     const voiceConfig = await pool.query('SELECT enabled, turn_key_id, encrypted_turn_api_token FROM voice_call_settings WHERE id = 1');
+     const configured = voiceConfig.rows[0];
+     if (configured?.enabled !== true) return reply.code(503).send({ error: 'Voice calling is disabled by management.' });
+     const keyId = String(configured.turn_key_id ?? '').trim();
+     const apiToken = decryptSmsApiKey(String(configured.encrypted_turn_api_token ?? ''));
+     if (!keyId || !apiToken) return reply.code(503).send({ error: 'Voice calling is not configured on the server yet.' });
      try {
        const turnResponse = await fetch(
          'https://rtc.live.cloudflare.com/v1/turn/keys/' +
