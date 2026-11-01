@@ -183,18 +183,13 @@ class ManchEngine {
       }
     }
     if (enemies.length >= 2 && state.profile.blockadesEnabled) return false;
-    if (enemies.length == 1 &&
-        !state.profile.safeTrackIndices.contains(cell)) {
-      return true;
-    }
     return true;
   }
 
   bool _pathOpen(ManchGameState state, ManchMove move) {
     if (!state.profile.blockadesEnabled ||
         !state.profile.blockadeBlocksOpponents ||
-        move.fromProgress < 0 || move.fromProgress >= 52 ||
-        move.toProgress >= 52) return true;
+        move.fromProgress < 0 || move.fromProgress >= 52) return true;
     final colour = state.players[move.playerIndex].colour;
     for (var step = 1; step <= move.toProgress - move.fromProgress; step++) {
       final progress = move.fromProgress + step;
