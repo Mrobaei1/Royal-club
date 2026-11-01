@@ -136,7 +136,7 @@ class _OnlineMatchChatSheetState extends State<OnlineMatchChatSheet> {
       final name = picked.name.toLowerCase();
       final mime = name.endsWith('.png') ? 'image/png' : 'image/jpeg';
       final body = 'data:$mime;base64,${base64Encode(bytes)}';
-      if (body.length > 500 * 1024) {
+      if (bytes.length > 500 * 1024) {
         if (mounted) {
           setState(() => _error = widget.isEnglish
               ? 'The selected image is too large (maximum 500 KiB).'
