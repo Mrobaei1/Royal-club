@@ -35,11 +35,6 @@ void main() {
     expect(localizedNotificationBody(invite, true), contains('Accept within 60 seconds'));
   });
   testWidgets('notification details open in a small dialog with a close action', (tester) async {
-    await tester.view.setPhysicalSize(const Size(800, 1200));
-    await tester.view.setDevicePixelRatio(1);
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
-
     await tester.pumpWidget(MaterialApp(
       home: Scaffold(
         body: Builder(
