@@ -28,3 +28,18 @@ test('rejects weak JWT secrets and missing subjects', () => {
   assert.throws(() => verifyRoyalHs256Token(token({ sub: '42', exp: 2000, ver: 0 }), 'weak', 1000), /secret/);
   assert.throws(() => verifyRoyalHs256Token(token({ exp: 2000, ver: 0 }), secret, 1000), /subject/);
 });
+
+
+test('rejects malformed token segments and tampered payloads', () => {
+  assert.throws(() => verifyRoyalHs256Token('not-a-jwt', secret, 1000));
+  const valid = token({ sub: '42', exp: 2000, ver: 0 });
+  const parts = valid.split('.');
+  const tamperedPayload = Buffer.from(JSON.stringify({ sub: 'admin', exp: 2000, ver: 0 })).toString('base64url');
+  assert.throws(() => verifyRoyalHs256Token(`${parts[0]}.${tamperedPayload}.${parts[2]}`, secret, 1000), /signature/);
+});
+
+test('rejects invalid numeric time and token version claims', () => {
+  assert.throws(() => verifyRoyalHs256Token(token({ sub: '42', exp: Number.NaN, ver: 0 }), secret, 1000), /expired/);
+  assert.throws(() => verifyRoyalHs256Token(token({ sub: '42', exp: 2000, nbf: 'soon', ver: 0 }), secret, 1000), /active/);
+  assert.throws(() => verifyRoyalHs256Token(token({ sub: '42', exp: 2000, ver: -1 }), secret, 1000), /version/);
+});
