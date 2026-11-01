@@ -511,6 +511,40 @@ test('registered players can join an online match and history does not expose op
     payload: { body: 'This must be denied' },
   });
   assert.equal(outsiderMatchChatSend.statusCode, 404);
+
+  const voiceOffer = await app.inject({
+    method: 'POST',
+    url: `/api/v1/matches/${matchId}/voice/signals`,
+    headers: auth(host.token),
+    payload: {
+      kind: 'offer',
+      payload: { callId: 'integration-call-123456', type: 'offer', sdp: 'v=0\\r\\n' },
+    },
+  });
+  assert.equal(voiceOffer.statusCode, 201, voiceOffer.body);
+  const guestVoiceSignals = await app.inject({
+    method: 'GET',
+    url: `/api/v1/matches/${matchId}/voice/signals`,
+    headers: auth(guest.token),
+  });
+  assert.equal(guestVoiceSignals.statusCode, 200, guestVoiceSignals.body);
+  assert.equal(guestVoiceSignals.json().signals.length, 1);
+  assert.equal(guestVoiceSignals.json().signals[0].kind, 'offer');
+  assert.equal(guestVoiceSignals.json().signals[0].payload.callId, 'integration-call-123456');
+  const outsiderVoiceSignals = await app.inject({
+    method: 'GET',
+    url: `/api/v1/matches/${matchId}/voice/signals`,
+    headers: auth(stranger.token),
+  });
+  assert.equal(outsiderVoiceSignals.statusCode, 404);
+  if (!process.env.CLOUDFLARE_TURN_KEY_ID || !process.env.CLOUDFLARE_TURN_API_TOKEN) {
+    const unconfiguredVoice = await app.inject({
+      method: 'GET',
+      url: `/api/v1/matches/${matchId}/voice/ice-servers`,
+      headers: auth(host.token),
+    });
+    assert.equal(unconfiguredVoice.statusCode, 503);
+  }
   // Live spectator access is opt-in by the host and limited to accepted friends.
   const enableSpectators = await app.inject({
     method: 'POST',
