@@ -942,19 +942,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
           toolbarHeight: 48,
           backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           foregroundColor: Theme.of(context).colorScheme.primary,
-          title: Row(
-            children: [
-              Expanded(child: Text('@$hostName', maxLines: 1, overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700))),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 6),
-                child: Text('·', style: TextStyle(color: Theme.of(context).colorScheme.primary)),
-              ),
-              Expanded(child: Text('@$guestName', maxLines: 1, overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.end,
-                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700))),
-            ],
-          ),
+          title: const SizedBox.shrink(),
           actions: [
             if (_matchStatus == 'active' || _matchStatus == 'finished')
               IconButton(
@@ -1011,48 +999,10 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
                 if (_error != null)
                   Text(appError(context, _error), style: const TextStyle(color: Colors.redAccent), textAlign: TextAlign.center),
               ];
-              final actionBar = landscape ? Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  IconButton.filledTonal(
-                    tooltip: isEnglish ? 'Match chat' : 'گفت‌وگوی مسابقه',
-                    onPressed: _matchStatus == 'active' || _matchStatus == 'finished' ? openMatchChat : null,
-                    icon: const Icon(Icons.forum_outlined),
-                  ),
-                  const SizedBox(height: 10),
-                  IconButton.filledTonal(
-                    tooltip: isEnglish ? 'End turn when no legal moves remain' : 'پایان نوبت در صورت نبود حرکت قانونی',
-                    onPressed: _busy || !canAct || remaining.isEmpty ? null : _endTurn,
-                    icon: const Icon(Icons.skip_next_rounded),
-                  ),
-                  const SizedBox(height: 10),
-                  IconButton(
-                    tooltip: isEnglish ? 'Reconnect' : 'اتصال مجدد',
-                    onPressed: _refreshing ? null : () => _refresh(),
-                    icon: const Icon(Icons.refresh),
-                  ),
-                ],
-              ) : Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  IconButton.filledTonal(
-                    tooltip: isEnglish ? 'Match chat' : 'گفت‌وگوی مسابقه',
-                    onPressed: _matchStatus == 'active' || _matchStatus == 'finished' ? openMatchChat : null,
-                    icon: const Icon(Icons.forum_outlined),
-                  ),
-                  const SizedBox(width: 12),
-                  IconButton.filledTonal(
-                    tooltip: isEnglish ? 'End turn when no legal moves remain' : 'پایان نوبت در صورت نبود حرکت قانونی',
-                    onPressed: _busy || !canAct || remaining.isEmpty ? null : _endTurn,
-                    icon: const Icon(Icons.skip_next_rounded),
-                  ),
-                  const SizedBox(width: 12),
-                  IconButton(
-                    tooltip: isEnglish ? 'Reconnect' : 'اتصال مجدد',
-                    onPressed: _refreshing ? null : () => _refresh(),
-                    icon: const Icon(Icons.refresh),
-                  ),
-                ],
+              final actionBar = IconButton.filledTonal(
+                tooltip: isEnglish ? 'End turn when no legal moves remain' : 'پایان نوبت در صورت نبود حرکت قانونی',
+                onPressed: _busy || !canAct || remaining.isEmpty ? null : _endTurn,
+                icon: const Icon(Icons.skip_next_rounded),
               );
               if (landscape && _state != null) {
                 return Padding(
