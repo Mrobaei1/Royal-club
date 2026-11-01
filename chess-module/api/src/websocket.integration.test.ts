@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import Fastify from "fastify";
 import { Pool } from "pg";
-import WebSocket from "ws";
+import { WebSocket } from "ws";
 import type { FastifyRequest } from "fastify";
 import { registerChessRoutes } from "./routes.js";
 import { registerChessWebSocket } from "./websocket.js";
