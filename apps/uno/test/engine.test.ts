@@ -103,24 +103,21 @@ test('a final Draw Two applies its penalty before the round is awarded', () => {
 });
 
 
-test('Wild Draw Four is rejected when the player holds the active color', () => {
+test('Wild Draw Four with an active-color card is playable but exposes a valid challenge', () => {
   const game = startUnoGame([{id:'a',username:'a'},{id:'b',username:'b'},{id:'c',username:'c'}]);
   game.players[0]!.hand = [
-    {id:'illegal-wild4',color:'wild',face:'wild4'},
+    {id:'bluff-wild4',color:'wild',face:'wild4'},
     {id:'red-card',color:'red',face:8},
   ];
   game.discardPile = [{id:'top',color:'red',face:2}];
   game.activeColor = 'red';
-  assert.throws(
-    () => applyUnoAction(game, 'a', {type:'play',cardId:'illegal-wild4',chosenColor:'blue'}),
-    (error: unknown) => error instanceof UnoError && error.code === 'ILLEGAL_WILD4',
-  );
-  // Failed actions must not mutate the caller's source state.
+  const pending = applyUnoAction(game, 'a', {type:'play',cardId:'bluff-wild4',chosenColor:'blue'});
+  assert.equal(pending.pendingWild4?.offenderHadActiveColor, true);
+  assert.equal(pending.players[1]!.hand.length, 7);
   assert.equal(game.players[0]!.hand.length, 2);
-  assert.equal(game.players[1]!.hand.length, 7);
 });
 
-test('legal Wild Draw Four changes color, penalizes the next player and skips their turn', () => {
+test('legal Wild Draw Four waits for the target to accept or challenge', () => {
   const game = startUnoGame([{id:'a',username:'a'},{id:'b',username:'b'},{id:'c',username:'c'}]);
   game.players[0]!.hand = [
     {id:'legal-wild4',color:'wild',face:'wild4'},
@@ -130,9 +127,13 @@ test('legal Wild Draw Four changes color, penalizes the next player and skips th
   game.activeColor = 'red';
   const next = applyUnoAction(game, 'a', {type:'play',cardId:'legal-wild4',chosenColor:'green'});
   assert.equal(next.activeColor, 'green');
-  assert.equal(next.players[1]!.hand.length, 11);
-  assert.equal(next.currentPlayerIndex, 2);
-  assert.equal(next.unoPendingPlayerId, 'a');
+  assert.equal(next.players[1]!.hand.length, 7);
+  assert.equal(next.currentPlayerIndex, 1);
+  assert.equal(next.pendingWild4?.targetId, 'b');
+  const accepted = applyUnoAction(next, 'b', {type:'draw'});
+  assert.equal(accepted.players[1]!.hand.length, 11);
+  assert.equal(accepted.currentPlayerIndex, 2);
+  assert.equal(accepted.unoPendingPlayerId, 'a');
 });
 
 
