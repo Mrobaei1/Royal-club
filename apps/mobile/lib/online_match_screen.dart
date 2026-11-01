@@ -28,9 +28,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
   bool _refreshing = false;
   bool _connectionLost = false;
   int? _selectedFrom;
-  int? _selectedDie;
   bool _fromBar = false;
-  bool _batchMode = false;
   final List<Map<String, int?>> _pendingMoves = [];
   String _matchStatus = 'waiting';
   String? _error;
@@ -119,10 +117,8 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
             // version/turn, discard the stale preview before accepting new input.
             if (serverStateChanged || turnChanged) {
               _pendingMoves.clear();
-              _batchMode = false;
-              _selectedFrom = null;
-              _selectedDie = null;
-              _fromBar = false;
+                  _selectedFrom = null;
+                      _fromBar = false;
             }
             _state = state;
             _turnSecondsRemaining = _remainingTurnSeconds(state);
@@ -303,52 +299,6 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
     }
   }
 
-  void _showHeadToHeadSummary({required bool isHost}) {
-    final isEnglish = _isEnglish;
-    final myIsHost = _matchDetails['isHost'] == true;
-    final hostName = _matchDetails['hostName']?.toString() ?? (isEnglish ? 'Host' : 'میزبان');
-    final guestName = _matchDetails['guestName']?.toString() ?? (isEnglish ? 'Opponent' : 'حریف');
-    final hostPoints = (_matchDetails['headToHeadHostPoints'] as num?)?.toInt() ?? 0;
-    final guestPoints = (_matchDetails['headToHeadGuestPoints'] as num?)?.toInt() ?? 0;
-    final hostWins = (_matchDetails['headToHeadHostWins'] as num?)?.toInt() ?? 0;
-    final guestWins = (_matchDetails['headToHeadGuestWins'] as num?)?.toInt() ?? 0;
-    final matches = (_matchDetails['headToHeadMatches'] as num?)?.toInt() ?? 0;
-    final viewerName = myIsHost ? hostName : guestName;
-    final opponentName = myIsHost ? guestName : hostName;
-    final viewerPoints = myIsHost ? hostPoints : guestPoints;
-    final opponentPoints = myIsHost ? guestPoints : hostPoints;
-    final viewerWins = myIsHost ? hostWins : guestWins;
-    final opponentWins = myIsHost ? guestWins : hostWins;
-    showDialog<void>(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: Theme.of(context).colorScheme.surface,
-        title: Text(appText(context, 'آمار رودررو', 'Head-to-head stats'), style: TextStyle(color: Theme.of(context).colorScheme.primary)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text('$viewerName  $viewerPoints  -  $opponentPoints  $opponentName',
-              textAlign: TextAlign.center, style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 14),
-            _headToHeadRow(appText(context, 'تعداد مسابقات رودررو', 'Matches played'), '$matches'),
-            _headToHeadRow(appText(context, 'بردهای مسابقه', 'Match wins'), '$viewerWins - $opponentWins'),
-            _headToHeadRow(appText(context, 'امتیاز دست‌ها', 'Game points'), '$viewerPoints - $opponentPoints'),
-          ],
-        ),
-        actions: [TextButton(onPressed: () => Navigator.of(context).pop(), child: Text(appText(context, 'بستن', 'Close')))],
-      ),
-    );
-  }
-
-  Widget _headToHeadRow(String label, String value) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 5),
-    child: Row(children: [
-      Expanded(child: Text(label, style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7)))),
-      Text(value, style: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.bold)),
-    ]),
-  );
-
   Future<void> _resignMatch() async {
     if (_busy || _matchStatus != 'active') return;
     final isEnglish = _isEnglish;
@@ -492,45 +442,6 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
     return {'board': board, 'bar': bar, 'off': off};
   }
 
-  Future<void> _stageMove({required int? from, required int? to, required int die}) async {
-    if (_state == null) return;
-    final preview = _previewGameState();
-    final board = (preview['board'] as List<int>);
-    final bar = (preview['bar'] as Map<String, int>);
-    final hostTurn = _state?['isHost'] == true;
-    final sign = hostTurn ? 1 : -1;
-    final ownBar = bar[hostTurn ? 'host' : 'guest'] ?? 0;
-    if (ownBar > 0) {
-      final expected = hostTurn ? 24 - die : die - 1;
-      if (from != null || to != expected) { setState(() => _error = _isEnglish ? 'Enter a checker from the bar first using the selected die.' : 'ابتدا باید مهره را با تاس انتخاب‌شده از بار وارد کنید.'); return; }
-      if (board[expected] * sign <= -2) { setState(() => _error = _isEnglish ? 'The entry point is blocked by two opponent checkers.' : 'خانهٔ ورود با دو مهرهٔ حریف بسته است.'); return; }
-    } else if (from == null) {
-      setState(() => _error = _isEnglish ? 'You have no checkers on the bar.' : 'مهره‌ای روی بار ندارید.'); return;
-    } else if (to == null) {
-      final inHome = hostTurn ? from <= 5 : from >= 18;
-      final allHome = board.asMap().entries.every((e) => hostTurn ? e.key <= 5 || e.value <= 0 : e.key >= 18 || e.value >= 0);
-      final distance = hostTurn ? from + 1 : 24 - from;
-      final clear = hostTurn
-          ? !board.asMap().entries.any((e) => e.key > from && e.key <= 5 && e.value > 0)
-          : !board.asMap().entries.any((e) => e.key < from && e.key >= 18 && e.value < 0);
-      if (board[from] * sign <= 0 || !inHome || !allHome || die < distance || (die > distance && !clear)) {
-        setState(() => _error = _isEnglish ? 'This checker cannot be borne off with that die.' : 'این مهره با این تاس قابل خارج‌کردن نیست.'); return;
-      }
-    } else {
-      final expected = hostTurn ? from - die : from + die;
-      if (board[from] * sign <= 0 || expected != to || to < 0 || to > 23 || board[to] * sign <= -2) {
-        setState(() => _error = _isEnglish ? 'That move is not legal for the selected die.' : 'این حرکت با تاس انتخاب‌شده قانونی نیست.'); return;
-      }
-    }
-    setState(() {
-      _pendingMoves.add({'from': from, 'to': to, 'die': die});
-      _selectedFrom = null;
-      _selectedDie = null;
-      _fromBar = false;
-      _error = null;
-    });
-  }
-
   Future<void> _submitBatch() async {
     if (_busy || _state == null || _pendingMoves.isEmpty) return;
     final languageCode = Localizations.localeOf(context).languageCode;
@@ -561,17 +472,6 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
     }
   }
 
-  void _cancelBatch() {
-    setState(() {
-      _pendingMoves.clear();
-      _batchMode = false;
-      _selectedFrom = null;
-      _selectedDie = null;
-      _fromBar = false;
-      _error = null;
-    });
-  }
-
   Future<void> _tapPoint(int point, List<num> board, List<num> remaining, bool isMyTurn) async {
     if (!isMyTurn || _busy || _state == null) return;
     final hostTurn = _state?['isHost'] == true;
@@ -588,11 +488,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
         setState(() => _error = _isEnglish ? 'The entry point is blocked.' : 'خانه ورود با دو مهره حریف بسته است.');
         return;
       }
-      if (_batchMode) {
-        await _stageMove(from: null, to: point, die: die);
-      } else {
-        await _submitMove(from: null, to: point, die: die);
-      }
+      await _submitMove(from: null, to: point, die: die);
       return;
     }
 
@@ -601,7 +497,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
         setState(() => _error = _isEnglish ? 'Select one of your own checkers.' : 'مهره‌ای از خودتان را انتخاب کنید.');
         return;
       }
-      setState(() { _selectedFrom = point; _selectedDie = null; _error = null; });
+      setState(() { _selectedFrom = point; _error = null; });
       return;
     }
     if (_selectedFrom == point) {
@@ -616,11 +512,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
         setState(() => _error = _isEnglish ? 'That point is blocked by two opponent checkers.' : 'این خانه با دو مهره حریف بسته است.');
         return;
       }
-      if (_batchMode) {
-        await _stageMove(from: from, to: point, die: distance);
-      } else {
-        await _submitMove(from: from, to: point, die: distance);
-      }
+      await _submitMove(from: from, to: point, die: distance);
       return;
     }
 
@@ -677,7 +569,9 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
       return null;
     }
     if (from < 0 || from > 23 || destination < 0 || destination > 23 ||
-        board[from] * sign <= 0) return null;
+        board[from] * sign <= 0) {
+      return null;
+    }
     return search(from, board, List<int>.from(dice), const []);
   }
 
