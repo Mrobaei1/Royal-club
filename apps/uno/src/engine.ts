@@ -124,6 +124,9 @@ export function applyUnoAction(source: UnoGame, playerId: string, action: GameAc
     game.drawnCardId = card.id;
     return game;
   }
+  if (game.pendingWild4?.targetId === playerId) {
+    throw new UnoError('WILD4_RESPONSE_REQUIRED', 'Accept the four-card penalty or challenge the Wild Draw Four first.');
+  }
   if (action.type === 'pass') {
     if (!game.drawnCardId) throw new UnoError('MUST_DRAW_OR_PLAY', 'Draw a card before passing.');
     advance(game);
