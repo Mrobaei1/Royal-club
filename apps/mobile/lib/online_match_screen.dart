@@ -889,7 +889,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
     final dice = (_state?['dice'] as List?)?.cast<num>() ?? const <num>[];
     final rawRemaining = (_state?['remainingDice'] as List?)?.cast<num>() ?? const <num>[];
     final preview = _previewGameState();
-    final board = (preview['board'] as List<int>).map<num>((v) => v).toList();
+    final boardPoints = (preview['board'] as List<int>).map<num>((v) => v).toList();
     final remaining = [...rawRemaining];
     for (final move in _pendingMoves) {
       final die = move['die'];
@@ -915,7 +915,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
       if (ownBar > 0 || _fromBar) {
         for (final die in remaining) {
           final target = hostTurn ? 24 - die.toInt() : die.toInt() - 1;
-          if (target >= 0 && target < 24 && board[target].toInt() * sign > -2) legalTargets.add(target);
+          if (target >= 0 && target < 24 && boardPoints[target].toInt() * sign > -2) legalTargets.add(target);
         }
       } else if (_selectedFrom != null) {
         for (final die in remaining) {
@@ -971,13 +971,13 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
           child: LayoutBuilder(
             builder: (context, constraints) {
               final landscape = constraints.maxWidth > constraints.maxHeight;
-              final board = _state == null
+              final boardWidget = _state == null
                 ? Center(child: Text(
                     isEnglish ? 'Waiting for your opponent…' : 'در انتظار ورود حریف…',
                     style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
                   ))
                 : OnlineBackgammonBoard(
-                    points: board,
+                    points: boardPoints,
                     selectedPoint: _selectedFrom,
                     legalTargets: legalTargets,
                     barWhite: bar['host'] ?? 0,
@@ -989,8 +989,8 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
                     timerWhite: timerWhite,
                     rollLabel: isEnglish ? 'Roll dice' : 'ریختن تاس',
                     onRoll: _busy || _matchStatus != 'active' || !canAct || dice.isNotEmpty ? null : _roll,
-                    onPointTap: (point) => _tapPoint(point, board, remaining, canAct),
-                    onBearOff: () => _tapBearOff(board, remaining, canAct),
+                    onPointTap: (point) => _tapPoint(point, boardPoints, remaining, canAct),
+                    onBearOff: () => _tapBearOff(boardPoints, remaining, canAct),
                   );
               final alerts = <Widget>[
                 if (_connectionLost)
@@ -1008,7 +1008,28 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
                 if (_error != null)
                   Text(appError(context, _error), style: const TextStyle(color: Colors.redAccent), textAlign: TextAlign.center),
               ];
-              final actionBar = Row(
+              final actionBar = landscape ? Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  IconButton.filledTonal(
+                    tooltip: isEnglish ? 'Match chat' : 'گفت‌وگوی مسابقه',
+                    onPressed: _matchStatus == 'active' || _matchStatus == 'finished' ? openMatchChat : null,
+                    icon: const Icon(Icons.forum_outlined),
+                  ),
+                  const SizedBox(height: 10),
+                  IconButton.filledTonal(
+                    tooltip: isEnglish ? 'End turn when no legal moves remain' : 'پایان نوبت در صورت نبود حرکت قانونی',
+                    onPressed: _busy || !canAct || remaining.isEmpty ? null : _endTurn,
+                    icon: const Icon(Icons.skip_next_rounded),
+                  ),
+                  const SizedBox(height: 10),
+                  IconButton(
+                    tooltip: isEnglish ? 'Reconnect' : 'اتصال مجدد',
+                    onPressed: _refreshing ? null : () => _refresh(),
+                    icon: const Icon(Icons.refresh),
+                  ),
+                ],
+              ) : Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   IconButton.filledTonal(
@@ -1035,7 +1056,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
                   padding: const EdgeInsets.all(8),
                   child: Row(
                     children: [
-                      Expanded(child: board),
+                      Expanded(child: boardWidget),
                       const SizedBox(width: 10),
                       SizedBox(
                         width: 74,
@@ -1083,10 +1104,10 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
                   if (_state != null)
                     AspectRatio(
                       aspectRatio: .92,
-                      child: board,
+                      child: boardWidget,
                     )
                   else
-                    SizedBox(height: 280, child: board),
+                    SizedBox(height: 280, child: boardWidget),
                   const SizedBox(height: 6),
                   actionBar,
                   if (_matchStatus == 'waiting' && _matchDetails['guestName'] != null)
