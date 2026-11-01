@@ -379,10 +379,18 @@ test('host voluntarily leaving during a live round transfers host to next connec
 });
 
 
-test('a disconnected seat cannot change readiness until it reconnects', () => {
+test('a disconnected seat between rounds cannot change readiness until it reconnects', () => {
   const manager = new UnoRoomManager();
   const room = manager.createRoom(host);
   manager.joinRoom(room.code, guest);
+  manager.setReady(room.code, host.id, true);
+  manager.setReady(room.code, guest.id, true);
+  manager.start(room.code, host.id);
+  const snapshot = manager.exportSnapshot();
+  snapshot.rooms[0]!.status = 'waiting';
+  snapshot.rooms[0]!.roundsPlayed = 1;
+  snapshot.rooms[0]!.game = null;
+  manager.restoreSnapshot(snapshot);
   manager.disconnect(room.code, guest.id);
   assert.throws(
     () => manager.setReady(room.code, guest.id, true),
