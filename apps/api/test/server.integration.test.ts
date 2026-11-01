@@ -3287,6 +3287,13 @@ test('owner analytics overview is owner-only, read-only, and reports source cove
     assert.equal(pdf.statusCode, 200, pdf.body.toString());
     assert.match(pdf.headers['content-type'] ?? '', /application\/pdf/);
     assert.ok(pdf.rawPayload.subarray(0, 8).toString('ascii').startsWith('%PDF-1.4'));
+    const exportAudit = await testPool.query(
+      `SELECT export_format, aggregate_row_count FROM analytics_export_audit_log
+        WHERE actor_user_id = $1 ORDER BY id DESC LIMIT 2`,
+      [owner.user.id],
+    );
+    assert.deepEqual(exportAudit.rows.map((row) => row.export_format).sort(), ['csv', 'pdf']);
+    assert.ok(exportAudit.rows.every((row) => Number(row.aggregate_row_count) > 0));
   } finally {
     if (previousOwnerId === undefined) delete process.env.OWNER_USER_ID;
     else process.env.OWNER_USER_ID = previousOwnerId;
