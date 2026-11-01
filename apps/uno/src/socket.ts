@@ -83,7 +83,7 @@ export function registerUnoSockets(
       code: room.code, hostId: room.hostId, status: room.status,
       players: room.players.map(p => ({ id: p.id, username: p.username, ready: p.ready, connected: p.connected, muted: p.muted })),
       chatEnabled: room.chatEnabled, voiceEnabled: room.voiceEnabled,
-      matchToWin: room.matchToWin, roundsWon: room.roundsWon,
+      matchToWin: room.matchToWin, roundsWon: room.roundsWon, totalPoints: room.totalPoints,
       roundsPlayed: room.roundsPlayed, matchWinnerId: room.matchWinnerId,
     });
     const publishRoom = (room: ReturnType<typeof rooms.getRoom>) => io.to(`uno:${room.code}`).emit('uno:room:state', publicRoom(room));
