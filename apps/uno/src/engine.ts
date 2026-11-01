@@ -67,7 +67,7 @@ export function startUnoGame(players: Array<{ id: string; username: string }>): 
   return {
     players: gamePlayers, drawPile: deck, discardPile: [first], currentPlayerIndex: 0,
     direction: 1, activeColor: first.color as UnoColor, drawnCardId: null,
-    unoPendingPlayerId: null, winnerId: null, turnNumber: 1,
+    unoPendingPlayerId: null, pendingWild4: null, winnerId: null, turnNumber: 1,
   };
 }
 export function applyUnoAction(source: UnoGame, playerId: string, action: GameAction): UnoGame {
@@ -95,7 +95,30 @@ export function applyUnoAction(source: UnoGame, playerId: string, action: GameAc
   }
   if (index !== game.currentPlayerIndex) throw new UnoError('NOT_YOUR_TURN', 'It is not your turn.');
   if (game.unoPendingPlayerId) game.unoPendingPlayerId = null;
+  if (action.type === 'challengeWild4') {
+    const pending = game.pendingWild4;
+    if (!pending || pending.targetId !== playerId) throw new UnoError('CHALLENGE_NOT_AVAILABLE', 'There is no Wild Draw Four challenge available to you.');
+    if (pending.offenderHadActiveColor) {
+      const offenderIndex = game.players.findIndex(p => p.id === pending.offenderId);
+      for (let i = 0; i < 4; i++) drawOne(game, offenderIndex);
+      game.currentPlayerIndex = offenderIndex;
+      game.drawnCardId = null;
+      game.turnNumber++;
+    } else {
+      for (let i = 0; i < 6; i++) drawOne(game, index);
+      game.pendingWild4 = null;
+      advance(game);
+    }
+    game.pendingWild4 = null;
+    return game;
+  }
   if (action.type === 'draw') {
+    if (game.pendingWild4?.targetId === playerId) {
+      for (let i = 0; i < 4; i++) drawOne(game, index);
+      game.pendingWild4 = null;
+      advance(game);
+      return game;
+    }
     if (game.drawnCardId) throw new UnoError('ALREADY_DREW', 'You have already drawn this turn.');
     const card = drawOne(game, index);
     game.drawnCardId = card.id;
@@ -111,12 +134,10 @@ export function applyUnoAction(source: UnoGame, playerId: string, action: GameAc
   const card = player.hand[cardIndex]!;
   if (game.drawnCardId && card.id !== game.drawnCardId) throw new UnoError('MUST_PLAY_DRAWN_CARD', 'After drawing, you may only play the card you just drew.');
   if (!cardIsPlayable(card, game)) throw new UnoError('ILLEGAL_CARD', 'That card does not match the active color or top value.');
-  if (card.face === 'wild4' && player.hand.some(c => c.id !== card.id && c.color === game.activeColor)) {
-    throw new UnoError('ILLEGAL_WILD4', 'Wild Draw Four is not legal while you hold the active color.');
-  }
   if (card.color === 'wild' && (!action.chosenColor || !UNO_COLORS.includes(action.chosenColor))) {
     throw new UnoError('CHOOSE_COLOR', 'Choose one of the four valid colors for a wild card.');
   }
+  const offenderHadActiveColor = card.face === 'wild4' && player.hand.some(c => c.id !== card.id && c.color === game.activeColor);
   player.hand.splice(cardIndex, 1);
   game.discardPile.push(card);
   if (card.color !== 'wild') game.activeColor = card.color;
@@ -126,11 +147,13 @@ export function applyUnoAction(source: UnoGame, playerId: string, action: GameAc
     game.direction = game.direction === 1 ? -1 : 1;
     if (game.players.length === 2) skip = 1;
   } else if (card.face === 'skip') skip = 1;
-  else if (card.face === 'draw2' || card.face === 'wild4') {
+  else if (card.face === 'draw2') {
     const target = nextIndex(index, game.direction, game.players.length);
-    const amount = card.face === 'draw2' ? 2 : 4;
-    for (let i = 0; i < amount; i++) drawOne(game, target);
+    for (let i = 0; i < 2; i++) drawOne(game, target);
     skip = 1;
+  } else if (card.face === 'wild4') {
+    const target = nextIndex(index, game.direction, game.players.length);
+    game.pendingWild4 = { offenderId: playerId, targetId: game.players[target]!.id, offenderHadActiveColor };
   }
   if (player.hand.length === 0) {
     game.winnerId = player.id;
@@ -138,7 +161,8 @@ export function applyUnoAction(source: UnoGame, playerId: string, action: GameAc
     return game;
   }
   if (player.hand.length === 1) game.unoPendingPlayerId = player.id;
-  advance(game, 1 + skip);
+  if (card.face !== 'wild4') advance(game, 1 + skip);
+  else { game.drawnCardId = null; game.turnNumber++; }
   return game;
 }
 export function publicGameState(game: UnoGame) {
@@ -148,7 +172,7 @@ export function publicGameState(game: UnoGame) {
     players: game.players.map(p => ({ id: p.id, username: p.username, cardCount: p.hand.length })),
     discardTop: top, currentPlayerId: currentPlayer(game).id, activeColor: game.activeColor,
     direction: game.direction, drawCount: game.drawPile.length, winnerId: game.winnerId,
-    turnNumber: game.turnNumber, unoPendingPlayerId: game.unoPendingPlayerId,
+    turnNumber: game.turnNumber, unoPendingPlayerId: game.unoPendingPlayerId, pendingWild4: game.pendingWild4 ? { offenderId: game.pendingWild4.offenderId, targetId: game.pendingWild4.targetId } : null,
   };
 }
 export function privateTurnState(game: UnoGame, playerId: string) {
