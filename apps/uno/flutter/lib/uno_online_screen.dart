@@ -387,7 +387,7 @@ class _UnoOnlineScreenState extends State<UnoOnlineScreen> {
         ...players.map((p) => ListTile(
           dense: true, leading: Icon(p['id'] == room['hostId'] ? Icons.workspace_premium : Icons.person),
           title: Text('@${p['username']}'),
-          subtitle: Text('${p['ready'] == true ? 'آماده' : 'در انتظار آمادگی'} • برد: ${(room['roundsWon'] as Map?)?[p['id']] ?? 0}'),
+          subtitle: Text('${p['ready'] == true ? 'آماده' : 'در انتظار آمادگی'} • برد: ${(room['roundsWon'] as Map?)?[p['id']] ?? 0} • امتیاز: ${(room['totalPoints'] as Map?)?[p['id']] ?? 0}'),
           trailing: isHost && p['id'] != widget.playerId
               ? IconButton(icon: Icon(p['muted'] == true ? Icons.mic_off : Icons.mic), onPressed: () => _run('uno:voice:mute', {'code': code, 'targetId': p['id'], 'muted': p['muted'] != true}))
               : Icon(p['muted'] == true ? Icons.mic_off : Icons.mic),
@@ -426,8 +426,8 @@ class _UnoOnlineScreenState extends State<UnoOnlineScreen> {
     return Card(child: Padding(padding: const EdgeInsets.all(14), child: Column(children: [
       Text(gameOver
           ? (_room?['matchWinnerId'] != null
-              ? 'قهرمان مسابقه: @${winner['username'] ?? ''}'
-              : 'برنده این دست: @${winner['username'] ?? ''}')
+              ? 'قهرمان مسابقه: @${winner['username'] ?? ''} • امتیاز این دست: ${game['winnerScore'] ?? 0}'
+              : 'برنده این دست: @${winner['username'] ?? ''} • امتیاز: ${game['winnerScore'] ?? 0}')
           : (myTurn ? 'نوبت شماست' : 'نوبت بازیکن دیگر')),
       const SizedBox(height: 8),
       Row(mainAxisAlignment: MainAxisAlignment.center, children: [
