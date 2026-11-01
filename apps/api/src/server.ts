@@ -3073,6 +3073,70 @@ app.post<{ Body: { phone?: string; code?: string } }>(
   },
 );
 
+// Owner-only, read-only executive analytics. Values are sourced from authoritative tables;
+// unsupported product telemetry is deliberately omitted rather than estimated.
+app.get('/api/v1/admin/analytics/overview', { onRequest: [requireOwnerAuth] }, async (request, reply) => {
+  const generatedAt = new Date().toISOString();
+  try {
+    const [users, registrations, matches, matchTrend, wallet, subscriptions] = await Promise.all([
+      pool.query('SELECT COUNT(*)::int AS total FROM users'),
+      pool.query(`SELECT COUNT(*)::int AS total FROM users WHERE created_at >= NOW() - INTERVAL '30 days'`),
+      pool.query(`SELECT status, COUNT(*)::int AS count FROM backgammon_matches GROUP BY status`),
+      pool.query(`SELECT days.day::date AS day, COUNT(m.id)::int AS count
+        FROM generate_series((CURRENT_DATE - INTERVAL '29 days')::date, CURRENT_DATE, INTERVAL '1 day') AS days(day)
+        LEFT JOIN backgammon_matches m ON m.created_at >= days.day AND m.created_at < days.day + INTERVAL '1 day'
+        GROUP BY days.day ORDER BY days.day`),
+      pool.query(`SELECT COUNT(*)::int AS transactions,
+        COALESCE(SUM(amount) FILTER (WHERE amount > 0), 0)::text AS credits_in,
+        COALESCE(SUM(ABS(amount)) FILTER (WHERE amount < 0), 0)::text AS credits_out
+        FROM wallet_transactions WHERE created_at >= NOW() - INTERVAL '30 days'`),
+      pool.query(`SELECT COUNT(*) FILTER (WHERE status = 'active' AND ends_at > NOW())::int AS active,
+        COUNT(*)::int AS total FROM user_subscriptions`),
+    ]);
+    const matchCounts = Object.fromEntries(matches.rows.map((row: { status: string; count: number }) => [row.status, row.count]));
+    return {
+      generatedAt,
+      freshness: 'live-query',
+      windowDays: 30,
+      metrics: {
+        registeredUsers: users.rows[0]?.total ?? null,
+        registrationsLast30Days: registrations.rows[0]?.total ?? null,
+        backgammonMatches: {
+          waiting: matchCounts.waiting ?? 0,
+          active: matchCounts.active ?? 0,
+          finished: matchCounts.finished ?? 0,
+          cancelled: matchCounts.cancelled ?? 0,
+          total: Object.values(matchCounts).reduce((sum: number, value: unknown) => sum + Number(value ?? 0), 0),
+        },
+        walletCreditsLast30Days: {
+          transactions: wallet.rows[0]?.transactions ?? null,
+          creditsIn: wallet.rows[0]?.credits_in ?? null,
+          creditsOut: wallet.rows[0]?.credits_out ?? null,
+          classification: 'internal-non-transferable-credits-not-cash-revenue',
+        },
+        subscriptions: {
+          active: subscriptions.rows[0]?.active ?? null,
+          totalRecords: subscriptions.rows[0]?.total ?? null,
+        },
+      },
+      trends: {
+        backgammonMatchesLast30Days: matchTrend.rows.map((row: { day: Date | string; count: number }) => ({
+          date: row.day instanceof Date ? row.day.toISOString().slice(0, 10) : String(row.day).slice(0, 10),
+          count: row.count,
+        })),
+      },
+      coverage: {
+        available: ['registeredUsers', 'registrationsLast30Days', 'backgammonMatches', 'walletCreditsLast30Days', 'subscriptions', 'backgammonMatchesLast30Days'],
+        notInstrumented: ['DAU/WAU/MAU', 'retention', 'session duration', 'chess activity', 'card-game activity', 'UNO/Mafia activity', 'API latency percentiles', 'infrastructure cost', 'agent task cost and quality'],
+      },
+      sources: ['users', 'backgammon_matches', 'wallet_transactions', 'user_subscriptions'],
+    };
+  } catch (error) {
+    request.log.error({ err: error }, 'Owner analytics overview query failed');
+    return reply.code(503).send({ error: 'Executive analytics data is temporarily unavailable.', generatedAt, freshness: 'unavailable' });
+  }
+});
+
 app.get('/api/v1/admin/reports', { onRequest: [requireOwnerOrPermission('reports.read')] }, async () => {
   const result = await pool.query(
     `SELECT r.id, r.reported_user_id AS "reportedUserId", target.username AS "reportedUsername",
