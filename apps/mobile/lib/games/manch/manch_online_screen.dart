@@ -21,6 +21,7 @@ class _ManchOnlineLobbyScreenState extends State<ManchOnlineLobbyScreen> {
   String? _error;
   bool _loading = true;
   bool _openingGame = false;
+  bool _refreshing = false;
   Timer? _poller;
 
   bool get _isPersian =>
@@ -45,7 +46,8 @@ class _ManchOnlineLobbyScreenState extends State<ManchOnlineLobbyScreen> {
   }
 
   Future<void> _refresh({bool silent = false}) async {
-    if (!mounted || (_loading && silent)) return;
+    if (!mounted || _refreshing || (_loading && silent)) return;
+    _refreshing = true;
     if (!silent) setState(() => _loading = true);
     try {
       _userId ??= await ManchOnlineService.currentUserId();
@@ -56,6 +58,7 @@ class _ManchOnlineLobbyScreenState extends State<ManchOnlineLobbyScreen> {
           if (!mounted) return;
           _myMatch = refreshed;
           if (refreshed['status'] == 'active') {
+            _refreshing = false;
             await _openGame(refreshed['id'].toString());
             return;
           }
@@ -84,6 +87,8 @@ class _ManchOnlineLobbyScreenState extends State<ManchOnlineLobbyScreen> {
         _loading = false;
         if (!silent) _error = error.toString();
       });
+    } finally {
+      _refreshing = false;
     }
   }
 
@@ -350,6 +355,7 @@ class _ManchOnlineGameScreenState extends State<ManchOnlineGameScreen> {
   int _stateVersion = 0;
   int? _lastDice;
   bool _busy = false;
+  bool _loadingState = false;
   Timer? _poller;
 
   bool get _isPersian =>
@@ -377,7 +383,8 @@ class _ManchOnlineGameScreenState extends State<ManchOnlineGameScreen> {
   }
 
   Future<void> _load({bool silent = false}) async {
-    if (!mounted || (_busy && silent)) return;
+    if (!mounted || _loadingState || (_busy && silent)) return;
+    _loadingState = true;
     try {
       final match = await ManchOnlineService.get(widget.matchId);
       final rawState = match['gameState'];
@@ -404,6 +411,8 @@ class _ManchOnlineGameScreenState extends State<ManchOnlineGameScreen> {
     } catch (error) {
       if (!mounted || silent) return;
       setState(() => _error = error.toString());
+    } finally {
+      _loadingState = false;
     }
   }
 
