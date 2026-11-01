@@ -472,6 +472,37 @@ test('registered players can join an online match and history does not expose op
   });
   assert.equal(guestAcceptAndReady.statusCode, 200, guestAcceptAndReady.body);
   assert.equal(guestAcceptAndReady.json().setup.status, 'active');
+
+  const matchChatSend = await app.inject({
+    method: 'POST',
+    url: `/api/v1/matches/${matchId}/chat`,
+    headers: auth(host.token),
+    payload: { body: 'Hello from the match room' },
+  });
+  assert.equal(matchChatSend.statusCode, 201, matchChatSend.body);
+  assert.equal(matchChatSend.json().message.senderUsername, host.user.username);
+  assert.equal(Object.hasOwn(matchChatSend.json().message, 'fullName'), false);
+  const matchChatRead = await app.inject({
+    method: 'GET',
+    url: `/api/v1/matches/${matchId}/chat`,
+    headers: auth(guest.token),
+  });
+  assert.equal(matchChatRead.statusCode, 200, matchChatRead.body);
+  assert.equal(matchChatRead.json().messages.length, 1);
+  assert.equal(matchChatRead.json().messages[0].body, 'Hello from the match room');
+  const outsiderMatchChatRead = await app.inject({
+    method: 'GET',
+    url: `/api/v1/matches/${matchId}/chat`,
+    headers: auth(stranger.token),
+  });
+  assert.equal(outsiderMatchChatRead.statusCode, 404);
+  const outsiderMatchChatSend = await app.inject({
+    method: 'POST',
+    url: `/api/v1/matches/${matchId}/chat`,
+    headers: auth(stranger.token),
+    payload: { body: 'This must be denied' },
+  });
+  assert.equal(outsiderMatchChatSend.statusCode, 404);
   // Live spectator access is opt-in by the host and limited to accepted friends.
   const enableSpectators = await app.inject({
     method: 'POST',
