@@ -254,6 +254,44 @@ test("authenticated chess routes support private game, draw, chat, voice, profil
     );
     assert.equal(timeoutRoomStatus.rows[0].status, "finished");
 
+    // Race a player's move against the scheduler at an already-expired clock.
+    // Exactly one transaction must finalize the game and award progression/rating.
+    const raceRoom = await request(white, "POST", "/chess/rooms", {
+      timeControlId: "rapid", minOpponentLevel: 1, chatEnabled: true, voiceEnabled: false,
+    });
+    assert.equal(raceRoom.statusCode, 201, raceRoom.body);
+    const raceJoin = await request(black, "POST", `/chess/rooms/${raceRoom.json().roomCode}/join`);
+    assert.equal(raceJoin.statusCode, 201, raceJoin.body);
+    const raceGameId = raceJoin.json().gameId as string;
+    const raceNow = Date.now();
+    await pool.query(
+      "UPDATE chess_games SET clock_snapshot=jsonb_set(jsonb_set(clock_snapshot,'{whiteMs}','1'::jsonb),'{lastStartedAt}',to_jsonb($2::bigint)) WHERE id=$1",
+      [raceGameId, raceNow - 5000],
+    );
+    const [racingMove, racingScheduler] = await Promise.all([
+      request(white, "POST", `/chess/games/${raceGameId}/moves`, { from: "e2", to: "e4" }),
+      adjudicateExpiredChessClocks(pool, raceNow),
+    ]);
+    assert.ok(
+      (racingMove.statusCode === 409 && racingMove.json().error === "clock_expired") ||
+      (racingMove.statusCode === 404 && racingMove.json().error === "active_game_not_found"),
+      racingMove.body,
+    );
+    assert.ok(racingScheduler === 0 || racingScheduler === 1);
+    const raceResult = await pool.query("SELECT status FROM chess_games WHERE id=$1", [raceGameId]);
+    assert.equal(raceResult.rows[0].status, "black_win");
+    const raceXpEvents = await pool.query(
+      "SELECT COUNT(*)::int AS count FROM chess_progression_events WHERE game_id=$1 AND event_key='final_result'",
+      [raceGameId],
+    );
+    assert.equal(raceXpEvents.rows[0].count, 2);
+    const raceRatingEvents = await pool.query(
+      "SELECT COUNT(*)::int AS count FROM chess_rating_events WHERE game_id=$1",
+      [raceGameId],
+    );
+    assert.equal(raceRatingEvents.rows[0].count, 2);
+    assert.equal(await adjudicateExpiredChessClocks(pool, raceNow + 1000), 0);
+
     const cancellable = await request(white, "POST", "/chess/rooms", {
       timeControlId: "rapid", minOpponentLevel: 1, chatEnabled: true, voiceEnabled: false,
     });
