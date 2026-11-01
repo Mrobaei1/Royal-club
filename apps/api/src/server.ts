@@ -3297,11 +3297,11 @@ app.get<{ Querystring: { from?: string; to?: string; game?: string } }>(
         ['date', 'game', 'event', 'count'].join(','),
         ...rows.rows.map((row: { date: string; game: string; event: string; count: number }) =>
           [row.date, row.game, row.event, row.count].map(escape).join(',')),
-      ].join('\\r\\n');
+      ].join('\r\n');
       reply.header('Content-Type', 'text/csv; charset=utf-8');
       reply.header('Content-Disposition', `attachment; filename="royal-club-analytics-${range.from}-${range.to}.csv"`);
       reply.header('Cache-Control', 'no-store');
-      return reply.send('\\uFEFF' + csv);
+      return reply.send('\uFEFF' + csv);
     } catch (error) {
       request.log.error({ err: error }, 'Analytics CSV export failed');
       return reply.code(503).send({ error: 'Analytics export is temporarily unavailable.' });
