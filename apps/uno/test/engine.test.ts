@@ -372,7 +372,7 @@ test('opening Skip, Reverse and Draw Two apply their official first-turn effects
   assert.deepEqual(reverse, {currentPlayerIndex:3,direction:-1});
 
   const twoPlayerReverse = resolveOpeningCard(players(2), [], {id:'reverse',color:'blue',face:'reverse'});
-  assert.deepEqual(twoPlayerReverse, {currentPlayerIndex:1,direction:-1});
+  assert.deepEqual(twoPlayerReverse, {currentPlayerIndex:0,direction:-1});
 
   const drawPlayers = players(3);
   const drawPile = [
@@ -405,4 +405,39 @@ test('an opening Wild Draw Four is returned to the draw deck and replaced', () =
   const opening = drawOpeningCard(drawPile);
   assert.equal(opening.id,'replacement');
   assert.equal(drawPile.some(card => card.id === 'opening-wild4'),true);
+});
+
+
+test('Reverse acts as Skip in a two-player game and the same player takes the next turn', () => {
+  const game = startUnoGame([{id:'a',username:'a'},{id:'b',username:'b'}]);
+  game.players[0]!.hand = [{id:'reverse',color:'red',face:'reverse'},{id:'spare',color:'blue',face:2}];
+  game.discardPile = [{id:'top',color:'red',face:1}];
+  game.activeColor = 'red';
+  game.currentPlayerIndex = 0;
+  game.direction = 1;
+  const next = applyUnoAction(game,'a',{type:'play',cardId:'reverse'});
+  assert.equal(next.currentPlayerIndex,0);
+  assert.equal(next.direction,-1);
+  assert.equal(next.turnNumber,game.turnNumber+1);
+});
+
+test('opening Reverse in a two-player game skips the second player', () => {
+  const result = resolveOpeningCard(
+    [{hand:[]},{hand:[]}],
+    [],
+    {id:'opening-reverse',color:'yellow',face:'reverse'},
+  );
+  assert.deepEqual(result,{currentPlayerIndex:0,direction:-1});
+});
+
+test('opening Wild Draw Four selection terminates safely when no legal opening card exists', () => {
+  const onlyWildFours = [
+    {id:'w1',color:'wild' as const,face:'wild4' as const},
+    {id:'w2',color:'wild' as const,face:'wild4' as const},
+  ];
+  assert.throws(
+    () => drawOpeningCard(onlyWildFours),
+    (error: unknown) => error instanceof UnoError && error.code === 'INVALID_OPENING_DECK',
+  );
+  assert.equal(onlyWildFours.length,2);
 });
