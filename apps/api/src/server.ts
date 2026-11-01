@@ -394,7 +394,9 @@ await pool.query(`
   -- and is kept separate from the wallet-credit ledger.
   CREATE TABLE IF NOT EXISTS leagues (
     id BIGSERIAL PRIMARY KEY,
-    code TEXT NOT NULL UNIQUE,
+    game_code TEXT NOT NULL DEFAULT 'backgammon',
+    league_number INTEGER,
+    code TEXT NOT NULL,
     name TEXT NOT NULL,
     enabled BOOLEAN NOT NULL DEFAULT FALSE,
     entry_mode TEXT NOT NULL DEFAULT 'free'
@@ -415,6 +417,20 @@ await pool.query(`
     CHECK (ends_at IS NULL OR starts_at IS NULL OR ends_at > starts_at)
   );
   ALTER TABLE leagues ADD COLUMN IF NOT EXISTS rules JSONB NOT NULL DEFAULT '{}'::jsonb;
+  ALTER TABLE leagues ADD COLUMN IF NOT EXISTS game_code TEXT NOT NULL DEFAULT 'backgammon';
+  ALTER TABLE leagues ADD COLUMN IF NOT EXISTS league_number INTEGER;
+  WITH numbered_leagues AS (
+    SELECT id, ROW_NUMBER() OVER (PARTITION BY game_code ORDER BY id) AS league_number
+      FROM leagues
+  )
+  UPDATE leagues AS league SET league_number = numbered_leagues.league_number
+    FROM numbered_leagues
+   WHERE league.id = numbered_leagues.id
+     AND (league.league_number IS NULL OR league.league_number < 1);
+  ALTER TABLE leagues ALTER COLUMN league_number SET NOT NULL;
+  ALTER TABLE leagues DROP CONSTRAINT IF EXISTS leagues_code_key;
+  CREATE UNIQUE INDEX IF NOT EXISTS leagues_game_code_code_uidx ON leagues (game_code, code);
+  CREATE UNIQUE INDEX IF NOT EXISTS leagues_game_code_number_uidx ON leagues (game_code, league_number);
   CREATE TABLE IF NOT EXISTS league_entries (
     id BIGSERIAL PRIMARY KEY,
     league_id BIGINT NOT NULL REFERENCES leagues(id) ON DELETE CASCADE,
@@ -577,6 +593,17 @@ await pool.query(`
   );
   CREATE INDEX IF NOT EXISTS backgammon_match_presence_heartbeat_idx
     ON backgammon_match_presence (last_heartbeat_at, match_id);
+
+  CREATE TABLE IF NOT EXISTS backgammon_match_messages (
+    id BIGSERIAL PRIMARY KEY,
+    match_id BIGINT NOT NULL REFERENCES backgammon_matches(id) ON DELETE CASCADE,
+    sender_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    body TEXT NOT NULL CHECK (char_length(body) BETWEEN 1 AND 700000),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+  CREATE INDEX IF NOT EXISTS backgammon_match_messages_thread_idx
+    ON backgammon_match_messages (match_id, id DESC);
+
   CREATE TABLE IF NOT EXISTS game_disconnect_policies (
     game_type TEXT PRIMARY KEY CHECK (game_type IN ('backgammon', 'cards', 'chess')),
     enabled BOOLEAN NOT NULL DEFAULT TRUE,
@@ -1574,43 +1601,56 @@ function normalizeWeeklyLeagueRules(value: unknown, enabled: boolean): WeeklyLea
   return { ...defaultWeeklyLeagueRules, format: format as WeeklyLeagueRules['format'], minimumParticipants: minimum as number | null };
 }
 // League management and entry are server-authoritative. League entry never debits wallet credits.
-app.get('/api/v1/leagues', { onRequest: [requireMatchAuth] }, async () => {
+app.get<{ Querystring: { gameCode?: string } }>('/api/v1/leagues', { onRequest: [requireMatchAuth] }, async (request) => {
+  const gameCode = request.query.gameCode?.trim().toLowerCase() || null;
   const result = await pool.query(
-    `SELECT id, code, name, entry_mode AS "entryMode",
+    `SELECT id, game_code AS "gameCode", league_number AS "leagueNumber",
+            code, name, entry_mode AS "entryMode",
             subscription_days_cost AS "subscriptionDaysCost", starts_at AS "startsAt",
             ends_at AS "endsAt", rules
        FROM leagues
       WHERE enabled = TRUE
+        AND ($1::text IS NULL OR game_code = $1)
         AND (starts_at IS NULL OR starts_at <= NOW())
         AND (ends_at IS NULL OR ends_at > NOW())
-      ORDER BY starts_at NULLS FIRST, id ASC`,
+      ORDER BY starts_at NULLS FIRST, league_number ASC`,
+    [gameCode],
   );
   return { leagues: result.rows };
 });
 
-app.get('/api/v1/admin/leagues', { onRequest: [requireOwnerAuth] }, async () => {
+app.get<{ Querystring: { gameCode?: string } }>('/api/v1/admin/leagues', { onRequest: [requireOwnerAuth] }, async (request) => {
+  const gameCode = request.query.gameCode?.trim().toLowerCase() || null;
   const result = await pool.query(
-    `SELECT id, code, name, enabled, entry_mode AS "entryMode",
+    `SELECT id, game_code AS "gameCode", league_number AS "leagueNumber",
+            code, name, enabled, entry_mode AS "entryMode",
             subscription_days_cost AS "subscriptionDaysCost",
             starts_at AS "startsAt", ends_at AS "endsAt", rules,
             created_at AS "createdAt", updated_at AS "updatedAt"
-       FROM leagues ORDER BY id DESC`,
+       FROM leagues
+      WHERE ($1::text IS NULL OR game_code = $1)
+      ORDER BY game_code ASC, league_number ASC`,
+    [gameCode],
   );
   return { leagues: result.rows };
 });
 
 app.post<{
   Body: {
-    code?: string; name?: string; enabled?: boolean; entryMode?: string;
+    gameCode?: string; code?: string; name?: string; enabled?: boolean; entryMode?: string;
     subscriptionDaysCost?: number; startsAt?: string | null; endsAt?: string | null; rules?: unknown;
   };
 }>('/api/v1/admin/leagues', { onRequest: [requireOwnerAuth] }, async (request, reply) => {
   const body = request.body ?? {};
-  const code = body.code?.trim();
-  const name = body.name?.trim();
+  const invalidGameCodeType = body.gameCode !== undefined && typeof body.gameCode !== 'string';
+  const gameCode = typeof body.gameCode === 'string' ? body.gameCode.trim().toLowerCase() : 'backgammon';
+  const requestedCode = typeof body.code === 'string' ? body.code.trim().toLowerCase() : undefined;
+  const invalidCodeType = body.code !== undefined && typeof body.code !== 'string';
+  const name = typeof body.name === 'string' ? body.name.trim() : '';
   const entryMode = body.entryMode ?? 'free';
   const days = body.subscriptionDaysCost ?? 0;
-  if (!code || !/^[a-z0-9][a-z0-9_-]{1,39}$/.test(code) ||
+  if (invalidGameCodeType || !/^[a-z0-9][a-z0-9_-]{1,39}$/.test(gameCode) || invalidCodeType ||
+      (requestedCode !== undefined && !/^[a-z0-9][a-z0-9_-]{1,39}$/.test(requestedCode)) ||
       !name || name.length > 120 ||
       typeof (body.enabled ?? false) !== 'boolean' ||
       !['free', 'subscription_days'].includes(entryMode) ||
@@ -1624,8 +1664,8 @@ app.post<{
   const rules = normalizeWeeklyLeagueRules(body.rules, body.enabled ?? false);
   if (!rules) return reply.code(400).send({ error: 'Invalid weekly league rules; set a valid minimum before enabling.' });
   if (
-      (startsAt !== null && !Number.isFinite(Date.parse(startsAt))) ||
-      (endsAt !== null && !Number.isFinite(Date.parse(endsAt))) ||
+      (startsAt !== null && (typeof startsAt !== 'string' || !Number.isFinite(Date.parse(startsAt)))) ||
+      (endsAt !== null && (typeof endsAt !== 'string' || !Number.isFinite(Date.parse(endsAt)))) ||
       (startsAt !== null && endsAt !== null && Date.parse(endsAt) <= Date.parse(startsAt))
   ) {
     return reply.code(400).send({ error: 'Invalid league schedule.' });
@@ -1634,19 +1674,28 @@ app.post<{
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
+    // Serialize number allocation per game; independent games can allocate in parallel.
+    await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', ['league-number:' + gameCode]);
+    const numberResult = await client.query(
+      'SELECT COALESCE(MAX(league_number), 0) + 1 AS next_number FROM leagues WHERE game_code = $1',
+      [gameCode],
+    );
+    const leagueNumber = Number(numberResult.rows[0]?.next_number ?? 1);
+    const code = requestedCode ?? (gameCode + '-' + String(leagueNumber).padStart(4, '0'));
     const created = await client.query(
       `INSERT INTO leagues
-         (code, name, enabled, entry_mode, subscription_days_cost, starts_at, ends_at, rules, created_by, updated_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, $9)
-       RETURNING id, code, name, enabled, entry_mode AS "entryMode",
+         (game_code, league_number, code, name, enabled, entry_mode, subscription_days_cost, starts_at, ends_at, rules, created_by, updated_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, $11, $11)
+       RETURNING id, game_code AS "gameCode", league_number AS "leagueNumber",
+                 code, name, enabled, entry_mode AS "entryMode",
                  subscription_days_cost AS "subscriptionDaysCost",
                  starts_at AS "startsAt", ends_at AS "endsAt", rules`,
-      [code, name, body.enabled ?? false, entryMode, days, startsAt, endsAt, JSON.stringify(rules), claims.sub],
+      [gameCode, leagueNumber, code, name, body.enabled ?? false, entryMode, days, startsAt, endsAt, JSON.stringify(rules), claims.sub],
     );
     await client.query(
       `INSERT INTO league_admin_audit_log (actor_user_id, league_id, action, details)
        VALUES ($1, $2, 'league_created', $3::jsonb)`,
-      [claims.sub, created.rows[0].id, JSON.stringify({ code, enabled: body.enabled ?? false, entryMode, subscriptionDaysCost: days, rules })],
+      [claims.sub, created.rows[0].id, JSON.stringify({ gameCode, leagueNumber, code, enabled: body.enabled ?? false, entryMode, subscriptionDaysCost: days, startsAt, endsAt, rules })],
     );
     await client.query('COMMIT');
     return reply.code(201).send({ league: created.rows[0] });
@@ -1709,7 +1758,8 @@ app.patch<{
           name = $1, enabled = $2, entry_mode = $3, subscription_days_cost = $4,
           starts_at = $5, ends_at = $6, rules = $7::jsonb, updated_by = $8, updated_at = NOW()
         WHERE id = $9
-        RETURNING id, code, name, enabled, entry_mode AS "entryMode",
+        RETURNING id, game_code AS "gameCode", league_number AS "leagueNumber",
+                  code, name, enabled, entry_mode AS "entryMode",
                   subscription_days_cost AS "subscriptionDaysCost",
                   starts_at AS "startsAt", ends_at AS "endsAt", rules`,
       [has('name') ? body.name!.trim() : current.name,
@@ -2500,31 +2550,40 @@ app.get<{ Params: { userId: string } }>('/api/v1/admin/users/:userId/profile', {
   return { user: result.rows[0] };
 });
 
-app.post<{ Body: { userId?: string; amount?: number; description?: string } }>('/api/v1/admin/wallet/credit', { onRequest: [requireOwnerAuth] }, async (request, reply) => {
-  const { userId, amount, description } = request.body ?? {};
-  if (!isNumericId(userId) || !Number.isSafeInteger(amount) || Number(amount) <= 0 || Number(amount) > 1000000000 ||
+app.post<{ Body: { userId?: string; username?: string; amount?: number; description?: string } }>('/api/v1/admin/wallet/credit', { onRequest: [requireOwnerAuth] }, async (request, reply) => {
+  const { userId, username, amount, description } = request.body ?? {};
+  const cleanUsername = typeof username === 'string' ? username.trim().replace(/^@/, '') : '';
+  if ((!isNumericId(userId) && !/^[a-zA-Z0-9_.]{3,24}$/.test(cleanUsername)) ||
+      !Number.isSafeInteger(amount) || Number(amount) <= 0 || Number(amount) > 1000000000 ||
       (description !== undefined && (typeof description !== 'string' || description.length > 200))) {
-    return reply.code(400).send({ error: 'Provide a valid userId, positive credit amount, and short description.' });
+    return reply.code(400).send({ error: 'Provide a valid username or userId, positive credit amount, and short description.' });
   }
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    const user = await client.query('SELECT id FROM users WHERE id = $1', [userId]);
+    const user = await client.query(
+      `SELECT id, username FROM users
+        WHERE ($1::bigint IS NOT NULL AND id = $1::bigint)
+           OR ($2::text <> '' AND LOWER(username) = LOWER($2))
+        ORDER BY id LIMIT 1 FOR UPDATE`,
+      [isNumericId(userId) ? userId : null, cleanUsername],
+    );
     if (!user.rowCount) {
       await client.query('ROLLBACK');
       return reply.code(404).send({ error: 'User not found.' });
     }
-    await client.query('INSERT INTO wallet_accounts (user_id) VALUES ($1) ON CONFLICT (user_id) DO NOTHING', [userId]);
+    const targetUserId = String(user.rows[0].id);
+    await client.query('INSERT INTO wallet_accounts (user_id) VALUES ($1) ON CONFLICT (user_id) DO NOTHING', [targetUserId]);
     const credited = await client.query(
       'UPDATE wallet_accounts SET balance = balance + $1, updated_at = NOW() WHERE user_id = $2 RETURNING balance',
-      [amount, userId],
+      [amount, targetUserId],
     );
     await client.query(
       'INSERT INTO wallet_transactions (user_id, amount, balance_after, type, description) VALUES ($1, $2, $3, $4, $5)',
-      [userId, amount, credited.rows[0].balance, 'admin_credit', description?.trim() || 'اعتباردهی مدیر'],
+      [targetUserId, amount, credited.rows[0].balance, 'admin_credit', description?.trim() || 'اعتباردهی مدیر'],
     );
     await client.query('COMMIT');
-    return { userId, credited: amount, balance: Number(credited.rows[0].balance) };
+    return { userId: targetUserId, username: user.rows[0].username, credited: amount, balance: Number(credited.rows[0].balance) };
   } catch (error) {
     await client.query('ROLLBACK').catch(() => undefined);
     request.log.error({ err: error }, 'Could not credit wallet');
@@ -2532,6 +2591,58 @@ app.post<{ Body: { userId?: string; amount?: number; description?: string } }>('
   } finally {
     client.release();
   }
+});
+
+app.get<{ Querystring: {
+  username?: string; country?: string; subscriptionStatus?: string; hasPhone?: string;
+  minBalance?: string; maxBalance?: string; registeredFrom?: string; registeredTo?: string; limit?: string;
+} }>('/api/v1/admin/users/search', { onRequest: [requireOwnerAuth] }, async (request, reply) => {
+  const q = request.query;
+  const username = q.username?.trim().replace(/^@/, '') ?? '';
+  const country = q.country?.trim() ?? '';
+  const subscriptionStatus = q.subscriptionStatus ?? 'any';
+  const hasPhone = q.hasPhone ?? 'any';
+  const minBalance = q.minBalance === undefined ? null : Number(q.minBalance);
+  const maxBalance = q.maxBalance === undefined ? null : Number(q.maxBalance);
+  const registeredFrom = q.registeredFrom ?? null;
+  const registeredTo = q.registeredTo ?? null;
+  const limit = q.limit === undefined ? 100 : Number(q.limit);
+  if (username.length > 24 || country.length > 80 ||
+      !['any', 'active', 'inactive'].includes(subscriptionStatus) ||
+      !['any', 'yes', 'no'].includes(hasPhone) ||
+      (minBalance !== null && (!Number.isSafeInteger(minBalance) || minBalance < 0)) ||
+      (maxBalance !== null && (!Number.isSafeInteger(maxBalance) || maxBalance < 0)) ||
+      (minBalance !== null && maxBalance !== null && minBalance > maxBalance) ||
+      (registeredFrom !== null && !Number.isFinite(Date.parse(registeredFrom))) ||
+      (registeredTo !== null && !Number.isFinite(Date.parse(registeredTo))) ||
+      !Number.isInteger(limit) || limit < 1 || limit > 200) {
+    return reply.code(400).send({ error: 'Invalid user search filters.' });
+  }
+  const result = await pool.query(
+    `SELECT u.id::text AS id, u.username, u.country,
+            u.created_at AS "createdAt",
+            (u.phone <> '') AS "hasPhone",
+            COALESCE(w.balance, 0)::text AS "walletBalance",
+            EXISTS (SELECT 1 FROM user_subscriptions s
+                     WHERE s.user_id = u.id AND s.status = 'active' AND s.ends_at > NOW()) AS "hasActiveSubscription",
+            (SELECT MAX(s.ends_at) FROM user_subscriptions s
+              WHERE s.user_id = u.id AND s.status = 'active' AND s.ends_at > NOW()) AS "subscriptionEndsAt"
+       FROM users u
+       LEFT JOIN wallet_accounts w ON w.user_id = u.id
+      WHERE ($1::text = '' OR u.username ILIKE '%' || $1 || '%')
+        AND ($2::text = '' OR LOWER(u.country) = LOWER($2))
+        AND ($3::text = 'any'
+             OR ($3::text = 'active' AND EXISTS (SELECT 1 FROM user_subscriptions s WHERE s.user_id = u.id AND s.status = 'active' AND s.ends_at > NOW()))
+             OR ($3::text = 'inactive' AND NOT EXISTS (SELECT 1 FROM user_subscriptions s WHERE s.user_id = u.id AND s.status = 'active' AND s.ends_at > NOW())))
+        AND ($4::text = 'any' OR ($4::text = 'yes' AND u.phone <> '') OR ($4::text = 'no' AND u.phone = ''))
+        AND ($5::bigint IS NULL OR COALESCE(w.balance, 0) >= $5)
+        AND ($6::bigint IS NULL OR COALESCE(w.balance, 0) <= $6)
+        AND ($7::timestamptz IS NULL OR u.created_at >= $7)
+        AND ($8::timestamptz IS NULL OR u.created_at < $8 + INTERVAL '1 day')
+      ORDER BY u.created_at DESC, u.id DESC LIMIT $9`,
+    [username, country, subscriptionStatus, hasPhone, minBalance, maxBalance, registeredFrom, registeredTo, limit],
+  );
+  return { users: result.rows, count: result.rowCount ?? 0 };
 });
 
 app.post<{ Params: { userId: string }; Body: { reason?: string } }>('/api/v1/users/:userId/report', { onRequest: [requireMatchAuth], config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request, reply) => {
@@ -3111,26 +3222,67 @@ app.patch<{ Params: { id: string }; Body: { status?: string } }>('/api/v1/admin/
   return { report: result.rows[0] };
 });
 
-app.post<{ Body: { userId?: string; title?: string; body?: string } }>('/api/v1/admin/notifications', { onRequest: [requireOwnerAuth] }, async (request, reply) => {
+app.post<{ Body: {
+  userId?: string; userIds?: string[]; username?: string; country?: string;
+  subscriptionStatus?: string; hasPhone?: string; minBalance?: number; maxBalance?: number;
+  registeredFrom?: string; registeredTo?: string;
+  title?: string; body?: string; showOnLogin?: boolean;
+} }>('/api/v1/admin/notifications', { onRequest: [requireOwnerAuth] }, async (request, reply) => {
   const claims = request.user as { sub: string };
-  const { userId, title, body } = request.body ?? {};
-  const cleanTitle = typeof title === 'string' ? title.trim() : '';
-  const cleanBody = typeof body === 'string' ? body.trim() : '';
+  const input = request.body ?? {};
+  const cleanTitle = typeof input.title === 'string' ? input.title.trim() : '';
+  const cleanBody = typeof input.body === 'string' ? input.body.trim() : '';
+  const username = typeof input.username === 'string' ? input.username.trim().replace(/^@/, '') : '';
+  const country = typeof input.country === 'string' ? input.country.trim() : '';
+  const subscriptionStatus = input.subscriptionStatus ?? 'any';
+  const hasPhone = input.hasPhone ?? 'any';
+  const minBalance = input.minBalance ?? null;
+  const maxBalance = input.maxBalance ?? null;
+  const registeredFrom = input.registeredFrom ?? null;
+  const registeredTo = input.registeredTo ?? null;
   if (cleanTitle.length < 1 || cleanTitle.length > 120 || cleanBody.length > 1000 ||
-      (userId !== undefined && !isNumericId(userId))) {
-    return reply.code(400).send({ error: 'Provide a title (1-120 characters), body up to 1000 characters, and optional valid user ID.' });
+      (input.userId !== undefined && !isNumericId(input.userId)) ||
+      (input.userIds !== undefined && (!Array.isArray(input.userIds) || input.userIds.length > 5000 || input.userIds.some((id) => !isNumericId(id)))) ||
+      (username && username.length > 24) || country.length > 80 ||
+      !['any', 'active', 'inactive'].includes(subscriptionStatus) ||
+      !['any', 'yes', 'no'].includes(hasPhone) ||
+      (minBalance !== null && (!Number.isSafeInteger(minBalance) || minBalance < 0)) ||
+      (maxBalance !== null && (!Number.isSafeInteger(maxBalance) || maxBalance < 0)) ||
+      (minBalance !== null && maxBalance !== null && minBalance > maxBalance) ||
+      (registeredFrom !== null && (typeof registeredFrom !== 'string' || !Number.isFinite(Date.parse(registeredFrom)))) ||
+      (registeredTo !== null && (typeof registeredTo !== 'string' || !Number.isFinite(Date.parse(registeredTo)))) ||
+      (input.showOnLogin !== undefined && typeof input.showOnLogin !== 'boolean')) {
+    return reply.code(400).send({ error: 'Invalid notification content or audience filters.' });
   }
-  if (userId !== undefined) {
-    const recipient = await pool.query('SELECT id FROM users WHERE id = $1', [userId]);
-    if (!recipient.rowCount) return reply.code(404).send({ error: 'Notification recipient not found.' });
+  const selectedIds = input.userIds ?? null;
+  if (input.userId !== undefined && selectedIds !== null) {
+    return reply.code(400).send({ error: 'Use either one user or a selected user list, not both.' });
   }
   const result = await pool.query(
-    `INSERT INTO notifications (user_id, actor_user_id, type, title, body)
-     SELECT id, $1, 'system', $2, $3 FROM users
-      WHERE ($4::bigint IS NULL OR id = $4::bigint)`,
-    [claims.sub, cleanTitle, cleanBody, userId ?? null],
+    `INSERT INTO notifications (user_id, actor_user_id, type, title, body, data)
+     SELECT u.id, $1, 'system', $2, $3,
+            jsonb_build_object('showOnLogin', $10::boolean, 'adminBroadcast', true)
+       FROM users u
+      WHERE ($4::bigint IS NULL OR u.id = $4::bigint)
+        AND ($5::bigint[] IS NULL OR u.id = ANY($5::bigint[]))
+        AND ($6::text = '' OR LOWER(u.username) = LOWER($6))
+        AND ($7::text = '' OR LOWER(u.country) = LOWER($7))
+        AND ($8::text = 'any'
+             OR ($8::text = 'active' AND EXISTS (SELECT 1 FROM user_subscriptions s WHERE s.user_id = u.id AND s.status = 'active' AND s.ends_at > NOW()))
+             OR ($8::text = 'inactive' AND NOT EXISTS (SELECT 1 FROM user_subscriptions s WHERE s.user_id = u.id AND s.status = 'active' AND s.ends_at > NOW())))
+        AND ($9::text = 'any' OR ($9::text = 'yes' AND u.phone <> '') OR ($9::text = 'no' AND u.phone = ''))
+        AND ($13::bigint IS NULL OR COALESCE((SELECT w.balance FROM wallet_accounts w WHERE w.user_id = u.id), 0) >= $13)
+        AND ($14::bigint IS NULL OR COALESCE((SELECT w.balance FROM wallet_accounts w WHERE w.user_id = u.id), 0) <= $14)
+        AND ($11::timestamptz IS NULL OR u.created_at >= $11)
+        AND ($12::timestamptz IS NULL OR u.created_at < $12 + INTERVAL '1 day')`,
+    [claims.sub, cleanTitle, cleanBody, input.userId ?? null, selectedIds, username, country,
+      subscriptionStatus, hasPhone, input.showOnLogin ?? false, registeredFrom, registeredTo, minBalance, maxBalance],
   );
-  return { sent: result.rowCount ?? 0, scope: userId ? 'user' : 'all' };
+  return {
+    sent: result.rowCount ?? 0,
+    scope: input.userId ? 'user' : selectedIds ? 'selected' : (username || country || subscriptionStatus !== 'any' || hasPhone !== 'any' || registeredFrom || registeredTo) ? 'filtered' : 'all',
+    showOnLogin: input.showOnLogin ?? false,
+  };
 });
 
 app.get('/api/v1/admin/account-customization-pricing', { onRequest: [requireOwnerAuth] }, async () => {
@@ -3317,14 +3469,15 @@ app.delete<{ Params: { userId: string }; Body: { messageIds?: string[]; scope?: 
   return { deleted: result.rowCount ?? 0, scope };
 });
 
-app.get('/api/v1/notifications', { onRequest: [requireMatchAuth] }, async (request) => {
+app.get<{ Querystring: { loginOnly?: string } }>('/api/v1/notifications', { onRequest: [requireMatchAuth] }, async (request) => {
   const claims = request.user as { sub: string };
+  const loginOnly = request.query.loginOnly === 'true';
   // Invite notifications are intentionally ephemeral: clear expired cards even
   // when the user visits Notifications rather than the game lobby.
   await pool.query(
     `DELETE FROM notifications
       WHERE user_id = $1 AND data ? 'inviteId'
-        AND created_at <= NOW() - INTERVAL '60 seconds'`,
+        AND created_at <= NOW() - INTERVAL '30 seconds'`,
     [claims.sub],
   );
   const result = await pool.query(
@@ -3332,9 +3485,10 @@ app.get('/api/v1/notifications', { onRequest: [requireMatchAuth] }, async (reque
             read_at AS "readAt", actor_user_id AS "actorUserId"
        FROM notifications
       WHERE user_id = $1
+        AND (NOT $2::boolean OR (data->>'showOnLogin' = 'true' AND read_at IS NULL))
       ORDER BY created_at DESC
       LIMIT 100`,
-    [claims.sub],
+    [claims.sub, loginOnly],
   );
   return { notifications: result.rows };
 });
@@ -3836,27 +3990,13 @@ app.get<{ Params: { id: string } }>('/api/v1/matches/:id', { onRequest: [require
 
 app.get('/api/v1/match-invites', { onRequest: [requireMatchAuth] }, async (request) => {
   const claims = request.user as { sub: string };
-  // Also clean up expired rooms when the notifications screen is polling.
-  await cleanupExpiredEmptyRooms();
-  // Invitation cards expire after 60 seconds. Mark them responded without
-  // deleting the waiting room, so the host can invite the same friend again.
-  await pool.query(
-    `UPDATE backgammon_match_invites SET status = 'rejected', responded_at = NOW()
-      WHERE invitee_id = $1 AND status = 'pending'
-        AND created_at <= NOW() - INTERVAL '60 seconds'`,
-    [claims.sub]);
-  await pool.query(
-    `DELETE FROM notifications
-      WHERE user_id = $1 AND data ? 'inviteId'
-        AND data->>'inviteId' IN (
-          SELECT id::text FROM backgammon_match_invites
-           WHERE invitee_id = $1 AND status = 'rejected'
-             AND responded_at >= NOW() - INTERVAL '1 minute'
-        )`,
-    [claims.sub]);
+  // This endpoint is polled frequently by the mobile app. Keep it read-only:
+  // room cleanup runs on /matches/open (and the scheduled/server timer paths),
+  // while expired invitations are filtered by created_at and lazily marked
+  // rejected when the host sends a replacement or the invite is answered.
   const result = await pool.query(
     `SELECT i.id, i.match_id AS "matchId", i.status, i.created_at AS "createdAt",
-            (i.created_at + INTERVAL '60 seconds') AS "expiresAt",
+            (i.created_at + INTERVAL '30 seconds') AS "expiresAt",
             m.room_code AS "roomCode", m.status AS "matchStatus",
             inviter.username AS "inviterUsername",
             inviter.avatar_data_url AS "inviterAvatarDataUrl"
@@ -3865,7 +4005,7 @@ app.get('/api/v1/match-invites', { onRequest: [requireMatchAuth] }, async (reque
        JOIN users inviter ON inviter.id = i.inviter_id
       WHERE i.invitee_id = $1 AND i.status = 'pending' AND m.status = 'waiting'
         AND m.guest_user_id IS NULL AND m.expires_at > NOW()
-        AND i.created_at > NOW() - INTERVAL '60 seconds'
+        AND i.created_at > NOW() - INTERVAL '30 seconds'
       ORDER BY i.created_at DESC LIMIT 50`,
     [claims.sub]);
   return { invites: result.rows };
@@ -3898,13 +4038,13 @@ app.post<{ Params: { id: string }; Body: { inviteeId?: string } }>(
         return reply.code(403).send({ error: 'You can invite accepted friends only.' });
       }
       // Expire this friend's old invitation before inserting a replacement.
-      // This lets the host re-invite after the 60-second invitation expiry even if
+      // This lets the host re-invite after the 30-second invitation expiry even if
       // the invitee has not reopened the lobby to trigger its cleanup endpoint.
       await client.query(
         `UPDATE backgammon_match_invites
             SET status = 'rejected', responded_at = NOW()
           WHERE match_id = $1 AND invitee_id = $2 AND status = 'pending'
-            AND created_at <= NOW() - INTERVAL '60 seconds'`,
+            AND created_at <= NOW() - INTERVAL '30 seconds'`,
         [request.params.id, inviteeId]);
       await client.query(
         `DELETE FROM notifications
@@ -3916,7 +4056,7 @@ app.post<{ Params: { id: string }; Body: { inviteeId?: string } }>(
         [inviteeId, request.params.id]);
 
       // Keep the waiting room available for 60 seconds, while each invitation
-      // card remains valid for 60 seconds.
+      // card remains valid for 30 seconds.
       await client.query(
         `UPDATE backgammon_matches SET expires_at = NOW() + INTERVAL '60 seconds', updated_at = NOW()
           WHERE id = $1`,
@@ -3974,7 +4114,7 @@ app.post<{ Params: { id: string }; Body: { accept: boolean } }>(
         return reply.code(410).send({ error: 'This room has expired.' });
       }
       const freshInvite = await client.query(
-        `SELECT created_at > NOW() - INTERVAL '60 seconds' AS fresh
+        `SELECT created_at > NOW() - INTERVAL '30 seconds' AS fresh
            FROM backgammon_match_invites WHERE id = $1`,
         [request.params.id]);
       if (!freshInvite.rows[0]?.fresh) {
@@ -4714,6 +4854,56 @@ app.post<{ Params: { id: string } }>('/api/v1/matches/:id/heartbeat', { onReques
     return reply.code(500).send({ error: 'Could not update match heartbeat.' });
   } finally { client.release(); }
 });
+
+
+ // Match chat is separate from private friend conversations and participant-only.
+ app.get<{ Params: { id: string }; Querystring: { afterId?: string } }>(
+   '/api/v1/matches/:id/chat', { onRequest: [requireMatchAuth] }, async (request, reply) => {
+     const claims = request.user as { sub: string };
+     const matchId = request.params.id;
+     const afterId = request.query.afterId ?? '0';
+     if (!isNumericId(matchId) || !/^\d+$/.test(afterId) || !Number.isSafeInteger(Number(afterId))) {
+       return reply.code(400).send({ error: 'Invalid match chat cursor.' });
+     }
+     const access = await pool.query(
+       "SELECT 1 FROM backgammon_matches WHERE id = $1 AND status IN ('active', 'finished') AND guest_user_id IS NOT NULL AND (host_user_id = $2 OR guest_user_id = $2)",
+       [matchId, claims.sub],
+     );
+     if (!access.rowCount) return reply.code(404).send({ error: 'Match chat is not available.' });
+     const messages = Number(afterId) > 0
+       ? await pool.query(
+           'SELECT m.id::text AS id, m.match_id::text AS "matchId", m.sender_id::text AS "senderId", u.username AS "senderUsername", m.body, m.created_at AS "createdAt" FROM backgammon_match_messages m JOIN users u ON u.id = m.sender_id WHERE m.match_id = $1 AND m.id > $2 ORDER BY m.id ASC LIMIT 100',
+           [matchId, afterId],
+         )
+       : await pool.query(
+           'SELECT id::text AS id, match_id::text AS "matchId", sender_id::text AS "senderId", sender_username AS "senderUsername", body, created_at AS "createdAt" FROM (SELECT m.id, m.match_id, m.sender_id, u.username AS sender_username, m.body, m.created_at FROM backgammon_match_messages m JOIN users u ON u.id = m.sender_id WHERE m.match_id = $1 ORDER BY m.id DESC LIMIT 100) latest ORDER BY id::bigint ASC',
+           [matchId],
+         );
+     return { messages: messages.rows };
+   },
+ );
+ app.post<{ Params: { id: string }; Body: { body?: string } }>(
+   '/api/v1/matches/:id/chat',
+   { onRequest: [requireMatchAuth], config: { rateLimit: { max: 30, timeWindow: '1 minute' } } },
+   async (request, reply) => {
+     const claims = request.user as { sub: string };
+     const matchId = request.params.id;
+     const body = typeof request.body?.body === 'string' ? request.body.body.trim() : '';
+     const imageCandidate = body.startsWith('data:image/');
+     const isImage = imageCandidate && isValidImageDataUrl(body, 500 * 1024);
+     if (!isNumericId(matchId) || !body || (imageCandidate ? !isImage : body.length > 2000)) {
+       return reply.code(400).send({ error: 'Message must be text up to 2000 characters or a valid supported image up to 500 KiB.' });
+     }
+     const inserted = await pool.query(
+       'INSERT INTO backgammon_match_messages (match_id, sender_id, body) SELECT m.id, $2, $3 FROM backgammon_matches m WHERE m.id = $1 AND m.status = \'active\' AND m.guest_user_id IS NOT NULL AND (m.host_user_id = $2 OR m.guest_user_id = $2) RETURNING id::text AS id, match_id::text AS "matchId", sender_id::text AS "senderId", body, created_at AS "createdAt"',
+       [matchId, claims.sub, body],
+     );
+     if (!inserted.rowCount) return reply.code(404).send({ error: 'Match chat is not available to this account.' });
+     const sender = await pool.query('SELECT username FROM users WHERE id = $1', [claims.sub]);
+     return reply.code(201).send({ message: { ...inserted.rows[0], senderUsername: sender.rows[0]?.username ?? 'player' } });
+   },
+ );
+
 
 app.get<{ Params: { id: string } }>('/api/v1/matches/:id/state', { onRequest: [requireMatchAuth] }, async (request, reply) => {
   const claims = request.user as { sub: string };

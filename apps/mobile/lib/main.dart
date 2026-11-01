@@ -17,7 +17,10 @@ import 'admin_screen.dart';
 import 'contact_screen.dart';
 import 'chat_screen.dart';
 import 'services/chat_service.dart';
+import 'services/notifications_service.dart';
 import 'services/friends_service.dart';
+import 'incoming_match_invites.dart';
+import 'match_activity_state.dart';
 
 class RoyalLocaleState extends ChangeNotifier {
   RoyalLocaleState() { _load(); }
@@ -58,6 +61,10 @@ class RoyalClubApp extends StatelessWidget {
           return AnimatedBuilder(
             animation: royalLocaleState,
             builder: (context, _) => MaterialApp(
+            navigatorKey: IncomingMatchInvites.navigatorKey,
+            builder: (context, child) => IncomingMatchInvites(
+              child: child ?? const SizedBox.shrink(),
+            ),
             debugShowCheckedModeBanner: false,
             title: 'Royal Club',
             locale: royalLocaleState.locale,
@@ -120,15 +127,18 @@ class _AuthGateState extends State<AuthGate> {
       _authenticated = valid;
       _checking = false;
     });
+    MatchActivityState.setAuthenticated(valid);
   }
 
   void _onAuthenticated() {
     if (!mounted) return;
+    MatchActivityState.setAuthenticated(true);
     setState(() => _authenticated = true);
   }
 
   void _onLogout() {
     AuthService.logout().then((_) {
+      MatchActivityState.setAuthenticated(false);
       if (mounted) setState(() => _authenticated = false);
     });
   }
@@ -182,6 +192,7 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     _refreshMenuBadges();
     _refreshAdminVisibility();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _showLoginAnnouncements());
     _badgeTimer = Timer.periodic(
       const Duration(seconds: 20),
       (_) => _refreshMenuBadges(),
@@ -192,6 +203,35 @@ class _HomeScreenState extends State<HomeScreen> {
   void dispose() {
     _badgeTimer?.cancel();
     super.dispose();
+  }
+
+  Future<void> _showLoginAnnouncements() async {
+    try {
+      final announcements = await NotificationsService.loginAnnouncements();
+      for (final item in announcements) {
+        if (!mounted) return;
+        final title = item['title']?.toString().trim() ?? '';
+        final body = item['body']?.toString().trim() ?? '';
+        await showDialog<void>(
+          context: context,
+          barrierDismissible: false,
+          builder: (dialogContext) => AlertDialog(
+            title: Text(title.isEmpty ? appText(context, 'اطلاعیه', 'Announcement') : title),
+            content: SingleChildScrollView(child: SelectableText(body)),
+            actions: [
+              FilledButton(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: Text(appText(context, 'متوجه شدم', 'Got it')),
+              ),
+            ],
+          ),
+        );
+        if (!mounted) return;
+        await NotificationsService.markRead(item['id'].toString());
+      }
+    } catch (_) {
+      // Login announcements must never block access to the app when offline.
+    }
   }
 
   Future<void> _refreshAdminVisibility() async {

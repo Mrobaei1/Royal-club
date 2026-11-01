@@ -55,6 +55,18 @@ class NotificationsService {
         .toList();
   }
 
+  static Future<List<Map<String, dynamic>>> loginAnnouncements() async {
+    final response = await http.get(
+      Uri.parse('$_baseUrl/api/v1/notifications?loginOnly=true'),
+      headers: await _headers(),
+    );
+    final result = await _decode(response);
+    return (result['notifications'] as List? ?? const [])
+        .whereType<Map>()
+        .map((item) => Map<String, dynamic>.from(item))
+        .toList();
+  }
+
   static Future<bool> markRead(String id) async {
     final result = await _send('/api/v1/notifications/$id/read');
     return result['cleared'] == true;

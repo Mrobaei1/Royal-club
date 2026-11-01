@@ -214,6 +214,24 @@ test('registered players can join an online match and history does not expose op
   assert.ok((hostNotifications.json().notifications as Array<Record<string, unknown>>).length > 0);
   assert.ok((guestNotifications.json().notifications as Array<Record<string, unknown>>).length > 0);
 
+  await testPool.query(
+    `INSERT INTO notifications (user_id, actor_user_id, type, title, body, data)
+      VALUES
+        ($1, $2, 'system', 'Login announcement', 'Shown on entry', '{"showOnLogin":true}'::jsonb),
+        ($1, $2, 'system', 'Inbox only', 'Not shown on entry', '{"showOnLogin":false}'::jsonb)`,
+    [host.user.id, guest.user.id],
+  );
+  const loginAnnouncements = await app.inject({
+    method: 'GET',
+    url: '/api/v1/notifications?loginOnly=true',
+    headers: auth(host.token),
+  });
+  assert.equal(loginAnnouncements.statusCode, 200, loginAnnouncements.body);
+  const loginNotices = loginAnnouncements.json().notifications as Array<Record<string, unknown>>;
+  assert.ok(loginNotices.some((notice) => notice.title === 'Login announcement'));
+  assert.equal(loginNotices.some((notice) => notice.title === 'Inbox only'), false);
+  assert.ok(loginNotices.every((notice) => notice.readAt == null));
+
   const clearHostNotifications = await app.inject({
     method: 'DELETE',
     url: '/api/v1/notifications',
@@ -454,6 +472,46 @@ test('registered players can join an online match and history does not expose op
   });
   assert.equal(guestAcceptAndReady.statusCode, 200, guestAcceptAndReady.body);
   assert.equal(guestAcceptAndReady.json().setup.status, 'active');
+
+  const matchChatSend = await app.inject({
+    method: 'POST',
+    url: `/api/v1/matches/${matchId}/chat`,
+    headers: auth(host.token),
+    payload: { body: 'Hello from the match room' },
+  });
+  assert.equal(matchChatSend.statusCode, 201, matchChatSend.body);
+  assert.equal(matchChatSend.json().message.senderUsername, host.user.username);
+  assert.equal(Object.hasOwn(matchChatSend.json().message, 'fullName'), false);
+  const matchChatRead = await app.inject({
+    method: 'GET',
+    url: `/api/v1/matches/${matchId}/chat`,
+    headers: auth(guest.token),
+  });
+  assert.equal(matchChatRead.statusCode, 200, matchChatRead.body);
+  assert.equal(matchChatRead.json().messages.length, 1);
+  assert.equal(matchChatRead.json().messages[0].body, 'Hello from the match room');
+  const incrementalMatchChatRead = await app.inject({
+    method: 'GET',
+    url: `/api/v1/matches/${matchId}/chat?afterId=${matchChatSend.json().message.id}`,
+    headers: auth(guest.token),
+  });
+  assert.equal(incrementalMatchChatRead.statusCode, 200, incrementalMatchChatRead.body);
+  assert.equal(incrementalMatchChatRead.json().messages.length, 0,
+    'Incremental chat polling must not resend messages at or before the cursor.');
+  const outsiderMatchChatRead = await app.inject({
+    method: 'GET',
+    url: `/api/v1/matches/${matchId}/chat`,
+    headers: auth(stranger.token),
+  });
+  assert.equal(outsiderMatchChatRead.statusCode, 404);
+  const outsiderMatchChatSend = await app.inject({
+    method: 'POST',
+    url: `/api/v1/matches/${matchId}/chat`,
+    headers: auth(stranger.token),
+    payload: { body: 'This must be denied' },
+  });
+  assert.equal(outsiderMatchChatSend.statusCode, 404);
+
   // Live spectator access is opt-in by the host and limited to accepted friends.
   const enableSpectators = await app.inject({
     method: 'POST',
@@ -873,6 +931,11 @@ test('registered players can join an online match and history does not expose op
   const incomingInvite = (invitesInbox.json().invites as Array<Record<string, unknown>>)
     .find((invite) => String(invite.matchId) === invitedRoomId);
   assert.ok(incomingInvite);
+  const inviteCreatedAt = Date.parse(String(incomingInvite.createdAt));
+  const inviteExpiresAt = Date.parse(String(incomingInvite.expiresAt));
+  assert.ok(Number.isFinite(inviteCreatedAt) && Number.isFinite(inviteExpiresAt));
+  assert.ok(inviteExpiresAt - inviteCreatedAt <= 30_000 && inviteExpiresAt - inviteCreatedAt >= 29_000,
+    'A pending game invitation should expire after 30 seconds.');
   const inviteNotifications = await app.inject({
     method: 'GET',
     url: '/api/v1/notifications',
@@ -948,6 +1011,46 @@ test('registered players can join an online match and history does not expose op
   );
   assert.equal(expiredRoomInviteStatus.rows[0].status, 'rejected');
 
+  // Invitation acceptance must be rejected after 30 seconds even if the room remains open.
+  const staleInviteRoom = await app.inject({
+    method: 'POST',
+    url: '/api/v1/matches',
+    headers: auth(host.token),
+  });
+  assert.equal(staleInviteRoom.statusCode, 201, staleInviteRoom.body);
+  const staleInviteRoomId = String(staleInviteRoom.json().match.id);
+  const staleInviteSent = await app.inject({
+    method: 'POST',
+    url: `/api/v1/matches/${staleInviteRoomId}/invites`,
+    headers: auth(host.token),
+    payload: { inviteeId: String(guest.user.id) },
+  });
+  assert.equal(staleInviteSent.statusCode, 201, staleInviteSent.body);
+  const staleInviteRow = await testPool.query(
+    `SELECT id FROM backgammon_match_invites
+      WHERE match_id = $1 AND invitee_id = $2 AND status = 'pending'
+      ORDER BY id DESC LIMIT 1`,
+    [staleInviteRoomId, guest.user.id],
+  );
+  assert.ok(staleInviteRow.rows[0]);
+  await testPool.query(
+    `UPDATE backgammon_match_invites SET created_at = NOW() - INTERVAL '31 seconds'
+      WHERE id = $1`,
+    [staleInviteRow.rows[0].id],
+  );
+  const rejectStaleInvite = await app.inject({
+    method: 'POST',
+    url: `/api/v1/match-invites/${staleInviteRow.rows[0].id}/respond`,
+    headers: auth(guest.token),
+    payload: { accept: true },
+  });
+  assert.equal(rejectStaleInvite.statusCode, 410, rejectStaleInvite.body);
+  const staleInviteStatus = await testPool.query(
+    'SELECT status FROM backgammon_match_invites WHERE id = $1',
+    [staleInviteRow.rows[0].id],
+  );
+  assert.equal(staleInviteStatus.rows[0].status, 'rejected');
+
   const acceptInvite = await app.inject({
     method: 'POST',
     url: `/api/v1/match-invites/${incomingInvite.id}/respond`,
@@ -984,7 +1087,7 @@ test('registered players can join an online match and history does not expose op
 
   const expiredInviteNotice = await testPool.query(
     `INSERT INTO notifications (user_id, actor_user_id, type, title, body, data, created_at)
-      VALUES ($1, $2, 'system', 'Expired invite', 'Expired', jsonb_build_object('inviteId', 'expired-test', 'matchId', $3::text), NOW() - INTERVAL '61 seconds')
+      VALUES ($1, $2, 'system', 'Expired invite', 'Expired', jsonb_build_object('inviteId', 'expired-test', 'matchId', $3::text), NOW() - INTERVAL '31 seconds')
       RETURNING id`,
     [guest.user.id, host.user.id, invitedRoomId],
   );
@@ -996,7 +1099,7 @@ test('registered players can join an online match and history does not expose op
   assert.equal(notificationsAfterExpiry.statusCode, 200, notificationsAfterExpiry.body);
   assert.equal((notificationsAfterExpiry.json().notifications as Array<Record<string, unknown>>)
     .some((notice) => String(notice.id) === String(expiredInviteNotice.rows[0].id)), false,
-    'Invite notices older than sixty seconds must be removed from the notifications inbox.');
+    'Invite notices older than thirty seconds must be removed from the notifications inbox.');
 
 
 
@@ -1398,6 +1501,41 @@ test('subscription purchases debit the wallet atomically and record a ledger ent
     assert.equal(freeLeagueResponse.json().league.subscriptionDaysCost, 0);
     assert.equal(freeLeagueResponse.json().league.rules.minimumParticipants, 8);
     assert.equal(freeLeagueResponse.json().league.rules.appealDeadlineHours, 24);
+    assert.equal(freeLeagueResponse.json().league.gameCode, 'backgammon');
+    assert.ok(Number(freeLeagueResponse.json().league.leagueNumber) >= 1);
+
+    // The same code and numbering sequence are allowed independently for another game.
+    const chessStartsAt = new Date(Date.now() - 60_000).toISOString();
+    const chessEndsAt = new Date(Date.now() + 86_400_000).toISOString();
+    const chessLeagueResponse = await app.inject({
+      method: 'POST', url: '/api/v1/admin/leagues', headers: auth(leagueOwner.token),
+      payload: {
+        gameCode: 'chess', code: 'free_weekly', name: 'Chess Weekly League',
+        enabled: true, startsAt: chessStartsAt, endsAt: chessEndsAt,
+        rules: { minimumParticipants: 2 },
+      },
+    });
+    assert.equal(chessLeagueResponse.statusCode, 201, chessLeagueResponse.body);
+    assert.equal(chessLeagueResponse.json().league.gameCode, 'chess');
+    assert.equal(chessLeagueResponse.json().league.leagueNumber, 1);
+    assert.equal(chessLeagueResponse.json().league.code, 'free_weekly');
+    assert.ok(chessLeagueResponse.json().league.startsAt);
+    assert.ok(chessLeagueResponse.json().league.endsAt);
+
+    const autoNumberedChessLeague = await app.inject({
+      method: 'POST', url: '/api/v1/admin/leagues', headers: auth(leagueOwner.token),
+      payload: { gameCode: 'chess', name: 'Chess League Two', enabled: true, rules: { minimumParticipants: 2 } },
+    });
+    assert.equal(autoNumberedChessLeague.statusCode, 201, autoNumberedChessLeague.body);
+    assert.equal(autoNumberedChessLeague.json().league.leagueNumber, 2);
+    assert.equal(autoNumberedChessLeague.json().league.code, 'chess-0002');
+
+    const chessPublicLeagues = await app.inject({
+      method: 'GET', url: '/api/v1/leagues?gameCode=chess', headers: auth(buyer.token),
+    });
+    assert.equal(chessPublicLeagues.statusCode, 200, chessPublicLeagues.body);
+    assert.equal(chessPublicLeagues.json().leagues.length, 2);
+    assert.ok(chessPublicLeagues.json().leagues.every((league: { gameCode: string }) => league.gameCode === 'chess'));
 
     const freeEntry = await app.inject({
       method: 'POST',

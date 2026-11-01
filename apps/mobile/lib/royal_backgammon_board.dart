@@ -31,6 +31,29 @@ class RoyalBackgammonBoard extends StatelessWidget {
     required Size boardSize,
   }) => _RoyalBoardPainter.checkerCenter(point, stackIndex, checkerCount, boardSize);
 
+  /// Dice edge length, increased by 70% from the original board scale.
+  static double diceSizeForBoard(Size boardSize) =>
+      math.min(_RoyalBoardPainter.middleHeight(boardSize) * .64, boardSize.width * .055) * 1.7;
+
+  /// Number of physical checkers painted for a stack; the sixth carries overflow count.
+  static int visibleCheckerCountForPoint(int checkerCount) =>
+      math.min(checkerCount.abs(), 6);
+
+  /// Position where the total stack count is painted when more than six exist.
+  static Offset checkerCountBadgeCenterForPoint({
+    required int point,
+    required int checkerCount,
+    required Size boardSize,
+  }) => _RoyalBoardPainter.checkerCenter(
+        point, 5, checkerCount.abs().clamp(1, 15), boardSize);
+
+  /// Fixed checker radius. The visual size is independent of stack count.
+  static double checkerRadiusForPoint({
+    required int point,
+    required int checkerCount,
+    required Size boardSize,
+  }) => _RoyalBoardPainter.checkerRadius(point, checkerCount, boardSize);
+
   @override
   Widget build(BuildContext context) => LayoutBuilder(builder: (context, c) {
     final panel = (c.maxWidth * .075).clamp(28.0, 58.0).toDouble();
@@ -180,7 +203,7 @@ class _RoyalBoardPainter extends CustomPainter {
     final hw=(w-2*m-bw)/2, pw=hw/6, mid=middleHeight(s), row=(h-mid)/2;
     // Point bases belong to the players' outer edges; tips face the central bar.
     final topBase=0.0, bottomBase=h;
-    final triH=row*.56, r=math.min(pw*.43, row*.17);
+    final triH=row*.56;
     double colX(int col)=>col<6?m+col*pw:m+hw+bw+(col-6)*pw;
     final bounds=Offset.zero&s;
     final frame=RRect.fromRectAndRadius(bounds,Radius.circular(w*.022));
@@ -221,13 +244,17 @@ class _RoyalBoardPainter extends CustomPainter {
       final count=i<points.length?points[i].toInt():0;
       if(count!=0){
         final n=count.abs().clamp(1,15), shown=math.min(n,6);
+        final stackRadius=checkerRadius(i,n,s);
         for(var k=0;k<shown;k++){
           final center=checkerCenter(i,k,n,s);
-          _checker(c,center,r,count>0);
+          _checker(c,center,stackRadius,count>0);
         }
-        if(count.abs()>5) {
+        // Six full-size checkers are the display limit. Above six, the total
+        // stack count is shown on checker six in a high-contrast color.
+        if(count.abs()>6) {
           _txt(c,count.abs().toString(),
-            checkerCenter(i,0,n,s),r*.8,count>0?const Color(0xFF302315):Colors.white);
+            checkerCenter(i,5,n,s),stackRadius*.88,
+            count>0?const Color(0xFF21170B):const Color(0xFFFFE7A0));
         }
       }
       _txt(c,i.toString(),Offset(cx,isTop?row*.035:h-row*.035),math.max(8.0,pw*.24),const Color(0xFFE53935));
@@ -246,7 +273,10 @@ class _RoyalBoardPainter extends CustomPainter {
     }
     for(var j=0;j<math.min(2,dice.length);j++){
       final dx=dice.length==1?0:(j==0?-w*.035:w*.035);
-      _die(c,Offset(w*.75+dx,row+mid/2),math.min(mid*.64,w*.055),dice[j]);
+      // Dice are 70% larger than the previous board rendering.
+      // Keep the same center alignment so both dice remain balanced on the strip.
+      final dieSize=RoyalBackgammonBoard.diceSizeForBoard(s);
+      _die(c,Offset(w*.75+dx,row+mid/2),dieSize,dice[j]);
     }
   }
 
@@ -260,16 +290,26 @@ class _RoyalBoardPainter extends CustomPainter {
     final top=point<12;
     final col=top?(point<6?11-point:5-(point-6)):point-12;
     final left=col<6?m+col*pw:m+hw+bw+(col-6)*pw;
-    final radius=math.min(pw*.43,row*.17), triH=row*.56;
-    // Paint at most six checkers; space those visible checkers across the point
-    // instead of compressing them as if all 15 were individually painted.
     final visibleCount=math.min(checkerCount,6);
-    final firstCenter=radius*1.8;
-    final lastCenter=math.max(firstCenter,triH-radius);
-    final available=lastCenter-firstCenter;
-    final gap=visibleCount<=1?0.0:math.min(2*radius,available/(visibleCount-1));
+    final triH=row*.56;
+    final radius=checkerRadius(point,checkerCount,s);
+    // Keep the original full-size checker diameter. Five checkers are shown
+    // as a conventional offset stack; further pieces are summarized on piece 6.
+    final firstCenter=radius*1.05;
+    final lastCenter=math.max(firstCenter,triH-radius*1.05);
+    final gap=visibleCount<=1?0.0:(lastCenter-firstCenter)/(visibleCount-1);
     final y=top?firstCenter+stackIndex*gap:s.height-firstCenter-stackIndex*gap;
     return Offset(left+pw/2,y);
+  }
+
+  static double checkerRadius(int point,int checkerCount,Size s){
+    if(point<0||point>=24) throw RangeError.range(point,0,23,'point');
+    if(checkerCount<1) throw RangeError.value(checkerCount,'checkerCount');
+    final m=s.width*.025, bw=(s.width*.09).clamp(24.0,42.0).toDouble();
+    final hw=(s.width-2*m-bw)/2, pw=hw/6, row=(s.height-middleHeight(s))/2;
+    // Match the original board checker size for every stack count.
+    // Never scale pieces down to accommodate crowded points.
+    return math.min(pw*.43,row*.17);
   }
 
   static void _txt(Canvas c,String t,Offset o,double size,Color color){

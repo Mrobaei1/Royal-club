@@ -87,6 +87,62 @@ void main() {
       expect(moves.every((move) => move.to == 1 && move.die == 2), isTrue);
     });
 
+    test('a blocked bar roll can remain visible until the turn is explicitly passed', () {
+      clearPosition(rolledDice: [1, 2]);
+      game.bar[1] = 1;
+      game.points[0] = -2;
+      game.points[1] = -2;
+
+      expect(game.legalMoves(), isEmpty);
+      expect(game.currentPlayer, 1);
+      expect(game.dice, [1, 2]);
+
+      expect(game.passTurnAfterNoLegalMoves(), isTrue);
+      expect(game.currentPlayer, -1);
+      expect(game.dice, isEmpty);
+      expect(game.bar[1], 1);
+    });
+
+    test('blocked bar pass is idempotent for both players', () {
+      for (final player in [1, -1]) {
+        clearPosition(player: player, rolledDice: [1, 2]);
+        if (player == 1) {
+          game.bar[1] = 1;
+          for (var point = 0; point < 6; point++) {
+            game.points[point] = -2;
+          }
+        } else {
+          game.bar[0] = 1;
+          for (var point = 18; point < 24; point++) {
+            game.points[point] = 2;
+          }
+        }
+
+        expect(game.legalMoves(), isEmpty,
+            reason: 'Player $player must have no legal bar entry.');
+        expect(game.passTurnAfterNoLegalMoves(), isTrue);
+        expect(game.currentPlayer, -player);
+        expect(game.dice, isEmpty);
+
+        // A duplicate timer/callback must not pass the opponent's turn too.
+        expect(game.passTurnAfterNoLegalMoves(), isFalse);
+        expect(game.currentPlayer, -player);
+        expect(game.dice, isEmpty);
+        expect(game.bar[player == 1 ? 1 : 0], 1);
+      }
+    });
+
+    test('a turn cannot be passed while a legal bar entry exists', () {
+      clearPosition(rolledDice: [1, 2]);
+      game.bar[1] = 1;
+      game.points[0] = -2;
+
+      expect(game.legalMoves(), isNotEmpty);
+      expect(game.passTurnAfterNoLegalMoves(), isFalse);
+      expect(game.currentPlayer, 1);
+      expect(game.dice, [1, 2]);
+    });
+
     test('negative player enters from the correct side of the bar', () {
       clearPosition(player: -1, rolledDice: [1, 2]);
       game.bar[0] = 1;
@@ -271,10 +327,10 @@ void main() {
       game.points[20] = 1;
 
       final moves = game.legalMoves();
-      // Point 23 is closest to the bear-off edge and may use the oversized die;
-      // point 20 must not skip over it.
-      expect(moves.any((move) => move.from == 23 && move.to == -1), isTrue);
-      expect(moves.any((move) => move.from == 20 && move.to == -1), isFalse);
+      // Point 20 (point 4) is the farthest occupied point. It may use
+      // the oversized die; point 23 (point 1) cannot skip over it.
+      expect(moves.any((move) => move.from == 20 && move.to == -1), isTrue);
+      expect(moves.any((move) => move.from == 23 && move.to == -1), isFalse);
     });
 
     test(
@@ -312,14 +368,46 @@ void main() {
       expect(game.currentPlayer, -1);
     });
 
-    test('positive player cannot oversized-bear off past a checker closer to point 24', () {
+    test('die 6 bears off from point 5 when point 6 is empty, not point 1', () {
       clearPosition(rolledDice: [6]);
-      game.points[20] = 1;
+      // Player +1 home board: index 18 is point 6, index 19 point 5,
+      // and index 23 point 1. Lower points do not block oversized bear-off.
+      game.points[19] = 1;
       game.points[23] = 1;
 
       final moves = game.legalMoves();
-      expect(moves.any((move) => move.from == 20 && move.to == -1), isFalse);
-      expect(moves.any((move) => move.from == 23 && move.to == -1), isTrue);
+      expect(moves.any((move) => move.from == 19 && move.to == -1), isTrue);
+      expect(moves.any((move) => move.from == 23 && move.to == -1), isFalse);
+
+      final selected = moves.singleWhere((move) => move.from == 19);
+      expect(game.playMove(selected), isTrue);
+      expect(game.points[19], 0);
+      expect(game.points[23], 1);
+      expect(game.borneOff[1], 1);
+    });
+
+    test('a checker on point 6 must be borne off before point 5 with die 6', () {
+      clearPosition(rolledDice: [6]);
+      game.points[18] = 1;
+      game.points[19] = 1;
+      game.points[23] = 1;
+
+      final moves = game.legalMoves();
+      expect(moves.any((move) => move.from == 18 && move.to == -1), isTrue);
+      expect(moves.any((move) => move.from == 19 && move.to == -1), isFalse);
+      expect(moves.any((move) => move.from == 23 && move.to == -1), isFalse);
+    });
+
+    test('negative player uses mirrored oversized bear-off order', () {
+      clearPosition(player: -1, rolledDice: [6]);
+      // Mirrored home board: index 5 is point 6, index 4 point 5,
+      // and index 0 point 1.
+      game.points[4] = -1;
+      game.points[0] = -1;
+
+      final moves = game.legalMoves();
+      expect(moves.any((move) => move.from == 4 && move.to == -1), isTrue);
+      expect(moves.any((move) => move.from == 0 && move.to == -1), isFalse);
     });
 
   });

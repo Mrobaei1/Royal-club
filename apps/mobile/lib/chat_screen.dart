@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'l10n/app_text.dart';
@@ -17,16 +18,29 @@ class _ChatScreenState extends State<ChatScreen> {
   bool _loading = true;
   String? _error;
   List<dynamic> _conversations = [];
+  Timer? _poller;
+  bool _refreshing = false;
 
   @override
-  void initState() { super.initState(); _load(); }
+  void initState() {
+    super.initState();
+    _load();
+    _poller = Timer.periodic(const Duration(milliseconds: 500), (_) => _load());
+  }
+
+  @override
+  void dispose() { _poller?.cancel(); super.dispose(); }
 
   Future<void> _load() async {
+    if (_refreshing) return;
+    _refreshing = true;
     try {
       final items = await ChatService.conversations();
       if (mounted) setState(() { _conversations = items; _loading = false; _error = null; });
     } catch (e) {
       if (mounted) setState(() { _error = appError(context, e); _loading = false; });
+    } finally {
+      _refreshing = false;
     }
   }
 
@@ -90,14 +104,22 @@ class _ChatThreadScreenState extends State<ChatThreadScreen> {
   String? _myId;
   List<dynamic> _messages = [];
   final Set<String> _selectedMessageIds = <String>{};
+  Timer? _poller;
+  bool _refreshing = false;
 
   @override
-  void initState() { super.initState(); _load(); }
+  void initState() {
+    super.initState();
+    _load();
+    _poller = Timer.periodic(const Duration(milliseconds: 500), (_) => _load());
+  }
 
   @override
-  void dispose() { _composer.dispose(); super.dispose(); }
+  void dispose() { _poller?.cancel(); _composer.dispose(); super.dispose(); }
 
   Future<void> _load() async {
+    if (_refreshing) return;
+    _refreshing = true;
     try {
       final results = await Future.wait([ChatService.messages(widget.userId), AuthService.me()]);
       final profile = results[1] as Map<String, dynamic>;
@@ -105,7 +127,6 @@ class _ChatThreadScreenState extends State<ChatThreadScreen> {
       if (mounted) {
         setState(() {
           _messages = results[0] as List<dynamic>;
-          _selectedMessageIds.clear();
           _myId = user?['id']?.toString();
           _loading = false;
           _error = null;
@@ -113,6 +134,8 @@ class _ChatThreadScreenState extends State<ChatThreadScreen> {
       }
     } catch (e) {
       if (mounted) setState(() { _error = appError(context, e); _loading = false; });
+    } finally {
+      _refreshing = false;
     }
   }
 

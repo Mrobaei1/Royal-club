@@ -7,6 +7,7 @@ import 'backgammon_engine.dart';
 import 'backgammon_ai.dart';
 import 'online_lobby_screen.dart';
 import 'royal_backgammon_board.dart';
+import 'services/auth_service.dart';
 
 const _boardNavy = Color(0xFF10182B);
 const _boardGold = Color(0xFFD8B45A);
@@ -14,7 +15,7 @@ const _boardLight = Color(0xFFE7D4B2);
 
 /// Engine-connected local backgammon screen. No network or account required.
 class EngineBackgammonScreen extends StatefulWidget {
-  const EngineBackgammonScreen({super.key, this.engineForTesting, this.vsComputerForTesting = true});
+  const EngineBackgammonScreen({super.key, this.engineForTesting, this.vsComputerForTesting = true, this.usernameForTesting});
 
   /// Optional engine injection keeps rule-driven UI tests deterministic.
   @visibleForTesting
@@ -22,6 +23,10 @@ class EngineBackgammonScreen extends StatefulWidget {
 
   @visibleForTesting
   final bool vsComputerForTesting;
+
+  /// Authenticated username override for deterministic widget tests.
+  @visibleForTesting
+  final String? usernameForTesting;
 
   @override
   State<EngineBackgammonScreen> createState() => _EngineBackgammonScreenState();
@@ -40,6 +45,8 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
   int _timerPlayer = 1;
   Timer? _turnTimer;
   bool _timeoutMoveRunning = false;
+  bool _blockedRollPending = false;
+  String _profileUsername = '';
 
   static const List<List<Color>> _boardThemes = [
     [Color(0xFF6D4026), Color(0xFF76502E), Color(0xFF3B2418)],
@@ -63,7 +70,9 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
   void initState() {
     super.initState();
     _vsComputer = widget.vsComputerForTesting;
+    _profileUsername = widget.usernameForTesting?.trim() ?? '';
     _timerPlayer = _engine.currentPlayer;
+    if (_profileUsername.isEmpty) _loadProfileUsername();
     _lockLandscapeOnMobile();
   }
 
@@ -145,8 +154,8 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
     _selectedPoint = null;
     _selectedBar = false;
 
-    // Keep the timeout substitute readable too: reveal a fresh roll, wait three
-    // seconds, then animate each legal move with the same three-second cadence
+    // Keep the timeout substitute readable too: reveal a fresh roll, wait two
+    // seconds, then animate each legal move with the same two-second cadence
     // used by the regular computer turn.
     if (_engine.dice.isEmpty) {
       setState(() {
@@ -156,13 +165,13 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
             : appText(context, 'زمان تمام شد؛ تاس‌ها: ${_engine.dice.join('، ')}', 'Time is up; dice: ${_engine.dice.join(', ')}');
       });
       if (_engine.dice.isNotEmpty) {
-        await Future<void>.delayed(const Duration(seconds: 3));
+        await Future<void>.delayed(const Duration(seconds: 2));
       }
     }
 
     var safety = 0;
     while (mounted && !_engine.finished && _engine.dice.isNotEmpty && safety++ < 4) {
-      await Future<void>.delayed(const Duration(seconds: 3));
+      await Future<void>.delayed(const Duration(seconds: 2));
       if (!mounted || _engine.finished) break;
       var moved = false;
       setState(() {
@@ -200,29 +209,63 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
   }
 
   void _roll() {
-    if (_computerThinking || (_vsComputer && _engine.currentPlayer == -1)) {
+    if (_computerThinking || _blockedRollPending ||
+        (_vsComputer && _engine.currentPlayer == -1)) {
       return;
     }
+    var blockedRollPlayer = 0;
     setState(() {
       _selectedPoint = null;
       _selectedBar = false;
-      final before = _engine.currentPlayer;
-      final dice = _engine.rollDice();
+      final dice = _engine.rollDice(deferNoMoves: true);
       if (_engine.finished) {
         _message = appText(context, 'بازی تمام شده است.', 'The game is over.');
       } else if (dice.isEmpty) {
-        _message = appText(context, 'حرکت مجاز وجود نداشت؛ نوبت عوض شد.', 'No legal move was available; the turn changed.');
+        _message = appText(context, 'حرکت مجاز وجود نداشت.', 'No legal move was available.');
+      } else if (_engine.legalMoves().isEmpty) {
+        blockedRollPlayer = _engine.currentPlayer;
+        _blockedRollPending = true;
+        _message = appText(context,
+            'تاس: ${dice.join('، ')} · حرکت ممکن نیست؛ تاس ۲ ثانیه نمایش داده می‌شود.',
+            'Dice: ${dice.join(', ')} · No legal entry; showing the roll for 2 seconds.');
       } else {
-        _message =
-            appText(context, 'نوبت ${_playerName(_engine.currentPlayer)} · تاس: ${dice.join('، ')}', 'Turn: ${_playerName(_engine.currentPlayer)} · Dice: ${dice.join(', ')}');
-      }
-      if (before != _engine.currentPlayer && dice.isEmpty) {
-        _message =
-            appText(context, 'حرکتی نبود؛ نوبت ${_playerName(_engine.currentPlayer)} است.', 'No move was available; it is ${_playerName(_engine.currentPlayer)}’s turn.');
+        _message = appText(context,
+            'نوبت ${_playerName(_engine.currentPlayer)} · تاس: ${dice.join('، ')}',
+            'Turn: ${_playerName(_engine.currentPlayer)} · Dice: ${dice.join(', ')}');
       }
     });
+    if (blockedRollPlayer != 0) {
+      _showBlockedRollThenPass(blockedRollPlayer);
+      return;
+    }
     _startTurnTimer();
     _scheduleComputerTurn();
+  }
+
+  Future<void> _showBlockedRollThenPass(int player) async {
+    await Future<void>.delayed(const Duration(seconds: 2));
+    if (!mounted || _engine.finished || _engine.currentPlayer != player) {
+      _blockedRollPending = false;
+      return;
+    }
+    final passed = _engine.passTurnAfterNoLegalMoves();
+    if (!passed) {
+      _blockedRollPending = false;
+      return;
+    }
+    _computerThinking = false;
+    setState(() {
+      _blockedRollPending = false;
+      _message = appText(context,
+          'حرکتی با تاس‌های نمایش‌داده‌شده ممکن نبود؛ نوبت ${_playerName(_engine.currentPlayer)} است.',
+          'No legal move was possible; it is now ${_playerName(_engine.currentPlayer)}’s turn.');
+    });
+    _startTurnTimer(reset: true);
+    if (_vsComputer && _engine.currentPlayer == -1) {
+      _scheduleComputerTurn(delay: Duration.zero);
+    } else {
+      _scheduleComputerTurn();
+    }
   }
 
   void _reset() {
@@ -239,10 +282,26 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
     _startTurnTimer(reset: true);
   }
 
+  Future<void> _loadProfileUsername() async {
+    try {
+      final response = await AuthService.me();
+      final user = response['user'] is Map
+          ? Map<String, dynamic>.from(response['user'] as Map)
+          : response;
+      final username = user['username']?.toString().trim() ?? '';
+      if (!mounted || username.isEmpty) return;
+      setState(() => _profileUsername = username);
+    } catch (_) {
+      // Keep a neutral player label if the account cannot be refreshed.
+    }
+  }
+
   String _playerName(int player) => player == 1 ? appText(context, 'طلایی', 'Gold') : appText(context, 'روشن', 'Light');
 
   String _profileName(int player) => _vsComputer
-      ? (player == 1 ? appText(context, 'شما', 'You') : appText(context, 'هوش مصنوعی', 'AI'))
+      ? (player == 1
+          ? (_profileUsername.isNotEmpty ? _profileUsername : appText(context, 'بازیکن', 'Player'))
+          : appText(context, 'هوش مصنوعی', 'AI'))
       : (player == 1 ? appText(context, 'بازیکن ۱', 'Player 1') : appText(context, 'بازیکن ۲', 'Player 2'));
 
   void _tapPoint(int point) {
@@ -422,15 +481,16 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
     _scheduleComputerTurn();
   }
 
-  void _scheduleComputerTurn() {
+  void _scheduleComputerTurn({Duration delay = const Duration(seconds: 2)}) {
     if (!_vsComputer ||
         _engine.finished ||
         _engine.currentPlayer != -1 ||
-        _computerThinking) {
+        _computerThinking ||
+        _blockedRollPending) {
       return;
     }
     _computerThinking = true;
-    Future<void>.delayed(const Duration(seconds: 3), () {
+    Future<void>.delayed(delay, () {
       if (!mounted) return;
       setState(() {
         if (!_vsComputer || _engine.finished || _engine.currentPlayer != -1) {
@@ -438,13 +498,20 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
           return;
         }
         if (_engine.dice.isEmpty) {
-          final rolled = _engine.rollDice();
+          final rolled = _engine.rollDice(deferNoMoves: true);
           if (rolled.isEmpty) {
             _message = appText(context, 'نوبت کامپیوتر بدون حرکت تمام شد.', 'The computer turn ended without a move.');
             _computerThinking = false;
             return;
           }
-          // Show the rolled dice for a full three seconds before the first move.
+          if (_engine.legalMoves().isEmpty) {
+            _blockedRollPending = true;
+            _message = appText(context,
+                'تاس هوش مصنوعی: ${_engine.dice.join('، ')} · حرکت ممکن نیست؛ نمایش به مدت ۲ ثانیه.',
+                'Computer dice: ${_engine.dice.join(', ')} · No legal move; showing for 2 seconds.');
+            return;
+          }
+          // Keep the computer roll visible for two seconds before its first move.
           _computerThinking = false;
           _message = appText(context, 'تاس کامپیوتر: ${_engine.dice.join('، ')}', 'Computer dice: ${_engine.dice.join(', ')}');
           return;
@@ -461,6 +528,10 @@ class _EngineBackgammonScreenState extends State<EngineBackgammonScreen> {
               appText(context, 'نوبت کامپیوتر است؛ تاس باقی‌مانده: ${_engine.dice.join('، ')}', 'Computer turn; remaining dice: ${_engine.dice.join(', ')}');
         }
       });
+      if (_blockedRollPending && _engine.currentPlayer == -1 && _engine.dice.isNotEmpty && _engine.legalMoves().isEmpty) {
+        _showBlockedRollThenPass(-1);
+        return;
+      }
       if (!_engine.finished && _engine.currentPlayer != _timerPlayer) {
         _timerPlayer = _engine.currentPlayer;
         _secondsLeft = _turnLimitSeconds;

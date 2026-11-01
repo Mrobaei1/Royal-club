@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'room_controls_menu.dart';
 import 'l10n/app_text.dart';
 import 'profile_avatar.dart';
 import 'services/match_service.dart';
@@ -24,8 +25,6 @@ class _OnlineLobbyScreenState extends State<OnlineLobbyScreen> {
   Timer? _lobbyPoller;
   Timer? _inviteExpiryTimer;
   bool _silentRefreshing = false;
-  final Set<String> _shownInviteIds = <String>{};
-  String? _popupInviteId;
 
   @override
   void initState() {
@@ -60,69 +59,14 @@ class _OnlineLobbyScreenState extends State<OnlineLobbyScreen> {
     await _refreshOpenRoomsSilently();
   }
 
-  Future<void> _showNewInvite(Map<String, dynamic> invite) async {
-    final id = invite['id']?.toString();
-    final expiresAt = DateTime.tryParse(invite['expiresAt']?.toString() ?? '')?.toLocal();
-    final remaining = expiresAt?.difference(DateTime.now()) ?? Duration.zero;
-    if (!mounted || id == null || remaining <= Duration.zero ||
-        _popupInviteId != null || !_shownInviteIds.add(id)) {
-      return;
-    }
-    _popupInviteId = id;
-    final isEnglish = Localizations.localeOf(context).languageCode == 'en';
-    final remainingSeconds = (remaining.inMilliseconds + 999) ~/ 1000;
-    final timeout = Timer(remaining, () {
-      if (mounted && _popupInviteId == id) {
-        Navigator.of(context, rootNavigator: true).pop('expired');
-      }
-    });
-    final result = await showDialog<String>(
-      context: context,
-      barrierDismissible: true,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(appText(context, 'دعوت بازی تخته‌نرد', 'Backgammon invitation')),
-        content: Text(isEnglish
-            ? '@${invite['inviterUsername'] ?? 'friend'} invited you to play. This invitation expires in $remainingSeconds seconds.'
-            : '@${invite['inviterUsername'] ?? 'دوست'} شما را به بازی دعوت کرده است. این دعوت تا $remainingSeconds ثانیه دیگر منقضی می‌شود.'),
-        actions: [
-          TextButton(onPressed: () => Navigator.of(dialogContext).pop('decline'), child: Text(appText(context, 'رد دعوت', 'Decline'))),
-          FilledButton(onPressed: () => Navigator.of(dialogContext).pop('accept'), child: Text(appText(context, 'پذیرش و ورود', 'Accept & join'))),
-        ],
-      ),
-    );
-    timeout.cancel();
-    _popupInviteId = null;
-    if (!mounted) return;
-    final matching = _invites.where((item) => item['id']?.toString() == id).toList();
-    if ((result == 'accept' || result == 'decline') && matching.isNotEmpty) {
-      await _respondToInvite(matching.first, accept: result == 'accept');
-    }
-  }
-
-  void _notifyNewInvites(List<Map<String, dynamic>> invites, Set<String> previousIds) {
-    final fresh = invites.where((invite) {
-      final id = invite['id']?.toString();
-      return id != null && !previousIds.contains(id) && !_shownInviteIds.contains(id);
-    }).toList();
-    if (fresh.isNotEmpty) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        Future<void>.delayed(const Duration(milliseconds: 250), () {
-          if (mounted) _showNewInvite(fresh.first);
-        });
-      });
-    }
-  }
-
   Future<void> _refreshOpenRoomsSilently() async {
     if (_loading || _silentRefreshing) return;
     _silentRefreshing = true;
     try {
       final results = await Future.wait([MatchService.listOpen(), MatchService.listLive(), MatchService.pendingInvites()]);
       if (mounted) {
-        final previousIds = _invites.map((invite) => invite['id']?.toString()).whereType<String>().toSet();
         final freshInvites = results[2].where((invite) => !_isInviteExpired(invite)).toList();
         setState(() { _matches = results[0]; _liveMatches = results[1]; _invites = freshInvites; });
-        _notifyNewInvites(freshInvites, previousIds);
       }
     } catch (_) {
       // Keep the current room list; the next interval retries automatically.
@@ -142,10 +86,8 @@ class _OnlineLobbyScreenState extends State<OnlineLobbyScreen> {
   Future<void> _refresh() => _run(() async {
     final results = await Future.wait([MatchService.listOpen(), MatchService.history(), MatchService.listLive(), MatchService.pendingInvites()]);
     if (mounted) {
-      final previousIds = _invites.map((invite) => invite['id']?.toString()).whereType<String>().toSet();
       final freshInvites = results[3].where((invite) => !_isInviteExpired(invite)).toList();
       setState(() { _matches = results[0]; _history = results[1]; _liveMatches = results[2]; _invites = freshInvites; });
-      _notifyNewInvites(freshInvites, previousIds);
     }
   });
 
@@ -230,6 +172,7 @@ class _OnlineLobbyScreenState extends State<OnlineLobbyScreen> {
     if (mounted) setState(() => _created = null);
   });
 
+
   @override
   Widget build(BuildContext context) {
     final isEnglish = Localizations.localeOf(context).languageCode == 'en';
@@ -239,6 +182,23 @@ class _OnlineLobbyScreenState extends State<OnlineLobbyScreen> {
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(title: Text(appText(context, 'بازی آنلاین', 'Online backgammon')), backgroundColor: Theme.of(context).scaffoldBackgroundColor, foregroundColor: Theme.of(context).colorScheme.primary,
         actions: [
+          if (_created != null)
+            RoomControlsMenuButton(
+              tooltip: appText(context, 'مدیریت اتاق', 'Room controls'),
+              itemsBuilder: (sheetContext) => [
+                ListTile(
+                  leading: const Icon(Icons.cancel_outlined, color: Colors.redAccent),
+                  title: Text(
+                    appText(context, 'لغو اتاق در انتظار', 'Cancel waiting room'),
+                    style: const TextStyle(color: Colors.redAccent),
+                  ),
+                  onTap: _loading ? null : () {
+                    Navigator.of(sheetContext).pop();
+                    _cancelCreated();
+                  },
+                ),
+              ],
+            ),
           IconButton(
             onPressed: _loading ? null : () {
               Navigator.of(context).push(MaterialPageRoute<void>(
@@ -262,7 +222,6 @@ class _OnlineLobbyScreenState extends State<OnlineLobbyScreen> {
           const SizedBox(height: 6),
           Text(isEnglish ? 'Code: ${_created!['roomCode'] ?? '—'}' : 'کد: ${_created!['roomCode'] ?? '—'}', style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
           const SizedBox(height: 8),
-          OutlinedButton.icon(onPressed: _loading ? null : _cancelCreated, icon: const Icon(Icons.cancel_outlined), label: Text(isEnglish ? 'Cancel waiting room' : 'لغو اتاق در انتظار')),
         ]))),
         if (_error != null) Container(margin: const EdgeInsets.only(top: 12), padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: Colors.red.withValues(alpha: .12), borderRadius: BorderRadius.circular(10)), child: Text(appError(context, _error), style: const TextStyle(color: Colors.redAccent))),
         if (_loading) Padding(padding: const EdgeInsets.all(16), child: Center(child: CircularProgressIndicator(color: Theme.of(context).colorScheme.primary))),

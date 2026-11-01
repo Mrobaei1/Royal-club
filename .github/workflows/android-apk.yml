@@ -1,6 +1,8 @@
 name: Royal Club Android APK
 
 on:
+  # APK builds are intentionally manual-only. Pushes may run validation,
+  # but must never prepare or build a release APK without an explicit request.
   workflow_dispatch:
     inputs:
       build_apk:
@@ -18,6 +20,8 @@ concurrency:
 
 jobs:
   build:
+    # Do not even prepare Android platform files unless APK creation is explicitly approved.
+    if: github.event_name == 'workflow_dispatch' && inputs.build_apk == true
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -41,6 +45,23 @@ jobs:
           if [ ! -d android ]; then
             flutter create . --platforms=android
           fi
+          MANIFEST="android/app/src/main/AndroidManifest.xml"
+          test -f "$MANIFEST"
+          if [ -f android/app/build.gradle.kts ]; then
+            sed -i 's/minSdk = flutter.minSdkVersion/minSdk = maxOf(flutter.minSdkVersion, 23)/' android/app/build.gradle.kts
+          elif [ -f android/app/build.gradle ]; then
+            sed -i 's/minSdkVersion flutter.minSdkVersion/minSdkVersion 23/' android/app/build.gradle
+          fi
+          for PERMISSION in RECORD_AUDIO ACCESS_NETWORK_STATE CHANGE_NETWORK_STATE MODIFY_AUDIO_SETTINGS; do
+            if ! grep -q "android.permission.$PERMISSION" "$MANIFEST"; then
+              sed -i "/<manifest[^>]*>/a\\    <uses-permission android:name=\"android.permission.$PERMISSION\" />" "$MANIFEST"
+            fi
+          done
+          if ! grep -q 'android.hardware.microphone' "$MANIFEST"; then
+            sed -i '/<manifest[^>]*>/a\\    <uses-feature android:name="android.hardware.microphone" android:required="false" />' "$MANIFEST"
+          fi
+          grep -q 'android.permission.RECORD_AUDIO' "$MANIFEST"
+          grep -q 'android.permission.MODIFY_AUDIO_SETTINGS' "$MANIFEST"
 
       - name: Ensure release APK has Internet permission
         working-directory: apps/mobile

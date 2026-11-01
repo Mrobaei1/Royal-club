@@ -30,8 +30,8 @@ String localizedNotificationBody(Map<String, dynamic> item, bool isEnglish) {
       : <String, dynamic>{};
   if (data.containsKey('inviteId')) {
     return isEnglish
-        ? 'A friend invited you to a backgammon match. Accept within 60 seconds to join.'
-        : 'دوست شما را به مسابقه تخته‌نرد دعوت کرده است. برای ورود، تا ۶۰ ثانیه دعوت را بپذیرید.';
+        ? 'A friend invited you to a backgammon match. Accept within 30 seconds to join.'
+        : 'دوست شما را به مسابقه تخته‌نرد دعوت کرده است. برای ورود، تا ۳۰ ثانیه دعوت را بپذیرید.';
   }
   switch (item['type']?.toString()) {
     case 'friend_request':
@@ -45,6 +45,33 @@ String localizedNotificationBody(Map<String, dynamic> item, bool isEnglish) {
     default:
       return item['body']?.toString() ?? '';
   }
+}
+
+class NotificationDetailsDialog extends StatelessWidget {
+  const NotificationDetailsDialog({
+    super.key,
+    required this.title,
+    required this.body,
+    required this.closeLabel,
+  });
+
+  final String title;
+  final String body;
+  final String closeLabel;
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+        title: Text(title),
+        content: SingleChildScrollView(
+          child: SelectableText(body),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(closeLabel),
+          ),
+        ],
+      );
 }
 
 class NotificationsScreen extends StatefulWidget {
@@ -78,7 +105,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     // Keep this page live while it is open so invitations sent after entry
     // appear before their ten-second lifetime ends.
     _notificationPoller = Timer.periodic(
-      const Duration(seconds: 1),
+      const Duration(milliseconds: 500),
       (_) => _refresh(silent: true),
     );
   }
@@ -98,7 +125,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       if (data is! Map || !data.containsKey('inviteId')) continue;
       final createdAt = DateTime.tryParse(item['createdAt']?.toString() ?? '');
       if (createdAt == null) continue;
-      final expiresAt = createdAt.add(const Duration(seconds: 60));
+      final expiresAt = createdAt.add(const Duration(seconds: 30));
       if (nextExpiry == null || expiresAt.isBefore(nextExpiry)) nextExpiry = expiresAt;
     }
     if (nextExpiry == null) return;
@@ -133,6 +160,23 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         setState(() => _loading = false);
       }
     }
+  }
+
+  Future<void> _openNotification(Map<String, dynamic> item) async {
+    if (_busy) return;
+    final isEnglish = Localizations.localeOf(context).languageCode == 'en';
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => Directionality(
+        textDirection: isEnglish ? TextDirection.ltr : TextDirection.rtl,
+        child: NotificationDetailsDialog(
+          title: _localizedTitle(item, isEnglish),
+          body: _localizedBody(item, isEnglish),
+          closeLabel: appText(context, 'بستن اعلان', 'Close notification'),
+        ),
+      ),
+    );
+    if (mounted) await _markRead(item);
   }
 
   Future<void> _respondToInvite(Map<String, dynamic> item, {required bool accept}) async {
@@ -328,7 +372,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                       crossAxisAlignment: CrossAxisAlignment.stretch,
                                       children: [
                                         ListTile(
-                                          onTap: isInvite || _busy ? null : () => _markRead(item),
+                                          onTap: _busy ? null : () => _openNotification(item),
                                           leading: Icon(
                                             unread
                                                 ? Icons.notifications_active_outlined
