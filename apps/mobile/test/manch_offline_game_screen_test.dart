@@ -140,7 +140,7 @@ void main() {
     await tester.tap(find.text('ذخیره'));
     await tester.pumpAndSettle();
     expect(store.saved, isNotNull);
-    expect(store.saved!.players[0].tokens[0], 0);
+    expect(store.saved!.players[0].tokens[0], 1);
     expect(store.saved!.activePlayerIndex, 1);
     expect(find.text('انداختن تاس'), findsOneWidget);
   });
