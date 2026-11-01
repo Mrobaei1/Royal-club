@@ -478,6 +478,20 @@ class _ManchOnlineGameScreenState extends State<ManchOnlineGameScreen> {
     }
   }
 
+  Future<void> _rematch() async {
+    if (_busy || _matchStatus != 'finished') return;
+    setState(() => _busy = true);
+    try {
+      await ManchOnlineService.rematch(widget.matchId);
+      if (!mounted) return;
+      Navigator.of(context).pop();
+    } catch (error) {
+      if (mounted) setState(() => _error = error.toString());
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   Future<void> _forfeit() async {
     if (_busy || _matchStatus != 'active' || _players.length != 2) return;
     final confirmed = await showDialog<bool>(
@@ -648,6 +662,12 @@ class _ManchOnlineGameScreenState extends State<ManchOnlineGameScreen> {
                     ),
                   ),
                 ),
+                if (_matchStatus == 'finished')
+                  FilledButton.icon(
+                    onPressed: _busy ? null : _rematch,
+                    icon: const Icon(Icons.replay_rounded),
+                    label: Text(_text('بازی مجدد', 'Rematch')),
+                  ),
                 if (_matchStatus == 'finished' && _finishReason == 'forfeit')
                   Text(
                     _winnerUserId == widget.currentUserId
