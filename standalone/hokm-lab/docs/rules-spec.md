@@ -45,7 +45,7 @@ Each item below blocks Phase 1 completion until the owner chooses or explicitly 
 | R-05 | Hakem selection timing | Hakem chooses after first five cards and before remaining eight | Confirm whether selection is mandatory, whether a timer/auto-choice exists, and whether the hakem may change their choice. |
 | R-06 | Early hand finish | First team to seven tricks wins immediately | Confirm whether play stops at 7, or all 13 tricks must be completed for special scoring. |
 | R-07 | Hand scoring | Current controller records trick counts; match-point mapping is not fully specified here | Confirm ordinary hand = 1 match point and any special sweep/capot scoring. |
-| R-08 | Special scores | No special scoring implemented in this draft | Confirm whether a team taking all 13 tricks, or a hakem-side loss, earns bonus points (e.g. koti/coat rules), and exact values. |
+| R-08 | Special scores | **Koti/coat is explicitly not used**; no bonus is awarded for taking all 13 tricks. Other possible regional bonuses, if any, remain unconfirmed. | Confirm whether there are any other special scores beyond ordinary hand points; absent approval, none apply. |
 | R-09 | Match completion | Manager target is 3/5/7 | Confirm match ends immediately when target reached and whether a tie is possible/allowed. |
 | R-10 | Starting team/first lead | Hakem leads first trick | Confirm whether this applies to every hand and how first hakem is selected. |
 | R-11 | Illegal/missed turn | Server validates legal card and turn | Confirm timeout, invalid action, repeated invalid action and disconnect consequences. |
@@ -54,7 +54,7 @@ Each item below blocks Phase 1 completion until the owner chooses or explicitly 
 | R-14 | Disconnect | 20-second default grace, temporary bot takeover, no XP penalty | Confirm whether grace duration is fixed or manager-configurable, and whether reconnect is allowed after bot takeover. |
 | R-15 | Team identity | Opposite seats are partners | Confirm seating orientation and whether seats rotate between hands. |
 
-## 4. Existing code-to-spec discrepancies and risks
+## 3A. Owner decisions recorded\n\n- **R-08 (2026-11-01):** The owner explicitly rejected applying the koti/coat rule. Taking all 13 tricks does not grant a koti bonus. Do not implement or award koti points. The ordinary hand scoring and any other special scoring still require confirmation.\n\n## 4. Existing code-to-spec discrepancies and risks
 
 1. `engine.js` contains a generic `dealCards` helper that deals all 13 cards, while `round.js` implements the staged 5+8 deal. The canonical production rule must be chosen and the unused/ambiguous API clarified.
 2. `round.js` currently treats seven tricks as an immediate hand finish. Any regional bonus requiring all thirteen tricks would require a different hand lifecycle.
