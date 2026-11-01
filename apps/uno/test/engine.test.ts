@@ -7,6 +7,10 @@ function makeActionGame(players: Array<{id:string;username:string}>) {
   const game = startUnoGame(players);
   // Most engine tests target mid-game rules, not the random opening-Wild flow.
   game.openingColorPendingPlayerId = null;
+  if (game.discardPile[0]?.face === 'draw2') {
+    const openingPenaltyCards = game.players[1]!.hand.splice(7);
+    game.drawPile.push(...openingPenaltyCards);
+  }
   game.currentPlayerIndex = 0;
   game.direction = 1;
   return game;
