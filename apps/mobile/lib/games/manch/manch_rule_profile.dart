@@ -19,10 +19,10 @@ class ManchRuleProfile {
   factory ManchRuleProfile.fromJson(Map<String, Object?> json) {
     final penalty = ThreeSixPenalty.values.firstWhere(
       (value) => value.name == json['threeSixPenalty'],
-      orElse: () => ThreeSixPenalty.none,
+      orElse: () => throw FormatException('Unknown three-six penalty rule.'),
     );
     final profile = ManchRuleProfile(
-      entryFaces: ((json['entryFaces'] as List?)?.cast<int>() ?? const {6}).toSet(),
+      entryFaces: ((json['entryFaces'] as List?)?.cast<int>() ?? const [6]).toSet(),
       extraRollOnSix: json['extraRollOnSix'] as bool? ?? true,
       extraRollOnCapture: json['extraRollOnCapture'] as bool? ?? false,
       extraRollOnFinish: json['extraRollOnFinish'] as bool? ?? false,
