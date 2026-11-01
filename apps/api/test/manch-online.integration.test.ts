@@ -272,4 +272,24 @@ test('Manch online rooms join, roll and persist server-authoritative moves', asy
     [200, 409],
     'Row locking and state versions must prevent two concurrent rolls from consuming the same turn.',
   );
+
+  const forfeited = await app.inject({
+    method: 'POST',
+    url: `/api/v1/manch/matches/${raceId}/forfeit`,
+    headers: auth(guest.accessToken),
+    payload: {},
+  });
+  assert.equal(forfeited.statusCode, 200, forfeited.body);
+  assert.equal(forfeited.json().status, 'finished');
+  assert.equal(forfeited.json().finishReason, 'forfeit');
+  assert.equal(forfeited.json().winnerUserId, host.user.id);
+
+  const afterForfeit = await app.inject({
+    method: 'GET',
+    url: `/api/v1/manch/matches/${raceId}`,
+    headers: auth(host.accessToken),
+  });
+  assert.equal(afterForfeit.statusCode, 200);
+  assert.equal(afterForfeit.json().match.winnerUserId, host.user.id);
+  assert.equal(afterForfeit.json().match.finishReason, 'forfeit');
 });
