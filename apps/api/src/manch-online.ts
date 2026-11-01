@@ -283,7 +283,11 @@ export function registerManchRoutes(app: any, pool: Pool, requireMatchAuth: any)
   app.post('/api/v1/manch/matches/:id/roll', { onRequest: [requireMatchAuth] }, async (request: any, reply: any) => {
     const userId = String(request.user?.sub ?? '');
     const id = String(request.params?.id ?? '');
-    if (!/^\d+$/.test(id) || !userId) return sendError(reply, 400, 'Invalid match identifier.');
+    const expectedVersion = request.body?.expectedStateVersion;
+    if (!/^\d+$/.test(id) || !userId ||
+        !Number.isInteger(expectedVersion) || expectedVersion < 0) {
+      return sendError(reply, 400, 'A valid match id and state version are required.');
+    }
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
@@ -295,6 +299,13 @@ export function registerManchRoutes(app: any, pool: Pool, requireMatchAuth: any)
       if (match.current_turn_user_id !== userId) {
         await client.query('ROLLBACK');
         return sendError(reply, 403, 'It is not your turn.');
+      }
+      if (Number(match.state_version) !== expectedVersion) {
+        await client.query('ROLLBACK');
+        return reply.code(409).send({
+          error: 'Manch state changed; refresh before rolling.',
+          currentStateVersion: Number(match.state_version),
+        });
       }
       const state = match.game_state;
       if (!isValidManchState(state)) {
