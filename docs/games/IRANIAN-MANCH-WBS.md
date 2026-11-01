@@ -49,14 +49,14 @@ Measured conservatively from committed implementation and available test evidenc
 | 3 | Iranian board visual design | 15% | 55% | 52-cell board painter, four yards, four home lanes, entry markers and widget tests exist; final visual review and geometry acceptance remain. |
 | 4 | Pure Dart rules engine | 15% | 55% | Deterministic core, serializable state, defensive immutable rule snapshots, blockade variants and scenario tests are implemented; broader edge-case coverage and owner-approved rules remain. |
 | 5 | Offline game mode | 10% | 35% | Local 2–4 player pass-and-play, optional AI opponent, deterministic bot policy, secure save/resume and widget tests are implemented; broader bot strategy, difficulty settings and full play acceptance remain. |
-| 6 | Online game service | 15% | 0% | Not implemented. |
-| 7 | Royal Club integration | 10% | 5% | Home-screen Manch tile and navigation are added; player profiles, match history, settings and full account integration remain. |
-| 8 | UX polish | 5% | 0% | Not implemented. |
-| 9 | End-to-end validation and stabilization | 5% | 0% | Full Manch acceptance and multi-client validation not yet complete. |
+| 6 | Online game service | 15% | 55% | Authenticated room lifecycle, 2–4 player seats, expiry/cancel, server-generated dice, server-side rule validation, transactional row locking, state versions, persistence and initial API integration tests exist; reconnect leases, active-match forfeit, push delivery, concurrency stress and multi-client UI acceptance remain. |
+| 7 | Royal Club integration | 10% | 15% | Home-screen mode picker routes to offline AI/local modes and online lobby; authenticated account identity is used by the online service. Friends/invite integration, profile/history, ranked records and settings remain. |
+| 8 | UX polish | 5% | 10% | Initial Persian/English screen labels, status messaging and responsive scrolling are present; animation, sound, accessibility review and full localization/visual polish remain. |
+| 9 | End-to-end validation and stabilization | 5% | 10% | Engine, board, offline widget and API integration suites exist; latest CI has exposed widget-test failures now corrected and the newest run is pending. Multi-device, concurrency and full regression acceptance remain. |
 
-Weighted overall progress: **39.75% (40% rounded)** (10%×80% + 15%×75% + 15%×55% + 15%×55% + 10%×35% + 10%×5%). The offline implementation now includes local pass-and-play, a basic optional bot and secure save/resume; difficulty levels, broader strategy and full owner acceptance remain. Online mode, full integration, polish and end-to-end acceptance also remain outstanding.
+Weighted overall progress: **50%** (10%×80% + 15%×75% + 15%×55% + 15%×55% + 10%×35% + 15%×55% + 10%×15% + 5%×10% + 5%×10%). This is a conservative implementation estimate, not a release-readiness claim. Offline play has an initial AI/local mode and secure save/resume. Online play now has an initial server-authoritative API and client lobby/game flow, but reconnect, friend invitations, active-match recovery, concurrency stress and end-to-end acceptance remain outstanding.
 
-The last confirmed green CI snapshot was for commit `bb64e1d`. A later rules/test/documentation change is being validated separately; do not treat that newer commit as green until its own workflow runs complete successfully.
+Latest CI for commit `1717a13` is running API build/tests and Flutter analyze/widget tests. The preceding Flutter run had 99 passing tests and one failing bot-widget assertion; that assertion was changed to verify persisted engine state. A separate third-six penalty edge case was also corrected in both mobile and API roll handling. Do not mark this snapshot green until the current run completes.
 
 ## Rule decisions that must be explicitly confirmed
 - Token count per player (traditional default is four).
