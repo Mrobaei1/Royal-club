@@ -1443,6 +1443,41 @@ test('subscription purchases debit the wallet atomically and record a ledger ent
     assert.equal(freeLeagueResponse.json().league.subscriptionDaysCost, 0);
     assert.equal(freeLeagueResponse.json().league.rules.minimumParticipants, 8);
     assert.equal(freeLeagueResponse.json().league.rules.appealDeadlineHours, 24);
+    assert.equal(freeLeagueResponse.json().league.gameCode, 'backgammon');
+    assert.equal(freeLeagueResponse.json().league.leagueNumber, 1);
+
+    // The same code and numbering sequence are allowed independently for another game.
+    const chessStartsAt = new Date(Date.now() - 60_000).toISOString();
+    const chessEndsAt = new Date(Date.now() + 86_400_000).toISOString();
+    const chessLeagueResponse = await app.inject({
+      method: 'POST', url: '/api/v1/admin/leagues', headers: auth(leagueOwner.token),
+      payload: {
+        gameCode: 'chess', code: 'free_weekly', name: 'Chess Weekly League',
+        enabled: true, startsAt: chessStartsAt, endsAt: chessEndsAt,
+        rules: { minimumParticipants: 2 },
+      },
+    });
+    assert.equal(chessLeagueResponse.statusCode, 201, chessLeagueResponse.body);
+    assert.equal(chessLeagueResponse.json().league.gameCode, 'chess');
+    assert.equal(chessLeagueResponse.json().league.leagueNumber, 1);
+    assert.equal(chessLeagueResponse.json().league.code, 'free_weekly');
+    assert.ok(chessLeagueResponse.json().league.startsAt);
+    assert.ok(chessLeagueResponse.json().league.endsAt);
+
+    const autoNumberedChessLeague = await app.inject({
+      method: 'POST', url: '/api/v1/admin/leagues', headers: auth(leagueOwner.token),
+      payload: { gameCode: 'chess', name: 'Chess League Two', enabled: true, rules: { minimumParticipants: 2 } },
+    });
+    assert.equal(autoNumberedChessLeague.statusCode, 201, autoNumberedChessLeague.body);
+    assert.equal(autoNumberedChessLeague.json().league.leagueNumber, 2);
+    assert.equal(autoNumberedChessLeague.json().league.code, 'chess-0002');
+
+    const chessPublicLeagues = await app.inject({
+      method: 'GET', url: '/api/v1/leagues?gameCode=chess', headers: auth(buyer.token),
+    });
+    assert.equal(chessPublicLeagues.statusCode, 200, chessPublicLeagues.body);
+    assert.equal(chessPublicLeagues.json().leagues.length, 2);
+    assert.ok(chessPublicLeagues.json().leagues.every((league: { gameCode: string }) => league.gameCode === 'chess'));
 
     const freeEntry = await app.inject({
       method: 'POST',
