@@ -25,6 +25,7 @@ All endpoints require a Bearer access token.
 | POST | `/api/v1/manch/matches/:id/roll` | Server-generated dice roll; requires `expectedStateVersion` |
 | POST | `/api/v1/manch/matches/:id/move` | Apply a token move; requires `tokenIndex` and `expectedStateVersion` |
 | POST | `/api/v1/manch/matches/:id/forfeit` | Two-player participant forfeits an active match; opponent wins |
+| POST | `/api/v1/manch/matches/:id/rematch` | A participant creates a fresh waiting room with the same player count |
 | DELETE | `/api/v1/manch/matches/:id` | Host cancels a waiting room |
 
 ## Seats and lifecycle
@@ -47,6 +48,7 @@ All endpoints require a Bearer access token.
 - WebSocket push; the first client uses bounded 2-second state polling.
 - Reconnect leases, disconnect grace periods and temporary AI takeover.
 - The current-match lookup restores the latest waiting/active room after app restart; it does not yet implement disconnect grace timers or temporary AI takeover.
+- A participant may create a fresh 30-second waiting room after a finished match; the opponent must explicitly join it.
 - Match history, ranked results, rating/progression, spectator access and league integration.
 - Active-match leave/forfeit and rematch flows.
 
