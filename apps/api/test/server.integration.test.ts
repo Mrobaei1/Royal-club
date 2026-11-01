@@ -214,6 +214,24 @@ test('registered players can join an online match and history does not expose op
   assert.ok((hostNotifications.json().notifications as Array<Record<string, unknown>>).length > 0);
   assert.ok((guestNotifications.json().notifications as Array<Record<string, unknown>>).length > 0);
 
+  await testPool.query(
+    `INSERT INTO notifications (user_id, actor_user_id, type, title, body, data)
+      VALUES
+        ($1, $2, 'system', 'Login announcement', 'Shown on entry', '{"showOnLogin":true}'::jsonb),
+        ($1, $2, 'system', 'Inbox only', 'Not shown on entry', '{"showOnLogin":false}'::jsonb)`,
+    [host.user.id, guest.user.id],
+  );
+  const loginAnnouncements = await app.inject({
+    method: 'GET',
+    url: '/api/v1/notifications?loginOnly=true',
+    headers: auth(host.token),
+  });
+  assert.equal(loginAnnouncements.statusCode, 200, loginAnnouncements.body);
+  const loginNotices = loginAnnouncements.json().notifications as Array<Record<string, unknown>>;
+  assert.ok(loginNotices.some((notice) => notice.title === 'Login announcement'));
+  assert.equal(loginNotices.some((notice) => notice.title === 'Inbox only'), false);
+  assert.ok(loginNotices.every((notice) => notice.readAt == null));
+
   const clearHostNotifications = await app.inject({
     method: 'DELETE',
     url: '/api/v1/notifications',
@@ -1443,6 +1461,41 @@ test('subscription purchases debit the wallet atomically and record a ledger ent
     assert.equal(freeLeagueResponse.json().league.subscriptionDaysCost, 0);
     assert.equal(freeLeagueResponse.json().league.rules.minimumParticipants, 8);
     assert.equal(freeLeagueResponse.json().league.rules.appealDeadlineHours, 24);
+    assert.equal(freeLeagueResponse.json().league.gameCode, 'backgammon');
+    assert.ok(Number(freeLeagueResponse.json().league.leagueNumber) >= 1);
+
+    // The same code and numbering sequence are allowed independently for another game.
+    const chessStartsAt = new Date(Date.now() - 60_000).toISOString();
+    const chessEndsAt = new Date(Date.now() + 86_400_000).toISOString();
+    const chessLeagueResponse = await app.inject({
+      method: 'POST', url: '/api/v1/admin/leagues', headers: auth(leagueOwner.token),
+      payload: {
+        gameCode: 'chess', code: 'free_weekly', name: 'Chess Weekly League',
+        enabled: true, startsAt: chessStartsAt, endsAt: chessEndsAt,
+        rules: { minimumParticipants: 2 },
+      },
+    });
+    assert.equal(chessLeagueResponse.statusCode, 201, chessLeagueResponse.body);
+    assert.equal(chessLeagueResponse.json().league.gameCode, 'chess');
+    assert.equal(chessLeagueResponse.json().league.leagueNumber, 1);
+    assert.equal(chessLeagueResponse.json().league.code, 'free_weekly');
+    assert.ok(chessLeagueResponse.json().league.startsAt);
+    assert.ok(chessLeagueResponse.json().league.endsAt);
+
+    const autoNumberedChessLeague = await app.inject({
+      method: 'POST', url: '/api/v1/admin/leagues', headers: auth(leagueOwner.token),
+      payload: { gameCode: 'chess', name: 'Chess League Two', enabled: true, rules: { minimumParticipants: 2 } },
+    });
+    assert.equal(autoNumberedChessLeague.statusCode, 201, autoNumberedChessLeague.body);
+    assert.equal(autoNumberedChessLeague.json().league.leagueNumber, 2);
+    assert.equal(autoNumberedChessLeague.json().league.code, 'chess-0002');
+
+    const chessPublicLeagues = await app.inject({
+      method: 'GET', url: '/api/v1/leagues?gameCode=chess', headers: auth(buyer.token),
+    });
+    assert.equal(chessPublicLeagues.statusCode, 200, chessPublicLeagues.body);
+    assert.equal(chessPublicLeagues.json().leagues.length, 2);
+    assert.ok(chessPublicLeagues.json().leagues.every((league: { gameCode: string }) => league.gameCode === 'chess'));
 
     const freeEntry = await app.inject({
       method: 'POST',
