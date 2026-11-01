@@ -47,14 +47,14 @@ Measured conservatively from committed implementation and available test evidenc
 | 1 | Requirements and Iranian rule profile | 10% | 80% | Variant research and configurable profile exist; owner must approve the final local rule matrix. |
 | 2 | Open-source research and license review | 15% | 75% | Candidate shortlist and selected license checks exist; exact commit pinning and full obligations audit remain. |
 | 3 | Iranian board visual design | 15% | 55% | 52-cell board painter, four yards, four home lanes, entry markers and widget tests exist; final visual review and geometry acceptance remain. |
-| 4 | Pure Dart rules engine | 15% | 50% | Deterministic core, serializable state, configurable profile and scenario tests exist; edge-case coverage and full CI verification remain. |
-| 5 | Offline game mode | 10% | 15% | Initial local pass-and-play screen, dice flow, legal-move selection, turn progression and restart are implemented; bot opponents, save/resume and full test verification remain. |
+| 4 | Pure Dart rules engine | 15% | 55% | Deterministic core, serializable state, defensive immutable rule snapshots, blockade variants and scenario tests are implemented; broader edge-case coverage and owner-approved rules remain. |
+| 5 | Offline game mode | 10% | 35% | Local 2–4 player pass-and-play, optional AI opponent, deterministic bot policy, secure save/resume and widget tests are implemented; broader bot strategy, difficulty settings and full play acceptance remain. |
 | 6 | Online game service | 15% | 0% | Not implemented. |
 | 7 | Royal Club integration | 10% | 5% | Home-screen Manch tile and navigation are added; player profiles, match history, settings and full account integration remain. |
 | 8 | UX polish | 5% | 0% | Not implemented. |
 | 9 | End-to-end validation and stabilization | 5% | 0% | Full Manch acceptance and multi-client validation not yet complete. |
 
-Weighted overall progress: **37%** (10%×80% + 15%×75% + 15%×55% + 15%×50% + 10%×15% + 10%×5%). The offline implementation is an initial local pass-and-play slice, not a completed offline package: bot opponents, save/resume and verified acceptance remain outstanding. Online mode, full integration, polish and end-to-end acceptance also remain outstanding.
+Weighted overall progress: **39.75% (40% rounded)** (10%×80% + 15%×75% + 15%×55% + 15%×55% + 10%×35% + 10%×5%). The offline implementation now includes local pass-and-play, a basic optional bot and secure save/resume; difficulty levels, broader strategy and full owner acceptance remain. Online mode, full integration, polish and end-to-end acceptance also remain outstanding.
 
 The last confirmed green CI snapshot was for commit `bb64e1d`. A later rules/test/documentation change is being validated separately; do not treat that newer commit as green until its own workflow runs complete successfully.
 
