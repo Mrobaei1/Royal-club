@@ -25,6 +25,6 @@ Cloudflare documentation:
 
 ## Billing and operational notes
 
-Cloudflare documents TURN usage as free when used together with its Realtime SFU; standalone TURN relay usage is billed by outbound real-time data. Royal Club currently uses direct peer-to-peer WebRTC, so review the current Cloudflare pricing and usage before enabling the credentials in production.
+Cloudflare documents a shared 1,000 GB monthly free tier for Realtime egress, then $0.05 per GB of outbound TURN traffic when used without Realtime SFU. Royal Club currently uses direct peer-to-peer WebRTC, so review the current [TURN pricing and billing FAQ](https://developers.cloudflare.com/realtime/turn/faq/) before enabling the credentials in production.
 
 Voice remains unavailable until both server secrets are configured. The mobile control reports the API's configuration error rather than pretending a microphone icon is a working call. TURN credentials are temporary; the long-lived secret is never returned to clients.
