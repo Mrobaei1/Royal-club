@@ -1,6 +1,6 @@
 # Royal Club — Owner Executive Analytics Dashboard
 
-Status: approved product specification; implementation and live-data integration are not yet claimed.
+Status: approved product specification; first implementation slice is in progress on `feature/admin-command-center-menu`. See `ANALYTICS-INSTRUMENTATION-PHASE-5.md` for verified scope and gaps.
 
 ## Purpose and access
 Provide the Owner with two complementary modes:
@@ -87,3 +87,15 @@ All charts need units, axes, date/timezone, definitions, and accessible tabular 
 5. Privacy/security review, reconciliation, load/performance testing, accessibility, and owner acceptance.
 
 Acceptance requires verified source-to-metric lineage, reproducible calculations, permission tests (including direct API access), stale-data tests, financial reconciliation, export controls, and passing CI at the exact branch head. Until then this document is a specification, not a claim of a working dashboard or live feed.
+
+
+## First implementation slice — verified scope boundary
+- Owner-only overview API and mobile owner dashboard are implemented.
+- Authenticated activity is aggregated daily; DAU/WAU/MAU and repeat-active users are calculated from observed authenticated API requests.
+- Backgammon room creation, join, start, and finish lifecycle events are captured; event counts remain distinct from unique players and completed matches.
+- Advanced API supports bounded UTC date ranges (maximum 90 days), game filter, adjacent equal-length period comparison, and activity-based D7 retention cohorts using first observed authenticated activity.
+- Owner-only CSV and PDF event-summary exports are available. PDF currently uses standard Helvetica; non-ASCII characters are replaced, so Persian PDF localization is not yet supported.
+- API p50/p95 and 5xx rate are process-local five-minute samples; database probe latency is measured during overview requests.
+- The integration test suite seeds 10,000 events to validate aggregate queries and export paths.
+- Not implemented/connected: chess/cards/UNO/Mafia event producers, signup-cohort retention, true session duration, durable distributed API telemetry, provider resource/billing data, agent execution cost/quality, advanced drill-down, and production load testing.
+- CI must pass at the exact latest PR head before this implementation slice is considered validated. No production deployment, merge, or APK build is included.
