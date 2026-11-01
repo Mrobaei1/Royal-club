@@ -354,6 +354,16 @@ test("authenticated chess routes support private game, draw, chat, voice, profil
     });
     assert.equal(activeRoom.statusCode, 409);
 
+    const queueCancelRoom = await request(queueCancel, "POST", "/chess/rooms", {
+      timeControlId: "rapid", minOpponentLevel: 1, chatEnabled: true, voiceEnabled: false,
+    });
+    assert.equal(queueCancelRoom.statusCode, 201, queueCancelRoom.body);
+    const queueCancelMatchmaking = await request(queueCancel, "POST", "/chess/matchmaking/join", { timeControlId: "rapid" });
+    assert.equal(queueCancelMatchmaking.statusCode, 409);
+    assert.equal(queueCancelMatchmaking.json().error, "waiting_room_already_exists");
+    const queueCancelRoomDelete = await request(queueCancel, "DELETE", `/chess/rooms/${queueCancelRoom.json().roomCode}`);
+    assert.equal(queueCancelRoomDelete.statusCode, 200);
+
     const cancelQueue = await request(queueCancel, "POST", "/chess/matchmaking/join", { timeControlId: "rapid" });
     assert.equal(cancelQueue.statusCode, 202);
     const cancelled = await request(queueCancel, "DELETE", "/chess/matchmaking/queue");
