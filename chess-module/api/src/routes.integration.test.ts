@@ -104,6 +104,8 @@ test("authenticated chess routes support private game, draw, chat, voice, profil
     assert.equal(selfJoin.statusCode, 400);
     const joined = await request(black, "POST", `/chess/rooms/${roomCode}/join`);
     assert.equal(joined.statusCode, 201, joined.body);
+    const configuredTimeControl = await pool.query("SELECT display_name FROM chess_time_controls WHERE id='rapid'");
+    assert.equal(joined.json().settings.timeControl.name, configuredTimeControl.rows[0].display_name);
     const gameId = joined.json().gameId as string;
 
     const whiteGame = await request(white, "GET", `/chess/games/${gameId}`);
