@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createDeck, startUnoGame, applyUnoAction, publicGameState, privateTurnState, resolveOpeningCard } from '../src/engine.js';
+import { createDeck, startUnoGame, applyUnoAction, publicGameState, privateTurnState, resolveOpeningCard, drawOpeningCard } from '../src/engine.js';
 import { UnoError } from '../src/model.js';
 
 test('deck has 108 unique cards and cryptographically generated ids', () => {
@@ -383,4 +383,26 @@ test('opening Skip, Reverse and Draw Two apply their official first-turn effects
   assert.deepEqual(draw2, {currentPlayerIndex:2,direction:1});
   assert.equal(drawPlayers[1]!.hand.length,2);
   assert.equal(drawPile.length,0);
+});
+
+
+test('an opening Wild requires the first player to choose a color before any move', () => {
+  const game = startUnoGame([{id:'a',username:'a'},{id:'b',username:'b'}]);
+  game.openingColorPendingPlayerId = 'a';
+  game.currentPlayerIndex = 0;
+  assert.throws(() => applyUnoAction(game,'a',{type:'draw'}), (error: unknown) => error instanceof UnoError && error.code === 'OPENING_COLOR_REQUIRED');
+  const chosen = applyUnoAction(game,'a',{type:'chooseColor',color:'blue'});
+  assert.equal(chosen.activeColor,'blue');
+  assert.equal(chosen.openingColorPendingPlayerId,null);
+  assert.equal(chosen.currentPlayerIndex,0);
+});
+
+test('an opening Wild Draw Four is returned to the draw deck and replaced', () => {
+  const drawPile = [
+    {id:'replacement',color:'red' as const,face:4},
+    {id:'opening-wild4',color:'wild' as const,face:'wild4' as const},
+  ];
+  const opening = drawOpeningCard(drawPile);
+  assert.equal(opening.id,'replacement');
+  assert.equal(drawPile.some(card => card.id === 'opening-wild4'),true);
 });
