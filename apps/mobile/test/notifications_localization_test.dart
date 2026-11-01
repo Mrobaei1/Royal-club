@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:royal_club/notifications_screen.dart';
 
@@ -33,4 +34,40 @@ void main() {
     expect(localizedNotificationTitle(invite, true), 'Backgammon invitation');
     expect(localizedNotificationBody(invite, true), contains('Accept within 60 seconds'));
   });
+  testWidgets('notification details open in a small dialog with a close action', (tester) async {
+    await tester.view.setPhysicalSize(const Size(800, 1200));
+    await tester.view.setDevicePixelRatio(1);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: Builder(
+          builder: (context) => TextButton(
+            onPressed: () => showDialog<void>(
+              context: context,
+              builder: (_) => const NotificationDetailsDialog(
+                title: 'New friend request',
+                body: 'A user sent you a friend request.',
+                closeLabel: 'Close notification',
+              ),
+            ),
+            child: const Text('Open notification'),
+          ),
+        ),
+      ),
+    ));
+
+    await tester.tap(find.text('Open notification'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AlertDialog), findsOneWidget);
+    expect(find.text('A user sent you a friend request.'), findsOneWidget);
+    expect(find.text('Close notification'), findsOneWidget);
+
+    await tester.tap(find.text('Close notification'));
+    await tester.pumpAndSettle();
+    expect(find.byType(AlertDialog), findsNothing);
+  });
+
 }
