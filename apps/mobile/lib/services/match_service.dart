@@ -293,6 +293,34 @@ class MatchService {
     );
   }
 
+  static Future<List<Map<String, dynamic>>> voiceIceServers(String id) async {
+    final payload = await _request('GET', '/$id/voice/ice-servers');
+    return ((payload['iceServers'] as List?) ?? const [])
+        .whereType<Map>()
+        .map((server) => Map<String, dynamic>.from(server))
+        .toList();
+  }
+
+  static Future<List<Map<String, dynamic>>> voiceSignals(
+    String id, {String? afterId}
+  ) async {
+    final suffix = afterId == null ? '' : '?afterId=${Uri.encodeQueryComponent(afterId)}';
+    final payload = await _request('GET', '/$id/voice/signals$suffix');
+    return ((payload['signals'] as List?) ?? const [])
+        .whereType<Map>()
+        .map((signal) => Map<String, dynamic>.from(signal))
+        .toList();
+  }
+
+  static Future<void> sendVoiceSignal(
+    String id, String kind, Map<String, dynamic> payload,
+  ) async {
+    await _postJson('/matches/$id/voice/signals', {
+      'kind': kind,
+      'payload': payload,
+    });
+  }
+
   static Future<Map<String, dynamic>> resign(
     String id, {required String scope}
   ) async {
