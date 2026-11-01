@@ -1330,10 +1330,12 @@ class _AdminScreenState extends State<AdminScreen> {
         minBalance: minBalance,
         maxBalance: maxBalance,
       );
-      if (mounted) setState(() {
-        _users = users;
-        _selectedUserIds.removeWhere((id) => !users.any((user) => user['id'].toString() == id));
-      });
+      if (mounted) {
+        setState(() {
+          _users = users;
+          _selectedUserIds.removeWhere((id) => !users.any((user) => user['id'].toString() == id));
+        });
+      }
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appError(context, e))));
     } finally {
