@@ -85,6 +85,20 @@ class _IranianManchPainter extends CustomPainter {
     ManchSeat.blue: Color(0xFF397BD4),
   };
 
+  // The 52 shared route cells on a 15x15 classic four-colour board.
+  // The list is rotated so the four entry cells are indices 0, 13, 26 and 39.
+  static const List<(int, int)> trackCells = [
+    (6, 0), (6, 1), (6, 2), (6, 3), (6, 4), (6, 5),
+    (5, 6), (4, 6), (3, 6), (2, 6), (1, 6), (0, 6),
+    (0, 7), (0, 8), (1, 8), (2, 8), (3, 8), (4, 8),
+    (5, 8), (6, 9), (6, 10), (6, 11), (6, 12), (6, 13),
+    (6, 14), (7, 14), (8, 14), (8, 13), (8, 12), (8, 11),
+    (8, 10), (8, 9), (9, 8), (10, 8), (11, 8), (12, 8),
+    (13, 8), (14, 8), (14, 7), (14, 6), (13, 6), (12, 6),
+    (11, 6), (10, 6), (9, 6), (8, 5), (8, 4), (8, 3),
+    (8, 2), (8, 1), (8, 0), (7, 0),
+  ];
+
   @override
   void paint(Canvas canvas, Size size) {
     final side = math.min(size.width, size.height);
@@ -111,23 +125,23 @@ class _IranianManchPainter extends CustomPainter {
     _drawYard(canvas, u, 9, 9, ManchSeat.yellow);
     _drawYard(canvas, u, 0, 9, ManchSeat.blue);
 
-    // Cross-shaped shared route, with individually outlined cells.
-    for (var row = 0; row < 15; row++) {
-      for (var col = 0; col < 15; col++) {
-        if (!((row >= 6 && row <= 8) || (col >= 6 && col <= 8))) {
-          continue;
-        }
-        final cell = Rect.fromLTWH(col * u, row * u, u, u);
-        canvas.drawRect(cell, Paint()..color = route);
-        canvas.drawRect(
-          cell,
-          Paint()
-            ..style = PaintingStyle.stroke
-            ..strokeWidth = math.max(.6, u * .025)
-            ..color = line,
-        );
-      }
+    // Draw only the 52 actual shared-route cells; the yards remain clear.
+    for (final point in trackCells) {
+      final cell = Rect.fromLTWH(point.$2 * u, point.$1 * u, u, u);
+      canvas.drawRect(cell, Paint()..color = route);
+      canvas.drawRect(
+        cell,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = math.max(.6, u * .025)
+          ..color = line,
+      );
     }
+
+    _drawEntryCell(canvas, u, 6, 0, ManchSeat.red);
+    _drawEntryCell(canvas, u, 0, 8, ManchSeat.green);
+    _drawEntryCell(canvas, u, 8, 14, ManchSeat.yellow);
+    _drawEntryCell(canvas, u, 14, 6, ManchSeat.blue);
 
     _drawLane(canvas, u, ManchSeat.red,
         List.generate(5, (i) => (7, i + 1)));
@@ -139,10 +153,10 @@ class _IranianManchPainter extends CustomPainter {
         List.generate(5, (i) => (13 - i, 7)));
 
     _drawCentre(canvas, u);
-    _drawSafeMarker(canvas, Offset(7.5 * u, 3.5 * u), u * .19);
-    _drawSafeMarker(canvas, Offset(3.5 * u, 7.5 * u), u * .19);
-    _drawSafeMarker(canvas, Offset(7.5 * u, 11.5 * u), u * .19);
-    _drawSafeMarker(canvas, Offset(11.5 * u, 7.5 * u), u * .19);
+    _drawSafeMarker(canvas, Offset(.5 * u, 6.5 * u), u * .19);
+    _drawSafeMarker(canvas, Offset(8.5 * u, .5 * u), u * .19);
+    _drawSafeMarker(canvas, Offset(14.5 * u, 8.5 * u), u * .19);
+    _drawSafeMarker(canvas, Offset(6.5 * u, 14.5 * u), u * .19);
 
     if (showSampleTokens) {
       for (final seat in ManchSeat.values) {
@@ -157,6 +171,19 @@ class _IranianManchPainter extends CustomPainter {
         ..style = PaintingStyle.stroke
         ..strokeWidth = math.max(2, u * .12)
         ..color = gold,
+    );
+  }
+
+  void _drawEntryCell(
+      Canvas canvas, double u, int row, int col, ManchSeat seat) {
+    final rect = Rect.fromLTWH(col * u, row * u, u, u);
+    canvas.drawRect(rect, Paint()..color = seatColors[seat]!);
+    canvas.drawRect(
+      rect,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = math.max(.7, u * .04)
+        ..color = const Color(0xFFFFE7A0),
     );
   }
 
