@@ -34,6 +34,18 @@ The following researched options are **not implemented yet** and must not be pre
 
 Default profile proposal (not yet owner-approved): common classic family rules, six-only entry, extra roll on six, exact finish, no automatic assumption about three-sixes or blockades until selected in the match settings. Never hard-code a disputed house rule into the core move algorithm.
 
+## Open-source reference audit (pinned snapshots)
+
+These repositories were inspected as references only; **no third-party source code has been copied into Royal Club**.
+
+| Repository | Reviewed commit | Declared license | Relevance and decision |
+|---|---|---|---|
+| https://github.com/rojanparajuli/Flutter_ludo | `717b6218bdcf5211d75e2bc01950bd7c2db690f0` | MIT | Recent Flutter Ludo engine with bots, configurable rules and tests. Useful for architecture comparison; not adopted as a dependency. |
+| https://github.com/smokelaboratory/fludo | `b0adc154d90e0f3e56b464f5961a1c5e2051b3b4` | Apache-2.0 | Flutter Canvas board reference; last source push is 2024, so treat as a drawing reference only. |
+| https://github.com/choganhq/chogan | `4e400bf922e9774c156e2e71e643a424b5b85325` | MIT | Persian-language game collection; latest inspected commit concerns tutorial navigation, and no confirmed reusable Manch module was identified. Not adopted. |
+
+The license identifiers and commit hashes above were read from GitHub repository metadata and commit endpoints on 2026-11-01. Before copying or vendoring any source, review the exact pinned license text, notices, copyright attribution, dependency licenses and any transitive obligations. This table is a technical screening record, not legal advice.
+
 ## Sources reviewed
 - Gift Club Persian rules article (published 19 Oct 2026): https://giftclub.app/fa/blog/ludo-rules
 - Masa Persian Ludo rules and optional house rules: https://masa.io/fa/games/ludo
