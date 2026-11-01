@@ -262,6 +262,7 @@ test('disconnect between rounds preserves the seat for reconnection', () => {
   manager.start(room.code, host.id);
   const snapshot = manager.exportSnapshot();
   snapshot.rooms[0]!.game!.players[0]!.hand = [{id:'last',color:'red',face:1}];
+    snapshot.rooms[0]!.game!.currentPlayerIndex = 0;
   snapshot.rooms[0]!.game!.discardPile = [{id:'top',color:'red',face:2}];
   snapshot.rooms[0]!.game!.activeColor = 'red';
   manager.restoreSnapshot(snapshot);
@@ -410,6 +411,7 @@ test('round winner receives official remaining-card points in cumulative match t
   manager.start(room.code, host.id);
   const snapshot = manager.exportSnapshot();
   snapshot.rooms[0]!.game!.players[0]!.hand = [{id:'last',color:'red',face:1}];
+    snapshot.rooms[0]!.game!.currentPlayerIndex = 0;
   snapshot.rooms[0]!.game!.players[1]!.hand = [
     {id:'n',color:'red',face:9},
     {id:'skip',color:'red',face:'skip'},
