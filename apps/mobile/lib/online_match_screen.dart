@@ -5,6 +5,7 @@ import 'l10n/app_text.dart';
 import 'profile_avatar.dart';
 import 'services/match_service.dart';
 import 'royal_backgammon_board.dart';
+import 'match_activity_state.dart';
 
 class OnlineMatchScreen extends StatefulWidget {
   final Map<String, dynamic> match;
@@ -58,6 +59,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
   @override
   void initState() {
     super.initState();
+    MatchActivityState.setActivelyPlaying(widget.match['status'] == 'active');
     _matchDetails = Map<String, dynamic>.from(widget.match);
     if (_hasValidId) {
       _refresh();
@@ -72,6 +74,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
   void dispose() {
     _poller?.cancel();
     _turnClock?.cancel();
+    MatchActivityState.setActivelyPlaying(false);
     super.dispose();
   }
 
@@ -124,6 +127,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
             _connectionLost = false;
           });
         }
+        MatchActivityState.setActivelyPlaying(match['status'] == 'active');
       } else if (mounted) {
         setState(() {
           _pendingMoves.clear();
@@ -137,6 +141,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
           _error = null;
           _connectionLost = false;
         });
+        MatchActivityState.setActivelyPlaying(false);
       }
     } catch (e) {
       if (sequence == _refreshSequence && mounted) {
