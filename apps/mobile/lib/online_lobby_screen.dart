@@ -61,69 +61,14 @@ class _OnlineLobbyScreenState extends State<OnlineLobbyScreen> {
     await _refreshOpenRoomsSilently();
   }
 
-  Future<void> _showNewInvite(Map<String, dynamic> invite) async {
-    final id = invite['id']?.toString();
-    final expiresAt = DateTime.tryParse(invite['expiresAt']?.toString() ?? '')?.toLocal();
-    final remaining = expiresAt?.difference(DateTime.now()) ?? Duration.zero;
-    if (!mounted || id == null || remaining <= Duration.zero ||
-        _popupInviteId != null || !_shownInviteIds.add(id)) {
-      return;
-    }
-    _popupInviteId = id;
-    final isEnglish = Localizations.localeOf(context).languageCode == 'en';
-    final remainingSeconds = (remaining.inMilliseconds + 999) ~/ 1000;
-    final timeout = Timer(remaining, () {
-      if (mounted && _popupInviteId == id) {
-        Navigator.of(context, rootNavigator: true).pop('expired');
-      }
-    });
-    final result = await showDialog<String>(
-      context: context,
-      barrierDismissible: true,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(appText(context, 'دعوت بازی تخته‌نرد', 'Backgammon invitation')),
-        content: Text(isEnglish
-            ? '@${invite['inviterUsername'] ?? 'friend'} invited you to play. This invitation expires in $remainingSeconds seconds.'
-            : '@${invite['inviterUsername'] ?? 'دوست'} شما را به بازی دعوت کرده است. این دعوت تا $remainingSeconds ثانیه دیگر منقضی می‌شود.'),
-        actions: [
-          TextButton(onPressed: () => Navigator.of(dialogContext).pop('decline'), child: Text(appText(context, 'رد دعوت', 'Decline'))),
-          FilledButton(onPressed: () => Navigator.of(dialogContext).pop('accept'), child: Text(appText(context, 'پذیرش و ورود', 'Accept & join'))),
-        ],
-      ),
-    );
-    timeout.cancel();
-    _popupInviteId = null;
-    if (!mounted) return;
-    final matching = _invites.where((item) => item['id']?.toString() == id).toList();
-    if ((result == 'accept' || result == 'decline') && matching.isNotEmpty) {
-      await _respondToInvite(matching.first, accept: result == 'accept');
-    }
-  }
-
-  void _notifyNewInvites(List<Map<String, dynamic>> invites, Set<String> previousIds) {
-    final fresh = invites.where((invite) {
-      final id = invite['id']?.toString();
-      return id != null && !previousIds.contains(id) && !_shownInviteIds.contains(id);
-    }).toList();
-    if (fresh.isNotEmpty) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        Future<void>.delayed(const Duration(milliseconds: 250), () {
-          if (mounted) _showNewInvite(fresh.first);
-        });
-      });
-    }
-  }
-
   Future<void> _refreshOpenRoomsSilently() async {
     if (_loading || _silentRefreshing) return;
     _silentRefreshing = true;
     try {
       final results = await Future.wait([MatchService.listOpen(), MatchService.listLive(), MatchService.pendingInvites()]);
       if (mounted) {
-        final previousIds = _invites.map((invite) => invite['id']?.toString()).whereType<String>().toSet();
         final freshInvites = results[2].where((invite) => !_isInviteExpired(invite)).toList();
         setState(() { _matches = results[0]; _liveMatches = results[1]; _invites = freshInvites; });
-        _notifyNewInvites(freshInvites, previousIds);
       }
     } catch (_) {
       // Keep the current room list; the next interval retries automatically.
@@ -143,10 +88,8 @@ class _OnlineLobbyScreenState extends State<OnlineLobbyScreen> {
   Future<void> _refresh() => _run(() async {
     final results = await Future.wait([MatchService.listOpen(), MatchService.history(), MatchService.listLive(), MatchService.pendingInvites()]);
     if (mounted) {
-      final previousIds = _invites.map((invite) => invite['id']?.toString()).whereType<String>().toSet();
       final freshInvites = results[3].where((invite) => !_isInviteExpired(invite)).toList();
       setState(() { _matches = results[0]; _history = results[1]; _liveMatches = results[2]; _invites = freshInvites; });
-      _notifyNewInvites(freshInvites, previousIds);
     }
   });
 
