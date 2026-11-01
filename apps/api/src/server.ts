@@ -3200,7 +3200,7 @@ app.get('/api/v1/admin/analytics/overview', { onRequest: [requireOwnerAuth] }, a
 type AnalyticsRange = { from: string; to: string; game: 'all' | 'backgammon' | 'chess' | 'cards' | 'uno' | 'mafia' };
 function validAnalyticsRange(from: unknown, to: unknown, game: unknown): AnalyticsRange | null {
   if (typeof from !== 'string' || typeof to !== 'string' ||
-      !/^\\d{4}-\\d{2}-\\d{2}$/.test(from) || !/^\\d{4}-\\d{2}-\\d{2}$/.test(to)) return null;
+      !/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to)) return null;
   const start = new Date(`${from}T00:00:00.000Z`);
   const end = new Date(`${to}T00:00:00.000Z`);
   if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime()) ||
