@@ -74,17 +74,22 @@ test('authenticated sockets enforce host start and keep hands and voice signals 
     assert.equal(started.ok, true);
     const [hostHand, guestHand, publicGame] = await Promise.all([hostHandEvent, guestHandEvent, publicGameEvent]);
     assert.equal((hostHand as unknown[]).length, 7);
-    assert.equal((guestHand as unknown[]).length, 7);
     const publicState = publicGame as Record<string, unknown>;
+    const openingTop = publicState.discardTop as Record<string, unknown>;
+    assert.equal((guestHand as unknown[]).length, openingTop.face === 'draw2' ? 9 : 7);
+    const currentPlayerId = publicState.currentPlayerId;
+    const activeSocket = currentPlayerId === 'host-id' ? host : guest;
+    const activeHandLength = currentPlayerId === 'host-id' ? (hostHand as unknown[]).length : (guestHand as unknown[]).length;
     assert.equal('drawnCardId' in publicState, false);
     assert.equal('hand' in (publicState.players as Array<Record<string, unknown>>)[0]!, false);
-    const actionRoomEvent = nextEvent(guest, 'uno:room:state');
-    const updatedHostHandEvent = nextEvent(host, 'uno:game:hand');
-    const drawAck = await emitAck(host, 'uno:game:action', { code, action: { type: 'draw' } });
+    const passiveSocket = currentPlayerId === 'host-id' ? guest : host;
+    const actionRoomEvent = nextEvent(passiveSocket, 'uno:room:state');
+    const updatedActiveHandEvent = nextEvent(activeSocket, 'uno:game:hand');
+    const drawAck = await emitAck(activeSocket, 'uno:game:action', { code, action: { type: 'draw' } });
     assert.equal(drawAck.ok, true);
     const actionRoom = await actionRoomEvent as Record<string, unknown>;
-    const updatedHostHand = await updatedHostHandEvent as unknown[];
-    assert.equal(updatedHostHand.length, 8);
+    const updatedActiveHand = await updatedActiveHandEvent as unknown[];
+    assert.equal(updatedActiveHand.length, activeHandLength + 1);
     assert.equal(actionRoom.status, 'playing');
     assert.equal(actionRoom.matchToWin, 3);
 
