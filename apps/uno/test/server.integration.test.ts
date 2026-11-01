@@ -178,6 +178,9 @@ test('PostgreSQL-backed UNO service authenticates, issues TURN credentials and r
     const restoredData = restored.data as Record<string, unknown>;
     const restoredRoom = restoredData.room as Record<string, unknown>;
     assert.equal(restoredRoom.status, 'playing');
+    const restoredPlayers = restoredRoom.players as Array<{id:string;connected:boolean}>;
+    assert.equal(restoredPlayers.find(player => player.id === hostId)?.connected, true);
+    assert.equal(restoredPlayers.find(player => player.id === guestId)?.connected, false);
     assert.equal((restoredData.hand as unknown[]).length, 7);
     assert.ok(restoredData.game);
 
