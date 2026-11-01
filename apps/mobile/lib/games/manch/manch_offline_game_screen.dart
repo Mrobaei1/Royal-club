@@ -255,9 +255,9 @@ class _ManchOfflineGameScreenState extends State<ManchOfflineGameScreen> {
                   label: const Text('بازی جدید'),
                 )
               else if (_isBotTurn)
-                const FilledButton.icon(
+                FilledButton.icon(
                   onPressed: null,
-                  icon: Icon(Icons.smart_toy_outlined),
+                  icon: const Icon(Icons.smart_toy_outlined),
                   label: Text('هوش مصنوعی در حال بازی است...'),
                 )
               else if (_state.pendingDice == null)
