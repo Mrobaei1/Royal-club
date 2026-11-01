@@ -3199,6 +3199,11 @@ test('owner analytics overview is owner-only, read-only, and reports source cove
     });
     assert.equal(denied.statusCode, 403, denied.body);
 
+    const room = await app.inject({
+      method: 'POST', url: '/api/v1/matches', headers: auth(owner.token),
+    });
+    assert.equal(room.statusCode, 201, room.body);
+
     const response = await app.inject({
       method: 'GET', url: '/api/v1/admin/analytics/overview', headers: auth(owner.token),
     });
@@ -3217,6 +3222,9 @@ test('owner analytics overview is owner-only, read-only, and reports source cove
     assert.equal(body.metrics.activeUsers.definition,
       'distinct authenticated users with at least one successful authenticated API request per calendar day');
     assert.ok(Array.isArray(body.metrics.gameActivityLast30Days));
+    assert.ok(body.metrics.gameActivityLast30Days.some((event: { game: string; event: string; count: number }) =>
+      event.game === 'backgammon' && event.event === 'room_created' && event.count >= 1));
+    assert.ok(body.metrics.activeUsers.mau >= 1);
     assert.equal(body.metrics.walletCreditsLast30Days.classification,
       'internal-non-transferable-credits-not-cash-revenue');
     assert.deepEqual(body.sources, ['users', 'analytics_user_activity_daily', 'analytics_game_events', 'backgammon_matches', 'wallet_transactions', 'user_subscriptions']);
