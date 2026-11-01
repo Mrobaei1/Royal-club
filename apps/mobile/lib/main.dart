@@ -573,8 +573,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                 label: Text(
                                   appText(
                                     dialogContext,
-                                    'بازی محلی ' + count.toString() + ' نفره',
-                                    'Local ' + count.toString() + '-player game',
+                                    'بازی محلی $count نفره',
+                                    'Local $count-player game',
                                   ),
                                 ),
                               ),
