@@ -168,25 +168,16 @@ export function registerManchRoutes(app: any, pool: Pool, requireMatchAuth: any)
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
-      let created: any;
-      for (let attempt = 0; attempt < 4; attempt++) {
-        const roomCode = randomBytes(4).toString('hex').toUpperCase();
-        try {
-          const inserted = await client.query(
-            `INSERT INTO manch_matches
-              (room_code, host_user_id, player_count, status, game_state, expires_at)
-             VALUES ($1, $2, $3, 'waiting', $4::jsonb, NOW() + INTERVAL '60 seconds')
-             RETURNING id, room_code AS "roomCode", player_count AS "playerCount",
-                       status, state_version AS "stateVersion", expires_at AS "expiresAt"`,
-            [roomCode, userId, playerCount, JSON.stringify(state)],
-          );
-          created = inserted.rows[0];
-          break;
-        } catch (error: any) {
-          if (error?.code !== '23505' || attempt === 3) throw error;
-        }
-      }
-      if (!created) throw new Error('Could not allocate a Manch room code.');
+      const roomCode = randomBytes(6).toString('hex').toUpperCase();
+      const inserted = await client.query(
+        `INSERT INTO manch_matches
+          (room_code, host_user_id, player_count, status, game_state, expires_at)
+         VALUES ($1, $2, $3, 'waiting', $4::jsonb, NOW() + INTERVAL '60 seconds')
+         RETURNING id, room_code AS "roomCode", player_count AS "playerCount",
+                   status, state_version AS "stateVersion", expires_at AS "expiresAt"`,
+        [roomCode, userId, playerCount, JSON.stringify(state)],
+      );
+      const created = inserted.rows[0];
       await client.query(
         `INSERT INTO manch_match_players (match_id, user_id, seat_index, seat_colour)
          VALUES ($1, $2, 0, $3)`,
