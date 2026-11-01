@@ -362,3 +362,18 @@ test('cleanup expires a playing room only when all players are disconnected', ()
   assert.equal(manager.getRoomForUser(host.id), null);
   assert.equal(manager.getRoomForUser(guest.id), null);
 });
+
+
+test('host voluntarily leaving during a live round transfers host to next connected seat', () => {
+  const manager = new UnoRoomManager();
+  const room = manager.createRoom(host);
+  manager.joinRoom(room.code, guest);
+  manager.setReady(room.code, host.id, true);
+  manager.setReady(room.code, guest.id, true);
+  manager.start(room.code, host.id);
+  const afterLeave = manager.leave(room.code, host.id)!;
+  assert.equal(afterLeave.hostId, guest.id);
+  assert.equal(afterLeave.players[0]!.connected, false);
+  assert.equal(afterLeave.players[0]!.muted, true);
+  assert.equal(manager.getRoomForUser(host.id), room.code);
+});
