@@ -3235,7 +3235,7 @@ app.get<{ Querystring: { from?: string; to?: string; game?: string } }>(
              FROM analytics_game_events
             WHERE occurred_at >= ($1::date::timestamp AT TIME ZONE 'UTC') AND occurred_at < ($2::date::timestamp AT TIME ZONE 'UTC')
               AND ($3 = 'all' OR game_type = $3)
-            GROUP BY DATE(occurred_at), game_type, event_type ORDER BY DATE(occurred_at), game_type, event_type`,
+            GROUP BY DATE(occurred_at AT TIME ZONE 'UTC'), game_type, event_type ORDER BY DATE(occurred_at AT TIME ZONE 'UTC'), game_type, event_type`,
           [range.from, toExclusive.toISOString().slice(0, 10), range.game],
         ),
         pool.query(
