@@ -48,7 +48,7 @@ class _ManchOfflineGameScreenState extends State<ManchOfflineGameScreen> {
       throw StateError('Dice roller must return a value from 1 to 6.');
     }
     var next = _engine.roll(_state, dice);
-    var message = 'عدد تاس: ' + dice.toString();
+    var message = 'عدد تاس: $dice';
     if (_engine.legalMoves(next).isEmpty) {
       final currentPlayer = next.activePlayerIndex;
       next = _engine.passTurn(next);
@@ -73,7 +73,7 @@ class _ManchOfflineGameScreenState extends State<ManchOfflineGameScreen> {
     setState(() {
       _state = next;
       _message = won
-          ? 'بازیکن ' + winnerName + ' برنده شد!'
+          ? 'بازیکن $winnerName برنده شد!'
           : next.activePlayerIndex == move.playerIndex
               ? 'حرکت انجام شد؛ نوبت اضافه داری.'
               : 'حرکت انجام شد؛ نوبت بازیکن بعدی است.';
@@ -110,8 +110,8 @@ class _ManchOfflineGameScreenState extends State<ManchOfflineGameScreen> {
   String _positionLabel(int progress) {
     if (progress == -1) return 'حیاط';
     if (progress == ManchEngine.finish) return 'پایان';
-    if (progress >= 52) return 'خانه ' + (progress - 51).toString() + ' از 5';
-    return 'مسیر ' + (progress + 1).toString() + ' از 52';
+    if (progress >= 52) return 'خانه ${progress - 51} از 5';
+    return 'مسیر ${progress + 1} از 52';
   }
 
   @override
@@ -157,7 +157,7 @@ class _ManchOfflineGameScreenState extends State<ManchOfflineGameScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'نوبت بازیکن ' + _playerName(activePlayer.colour),
+                              'نوبت بازیکن ${_playerName(activePlayer.colour)}',
                               style: Theme.of(context).textTheme.titleMedium,
                             ),
                             Text(_message),
@@ -220,12 +220,7 @@ class _ManchOfflineGameScreenState extends State<ManchOfflineGameScreen> {
                     child: OutlinedButton(
                       onPressed: () => _moveToken(move),
                       child: Text(
-                        'مهره ' +
-                            (move.tokenIndex + 1).toString() +
-                            ': ' +
-                            _positionLabel(move.fromProgress) +
-                            ' ← ' +
-                            _positionLabel(move.toProgress),
+                        'مهره ${move.tokenIndex + 1}: ${_positionLabel(move.fromProgress)} ← ${_positionLabel(move.toProgress)}',
                       ),
                     ),
                   ),
@@ -252,8 +247,7 @@ class _ManchOfflineGameScreenState extends State<ManchOfflineGameScreen> {
                             ),
                             const SizedBox(width: 8),
                             Text(
-                              'بازیکن ' +
-                                  _playerName(_state.players[p].colour),
+                              'بازیکن ${_playerName(_state.players[p].colour)}',
                               style: const TextStyle(
                                 fontWeight: FontWeight.bold,
                               ),
@@ -271,9 +265,7 @@ class _ManchOfflineGameScreenState extends State<ManchOfflineGameScreen> {
                             for (var t = 0; t < 4; t++)
                               Chip(
                                 label: Text(
-                                  (t + 1).toString() +
-                                      ': ' +
-                                      _positionLabel(_state.players[p].tokens[t]),
+                                  '${t + 1}: ${_positionLabel(_state.players[p].tokens[t])}',
                                 ),
                                 visualDensity: VisualDensity.compact,
                               ),
