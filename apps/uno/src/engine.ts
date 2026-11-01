@@ -67,6 +67,29 @@ function advance(game: UnoGame, steps = 1): void {
   game.drawnCardId = null;
   game.turnNumber++;
 }
+export function resolveOpeningCard(
+  players: Array<{ hand: UnoCard[] }>,
+  drawPile: UnoCard[],
+  first: UnoCard,
+): { currentPlayerIndex: number; direction: 1 | -1 } {
+  if (players.length < 2) throw new UnoError('INVALID_PLAYER_COUNT', 'UNO requires at least two players.');
+  let currentPlayerIndex = 0;
+  let direction: 1 | -1 = 1;
+  if (first.face === 'skip') currentPlayerIndex = nextIndex(0, direction, players.length);
+  else if (first.face === 'reverse') {
+    direction = -1;
+    currentPlayerIndex = players.length === 2 ? 1 : nextIndex(0, direction, players.length);
+  } else if (first.face === 'draw2') {
+    const target = nextIndex(0, direction, players.length);
+    for (let i = 0; i < 2; i++) {
+      const card = drawPile.pop();
+      if (!card) throw new UnoError('DRAW_PILE_EMPTY', 'Not enough cards to resolve the opening Draw Two.');
+      players[target]!.hand.push(card);
+    }
+    currentPlayerIndex = nextIndex(target, direction, players.length);
+  }
+  return { currentPlayerIndex, direction };
+}
 export function startUnoGame(players: Array<{ id: string; username: string }>): UnoGame {
   if (players.length < 2 || players.length > 6) throw new UnoError('INVALID_PLAYER_COUNT', 'UNO requires 2 to 6 players.');
   if (new Set(players.map(p => p.id)).size !== players.length) throw new UnoError('DUPLICATE_PLAYER', 'Players must be unique.');
@@ -77,17 +100,9 @@ export function startUnoGame(players: Array<{ id: string; username: string }>): 
     deck.unshift(first);
     first = deck.pop()!;
   }
-  let currentPlayerIndex = 0;
-  let direction: 1 | -1 = 1;
-  if (first.face === 'skip') currentPlayerIndex = nextIndex(0, direction, gamePlayers.length);
-  else if (first.face === 'reverse') {
-    direction = -1;
-    currentPlayerIndex = gamePlayers.length === 2 ? 1 : nextIndex(0, direction, gamePlayers.length);
-  } else if (first.face === 'draw2') {
-    const target = nextIndex(0, direction, gamePlayers.length);
-    for (let i = 0; i < 2; i++) gamePlayers[target]!.hand.push(deck.pop()!);
-    currentPlayerIndex = nextIndex(target, direction, gamePlayers.length);
-  }
+  const opening = resolveOpeningCard(gamePlayers, deck, first);
+  const currentPlayerIndex = opening.currentPlayerIndex;
+  const direction = opening.direction;
   return {
     players: gamePlayers, drawPile: deck, discardPile: [first], currentPlayerIndex,
     direction, activeColor: first.color as UnoColor, drawnCardId: null,
@@ -207,7 +222,7 @@ export function publicGameState(game: UnoGame) {
     players: game.players.map(p => ({ id: p.id, username: p.username, cardCount: p.hand.length })),
     discardTop: top, currentPlayerId: currentPlayer(game).id, activeColor: game.activeColor,
     direction: game.direction, drawCount: game.drawPile.length, winnerId: game.winnerId, winnerScore: game.winnerScore,
-    turnNumber: game.turnNumber, unoPendingPlayerId: game.unoPendingPlayerId, pendingWild4: game.pendingWild4 ? { offenderId: game.pendingWild4.offenderId, targetId: game.pendingWild4.targetId } : null,
+    turnNumber: game.turnNumber, unoPendingPlayerId: game.unoPendingPlayerId, winnerScore: game.winnerScore, pendingWild4: game.pendingWild4 ? { offenderId: game.pendingWild4.offenderId, targetId: game.pendingWild4.targetId } : null,
   };
 }
 export function privateTurnState(game: UnoGame, playerId: string) {
