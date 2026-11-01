@@ -296,16 +296,16 @@ export function registerManchRoutes(app: any, pool: Pool, requireMatchAuth: any)
         await client.query('ROLLBACK');
         return sendError(reply, 404, 'Active Manch match not found.');
       }
-      if (match.current_turn_user_id !== userId) {
-        await client.query('ROLLBACK');
-        return sendError(reply, 403, 'It is not your turn.');
-      }
       if (Number(match.state_version) !== expectedVersion) {
         await client.query('ROLLBACK');
         return reply.code(409).send({
           error: 'Manch state changed; refresh before rolling.',
           currentStateVersion: Number(match.state_version),
         });
+      }
+      if (match.current_turn_user_id !== userId) {
+        await client.query('ROLLBACK');
+        return sendError(reply, 403, 'It is not your turn.');
       }
       const state = match.game_state;
       if (!isValidManchState(state)) {
@@ -372,16 +372,16 @@ export function registerManchRoutes(app: any, pool: Pool, requireMatchAuth: any)
         await client.query('ROLLBACK');
         return sendError(reply, 404, 'Active Manch match not found.');
       }
-      if (match.current_turn_user_id !== userId) {
-        await client.query('ROLLBACK');
-        return sendError(reply, 403, 'It is not your turn.');
-      }
       if (Number(match.state_version) !== expectedVersion) {
         await client.query('ROLLBACK');
         return reply.code(409).send({
           error: 'Manch state changed; refresh before moving.',
           currentStateVersion: Number(match.state_version),
         });
+      }
+      if (match.current_turn_user_id !== userId) {
+        await client.query('ROLLBACK');
+        return sendError(reply, 403, 'It is not your turn.');
       }
       if (!isValidManchState(match.game_state)) {
         await client.query('ROLLBACK');
