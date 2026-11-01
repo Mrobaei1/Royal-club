@@ -101,3 +101,36 @@ test('a final Draw Two applies its penalty before the round is awarded', () => {
   assert.equal(finished.winnerId, 'a');
   assert.equal(finished.players[1]!.hand.length, 9);
 });
+
+
+test('Wild Draw Four is rejected when the player holds the active color', () => {
+  const game = startUnoGame([{id:'a',username:'a'},{id:'b',username:'b'},{id:'c',username:'c'}]);
+  game.players[0]!.hand = [
+    {id:'illegal-wild4',color:'wild',face:'wild4'},
+    {id:'red-card',color:'red',face:8},
+  ];
+  game.discardPile = [{id:'top',color:'red',face:2}];
+  game.activeColor = 'red';
+  assert.throws(
+    () => applyUnoAction(game, 'a', {type:'play',cardId:'illegal-wild4',chosenColor:'blue'}),
+    (error: unknown) => error instanceof UnoError && error.code === 'ILLEGAL_WILD4',
+  );
+  // Failed actions must not mutate the caller's source state.
+  assert.equal(game.players[0]!.hand.length, 2);
+  assert.equal(game.players[1]!.hand.length, 7);
+});
+
+test('legal Wild Draw Four changes color, penalizes the next player and skips their turn', () => {
+  const game = startUnoGame([{id:'a',username:'a'},{id:'b',username:'b'},{id:'c',username:'c'}]);
+  game.players[0]!.hand = [
+    {id:'legal-wild4',color:'wild',face:'wild4'},
+    {id:'other-color',color:'blue',face:8},
+  ];
+  game.discardPile = [{id:'top',color:'red',face:2}];
+  game.activeColor = 'red';
+  const next = applyUnoAction(game, 'a', {type:'play',cardId:'legal-wild4',chosenColor:'green'});
+  assert.equal(next.activeColor, 'green');
+  assert.equal(next.players[1]!.hand.length, 11);
+  assert.equal(next.currentPlayerIndex, 2);
+  assert.equal(next.unoPendingPlayerId, 'a');
+});
