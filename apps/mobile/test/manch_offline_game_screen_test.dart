@@ -90,19 +90,26 @@ void main() {
       (tester) async {
     var rollCount = 0;
     int diceRoller() => rollCount++ == 0 ? 6 : 1;
+    final store = _MemoryManchSaveStore();
 
     await tester.pumpWidget(
       MaterialApp(
         home: ManchOfflineGameScreen(
           botPlayers: const {ManchColour.red},
           diceRoller: diceRoller,
+          saveStore: store,
         ),
       ),
     );
     await tester.pumpAndSettle();
 
     expect(find.text('نوبت بازیکن زرد'), findsOneWidget);
-    expect(find.textContaining('مسیر 1 از 52'), findsWidgets);
+    await tester.ensureVisible(find.text('ذخیره'));
+    await tester.tap(find.text('ذخیره'));
+    await tester.pumpAndSettle();
+    expect(store.saved, isNotNull);
+    expect(store.saved!.players[0].tokens[0], 0);
+    expect(store.saved!.activePlayerIndex, 1);
     expect(find.text('انداختن تاس'), findsOneWidget);
   });
 }
