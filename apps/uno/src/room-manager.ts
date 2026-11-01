@@ -180,11 +180,22 @@ export class UnoRoomManager {
     const index = room.players.findIndex(p => p.id === playerId);
     if (index < 0) throw new UnoError('NOT_A_PLAYER', 'You are not seated at this table.');
     if (room.status === 'playing') {
-      room.players[index]!.connected = false;
-      room.players[index]!.selfMuted = true;
-      room.players[index]!.muted = true;
+      const departing = room.players[index]!;
+      departing.connected = false;
+      departing.ready = false;
+      departing.selfMuted = true;
+      departing.muted = true;
+      if (room.hostId === playerId) {
+        for (let offset = 1; offset < room.players.length; offset++) {
+          const successor = room.players[(index + offset) % room.players.length]!;
+          if (successor.connected) {
+            room.hostId = successor.id;
+            break;
+          }
+        }
+      }
       room.lastActivityAt = Date.now();
-    return structuredClone(room);
+      return structuredClone(room);
     }
     room.players.splice(index, 1);
     delete room.roundsWon[playerId];
