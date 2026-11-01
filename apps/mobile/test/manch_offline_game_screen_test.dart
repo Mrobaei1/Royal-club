@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:royal_club/games/manch/manch_game_state.dart';
 import 'package:royal_club/games/manch/manch_offline_game_screen.dart';
+import 'package:royal_club/games/manch/manch_save_store.dart';
 
 void main() {
   testWidgets('offline game enters a token on six and grants the extra roll',
@@ -48,6 +49,41 @@ void main() {
     expect(find.text('انداختن تاس'), findsOneWidget);
   });
 
+  testWidgets('offline game saves and restores its complete state',
+      (tester) async {
+    final store = _MemoryManchSaveStore();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ManchOfflineGameScreen(
+          diceRoller: _six,
+          saveStore: store,
+        ),
+      ),
+    );
+
+    await tester.ensureVisible(find.text('انداختن تاس'));
+    await tester.tap(find.text('انداختن تاس'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.textContaining('مهره 1:'));
+    await tester.tap(find.textContaining('مهره 1:'));
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.text('ذخیره'));
+    await tester.tap(find.text('ذخیره'));
+    await tester.pumpAndSettle();
+    expect(store.saved, isNotNull);
+
+    await tester.tap(find.byTooltip('شروع دوباره'));
+    await tester.pumpAndSettle();
+    expect(find.text('حیاط'), findsWidgets);
+
+    await tester.ensureVisible(find.text('بازیابی'));
+    await tester.tap(find.text('بازیابی'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('مسیر 1 از 52'), findsWidgets);
+    expect(find.text('بازی ذخیره‌شده بازیابی شد.'), findsOneWidget);
+  });
+
   testWidgets('configured bot plays its turn and returns control to human',
       (tester) async {
     var rollCount = 0;
@@ -71,3 +107,15 @@ void main() {
 
 int _six() => 6;
 int _one() => 1;
+
+class _MemoryManchSaveStore implements ManchSaveStore {
+  ManchGameState? saved;
+
+  @override
+  Future<void> save(ManchGameState state) async {
+    saved = ManchGameState.fromJson(state.toJson());
+  }
+
+  @override
+  Future<ManchGameState?> load() async => saved;
+}
