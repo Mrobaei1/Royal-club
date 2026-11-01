@@ -45,6 +45,7 @@ class _ManchOfflineGameScreenState extends State<ManchOfflineGameScreen> {
       playerCount: widget.playerCount,
       profile: widget.profile,
     );
+    if (_isBotTurn) _scheduleBotTurn();
   }
 
   bool get _isBotTurn =>
@@ -127,6 +128,7 @@ class _ManchOfflineGameScreenState extends State<ManchOfflineGameScreen> {
               ? 'حرکت انجام شد؛ نوبت اضافه داری.'
               : 'حرکت انجام شد؛ نوبت بازیکن بعدی است.';
     });
+    if (mounted && !next.isFinished && _isBotTurn) _scheduleBotTurn();
   }
 
   void _restart() {
@@ -138,6 +140,7 @@ class _ManchOfflineGameScreenState extends State<ManchOfflineGameScreen> {
       _lastDice = null;
       _message = 'بازی تازه شروع شد؛ تاس را بینداز.';
     });
+    if (_isBotTurn) _scheduleBotTurn();
   }
 
   Color _colour(ManchColour colour) => switch (colour) {
