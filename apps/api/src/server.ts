@@ -3492,7 +3492,7 @@ app.get<{ Querystring: { from?: string; to?: string; game?: string } }>(
          VALUES ($1, 'csv', $2::date, $3::date, $4, $5)`,
         [actorId, range.from, range.to, range.game, rows.rowCount ?? 0],
       );
-      const escape = (value: unknown) => \`"\${String(value ?? '').replaceAll('"', '""')}"\`;
+      const escape = (value: unknown) => '"' + String(value ?? '').replaceAll('"', '""') + '"';
       const generatedAt = new Date().toISOString();
       const exportMetadata = [generatedAt, 'UTC', range.from, range.to,
         'recorded_lifecycle_event_count_not_unique_games', 'live-query'];
