@@ -45,10 +45,12 @@ class _IncomingMatchInvitesState extends State<IncomingMatchInvites> {
   }
 
   void _onEligibilityChanged() {
-    if (MatchActivityState.authenticated.value &&
-        !MatchActivityState.activelyPlaying.value) {
-      _showNextInvite();
+    if (!MatchActivityState.authenticated.value) {
+      _queued.clear();
+      _handled.clear();
+      return;
     }
+    if (!MatchActivityState.activelyPlaying.value) _showNextInvite();
   }
 
   bool _isValid(Map<String, dynamic> invite) {
@@ -122,9 +124,8 @@ class _IncomingMatchInvitesState extends State<IncomingMatchInvites> {
     final expiryTimer = Timer(
       remaining.isNegative ? Duration.zero : remaining,
       () {
-        final activeNavigator = IncomingMatchInvites.navigatorKey.currentState;
-        if (activeNavigator?.canPop() == true) {
-          activeNavigator!.pop('expired');
+        if (dialogContext.mounted) {
+          Navigator.of(dialogContext, rootNavigator: true).pop('expired');
         }
       },
     );
@@ -160,16 +161,17 @@ class _IncomingMatchInvitesState extends State<IncomingMatchInvites> {
     }
 
     _queued.remove(next.key);
-    _handled.add(next.key);
     _showing = false;
 
     if (!mounted || !MatchActivityState.authenticated.value) return;
+    if (result != 'accept' && result != 'decline') _handled.add(next.key);
     if (result == 'accept' || result == 'decline') {
       try {
         final response = await MatchService.respondToInvite(
           next.key,
           accept: result == 'accept',
         );
+        _handled.add(next.key);
         if (result == 'accept' && response['match'] is Map) {
           final match = Map<String, dynamic>.from(response['match'] as Map);
           await IncomingMatchInvites.navigatorKey.currentState?.push(
@@ -179,8 +181,8 @@ class _IncomingMatchInvitesState extends State<IncomingMatchInvites> {
           );
         }
       } catch (_) {
-        // If the invitation expired or the room was filled, the normal inbox
-        // remains available for the server's authoritative error/refresh.
+        // Leave failed responses eligible for the next poll so the invitation
+        // can be retried instead of silently disappearing from the queue.
       }
     }
     if (mounted) {
