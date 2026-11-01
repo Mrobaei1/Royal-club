@@ -3197,6 +3197,118 @@ app.get('/api/v1/admin/analytics/overview', { onRequest: [requireOwnerAuth] }, a
   }
 });
 
+type AnalyticsRange = { from: string; to: string; game: 'all' | 'backgammon' | 'chess' | 'cards' | 'uno' | 'mafia' };
+function validAnalyticsRange(from: unknown, to: unknown, game: unknown): AnalyticsRange | null {
+  if (typeof from !== 'string' || typeof to !== 'string' ||
+      !/^\\d{4}-\\d{2}-\\d{2}$/.test(from) || !/^\\d{4}-\\d{2}-\\d{2}$/.test(to)) return null;
+  const start = new Date(`${from}T00:00:00.000Z`);
+  const end = new Date(`${to}T00:00:00.000Z`);
+  if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime()) ||
+      start.toISOString().slice(0, 10) !== from || end.toISOString().slice(0, 10) !== to ||
+      end < start || (end.getTime() - start.getTime()) / 86_400_000 > 89) return null;
+  const allowed = ['all', 'backgammon', 'chess', 'cards', 'uno', 'mafia'];
+  if (typeof game !== 'string' || !allowed.includes(game)) return null;
+  return { from, to, game: game as AnalyticsRange['game'] };
+}
+
+app.get<{ Querystring: { from?: string; to?: string; game?: string } }>(
+  '/api/v1/admin/analytics/advanced',
+  { onRequest: [requireOwnerAuth] },
+  async (request, reply) => {
+    const range = validAnalyticsRange(request.query.from, request.query.to, request.query.game ?? 'all');
+    if (!range) return reply.code(400).send({ error: 'Provide valid from/to dates (maximum 90 days) and a supported game filter.' });
+    const from = new Date(`${range.from}T00:00:00.000Z`);
+    const toExclusive = new Date(new Date(`${range.to}T00:00:00.000Z`).getTime() + 86_400_000);
+    const days = Math.round((toExclusive.getTime() - from.getTime()) / 86_400_000);
+    const previousFrom = new Date(from.getTime() - days * 86_400_000).toISOString().slice(0, 10);
+    try {
+      const [dailyActivity, dailyGames, previousActivity, currentActivity] = await Promise.all([
+        pool.query(
+          `SELECT activity_date::text AS date, COUNT(DISTINCT user_id)::int AS active_users
+             FROM analytics_user_activity_daily
+            WHERE activity_date >= $1::date AND activity_date < $2::date
+            GROUP BY activity_date ORDER BY activity_date`,
+          [range.from, toExclusive.toISOString().slice(0, 10)],
+        ),
+        pool.query(
+          `SELECT DATE(occurred_at)::text AS date, game_type AS game, event_type AS event, COUNT(*)::int AS count
+             FROM analytics_game_events
+            WHERE occurred_at >= $1::date AND occurred_at < $2::date
+              AND ($3 = 'all' OR game_type = $3)
+            GROUP BY DATE(occurred_at), game_type, event_type ORDER BY DATE(occurred_at), game_type, event_type`,
+          [range.from, toExclusive.toISOString().slice(0, 10), range.game],
+        ),
+        pool.query(
+          `SELECT COUNT(DISTINCT user_id)::int AS active_users FROM analytics_user_activity_daily
+            WHERE activity_date >= $1::date AND activity_date < $2::date`,
+          [previousFrom, range.from],
+        ),
+        pool.query(
+          `SELECT COUNT(DISTINCT user_id)::int AS active_users FROM analytics_user_activity_daily
+            WHERE activity_date >= $1::date AND activity_date < $2::date`,
+          [range.from, toExclusive.toISOString().slice(0, 10)],
+        ),
+      ]);
+      return {
+        generatedAt: new Date().toISOString(),
+        freshness: 'live-query',
+        filters: { ...range, timezone: 'UTC', days },
+        comparison: {
+          previousFrom,
+          previousTo: new Date(from.getTime() - 86_400_000).toISOString().slice(0, 10),
+          currentDistinctActiveUsers: currentActivity.rows[0]?.active_users ?? 0,
+          previousDistinctActiveUsers: previousActivity.rows[0]?.active_users ?? 0,
+        },
+        dailyActivity: dailyActivity.rows,
+        dailyGameEvents: dailyGames.rows,
+        limitations: [
+          'Active users are based on authenticated API requests, not foreground app sessions.',
+          'Game event totals are recorded lifecycle events, not necessarily unique games or completed matches.',
+          'Only game types with connected event producers return events; empty results do not prove zero activity.',
+          'Comparison is distinct active users over equal-length adjacent windows, not cohort retention.',
+        ],
+        sources: ['analytics_user_activity_daily', 'analytics_game_events'],
+      };
+    } catch (error) {
+      request.log.error({ err: error }, 'Advanced analytics query failed');
+      return reply.code(503).send({ error: 'Advanced analytics is temporarily unavailable.', freshness: 'unavailable' });
+    }
+  },
+);
+
+app.get<{ Querystring: { from?: string; to?: string; game?: string } }>(
+  '/api/v1/admin/analytics/export.csv',
+  { onRequest: [requireOwnerAuth] },
+  async (request, reply) => {
+    const range = validAnalyticsRange(request.query.from, request.query.to, request.query.game ?? 'all');
+    if (!range) return reply.code(400).send({ error: 'Provide valid from/to dates (maximum 90 days) and a supported game filter.' });
+    try {
+      const rows = await pool.query(
+        `SELECT DATE(occurred_at)::text AS date, game_type AS game, event_type AS event, COUNT(*)::int AS count
+           FROM analytics_game_events
+          WHERE occurred_at >= $1::date AND occurred_at < ($2::date + INTERVAL '1 day')
+            AND ($3 = 'all' OR game_type = $3)
+          GROUP BY DATE(occurred_at), game_type, event_type
+          ORDER BY DATE(occurred_at), game_type, event_type LIMIT 10000`,
+        [range.from, range.to, range.game],
+      );
+      const escape = (value: unknown) => `"${String(value ?? '').replaceAll('"', '""')}"`;
+      const csv = [
+        ['date', 'game', 'event', 'count'].join(','),
+        ...rows.rows.map((row: { date: string; game: string; event: string; count: number }) =>
+          [row.date, row.game, row.event, row.count].map(escape).join(',')),
+      ].join('\\r\\n');
+      reply.header('Content-Type', 'text/csv; charset=utf-8');
+      reply.header('Content-Disposition', `attachment; filename="royal-club-analytics-${range.from}-${range.to}.csv"`);
+      reply.header('Cache-Control', 'no-store');
+      return reply.send('\\uFEFF' + csv);
+    } catch (error) {
+      request.log.error({ err: error }, 'Analytics CSV export failed');
+      return reply.code(503).send({ error: 'Analytics export is temporarily unavailable.' });
+    }
+  },
+);
+
 app.get('/api/v1/admin/reports', { onRequest: [requireOwnerOrPermission('reports.read')] }, async () => {
   const result = await pool.query(
     `SELECT r.id, r.reported_user_id AS "reportedUserId", target.username AS "reportedUsername",
