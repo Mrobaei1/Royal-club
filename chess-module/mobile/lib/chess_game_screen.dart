@@ -87,7 +87,7 @@ class _ChessGameScreenState extends State<ChessGameScreen> {
     _whiteDisplay = widget.whiteClock;
     _blackDisplay = widget.blackClock;
     _elapsedSinceSync = Duration.zero;
-    if (widget.activeSide == null) {
+    if (widget.activeSide == null || widget.gameStatus != 'active') {
       _clockTimer?.cancel();
       _clockTimer = null;
     } else {
@@ -115,7 +115,8 @@ class _ChessGameScreenState extends State<ChessGameScreen> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.whiteClock != widget.whiteClock ||
         oldWidget.blackClock != widget.blackClock ||
-        oldWidget.activeSide != widget.activeSide) {
+        oldWidget.activeSide != widget.activeSide ||
+        oldWidget.gameStatus != widget.gameStatus) {
       _resetClockDisplay();
     }
   }
