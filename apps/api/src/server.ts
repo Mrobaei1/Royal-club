@@ -538,16 +538,6 @@ await pool.query(`
   CREATE INDEX IF NOT EXISTS private_messages_inbox_idx
     ON private_messages (recipient_id, read_at, created_at DESC);
 
-  CREATE TABLE IF NOT EXISTS backgammon_match_messages (
-    id BIGSERIAL PRIMARY KEY,
-    match_id BIGINT NOT NULL REFERENCES backgammon_matches(id) ON DELETE CASCADE,
-    sender_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    body TEXT NOT NULL CHECK (char_length(body) BETWEEN 1 AND 2000),
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-  );
-  CREATE INDEX IF NOT EXISTS backgammon_match_messages_thread_idx
-    ON backgammon_match_messages (match_id, id DESC);
-
   CREATE TABLE IF NOT EXISTS backgammon_matches (
     id BIGSERIAL PRIMARY KEY,
     room_code TEXT NOT NULL UNIQUE,
@@ -603,6 +593,17 @@ await pool.query(`
   );
   CREATE INDEX IF NOT EXISTS backgammon_match_presence_heartbeat_idx
     ON backgammon_match_presence (last_heartbeat_at, match_id);
+
+  CREATE TABLE IF NOT EXISTS backgammon_match_messages (
+    id BIGSERIAL PRIMARY KEY,
+    match_id BIGINT NOT NULL REFERENCES backgammon_matches(id) ON DELETE CASCADE,
+    sender_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    body TEXT NOT NULL CHECK (char_length(body) BETWEEN 1 AND 2000),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+  CREATE INDEX IF NOT EXISTS backgammon_match_messages_thread_idx
+    ON backgammon_match_messages (match_id, id DESC);
+
   CREATE TABLE IF NOT EXISTS game_disconnect_policies (
     game_type TEXT PRIMARY KEY CHECK (game_type IN ('backgammon', 'cards', 'chess')),
     enabled BOOLEAN NOT NULL DEFAULT TRUE,
