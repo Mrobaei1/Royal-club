@@ -14,10 +14,12 @@ class ManchRuleProfile {
     this.friendlyStackingEnabled = true,
     this.exactFinishRequired = true,
     this.maxConsecutiveSixes = 3,
-  })  : assert(entryFaces.length > 0),
-        assert(maxConsecutiveSixes >= 2);
+  });
 
   void validate() {
+    if (entryFaces.isEmpty) {
+      throw ArgumentError('At least one entry face must be configured.');
+    }
     if (entryFaces.any((face) => face < 1 || face > 6)) {
       throw ArgumentError('Entry faces must be between 1 and 6.');
     }
