@@ -11,15 +11,46 @@ class OwnerAnalyticsScreen extends StatefulWidget {
 
 class _OwnerAnalyticsScreenState extends State<OwnerAnalyticsScreen> {
   late Future<Map<String, dynamic>> _overview;
+  late Future<Map<String, dynamic>> _advanced;
+  DateTimeRange _range = DateTimeRange(start: DateTime.now().subtract(const Duration(days: 29)), end: DateTime.now());
+  String _selectedGame = 'all';
 
   @override
   void initState() {
     super.initState();
     _overview = AdminService.executiveAnalyticsOverview();
+    _advanced = _loadAdvanced();
   }
 
+  String _date(DateTime value) => '${value.year.toString().padLeft(4, '0')}-${value.month.toString().padLeft(2, '0')}-${value.day.toString().padLeft(2, '0')}';
+
+  Future<Map<String, dynamic>> _loadAdvanced() => AdminService.advancedAnalytics(
+    from: _date(_range.start),
+    to: _date(_range.end),
+    game: _selectedGame,
+  );
+
   void _refresh() {
-    setState(() => _overview = AdminService.executiveAnalyticsOverview());
+    setState(() {
+      _overview = AdminService.executiveAnalyticsOverview();
+      _advanced = _loadAdvanced();
+    });
+  }
+
+  Future<void> _chooseRange() async {
+    final selected = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime.now().subtract(const Duration(days: 365)),
+      lastDate: DateTime.now(),
+      initialDateRange: _range,
+      helpText: Localizations.localeOf(context).languageCode == 'en' ? 'Analytics date range' : 'بازه زمانی تحلیل',
+    );
+    if (selected != null && mounted) {
+      setState(() {
+        _range = selected;
+        _advanced = _loadAdvanced();
+      });
+    }
   }
 
   String _number(dynamic value) {
@@ -120,6 +151,89 @@ class _OwnerAnalyticsScreenState extends State<OwnerAnalyticsScreen> {
                   )),
                   const SizedBox(height: 6),
                   Text(t('منبع: analytics_game_events · فقط رویدادهای ثبت‌شده؛ بازی‌های بدون اتصال رویداد در این آمار ظاهر نمی‌شوند.', 'Source: analytics_game_events · recorded events only; games without event integration are not represented.'), style: Theme.of(context).textTheme.bodySmall),
+                  const SizedBox(height: 18),
+                  Text(t('مرکز تحلیل پیشرفته', 'Advanced analytics'), style: Theme.of(context).textTheme.titleLarge),
+                  const SizedBox(height: 8),
+                  Card(child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Wrap(spacing: 8, runSpacing: 8, crossAxisAlignment: WrapCrossAlignment.center, children: [
+                        OutlinedButton.icon(
+                          onPressed: _chooseRange,
+                          icon: const Icon(Icons.date_range),
+                          label: Text('${_date(_range.start)} — ${_date(_range.end)}'),
+                        ),
+                        SizedBox(
+                          width: 150,
+                          child: DropdownButtonFormField<String>(
+                            value: _selectedGame,
+                            decoration: InputDecoration(
+                              labelText: t('بازی', 'Game'),
+                              border: const OutlineInputBorder(),
+                              isDense: true,
+                            ),
+                            items: [
+                              DropdownMenuItem(value: 'all', child: Text(t('همه بازی‌ها', 'All games'))),
+                              const DropdownMenuItem(value: 'backgammon', child: Text('Backgammon')),
+                              const DropdownMenuItem(value: 'chess', child: Text('Chess')),
+                              const DropdownMenuItem(value: 'cards', child: Text('Cards')),
+                              const DropdownMenuItem(value: 'uno', child: Text('UNO')),
+                              const DropdownMenuItem(value: 'mafia', child: Text('Mafia')),
+                            ],
+                            onChanged: (value) {
+                              if (value == null) return;
+                              setState(() {
+                                _selectedGame = value;
+                                _advanced = _loadAdvanced();
+                              });
+                            },
+                          ),
+                        ),
+                      ]),
+                      const SizedBox(height: 10),
+                      FutureBuilder<Map<String, dynamic>>(
+                        future: _advanced,
+                        builder: (context, advancedSnapshot) {
+                          if (advancedSnapshot.connectionState == ConnectionState.waiting) {
+                            return const Padding(
+                              padding: EdgeInsets.all(12),
+                              child: Center(child: CircularProgressIndicator()),
+                            );
+                          }
+                          if (advancedSnapshot.hasError || !advancedSnapshot.hasData) {
+                            return Text(t('داده تحلیل پیشرفته در دسترس نیست.', 'Advanced analytics are unavailable.'));
+                          }
+                          final advanced = advancedSnapshot.data!;
+                          final comparison = Map<String, dynamic>.from(advanced['comparison'] as Map? ?? {});
+                          final events = (advanced['dailyGameEvents'] as List? ?? const [])
+                              .whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
+                          return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            _MetricRow(
+                              label: t('کاربران فعال در بازه جاری', 'Distinct active users · current'),
+                              value: _number(comparison['currentDistinctActiveUsers']),
+                            ),
+                            _MetricRow(
+                              label: t('کاربران فعال در بازه قبلی', 'Distinct active users · previous'),
+                              value: _number(comparison['previousDistinctActiveUsers']),
+                            ),
+                            const Divider(),
+                            if (events.isEmpty)
+                              Text(t('برای این فیلتر رویداد ثبت‌شده‌ای وجود ندارد؛ این به معنی صفر بودن فعالیت بازی نیست.', 'No events are recorded for this filter; this does not prove zero game activity.'))
+                            else
+                              ...events.take(100).map((event) => _MetricRow(
+                                label: '${event['date']} · ${event['game']} · ${event['event']}',
+                                value: _number(event['count']),
+                              )),
+                            const SizedBox(height: 6),
+                            Text(
+                              (advanced['limitations'] as List? ?? const []).join('\n'),
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
+                          ]);
+                        },
+                      ),
+                    ]),
+                  )),
                   const SizedBox(height: 18),
                   Text(t('وضعیت بازی تخته‌نرد', 'Backgammon status'), style: Theme.of(context).textTheme.titleLarge),
                   const SizedBox(height: 8),
