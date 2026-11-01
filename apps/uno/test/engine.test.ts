@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createDeck, startUnoGame, applyUnoAction, publicGameState, privateTurnState } from '../src/engine.js';
+import { createDeck, startUnoGame, applyUnoAction, publicGameState, privateTurnState, resolveOpeningCard } from '../src/engine.js';
 import { UnoError } from '../src/model.js';
 
 test('deck has 108 unique cards and cryptographically generated ids', () => {
@@ -322,4 +322,29 @@ test('official UNO card points are calculated and exposed when a round ends', as
   const won = applyUnoAction(game,'a',{type:'play',cardId:'last'});
   assert.equal(won.winnerScore,79);
   assert.equal(publicGameState(won).winnerScore,79);
+});
+
+
+test('opening Skip, Reverse and Draw Two apply their official first-turn effects', () => {
+  const players = (count: number) => Array.from({length:count},(_,i)=>({id:String(i),username:String(i),hand:[] as Array<{id:string;color:'red';face:number}>}));
+  const skipPlayers = players(3);
+  const skip = resolveOpeningCard(skipPlayers, [], {id:'skip',color:'red',face:'skip'});
+  assert.deepEqual(skip, {currentPlayerIndex:1,direction:1});
+
+  const reversePlayers = players(4);
+  const reverse = resolveOpeningCard(reversePlayers, [], {id:'reverse',color:'blue',face:'reverse'});
+  assert.deepEqual(reverse, {currentPlayerIndex:3,direction:-1});
+
+  const twoPlayerReverse = resolveOpeningCard(players(2), [], {id:'reverse',color:'blue',face:'reverse'});
+  assert.deepEqual(twoPlayerReverse, {currentPlayerIndex:1,direction:-1});
+
+  const drawPlayers = players(3);
+  const drawPile = [
+    {id:'draw-a',color:'red' as const,face:1},
+    {id:'draw-b',color:'red' as const,face:2},
+  ];
+  const draw2 = resolveOpeningCard(drawPlayers, drawPile, {id:'draw2',color:'red',face:'draw2'});
+  assert.deepEqual(draw2, {currentPlayerIndex:2,direction:1});
+  assert.equal(drawPlayers[1]!.hand.length,2);
+  assert.equal(drawPile.length,0);
 });
