@@ -8,6 +8,7 @@ import 'friends_screen.dart';
 import 'account_screen.dart';
 import 'notifications_screen.dart';
 import 'engine_backgammon_screen.dart';
+import 'games/manch/manch_offline_game_screen.dart';
 import 'services/auth_service.dart';
 import 'services/admin_service.dart';
 import 'theme_state.dart';
@@ -526,6 +527,21 @@ class _HomeScreenState extends State<HomeScreen> {
                     builder: (_) => mode == 'online' ? const OnlineLobbyScreen() : const EngineBackgammonScreen(),
                   ));
                 },
+              ),
+              const SizedBox(height: 12),
+              GameTile(
+                title: appText(context, 'منچ', 'Manch'),
+                subtitle: appText(
+                  context,
+                  'بازی آفلاین ۲ تا ۴ نفره',
+                  'Offline pass-and-play for 2–4 players',
+                ),
+                icon: Icons.flag_rounded,
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const ManchOfflineGameScreen(),
+                  ),
+                ),
               ),
               const SizedBox(height: 12),
               GameTile(title: AppLocalizations.of(context).chess, subtitle: AppLocalizations.of(context).comingSoon, icon: Icons.grid_4x4_rounded, comingSoon: true),
