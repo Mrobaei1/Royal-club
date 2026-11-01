@@ -561,6 +561,7 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
   app.post<{Params:{gameId:string;offerId:string};Body:{accept:boolean}}>("/chess/games/:gameId/draw-offers/:offerId/respond",{preHandler:options.authenticate},async(request,reply)=>{
     let playerId:string;
     try{playerId=userId(request,options);}catch{return fail(reply,401,"unauthorized");}
+    if(typeof request.body?.accept!=="boolean")return fail(reply,400,"invalid_draw_response");
     const client=await pool.connect();
     try{
       await client.query("BEGIN");
