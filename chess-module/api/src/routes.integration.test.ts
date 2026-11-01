@@ -130,6 +130,9 @@ test("authenticated chess routes support private game, draw, chat, voice, profil
     assert.equal(declined.statusCode, 200, declined.body);
     assert.equal(declined.json().status, "declined");
 
+    const malformedChat = await request(white, "POST", `/chess/games/${gameId}/chat`, { message: { text: "not a string" } });
+    assert.equal(malformedChat.statusCode, 400);
+    assert.equal(malformedChat.json().error, "invalid_message");
     const chat = await request(white, "POST", `/chess/games/${gameId}/chat`, { message: "hello chess" });
     assert.equal(chat.statusCode, 201, chat.body);
     const history = await request(black, "GET", `/chess/games/${gameId}/chat`);
