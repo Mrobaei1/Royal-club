@@ -27,6 +27,7 @@ export async function registerChessWebSocket(app: FastifyInstance, options: Opti
     const gameId = request.query.gameId;
     let connectionClosed = false;
     let presenceRegistered = false;
+    let sessionId: string | undefined;
     let listenerToRelease: { release: () => void } | undefined;
     let cleanupConnection: (() => Promise<void>) | undefined;
     socket.on("close", () => {
@@ -52,7 +53,7 @@ export async function registerChessWebSocket(app: FastifyInstance, options: Opti
       }
       if (connectionClosed) return;
       const roomId = String(membership.rows[0].room_id);
-      const sessionId = randomUUID();
+      sessionId = randomUUID();
       const channel = "chess_game_" + gameId;
       const listener = await options.pool.connect();
       listenerToRelease = listener;
@@ -274,7 +275,7 @@ export async function registerChessWebSocket(app: FastifyInstance, options: Opti
       try {
         if (cleanupConnection) {
           await cleanupConnection();
-        } else {
+        } else if (sessionId) {
           // A failure after inserting presence but before installing the normal
           // close handler must not leave a ghost-online session behind.
           const cleanupClient = await options.pool.connect();
