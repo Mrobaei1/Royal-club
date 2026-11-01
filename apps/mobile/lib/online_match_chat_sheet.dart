@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 import 'services/match_service.dart';
 
@@ -83,9 +85,8 @@ class _OnlineMatchChatSheetState extends State<OnlineMatchChatSheet> {
     }
   }
 
-  Future<void> _send() async {
-    final body = _controller.text.trim();
-    if (body.isEmpty || _sending) return;
+  Future<void> _sendBody(String body, {bool clearComposer = false}) async {
+    if (body.trim().isEmpty || _sending) return;
     setState(() {
       _sending = true;
       _error = null;
@@ -99,7 +100,7 @@ class _OnlineMatchChatSheetState extends State<OnlineMatchChatSheet> {
       setState(() {
         _messages.add(message);
         _afterId = message['id']?.toString() ?? _afterId;
-        _controller.clear();
+        if (clearComposer) _controller.clear();
       });
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (_scrollController.hasClients) {
@@ -116,6 +117,67 @@ class _OnlineMatchChatSheetState extends State<OnlineMatchChatSheet> {
       }
     } finally {
       if (mounted) setState(() => _sending = false);
+    }
+  }
+
+  Future<void> _send() => _sendBody(_controller.text.trim(), clearComposer: true);
+
+  Future<void> _pickImage() async {
+    if (_loading || _sending) return;
+    try {
+      final picked = await ImagePicker().pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1280,
+        maxHeight: 1280,
+        imageQuality: 75,
+      );
+      if (picked == null) return;
+      final bytes = await picked.readAsBytes();
+      final name = picked.name.toLowerCase();
+      final mime = name.endsWith('.png') ? 'image/png' : 'image/jpeg';
+      final body = 'data:$mime;base64,${base64Encode(bytes)}';
+      if (body.length > 500 * 1024) {
+        if (mounted) {
+          setState(() => _error = widget.isEnglish
+              ? 'The selected image is too large (maximum 500 KiB).'
+              : 'حجم تصویر انتخاب‌شده بیش از حد مجاز است (حداکثر ۵۰۰ کیلوبایت).');
+        }
+        return;
+      }
+      await _sendBody(body);
+    } catch (error) {
+      if (mounted) {
+        setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
+      }
+    }
+  }
+
+  Widget _buildMessageBody(String body, Color textColor) {
+    if (!body.startsWith('data:image/')) {
+      return Text(body, style: TextStyle(color: textColor));
+    }
+    try {
+      final separator = body.indexOf(',');
+      if (separator < 0) throw const FormatException('Invalid image data URL');
+      final bytes = base64Decode(body.substring(separator + 1));
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(9),
+        child: Image.memory(
+          bytes,
+          width: 230,
+          height: 190,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => Text(
+            widget.isEnglish ? 'Image could not be displayed.' : 'نمایش تصویر ممکن نیست.',
+            style: TextStyle(color: textColor),
+          ),
+        ),
+      );
+    } catch (_) {
+      return Text(
+        widget.isEnglish ? 'Invalid image message.' : 'پیام تصویری نامعتبر است.',
+        style: TextStyle(color: textColor),
+      );
     }
   }
 
@@ -195,7 +257,7 @@ class _OnlineMatchChatSheetState extends State<OnlineMatchChatSheet> {
                                         fontWeight: FontWeight.bold,
                                       )),
                                       const SizedBox(height: 3),
-                                      Text(body, style: TextStyle(color: colors.onSurface)),
+                                      _buildMessageBody(body, colors.onSurface),
                                     ],
                                   ),
                                 ),
@@ -213,9 +275,15 @@ class _OnlineMatchChatSheetState extends State<OnlineMatchChatSheet> {
                 padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
                 child: Row(
                   children: [
+                    IconButton(
+                      tooltip: widget.isEnglish ? 'Attach image' : 'افزودن تصویر',
+                      onPressed: _loading || _sending ? null : _pickImage,
+                      icon: const Icon(Icons.image_outlined),
+                    ),
                     Expanded(
                       child: TextField(
                         controller: _controller,
+                        enabled: !_loading && !_sending,
                         minLines: 1,
                         maxLines: 4,
                         maxLength: 2000,
@@ -235,7 +303,7 @@ class _OnlineMatchChatSheetState extends State<OnlineMatchChatSheet> {
                     const SizedBox(width: 8),
                     IconButton.filled(
                       tooltip: widget.isEnglish ? 'Send' : 'ارسال',
-                      onPressed: _sending ? null : _send,
+                      onPressed: _loading || _sending ? null : _send,
                       icon: _sending
                           ? const SizedBox(
                               width: 18,
