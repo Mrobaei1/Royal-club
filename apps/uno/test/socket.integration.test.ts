@@ -85,6 +85,16 @@ test('authenticated sockets enforce host start and keep hands and voice signals 
     assert.equal(actionRoom.status, 'playing');
     assert.equal(actionRoom.matchToWin, 3);
 
+    const outsiderChat = await emitAck(clients[2]!, 'uno:chat:send', { code, text: 'I am not seated' });
+    assert.equal(outsiderChat.ok, false);
+    assert.equal(outsiderChat.error?.code, 'NOT_A_PLAYER');
+    assert.equal((await emitAck(host, 'uno:chat:send', { code, text: '   ' })).ok, false);
+    assert.equal((await emitAck(host, 'uno:room:communication', { code, setting: 'chatEnabled', enabled: false })).ok, true);
+    const disabledChat = await emitAck(host, 'uno:chat:send', { code, text: 'Chat should be disabled' });
+    assert.equal(disabledChat.ok, false);
+    assert.equal(disabledChat.error?.code, 'CHAT_DISABLED');
+    assert.equal((await emitAck(host, 'uno:room:communication', { code, setting: 'chatEnabled', enabled: true })).ok, true);
+
     const chatEvent = nextEvent(guest, 'uno:chat:message');
     assert.equal((await emitAck(host, 'uno:chat:send', { code, text: 'Hello from the table' })).ok, true);
     const chat = await chatEvent as Record<string, unknown>;
