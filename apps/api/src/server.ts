@@ -604,6 +604,21 @@ await pool.query(`
   CREATE INDEX IF NOT EXISTS backgammon_match_messages_thread_idx
     ON backgammon_match_messages (match_id, id DESC);
 
+  CREATE TABLE IF NOT EXISTS backgammon_match_voice_signals (
+    id BIGSERIAL PRIMARY KEY,
+    match_id BIGINT NOT NULL REFERENCES backgammon_matches(id) ON DELETE CASCADE,
+    sender_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    recipient_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    kind TEXT NOT NULL CHECK (kind IN ('offer', 'answer', 'candidate', 'hangup')),
+    payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    expires_at TIMESTAMPTZ NOT NULL DEFAULT (NOW() + INTERVAL '2 minutes')
+  );
+  CREATE INDEX IF NOT EXISTS backgammon_match_voice_signals_recipient_idx
+    ON backgammon_match_voice_signals (match_id, recipient_id, id);
+  CREATE INDEX IF NOT EXISTS backgammon_match_voice_signals_expiry_idx
+    ON backgammon_match_voice_signals (expires_at);
+
   CREATE TABLE IF NOT EXISTS game_disconnect_policies (
     game_type TEXT PRIMARY KEY CHECK (game_type IN ('backgammon', 'cards', 'chess')),
     enabled BOOLEAN NOT NULL DEFAULT TRUE,
@@ -4901,6 +4916,127 @@ app.post<{ Params: { id: string } }>('/api/v1/matches/:id/heartbeat', { onReques
      if (!inserted.rowCount) return reply.code(404).send({ error: 'Match chat is not available to this account.' });
      const sender = await pool.query('SELECT username FROM users WHERE id = $1', [claims.sub]);
      return reply.code(201).send({ message: { ...inserted.rows[0], senderUsername: sender.rows[0]?.username ?? 'player' } });
+   },
+ );
+
+
+ // Short-lived Cloudflare TURN credentials are generated server-side. The long-lived
+ // TURN key/token never leave the API process and are never returned to mobile clients.
+ app.get<{ Params: { id: string } }>(
+   '/api/v1/matches/:id/voice/ice-servers',
+   { onRequest: [requireMatchAuth], config: { rateLimit: { max: 12, timeWindow: '1 minute' } } },
+   async (request, reply) => {
+     const claims = request.user as { sub: string };
+     const matchId = request.params.id;
+     if (!isNumericId(matchId)) return reply.code(400).send({ error: 'Invalid match id.' });
+     const access = await pool.query(
+       "SELECT 1 FROM backgammon_matches WHERE id = $1 AND status = 'active' AND guest_user_id IS NOT NULL AND (host_user_id = $2 OR guest_user_id = $2)",
+       [matchId, claims.sub],
+     );
+     if (!access.rowCount) return reply.code(404).send({ error: 'Voice is not available for this match.' });
+     const keyId = process.env.CLOUDFLARE_TURN_KEY_ID?.trim();
+     const apiToken = process.env.CLOUDFLARE_TURN_API_TOKEN?.trim();
+     if (!keyId || !apiToken) {
+       return reply.code(503).send({ error: 'Voice calling is not configured on the server yet.' });
+     }
+     try {
+       const turnResponse = await fetch(
+         'https://rtc.live.cloudflare.com/v1/turn/keys/' +
+           encodeURIComponent(keyId) + '/credentials/generate-ice-servers',
+         {
+           method: 'POST',
+           headers: {
+             Authorization: 'Bearer ' + apiToken,
+             'Content-Type': 'application/json',
+           },
+           body: JSON.stringify({ ttl: 43200 }),
+         },
+       );
+       if (!turnResponse.ok) {
+         request.log.warn({ status: turnResponse.status }, 'Cloudflare TURN credential request failed');
+         return reply.code(502).send({ error: 'Could not prepare secure voice networking.' });
+       }
+       const result = await turnResponse.json() as { iceServers?: unknown };
+       if (!Array.isArray(result.iceServers) || result.iceServers.length === 0) {
+         request.log.warn('Cloudflare TURN response did not contain ICE servers');
+         return reply.code(502).send({ error: 'Voice networking returned an invalid configuration.' });
+       }
+       return { iceServers: result.iceServers };
+     } catch (error) {
+       request.log.warn({ err: error }, 'Could not reach Cloudflare TURN credential service');
+       return reply.code(502).send({ error: 'Voice networking is temporarily unavailable.' });
+     }
+   },
+ );
+
+ app.get<{ Params: { id: string }; Querystring: { afterId?: string } }>(
+   '/api/v1/matches/:id/voice/signals',
+   { onRequest: [requireMatchAuth] },
+   async (request, reply) => {
+     const claims = request.user as { sub: string };
+     const matchId = request.params.id;
+     const afterId = request.query.afterId ?? '0';
+     if (!isNumericId(matchId) || !/^\d+$/.test(afterId) ||
+         !Number.isSafeInteger(Number(afterId))) {
+       return reply.code(400).send({ error: 'Invalid voice signal cursor.' });
+     }
+     const access = await pool.query(
+       "SELECT 1 FROM backgammon_matches WHERE id = $1 AND status = 'active' AND guest_user_id IS NOT NULL AND (host_user_id = $2 OR guest_user_id = $2)",
+       [matchId, claims.sub],
+     );
+     if (!access.rowCount) return reply.code(404).send({ error: 'Voice is not available for this match.' });
+     const signals = await pool.query(
+       'SELECT id::text AS id, sender_id::text AS "senderId", kind, payload, created_at AS "createdAt" FROM backgammon_match_voice_signals WHERE match_id = $1 AND recipient_id = $2 AND id > $3 AND expires_at > NOW() ORDER BY id ASC LIMIT 100',
+       [matchId, claims.sub, afterId],
+     );
+     return { signals: signals.rows };
+   },
+ );
+
+ app.post<{
+   Params: { id: string };
+   Body: { kind?: string; payload?: Record<string, unknown> };
+ }>(
+   '/api/v1/matches/:id/voice/signals',
+   { onRequest: [requireMatchAuth], config: { rateLimit: { max: 90, timeWindow: '1 minute' } } },
+   async (request, reply) => {
+     const claims = request.user as { sub: string };
+     const matchId = request.params.id;
+     const kind = request.body?.kind;
+     const payload = request.body?.payload;
+     if (!isNumericId(matchId) ||
+         !['offer', 'answer', 'candidate', 'hangup'].includes(String(kind)) ||
+         !payload || typeof payload !== 'object' || Array.isArray(payload) ||
+         JSON.stringify(payload).length > 12000) {
+       return reply.code(400).send({ error: 'Invalid voice signal.' });
+     }
+     const callId = payload.callId;
+     if (typeof callId !== 'string' || callId.length < 12 || callId.length > 100) {
+       return reply.code(400).send({ error: 'A valid voice call id is required.' });
+     }
+     if ((kind === 'offer' || kind === 'answer') &&
+         (payload.type !== kind || typeof payload.sdp !== 'string' ||
+          payload.sdp.length < 1 || payload.sdp.length > 10000)) {
+       return reply.code(400).send({ error: 'Invalid session description.' });
+     }
+     if (kind === 'candidate' &&
+         (typeof payload.candidate !== 'string' || payload.candidate.length > 4096 ||
+          (payload.sdpMid != null && typeof payload.sdpMid !== 'string') ||
+          !Number.isInteger(payload.sdpMLineIndex))) {
+       return reply.code(400).send({ error: 'Invalid ICE candidate.' });
+     }
+     const match = await pool.query(
+       "SELECT CASE WHEN host_user_id = $2 THEN guest_user_id ELSE host_user_id END AS peer_id FROM backgammon_matches WHERE id = $1 AND status = 'active' AND guest_user_id IS NOT NULL AND (host_user_id = $2 OR guest_user_id = $2)",
+       [matchId, claims.sub],
+     );
+     if (!match.rowCount || !match.rows[0].peer_id) {
+       return reply.code(404).send({ error: 'Voice is not available for this match.' });
+     }
+     const inserted = await pool.query(
+       'INSERT INTO backgammon_match_voice_signals (match_id, sender_id, recipient_id, kind, payload, expires_at) VALUES ($1, $2, $3, $4, $5::jsonb, NOW() + INTERVAL \\'2 minutes\\') RETURNING id::text AS id',
+       [matchId, claims.sub, match.rows[0].peer_id, kind, JSON.stringify(payload)],
+     );
+     return reply.code(201).send({ sent: true, signalId: inserted.rows[0].id });
    },
  );
 
