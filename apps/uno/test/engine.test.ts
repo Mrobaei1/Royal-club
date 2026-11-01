@@ -472,7 +472,7 @@ test('a final Wild Draw Four wins after an unsuccessful challenge and includes t
 test('the UNO catch window closes as soon as the next player takes an action', () => {
   const game = makeActionGame([{id:'a',username:'a'},{id:'b',username:'b'},{id:'c',username:'c'}]);
   game.players[0]!.hand = [{id:'one',color:'red',face:3},{id:'two',color:'blue',face:4}];
-  game.players[1]!.hand = [{id:'b-play',color:'red',face:5}];
+  game.players[1]!.hand = [{id:'b-play',color:'red',face:5},{id:'b-two',color:'blue',face:2},{id:'b-three',color:'green',face:3}];
   game.discardPile = [{id:'top',color:'red',face:1}];
   game.activeColor = 'red';
   const played = applyUnoAction(game,'a',{type:'play',cardId:'one'});
