@@ -538,6 +538,16 @@ await pool.query(`
   CREATE INDEX IF NOT EXISTS private_messages_inbox_idx
     ON private_messages (recipient_id, read_at, created_at DESC);
 
+  CREATE TABLE IF NOT EXISTS backgammon_match_messages (
+    id BIGSERIAL PRIMARY KEY,
+    match_id BIGINT NOT NULL REFERENCES backgammon_matches(id) ON DELETE CASCADE,
+    sender_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    body TEXT NOT NULL CHECK (char_length(body) BETWEEN 1 AND 2000),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+  CREATE INDEX IF NOT EXISTS backgammon_match_messages_thread_idx
+    ON backgammon_match_messages (match_id, id DESC);
+
   CREATE TABLE IF NOT EXISTS backgammon_matches (
     id BIGSERIAL PRIMARY KEY,
     room_code TEXT NOT NULL UNIQUE,
@@ -4843,6 +4853,55 @@ app.post<{ Params: { id: string } }>('/api/v1/matches/:id/heartbeat', { onReques
     return reply.code(500).send({ error: 'Could not update match heartbeat.' });
   } finally { client.release(); }
 });
+
+
+ // Match chat is separate from private friend conversations and participant-only.
+ app.get<{ Params: { id: string }; Querystring: { afterId?: string } }>(
+   '/api/v1/matches/:id/chat', { onRequest: [requireMatchAuth] }, async (request, reply) => {
+     const claims = request.user as { sub: string };
+     const matchId = request.params.id;
+     const afterId = request.query.afterId ?? '0';
+     if (!isNumericId(matchId) || !/^\d+$/.test(afterId)) {
+       return reply.code(400).send({ error: 'Invalid match chat cursor.' });
+     }
+     const access = await pool.query(
+       "SELECT 1 FROM backgammon_matches WHERE id = $1 AND status IN ('active', 'finished') AND guest_user_id IS NOT NULL AND (host_user_id = $2 OR guest_user_id = $2)",
+       [matchId, claims.sub],
+     );
+     if (!access.rowCount) return reply.code(404).send({ error: 'Match chat is not available.' });
+     const messages = Number(afterId) > 0
+       ? await pool.query(
+           'SELECT m.id::text AS id, m.match_id::text AS "matchId", m.sender_id::text AS "senderId", u.username AS "senderUsername", m.body, m.created_at AS "createdAt" FROM backgammon_match_messages m JOIN users u ON u.id = m.sender_id WHERE m.match_id = $1 AND m.id > $2 ORDER BY m.id ASC LIMIT 100',
+           [matchId, afterId],
+         )
+       : await pool.query(
+           'SELECT id::text AS id, match_id::text AS "matchId", sender_id::text AS "senderId", sender_username AS "senderUsername", body, created_at AS "createdAt" FROM (SELECT m.id, m.match_id, m.sender_id, u.username AS sender_username, m.body, m.created_at FROM backgammon_match_messages m JOIN users u ON u.id = m.sender_id WHERE m.match_id = $1 ORDER BY m.id DESC LIMIT 100) latest ORDER BY id ASC',
+           [matchId],
+         );
+     return { messages: messages.rows };
+   },
+ );
+ app.post<{ Params: { id: string }; Body: { body?: string } }>(
+   '/api/v1/matches/:id/chat',
+   { onRequest: [requireMatchAuth], config: { rateLimit: { max: 30, timeWindow: '1 minute' } } },
+   async (request, reply) => {
+     const claims = request.user as { sub: string };
+     const matchId = request.params.id;
+     const body = typeof request.body?.body === 'string' ? request.body.body.trim() : '';
+     const imageCandidate = body.startsWith('data:image/');
+     const isImage = imageCandidate && isValidImageDataUrl(body, 500 * 1024);
+     if (!isNumericId(matchId) || !body || (imageCandidate ? !isImage : body.length > 2000)) {
+       return reply.code(400).send({ error: 'Message must be text up to 2000 characters or a valid supported image up to 500 KiB.' });
+     }
+     const inserted = await pool.query(
+       'INSERT INTO backgammon_match_messages (match_id, sender_id, body) SELECT m.id, $2, $3 FROM backgammon_matches m WHERE m.id = $1 AND m.status = \'active\' AND m.guest_user_id IS NOT NULL AND (m.host_user_id = $2 OR m.guest_user_id = $2) RETURNING id::text AS id, match_id::text AS "matchId", sender_id::text AS "senderId", body, created_at AS "createdAt"',
+       [matchId, claims.sub, body],
+     );
+     if (!inserted.rowCount) return reply.code(404).send({ error: 'Match chat is not available to this account.' });
+     const sender = await pool.query('SELECT username FROM users WHERE id = $1', [claims.sub]);
+     return reply.code(201).send({ message: { ...inserted.rows[0], senderUsername: sender.rows[0]?.username ?? 'player' } });
+   },
+ );
 
 app.get<{ Params: { id: string } }>('/api/v1/matches/:id/state', { onRequest: [requireMatchAuth] }, async (request, reply) => {
   const claims = request.user as { sub: string };
