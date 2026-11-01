@@ -177,6 +177,16 @@ class ManchOnlineService {
         },
       );
 
+  static Future<Map<String, dynamic>> rematch(String id) async {
+    final payload = await _request('POST', '/${_requireId(id)}/rematch');
+    if (payload['match'] is! Map) {
+      throw Exception('پاسخ ایجاد بازی مجدد منچ ناقص است.');
+    }
+    final match = Map<String, dynamic>.from(payload['match'] as Map);
+    match['id'] = _requireId(match['id']);
+    return match;
+  }
+
   static Future<Map<String, dynamic>> forfeit(String id) async =>
       _request('POST', '/${_requireId(id)}/forfeit');
 
