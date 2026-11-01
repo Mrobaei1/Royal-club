@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
+import type { AddressInfo } from "node:net";
 import { readFile } from "node:fs/promises";
 import Fastify from "fastify";
 import { Pool } from "pg";
@@ -127,8 +128,9 @@ test("WebSocket presence remains online until the player's last device disconnec
       getUserId: (request: FastifyRequest) => String(request.headers["x-user-id"] ?? ""),
     });
     await app.listen({ host: "127.0.0.1", port: 0 });
-    address = app.server.address() && typeof app.server.address() !== "string"
-      ? `ws://127.0.0.1:${app.server.address().port}/chess/ws`
+    const serverAddress = app.server.address();
+    address = serverAddress && typeof serverAddress !== "string"
+      ? `ws://127.0.0.1:${(serverAddress as AddressInfo).port}/chess/ws`
       : undefined;
     assert.ok(address, "Fastify should listen on an ephemeral port");
 
