@@ -20,6 +20,8 @@ concurrency:
 
 jobs:
   build:
+    # Do not even prepare Android platform files unless APK creation is explicitly approved.
+    if: github.event_name == 'workflow_dispatch' && inputs.build_apk == true
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
