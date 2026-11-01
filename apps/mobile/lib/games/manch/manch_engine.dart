@@ -193,7 +193,9 @@ class ManchEngine {
     final colour = state.players[move.playerIndex].colour;
     for (var step = 1; step <= move.toProgress - move.fromProgress; step++) {
       final progress = move.fromProgress + step;
-      if (progress >= 52) break;
+      if (progress >= 52) {
+        break;
+      }
       final cell = _global(colour, progress);
       var count = 0;
       for (var p = 0; p < state.players.length; p++) {
@@ -204,7 +206,9 @@ class ManchEngine {
               _global(enemy.colour, token) == cell) count++;
         }
       }
-      if (count >= 2) return false;
+      if (count >= 2) {
+        return false;
+      }
     }
     return true;
   }
