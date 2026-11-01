@@ -2539,31 +2539,40 @@ app.get<{ Params: { userId: string } }>('/api/v1/admin/users/:userId/profile', {
   return { user: result.rows[0] };
 });
 
-app.post<{ Body: { userId?: string; amount?: number; description?: string } }>('/api/v1/admin/wallet/credit', { onRequest: [requireOwnerAuth] }, async (request, reply) => {
-  const { userId, amount, description } = request.body ?? {};
-  if (!isNumericId(userId) || !Number.isSafeInteger(amount) || Number(amount) <= 0 || Number(amount) > 1000000000 ||
+app.post<{ Body: { userId?: string; username?: string; amount?: number; description?: string } }>('/api/v1/admin/wallet/credit', { onRequest: [requireOwnerAuth] }, async (request, reply) => {
+  const { userId, username, amount, description } = request.body ?? {};
+  const cleanUsername = typeof username === 'string' ? username.trim().replace(/^@/, '') : '';
+  if ((!isNumericId(userId) && !/^[a-zA-Z0-9_.]{3,24}$/.test(cleanUsername)) ||
+      !Number.isSafeInteger(amount) || Number(amount) <= 0 || Number(amount) > 1000000000 ||
       (description !== undefined && (typeof description !== 'string' || description.length > 200))) {
-    return reply.code(400).send({ error: 'Provide a valid userId, positive credit amount, and short description.' });
+    return reply.code(400).send({ error: 'Provide a valid username or userId, positive credit amount, and short description.' });
   }
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    const user = await client.query('SELECT id FROM users WHERE id = $1', [userId]);
+    const user = await client.query(
+      `SELECT id, username FROM users
+        WHERE ($1::bigint IS NOT NULL AND id = $1::bigint)
+           OR ($2::text <> '' AND LOWER(username) = LOWER($2))
+        ORDER BY id LIMIT 1 FOR UPDATE`,
+      [isNumericId(userId) ? userId : null, cleanUsername],
+    );
     if (!user.rowCount) {
       await client.query('ROLLBACK');
       return reply.code(404).send({ error: 'User not found.' });
     }
-    await client.query('INSERT INTO wallet_accounts (user_id) VALUES ($1) ON CONFLICT (user_id) DO NOTHING', [userId]);
+    const targetUserId = String(user.rows[0].id);
+    await client.query('INSERT INTO wallet_accounts (user_id) VALUES ($1) ON CONFLICT (user_id) DO NOTHING', [targetUserId]);
     const credited = await client.query(
       'UPDATE wallet_accounts SET balance = balance + $1, updated_at = NOW() WHERE user_id = $2 RETURNING balance',
-      [amount, userId],
+      [amount, targetUserId],
     );
     await client.query(
       'INSERT INTO wallet_transactions (user_id, amount, balance_after, type, description) VALUES ($1, $2, $3, $4, $5)',
-      [userId, amount, credited.rows[0].balance, 'admin_credit', description?.trim() || 'اعتباردهی مدیر'],
+      [targetUserId, amount, credited.rows[0].balance, 'admin_credit', description?.trim() || 'اعتباردهی مدیر'],
     );
     await client.query('COMMIT');
-    return { userId, credited: amount, balance: Number(credited.rows[0].balance) };
+    return { userId: targetUserId, username: user.rows[0].username, credited: amount, balance: Number(credited.rows[0].balance) };
   } catch (error) {
     await client.query('ROLLBACK').catch(() => undefined);
     request.log.error({ err: error }, 'Could not credit wallet');
@@ -2571,6 +2580,58 @@ app.post<{ Body: { userId?: string; amount?: number; description?: string } }>('
   } finally {
     client.release();
   }
+});
+
+app.get<{ Querystring: {
+  username?: string; country?: string; subscriptionStatus?: string; hasPhone?: string;
+  minBalance?: string; maxBalance?: string; registeredFrom?: string; registeredTo?: string; limit?: string;
+} }>('/api/v1/admin/users/search', { onRequest: [requireOwnerAuth] }, async (request, reply) => {
+  const q = request.query;
+  const username = q.username?.trim().replace(/^@/, '') ?? '';
+  const country = q.country?.trim() ?? '';
+  const subscriptionStatus = q.subscriptionStatus ?? 'any';
+  const hasPhone = q.hasPhone ?? 'any';
+  const minBalance = q.minBalance === undefined ? null : Number(q.minBalance);
+  const maxBalance = q.maxBalance === undefined ? null : Number(q.maxBalance);
+  const registeredFrom = q.registeredFrom ?? null;
+  const registeredTo = q.registeredTo ?? null;
+  const limit = q.limit === undefined ? 100 : Number(q.limit);
+  if (username.length > 24 || country.length > 80 ||
+      !['any', 'active', 'inactive'].includes(subscriptionStatus) ||
+      !['any', 'yes', 'no'].includes(hasPhone) ||
+      (minBalance !== null && (!Number.isSafeInteger(minBalance) || minBalance < 0)) ||
+      (maxBalance !== null && (!Number.isSafeInteger(maxBalance) || maxBalance < 0)) ||
+      (minBalance !== null && maxBalance !== null && minBalance > maxBalance) ||
+      (registeredFrom !== null && !Number.isFinite(Date.parse(registeredFrom))) ||
+      (registeredTo !== null && !Number.isFinite(Date.parse(registeredTo))) ||
+      !Number.isInteger(limit) || limit < 1 || limit > 200) {
+    return reply.code(400).send({ error: 'Invalid user search filters.' });
+  }
+  const result = await pool.query(
+    `SELECT u.id::text AS id, u.username, u.country,
+            u.created_at AS "createdAt",
+            (u.phone <> '') AS "hasPhone",
+            COALESCE(w.balance, 0)::text AS "walletBalance",
+            EXISTS (SELECT 1 FROM user_subscriptions s
+                     WHERE s.user_id = u.id AND s.status = 'active' AND s.ends_at > NOW()) AS "hasActiveSubscription",
+            (SELECT MAX(s.ends_at) FROM user_subscriptions s
+              WHERE s.user_id = u.id AND s.status = 'active' AND s.ends_at > NOW()) AS "subscriptionEndsAt"
+       FROM users u
+       LEFT JOIN wallet_accounts w ON w.user_id = u.id
+      WHERE ($1::text = '' OR u.username ILIKE '%' || $1 || '%')
+        AND ($2::text = '' OR LOWER(u.country) = LOWER($2))
+        AND ($3::text = 'any'
+             OR ($3::text = 'active' AND EXISTS (SELECT 1 FROM user_subscriptions s WHERE s.user_id = u.id AND s.status = 'active' AND s.ends_at > NOW()))
+             OR ($3::text = 'inactive' AND NOT EXISTS (SELECT 1 FROM user_subscriptions s WHERE s.user_id = u.id AND s.status = 'active' AND s.ends_at > NOW())))
+        AND ($4::text = 'any' OR ($4::text = 'yes' AND u.phone <> '') OR ($4::text = 'no' AND u.phone = ''))
+        AND ($5::bigint IS NULL OR COALESCE(w.balance, 0) >= $5)
+        AND ($6::bigint IS NULL OR COALESCE(w.balance, 0) <= $6)
+        AND ($7::timestamptz IS NULL OR u.created_at >= $7)
+        AND ($8::timestamptz IS NULL OR u.created_at < $8 + INTERVAL '1 day')
+      ORDER BY u.created_at DESC, u.id DESC LIMIT $9`,
+    [username, country, subscriptionStatus, hasPhone, minBalance, maxBalance, registeredFrom, registeredTo, limit],
+  );
+  return { users: result.rows, count: result.rowCount ?? 0 };
 });
 
 app.post<{ Params: { userId: string }; Body: { reason?: string } }>('/api/v1/users/:userId/report', { onRequest: [requireMatchAuth], config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request, reply) => {
@@ -3150,26 +3211,59 @@ app.patch<{ Params: { id: string }; Body: { status?: string } }>('/api/v1/admin/
   return { report: result.rows[0] };
 });
 
-app.post<{ Body: { userId?: string; title?: string; body?: string } }>('/api/v1/admin/notifications', { onRequest: [requireOwnerAuth] }, async (request, reply) => {
+app.post<{ Body: {
+  userId?: string; userIds?: string[]; username?: string; country?: string;
+  subscriptionStatus?: string; hasPhone?: string; registeredFrom?: string; registeredTo?: string;
+  title?: string; body?: string; showOnLogin?: boolean;
+} }>('/api/v1/admin/notifications', { onRequest: [requireOwnerAuth] }, async (request, reply) => {
   const claims = request.user as { sub: string };
-  const { userId, title, body } = request.body ?? {};
-  const cleanTitle = typeof title === 'string' ? title.trim() : '';
-  const cleanBody = typeof body === 'string' ? body.trim() : '';
+  const input = request.body ?? {};
+  const cleanTitle = typeof input.title === 'string' ? input.title.trim() : '';
+  const cleanBody = typeof input.body === 'string' ? input.body.trim() : '';
+  const username = typeof input.username === 'string' ? input.username.trim().replace(/^@/, '') : '';
+  const country = typeof input.country === 'string' ? input.country.trim() : '';
+  const subscriptionStatus = input.subscriptionStatus ?? 'any';
+  const hasPhone = input.hasPhone ?? 'any';
+  const registeredFrom = input.registeredFrom ?? null;
+  const registeredTo = input.registeredTo ?? null;
   if (cleanTitle.length < 1 || cleanTitle.length > 120 || cleanBody.length > 1000 ||
-      (userId !== undefined && !isNumericId(userId))) {
-    return reply.code(400).send({ error: 'Provide a title (1-120 characters), body up to 1000 characters, and optional valid user ID.' });
+      (input.userId !== undefined && !isNumericId(input.userId)) ||
+      (input.userIds !== undefined && (!Array.isArray(input.userIds) || input.userIds.length > 5000 || input.userIds.some((id) => !isNumericId(id)))) ||
+      (username && username.length > 24) || country.length > 80 ||
+      !['any', 'active', 'inactive'].includes(subscriptionStatus) ||
+      !['any', 'yes', 'no'].includes(hasPhone) ||
+      (registeredFrom !== null && (typeof registeredFrom !== 'string' || !Number.isFinite(Date.parse(registeredFrom)))) ||
+      (registeredTo !== null && (typeof registeredTo !== 'string' || !Number.isFinite(Date.parse(registeredTo)))) ||
+      (input.showOnLogin !== undefined && typeof input.showOnLogin !== 'boolean')) {
+    return reply.code(400).send({ error: 'Invalid notification content or audience filters.' });
   }
-  if (userId !== undefined) {
-    const recipient = await pool.query('SELECT id FROM users WHERE id = $1', [userId]);
-    if (!recipient.rowCount) return reply.code(404).send({ error: 'Notification recipient not found.' });
+  const selectedIds = input.userIds ?? null;
+  if (input.userId !== undefined && selectedIds !== null) {
+    return reply.code(400).send({ error: 'Use either one user or a selected user list, not both.' });
   }
   const result = await pool.query(
-    `INSERT INTO notifications (user_id, actor_user_id, type, title, body)
-     SELECT id, $1, 'system', $2, $3 FROM users
-      WHERE ($4::bigint IS NULL OR id = $4::bigint)`,
-    [claims.sub, cleanTitle, cleanBody, userId ?? null],
+    `INSERT INTO notifications (user_id, actor_user_id, type, title, body, data)
+     SELECT u.id, $1, 'system', $2, $3,
+            jsonb_build_object('showOnLogin', $10::boolean, 'adminBroadcast', true)
+       FROM users u
+      WHERE ($4::bigint IS NULL OR u.id = $4::bigint)
+        AND ($5::bigint[] IS NULL OR u.id = ANY($5::bigint[]))
+        AND ($6::text = '' OR LOWER(u.username) = LOWER($6))
+        AND ($7::text = '' OR LOWER(u.country) = LOWER($7))
+        AND ($8::text = 'any'
+             OR ($8::text = 'active' AND EXISTS (SELECT 1 FROM user_subscriptions s WHERE s.user_id = u.id AND s.status = 'active' AND s.ends_at > NOW()))
+             OR ($8::text = 'inactive' AND NOT EXISTS (SELECT 1 FROM user_subscriptions s WHERE s.user_id = u.id AND s.status = 'active' AND s.ends_at > NOW())))
+        AND ($9::text = 'any' OR ($9::text = 'yes' AND u.phone <> '') OR ($9::text = 'no' AND u.phone = ''))
+        AND ($11::timestamptz IS NULL OR u.created_at >= $11)
+        AND ($12::timestamptz IS NULL OR u.created_at < $12 + INTERVAL '1 day')`,
+    [claims.sub, cleanTitle, cleanBody, input.userId ?? null, selectedIds, username, country,
+      subscriptionStatus, hasPhone, input.showOnLogin ?? false, registeredFrom, registeredTo],
   );
-  return { sent: result.rowCount ?? 0, scope: userId ? 'user' : 'all' };
+  return {
+    sent: result.rowCount ?? 0,
+    scope: input.userId ? 'user' : selectedIds ? 'selected' : (username || country || subscriptionStatus !== 'any' || hasPhone !== 'any' || registeredFrom || registeredTo) ? 'filtered' : 'all',
+    showOnLogin: input.showOnLogin ?? false,
+  };
 });
 
 app.get('/api/v1/admin/account-customization-pricing', { onRequest: [requireOwnerAuth] }, async () => {
