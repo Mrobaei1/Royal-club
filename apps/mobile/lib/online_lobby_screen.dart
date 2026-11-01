@@ -25,8 +25,6 @@ class _OnlineLobbyScreenState extends State<OnlineLobbyScreen> {
   Timer? _lobbyPoller;
   Timer? _inviteExpiryTimer;
   bool _silentRefreshing = false;
-  final Set<String> _shownInviteIds = <String>{};
-  String? _popupInviteId;
 
   @override
   void initState() {
