@@ -51,7 +51,12 @@ class _ManchOnlineLobbyScreenState extends State<ManchOnlineLobbyScreen> {
     if (!silent) setState(() => _loading = true);
     try {
       _userId ??= await ManchOnlineService.currentUserId();
-      final mine = _myMatch;
+      var mine = _myMatch;
+      if (mine == null) {
+        mine = await ManchOnlineService.mine();
+        if (!mounted) return;
+        _myMatch = mine;
+      }
       if (mine != null) {
         try {
           final refreshed = await ManchOnlineService.get(mine['id'].toString());
