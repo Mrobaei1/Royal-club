@@ -33,6 +33,17 @@ Build and verify an independent, Royal Club-compatible Hokm/Court Piece game mod
 - [ ] Production online service, network-driven deadline scheduler, authenticated session binding/persistent reconnect; chat/voice.
 - [ ] Flutter UI, manager controls and end-to-end/security testing.
 
+## Server-side application boundary (in progress)
+
+`src/service.js` adds a framework-neutral server application boundary around the room state machine:
+- Caller identity is taken only from a verified principal supplied by trusted authentication middleware; request-body user IDs are not accepted as identity.
+- Membership-gated views and version-checked room transitions are exposed through one service.
+- In-process per-room serialization prevents two requests in the same Node process from both committing the same room version.
+- The repository contract requires `get`, `insert`, and `compareAndSwap`; the included in-memory repository is for tests and local development only.
+- Disconnect deadline processing is restricted to trusted service/system principals and must be invoked by a server scheduler.
+
+**Production blockers remain:** there is no HTTP/Fastify adapter, real authentication middleware, durable PostgreSQL repository, database transaction/compare-and-swap implementation, distributed lock or event transport. The in-memory queue does not coordinate multiple server processes. Do not deploy this service or describe it as a production-authoritative online backend.
+
 ## Run tests
 Requires Node.js 20+: `npm test`
 
