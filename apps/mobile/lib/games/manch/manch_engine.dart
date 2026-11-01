@@ -189,7 +189,9 @@ class ManchEngine {
   bool _pathOpen(ManchGameState state, ManchMove move) {
     if (!state.profile.blockadesEnabled ||
         !state.profile.blockadeBlocksOpponents ||
-        move.fromProgress < 0 || move.fromProgress >= 52) return true;
+        move.fromProgress < 0 || move.fromProgress >= 52) {
+      return true;
+    }
     final colour = state.players[move.playerIndex].colour;
     for (var step = 1; step <= move.toProgress - move.fromProgress; step++) {
       final progress = move.fromProgress + step;
@@ -199,11 +201,15 @@ class ManchEngine {
       final cell = _global(colour, progress);
       var count = 0;
       for (var p = 0; p < state.players.length; p++) {
-        if (p == move.playerIndex) continue;
+        if (p == move.playerIndex) {
+          continue;
+        }
         final enemy = state.players[p];
         for (final token in enemy.tokens) {
           if (token >= 0 && token < 52 &&
-              _global(enemy.colour, token) == cell) count++;
+              _global(enemy.colour, token) == cell) {
+            count++;
+          }
         }
       }
       if (count >= 2) {
