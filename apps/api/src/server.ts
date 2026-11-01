@@ -4985,10 +4985,6 @@ app.post<{ Params: { id: string } }>('/api/v1/matches/:id/heartbeat', { onReques
        [matchId, claims.sub],
      );
      if (!access.rowCount) return reply.code(404).send({ error: 'Voice is not available for this match.' });
-     await pool.query(
-       'DELETE FROM backgammon_match_voice_signals WHERE match_id = $1 AND expires_at <= NOW()',
-       [matchId],
-     );
      const signals = await pool.query(
        'SELECT id::text AS id, sender_id::text AS "senderId", kind, payload, created_at AS "createdAt" FROM backgammon_match_voice_signals WHERE match_id = $1 AND recipient_id = $2 AND id > $3 AND expires_at > NOW() ORDER BY id ASC LIMIT 100',
        [matchId, claims.sub, afterId],
@@ -5035,6 +5031,12 @@ app.post<{ Params: { id: string } }>('/api/v1/matches/:id/heartbeat', { onReques
      );
      if (!match.rowCount || !match.rows[0].peer_id) {
        return reply.code(404).send({ error: 'Voice is not available for this match.' });
+     }
+     if (kind === 'offer') {
+       await pool.query(
+         'DELETE FROM backgammon_match_voice_signals WHERE match_id = $1 AND expires_at <= NOW()',
+         [matchId],
+       );
      }
      const inserted = await pool.query(
        'INSERT INTO backgammon_match_voice_signals (match_id, sender_id, recipient_id, kind, payload, expires_at) VALUES ($1, $2, $3, $4, $5::jsonb, NOW() + INTERVAL \'2 minutes\') RETURNING id::text AS id',
