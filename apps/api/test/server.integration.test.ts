@@ -3186,3 +3186,35 @@ test('owner-managed profile customization pricing charges atomically and keeps t
     else process.env.OWNER_USER_ID = previousOwnerId;
   }
 });
+
+
+test('owner analytics overview is owner-only, read-only, and reports source coverage', async () => {
+  const previousOwnerId = process.env.OWNER_USER_ID;
+  const owner = await register('Analytics Dashboard Owner');
+  const ordinary = await register('Analytics Dashboard User');
+  process.env.OWNER_USER_ID = owner.user.id;
+  try {
+    const denied = await app.inject({
+      method: 'GET', url: '/api/v1/admin/analytics/overview', headers: auth(ordinary.token),
+    });
+    assert.equal(denied.statusCode, 403, denied.body);
+
+    const response = await app.inject({
+      method: 'GET', url: '/api/v1/admin/analytics/overview', headers: auth(owner.token),
+    });
+    assert.equal(response.statusCode, 200, response.body);
+    const body = response.json();
+    assert.equal(body.freshness, 'live-query');
+    assert.equal(body.windowDays, 30);
+    assert.ok(Number.isInteger(body.metrics.registeredUsers));
+    assert.ok(Array.isArray(body.trends.backgammonMatchesLast30Days));
+    assert.equal(body.trends.backgammonMatchesLast30Days.length, 30);
+    assert.ok(body.coverage.notInstrumented.includes('DAU/WAU/MAU'));
+    assert.equal(body.metrics.walletCreditsLast30Days.classification,
+      'internal-non-transferable-credits-not-cash-revenue');
+    assert.deepEqual(body.sources, ['users', 'backgammon_matches', 'wallet_transactions', 'user_subscriptions']);
+  } finally {
+    if (previousOwnerId === undefined) delete process.env.OWNER_USER_ID;
+    else process.env.OWNER_USER_ID = previousOwnerId;
+  }
+});
