@@ -211,7 +211,7 @@ class ChessGameSession extends ChangeNotifier {
             await voiceClient?.connect();
           } else {
             speakingUsername = null;
-            await voiceClient?.releaseTalk();
+            await voiceClient?.disconnect();
           }
           notifyListeners();
           break;
@@ -319,7 +319,10 @@ class ChessGameSession extends ChangeNotifier {
     await api.setVoiceEnabled(gameId, enabled);
     if (enabled) await voiceClient?.connect();
     voiceEnabled = enabled;
-    if (!enabled) speakingUsername = null;
+    if (!enabled) {
+      speakingUsername = null;
+      await voiceClient?.disconnect();
+    }
     if (!_disposed) notifyListeners();
   }
 
