@@ -151,8 +151,14 @@ export class UnoRoomManager {
     player.connected = false;
     player.ready = false;
     if (room.hostId === playerId) {
-      const successor = room.players.find(seat => seat.id !== playerId && seat.connected);
-      if (successor) room.hostId = successor.id;
+      const hostIndex = room.players.findIndex(seat => seat.id === playerId);
+      for (let offset = 1; offset < room.players.length; offset++) {
+        const successor = room.players[(hostIndex + offset) % room.players.length]!;
+        if (successor.connected) {
+          room.hostId = successor.id;
+          break;
+        }
+      }
     }
     player.selfMuted = true;
     player.muted = true;
@@ -177,7 +183,16 @@ export class UnoRoomManager {
       return null;
     }
     if (room.hostId === playerId) {
-      room.hostId = (room.players.find(player => player.connected) ?? room.players[0]!).id;
+      const nextSeatIndex = index % room.players.length;
+      let successor = room.players[nextSeatIndex]!;
+      for (let offset = 0; offset < room.players.length; offset++) {
+        const candidate = room.players[(nextSeatIndex + offset) % room.players.length]!;
+        if (candidate.connected) {
+          successor = candidate;
+          break;
+        }
+      }
+      room.hostId = successor.id;
     }
     if (room.status !== 'finished') {
       room.status = room.players.length >= 2 && room.players.every(p => p.ready) ? 'ready' : 'waiting';
