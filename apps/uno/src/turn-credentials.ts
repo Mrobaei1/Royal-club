@@ -19,3 +19,11 @@ export function createTurnCredentials(
   const credential = createHmac('sha1', sharedSecret).update(username).digest('base64');
   return { username, credential, expiresAt };
 }
+
+export function parseTurnUrls(value: string | undefined): string[] {
+  const urls = [...new Set((value ?? '').split(',').map(url => url.trim()).filter(Boolean))];
+  if (urls.some(url => !/^turns?:[^\\s,]+$/i.test(url))) {
+    throw new Error('TURN URLs must be comma-separated turn: or turns: URLs.');
+  }
+  return urls;
+}
