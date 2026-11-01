@@ -14,7 +14,7 @@
 | Intentional exit | The departing player receives -5 XP once; their seat remains in the same team and is permanently controlled by Hard bot for the rest of that match; match continues. |
 | Temporary disconnect | Separate from intentional exit; default grace period is 20 seconds, no XP penalty, temporary Hard bot takeover after expiry, authenticated reclaim without undoing bot moves. |
 | Match scoring | Each normally won hand awards exactly 1 match point to the winning team. No koti/coat bonus or other special hand bonus applies unless the owner later approves one. The match ends at the configured target of 3, 5, or 7 points, subject to the still-open R-09 completion details. |
-| Match XP | At full match completion only: +20 XP to each winner and +5 XP to each loser. No intermediate-hand XP. |
+| Match XP reward (separate from match points) | Only after the entire match ends: **each of the two players on the winning team individually receives +20 XP**, and **each of the two players on the losing team individually receives +5 XP**. No XP is awarded between hands. |
 | Practice | Offline/practice games award no XP. |
 | Room cleanup | A room may be expired/cleaned only when it is completely empty. |
 | XP curve | Level 1 starts at 0 XP; cost from level L to L+1 is round(300 + 5(L-1) + 0.08(L-1)^2); XP is non-spendable, cannot go below zero, and earned level never decreases. |
