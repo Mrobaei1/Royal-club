@@ -155,7 +155,7 @@ await pool.query(`
 
   CREATE TABLE IF NOT EXISTS analytics_user_activity_daily (
     user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    activity_date DATE NOT NULL DEFAULT CURRENT_DATE,
+    activity_date DATE NOT NULL DEFAULT ((NOW() AT TIME ZONE 'UTC')::date),
     first_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     last_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     request_count INTEGER NOT NULL DEFAULT 1 CHECK (request_count > 0),
@@ -969,7 +969,7 @@ const requireMatchAuth = async (request: any, reply: any) => {
       try {
         await pool.query(
           `INSERT INTO analytics_user_activity_daily (user_id, activity_date, request_count)
-           VALUES ($1, CURRENT_DATE, 1)
+           VALUES ($1, (NOW() AT TIME ZONE 'UTC')::date, 1)
            ON CONFLICT (user_id, activity_date) DO UPDATE
              SET last_seen_at = NOW(), request_count = analytics_user_activity_daily.request_count + 1`,
           [claims.sub],
@@ -3130,13 +3130,13 @@ app.get('/api/v1/admin/analytics/overview', { onRequest: [requireOwnerAuth] }, a
       pool.query(`SELECT COUNT(*) FILTER (WHERE status = 'active' AND ends_at > NOW())::int AS active,
         COUNT(*)::int AS total FROM user_subscriptions`),
       pool.query(`SELECT
-        COUNT(DISTINCT user_id) FILTER (WHERE activity_date = CURRENT_DATE)::int AS dau,
-        COUNT(DISTINCT user_id) FILTER (WHERE activity_date >= CURRENT_DATE - 6)::int AS wau,
-        COUNT(DISTINCT user_id) FILTER (WHERE activity_date >= CURRENT_DATE - 29)::int AS mau,
-        COUNT(DISTINCT user_id) FILTER (WHERE activity_date >= CURRENT_DATE - 29
+        COUNT(DISTINCT user_id) FILTER (WHERE activity_date = (NOW() AT TIME ZONE 'UTC')::date)::int AS dau,
+        COUNT(DISTINCT user_id) FILTER (WHERE activity_date >= (NOW() AT TIME ZONE 'UTC')::date - 6)::int AS wau,
+        COUNT(DISTINCT user_id) FILTER (WHERE activity_date >= (NOW() AT TIME ZONE 'UTC')::date - 29)::int AS mau,
+        COUNT(DISTINCT user_id) FILTER (WHERE activity_date >= (NOW() AT TIME ZONE 'UTC')::date - 29
           AND user_id IN (SELECT user_id FROM analytics_user_activity_daily
-            WHERE activity_date >= CURRENT_DATE - 29 GROUP BY user_id HAVING COUNT(DISTINCT activity_date) > 1))::int AS repeat_active_users
-        FROM analytics_user_activity_daily WHERE activity_date >= CURRENT_DATE - 29`),
+            WHERE activity_date >= (NOW() AT TIME ZONE 'UTC')::date - 29 GROUP BY user_id HAVING COUNT(DISTINCT activity_date) > 1))::int AS repeat_active_users
+        FROM analytics_user_activity_daily WHERE activity_date >= (NOW() AT TIME ZONE 'UTC')::date - 29`),
       pool.query(`SELECT game_type, event_type, COUNT(*)::int AS count
         FROM analytics_game_events WHERE occurred_at >= NOW() - INTERVAL '30 days'
         GROUP BY game_type, event_type ORDER BY game_type, event_type`),
@@ -3231,9 +3231,9 @@ app.get<{ Querystring: { from?: string; to?: string; game?: string } }>(
           [range.from, toExclusive.toISOString().slice(0, 10)],
         ),
         pool.query(
-          `SELECT DATE(occurred_at)::text AS date, game_type AS game, event_type AS event, COUNT(*)::int AS count
+          `SELECT DATE(occurred_at AT TIME ZONE 'UTC')::text AS date, game_type AS game, event_type AS event, COUNT(*)::int AS count
              FROM analytics_game_events
-            WHERE occurred_at >= $1::date AND occurred_at < $2::date
+            WHERE occurred_at >= ($1::date::timestamp AT TIME ZONE 'UTC') AND occurred_at < ($2::date::timestamp AT TIME ZONE 'UTC')
               AND ($3 = 'all' OR game_type = $3)
             GROUP BY DATE(occurred_at), game_type, event_type ORDER BY DATE(occurred_at), game_type, event_type`,
           [range.from, toExclusive.toISOString().slice(0, 10), range.game],
@@ -3284,9 +3284,9 @@ app.get<{ Querystring: { from?: string; to?: string; game?: string } }>(
     if (!range) return reply.code(400).send({ error: 'Provide valid from/to dates (maximum 90 days) and a supported game filter.' });
     try {
       const rows = await pool.query(
-        `SELECT DATE(occurred_at)::text AS date, game_type AS game, event_type AS event, COUNT(*)::int AS count
+        `SELECT DATE(occurred_at AT TIME ZONE 'UTC')::text AS date, game_type AS game, event_type AS event, COUNT(*)::int AS count
            FROM analytics_game_events
-          WHERE occurred_at >= $1::date AND occurred_at < ($2::date + INTERVAL '1 day')
+          WHERE occurred_at >= ($1::date::timestamp AT TIME ZONE 'UTC') AND occurred_at < (($2::date + INTERVAL '1 day')::timestamp AT TIME ZONE 'UTC')
             AND ($3 = 'all' OR game_type = $3)
           GROUP BY DATE(occurred_at), game_type, event_type
           ORDER BY DATE(occurred_at), game_type, event_type LIMIT 10000`,
