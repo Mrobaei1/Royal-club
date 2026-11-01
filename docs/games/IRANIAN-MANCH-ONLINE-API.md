@@ -1,7 +1,7 @@
 # Iranian Manch — Online API Contract
 
 ## Authority and trust boundary
-The mobile client never chooses dice values and never writes game state directly. The API generates each die with a cryptographic random source, validates the active player, applies the shared Manch rules implementation, persists the complete state, and increments a monotonic state version inside a PostgreSQL transaction.
+The mobile client never chooses dice values or rule profiles and never writes game state directly. Until manager-controlled rule settings are integrated, the API assigns its canonical default rule profile. The API generates each die with a cryptographic random source, validates the active player, applies the server-side Manch rules implementation, persists the complete state, and increments a monotonic state version inside a PostgreSQL transaction.
 
 A move is accepted only when all of these are true:
 - The caller has a valid active Royal Club session.
@@ -31,7 +31,8 @@ All endpoints require a Bearer access token.
 - 4 players: red, green, yellow, blue.
 - A waiting room expires after 30 seconds if it is not filled.
 - When the last required player joins, the room becomes active and red/host receives the first turn.
-- A roll with no legal move is passed by the server. A six with no legal move preserves the same player's extra roll when the selected rule profile grants it.
+- A roll with no legal move is handled by the server. A six with no legal move preserves the same player's extra roll when the selected rule profile grants it; the response distinguishes that case from a true turn pass.
+- If the selected profile applies a third-consecutive-six penalty, the rules engine advances the turn immediately; the API must not attempt to pass a nonexistent pending die.
 - A winner is recorded when all four of that player's tokens reach the finish.
 - Public match payloads expose usernames and seat colours, never email or full name.
 
