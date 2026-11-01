@@ -64,6 +64,25 @@ test("isolated chess migrations apply cleanly against a bigint users schema", { 
       [room.rows[0].id, white, black],
     );
 
+    const sessionOne = randomUUID();
+    const sessionTwo = randomUUID();
+    await db.query(
+      "INSERT INTO chess_presence_sessions(session_id,game_id,user_id) VALUES($1,$3,$2),($4,$3,$2)",
+      [sessionOne,white,game.rows[0].id,sessionTwo],
+    );
+    await db.query("DELETE FROM chess_presence_sessions WHERE session_id=$1",[sessionOne]);
+    const remainingPresence = await db.query(
+      "SELECT COUNT(*)::int AS count FROM chess_presence_sessions WHERE game_id=$1 AND user_id=$2",
+      [game.rows[0].id,white],
+    );
+    assert.equal(remainingPresence.rows[0].count,1);
+    await db.query("DELETE FROM chess_presence_sessions WHERE session_id=$1",[sessionTwo]);
+    const offlinePresence = await db.query(
+      "SELECT COUNT(*)::int AS count FROM chess_presence_sessions WHERE game_id=$1 AND user_id=$2",
+      [game.rows[0].id,white],
+    );
+    assert.equal(offlinePresence.rows[0].count,0);
+
     await db.query(
       "INSERT INTO chess_matchmaking_queue(user_id,time_control_id,min_opponent_level) VALUES($1,'rapid',1)",
       [black],
