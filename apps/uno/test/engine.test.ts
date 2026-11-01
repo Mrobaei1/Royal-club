@@ -7,6 +7,8 @@ function makeActionGame(players: Array<{id:string;username:string}>) {
   const game = startUnoGame(players);
   // Most engine tests target mid-game rules, not the random opening-Wild flow.
   game.openingColorPendingPlayerId = null;
+  game.currentPlayerIndex = 0;
+  game.direction = 1;
   return game;
 }
 
