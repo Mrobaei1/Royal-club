@@ -445,3 +445,22 @@ test('server restart marks every restored seat offline until authenticated recon
   assert.equal(offline.players.every(player => !player.connected && player.muted), true);
   assert.equal(restarted.reconnect(room.code, guest).players.find(player => player.id === guest.id)!.connected, true);
 });
+
+
+test('first returning player inherits host controls when no host successor was online', () => {
+  const manager = new UnoRoomManager();
+  const room = manager.createRoom(host);
+  const guestOne = {id:'guest-one',username:'guest_one'};
+  const guestTwo = {id:'guest-two',username:'guest_two'};
+  manager.joinRoom(room.code, guestOne);
+  manager.joinRoom(room.code, guestTwo);
+  for (const player of manager.getRoom(room.code).players) manager.setReady(room.code, player.id, true);
+  manager.start(room.code, host.id);
+  manager.disconnect(room.code, guestOne.id);
+  manager.disconnect(room.code, guestTwo.id);
+  manager.disconnect(room.code, host.id);
+  assert.equal(manager.getRoom(room.code).hostId, host.id);
+  const restored = manager.reconnect(room.code, guestTwo);
+  assert.equal(restored.hostId, guestTwo.id);
+  assert.equal(restored.players.find(player => player.id === guestTwo.id)!.connected, true);
+});
