@@ -35,7 +35,15 @@ class _AdminScreenState extends State<AdminScreen> {
   bool _agentTaskRead = true;
   bool _agentTaskRecommend = false;
   bool _delegatedPermissionsEnabled = false;
-  final _email = TextEditingController();
+  final _usernameSearch = TextEditingController();
+  final _countryFilter = TextEditingController();
+  final _minBalanceFilter = TextEditingController();
+  final _maxBalanceFilter = TextEditingController();
+  String _subscriptionFilter = 'any';
+  String _phoneFilter = 'any';
+  String _notificationAudience = 'all';
+  bool _showOnLogin = false;
+  final Set<String> _selectedUserIds = <String>{};
   final _amount = TextEditingController(text: '100');
   final _description = TextEditingController();
   final _price = TextEditingController();
@@ -66,7 +74,10 @@ class _AdminScreenState extends State<AdminScreen> {
 
   @override
   void dispose() {
-    _email.dispose();
+    _usernameSearch.dispose();
+    _countryFilter.dispose();
+    _minBalanceFilter.dispose();
+    _maxBalanceFilter.dispose();
     _agentTaskCode.dispose();
     _agentTaskTitle.dispose();
     _agentTaskDescription.dispose();
@@ -1297,10 +1308,28 @@ class _AdminScreenState extends State<AdminScreen> {
   }
 
   Future<void> _search() async {
+    final minBalance = _minBalanceFilter.text.trim().isEmpty ? null : int.tryParse(_minBalanceFilter.text.trim());
+    final maxBalance = _maxBalanceFilter.text.trim().isEmpty ? null : int.tryParse(_maxBalanceFilter.text.trim());
+    if ((_minBalanceFilter.text.trim().isNotEmpty && minBalance == null) ||
+        (_maxBalanceFilter.text.trim().isNotEmpty && maxBalance == null) ||
+        (minBalance != null && maxBalance != null && minBalance > maxBalance)) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appText(context, 'محدوده اعتبار نامعتبر است.', 'Invalid credit balance range.'))));
+      return;
+    }
     setState(() => _busy = true);
     try {
-      final users = await AdminService.findUser(_email.text);
-      if (mounted) setState(() { _users = users; });
+      final users = await AdminService.searchUsers(
+        username: _usernameSearch.text,
+        country: _countryFilter.text,
+        subscriptionStatus: _subscriptionFilter,
+        hasPhone: _phoneFilter,
+        minBalance: minBalance,
+        maxBalance: maxBalance,
+      );
+      if (mounted) setState(() {
+        _users = users;
+        _selectedUserIds.removeWhere((id) => !users.any((user) => user['id'].toString() == id));
+      });
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appError(context, e))));
     } finally {
@@ -1375,9 +1404,25 @@ class _AdminScreenState extends State<AdminScreen> {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appText(context, 'عنوان الزامی است؛ عنوان حداکثر ۱۲۰ و متن حداکثر ۱۰۰۰ نویسه.', 'A title is required; title must be at most 120 characters and message at most 1,000 characters.'))));
       return;
     }
+    if (userId == null && _notificationAudience == 'selected' && _selectedUserIds.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appText(context, 'ابتدا کاربران موردنظر را انتخاب کنید.', 'Select at least one user first.'))));
+      return;
+    }
     setState(() => _busy = true);
     try {
-      final count = await AdminService.sendNotification(userId: userId, title: title, body: body);
+      final minBalance = int.tryParse(_minBalanceFilter.text.trim());
+      final maxBalance = int.tryParse(_maxBalanceFilter.text.trim());
+      final count = await AdminService.sendNotification(
+        userId: userId,
+        userIds: userId == null && _notificationAudience == 'selected' ? _selectedUserIds.toList() : null,
+        username: userId == null && _notificationAudience == 'filtered' ? _usernameSearch.text : null,
+        country: userId == null && _notificationAudience == 'filtered' ? _countryFilter.text : null,
+        subscriptionStatus: userId == null && _notificationAudience == 'filtered' ? _subscriptionFilter : 'any',
+        hasPhone: userId == null && _notificationAudience == 'filtered' ? _phoneFilter : 'any',
+        showOnLogin: _showOnLogin,
+        title: title,
+        body: body,
+      );
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appText(context, 'اعلان برای $count کاربر ارسال شد.', 'Notification sent to $count users.'))));
       if (mounted && userId == null) {
         _notificationTitle.clear();
@@ -1831,12 +1876,66 @@ class _AdminScreenState extends State<AdminScreen> {
               const SizedBox(height: 22),
               Text(appText(context, 'اعتباردهی به کاربر', 'Credit a user'), style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
               const SizedBox(height: 10),
-              TextField(controller: _email, keyboardType: TextInputType.emailAddress, decoration: InputDecoration(labelText: appText(context, 'ایمیل دقیق کاربر', 'Exact user email'), border: const OutlineInputBorder())),
+              TextField(controller: _usernameSearch, decoration: InputDecoration(labelText: appText(context, 'نام کاربری (جستجوی جزئی یا کامل)', 'Username (partial or exact search)'), prefixText: '@', border: const OutlineInputBorder())),
               const SizedBox(height: 8),
-              FilledButton(onPressed: _busy ? null : _search, child: Text(appText(context, 'جستجوی کاربر', 'Search user'))),
+              ExpansionTile(
+                tilePadding: EdgeInsets.zero,
+                title: Text(appText(context, 'فیلترهای پیشرفته جستجو', 'Advanced search filters')),
+                children: [
+                  TextField(controller: _countryFilter, decoration: InputDecoration(labelText: appText(context, 'کشور', 'Country'), border: const OutlineInputBorder())),
+                  const SizedBox(height: 8),
+                  DropdownButtonFormField<String>(
+                    value: _subscriptionFilter,
+                    decoration: InputDecoration(labelText: appText(context, 'وضعیت اشتراک', 'Subscription status')),
+                    items: [
+                      DropdownMenuItem(value: 'any', child: Text(appText(context, 'همه کاربران', 'All users'))),
+                      DropdownMenuItem(value: 'active', child: Text(appText(context, 'دارای اشتراک فعال', 'Active subscription'))),
+                      DropdownMenuItem(value: 'inactive', child: Text(appText(context, 'بدون اشتراک فعال', 'No active subscription'))),
+                    ],
+                    onChanged: (value) => setState(() => _subscriptionFilter = value ?? 'any'),
+                  ),
+                  const SizedBox(height: 8),
+                  DropdownButtonFormField<String>(
+                    value: _phoneFilter,
+                    decoration: InputDecoration(labelText: appText(context, 'شماره تلفن', 'Phone number')),
+                    items: [
+                      DropdownMenuItem(value: 'any', child: Text(appText(context, 'مهم نیست', 'Any'))),
+                      DropdownMenuItem(value: 'yes', child: Text(appText(context, 'دارای شماره', 'Has phone'))),
+                      DropdownMenuItem(value: 'no', child: Text(appText(context, 'بدون شماره', 'No phone'))),
+                    ],
+                    onChanged: (value) => setState(() => _phoneFilter = value ?? 'any'),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(children: [
+                    Expanded(child: TextField(controller: _minBalanceFilter, keyboardType: TextInputType.number, decoration: InputDecoration(labelText: appText(context, 'حداقل اعتبار', 'Min balance')))),
+                    const SizedBox(width: 8),
+                    Expanded(child: TextField(controller: _maxBalanceFilter, keyboardType: TextInputType.number, decoration: InputDecoration(labelText: appText(context, 'حداکثر اعتبار', 'Max balance')))),
+                  ]),
+                ],
+              ),
+              const SizedBox(height: 8),
+              FilledButton(onPressed: _busy ? null : _search, child: Text(appText(context, 'جستجوی کاربران', 'Search users'))),
+              if (_users.isNotEmpty) Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: TextButton(
+                  onPressed: () => setState(() {
+                    if (_selectedUserIds.length == _users.length) { _selectedUserIds.clear(); }
+                    else { _selectedUserIds.addAll(_users.map((u) => u['id'].toString())); }
+                  }),
+                  child: Text(appText(context, 'انتخاب / لغو انتخاب نتایج جستجو', 'Select / deselect search results')),
+                ),
+              ),
               for (final user in _users) Card(child: Padding(padding: const EdgeInsets.all(12), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('@${user['username'] ?? appText(context, 'کاربر', 'User')}', style: const TextStyle(fontWeight: FontWeight.bold)),
-                Text(user['email']?.toString() ?? ''),
+                CheckboxListTile(
+                  contentPadding: EdgeInsets.zero,
+                  value: _selectedUserIds.contains(user['id'].toString()),
+                  onChanged: (checked) => setState(() {
+                    if (checked == true) { _selectedUserIds.add(user['id'].toString()); }
+                    else { _selectedUserIds.remove(user['id'].toString()); }
+                  }),
+                  title: Text('@${user['username'] ?? appText(context, 'کاربر', 'User')}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                  subtitle: Text('${user['country'] ?? '—'} · ${appText(context, 'اعتبار', 'Credits')}: ${user['walletBalance'] ?? '0'} · ${user['hasActiveSubscription'] == true ? appText(context, 'اشتراک فعال', 'Active subscription') : appText(context, 'بدون اشتراک فعال', 'No active subscription')}'),
+                ),
                 TextField(controller: _amount, keyboardType: TextInputType.number, decoration: InputDecoration(labelText: appText(context, 'مقدار اعتبار', 'Credit amount'))),
                 TextField(controller: _description, decoration: InputDecoration(labelText: appText(context, 'توضیح تراکنش', 'Transaction description'))),
                 const SizedBox(height: 8),
@@ -1852,7 +1951,28 @@ class _AdminScreenState extends State<AdminScreen> {
               const SizedBox(height: 8),
               TextField(controller: _notificationBody, maxLines: 3, maxLength: 1000, decoration: InputDecoration(labelText: appText(context, 'متن اعلان', 'Notification message'), border: const OutlineInputBorder())),
               const SizedBox(height: 8),
-              FilledButton.icon(onPressed: _busy ? null : () => _notify(), icon: const Icon(Icons.campaign_outlined), label: Text(appText(context, 'ارسال اعلان به همه کاربران', 'Send notification to all users'))),
+              DropdownButtonFormField<String>(
+                value: _notificationAudience,
+                decoration: InputDecoration(labelText: appText(context, 'مخاطبان اعلان', 'Notification audience')),
+                items: [
+                  DropdownMenuItem(value: 'all', child: Text(appText(context, 'تمام کاربران', 'All users'))),
+                  DropdownMenuItem(value: 'filtered', child: Text(appText(context, 'کاربران مطابق فیلترهای جستجو', 'Users matching search filters'))),
+                  DropdownMenuItem(value: 'selected', child: Text(appText(context, 'کاربران انتخاب‌شده', 'Selected users'))),
+                ],
+                onChanged: (value) => setState(() => _notificationAudience = value ?? 'all'),
+              ),
+              CheckboxListTile(
+                contentPadding: EdgeInsets.zero,
+                value: _showOnLogin,
+                onChanged: (value) => setState(() => _showOnLogin = value == true),
+                title: Text(appText(context, 'نمایش اعلان هنگام ورود به برنامه', 'Show announcement when the user opens the app')),
+                subtitle: Text(appText(context, 'این اعلان پس از نمایش در ورود بعدی، خوانده‌شده علامت‌گذاری می‌شود.', 'The announcement is marked as read after it is shown on the next app entry.')),
+              ),
+              FilledButton.icon(
+                onPressed: _busy ? null : () => _notify(),
+                icon: const Icon(Icons.campaign_outlined),
+                label: Text(appText(context, 'ارسال اعلان', 'Send notification')),
+              ),
               const SizedBox(height: 22),
               Row(children: [
                 Expanded(child: Text(appText(context, 'گزارش‌های کاربران', 'User reports'), style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold))),
