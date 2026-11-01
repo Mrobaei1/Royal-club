@@ -10,7 +10,6 @@ import {
   applyManchMove,
   type ManchColour,
   type ManchGameState,
-  type ManchRuleProfile,
 } from './manch-rules.js';
 
 const SEAT_COLOURS: Record<number, ManchColour[]> = {
