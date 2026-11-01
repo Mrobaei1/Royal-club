@@ -4905,30 +4905,6 @@ app.post<{ Params: { id: string } }>('/api/v1/matches/:id/heartbeat', { onReques
  );
 
 
- app.get<{ Params: { id: string }; Querystring: { afterId?: string } }>(
-   '/api/v1/matches/:id/voice/signals',
-   { onRequest: [requireMatchAuth] },
-   async (request, reply) => {
-     const claims = request.user as { sub: string };
-     const matchId = request.params.id;
-     const afterId = request.query.afterId ?? '0';
-     if (!isNumericId(matchId) || !/^\d+$/.test(afterId) ||
-         !Number.isSafeInteger(Number(afterId))) {
-       return reply.code(400).send({ error: 'Invalid voice signal cursor.' });
-     }
-     const access = await pool.query(
-       "SELECT 1 FROM backgammon_matches WHERE id = $1 AND status = 'active' AND guest_user_id IS NOT NULL AND (host_user_id = $2 OR guest_user_id = $2)",
-       [matchId, claims.sub],
-     );
-     if (!access.rowCount) return reply.code(404).send({ error: 'Voice is not available for this match.' });
-     const signals = await pool.query(
-       'SELECT id::text AS id, sender_id::text AS "senderId", kind, payload, created_at AS "createdAt" FROM backgammon_match_voice_signals WHERE match_id = $1 AND recipient_id = $2 AND id > $3 AND expires_at > NOW() ORDER BY id ASC LIMIT 100',
-       [matchId, claims.sub, afterId],
-     );
-     return { signals: signals.rows };
-   },
- );
-
  app.post<{
    Params: { id: string };
    Body: { kind?: string; payload?: Record<string, unknown> };
