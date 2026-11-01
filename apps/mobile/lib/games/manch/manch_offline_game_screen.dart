@@ -71,7 +71,13 @@ class _ManchOfflineGameScreenState extends State<ManchOfflineGameScreen> {
     }
     var next = _engine.roll(_state, dice);
     final moves = _engine.legalMoves(next);
-    if (moves.isEmpty) {
+    if (next.pendingDice == null) {
+      setState(() {
+        _state = next;
+        _lastDice = dice;
+        _message = 'هوش مصنوعی سه شش متوالی آورد و نوبتش را از دست داد.';
+      });
+    } else if (moves.isEmpty) {
       final playerIndex = next.activePlayerIndex;
       next = _engine.passTurn(next);
       setState(() {
@@ -103,7 +109,9 @@ class _ManchOfflineGameScreenState extends State<ManchOfflineGameScreen> {
     }
     var next = _engine.roll(_state, dice);
     var message = 'عدد تاس: $dice';
-    if (_engine.legalMoves(next).isEmpty) {
+    if (next.pendingDice == null) {
+      message = 'سه شش متوالی؛ نوبت خود را از دست دادی.';
+    } else if (_engine.legalMoves(next).isEmpty) {
       final currentPlayer = next.activePlayerIndex;
       next = _engine.passTurn(next);
       message = next.activePlayerIndex == currentPlayer
