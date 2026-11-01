@@ -91,6 +91,39 @@ async function consumeOtpChallenge(
 const app = Fastify({ logger: createRoyalLoggerOptions(), trustProxy: false });
 const pool = new Pool({ connectionString: normalizeDatabaseConnectionString(process.env.DATABASE_URL) });
 
+const apiRequestStartedAt = new WeakMap<object, number>();
+const apiLatencySamples: Array<{ durationMs: number; statusCode: number; at: number }> = [];
+app.addHook('onRequest', async (request) => {
+  apiRequestStartedAt.set(request, Date.now());
+});
+app.addHook('onResponse', async (request, reply) => {
+  const startedAt = apiRequestStartedAt.get(request);
+  if (startedAt === undefined) return;
+  apiLatencySamples.push({
+    durationMs: Math.max(0, Date.now() - startedAt),
+    statusCode: reply.statusCode,
+    at: Date.now(),
+  });
+  if (apiLatencySamples.length > 2000) apiLatencySamples.splice(0, apiLatencySamples.length - 2000);
+});
+function apiLatencySnapshot() {
+  const cutoff = Date.now() - 5 * 60_000;
+  const recent = apiLatencySamples.filter((sample) => sample.at >= cutoff);
+  const sorted = recent.map((sample) => sample.durationMs).sort((a, b) => a - b);
+  const percentile = (p: number) => sorted.length
+    ? sorted[Math.min(sorted.length - 1, Math.ceil(sorted.length * p) - 1)]
+    : null;
+  const errors = recent.filter((sample) => sample.statusCode >= 500).length;
+  return {
+    windowSeconds: 300,
+    sampleCount: recent.length,
+    p50Ms: percentile(0.50),
+    p95Ms: percentile(0.95),
+    serverErrorRate: recent.length ? Number((errors / recent.length).toFixed(4)) : null,
+    scope: 'current-process-memory; resets on restart; not a provider SLA',
+  };
+}
+
 // Expire empty waiting rooms after 60 seconds and remove their related notices.
 // The lazy calls also cover serverless runtimes where a persistent timer is not guaranteed.
 async function cleanupExpiredEmptyRooms(): Promise<number> {
@@ -3115,6 +3148,10 @@ app.post<{ Body: { phone?: string; code?: string } }>(
 app.get('/api/v1/admin/analytics/overview', { onRequest: [requireOwnerAuth] }, async (request, reply) => {
   const generatedAt = new Date().toISOString();
   try {
+    const dbProbeStartedAt = Date.now();
+    await pool.query('SELECT 1');
+    const databaseProbeLatencyMs = Date.now() - dbProbeStartedAt;
+    const apiLatency = apiLatencySnapshot();
     const [users, registrations, matches, matchTrend, wallet, subscriptions, activity, gameEvents] = await Promise.all([
       pool.query('SELECT COUNT(*)::int AS total FROM users'),
       pool.query(`SELECT COUNT(*)::int AS total FROM users WHERE created_at >= NOW() - INTERVAL '30 days'`),
@@ -3146,6 +3183,12 @@ app.get('/api/v1/admin/analytics/overview', { onRequest: [requireOwnerAuth] }, a
       generatedAt,
       freshness: 'live-query',
       windowDays: 30,
+      operationalTelemetry: {
+        apiLatency,
+        database: { status: 'connected', probeLatencyMs: databaseProbeLatencyMs, freshness: 'measured-during-this-request' },
+        infrastructureCost: { status: 'unavailable', reason: 'No authoritative provider billing source is connected.' },
+        agentExecution: { status: 'unavailable', reason: 'No active agent execution runtime or cost telemetry source is connected.' },
+      },
       metrics: {
         registeredUsers: users.rows[0]?.total ?? null,
         registrationsLast30Days: registrations.rows[0]?.total ?? null,
