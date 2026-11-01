@@ -1511,83 +1511,93 @@ class _AdminScreenState extends State<AdminScreen> {
                 Text(appText(context, 'کلید ذخیره شده: ${_smsSettings['apiKeyConfigured'] == true ? 'بله (مخفی)' : 'خیر'}', 'Saved key: ${_smsSettings['apiKeyConfigured'] == true ? 'yes (hidden)' : 'no'}'), style: const TextStyle(fontSize: 12)),
               ]))),
               const SizedBox(height: 22),
-              Text(appText(context, 'مدیریت لیگ‌ها', 'League management'), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 6),
-              Text(appText(context, 'لیگ جدید به‌طور پیش‌فرض غیرفعال و رایگان است. مصرف روز اشتراک فقط با تنظیم صریح مالک فعال می‌شود؛ اعتبار کیف پول کسر نمی‌شود.', 'New leagues default to disabled and free. Subscription-day entry requires explicit owner configuration; wallet credits are never charged.'), style: const TextStyle(fontSize: 12)),
-              const SizedBox(height: 8),
-              TextField(controller: _leagueCode, decoration: InputDecoration(labelText: appText(context, 'کد یکتای لیگ (حروف انگلیسی)', 'Unique league code (English letters)'), border: const OutlineInputBorder())),
-              const SizedBox(height: 8),
-              TextField(controller: _leagueName, decoration: InputDecoration(labelText: appText(context, 'نام لیگ', 'League name'), border: const OutlineInputBorder())),
-              const SizedBox(height: 8),
-              DropdownButtonFormField<String>(
-                initialValue: _leagueFormat,
-                decoration: InputDecoration(labelText: appText(context, 'فرمت لیگ', 'League format')),
-                items: [
-                  DropdownMenuItem(value: 'round_robin', child: Text(appText(context, 'دوره‌ای', 'Round robin'))),
-                  DropdownMenuItem(value: 'swiss', child: Text(appText(context, 'سوئیسی', 'Swiss'))),
-                  DropdownMenuItem(value: 'knockout', child: Text(appText(context, 'حذفی', 'Knockout'))),
-                  DropdownMenuItem(value: 'groups_then_knockout', child: Text(appText(context, 'گروهی سپس حذفی', 'Groups then knockout'))),
-                ],
-                onChanged: _busy ? null : (value) => setState(() => _leagueFormat = value ?? 'round_robin'),
-              ),
-              Align(alignment: AlignmentDirectional.centerStart, child: Text(appText(context, 'برنامه‌ریزی خودکار فعلاً فقط برای لیگ دوره‌ای فعال است؛ سایر فرمت‌ها به ساخت دورهای دستی نیاز دارند.', 'Automatic scheduling is currently available only for round-robin leagues; other formats require manager-created rounds.'), style: const TextStyle(fontSize: 12))),
-              const SizedBox(height: 8),
-              TextField(controller: _leagueMinParticipants, keyboardType: TextInputType.number, decoration: InputDecoration(labelText: appText(context, 'حداقل شرکت‌کنندگان (۲ تا ۵۱۲)', 'Minimum participants (2–512)'), helperText: appText(context, 'این مقدار را مدیر برای هر لیگ تعیین می‌کند.', 'The manager sets this for each league.'), border: const OutlineInputBorder())),
-              const SizedBox(height: 8),
-              DropdownButtonFormField<String>(
-                initialValue: _leagueEntryMode,
-                decoration: InputDecoration(labelText: appText(context, 'قانون ورود', 'Entry rule')),
-                items: [
-                  DropdownMenuItem(value: 'free', child: Text(appText(context, 'رایگان', 'Free'))),
-                  DropdownMenuItem(value: 'subscription_days', child: Text(appText(context, 'مصرف روز اشتراک', 'Consume subscription days'))),
-                ],
-                onChanged: _busy ? null : (value) => setState(() => _leagueEntryMode = value ?? 'free'),
-              ),
-              if (_leagueEntryMode == 'subscription_days') TextField(
-                controller: _leagueDays,
-                keyboardType: TextInputType.number,
-                decoration: InputDecoration(labelText: appText(context, 'روزهای مصرفی (۱ تا ۳۰)', 'Days consumed (1–30)'), border: const OutlineInputBorder()),
-              ),
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                title: Text(appText(context, 'فعال‌سازی لیگ هنگام ایجاد', 'Enable league on creation')),
-                subtitle: Text(appText(context, 'خاموش بودن پیش‌فرض امن‌تر است.', 'Disabled by default is safer.')),
-                value: _leagueEnabled,
-                onChanged: _busy ? null : (value) => setState(() => _leagueEnabled = value),
-              ),
-              FilledButton.icon(
-                onPressed: _busy ? null : _createLeague,
-                icon: const Icon(Icons.add_circle_outline),
-                label: Text(appText(context, 'ایجاد لیگ', 'Create league')),
-              ),
-              if (_leagues.isEmpty) Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Text(appText(context, 'لیگی ثبت نشده است.', 'No leagues configured.')),
-              ),
-              for (final league in _leagues) Card(
-                child: ListTile(
-                  leading: Icon(league['entryMode'] == 'subscription_days' ? Icons.workspace_premium_outlined : Icons.sports_esports_outlined),
-                  title: Text(league['name']?.toString() ?? ''),
-                  subtitle: Text('@${league['code']} · ${league['entryMode'] == 'subscription_days' ? appText(context, '${league['subscriptionDaysCost']} روز اشتراک', '${league['subscriptionDaysCost']} subscription days') : appText(context, 'رایگان', 'Free')} · ${league['enabled'] == true ? appText(context, 'فعال', 'Enabled') : appText(context, 'غیرفعال', 'Disabled')}'),
-                  trailing: Wrap(
-                    spacing: 2,
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      IconButton(
-                        tooltip: appText(context, 'گزارش لیگ', 'League report'),
-                        onPressed: _busy ? null : () => _showLeagueReport(league),
-                        icon: const Icon(Icons.assessment_outlined),
+                      Text(appText(context, 'مدیریت لیگ‌ها', 'League management'), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 6),
+                      Text(
+                        appText(context,
+                          'هر بازی شماره‌گذاری، تقویم، تنظیمات و فهرست لیگ مستقل دارد. شماره لیگ در سرور و جداگانه برای هر بازی تولید می‌شود؛ لیگ‌ها به‌صورت پیش‌فرض غیرفعال و رایگان هستند.',
+                          'Each game has its own league numbering, calendar, settings, and list. The server allocates numbers independently per game; leagues default to disabled and free.'),
+                        style: const TextStyle(fontSize: 12),
                       ),
-                      if ((league['rules'] is Map ? (league['rules'] as Map)['format'] : null) == 'round_robin')
-                        IconButton(
-                          tooltip: appText(context, 'ساخت برنامه مسابقات', 'Generate schedule'),
-                          onPressed: _busy ? null : () => _scheduleLeague(league),
-                          icon: const Icon(Icons.calendar_month_outlined),
+                      const SizedBox(height: 8),
+                      for (final game in const <Map<String, String>>[
+                        {'code': 'backgammon', 'name': 'تخته‌نرد', 'english': 'Backgammon'},
+                        {'code': 'chess', 'name': 'شطرنج', 'english': 'Chess'},
+                        {'code': 'manch', 'name': 'منچ', 'english': 'Manch'},
+                        {'code': 'uno', 'name': 'UNO', 'english': 'UNO'},
+                        {'code': 'hokm', 'name': 'حکم', 'english': 'Hokm'},
+                      ])
+                        Card(
+                          margin: const EdgeInsets.symmetric(vertical: 4),
+                          child: ExpansionTile(
+                            leading: const Icon(Icons.emoji_events_outlined),
+                            title: Text(appText(context, game['name']!, game['english']!)),
+                            subtitle: Text(appText(
+                              context,
+                              '${_leagues.where((item) => (item['gameCode']?.toString() ?? 'backgammon') == game['code']).length} لیگ ثبت‌شده',
+                              '${_leagues.where((item) => (item['gameCode']?.toString() ?? 'backgammon') == game['code']).length} leagues configured',
+                            )),
+                            children: [
+                              Align(
+                                alignment: AlignmentDirectional.centerEnd,
+                                child: Padding(
+                                  padding: const EdgeInsetsDirectional.only(end: 12, bottom: 8),
+                                  child: FilledButton.icon(
+                                    onPressed: _busy ? null : () => _createLeagueForGame(game['code']!),
+                                    icon: const Icon(Icons.add_circle_outline),
+                                    label: Text(appText(context, 'ایجاد لیگ جدید', 'Create new league')),
+                                  ),
+                                ),
+                              ),
+                              for (final league in _leagues.where(
+                                (item) => (item['gameCode']?.toString() ?? 'backgammon') == game['code'],
+                              ))
+                                Card(
+                                  child: ListTile(
+                                    leading: Icon(league['entryMode'] == 'subscription_days' ? Icons.workspace_premium_outlined : Icons.sports_esports_outlined),
+                                    title: Text('${appText(context, 'لیگ', 'League')} #${league['leagueNumber'] ?? league['code']} · ${league['name'] ?? ''}'),
+                                    subtitle: Text(
+                                      '@${league['code']} · ${league['entryMode'] == 'subscription_days' ? appText(context, '${league['subscriptionDaysCost']} روز اشتراک', '${league['subscriptionDaysCost']} subscription days') : appText(context, 'رایگان', 'Free')} · ${league['enabled'] == true ? appText(context, 'فعال', 'Enabled') : appText(context, 'غیرفعال', 'Disabled')}'
+                                      ' · ${appText(context, 'شروع', 'Start')}: ${league['startsAt'] ?? '—'}'
+                                      ' · ${appText(context, 'پایان', 'End')}: ${league['endsAt'] ?? '—'}',
+                                    ),
+                                    trailing: Wrap(
+                                      spacing: 2,
+                                      children: [
+                                        IconButton(
+                                          tooltip: appText(context, 'گزارش لیگ', 'League report'),
+                                          onPressed: _busy ? null : () => _showLeagueReport(league),
+                                          icon: const Icon(Icons.assessment_outlined),
+                                        ),
+                                        if ((league['rules'] is Map ? (league['rules'] as Map)['format'] : null) == 'round_robin')
+                                          IconButton(
+                                            tooltip: appText(context, 'ساخت برنامه مسابقات', 'Generate schedule'),
+                                            onPressed: _busy ? null : () => _scheduleLeague(league),
+                                            icon: const Icon(Icons.calendar_month_outlined),
+                                          ),
+                                        IconButton(
+                                          tooltip: appText(context, 'ویرایش تنظیمات', 'Edit settings'),
+                                          onPressed: _busy ? null : () => _editLeague(league),
+                                          icon: const Icon(Icons.edit_outlined),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              if (!_leagues.any((item) => (item['gameCode']?.toString() ?? 'backgammon') == game['code']))
+                                Padding(
+                                  padding: const EdgeInsets.all(12),
+                                  child: Text(appText(context, 'هنوز لیگی برای این بازی ایجاد نشده است.', 'No leagues have been created for this game yet.')),
+                                ),
+                            ],
+                          ),
                         ),
-                      IconButton(
-                        tooltip: appText(context, 'ویرایش قوانین', 'Edit rules'),
-                        onPressed: _busy ? null : () => _editLeague(league),
-                        icon: const Icon(Icons.edit_outlined),
-                      ),
                     ],
                   ),
                 ),
