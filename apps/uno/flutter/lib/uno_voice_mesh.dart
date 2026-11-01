@@ -20,6 +20,7 @@ class UnoVoiceMesh {
   final Map<String, Set<String>> _addedTrackIds = {};
   final Map<String, List<MediaStreamTrack>> _remoteTracks = {};
   final Map<String, bool> _remoteMuted = {};
+  final Map<String, List<RTCIceCandidate>> _pendingCandidates = {};
   MediaStream? _localStream;
   bool _muted = true;
   List<Map<String, dynamic>>? _providedIceServers;
@@ -74,7 +75,10 @@ class UnoVoiceMesh {
       final tracksBefore = _addedTrackIds[peerId]?.length ?? 0;
       final peer = await _peer(peerId);
       final tracksAfter = _addedTrackIds[peerId]?.length ?? 0;
+      // Exactly one peer creates offers for each pair. This avoids simultaneous
+      // offers ("glare") when two clients join or reconnect at the same time.
       if ((!existed || tracksAfter > tracksBefore) &&
+          localPlayerId.compareTo(peerId) < 0 &&
           peer.signalingState == RTCSignalingState.RTCSignalingStateStable) {
         await _createOffer(peerId);
       }
@@ -109,6 +113,7 @@ class UnoVoiceMesh {
       final String sdp = rawSdp;
       final String type = rawType;
       await peer.setRemoteDescription(RTCSessionDescription(sdp, type));
+      await _flushPendingCandidates(fromId, peer);
       final answer = await peer.createAnswer();
       await peer.setLocalDescription(answer);
       sendSignal(fromId, 'answer', answer.toMap());
@@ -116,15 +121,28 @@ class UnoVoiceMesh {
       await peer.setRemoteDescription(
         RTCSessionDescription(data['sdp'] as String?, data['type'] as String?),
       );
+      await _flushPendingCandidates(fromId, peer);
     } else if (kind == 'ice') {
       final candidate = data['candidate'] as String?;
       if (candidate != null) {
-        await peer.addCandidate(RTCIceCandidate(
+        final iceCandidate = RTCIceCandidate(
           candidate,
           (data['sdpMid'] as String?) ?? '',
           data['sdpMLineIndex'] as int?,
-        ));
+        );
+        if (peer.remoteDescription == null) {
+          _pendingCandidates.putIfAbsent(fromId, () => <RTCIceCandidate>[]).add(iceCandidate);
+        } else {
+          await peer.addCandidate(iceCandidate);
+        }
       }
+    }
+  }
+
+  Future<void> _flushPendingCandidates(String peerId, RTCPeerConnection peer) async {
+    final candidates = _pendingCandidates.remove(peerId) ?? const <RTCIceCandidate>[];
+    for (final candidate in candidates) {
+      await peer.addCandidate(candidate);
     }
   }
 
@@ -172,6 +190,7 @@ class UnoVoiceMesh {
     _addedTrackIds.remove(peerId);
     _remoteTracks.remove(peerId);
     _remoteMuted.remove(peerId);
+    _pendingCandidates.remove(peerId);
   }
 
   Future<void> dispose() async {
@@ -182,6 +201,7 @@ class UnoVoiceMesh {
     _addedTrackIds.clear();
     _remoteTracks.clear();
     _remoteMuted.clear();
+    _pendingCandidates.clear();
     for (final track in _localStream?.getTracks() ?? <MediaStreamTrack>[]) {
       await track.stop();
     }
