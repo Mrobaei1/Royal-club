@@ -1631,12 +1631,13 @@ app.post<{
   };
 }>('/api/v1/admin/leagues', { onRequest: [requireOwnerAuth] }, async (request, reply) => {
   const body = request.body ?? {};
-  const gameCode = (body.gameCode ?? 'backgammon').trim().toLowerCase();
-  const requestedCode = body.code?.trim().toLowerCase();
-  const name = body.name?.trim();
+  const gameCode = typeof body.gameCode === 'string' ? body.gameCode.trim().toLowerCase() : 'backgammon';
+  const requestedCode = typeof body.code === 'string' ? body.code.trim().toLowerCase() : undefined;
+  const invalidCodeType = body.code !== undefined && typeof body.code !== 'string';
+  const name = typeof body.name === 'string' ? body.name.trim() : '';
   const entryMode = body.entryMode ?? 'free';
   const days = body.subscriptionDaysCost ?? 0;
-  if (!/^[a-z0-9][a-z0-9_-]{1,39}$/.test(gameCode) ||
+  if (!/^[a-z0-9][a-z0-9_-]{1,39}$/.test(gameCode) || invalidCodeType ||
       (requestedCode !== undefined && !/^[a-z0-9][a-z0-9_-]{1,39}$/.test(requestedCode)) ||
       !name || name.length > 120 ||
       typeof (body.enabled ?? false) !== 'boolean' ||
