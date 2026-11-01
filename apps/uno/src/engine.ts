@@ -163,7 +163,11 @@ export function applyUnoAction(source: UnoGame, playerId: string, action: GameAc
   }
   if (player.hand.length === 1) game.unoPendingPlayerId = player.id;
   if (card.face !== 'wild4') advance(game, 1 + skip);
-  else { game.drawnCardId = null; game.turnNumber++; }
+  else {
+    game.currentPlayerIndex = nextIndex(index, game.direction, game.players.length);
+    game.drawnCardId = null;
+    game.turnNumber++;
+  }
   return game;
 }
 export function publicGameState(game: UnoGame) {
