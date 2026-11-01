@@ -3,6 +3,7 @@ import type { FastifyInstance, FastifyRequest, preHandlerHookHandler } from "fas
 import type { Pool } from "pg";
 import type { WebSocket } from "ws";
 import { Buffer } from "node:buffer";
+import { randomUUID } from "node:crypto";
 
 type Options = {
   pool: Pool;
@@ -50,6 +51,7 @@ export async function registerChessWebSocket(app: FastifyInstance, options: Opti
       }
       if (connectionClosed) return;
       const roomId = String(membership.rows[0].room_id);
+      const sessionId = randomUUID();
       const channel = "chess_game_" + gameId;
       const listener = await options.pool.connect();
       listenerToRelease = listener;
@@ -124,7 +126,27 @@ export async function registerChessWebSocket(app: FastifyInstance, options: Opti
         })().catch(() => send({type:"chess:error",code:"event_delivery_failed"}));
       });
       await listener.query("LISTEN " + channel);
-      await publish({type:"presence",id:userId,connected:true});
+      // Serialize presence transitions per game/player across devices and API instances.
+      const presenceClient = await options.pool.connect();
+      let wasOffline = false;
+      try {
+        await presenceClient.query("BEGIN");
+        await presenceClient.query("SELECT pg_advisory_xact_lock(hashtext('chess_presence'),hashtext($1))",[`${gameId}:${userId}`]);
+        const existing = await presenceClient.query(
+          "SELECT 1 FROM chess_presence_sessions WHERE game_id=$1 AND user_id=$2 LIMIT 1",
+          [gameId,userId]
+        );
+        wasOffline = !existing.rowCount;
+        await presenceClient.query(
+          "INSERT INTO chess_presence_sessions(session_id,game_id,user_id) VALUES($1,$2,$3)",
+          [sessionId,gameId,userId]
+        );
+        await presenceClient.query("COMMIT");
+      } catch (error) {
+        try { await presenceClient.query("ROLLBACK"); } catch {}
+        throw error;
+      } finally { presenceClient.release(); }
+      if (wasOffline) await publish({type:"presence",id:userId,connected:true});
       send({type:"chess:connected",gameId});
       const currentLease = await options.pool.query(
         "SELECT u.username,l.expires_at FROM chess_voice_leases l JOIN users u ON u.id=l.user_id WHERE l.room_id=$1 AND l.expires_at>NOW()",
@@ -206,9 +228,27 @@ export async function registerChessWebSocket(app: FastifyInstance, options: Opti
         cleaned = true;
         closed = true;
         if (expiryTimer) clearInterval(expiryTimer);
-        try { await publish({type:"presence",id:userId,connected:false}); } catch {}
-        // A disconnected participant must not keep the room microphone lease.
-        try { await options.pool.query("DELETE FROM chess_voice_leases WHERE room_id=$1 AND user_id=$2",[roomId,userId]); } catch {}
+        let lastConnection = false;
+        const presenceClient = await options.pool.connect();
+        try {
+          await presenceClient.query("BEGIN");
+          await presenceClient.query("SELECT pg_advisory_xact_lock(hashtext('chess_presence'),hashtext($1))",[`${gameId}:${userId}`]);
+          await presenceClient.query("DELETE FROM chess_presence_sessions WHERE session_id=$1",[sessionId]);
+          const remaining = await presenceClient.query(
+            "SELECT 1 FROM chess_presence_sessions WHERE game_id=$1 AND user_id=$2 LIMIT 1",
+            [gameId,userId]
+          );
+          lastConnection = !remaining.rowCount;
+          if (lastConnection) {
+            await presenceClient.query("DELETE FROM chess_voice_leases WHERE room_id=$1 AND user_id=$2",[roomId,userId]);
+          }
+          await presenceClient.query("COMMIT");
+        } catch {
+          try { await presenceClient.query("ROLLBACK"); } catch {}
+        } finally { presenceClient.release(); }
+        if (lastConnection) {
+          try { await publish({type:"presence",id:userId,connected:false}); } catch {}
+        }
         try { await listener.query("UNLISTEN " + channel); } catch {}
         listener.release();
         listenerToRelease = undefined;
