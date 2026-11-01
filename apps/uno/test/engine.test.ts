@@ -67,6 +67,7 @@ test('wild cards reject colors outside the four UNO colors', () => {
   game.players[0]!.hand = [{id:'wild-card',color:'wild',face:'wild'}];
   game.discardPile = [{id:'top',color:'red',face:1}];
   game.activeColor = 'red';
+  game.currentPlayerIndex = 0;
   assert.throws(
     () => applyUnoAction(game, 'a', {type:'play',cardId:'wild-card',chosenColor:'purple' as never}),
     (error: unknown) => error instanceof UnoError && error.code === 'CHOOSE_COLOR',
@@ -85,6 +86,7 @@ test('any seated opponent can catch an uncalled UNO before the next action', () 
   ];
   game.discardPile = [{id:'top',color:'red',face:1}];
   game.activeColor = 'red';
+  game.currentPlayerIndex = 0;
   const played = applyUnoAction(game, 'a', {type:'play',cardId:'play-me'});
   assert.equal(played.currentPlayerIndex, 1);
   const caught = applyUnoAction(played, 'c', {type:'catchUno'});
@@ -97,6 +99,7 @@ test('a final Draw Two applies its penalty before the round is awarded', () => {
   game.players[0]!.hand = [{id:'last-draw-two',color:'red',face:'draw2'}];
   game.discardPile = [{id:'top',color:'red',face:5}];
   game.activeColor = 'red';
+  game.currentPlayerIndex = 0;
   const finished = applyUnoAction(game, 'a', {type:'play',cardId:'last-draw-two'});
   assert.equal(finished.winnerId, 'a');
   assert.equal(finished.players[1]!.hand.length, 9);
@@ -111,6 +114,7 @@ test('Wild Draw Four with an active-color card is playable but exposes a valid c
   ];
   game.discardPile = [{id:'top',color:'red',face:2}];
   game.activeColor = 'red';
+  game.currentPlayerIndex = 0;
   const pending = applyUnoAction(game, 'a', {type:'play',cardId:'bluff-wild4',chosenColor:'blue'});
   assert.equal(pending.pendingWild4?.offenderHadActiveColor, true);
   assert.equal(pending.players[1]!.hand.length, 7);
@@ -125,6 +129,7 @@ test('legal Wild Draw Four waits for the target to accept or challenge', () => {
   ];
   game.discardPile = [{id:'top',color:'red',face:2}];
   game.activeColor = 'red';
+  game.currentPlayerIndex = 0;
   const next = applyUnoAction(game, 'a', {type:'play',cardId:'legal-wild4',chosenColor:'green'});
   assert.equal(next.activeColor, 'green');
   assert.equal(next.players[1]!.hand.length, 7);
@@ -142,6 +147,7 @@ test('two-player Reverse acts as a skip and returns the turn to the same player'
   game.players[0]!.hand = [{id:'reverse',color:'red',face:'reverse'},{id:'spare',color:'blue',face:2}];
   game.discardPile = [{id:'top',color:'red',face:1}];
   game.activeColor = 'red';
+  game.currentPlayerIndex = 0;
   const next = applyUnoAction(game, 'a', {type:'play',cardId:'reverse'});
   assert.equal(next.direction, -1);
   assert.equal(next.currentPlayerIndex, 0);
@@ -157,6 +163,7 @@ test('recycling the discard pile preserves its top card and makes prior discards
     {id:'top',color:'green',face:3},
   ];
   game.activeColor = 'green';
+  game.currentPlayerIndex = 0;
   const next = applyUnoAction(game, 'a', {type:'draw'});
   assert.equal(next.discardPile.length, 1);
   assert.equal(next.discardPile[0]!.id, 'top');
@@ -170,6 +177,7 @@ test('Skip advances past exactly one player in a three-player game', () => {
   game.players[0]!.hand = [{id:'skip',color:'red',face:'skip'},{id:'spare',color:'blue',face:2}];
   game.discardPile = [{id:'top',color:'red',face:1}];
   game.activeColor = 'red';
+  game.currentPlayerIndex = 0;
   const next = applyUnoAction(game, 'a', {type:'play',cardId:'skip'});
   assert.equal(next.currentPlayerIndex, 2);
 });
@@ -179,6 +187,7 @@ test('Draw Two gives exactly two cards and skips the targeted player', () => {
   game.players[0]!.hand = [{id:'draw2',color:'red',face:'draw2'},{id:'spare',color:'blue',face:2}];
   game.discardPile = [{id:'top',color:'red',face:1}];
   game.activeColor = 'red';
+  game.currentPlayerIndex = 0;
   const next = applyUnoAction(game, 'a', {type:'play',cardId:'draw2'});
   assert.equal(next.players[1]!.hand.length, 9);
   assert.equal(next.currentPlayerIndex, 2);
@@ -189,6 +198,7 @@ test('a wild card requires one of the four supported colors and failed play is a
   game.players[0]!.hand = [{id:'wild',color:'wild',face:'wild'},{id:'spare',color:'blue',face:2}];
   game.discardPile = [{id:'top',color:'red',face:1}];
   game.activeColor = 'red';
+  game.currentPlayerIndex = 0;
   assert.throws(
     () => applyUnoAction(game, 'a', {type:'play',cardId:'wild'}),
     (error: unknown) => error instanceof UnoError && error.code === 'CHOOSE_COLOR',
@@ -220,6 +230,7 @@ test('Wild Draw Four challenge succeeds when offender held the active color', ()
   ];
   game.discardPile = [{id:'top',color:'red',face:1}];
   game.activeColor = 'red';
+  game.currentPlayerIndex = 0;
   const pending = applyUnoAction(game, 'a', {type:'play',cardId:'wild4',chosenColor:'green'});
   assert.equal(pending.pendingWild4?.targetId, 'b');
   assert.equal(pending.players[1]!.hand.length, 7);
@@ -239,6 +250,7 @@ test('Wild Draw Four challenge fails when offender had no active color; challeng
   ];
   game.discardPile = [{id:'top',color:'red',face:1}];
   game.activeColor = 'red';
+  game.currentPlayerIndex = 0;
   const pending = applyUnoAction(game, 'a', {type:'play',cardId:'wild4',chosenColor:'green'});
   const challenged = applyUnoAction(pending, 'b', {type:'challengeWild4'});
   assert.equal(challenged.players[1]!.hand.length, 13);
@@ -251,6 +263,7 @@ test('accepting Wild Draw Four draws four and skips the targeted player', () => 
   game.players[0]!.hand = [{id:'wild4',color:'wild',face:'wild4'},{id:'spare',color:'blue',face:2}];
   game.discardPile = [{id:'top',color:'red',face:1}];
   game.activeColor = 'red';
+  game.currentPlayerIndex = 0;
   const pending = applyUnoAction(game, 'a', {type:'play',cardId:'wild4',chosenColor:'green'});
   const accepted = applyUnoAction(pending, 'b', {type:'draw'});
   assert.equal(accepted.players[1]!.hand.length, 11);
@@ -265,6 +278,7 @@ test('a pending Wild Draw Four response blocks playing or passing until accepted
   game.players[1]!.hand = [{id:'playable',color:'green',face:3}];
   game.discardPile = [{id:'top',color:'red',face:1}];
   game.activeColor = 'red';
+  game.currentPlayerIndex = 0;
   const pending = applyUnoAction(game, 'a', {type:'play',cardId:'wild4',chosenColor:'green'});
   assert.throws(() => applyUnoAction(pending, 'b', {type:'play',cardId:'playable'}), (error: unknown) => error instanceof UnoError && error.code === 'WILD4_RESPONSE_REQUIRED');
   assert.throws(() => applyUnoAction(pending, 'b', {type:'pass'}), (error: unknown) => error instanceof UnoError && error.code === 'WILD4_RESPONSE_REQUIRED');
@@ -279,6 +293,7 @@ test('a final Wild Draw Four waits for the target response before awarding the r
   game.players[1]!.hand = Array.from({length:7},(_,i)=>({id:'b'+i,color:'blue' as const,face:i}));
   game.discardPile = [{id:'top',color:'red',face:1}];
   game.activeColor = 'red';
+  game.currentPlayerIndex = 0;
   const pending = applyUnoAction(game, 'a', {type:'play',cardId:'last-wild4',chosenColor:'green'});
   assert.equal(pending.winnerId, null);
   assert.equal(pending.pendingWild4?.targetId, 'b');
@@ -293,6 +308,7 @@ test('a final Wild Draw Four challenge can overturn the round when the offender 
   game.players[1]!.hand = Array.from({length:7},(_,i)=>({id:'b'+i,color:'blue' as const,face:i}));
   game.discardPile = [{id:'top',color:'red',face:1}];
   game.activeColor = 'red';
+  game.currentPlayerIndex = 0;
   const pending = applyUnoAction(game, 'a', {type:'play',cardId:'last-wild4',chosenColor:'green'});
   pending.pendingWild4!.offenderHadActiveColor = true;
   const challenged = applyUnoAction(pending, 'b', {type:'challengeWild4'});
@@ -319,6 +335,7 @@ test('official UNO card points are calculated and exposed when a round ends', as
   ];
   game.discardPile = [{id:'top',color:'red',face:2}];
   game.activeColor = 'red';
+  game.currentPlayerIndex = 0;
   const won = applyUnoAction(game,'a',{type:'play',cardId:'last'});
   assert.equal(won.winnerScore,79);
   assert.equal(publicGameState(won).winnerScore,79);
