@@ -300,3 +300,26 @@ test('a final Wild Draw Four challenge can overturn the round when the offender 
   assert.equal(challenged.players[0]!.hand.length, 4);
   assert.equal(challenged.currentPlayerIndex, 0);
 });
+
+
+test('official UNO card points are calculated and exposed when a round ends', async () => {
+  const { cardPointValue, publicGameState } = await import('../src/engine.js');
+  assert.equal(cardPointValue({id:'n',color:'red',face:9}), 9);
+  assert.equal(cardPointValue({id:'s',color:'red',face:'skip'}), 20);
+  assert.equal(cardPointValue({id:'r',color:'red',face:'reverse'}), 20);
+  assert.equal(cardPointValue({id:'d',color:'red',face:'draw2'}), 20);
+  assert.equal(cardPointValue({id:'w',color:'wild',face:'wild'}), 50);
+  assert.equal(cardPointValue({id:'w4',color:'wild',face:'wild4'}), 50);
+  const game = startUnoGame([{id:'a',username:'a'},{id:'b',username:'b'}]);
+  game.players[0]!.hand = [{id:'last',color:'red',face:1}];
+  game.players[1]!.hand = [
+    {id:'n',color:'red',face:9},
+    {id:'skip',color:'red',face:'skip'},
+    {id:'wild',color:'wild',face:'wild'},
+  ];
+  game.discardPile = [{id:'top',color:'red',face:2}];
+  game.activeColor = 'red';
+  const won = applyUnoAction(game,'a',{type:'play',cardId:'last'});
+  assert.equal(won.winnerScore,79);
+  assert.equal(publicGameState(won).winnerScore,79);
+});
