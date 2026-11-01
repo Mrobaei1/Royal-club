@@ -254,6 +254,8 @@ class _OwnerAnalyticsScreenState extends State<OwnerAnalyticsScreen> {
                           final comparison = Map<String, dynamic>.from(advanced['comparison'] as Map? ?? {});
                           final events = (advanced['dailyGameEvents'] as List? ?? const [])
                               .whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
+                          final cohorts = (advanced['cohortRetention'] as List? ?? const [])
+                              .whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
                           return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                             _MetricRow(
                               label: t('کاربران فعال در بازه جاری', 'Distinct active users · current'),
@@ -263,6 +265,16 @@ class _OwnerAnalyticsScreenState extends State<OwnerAnalyticsScreen> {
                               label: t('کاربران فعال در بازه قبلی', 'Distinct active users · previous'),
                               value: _number(comparison['previousDistinctActiveUsers']),
                             ),
+                            const Divider(),
+                            Text(t('ماندگاری گروهی کاربران (D7)', 'Activity cohort retention (D7)'), style: Theme.of(context).textTheme.titleSmall),
+                            if (cohorts.isEmpty)
+                              Text(t('هنوز گروهی با حداقل ۱۳ روز سابقه برای محاسبه ماندگاری وجود ندارد.', 'No cohort has 13 days of follow-up yet.'))
+                            else
+                              ...cohorts.map((cohort) => _MetricRow(
+                                label: '${cohort['cohort_date']} · ${_number(cohort['cohort_users'])} users',
+                                value: '${_number(cohort['retained_users'])} (${cohort['retained_percent']}%)',
+                              )),
+                            Text(advanced['cohortDefinition']?.toString() ?? '', style: Theme.of(context).textTheme.bodySmall),
                             const Divider(),
                             if (events.isEmpty)
                               Text(t('برای این فیلتر رویداد ثبت‌شده‌ای وجود ندارد؛ این به معنی صفر بودن فعالیت بازی نیست.', 'No events are recorded for this filter; this does not prove zero game activity.'))
