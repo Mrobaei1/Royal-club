@@ -133,9 +133,9 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
       } else if (mounted) {
         setState(() {
           _pendingMoves.clear();
-          _batchMode = false;
+          
           _selectedFrom = null;
-          _selectedDie = null;
+          
           _fromBar = false;
           _state = null;
           _turnSecondsRemaining = 20;
@@ -395,7 +395,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
         setState(() {
           _state = {...?_state, ...next};
           _selectedFrom = null;
-          _selectedDie = null;
+          
           _fromBar = false;
         });
       }
@@ -456,9 +456,9 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
         setState(() {
           _state = {...?_state, ...next};
           _pendingMoves.clear();
-          _batchMode = false;
+          
           _selectedFrom = null;
-          _selectedDie = null;
+          
           _fromBar = false;
         });
       }
@@ -501,7 +501,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
       return;
     }
     if (_selectedFrom == point) {
-      setState(() { _selectedFrom = null; _selectedDie = null; _error = null; });
+      setState(() { _selectedFrom = null;  _error = null; });
       return;
     }
 
@@ -525,7 +525,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
     if (sequence != null && sequence.length > 1) {
       setState(() {
         _selectedFrom = null;
-        _selectedDie = null;
+        
         _error = null;
         _pendingMoves
           ..clear()
@@ -615,7 +615,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
         setState(() {
           _state = {...?_state, ...next};
           _selectedFrom = null;
-          _selectedDie = null;
+          
           _fromBar = false;
         });
       }
