@@ -15,9 +15,19 @@ class ManchRuleProfile {
     this.exactFinishRequired = true,
     this.maxConsecutiveSixes = 3,
   })  : assert(entryFaces.length > 0),
-        assert(entryFaces.every((face) => face >= 1 && face <= 6)),
-        assert(safeTrackIndices.every((cell) => cell >= 0 && cell < 52)),
         assert(maxConsecutiveSixes >= 2);
+
+  void validate() {
+    if (entryFaces.any((face) => face < 1 || face > 6)) {
+      throw ArgumentError('Entry faces must be between 1 and 6.');
+    }
+    if (safeTrackIndices.any((cell) => cell < 0 || cell >= 52)) {
+      throw ArgumentError('Safe track indices must be between 0 and 51.');
+    }
+    if (maxConsecutiveSixes < 2) {
+      throw ArgumentError('At least two consecutive sixes must be allowed.');
+    }
+  }
 
   final Set<int> entryFaces;
   final bool extraRollOnSix;
