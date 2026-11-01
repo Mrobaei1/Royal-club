@@ -561,17 +561,24 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                           ),
                           const SizedBox(height: 8),
-                          OutlinedButton.icon(
-                            onPressed: () => Navigator.pop(dialogContext, 'local'),
-                            icon: const Icon(Icons.people_outline),
-                            label: Text(
-                              appText(
-                                dialogContext,
-                                'بازی محلی ۲ تا ۴ نفره',
-                                'Local game for 2–4 players',
+                          for (final count in [2, 3, 4])
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 6),
+                              child: OutlinedButton.icon(
+                                onPressed: () => Navigator.pop(
+                                  dialogContext,
+                                  'local$count',
+                                ),
+                                icon: const Icon(Icons.people_outline),
+                                label: Text(
+                                  appText(
+                                    dialogContext,
+                                    'بازی محلی ' + count.toString() + ' نفره',
+                                    'Local ' + count.toString() + '-player game',
+                                  ),
+                                ),
                               ),
                             ),
-                          ),
                         ],
                       ),
                       actions: [
@@ -586,6 +593,11 @@ class _HomeScreenState extends State<HomeScreen> {
                   Navigator.of(context).push(
                     MaterialPageRoute<void>(
                       builder: (_) => ManchOfflineGameScreen(
+                        playerCount: mode == 'local3'
+                            ? 3
+                            : mode == 'local4'
+                                ? 4
+                                : 2,
                         botPlayers: mode == 'bot'
                             ? const {ManchColour.yellow}
                             : const {},
