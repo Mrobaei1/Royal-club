@@ -3213,10 +3213,10 @@ function validAnalyticsRange(from: unknown, to: unknown, game: unknown): Analyti
 
 function buildAnalyticsPdf(reportLines: string[]): Buffer {
   const safe = (value: string) => value
-    .replace(/[^\\x20-\\x7E]/g, '?')
-    .replace(/\\\\/g, '\\\\\\\\')
-    .replace(/\\(/g, '\\\\(')
-    .replace(/\\)/g, '\\\\)');
+    .replace(/[^\x20-\x7E]/g, '?')
+    .replace(/\\/g, '\\\\')
+    .replace(/\(/g, '\\(')
+    .replace(/\)/g, '\\)');
   const pages: string[][] = [];
   for (let i = 0; i < reportLines.length; i += 48) pages.push(reportLines.slice(i, i + 48));
   if (pages.length === 0) pages.push(['No analytics events in the selected range.']);
@@ -3224,29 +3224,28 @@ function buildAnalyticsPdf(reportLines: string[]): Buffer {
   const pageIds = pages.map((_, i) => 4 + i * 2);
   const objects: string[] = [];
   objects[1] = '<< /Type /Catalog /Pages 2 0 R >>';
-  objects[2] = `<< /Type /Pages /Kids [${pageIds.map((id) => `${id} 0 R`).join(' ')}] /Count ${pages.length} >>`;
+  objects[2] = '<< /Type /Pages /Kids [' + pageIds.map((id) => String(id) + ' 0 R').join(' ') + '] /Count ' + pages.length + ' >>';
   objects[fontId] = '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>';
   pages.forEach((lines, index) => {
     const pageId = pageIds[index];
     const contentId = pageId + 1;
-    const textLines = lines.map((line, lineIndex) =>
-      `(${safe(line).slice(0, 110)}) Tj${lineIndex === lines.length - 1 ? '' : ' T*'}`).join(' ');
-    const stream = `BT /F1 9 Tf 48 790 Td 13 TL ${textLines} ET`;
-    objects[pageId] = `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 842] /Resources << /Font << /F1 ${fontId} 0 R >> >> /Contents ${contentId} 0 R >>`;
-    objects[contentId] = `<< /Length ${Buffer.byteLength(stream, 'ascii')} >>\\nstream\\n${stream}\\nendstream`;
+    const textLines = lines.map((line) => '(' + safe(line).slice(0, 110) + ') Tj').join(' T* ');
+    const stream = 'BT /F1 9 Tf 48 790 Td 13 TL ' + textLines + ' ET';
+    objects[pageId] = '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 842] /Resources << /Font << /F1 ' + fontId + ' 0 R >> >> /Contents ' + contentId + ' 0 R >>';
+    objects[contentId] = '<< /Length ' + Buffer.byteLength(stream, 'ascii') + ' >>\nstream\n' + stream + '\nendstream';
   });
-  let pdf = '%PDF-1.4\\n';
+  let pdf = '%PDF-1.4\n';
   const offsets = [0];
   for (let id = 1; id < objects.length; id++) {
     offsets[id] = Buffer.byteLength(pdf, 'ascii');
-    pdf += `${id} 0 obj\\n${objects[id]}\\nendobj\\n`;
+    pdf += String(id) + ' 0 obj\n' + objects[id] + '\nendobj\n';
   }
   const xrefOffset = Buffer.byteLength(pdf, 'ascii');
-  pdf += `xref\\n0 ${objects.length}\\n0000000000 65535 f \\n`;
+  pdf += 'xref\n0 ' + objects.length + '\n0000000000 65535 f \n';
   for (let id = 1; id < objects.length; id++) {
-    pdf += `${String(offsets[id]).padStart(10, '0')} 00000 n \\n`;
+    pdf += String(offsets[id]).padStart(10, '0') + ' 00000 n \n';
   }
-  pdf += `trailer\\n<< /Size ${objects.length} /Root 1 0 R >>\\nstartxref\\n${xrefOffset}\\n%%EOF`;
+  pdf += 'trailer\n<< /Size ' + objects.length + ' /Root 1 0 R >>\nstartxref\n' + xrefOffset + '\n%%EOF';
   return Buffer.from(pdf, 'ascii');
 }
 
