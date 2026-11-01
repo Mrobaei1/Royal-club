@@ -7,7 +7,7 @@
 | Progression | Cost curve, cumulative thresholds, permanent levels, zero floor, win/draw/resignation deltas, PostgreSQL XP/Elo awards and duplicate-result idempotency |
 | Room level gate | Unit and PostgreSQL route tests cover minimum-level rejection, host cancellation and self-join rejection | Multi-account adversarial and concurrent admission acceptance |
 | Voice PTT | Exclusive lease, expiry, release, disconnect and disable unit tests; DB-backed lease, authenticated signaling relay, lease renewal and Flutter WebRTC client implemented | Multi-instance PostgreSQL atomicity, device permission, TURN/NAT traversal and two-device media acceptance |
-| Mobile board | Widget tests for orientation and legal-move callback | Device layout, RTL/LTR, accessibility and promotion dialog acceptance |
+| Mobile board | Widget tests for canonical orientation, server-approved legal-move callback, stale-selection clearing on position updates, and terminal-game clock stop | Device layout, RTL/LTR, accessibility and promotion dialog acceptance |
 | Chat | Persisted chat API, participant-only history access, transactional per-player rate limit, PostgreSQL notification trigger and WebSocket delivery implemented | Spam/rate-limit and two-device live test |
 | Profiles | Authenticated username-only profile API, aggregate stats, and regression checks that hide full name, phone, email and internal user ID | Device acceptance and expanded per-time-control statistics review |
 | Admin settings | Time-control CRUD API, manager permission checks, transactional audit trail, immutable active-game snapshots, PostgreSQL route tests and bilingual manager screen | Full host-app wiring and manager-role integration with the host application |
