@@ -72,16 +72,22 @@ class ManchEngine {
       if (from == finish) continue;
       if (from == -1) {
         if (!state.profile.entryFaces.contains(dice)) continue;
+        final capture = _captureAt(state, p, 0);
         final move = ManchMove(playerIndex: p, tokenIndex: t,
-            fromProgress: -1, toProgress: 0);
+            fromProgress: -1, toProgress: 0,
+            capturedPlayerIndex: capture?.$1,
+            capturedTokenIndex: capture?.$2);
         if (_destinationAllowed(state, move)) result.add(move);
         continue;
       }
       final rawTarget = from + dice;
       if (rawTarget > finish && state.profile.exactFinishRequired) continue;
       final to = rawTarget > finish ? finish : rawTarget;
+      final capture = _captureAt(state, p, to);
       final move = ManchMove(playerIndex: p, tokenIndex: t,
-          fromProgress: from, toProgress: to);
+          fromProgress: from, toProgress: to,
+          capturedPlayerIndex: capture?.$1,
+          capturedTokenIndex: capture?.$2);
       if (_pathOpen(state, move) && _destinationAllowed(state, move)) {
         result.add(move);
       }
@@ -130,6 +136,27 @@ class ManchEngine {
       throw StateError('A legal move exists; cannot pass.');
     }
     return _advance(state.copyWith(pendingDice: null));
+  }
+
+  (int, int)? _captureAt(ManchGameState state, int playerIndex, int progress) {
+    if (progress < 0 || progress >= 52) return null;
+    final cell = _global(state.players[playerIndex].colour, progress);
+    if (state.profile.safeTrackIndices.contains(cell)) return null;
+    for (var p = 0; p < state.players.length; p++) {
+      if (p == playerIndex) continue;
+      final enemy = state.players[p];
+      for (var t = 0; t < 4; t++) {
+        final enemyProgress = enemy.tokens[t];
+        if (enemyProgress >= 0 && enemyProgress < 52 &&
+            _global(enemy.colour, enemyProgress) == cell) {
+          final count = enemy.tokens.where((candidate) =>
+            candidate >= 0 && candidate < 52 &&
+            _global(enemy.colour, candidate) == cell).length;
+          if (count == 1) return (p, t);
+        }
+      }
+    }
+    return null;
   }
 
   bool _destinationAllowed(ManchGameState state, ManchMove move) {
