@@ -261,18 +261,7 @@ class MatchService {
   static Future<List<Map<String, dynamic>>> matchChatMessages(
     String id, {String? afterId}
   ) async {
-    if (!RegExp(r'^[1-9][0-9]*    String id, {required String scope}
-  ) async {
-    if (scope != 'game' && scope != 'match') {
-      throw ArgumentError.value(scope, 'scope', 'Expected game or match');
-    }
-    return Map<String, dynamic>.from(
-      (await _postJson('/matches/$id/resign', {'scope': scope}))['result'] as Map,
-    );
-  }
-
-}
-).hasMatch(id)) {
+    if (!RegExp(r'^[1-9][0-9]*$').hasMatch(id)) {
       throw Exception('شناسه اتاق بازی معتبر نیست.');
     }
     final suffix = afterId == null ? '' : '?afterId=${Uri.encodeQueryComponent(afterId)}';
@@ -296,18 +285,7 @@ class MatchService {
   static Future<Map<String, dynamic>> sendMatchChatMessage(
     String id, String body,
   ) async {
-    if (!RegExp(r'^[1-9][0-9]*    String id, {required String scope}
-  ) async {
-    if (scope != 'game' && scope != 'match') {
-      throw ArgumentError.value(scope, 'scope', 'Expected game or match');
-    }
-    return Map<String, dynamic>.from(
-      (await _postJson('/matches/$id/resign', {'scope': scope}))['result'] as Map,
-    );
-  }
-
-}
-).hasMatch(id) || body.trim().isEmpty) {
+    if (!RegExp(r'^[1-9][0-9]*$').hasMatch(id) || body.trim().isEmpty) {
       throw Exception('پیام یا شناسه اتاق معتبر نیست.');
     }
     return Map<String, dynamic>.from(
