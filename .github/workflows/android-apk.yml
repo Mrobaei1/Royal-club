@@ -1,9 +1,8 @@
 name: Royal Club Android APK
 
 on:
-  push:
-    branches:
-      - 'apk-build/1.1.15'
+  # APK builds are intentionally manual-only. Pushes may run validation,
+  # but must never prepare or build a release APK without an explicit request.
   workflow_dispatch:
     inputs:
       build_apk:
