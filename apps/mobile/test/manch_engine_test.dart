@@ -105,7 +105,7 @@ void main() {
     test('blockade before home lane still blocks the final shared-track step', () {
       final state = ManchGameState(
         players: [
-          ManchPlayerState(colour: ManchColour.red, tokens: [50, -1, -1, -1]),
+          ManchPlayerState(colour: ManchColour.red, tokens: [50, 57, 57, 57]),
           ManchPlayerState(colour: ManchColour.green, tokens: [38, 38, -1, -1]),
         ],
         activePlayerIndex: 0,
