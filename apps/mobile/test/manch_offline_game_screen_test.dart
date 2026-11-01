@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:royal_club/games/manch/manch_game_state.dart';
 import 'package:royal_club/games/manch/manch_offline_game_screen.dart';
 import 'package:royal_club/games/manch/manch_save_store.dart';
+import 'package:royal_club/games/manch/manch_rule_profile.dart';
 
 void main() {
   testWidgets('offline game enters a token on six and grants the extra roll',
@@ -84,6 +85,37 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.textContaining('مسیر 1 از 52'), findsWidgets);
     expect(find.text('بازی ذخیره‌شده بازیابی شد.'), findsOneWidget);
+  });
+
+  testWidgets('third consecutive six penalty advances without passing absent dice',
+      (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: ManchOfflineGameScreen(
+          diceRoller: _six,
+          profile: ManchRuleProfile(
+            threeSixPenalty: ThreeSixPenalty.loseTurn,
+          ),
+        ),
+      ),
+    );
+
+    for (var turn = 0; turn < 2; turn++) {
+      await tester.ensureVisible(find.text('انداختن تاس'));
+      await tester.tap(find.text('انداختن تاس'));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.textContaining('مهره 1:'));
+      await tester.tap(find.textContaining('مهره 1:'));
+      await tester.pumpAndSettle();
+    }
+
+    await tester.ensureVisible(find.text('انداختن تاس'));
+    await tester.tap(find.text('انداختن تاس'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('نوبت بازیکن زرد'), findsOneWidget);
+    expect(find.text('سه شش متوالی؛ نوبت خود را از دست دادی.'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('configured bot plays its turn and returns control to human',
