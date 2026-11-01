@@ -113,7 +113,7 @@ class ChessVoiceClient {
 
   void _scheduleReconnect() {
     if (_disposed || !_wantConnection || _reconnectTimer != null) return;
-    final seconds = (1 << _reconnectAttempt.clamp(0, 5)).clamp(1, 30);
+    final seconds = (1 << _reconnectAttempt.clamp(0, 5).toInt()).clamp(1, 30).toInt();
     _reconnectAttempt++;
     _reconnectTimer = Timer(Duration(seconds: seconds), () {
       _reconnectTimer = null;
