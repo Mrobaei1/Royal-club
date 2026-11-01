@@ -70,7 +70,7 @@ class ManchOnlineService {
     }
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw Exception(
-        decoded['error']?.toString() ?? 'خطای سرور (HTTP ${response.statusCode})',
+        '${decoded['error']?.toString() ?? 'خطای سرور'} (HTTP ${response.statusCode})',
       );
     }
     return decoded;
