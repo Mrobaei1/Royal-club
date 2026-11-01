@@ -459,7 +459,7 @@ export function registerManchRoutes(app: any, pool: Pool, requireMatchAuth: any)
   app.post('/api/v1/manch/matches/:id/forfeit', { onRequest: [requireMatchAuth] }, async (request: any, reply: any) => {
     const userId = String(request.user?.sub ?? '');
     const id = String(request.params?.id ?? '');
-    if (!/^\\d+$/.test(id) || !userId) return sendError(reply, 400, 'Invalid match identifier.');
+    if (!/^\d+$/.test(id) || !userId) return sendError(reply, 400, 'Invalid match identifier.');
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
