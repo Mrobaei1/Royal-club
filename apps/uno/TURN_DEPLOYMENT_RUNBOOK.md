@@ -57,7 +57,7 @@ For production, prefer TURN/TLS on 5349 for restrictive networks while retaining
 
 Set these variables in the UNO service's hosting secret store:
 
-- `TURN_URL=turn:turn.example.com:3478?transport=udp` (add the TCP URL if your client configuration supports multiple TURN URLs).
+- `TURN_URLS=turn:turn.example.com:3478?transport=udp,turn:turn.example.com:3478?transport=tcp,turns:turn.example.com:5349?transport=tcp` (comma-separated; the service returns all configured URLs in one ICE server entry).
 - `TURN_SHARED_SECRET` to exactly the Coturn shared secret.
 - `TURN_TTL_SECONDS=3600` (the UNO credential helper clamps TTL to 60–3600 seconds).
 
