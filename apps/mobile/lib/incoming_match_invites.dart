@@ -139,8 +139,8 @@ class _IncomingMatchInvitesState extends State<IncomingMatchInvites> {
           child: AlertDialog(
             title: Text(appText(context, 'دعوت بازی تخته‌نرد', 'Backgammon invitation')),
             content: Text(isEnglish
-                ? '@${invite['inviterUsername'] ?? 'friend'} invited you to play. The invitation expires in ${remaining.inSeconds.clamp(1, 60)} seconds.'
-                : '@${invite['inviterUsername'] ?? 'دوست'} شما را به بازی دعوت کرده است. این دعوت تا ${remaining.inSeconds.clamp(1, 60)} ثانیه دیگر معتبر است.'),
+                ? '@${invite['inviterUsername'] ?? 'friend'} invited you to play. The invitation expires in ${remaining.inSeconds.clamp(1, 30)} seconds.'
+                : '@${invite['inviterUsername'] ?? 'دوست'} شما را به بازی دعوت کرده است. این دعوت تا ${remaining.inSeconds.clamp(1, 30)} ثانیه دیگر معتبر است.'),
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(context).pop('decline'),
