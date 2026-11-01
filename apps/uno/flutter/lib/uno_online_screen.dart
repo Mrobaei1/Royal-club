@@ -258,7 +258,7 @@ class _UnoOnlineScreenState extends State<UnoOnlineScreen> {
             (room['players'] as List).map((p) => Map<String, dynamic>.from(p as Map)),
           );
           await _voice!.enableMicrophone(
-            players.where((p) => p['id'] != widget.playerId).map((p) => p['id'] as String),
+            players.where((p) => p['id'] != widget.playerId && p['connected'] == true).map((p) => p['id'] as String),
           );
           await _voice!.setMuted(false);
           if (mounted) setState(() => _micMuted = false);
