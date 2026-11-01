@@ -341,6 +341,8 @@ class _ManchOnlineGameScreenState extends State<ManchOnlineGameScreen> {
   String _status = 'در حال دریافت وضعیت بازی...';
   String? _error;
   String _matchStatus = 'active';
+  String? _winnerUserId;
+  String? _finishReason;
   int _stateVersion = 0;
   int? _lastDice;
   bool _busy = false;
@@ -389,6 +391,8 @@ class _ManchOnlineGameScreenState extends State<ManchOnlineGameScreen> {
         _currentTurnUserId = match['currentTurnUserId']?.toString();
         _stateVersion = (match['stateVersion'] as num?)?.toInt() ?? 0;
         _matchStatus = match['status']?.toString() ?? 'active';
+        _winnerUserId = match['winnerUserId']?.toString();
+        _finishReason = match['finishReason']?.toString();
         _lastDice = state.pendingDice ?? _lastDice;
         _status = state.isFinished
             ? _text('بازی به پایان رسید.', 'The game has finished.')
@@ -461,6 +465,51 @@ class _ManchOnlineGameScreenState extends State<ManchOnlineGameScreen> {
             : _currentTurnUserId == widget.currentUserId
                 ? _text('حرکت ثبت شد؛ تاس اضافه داری.', 'Move saved; you have an extra roll.')
                 : _text('حرکت ثبت شد؛ نوبت حریف است.', 'Move saved; opponent turn.');
+      });
+    } catch (error) {
+      if (mounted) setState(() => _error = error.toString());
+      await _load(silent: true);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _forfeit() async {
+    if (_busy || _matchStatus != 'active' || _players.length != 2) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(_text('تسلیم در بازی؟', 'Forfeit this match?')),
+        content: Text(_text(
+          'با تأیید، بازی به نفع حریف تمام می‌شود.',
+          'Confirming ends the match and awards the win to your opponent.',
+        )),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(_text('بازگشت', 'Go back')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(_text('تأیید تسلیم', 'Forfeit')),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() => _busy = true);
+    try {
+      final result = await ManchOnlineService.forfeit(widget.matchId);
+      if (!mounted) return;
+      setState(() {
+        _matchStatus = result['status']?.toString() ?? 'finished';
+        _finishReason = result['finishReason']?.toString() ?? 'forfeit';
+        _winnerUserId = result['winnerUserId']?.toString();
+        _currentTurnUserId = null;
+        _stateVersion = (result['stateVersion'] as num?)?.toInt() ?? _stateVersion + 1;
+        _status = _winnerUserId == widget.currentUserId
+            ? _text('حریف تسلیم شد؛ شما برنده شدید.', 'Opponent forfeited; you win.')
+            : _text('شما تسلیم شدید؛ حریف برنده شد.', 'You forfeited; your opponent wins.');
       });
     } catch (error) {
       if (mounted) setState(() => _error = error.toString());
@@ -578,6 +627,12 @@ class _ManchOnlineGameScreenState extends State<ManchOnlineGameScreen> {
                         ),
                       ),
                     ),
+                if (_matchStatus == 'active' && _players.length == 2)
+                  OutlinedButton.icon(
+                    onPressed: _busy ? null : _forfeit,
+                    icon: const Icon(Icons.flag_outlined),
+                    label: Text(_text('تسلیم و پایان بازی', 'Forfeit match')),
+                  ),
                 const SizedBox(height: 10),
                 Center(
                   child: ConstrainedBox(
@@ -589,6 +644,14 @@ class _ManchOnlineGameScreenState extends State<ManchOnlineGameScreen> {
                     ),
                   ),
                 ),
+                if (_matchStatus == 'finished' && _finishReason == 'forfeit')
+                  Text(
+                    _winnerUserId == widget.currentUserId
+                        ? _text('شما برنده شدید؛ حریف تسلیم شد.', 'You won; your opponent forfeited.')
+                        : _text('شما تسلیم شدید؛ حریف برنده شد.', 'You forfeited; your opponent won.'),
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
                 if (state.isFinished)
                   Text(
                     _text('برنده: ', 'Winner: ') +
