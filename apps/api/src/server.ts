@@ -598,7 +598,7 @@ await pool.query(`
     id BIGSERIAL PRIMARY KEY,
     match_id BIGINT NOT NULL REFERENCES backgammon_matches(id) ON DELETE CASCADE,
     sender_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    body TEXT NOT NULL CHECK (char_length(body) BETWEEN 1 AND 2000),
+    body TEXT NOT NULL CHECK (char_length(body) BETWEEN 1 AND 700000),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   );
   CREATE INDEX IF NOT EXISTS backgammon_match_messages_thread_idx
