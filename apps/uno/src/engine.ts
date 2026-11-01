@@ -67,6 +67,21 @@ function advance(game: UnoGame, steps = 1): void {
   game.drawnCardId = null;
   game.turnNumber++;
 }
+export function drawOpeningCard(drawPile: UnoCard[]): UnoCard {
+  if (drawPile.length === 0) throw new UnoError('DRAW_PILE_EMPTY', 'The deck is empty while selecting the opening card.');
+  let first = drawPile.pop()!;
+  while (first.face === 'wild4') {
+    drawPile.push(first);
+    for (let i = drawPile.length - 1; i > 0; i--) {
+      const j = randomInt(i + 1);
+      [drawPile[i], drawPile[j]] = [drawPile[j]!, drawPile[i]!];
+    }
+    const next = drawPile.pop();
+    if (!next) throw new UnoError('DRAW_PILE_EMPTY', 'The deck is empty while selecting the opening card.');
+    first = next;
+  }
+  return first;
+}
 export function resolveOpeningCard(
   players: Array<{ hand: UnoCard[] }>,
   drawPile: UnoCard[],
@@ -95,18 +110,14 @@ export function startUnoGame(players: Array<{ id: string; username: string }>): 
   if (new Set(players.map(p => p.id)).size !== players.length) throw new UnoError('DUPLICATE_PLAYER', 'Players must be unique.');
   const deck = createDeck();
   const gamePlayers = players.map(p => ({ ...p, hand: deck.splice(0, 7) }));
-  let first = deck.pop()!;
-  while (first.color === 'wild') {
-    deck.unshift(first);
-    first = deck.pop()!;
-  }
+  const first = drawOpeningCard(deck);
   const opening = resolveOpeningCard(gamePlayers, deck, first);
   const currentPlayerIndex = opening.currentPlayerIndex;
   const direction = opening.direction;
   return {
     players: gamePlayers, drawPile: deck, discardPile: [first], currentPlayerIndex,
     direction, activeColor: first.color as UnoColor, drawnCardId: null,
-    unoPendingPlayerId: null, pendingWild4: null, winnerId: null, winnerScore: 0, turnNumber: 1,
+    unoPendingPlayerId: null, pendingWild4: null, openingColorPendingPlayerId: first.face === 'wild' ? gamePlayers[0]!.id : null, winnerId: null, winnerScore: 0, turnNumber: 1,
   };
 }
 export function applyUnoAction(source: UnoGame, playerId: string, action: GameAction): UnoGame {
@@ -115,6 +126,15 @@ export function applyUnoAction(source: UnoGame, playerId: string, action: GameAc
   const index = game.players.findIndex(p => p.id === playerId);
   if (index < 0) throw new UnoError('NOT_A_PLAYER', 'You are not seated at this table.');
   const player = game.players[index]!;
+  if (game.openingColorPendingPlayerId) {
+    if (playerId !== game.openingColorPendingPlayerId) throw new UnoError('NOT_YOUR_TURN', 'Only the opening player can choose the initial color.');
+    if (action.type !== 'chooseColor') throw new UnoError('OPENING_COLOR_REQUIRED', 'Choose the color before the first turn begins.');
+    if (!UNO_COLORS.includes(action.color)) throw new UnoError('CHOOSE_COLOR', 'Choose one of the four valid colors.');
+    game.activeColor = action.color;
+    game.openingColorPendingPlayerId = null;
+    return game;
+  }
+  if (action.type === 'chooseColor') throw new UnoError('CHOOSE_COLOR_NOT_AVAILABLE', 'There is no opening color selection pending.');
   if (action.type === 'callUno') {
     if (player.hand.length !== 1 || game.unoPendingPlayerId !== playerId) {
       throw new UnoError('UNO_NOT_AVAILABLE', 'UNO can only be called after playing down to one card.');
@@ -222,7 +242,7 @@ export function publicGameState(game: UnoGame) {
     players: game.players.map(p => ({ id: p.id, username: p.username, cardCount: p.hand.length })),
     discardTop: top, currentPlayerId: currentPlayer(game).id, activeColor: game.activeColor,
     direction: game.direction, drawCount: game.drawPile.length, winnerId: game.winnerId,
-    turnNumber: game.turnNumber, unoPendingPlayerId: game.unoPendingPlayerId, winnerScore: game.winnerScore, pendingWild4: game.pendingWild4 ? { offenderId: game.pendingWild4.offenderId, targetId: game.pendingWild4.targetId } : null,
+    turnNumber: game.turnNumber, unoPendingPlayerId: game.unoPendingPlayerId, winnerScore: game.winnerScore, openingColorPendingPlayerId: game.openingColorPendingPlayerId, pendingWild4: game.pendingWild4 ? { offenderId: game.pendingWild4.offenderId, targetId: game.pendingWild4.targetId } : null,
   };
 }
 export function privateTurnState(game: UnoGame, playerId: string) {
