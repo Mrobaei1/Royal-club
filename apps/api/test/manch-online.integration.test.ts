@@ -105,7 +105,7 @@ test('Manch online rooms join, roll and persist server-authoritative moves', asy
     method: 'POST',
     url: `/api/v1/manch/matches/${waitingMatch.id}/roll`,
     headers: auth(guest.accessToken),
-    payload: {},
+    payload: { expectedStateVersion: joined.json().match.stateVersion },
   });
   assert.equal(wrongTurn.statusCode, 403);
 
