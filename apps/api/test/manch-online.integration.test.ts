@@ -101,6 +101,13 @@ test('Manch online rooms join, roll and persist server-authoritative moves', asy
     headers: auth(host.accessToken),
   });
   assert.equal(detail.statusCode, 200, detail.body);
+  const nonMemberRead = await app.inject({
+    method: 'GET',
+    url: `/api/v1/manch/matches/${waitingMatch.id}`,
+    headers: auth(third.accessToken),
+  });
+  assert.equal(nonMemberRead.statusCode, 403);
+
   const publicPlayers = detail.json().match.players as Array<Record<string, unknown>>;
   assert.deepEqual(publicPlayers.map((player) => player.username), [
     host.user.username,
@@ -211,4 +218,40 @@ test('Manch online rooms join, roll and persist server-authoritative moves', asy
     payload: {},
   });
   assert.equal(expiredJoin.statusCode, 404);
+
+  const raceRoom = await app.inject({
+    method: 'POST',
+    url: '/api/v1/manch/matches',
+    headers: auth(host.accessToken),
+    payload: { playerCount: 2 },
+  });
+  assert.equal(raceRoom.statusCode, 201);
+  const raceId = raceRoom.json().match.id;
+  const raceJoin = await app.inject({
+    method: 'POST',
+    url: `/api/v1/manch/matches/${raceId}/join`,
+    headers: auth(guest.accessToken),
+    payload: {},
+  });
+  assert.equal(raceJoin.statusCode, 200);
+  const expectedRaceVersion = raceJoin.json().match.stateVersion;
+  const simultaneousRolls = await Promise.all([
+    app.inject({
+      method: 'POST',
+      url: `/api/v1/manch/matches/${raceId}/roll`,
+      headers: auth(host.accessToken),
+      payload: { expectedStateVersion: expectedRaceVersion },
+    }),
+    app.inject({
+      method: 'POST',
+      url: `/api/v1/manch/matches/${raceId}/roll`,
+      headers: auth(host.accessToken),
+      payload: { expectedStateVersion: expectedRaceVersion },
+    }),
+  ]);
+  assert.deepEqual(
+    simultaneousRolls.map((response) => response.statusCode).sort(),
+    [200, 409],
+    'Row locking and state versions must prevent two concurrent rolls from consuming the same turn.',
+  );
 });
