@@ -133,7 +133,7 @@ test('legal Wild Draw Four waits for the target to accept or challenge', () => {
   const accepted = applyUnoAction(next, 'b', {type:'draw'});
   assert.equal(accepted.players[1]!.hand.length, 11);
   assert.equal(accepted.currentPlayerIndex, 2);
-  assert.equal(accepted.unoPendingPlayerId, 'a');
+  assert.equal(accepted.unoPendingPlayerId, null);
 });
 
 
@@ -256,4 +256,18 @@ test('accepting Wild Draw Four draws four and skips the targeted player', () => 
   assert.equal(accepted.players[1]!.hand.length, 11);
   assert.equal(accepted.currentPlayerIndex, 2);
   assert.equal(accepted.pendingWild4, null);
+});
+
+
+test('a pending Wild Draw Four response blocks playing or passing until accepted or challenged', () => {
+  const game = startUnoGame([{id:'a',username:'a'},{id:'b',username:'b'},{id:'c',username:'c'}]);
+  game.players[0]!.hand = [{id:'wild4',color:'wild',face:'wild4'},{id:'spare',color:'blue',face:2}];
+  game.players[1]!.hand = [{id:'playable',color:'green',face:3}];
+  game.discardPile = [{id:'top',color:'red',face:1}];
+  game.activeColor = 'red';
+  const pending = applyUnoAction(game, 'a', {type:'play',cardId:'wild4',chosenColor:'green'});
+  assert.throws(() => applyUnoAction(pending, 'b', {type:'play',cardId:'playable'}), (error: unknown) => error instanceof UnoError && error.code === 'WILD4_RESPONSE_REQUIRED');
+  assert.throws(() => applyUnoAction(pending, 'b', {type:'pass'}), (error: unknown) => error instanceof UnoError && error.code === 'WILD4_RESPONSE_REQUIRED');
+  assert.equal(pending.players[1]!.hand.length, 1);
+  assert.equal(pending.pendingWild4?.targetId, 'b');
 });
