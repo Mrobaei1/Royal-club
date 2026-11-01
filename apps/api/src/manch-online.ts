@@ -29,11 +29,17 @@ export async function ensureManchSchema(pool: Pool): Promise<void> {
         CHECK (status IN ('waiting', 'active', 'finished', 'cancelled')),
       game_state JSONB NOT NULL,
       current_turn_user_id BIGINT REFERENCES users(id) ON DELETE SET NULL,
+      winner_user_id BIGINT REFERENCES users(id) ON DELETE SET NULL,
+      finish_reason TEXT,
       state_version INTEGER NOT NULL DEFAULT 0 CHECK (state_version >= 0),
       expires_at TIMESTAMPTZ,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+    ALTER TABLE manch_matches
+      ADD COLUMN IF NOT EXISTS winner_user_id BIGINT REFERENCES users(id) ON DELETE SET NULL;
+    ALTER TABLE manch_matches
+      ADD COLUMN IF NOT EXISTS finish_reason TEXT;
     CREATE INDEX IF NOT EXISTS manch_matches_waiting_idx
       ON manch_matches (created_at DESC)
       WHERE status = 'waiting';
@@ -270,6 +276,7 @@ export function registerManchRoutes(app: any, pool: Pool, requireMatchAuth: any)
       `SELECT id, room_code AS "roomCode", player_count AS "playerCount",
               status, game_state AS "gameState",
               current_turn_user_id AS "currentTurnUserId",
+              winner_user_id AS "winnerUserId", finish_reason AS "finishReason",
               state_version AS "stateVersion", created_at AS "createdAt"
          FROM manch_matches WHERE id = $1`,
       [id],
@@ -438,6 +445,53 @@ export function registerManchRoutes(app: any, pool: Pool, requireMatchAuth: any)
     }
   });
 
+  app.post('/api/v1/manch/matches/:id/forfeit', { onRequest: [requireMatchAuth] }, async (request: any, reply: any) => {
+    const userId = String(request.user?.sub ?? '');
+    const id = String(request.params?.id ?? '');
+    if (!/^\\d+$/.test(id) || !userId) return sendError(reply, 400, 'Invalid match identifier.');
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const match = await lockMatch(client, id);
+      if (!match || match.status !== 'active') {
+        await client.query('ROLLBACK');
+        return sendError(reply, 404, 'Active Manch match not found.');
+      }
+      if (match.player_count !== 2) {
+        await client.query('ROLLBACK');
+        return sendError(reply, 409, 'Forfeit is currently supported for two-player matches only.');
+      }
+      const players = await matchPlayers(client, id);
+      if (!players.some((player) => player.userId === userId)) {
+        await client.query('ROLLBACK');
+        return sendError(reply, 403, 'You are not a player in this Manch match.');
+      }
+      const winner = players.find((player) => player.userId !== userId);
+      if (!winner) {
+        await client.query('ROLLBACK');
+        return sendError(reply, 409, 'The opponent seat is missing.');
+      }
+      const updated = await client.query(
+        `UPDATE manch_matches
+            SET status = 'finished', current_turn_user_id = NULL,
+                winner_user_id = $1, finish_reason = 'forfeit',
+                state_version = state_version + 1, updated_at = NOW()
+          WHERE id = $2
+          RETURNING state_version AS "stateVersion"`,
+        [winner.userId, id],
+      );
+      await client.query('COMMIT');
+      return { status: 'finished', finishReason: 'forfeit',
+        forfeitingUserId: userId, winnerUserId: winner.userId,
+        stateVersion: updated.rows[0].stateVersion };
+    } catch (error) {
+      await client.query('ROLLBACK').catch(() => undefined);
+      request.log.error({ err: error }, 'Manch forfeit failed');
+      return sendError(reply, 500, 'Could not forfeit the Manch match.');
+    } finally {
+      client.release();
+    }
+  });
   app.delete('/api/v1/manch/matches/:id', { onRequest: [requireMatchAuth] }, async (request: any, reply: any) => {
     const userId = String(request.user?.sub ?? '');
     const id = String(request.params?.id ?? '');
