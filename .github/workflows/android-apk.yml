@@ -48,7 +48,7 @@ jobs:
           test -f "$MANIFEST"
           for PERMISSION in RECORD_AUDIO ACCESS_NETWORK_STATE CHANGE_NETWORK_STATE MODIFY_AUDIO_SETTINGS; do
             if ! grep -q "android.permission.$PERMISSION" "$MANIFEST"; then
-              sed -i "/<manifest[^>]*>/a\\    <uses-permission android:name=\\"android.permission.$PERMISSION\\" />" "$MANIFEST"
+              sed -i "/<manifest[^>]*>/a\\    <uses-permission android:name=\"android.permission.$PERMISSION\" />" "$MANIFEST"
             fi
           done
           if ! grep -q 'android.hardware.microphone' "$MANIFEST"; then
