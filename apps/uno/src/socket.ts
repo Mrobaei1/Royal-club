@@ -251,7 +251,15 @@ export function registerUnoSockets(
         await persistRooms();
         if (room) publishRoom(room);
         const roomCode = room?.code ?? String(payload?.code ?? '').trim().toUpperCase();
-        if (roomCode) await socket.leave(`uno:${roomCode}`);
+        if (roomCode) {
+          // Leaving is an account-level table action: remove every device for
+          // this user from the table, not only the socket that sent the command.
+          const socketIds = [...(userSockets.get(user.id) ?? [socket.id])];
+          for (const socketId of socketIds) {
+            const client = io.sockets.sockets.get(socketId);
+            if (client) await client.leave(`uno:${roomCode}`);
+          }
+        }
         ack?.({ ok: true });
       } catch (e) { fail(e, ack); }
     });
