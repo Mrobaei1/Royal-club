@@ -2,6 +2,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import 'manch_game_state.dart';
+
 /// Fixed seat positions for the classic Iranian four-colour Manch board.
 /// These positions deliberately do not depend on Directionality (RTL/LTR).
 enum ManchSeat { red, green, yellow, blue }
@@ -14,11 +16,13 @@ class IranianManchBoard extends StatelessWidget {
   const IranianManchBoard({
     super.key,
     this.activeSeat,
+    this.gameState,
     this.onHomeTap,
     this.showSampleTokens = true,
   });
 
   final ManchSeat? activeSeat;
+  final ManchGameState? gameState;
   final ValueChanged<ManchSeat>? onHomeTap;
   final bool showSampleTokens;
 
@@ -43,6 +47,7 @@ class IranianManchBoard extends StatelessWidget {
                 size: Size.square(side),
                 painter: _IranianManchPainter(
                   activeSeat: activeSeat,
+                  gameState: gameState,
                   showSampleTokens: showSampleTokens,
                 ),
               ),
@@ -67,10 +72,12 @@ class IranianManchBoard extends StatelessWidget {
 class _IranianManchPainter extends CustomPainter {
   const _IranianManchPainter({
     required this.activeSeat,
+    required this.gameState,
     required this.showSampleTokens,
   });
 
   final ManchSeat? activeSeat;
+  final ManchGameState? gameState;
   final bool showSampleTokens;
 
   static const frame = Color(0xFF111B31);
@@ -158,7 +165,9 @@ class _IranianManchPainter extends CustomPainter {
     _drawSafeMarker(canvas, Offset(14.5 * u, 8.5 * u), u * .19);
     _drawSafeMarker(canvas, Offset(6.5 * u, 14.5 * u), u * .19);
 
-    if (showSampleTokens) {
+    if (gameState case final state?) {
+      _drawGameTokens(canvas, u, state);
+    } else if (showSampleTokens) {
       for (final seat in ManchSeat.values) {
         _drawYardTokens(canvas, u, seat, activeSeat == seat);
       }
@@ -213,6 +222,57 @@ class _IranianManchPainter extends CustomPainter {
       RRect.fromRectAndRadius(inner.deflate(u * .85), Radius.circular(u * .2)),
       Paint()..color = const Color(0xFFEDE5D7),
     );
+  }
+
+  void _drawGameTokens(Canvas canvas, double u, ManchGameState state) {
+    const yardOffsets = [
+      Offset(2, 2), Offset(4, 2), Offset(2, 4), Offset(4, 4),
+    ];
+    const starts = {
+      ManchSeat.red: 0,
+      ManchSeat.green: 13,
+      ManchSeat.yellow: 26,
+      ManchSeat.blue: 39,
+    };
+    for (var p = 0; p < state.players.length; p++) {
+      final player = state.players[p];
+      final seat = ManchSeat.values.byName(player.colour.name);
+      final active = p == state.activePlayerIndex;
+      final yardOrigin = switch (seat) {
+        ManchSeat.red => Offset.zero,
+        ManchSeat.green => Offset(9 * u, 0),
+        ManchSeat.yellow => Offset(9 * u, 9 * u),
+        ManchSeat.blue => Offset(0, 9 * u),
+      };
+      final lane = switch (seat) {
+        ManchSeat.red => List.generate(5, (i) => (7, i + 1)),
+        ManchSeat.green => List.generate(5, (i) => (i + 1, 7)),
+        ManchSeat.yellow => List.generate(5, (i) => (7, 13 - i)),
+        ManchSeat.blue => List.generate(5, (i) => (13 - i, 7)),
+      };
+      for (var t = 0; t < 4; t++) {
+        final progress = player.tokens[t];
+        late final Offset center;
+        if (progress == -1) {
+          final offset = yardOffsets[t];
+          center = yardOrigin + Offset(offset.dx * u, offset.dy * u);
+        } else if (progress < 52) {
+          final cell = trackCells[(starts[seat]! + progress) % 52];
+          center = Offset((cell.$2 + .5) * u, (cell.$1 + .5) * u);
+        } else if (progress < 57) {
+          final cell = lane[progress - 52];
+          center = Offset((cell.$2 + .5) * u, (cell.$1 + .5) * u);
+        } else {
+          const offsets = [
+            Offset(-.22, -.22), Offset(.22, -.22),
+            Offset(-.22, .22), Offset(.22, .22),
+          ];
+          center = Offset(7.5 * u, 7.5 * u) +
+              Offset(offsets[t].dx * u, offsets[t].dy * u);
+        }
+        _drawToken(canvas, center, u * .34, seatColors[seat]!, active);
+      }
+    }
   }
 
   void _drawYardTokens(
@@ -349,5 +409,6 @@ class _IranianManchPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _IranianManchPainter oldDelegate) =>
       oldDelegate.activeSeat != activeSeat ||
+      oldDelegate.gameState != gameState ||
       oldDelegate.showSampleTokens != showSampleTokens;
 }
