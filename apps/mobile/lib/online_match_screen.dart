@@ -920,7 +920,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
       } else if (_selectedFrom != null) {
         for (final die in remaining) {
           final target = hostTurn ? _selectedFrom! - die.toInt() : _selectedFrom! + die.toInt();
-          if (target >= 0 && target < 24 && board[target].toInt() * sign > -2) legalTargets.add(target);
+          if (target >= 0 && target < 24 && boardPoints[target].toInt() * sign > -2) legalTargets.add(target);
         }
       }
     }
