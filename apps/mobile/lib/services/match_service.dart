@@ -258,6 +258,69 @@ class MatchService {
     return Map<String, dynamic>.from((await _postJson('/matches/$id/cancellation', {'accept': accept}))['cancellation'] as Map);
   }
 
+  static Future<List<Map<String, dynamic>>> matchChatMessages(
+    String id, {String? afterId}
+  ) async {
+    if (!RegExp(r'^[1-9][0-9]*$').hasMatch(id)) {
+      throw Exception('شناسه اتاق بازی معتبر نیست.');
+    }
+    final suffix = afterId == null ? '' : '?afterId=${Uri.encodeQueryComponent(afterId)}';
+    final response = await _getWithRetry(
+      _apiUri('/matches/$id/chat$suffix'),
+      await _headers(),
+    );
+    dynamic decoded;
+    try { decoded = jsonDecode(response.body); }
+    catch (_) { throw Exception('پاسخ چت مسابقه قابل‌خواندن نیست.'); }
+    if (decoded is! Map<String, dynamic> ||
+        response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(decoded is Map ? decoded['error']?.toString() : 'دریافت پیام‌ها ناموفق بود.');
+    }
+    return ((decoded['messages'] as List?) ?? const [])
+        .whereType<Map>()
+        .map((item) => Map<String, dynamic>.from(item))
+        .toList();
+  }
+
+  static Future<Map<String, dynamic>> sendMatchChatMessage(
+    String id, String body,
+  ) async {
+    if (!RegExp(r'^[1-9][0-9]*$').hasMatch(id) || body.trim().isEmpty) {
+      throw Exception('پیام یا شناسه اتاق معتبر نیست.');
+    }
+    return Map<String, dynamic>.from(
+      (await _postJson('/matches/$id/chat', {'body': body.trim()}))['message'] as Map,
+    );
+  }
+
+  static Future<List<Map<String, dynamic>>> voiceIceServers(String id) async {
+    final payload = await _request('GET', '/$id/voice/ice-servers');
+    return ((payload['iceServers'] as List?) ?? const [])
+        .whereType<Map>()
+        .map((server) => Map<String, dynamic>.from(server))
+        .toList();
+  }
+
+  static Future<List<Map<String, dynamic>>> voiceSignals(
+    String id, {String? afterId}
+  ) async {
+    final suffix = afterId == null ? '' : '?afterId=${Uri.encodeQueryComponent(afterId)}';
+    final payload = await _request('GET', '/$id/voice/signals$suffix');
+    return ((payload['signals'] as List?) ?? const [])
+        .whereType<Map>()
+        .map((signal) => Map<String, dynamic>.from(signal))
+        .toList();
+  }
+
+  static Future<void> sendVoiceSignal(
+    String id, String kind, Map<String, dynamic> payload,
+  ) async {
+    await _postJson('/matches/$id/voice/signals', {
+      'kind': kind,
+      'payload': payload,
+    });
+  }
+
   static Future<Map<String, dynamic>> resign(
     String id, {required String scope}
   ) async {

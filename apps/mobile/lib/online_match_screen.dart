@@ -1,9 +1,13 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'room_controls_menu.dart';
 import 'l10n/app_text.dart';
 import 'profile_avatar.dart';
 import 'services/match_service.dart';
+import 'online_match_chat_sheet.dart';
+import 'online_match_voice_control.dart';
 import 'royal_backgammon_board.dart';
 import 'match_activity_state.dart';
 
@@ -26,9 +30,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
   bool _refreshing = false;
   bool _connectionLost = false;
   int? _selectedFrom;
-  int? _selectedDie;
   bool _fromBar = false;
-  bool _batchMode = false;
   final List<Map<String, int?>> _pendingMoves = [];
   String _matchStatus = 'waiting';
   String? _error;
@@ -59,6 +61,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
   @override
   void initState() {
     super.initState();
+    _lockLandscapeOnMobile();
     MatchActivityState.setActivelyPlaying(
       ['waiting', 'active'].contains(widget.match['status']),
     );
@@ -78,6 +81,18 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
     _turnClock?.cancel();
     MatchActivityState.setActivelyPlaying(false);
     super.dispose();
+  }
+
+  Future<void> _lockLandscapeOnMobile() async {
+    if (kIsWeb) return;
+    try {
+      await SystemChrome.setPreferredOrientations(const [
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ]);
+    } catch (_) {
+      // Orientation locking is best-effort in widget tests and unsupported hosts.
+    }
   }
 
   Future<void> _refresh({bool silent = false}) async {
@@ -117,10 +132,8 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
             // version/turn, discard the stale preview before accepting new input.
             if (serverStateChanged || turnChanged) {
               _pendingMoves.clear();
-              _batchMode = false;
-              _selectedFrom = null;
-              _selectedDie = null;
-              _fromBar = false;
+                  _selectedFrom = null;
+                      _fromBar = false;
             }
             _state = state;
             _turnSecondsRemaining = _remainingTurnSeconds(state);
@@ -135,9 +148,9 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
       } else if (mounted) {
         setState(() {
           _pendingMoves.clear();
-          _batchMode = false;
+          
           _selectedFrom = null;
-          _selectedDie = null;
+          
           _fromBar = false;
           _state = null;
           _turnSecondsRemaining = 20;
@@ -301,52 +314,6 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
     }
   }
 
-  void _showHeadToHeadSummary({required bool isHost}) {
-    final isEnglish = _isEnglish;
-    final myIsHost = _matchDetails['isHost'] == true;
-    final hostName = _matchDetails['hostName']?.toString() ?? (isEnglish ? 'Host' : 'میزبان');
-    final guestName = _matchDetails['guestName']?.toString() ?? (isEnglish ? 'Opponent' : 'حریف');
-    final hostPoints = (_matchDetails['headToHeadHostPoints'] as num?)?.toInt() ?? 0;
-    final guestPoints = (_matchDetails['headToHeadGuestPoints'] as num?)?.toInt() ?? 0;
-    final hostWins = (_matchDetails['headToHeadHostWins'] as num?)?.toInt() ?? 0;
-    final guestWins = (_matchDetails['headToHeadGuestWins'] as num?)?.toInt() ?? 0;
-    final matches = (_matchDetails['headToHeadMatches'] as num?)?.toInt() ?? 0;
-    final viewerName = myIsHost ? hostName : guestName;
-    final opponentName = myIsHost ? guestName : hostName;
-    final viewerPoints = myIsHost ? hostPoints : guestPoints;
-    final opponentPoints = myIsHost ? guestPoints : hostPoints;
-    final viewerWins = myIsHost ? hostWins : guestWins;
-    final opponentWins = myIsHost ? guestWins : hostWins;
-    showDialog<void>(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: Theme.of(context).colorScheme.surface,
-        title: Text(appText(context, 'آمار رودررو', 'Head-to-head stats'), style: TextStyle(color: Theme.of(context).colorScheme.primary)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text('$viewerName  $viewerPoints  -  $opponentPoints  $opponentName',
-              textAlign: TextAlign.center, style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 14),
-            _headToHeadRow(appText(context, 'تعداد مسابقات رودررو', 'Matches played'), '$matches'),
-            _headToHeadRow(appText(context, 'بردهای مسابقه', 'Match wins'), '$viewerWins - $opponentWins'),
-            _headToHeadRow(appText(context, 'امتیاز دست‌ها', 'Game points'), '$viewerPoints - $opponentPoints'),
-          ],
-        ),
-        actions: [TextButton(onPressed: () => Navigator.of(context).pop(), child: Text(appText(context, 'بستن', 'Close')))],
-      ),
-    );
-  }
-
-  Widget _headToHeadRow(String label, String value) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 5),
-    child: Row(children: [
-      Expanded(child: Text(label, style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7)))),
-      Text(value, style: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.bold)),
-    ]),
-  );
-
   Future<void> _resignMatch() async {
     if (_busy || _matchStatus != 'active') return;
     final isEnglish = _isEnglish;
@@ -443,7 +410,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
         setState(() {
           _state = {...?_state, ...next};
           _selectedFrom = null;
-          _selectedDie = null;
+          
           _fromBar = false;
         });
       }
@@ -490,45 +457,6 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
     return {'board': board, 'bar': bar, 'off': off};
   }
 
-  Future<void> _stageMove({required int? from, required int? to, required int die}) async {
-    if (_state == null) return;
-    final preview = _previewGameState();
-    final board = (preview['board'] as List<int>);
-    final bar = (preview['bar'] as Map<String, int>);
-    final hostTurn = _state?['isHost'] == true;
-    final sign = hostTurn ? 1 : -1;
-    final ownBar = bar[hostTurn ? 'host' : 'guest'] ?? 0;
-    if (ownBar > 0) {
-      final expected = hostTurn ? 24 - die : die - 1;
-      if (from != null || to != expected) { setState(() => _error = _isEnglish ? 'Enter a checker from the bar first using the selected die.' : 'ابتدا باید مهره را با تاس انتخاب‌شده از بار وارد کنید.'); return; }
-      if (board[expected] * sign <= -2) { setState(() => _error = _isEnglish ? 'The entry point is blocked by two opponent checkers.' : 'خانهٔ ورود با دو مهرهٔ حریف بسته است.'); return; }
-    } else if (from == null) {
-      setState(() => _error = _isEnglish ? 'You have no checkers on the bar.' : 'مهره‌ای روی بار ندارید.'); return;
-    } else if (to == null) {
-      final inHome = hostTurn ? from <= 5 : from >= 18;
-      final allHome = board.asMap().entries.every((e) => hostTurn ? e.key <= 5 || e.value <= 0 : e.key >= 18 || e.value >= 0);
-      final distance = hostTurn ? from + 1 : 24 - from;
-      final clear = hostTurn
-          ? !board.asMap().entries.any((e) => e.key > from && e.key <= 5 && e.value > 0)
-          : !board.asMap().entries.any((e) => e.key < from && e.key >= 18 && e.value < 0);
-      if (board[from] * sign <= 0 || !inHome || !allHome || die < distance || (die > distance && !clear)) {
-        setState(() => _error = _isEnglish ? 'This checker cannot be borne off with that die.' : 'این مهره با این تاس قابل خارج‌کردن نیست.'); return;
-      }
-    } else {
-      final expected = hostTurn ? from - die : from + die;
-      if (board[from] * sign <= 0 || expected != to || to < 0 || to > 23 || board[to] * sign <= -2) {
-        setState(() => _error = _isEnglish ? 'That move is not legal for the selected die.' : 'این حرکت با تاس انتخاب‌شده قانونی نیست.'); return;
-      }
-    }
-    setState(() {
-      _pendingMoves.add({'from': from, 'to': to, 'die': die});
-      _selectedFrom = null;
-      _selectedDie = null;
-      _fromBar = false;
-      _error = null;
-    });
-  }
-
   Future<void> _submitBatch() async {
     if (_busy || _state == null || _pendingMoves.isEmpty) return;
     final languageCode = Localizations.localeOf(context).languageCode;
@@ -543,9 +471,9 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
         setState(() {
           _state = {...?_state, ...next};
           _pendingMoves.clear();
-          _batchMode = false;
+          
           _selectedFrom = null;
-          _selectedDie = null;
+          
           _fromBar = false;
         });
       }
@@ -559,29 +487,27 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
     }
   }
 
-  void _cancelBatch() {
-    setState(() {
-      _pendingMoves.clear();
-      _batchMode = false;
-      _selectedFrom = null;
-      _selectedDie = null;
-      _fromBar = false;
-      _error = null;
-    });
-  }
-
   Future<void> _tapPoint(int point, List<num> board, List<num> remaining, bool isMyTurn) async {
-    if (!isMyTurn || _busy) return;
-    if (_selectedDie == null || !remaining.contains(_selectedDie)) {
-      setState(() => _error = _isEnglish ? 'Choose one of the remaining dice first.' : 'ابتدا یکی از تاس‌های باقی‌مانده را انتخاب کنید.');
+    if (!isMyTurn || _busy || _state == null) return;
+    final hostTurn = _state?['isHost'] == true;
+    final sign = hostTurn ? 1 : -1;
+    final preview = _previewGameState();
+    final ownBar = ((preview['bar'] as Map<String, int>)[hostTurn ? 'host' : 'guest'] ?? 0);
+    if (ownBar > 0 || _fromBar) {
+      final die = hostTurn ? 24 - point : point + 1;
+      if (die < 1 || die > 6 || !remaining.contains(die)) {
+        setState(() => _error = _isEnglish ? 'That point is not a legal bar entry for the remaining dice.' : 'این خانه با تاس‌های باقی‌مانده محل ورود قانونی از بار نیست.');
+        return;
+      }
+      if (board[point].toInt() * sign <= -2) {
+        setState(() => _error = _isEnglish ? 'The entry point is blocked.' : 'خانه ورود با دو مهره حریف بسته است.');
+        return;
+      }
+      await _submitMove(from: null, to: point, die: die);
       return;
     }
-    if (_fromBar) {
-      if (_batchMode) { await _stageMove(from: null, to: point, die: _selectedDie!); } else { await _submitMove(from: null, to: point, die: _selectedDie!); }
-      return;
-    }
+
     if (_selectedFrom == null) {
-      final sign = _state?['isHost'] == true ? 1 : -1;
       if (board[point].toInt() * sign <= 0) {
         setState(() => _error = _isEnglish ? 'Select one of your own checkers.' : 'مهره‌ای از خودتان را انتخاب کنید.');
         return;
@@ -590,11 +516,107 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
       return;
     }
     if (_selectedFrom == point) {
-      setState(() { _selectedFrom = null; _error = null; });
+      setState(() { _selectedFrom = null;  _error = null; });
       return;
     }
-    if (_batchMode) { await _stageMove(from: _selectedFrom, to: point, die: _selectedDie!); } else { await _submitMove(from: _selectedFrom, to: point, die: _selectedDie!); }
+
+    final from = _selectedFrom!;
+    final distance = hostTurn ? from - point : point - from;
+    if (distance > 0 && distance <= 6 && remaining.contains(distance)) {
+      if (board[point].toInt() * sign <= -2) {
+        setState(() => _error = _isEnglish ? 'That point is blocked by two opponent checkers.' : 'این خانه با دو مهره حریف بسته است.');
+        return;
+      }
+      await _submitMove(from: from, to: point, die: distance);
+      return;
+    }
+
+    final sequence = _findCumulativeOnlineMoves(
+      from: from,
+      destination: point,
+      board: board.map((value) => value.toInt()).toList(),
+      dice: remaining.map((value) => value.toInt()).toList(),
+    );
+    if (sequence != null && sequence.length > 1) {
+      setState(() {
+        _selectedFrom = null;
+        
+        _error = null;
+        _pendingMoves
+          ..clear()
+          ..addAll(sequence);
+      });
+      await _submitBatch();
+      return;
+    }
+    setState(() => _error = _isEnglish ? 'No legal move reaches that point with the remaining dice.' : 'با تاس‌های باقی‌مانده حرکت قانونی به این خانه وجود ندارد.');
   }
+
+  List<Map<String, int?>>? _findCumulativeOnlineMoves({
+    required int from,
+    required int destination,
+    required List<int> board,
+    required List<int> dice,
+  }) {
+    final hostTurn = _state?['isHost'] == true;
+    final sign = hostTurn ? 1 : -1;
+    List<Map<String, int?>>? search(
+      int current,
+      List<int> points,
+      List<int> remainingDice,
+      List<Map<String, int?>> path,
+    ) {
+      if (path.length >= dice.length) return null;
+      for (var i = 0; i < remainingDice.length; i++) {
+        final die = remainingDice[i];
+        final next = hostTurn ? current - die : current + die;
+        if (next < 0 || next > 23 || points[next] * sign <= -2) continue;
+        final nextPoints = List<int>.from(points);
+        nextPoints[current] -= sign;
+        if (nextPoints[next] * sign < 0) nextPoints[next] = 0;
+        nextPoints[next] += sign;
+        final nextPath = [...path, <String, int?>{'from': current, 'to': next, 'die': die}];
+        if (next == destination && nextPath.length > 1) return nextPath;
+        final nextDice = List<int>.from(remainingDice)..removeAt(i);
+        final found = search(next, nextPoints, nextDice, nextPath);
+        if (found != null) return found;
+      }
+      return null;
+    }
+    if (from < 0 || from > 23 || destination < 0 || destination > 23 ||
+        board[from] * sign <= 0) {
+      return null;
+    }
+    return search(from, board, List<int>.from(dice), const []);
+  }
+
+  Future<void> _tapBearOff(List<num> board, List<num> remaining, bool isMyTurn) async {
+    if (!isMyTurn || _busy || _selectedFrom == null || _state == null) return;
+    final from = _selectedFrom!;
+    final hostTurn = _state?['isHost'] == true;
+    final sign = hostTurn ? 1 : -1;
+    final points = board.map((value) => value.toInt()).toList();
+    final inHome = hostTurn ? from <= 5 : from >= 18;
+    final allHome = points.asMap().entries.every((entry) =>
+      hostTurn ? entry.key <= 5 || entry.value <= 0 : entry.key >= 18 || entry.value >= 0);
+    final distance = hostTurn ? from + 1 : 24 - from;
+    final clear = hostTurn
+      ? !points.asMap().entries.any((entry) => entry.key > from && entry.key <= 5 && entry.value > 0)
+      : !points.asMap().entries.any((entry) => entry.key < from && entry.key >= 18 && entry.value < 0);
+    if (points[from] * sign <= 0 || !inHome || !allHome) {
+      setState(() => _error = _isEnglish ? 'All checkers must be in your home board before bearing off.' : 'برای خارج کردن مهره، ابتدا همه مهره‌ها باید در خانه خودی باشند.');
+      return;
+    }
+    final candidates = remaining.map((value) => value.toInt()).where((die) =>
+      die == distance || (die > distance && !clear)).toList()..sort();
+    if (candidates.isEmpty) {
+      setState(() => _error = _isEnglish ? 'No remaining die can bear off this checker.' : 'با تاس‌های باقی‌مانده نمی‌توان این مهره را خارج کرد.');
+      return;
+    }
+    final selectedDie = candidates.contains(distance) ? distance : candidates.last;
+    await _submitMove(from: from, to: null, die: selectedDie);
+  }
+
 
   Future<void> _submitMove({required int? from, required int? to, required int die}) async {
     if (_busy || _state == null) return;
@@ -609,7 +631,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
         setState(() {
           _state = {...?_state, ...next};
           _selectedFrom = null;
-          _selectedDie = null;
+          
           _fromBar = false;
         });
       }
@@ -778,7 +800,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
     final dice = (_state?['dice'] as List?)?.cast<num>() ?? const <num>[];
     final rawRemaining = (_state?['remainingDice'] as List?)?.cast<num>() ?? const <num>[];
     final preview = _previewGameState();
-    final board = (preview['board'] as List<int>).map<num>((v) => v).toList();
+    final boardPoints = (preview['board'] as List<int>).map<num>((v) => v).toList();
     final remaining = [...rawRemaining];
     for (final move in _pendingMoves) {
       final die = move['die'];
@@ -795,216 +817,173 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
     final bar = preview['bar'] as Map<String, int>;
     final off = preview['off'] as Map<String, int>;
     final ownBar = (bar[_state?['isHost'] == true ? 'host' : 'guest'] ?? 0);
+    final hostName = _matchDetails['hostName']?.toString() ?? (isEnglish ? 'Host' : 'میزبان');
+    final guestName = _matchDetails['guestName']?.toString() ?? (isEnglish ? 'Waiting…' : 'در انتظار حریف');
+    final legalTargets = <int>{};
+    if (canAct && _state != null) {
+      final hostTurn = _state?['isHost'] == true;
+      final sign = hostTurn ? 1 : -1;
+      if (ownBar > 0 || _fromBar) {
+        for (final die in remaining) {
+          final target = hostTurn ? 24 - die.toInt() : die.toInt() - 1;
+          if (target >= 0 && target < 24 && boardPoints[target].toInt() * sign > -2) legalTargets.add(target);
+        }
+      } else if (_selectedFrom != null) {
+        for (final die in remaining) {
+          final target = hostTurn ? _selectedFrom! - die.toInt() : _selectedFrom! + die.toInt();
+          if (target >= 0 && target < 24 && boardPoints[target].toInt() * sign > -2) legalTargets.add(target);
+        }
+      }
+    }
+    void openMatchChat() {
+      showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        useSafeArea: true,
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        builder: (_) => OnlineMatchChatSheet(matchId: _id, isEnglish: isEnglish),
+      );
+    }
     return Directionality(
-      textDirection: (Localizations.localeOf(context).languageCode == 'en' ? TextDirection.ltr : TextDirection.rtl),
+      textDirection: isEnglish ? TextDirection.ltr : TextDirection.rtl,
       child: Scaffold(
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         appBar: AppBar(
+          toolbarHeight: 48,
           backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           foregroundColor: Theme.of(context).colorScheme.primary,
-          title: Text(isEnglish ? 'Room ${widget.match['roomCode'] ?? _id}' : 'اتاق ${widget.match['roomCode'] ?? _id}'),
+          title: const SizedBox.shrink(),
           actions: [
+            if (_matchStatus == 'active' || _matchStatus == 'finished')
+              IconButton(
+                tooltip: isEnglish ? 'Match chat' : 'گفت‌وگوی مسابقه',
+                onPressed: openMatchChat,
+                icon: const Icon(Icons.forum_outlined),
+              ),
+            if (_matchStatus == 'active')
+              OnlineMatchVoiceControl(matchId: _id, isEnglish: isEnglish),
             RoomControlsMenuButton(
-              tooltip: isEnglish ? 'Room controls' : 'مدیریت اتاق',
+              tooltip: isEnglish ? 'Match controls' : 'مدیریت مسابقه',
               itemsBuilder: _buildRoomControlItems,
             ),
-            IconButton(onPressed: _busy ? null : _refresh, icon: const Icon(Icons.refresh)),
           ],
         ),
-        body: SafeArea(child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            if (_connectionLost) Container(
-              margin: const EdgeInsets.only(bottom: 12),
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(color: Colors.red.withValues(alpha: .13), borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.redAccent.withValues(alpha: .5))),
-              child: Row(children: [
-                const Icon(Icons.wifi_off_rounded, color: Colors.redAccent),
-                const SizedBox(width: 10),
-                Expanded(child: Text(isEnglish ? 'Server connection is unstable. Reconnecting…' : 'اتصال به سرور قطع یا ناپایدار است؛ تلاش برای اتصال مجدد ادامه دارد.', style: const TextStyle(color: Colors.redAccent))),
-                IconButton(tooltip: isEnglish ? 'Retry' : 'تلاش دوباره', onPressed: _refreshing ? null : () => _refresh(), icon: const Icon(Icons.refresh, color: Colors.redAccent)),
-              ]),
-            ),
-            if (_state?['aiTakeoverActive'] == true) Container(
-              margin: const EdgeInsets.only(bottom: 12),
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primary.withValues(alpha: .12),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Theme.of(context).colorScheme.primary.withValues(alpha: .45)),
-              ),
-              child: Row(children: [
-                Icon(Icons.smart_toy_outlined, color: Theme.of(context).colorScheme.primary),
-                const SizedBox(width: 10),
-                Expanded(child: Text(
-                  isEnglish
-                    ? 'Temporary AI is playing for the disconnected player. Human control returns automatically after reconnecting.'
-                    : 'هوش مصنوعی موقتاً به‌جای بازیکن قطع‌شده بازی می‌کند؛ با اتصال مجدد، کنترل به بازیکن بازمی‌گردد.',
-                  style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
-                )),
-              ]),
-            ),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(color: Theme.of(context).colorScheme.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: Theme.of(context).colorScheme.primary.withValues(alpha: .35))),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                Text(
-                  _matchStatus == 'finished'
-                      ? (isEnglish ? 'Game finished' : 'بازی پایان یافت')
-                      : (_state == null
-                          ? (isEnglish ? 'Waiting for opponent…' : 'در انتظار ورود حریف...')
-                          : (isMyTurn ? (isEnglish ? 'Your turn' : 'نوبت شماست') : (isEnglish ? 'Waiting for opponent' : 'در انتظار حرکت حریف'))),
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.primary,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 18,
+        body: SafeArea(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final landscape = constraints.maxWidth > constraints.maxHeight;
+              final boardWidget = _state == null
+                ? Center(child: Text(
+                    isEnglish ? 'Waiting for your opponent…' : 'در انتظار ورود حریف…',
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
+                  ))
+                : OnlineBackgammonBoard(
+                    points: boardPoints,
+                    selectedPoint: _selectedFrom,
+                    legalTargets: legalTargets,
+                    barWhite: bar['host'] ?? 0,
+                    barBlack: bar['guest'] ?? 0,
+                    offWhite: off['host'] ?? 0,
+                    offBlack: off['guest'] ?? 0,
+                    dice: dice.map((value) => value.toInt()).toList(),
+                    timerText: turnTimerText,
+                    timerWhite: timerWhite,
+                    rollLabel: isEnglish ? 'Roll dice' : 'ریختن تاس',
+                    onRoll: _busy || _matchStatus != 'active' || !canAct || dice.isNotEmpty ? null : _roll,
+                    onPointTap: (point) => _tapPoint(point, boardPoints, remaining, canAct),
+                    onBearOff: () => _tapBearOff(boardPoints, remaining, canAct),
+                  );
+              final alerts = <Widget>[
+                if (_connectionLost)
+                  Text(
+                    isEnglish ? 'Connection unstable — reconnecting…' : 'اتصال ناپایدار است؛ تلاش برای اتصال مجدد…',
+                    style: const TextStyle(color: Colors.redAccent, fontSize: 12),
+                    textAlign: TextAlign.center,
                   ),
-                ),
-                const SizedBox(height: 6),
-                Text(isEnglish ? 'First to ${_matchDetails['matchToWin'] ?? 1} · Match score: ${_matchDetails['hostGameWins'] ?? 0} - ${_matchDetails['guestGameWins'] ?? 0}' : 'Match to Win: ${_matchDetails['matchToWin'] ?? 1} · امتیاز مسابقه: ${_matchDetails['hostGameWins'] ?? 0} - ${_matchDetails['guestGameWins'] ?? 0}',
-                  style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7), fontWeight: FontWeight.w600)),
-                const SizedBox(height: 4),
-                Text(_state == null ? (isEnglish ? 'Room status refreshes automatically.' : 'این صفحه به‌صورت خودکار هر ۳ ثانیه وضعیت اتاق را بررسی می‌کند.') : (isEnglish ? 'State version: ${_state!['version']}' : 'نسخه وضعیت: ${_state!['version']}'),
-                  style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.54), fontSize: 12)),
-              ]),
-            ),
-            const SizedBox(height: 12),
-            Card(
-              color: Theme.of(context).colorScheme.surface,
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Row(
-                  children: [
-                    Expanded(child: InkWell(
-                      borderRadius: BorderRadius.circular(12),
-                      onTap: () => _showHeadToHeadSummary(isHost: true),
-                      child: Column(children: [
-                        RoyalAvatar(dataUrl: _matchDetails['hostAvatarDataUrl']?.toString(), radius: 25),
-                        const SizedBox(height: 5),
-                        Text(_matchDetails['hostName']?.toString() ?? (isEnglish ? 'Host' : 'میزبان'), textAlign: TextAlign.center,
-                          style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7)), maxLines: 1, overflow: TextOverflow.ellipsis),
-                      ]),
-                    )),
-                    Padding(padding: const EdgeInsets.symmetric(horizontal: 8), child: Text(isEnglish ? 'vs.' : 'در برابر', style: TextStyle(color: Theme.of(context).colorScheme.primary))),
-                    Expanded(child: InkWell(
-                      borderRadius: BorderRadius.circular(12),
-                      onTap: _matchDetails['guestName'] == null ? null : () => _showHeadToHeadSummary(isHost: false),
-                      child: Column(children: [
-                        RoyalAvatar(dataUrl: _matchDetails['guestAvatarDataUrl']?.toString(), radius: 25),
-                        const SizedBox(height: 5),
-                        Text(_matchDetails['guestName']?.toString() ?? (isEnglish ? 'Waiting for opponent' : 'در انتظار حریف'), textAlign: TextAlign.center,
-                          style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7)), maxLines: 1, overflow: TextOverflow.ellipsis),
-                      ]),
-                    )),
-                  ],
-                ),
-              ),
-            ),
-            if (_state != null) ...[
-              const SizedBox(height: 16),
-              if (isMyTurn && remaining.isNotEmpty) OutlinedButton.icon(
-                onPressed: _busy ? null : () => setState(() {
-                  _batchMode = !_batchMode;
-                  _pendingMoves.clear();
-                  _selectedFrom = null;
-                  _selectedDie = null;
-                  _fromBar = false;
-                  _error = null;
-                }),
-                icon: Icon(_batchMode ? Icons.playlist_remove : Icons.playlist_add),
-                label: Text(_batchMode ? (isEnglish ? 'Exit batch move' : 'لغو حالت حرکت ترکیبی') : (isEnglish ? 'Plan multiple moves' : 'ثبت چند حرکت با یک تأیید')),
-              ),
-              if (_batchMode) Container(
-                margin: const EdgeInsets.only(bottom: 12),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(color: Theme.of(context).colorScheme.surface, borderRadius: BorderRadius.circular(12), border: Border.all(color: Theme.of(context).colorScheme.primary)),
-                child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                  Text(isEnglish ? 'Planned moves: ${_pendingMoves.length} — preview only, not yet submitted.' : 'حرکت‌های آماده: ${_pendingMoves.length} — تخته پیش‌نمایش است؛ هنوز روی سرور ثبت نشده.', style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7))),
-                  const SizedBox(height: 8),
-                  Row(children: [
-                    Expanded(child: OutlinedButton(onPressed: _busy ? null : _cancelBatch, child: Text(isEnglish ? 'Clear all' : 'لغو همه'))),
-                    const SizedBox(width: 8),
-                    Expanded(child: FilledButton(onPressed: _busy || _pendingMoves.isEmpty ? null : _submitBatch, child: Text(isEnglish ? 'Submit all moves' : 'ثبت همه حرکت‌ها'))),
-                  ]),
-                ]),
-              ),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(color: Theme.of(context).colorScheme.surfaceContainerHighest, borderRadius: BorderRadius.circular(16), border: Border.all(color: Theme.of(context).colorScheme.primary)),
-                child: Column(children: [
-                  Text(isEnglish ? 'Server board state' : 'وضعیت تخته از سرور', style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 12),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
+                if (aiTakeoverActive)
+                  Text(
+                    isEnglish ? 'Temporary AI control is active.' : 'کنترل موقت هوش مصنوعی فعال است.',
+                    style: TextStyle(color: Theme.of(context).colorScheme.primary, fontSize: 12),
+                    textAlign: TextAlign.center,
+                  ),
+                if (_error != null)
+                  Text(appError(context, _error), style: const TextStyle(color: Colors.redAccent), textAlign: TextAlign.center),
+              ];
+              final actionBar = IconButton.filledTonal(
+                tooltip: isEnglish ? 'End turn when no legal moves remain' : 'پایان نوبت در صورت نبود حرکت قانونی',
+                onPressed: _busy || !canAct || remaining.isEmpty ? null : _endTurn,
+                icon: const Icon(Icons.skip_next_rounded),
+              );
+              if (landscape && _state != null) {
+                return Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: Row(
                     children: [
-                      Expanded(
-                        child: OnlineBackgammonBoard(
-                          points: board,
-                          selectedPoint: _selectedFrom,
-                          barWhite: bar['host'] ?? 0,
-                          barBlack: bar['guest'] ?? 0,
-                          offWhite: off['host'] ?? 0,
-                          offBlack: off['guest'] ?? 0,
-                          dice: dice.map((d) => d.toInt()).toList(),
-                          timerText: turnTimerText,
-                          timerWhite: timerWhite,
-                          rollLabel: isEnglish ? 'Roll' : 'تاس',
-                          onRoll: _busy || _matchStatus != 'active' || !canAct || dice.isNotEmpty ? null : _roll,
-                          onPointTap: (point) => _tapPoint(point, board, remaining, canAct),
+                      Expanded(child: boardWidget),
+                      const SizedBox(width: 10),
+                      SizedBox(
+                        width: 74,
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: [
+                            RoyalAvatar(dataUrl: _matchDetails['hostAvatarDataUrl']?.toString(), radius: 22),
+                            Text('@$hostName', maxLines: 2, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center,
+                              style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 11)),
+                            const Divider(),
+                            RoyalAvatar(dataUrl: _matchDetails['guestAvatarDataUrl']?.toString(), radius: 22),
+                            Text('@$guestName', maxLines: 2, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center,
+                              style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 11)),
+                            actionBar,
+                          ],
                         ),
                       ),
                     ],
                   ),
-                ]),
-              ),
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(color: Theme.of(context).colorScheme.surface, borderRadius: BorderRadius.circular(16)),
-                child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                  Text(isEnglish ? 'Dice' : 'تاس سرور', style: TextStyle(color: Theme.of(context).colorScheme.primary, fontSize: 17, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 12),
-                  Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                    _Die(value: dice.isNotEmpty ? dice[0].toInt() : null),
-                    const SizedBox(width: 12),
-                    _Die(value: dice.length > 1 ? dice[1].toInt() : null),
-                  ]),
+                );
+              }
+              return ListView(
+                padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
+                children: [
+                  if (alerts.isNotEmpty) ...alerts,
+                  if (_state != null)
+                    Row(
+                      children: [
+                        Expanded(child: Row(children: [
+                          RoyalAvatar(dataUrl: _matchDetails['hostAvatarDataUrl']?.toString(), radius: 18),
+                          const SizedBox(width: 7),
+                          Expanded(child: Text('@$hostName', maxLines: 1, overflow: TextOverflow.ellipsis,
+                            style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.w700))),
+                        ])),
+                        const SizedBox(width: 8),
+                        Expanded(child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+                          Expanded(child: Text('@$guestName', maxLines: 1, overflow: TextOverflow.ellipsis, textAlign: TextAlign.end,
+                            style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.w700))),
+                          const SizedBox(width: 7),
+                          RoyalAvatar(dataUrl: _matchDetails['guestAvatarDataUrl']?.toString(), radius: 18),
+                        ])),
+                      ],
+                    ),
                   const SizedBox(height: 8),
-                  Text(dice.isEmpty ? (isEnglish ? 'No dice rolled yet.' : 'هنوز تاسی ریخته نشده است.') : (isEnglish ? 'Choose a remaining die:' : 'تاس‌های باقی‌مانده را انتخاب کنید:'),
-                    textAlign: TextAlign.center, style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7))),
-                  if (remaining.isNotEmpty) Wrap(
-                    alignment: WrapAlignment.center,
-                    spacing: 8,
-                    children: remaining.map((die) => ChoiceChip(
-                      label: Text(die.toString()),
-                      selected: _selectedDie == die,
-                      onSelected: isMyTurn && !_busy ? (_) => setState(() { _selectedDie = die.toInt(); _error = null; }) : null,
-                    )).toList(),
-                  ),
-                  if (ownBar > 0 && isMyTurn) OutlinedButton.icon(
-                    onPressed: _busy ? null : () => setState(() { _fromBar = true; _selectedFrom = null; _error = null; }),
-                    icon: const Icon(Icons.login),
-                    label: Text(isEnglish ? 'Enter checker from bar (${ownBar.toInt()})' : 'ورود مهره از بار (${ownBar.toInt()})'),
-                  ),
-                  if (_selectedFrom != null && isMyTurn) OutlinedButton.icon(
-                    onPressed: _busy || _selectedDie == null ? null : () => _batchMode ? _stageMove(from: _selectedFrom, to: null, die: _selectedDie!) : _submitMove(from: _selectedFrom, to: null, die: _selectedDie!),
-                    icon: const Icon(Icons.outbound),
-                    label: Text(isEnglish ? 'Bear off checker' : 'خارج کردن مهره'),
-                  ),
-                  if (isMyTurn && remaining.isNotEmpty) OutlinedButton.icon(
-                    onPressed: _busy ? null : _endTurn,
-                    icon: const Icon(Icons.skip_next),
-                    label: Text(isEnglish ? 'End turn (only when no legal move remains)' : 'پایان نوبت (فقط اگر حرکت قانونی نمانده باشد)'),
-                  ),
-                  const SizedBox(height: 12),
-
-                ]),
-              ),
-            ],
-            if (_error != null) Padding(padding: const EdgeInsets.only(top: 12), child: Text(appError(context, _error), style: const TextStyle(color: Colors.redAccent))),
-            const SizedBox(height: 10),
-          ],
-        )),
+                  if (_state != null)
+                    AspectRatio(
+                      aspectRatio: .92,
+                      child: boardWidget,
+                    )
+                  else
+                    SizedBox(height: 280, child: boardWidget),
+                  const SizedBox(height: 6),
+                  actionBar,
+                  if (_matchStatus == 'waiting' && _matchDetails['guestName'] != null)
+                    Text(
+                      isEnglish ? 'Waiting for both players to confirm and start.' : 'در انتظار تأیید و شروع توسط هر دو بازیکن.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
+                    ),
+                ],
+              );
+            },
+          ),
+        ),
       ),
     );
   }
@@ -1015,7 +994,9 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
 class OnlineBackgammonBoard extends StatelessWidget {
   final List<num> points;
   final int? selectedPoint;
+  final Set<int> legalTargets;
   final ValueChanged<int> onPointTap;
+  final VoidCallback? onBearOff;
   final int barWhite, barBlack, offWhite, offBlack;
   final List<int> dice;
   final String? timerText;
@@ -1028,6 +1009,8 @@ class OnlineBackgammonBoard extends StatelessWidget {
     required this.points,
     required this.onPointTap,
     this.selectedPoint,
+    this.legalTargets = const <int>{},
+    this.onBearOff,
     this.barWhite = 0,
     this.barBlack = 0,
     this.offWhite = 0,
@@ -1041,10 +1024,12 @@ class OnlineBackgammonBoard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => AspectRatio(
-    aspectRatio: 1.55,
+    aspectRatio: MediaQuery.orientationOf(context) == Orientation.landscape ? 1.55 : .92,
     child: RoyalBackgammonBoard(
       points: points,
       selectedPoint: selectedPoint,
+      legalTargets: legalTargets,
+      onBearOff: onBearOff,
       barWhite: barWhite,
       barBlack: barBlack,
       offWhite: offWhite,
@@ -1059,15 +1044,4 @@ class OnlineBackgammonBoard extends StatelessWidget {
   );
 }
 
-class _Die extends StatelessWidget {
-  final int? value;
-  const _Die({required this.value});
 
-  @override
-  Widget build(BuildContext context) => Container(
-    width: 54, height: 54,
-    alignment: Alignment.center,
-    decoration: BoxDecoration(color: const Color(0xFFF5E7C4), borderRadius: BorderRadius.circular(12), boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 6, offset: Offset(0, 3))]),
-    child: Text(value?.toString() ?? '—', style: const TextStyle(color: Color(0xFF20202A), fontSize: 26, fontWeight: FontWeight.w900)),
-  );
-}

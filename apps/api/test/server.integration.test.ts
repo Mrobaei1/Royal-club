@@ -472,6 +472,79 @@ test('registered players can join an online match and history does not expose op
   });
   assert.equal(guestAcceptAndReady.statusCode, 200, guestAcceptAndReady.body);
   assert.equal(guestAcceptAndReady.json().setup.status, 'active');
+
+  const matchChatSend = await app.inject({
+    method: 'POST',
+    url: `/api/v1/matches/${matchId}/chat`,
+    headers: auth(host.token),
+    payload: { body: 'Hello from the match room' },
+  });
+  assert.equal(matchChatSend.statusCode, 201, matchChatSend.body);
+  assert.equal(matchChatSend.json().message.senderUsername, host.user.username);
+  assert.equal(Object.hasOwn(matchChatSend.json().message, 'fullName'), false);
+  const matchChatRead = await app.inject({
+    method: 'GET',
+    url: `/api/v1/matches/${matchId}/chat`,
+    headers: auth(guest.token),
+  });
+  assert.equal(matchChatRead.statusCode, 200, matchChatRead.body);
+  assert.equal(matchChatRead.json().messages.length, 1);
+  assert.equal(matchChatRead.json().messages[0].body, 'Hello from the match room');
+  const incrementalMatchChatRead = await app.inject({
+    method: 'GET',
+    url: `/api/v1/matches/${matchId}/chat?afterId=${matchChatSend.json().message.id}`,
+    headers: auth(guest.token),
+  });
+  assert.equal(incrementalMatchChatRead.statusCode, 200, incrementalMatchChatRead.body);
+  assert.equal(incrementalMatchChatRead.json().messages.length, 0,
+    'Incremental chat polling must not resend messages at or before the cursor.');
+  const outsiderMatchChatRead = await app.inject({
+    method: 'GET',
+    url: `/api/v1/matches/${matchId}/chat`,
+    headers: auth(stranger.token),
+  });
+  assert.equal(outsiderMatchChatRead.statusCode, 404);
+  const outsiderMatchChatSend = await app.inject({
+    method: 'POST',
+    url: `/api/v1/matches/${matchId}/chat`,
+    headers: auth(stranger.token),
+    payload: { body: 'This must be denied' },
+  });
+  assert.equal(outsiderMatchChatSend.statusCode, 404);
+
+  const voiceOffer = await app.inject({
+    method: 'POST',
+    url: `/api/v1/matches/${matchId}/voice/signals`,
+    headers: auth(host.token),
+    payload: {
+      kind: 'offer',
+      payload: { callId: 'integration-call-123456', type: 'offer', sdp: 'v=0\\r\\n' },
+    },
+  });
+  assert.equal(voiceOffer.statusCode, 201, voiceOffer.body);
+  const guestVoiceSignals = await app.inject({
+    method: 'GET',
+    url: `/api/v1/matches/${matchId}/voice/signals`,
+    headers: auth(guest.token),
+  });
+  assert.equal(guestVoiceSignals.statusCode, 200, guestVoiceSignals.body);
+  assert.equal(guestVoiceSignals.json().signals.length, 1);
+  assert.equal(guestVoiceSignals.json().signals[0].kind, 'offer');
+  assert.equal(guestVoiceSignals.json().signals[0].payload.callId, 'integration-call-123456');
+  const outsiderVoiceSignals = await app.inject({
+    method: 'GET',
+    url: `/api/v1/matches/${matchId}/voice/signals`,
+    headers: auth(stranger.token),
+  });
+  assert.equal(outsiderVoiceSignals.statusCode, 404);
+  if (!process.env.CLOUDFLARE_TURN_KEY_ID || !process.env.CLOUDFLARE_TURN_API_TOKEN) {
+    const unconfiguredVoice = await app.inject({
+      method: 'GET',
+      url: `/api/v1/matches/${matchId}/voice/ice-servers`,
+      headers: auth(host.token),
+    });
+    assert.equal(unconfiguredVoice.statusCode, 503);
+  }
   // Live spectator access is opt-in by the host and limited to accepted friends.
   const enableSpectators = await app.inject({
     method: 'POST',
