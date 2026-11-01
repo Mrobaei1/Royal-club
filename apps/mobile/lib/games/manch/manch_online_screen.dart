@@ -230,20 +230,14 @@ class _ManchOnlineLobbyScreenState extends State<ManchOnlineLobbyScreen> {
                       const SizedBox(height: 6),
                       Text(
                         _text(
-                          'کد اتاق: ' + (myMatch['roomCode']?.toString() ?? '—'),
-                          'Room code: ' + (myMatch['roomCode']?.toString() ?? '—'),
+                          'کد اتاق: ${myMatch['roomCode']?.toString() ?? '—'}',
+                          'Room code: ${myMatch['roomCode']?.toString() ?? '—'}',
                         ),
                       ),
                       Text(
                         _text(
-                          'بازیکنان: ' +
-                              ((myMatch['players'] as List?)?.length ?? 1).toString() +
-                              ' از ' +
-                              (myMatch['playerCount'] ?? 2).toString(),
-                          'Players: ' +
-                              ((myMatch['players'] as List?)?.length ?? 1).toString() +
-                              ' of ' +
-                              (myMatch['playerCount'] ?? 2).toString(),
+                          'بازیکنان: ${(myMatch['players'] as List?)?.length ?? 1} از ${myMatch['playerCount'] ?? 2}',
+                          'Players: ${(myMatch['players'] as List?)?.length ?? 1} of ${myMatch['playerCount'] ?? 2}',
                         ),
                       ),
                       const SizedBox(height: 8),
@@ -288,24 +282,14 @@ class _ManchOnlineLobbyScreenState extends State<ManchOnlineLobbyScreen> {
                   child: ListTile(
                     title: Text(
                       _text(
-                        'اتاق ' + (match['roomCode']?.toString() ?? ''),
-                        'Room ' + (match['roomCode']?.toString() ?? ''),
+                        'اتاق ${match['roomCode']?.toString() ?? ''}',
+                        'Room ${match['roomCode']?.toString() ?? ''}',
                       ),
                     ),
                     subtitle: Text(
                       _text(
-                        '@' +
-                            (match['hostUsername']?.toString() ?? 'بازیکن') +
-                            ' • ' +
-                            (match['joinedPlayers'] ?? 1).toString() +
-                            ' از ' +
-                            (match['playerCount'] ?? 2).toString(),
-                        '@' +
-                            (match['hostUsername']?.toString() ?? 'player') +
-                            ' • ' +
-                            (match['joinedPlayers'] ?? 1).toString() +
-                            ' of ' +
-                            (match['playerCount'] ?? 2).toString(),
+                        '@${match['hostUsername']?.toString() ?? 'بازیکن'} • ${match['joinedPlayers'] ?? 1} از ${match['playerCount'] ?? 2}',
+                        '@${match['hostUsername']?.toString() ?? 'player'} • ${match['joinedPlayers'] ?? 1} of ${match['playerCount'] ?? 2}',
                       ),
                     ),
                     trailing: FilledButton(
@@ -553,7 +537,7 @@ class _ManchOnlineGameScreenState extends State<ManchOnlineGameScreen> {
                             ),
                           ),
                         ),
-                        label: Text('@' + (player['username']?.toString() ?? 'player')),
+                        label: Text('@${player['username']?.toString() ?? 'player'}'),
                       ),
                   ],
                 ),
@@ -576,10 +560,8 @@ class _ManchOnlineGameScreenState extends State<ManchOnlineGameScreen> {
                         onPressed: _busy ? null : () => _move(move),
                         child: Text(
                           _text(
-                            'مهره ' +
-                                (move.tokenIndex + 1).toString() +
-                                ' را حرکت بده',
-                            'Move token ' + (move.tokenIndex + 1).toString(),
+                            'مهره ${move.tokenIndex + 1} را حرکت بده',
+                            'Move token ${move.tokenIndex + 1}',
                           ),
                         ),
                       ),
