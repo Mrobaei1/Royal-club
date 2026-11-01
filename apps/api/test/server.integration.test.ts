@@ -3254,6 +3254,16 @@ test('owner analytics overview is owner-only, read-only, and reports source cove
       headers: auth(ordinary.token),
     });
     assert.equal(deniedAdvanced.statusCode, 403, deniedAdvanced.body);
+    const deniedCsv = await app.inject({
+      method: 'GET', url: `/api/v1/admin/analytics/export.csv?from=${today}&to=${today}`,
+      headers: auth(ordinary.token),
+    });
+    assert.equal(deniedCsv.statusCode, 403, deniedCsv.body);
+    const deniedPdf = await app.inject({
+      method: 'GET', url: `/api/v1/admin/analytics/export.pdf?from=${today}&to=${today}`,
+      headers: auth(ordinary.token),
+    });
+    assert.equal(deniedPdf.statusCode, 403, deniedPdf.body);
 
     const advanced = await app.inject({
       method: 'GET',
