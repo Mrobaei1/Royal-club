@@ -320,7 +320,9 @@ export function registerManchRoutes(app: any, pool: Pool, requireMatchAuth: any)
       }
       let nextState = rolled.state;
       let autoPassed = false;
-      if (legalManchMoves(nextState).length === 0) {
+      // A third-six penalty advances the turn inside rollManchDice and has
+      // no pending die. Only a real pending die can be auto-passed here.
+      if (nextState.pendingDice !== null && legalManchMoves(nextState).length === 0) {
         const passed = passManchTurn(nextState);
         if ('error' in passed) {
           await client.query('ROLLBACK');
