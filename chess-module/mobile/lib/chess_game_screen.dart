@@ -113,7 +113,14 @@ class _ChessGameScreenState extends State<ChessGameScreen> {
   @override
   void didUpdateWidget(covariant ChessGameScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.whiteClock != widget.whiteClock ||
+    final becameTerminal =
+        oldWidget.gameStatus == 'active' && widget.gameStatus != 'active';
+    if (becameTerminal) {
+      // Freeze the last interpolated display value; the authoritative clock
+      // props may still contain the last server sync and must not rewind it.
+      _clockTimer?.cancel();
+      _clockTimer = null;
+    } else if (oldWidget.whiteClock != widget.whiteClock ||
         oldWidget.blackClock != widget.blackClock ||
         oldWidget.activeSide != widget.activeSide ||
         oldWidget.gameStatus != widget.gameStatus) {
