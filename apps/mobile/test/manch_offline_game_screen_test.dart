@@ -15,16 +15,18 @@ void main() {
     expect(find.text('منچ ایرانی — بازی آفلاین'), findsOneWidget);
     expect(find.text('نوبت بازیکن قرمز'), findsOneWidget);
 
+    await tester.ensureVisible(find.text('انداختن تاس'));
     await tester.tap(find.text('انداختن تاس'));
     await tester.pumpAndSettle();
 
     expect(find.text('حرکت‌های مجاز'), findsOneWidget);
     expect(find.textContaining('مهره 1:'), findsOneWidget);
 
+    await tester.ensureVisible(find.textContaining('مهره 1:'));
     await tester.tap(find.textContaining('مهره 1:'));
     await tester.pumpAndSettle();
 
-    expect(find.text('مسیر 1 از 52'), findsWidgets);
+    expect(find.textContaining('مسیر 1 از 52'), findsWidgets);
     expect(find.text('حرکت انجام شد؛ نوبت اضافه داری.'), findsOneWidget);
     expect(find.text('انداختن تاس'), findsOneWidget);
   });
@@ -62,7 +64,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('نوبت بازیکن زرد'), findsOneWidget);
-    expect(find.text('مسیر 2 از 52'), findsWidgets);
+    expect(find.textContaining('مسیر 2 از 52'), findsWidgets);
     expect(find.text('انداختن تاس'), findsOneWidget);
   });
 }
