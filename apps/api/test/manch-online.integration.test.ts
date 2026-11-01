@@ -313,3 +313,91 @@ test('Manch online rooms join, roll and persist server-authoritative moves', asy
   assert.equal(rematchJoin.statusCode, 200, rematchJoin.body);
   assert.equal(rematchJoin.json().match.status, 'active');
 });
+
+
+test('Manch online supports complete 3- and 4-player seat allocation and rejects unsupported forfeits', async () => {
+  const host = await register('Manch Multi Host');
+  const guests = [
+    await register('Manch Multi Guest One'),
+    await register('Manch Multi Guest Two'),
+    await register('Manch Multi Guest Three'),
+  ];
+
+  for (const playerCount of [3, 4]) {
+    const created = await app.inject({
+      method: 'POST',
+      url: '/api/v1/manch/matches',
+      headers: auth(host.accessToken),
+      payload: { playerCount },
+    });
+    assert.equal(created.statusCode, 201, created.body);
+    const matchId = created.json().match.id;
+    assert.equal(created.json().match.status, 'waiting');
+
+    let joinedCount = 1;
+    for (const guest of guests.slice(0, playerCount - 1)) {
+      const joined = await app.inject({
+        method: 'POST',
+        url: `/api/v1/manch/matches/${matchId}/join`,
+        headers: auth(guest.accessToken),
+        payload: {},
+      });
+      assert.equal(joined.statusCode, 200, joined.body);
+      joinedCount += 1;
+      assert.equal(joined.json().match.players.length, joinedCount);
+      assert.equal(
+        joined.json().match.status,
+        joinedCount === playerCount ? 'active' : 'waiting',
+      );
+    }
+
+    const detail = await app.inject({
+      method: 'GET',
+      url: `/api/v1/manch/matches/${matchId}`,
+      headers: auth(host.accessToken),
+    });
+    assert.equal(detail.statusCode, 200, detail.body);
+    const players = detail.json().match.players as Array<Record<string, unknown>>;
+    assert.deepEqual(
+      players.map((player) => player.seatColour),
+      playerCount === 3 ? ['red', 'green', 'yellow'] : ['red', 'green', 'yellow', 'blue'],
+    );
+    assert.equal(detail.json().match.currentTurnUserId, host.user.id);
+
+    const unsupportedForfeit = await app.inject({
+      method: 'POST',
+      url: `/api/v1/manch/matches/${matchId}/forfeit`,
+      headers: auth(host.accessToken),
+      payload: {},
+    });
+    assert.equal(unsupportedForfeit.statusCode, 409);
+  }
+});
+
+test('Manch online rejects forfeit attempts by users outside a two-player match', async () => {
+  const host = await register('Manch Forfeit Host');
+  const guest = await register('Manch Forfeit Guest');
+  const outsider = await register('Manch Forfeit Outsider');
+  const created = await app.inject({
+    method: 'POST',
+    url: '/api/v1/manch/matches',
+    headers: auth(host.accessToken),
+    payload: { playerCount: 2 },
+  });
+  assert.equal(created.statusCode, 201, created.body);
+  const joined = await app.inject({
+    method: 'POST',
+    url: `/api/v1/manch/matches/${created.json().match.id}/join`,
+    headers: auth(guest.accessToken),
+    payload: {},
+  });
+  assert.equal(joined.statusCode, 200, joined.body);
+
+  const outsiderForfeit = await app.inject({
+    method: 'POST',
+    url: `/api/v1/manch/matches/${created.json().match.id}/forfeit`,
+    headers: auth(outsider.accessToken),
+    payload: {},
+  });
+  assert.equal(outsiderForfeit.statusCode, 403);
+});
