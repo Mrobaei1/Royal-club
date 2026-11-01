@@ -91,6 +91,58 @@ async function consumeOtpChallenge(
 const app = Fastify({ logger: createRoyalLoggerOptions(), trustProxy: false });
 const pool = new Pool({ connectionString: normalizeDatabaseConnectionString(process.env.DATABASE_URL) });
 
+const apiRequestStartedAt = new WeakMap<object, number>();
+const apiLatencySamples: Array<{ durationMs: number; statusCode: number; at: number }> = [];
+app.addHook('onRequest', async (request) => {
+  apiRequestStartedAt.set(request, Date.now());
+});
+app.addHook('onResponse', async (request, reply) => {
+  const startedAt = apiRequestStartedAt.get(request);
+  if (startedAt === undefined) return;
+  apiLatencySamples.push({
+    durationMs: Math.max(0, Date.now() - startedAt),
+    statusCode: reply.statusCode,
+    at: Date.now(),
+  });
+  if (apiLatencySamples.length > 2000) apiLatencySamples.splice(0, apiLatencySamples.length - 2000);
+});
+function apiLatencySnapshot() {
+  const cutoff = Date.now() - 5 * 60_000;
+  const recent = apiLatencySamples.filter((sample) => sample.at >= cutoff);
+  const sorted = recent.map((sample) => sample.durationMs).sort((a, b) => a - b);
+  const percentile = (p: number) => sorted.length
+    ? sorted[Math.min(sorted.length - 1, Math.ceil(sorted.length * p) - 1)]
+    : null;
+  const errors = recent.filter((sample) => sample.statusCode >= 500).length;
+  return {
+    windowSeconds: 300,
+    sampleCount: recent.length,
+    p50Ms: percentile(0.50),
+    p95Ms: percentile(0.95),
+    serverErrorRate: recent.length ? Number((errors / recent.length).toFixed(4)) : null,
+    scope: 'current-process-memory; resets on restart; not a provider SLA',
+  };
+}
+
+async function recordBackgammonLifecycleEvent(
+  client: PoolClient,
+  eventType: 'game_started' | 'game_finished',
+  matchId: string,
+  userId: string,
+  gameNumber: number,
+): Promise<void> {
+  await client.query(
+    `INSERT INTO analytics_game_events (game_type, event_type, match_id, user_id, metadata)
+     SELECT 'backgammon', $1, $2, $3, jsonb_build_object('gameNumber', $4::int)
+      WHERE NOT EXISTS (
+        SELECT 1 FROM analytics_game_events
+         WHERE game_type = 'backgammon' AND match_id = $2 AND event_type = $1
+           AND metadata->>'gameNumber' = $4::text
+      )`,
+    [eventType, matchId, userId, gameNumber],
+  );
+}
+
 // Expire empty waiting rooms after 60 seconds and remove their related notices.
 // The lazy calls also cover serverless runtimes where a persistent timer is not guaranteed.
 async function cleanupExpiredEmptyRooms(): Promise<number> {
@@ -152,6 +204,43 @@ await pool.query(`
   CREATE UNIQUE INDEX IF NOT EXISTS users_phone_e164_unique_idx ON users (phone_e164) WHERE phone_e164 IS NOT NULL;
 
 
+
+  CREATE TABLE IF NOT EXISTS analytics_user_activity_daily (
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    activity_date DATE NOT NULL DEFAULT ((NOW() AT TIME ZONE 'UTC')::date),
+    first_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    last_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    request_count INTEGER NOT NULL DEFAULT 1 CHECK (request_count > 0),
+    PRIMARY KEY (user_id, activity_date)
+  );
+  CREATE INDEX IF NOT EXISTS analytics_user_activity_date_idx
+    ON analytics_user_activity_daily (activity_date, user_id);
+  CREATE TABLE IF NOT EXISTS analytics_game_events (
+    id BIGSERIAL PRIMARY KEY,
+    game_type TEXT NOT NULL CHECK (game_type IN ('backgammon', 'chess', 'cards', 'uno', 'mafia')),
+    event_type TEXT NOT NULL CHECK (event_type IN ('room_created', 'player_joined', 'game_started', 'game_finished')),
+    match_id BIGINT,
+    user_id BIGINT REFERENCES users(id) ON DELETE SET NULL,
+    occurred_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    metadata JSONB NOT NULL DEFAULT '{}'::jsonb CHECK (jsonb_typeof(metadata) = 'object')
+  );
+  CREATE INDEX IF NOT EXISTS analytics_game_events_time_idx
+    ON analytics_game_events (game_type, occurred_at DESC);
+  CREATE INDEX IF NOT EXISTS analytics_game_events_match_idx
+    ON analytics_game_events (match_id, event_type);
+  CREATE TABLE IF NOT EXISTS analytics_export_audit_log (
+    id BIGSERIAL PRIMARY KEY,
+    actor_user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+    export_format TEXT NOT NULL CHECK (export_format IN ('csv', 'pdf')),
+    date_from DATE NOT NULL,
+    date_to DATE NOT NULL,
+    game_filter TEXT NOT NULL CHECK (game_filter IN ('all', 'backgammon', 'chess', 'cards', 'uno', 'mafia')),
+    aggregate_row_count INTEGER NOT NULL CHECK (aggregate_row_count >= 0),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CHECK (date_to >= date_from)
+  );
+  CREATE INDEX IF NOT EXISTS analytics_export_audit_actor_time_idx
+    ON analytics_export_audit_log (actor_user_id, created_at DESC);
 
   CREATE TABLE IF NOT EXISTS sms_otp_settings (
     id INTEGER PRIMARY KEY CHECK (id = 1),
@@ -941,6 +1030,19 @@ const requireMatchAuth = async (request: any, reply: any) => {
     await request.jwtVerify();
     const claims = request.user as { sub?: string; jti?: string; ver?: number };
     if (!await isTokenSessionActive(claims)) return reply.code(401).send({ error: 'Session expired or revoked. Please sign in again.' });
+    if (claims.sub && isNumericId(claims.sub)) {
+      try {
+        await pool.query(
+          `INSERT INTO analytics_user_activity_daily (user_id, activity_date, request_count)
+           VALUES ($1, (NOW() AT TIME ZONE 'UTC')::date, 1)
+           ON CONFLICT (user_id, activity_date) DO UPDATE
+             SET last_seen_at = NOW(), request_count = analytics_user_activity_daily.request_count + 1`,
+          [claims.sub],
+        );
+      } catch (error) {
+        request.log.warn({ err: error }, 'Analytics activity capture failed; authentication remains available');
+      }
+    }
   } catch {
     return reply.code(401).send({ error: 'Authentication required.' });
   }
@@ -1163,6 +1265,7 @@ async function processTemporaryAiTakeover(matchId: string, requesterId?: string)
     );
     if (gameFinished && winnerId && loserId) {
       const gameNumber = Number(game.host_game_wins ?? 0) + Number(game.guest_game_wins ?? 0) + 1;
+      await recordBackgammonLifecycleEvent(client, 'game_finished', matchId, winnerId, gameNumber);
       await awardProgression(client, matchId, `game:${gameNumber}`, winnerId, loserId, 'loss');
       if (matchFinished) await updateBackgammonRatings(client, winnerId, loserId);
     }
@@ -3073,6 +3176,342 @@ app.post<{ Body: { phone?: string; code?: string } }>(
   },
 );
 
+// Owner-only, read-only executive analytics. Values are sourced from authoritative tables;
+// unsupported product telemetry is deliberately omitted rather than estimated.
+app.get('/api/v1/admin/analytics/overview', { onRequest: [requireOwnerAuth] }, async (request, reply) => {
+  const generatedAt = new Date().toISOString();
+  try {
+    const dbProbeStartedAt = Date.now();
+    await pool.query('SELECT 1');
+    const databaseProbeLatencyMs = Date.now() - dbProbeStartedAt;
+    const apiLatency = apiLatencySnapshot();
+    const [users, registrations, matches, matchTrend, wallet, subscriptions, activity, gameEvents] = await Promise.all([
+      pool.query('SELECT COUNT(*)::int AS total FROM users'),
+      pool.query(`SELECT COUNT(*)::int AS total FROM users WHERE created_at >= NOW() - INTERVAL '30 days'`),
+      pool.query(`SELECT status, COUNT(*)::int AS count FROM backgammon_matches GROUP BY status`),
+      pool.query(`SELECT days.day::date AS day, COUNT(m.id)::int AS count
+        FROM generate_series((CURRENT_DATE - INTERVAL '29 days')::date, CURRENT_DATE, INTERVAL '1 day') AS days(day)
+        LEFT JOIN backgammon_matches m ON m.created_at >= days.day AND m.created_at < days.day + INTERVAL '1 day'
+        GROUP BY days.day ORDER BY days.day`),
+      pool.query(`SELECT COUNT(*)::int AS transactions,
+        COALESCE(SUM(amount) FILTER (WHERE amount > 0), 0)::text AS credits_in,
+        COALESCE(SUM(ABS(amount)) FILTER (WHERE amount < 0), 0)::text AS credits_out
+        FROM wallet_transactions WHERE created_at >= NOW() - INTERVAL '30 days'`),
+      pool.query(`SELECT COUNT(*) FILTER (WHERE status = 'active' AND ends_at > NOW())::int AS active,
+        COUNT(*)::int AS total FROM user_subscriptions`),
+      pool.query(`SELECT
+        COUNT(DISTINCT user_id) FILTER (WHERE activity_date = (NOW() AT TIME ZONE 'UTC')::date)::int AS dau,
+        COUNT(DISTINCT user_id) FILTER (WHERE activity_date >= (NOW() AT TIME ZONE 'UTC')::date - 6)::int AS wau,
+        COUNT(DISTINCT user_id) FILTER (WHERE activity_date >= (NOW() AT TIME ZONE 'UTC')::date - 29)::int AS mau,
+        COUNT(DISTINCT user_id) FILTER (WHERE activity_date >= (NOW() AT TIME ZONE 'UTC')::date - 29
+          AND user_id IN (SELECT user_id FROM analytics_user_activity_daily
+            WHERE activity_date >= (NOW() AT TIME ZONE 'UTC')::date - 29 GROUP BY user_id HAVING COUNT(DISTINCT activity_date) > 1))::int AS repeat_active_users
+        FROM analytics_user_activity_daily WHERE activity_date >= (NOW() AT TIME ZONE 'UTC')::date - 29`),
+      pool.query(`SELECT game_type, event_type, COUNT(*)::int AS count
+        FROM analytics_game_events WHERE occurred_at >= NOW() - INTERVAL '30 days'
+        GROUP BY game_type, event_type ORDER BY game_type, event_type`),
+    ]);
+    const matchCounts = Object.fromEntries(matches.rows.map((row: { status: string; count: number }) => [row.status, row.count]));
+    return {
+      generatedAt,
+      freshness: 'live-query',
+      windowDays: 30,
+      operationalTelemetry: {
+        apiLatency,
+        database: { status: 'connected', probeLatencyMs: databaseProbeLatencyMs, freshness: 'measured-during-this-request' },
+        infrastructureCost: { status: 'unavailable', reason: 'No authoritative provider billing source is connected.' },
+        agentExecution: { status: 'unavailable', reason: 'No active agent execution runtime or cost telemetry source is connected.' },
+      },
+      metrics: {
+        registeredUsers: users.rows[0]?.total ?? null,
+        registrationsLast30Days: registrations.rows[0]?.total ?? null,
+        activeUsers: {
+          dau: activity.rows[0]?.dau ?? null,
+          wau: activity.rows[0]?.wau ?? null,
+          mau: activity.rows[0]?.mau ?? null,
+          repeatActiveUsers30Days: activity.rows[0]?.repeat_active_users ?? null,
+          definition: 'distinct authenticated users with at least one successful authenticated API request per calendar day',
+          freshness: 'daily-upsert-on-authenticated-request',
+        },
+        gameActivityLast30Days: gameEvents.rows.map((row: { game_type: string; event_type: string; count: number }) => ({
+          game: row.game_type, event: row.event_type, count: row.count,
+        })),
+        backgammonMatches: {
+          waiting: matchCounts.waiting ?? 0,
+          active: matchCounts.active ?? 0,
+          finished: matchCounts.finished ?? 0,
+          cancelled: matchCounts.cancelled ?? 0,
+          total: Object.values(matchCounts).reduce((sum: number, value: unknown) => sum + Number(value ?? 0), 0),
+        },
+        walletCreditsLast30Days: {
+          transactions: wallet.rows[0]?.transactions ?? null,
+          creditsIn: wallet.rows[0]?.credits_in ?? null,
+          creditsOut: wallet.rows[0]?.credits_out ?? null,
+          classification: 'internal-non-transferable-credits-not-cash-revenue',
+        },
+        subscriptions: {
+          active: subscriptions.rows[0]?.active ?? null,
+          totalRecords: subscriptions.rows[0]?.total ?? null,
+        },
+      },
+      trends: {
+        backgammonMatchesLast30Days: matchTrend.rows.map((row: { day: Date | string; count: number }) => ({
+          date: row.day instanceof Date ? row.day.toISOString().slice(0, 10) : String(row.day).slice(0, 10),
+          count: row.count,
+        })),
+      },
+      coverage: {
+        available: ['registeredUsers', 'registrationsLast30Days', 'DAU/WAU/MAU', 'repeatActiveUsers30Days', 'backgammonMatches', 'backgammonRoomEvents', 'walletCreditsLast30Days', 'subscriptions', 'backgammonMatchesLast30Days'],
+        partial: ['retention cohorts (requires longer history and cohort policy)', 'chess/card/UNO/Mafia (no game execution/event source currently wired)'],
+        notInstrumented: ['session duration', 'API latency percentiles', 'infrastructure resource usage and cost', 'agent execution cost and quality'],
+      },
+      sources: ['users', 'analytics_user_activity_daily', 'analytics_game_events', 'backgammon_matches', 'wallet_transactions', 'user_subscriptions'],
+    };
+  } catch (error) {
+    request.log.error({ err: error }, 'Owner analytics overview query failed');
+    return reply.code(503).send({ error: 'Executive analytics data is temporarily unavailable.', generatedAt, freshness: 'unavailable' });
+  }
+});
+
+type AnalyticsRange = { from: string; to: string; game: 'all' | 'backgammon' | 'chess' | 'cards' | 'uno' | 'mafia' };
+function validAnalyticsRange(from: unknown, to: unknown, game: unknown): AnalyticsRange | null {
+  if (typeof from !== 'string' || typeof to !== 'string' ||
+      !/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to)) return null;
+  const start = new Date(`${from}T00:00:00.000Z`);
+  const end = new Date(`${to}T00:00:00.000Z`);
+  if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime()) ||
+      start.toISOString().slice(0, 10) !== from || end.toISOString().slice(0, 10) !== to ||
+      end < start || (end.getTime() - start.getTime()) / 86_400_000 > 89) return null;
+  const allowed = ['all', 'backgammon', 'chess', 'cards', 'uno', 'mafia'];
+  if (typeof game !== 'string' || !allowed.includes(game)) return null;
+  return { from, to, game: game as AnalyticsRange['game'] };
+}
+
+function buildAnalyticsPdf(reportLines: string[]): Buffer {
+  const safe = (value: string) => value
+    .replace(/[^\x20-\x7E]/g, '?')
+    .replace(/\\/g, '\\\\')
+    .replace(/\(/g, '\\(')
+    .replace(/\)/g, '\\)');
+  const pages: string[][] = [];
+  for (let i = 0; i < reportLines.length; i += 48) pages.push(reportLines.slice(i, i + 48));
+  if (pages.length === 0) pages.push(['No analytics events in the selected range.']);
+  const fontId = 3;
+  const pageIds = pages.map((_, i) => 4 + i * 2);
+  const objects: string[] = [];
+  objects[1] = '<< /Type /Catalog /Pages 2 0 R >>';
+  objects[2] = '<< /Type /Pages /Kids [' + pageIds.map((id) => String(id) + ' 0 R').join(' ') + '] /Count ' + pages.length + ' >>';
+  objects[fontId] = '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>';
+  pages.forEach((lines, index) => {
+    const pageId = pageIds[index];
+    const contentId = pageId + 1;
+    const textLines = lines.map((line) => '(' + safe(line).slice(0, 110) + ') Tj').join(' T* ');
+    const stream = 'BT /F1 9 Tf 48 790 Td 13 TL ' + textLines + ' ET';
+    objects[pageId] = '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 842] /Resources << /Font << /F1 ' + fontId + ' 0 R >> >> /Contents ' + contentId + ' 0 R >>';
+    objects[contentId] = '<< /Length ' + Buffer.byteLength(stream, 'ascii') + ' >>\nstream\n' + stream + '\nendstream';
+  });
+  let pdf = '%PDF-1.4\n';
+  const offsets = [0];
+  for (let id = 1; id < objects.length; id++) {
+    offsets[id] = Buffer.byteLength(pdf, 'ascii');
+    pdf += String(id) + ' 0 obj\n' + objects[id] + '\nendobj\n';
+  }
+  const xrefOffset = Buffer.byteLength(pdf, 'ascii');
+  pdf += 'xref\n0 ' + objects.length + '\n0000000000 65535 f \n';
+  for (let id = 1; id < objects.length; id++) {
+    pdf += String(offsets[id]).padStart(10, '0') + ' 00000 n \n';
+  }
+  pdf += 'trailer\n<< /Size ' + objects.length + ' /Root 1 0 R >>\nstartxref\n' + xrefOffset + '\n%%EOF';
+  return Buffer.from(pdf, 'ascii');
+}
+
+app.get<{ Querystring: { from?: string; to?: string; game?: string } }>(
+  '/api/v1/admin/analytics/advanced',
+  { onRequest: [requireOwnerAuth] },
+  async (request, reply) => {
+    const range = validAnalyticsRange(request.query.from, request.query.to, request.query.game ?? 'all');
+    if (!range) return reply.code(400).send({ error: 'Provide valid from/to dates (maximum 90 days) and a supported game filter.' });
+    const from = new Date(`${range.from}T00:00:00.000Z`);
+    const toExclusive = new Date(new Date(`${range.to}T00:00:00.000Z`).getTime() + 86_400_000);
+    const days = Math.round((toExclusive.getTime() - from.getTime()) / 86_400_000);
+    const previousFrom = new Date(from.getTime() - days * 86_400_000).toISOString().slice(0, 10);
+    try {
+      const [dailyActivity, dailyGames, previousActivity, currentActivity, cohortRetention] = await Promise.all([
+        pool.query(
+          `SELECT activity_date::text AS date, COUNT(DISTINCT user_id)::int AS active_users
+             FROM analytics_user_activity_daily
+            WHERE activity_date >= $1::date AND activity_date < $2::date
+            GROUP BY activity_date ORDER BY activity_date`,
+          [range.from, toExclusive.toISOString().slice(0, 10)],
+        ),
+        pool.query(
+          `SELECT DATE(occurred_at AT TIME ZONE 'UTC')::text AS date, game_type AS game, event_type AS event, COUNT(*)::int AS count
+             FROM analytics_game_events
+            WHERE occurred_at >= ($1::date::timestamp AT TIME ZONE 'UTC') AND occurred_at < ($2::date::timestamp AT TIME ZONE 'UTC')
+              AND ($3 = 'all' OR game_type = $3)
+            GROUP BY DATE(occurred_at AT TIME ZONE 'UTC'), game_type, event_type ORDER BY DATE(occurred_at AT TIME ZONE 'UTC'), game_type, event_type`,
+          [range.from, toExclusive.toISOString().slice(0, 10), range.game],
+        ),
+        pool.query(
+          `SELECT COUNT(DISTINCT user_id)::int AS active_users FROM analytics_user_activity_daily
+            WHERE activity_date >= $1::date AND activity_date < $2::date`,
+          [previousFrom, range.from],
+        ),
+        pool.query(
+          `SELECT COUNT(DISTINCT user_id)::int AS active_users FROM analytics_user_activity_daily
+            WHERE activity_date >= $1::date AND activity_date < $2::date`,
+          [range.from, toExclusive.toISOString().slice(0, 10)],
+        ),
+        pool.query(
+          `WITH first_activity AS (
+             SELECT user_id, MIN(activity_date) AS cohort_date
+               FROM analytics_user_activity_daily GROUP BY user_id
+           )
+           SELECT cohort_date::text AS cohort_date,
+                  COUNT(*)::int AS cohort_users,
+                  COUNT(*) FILTER (WHERE EXISTS (
+                    SELECT 1 FROM analytics_user_activity_daily later
+                     WHERE later.user_id = first_activity.user_id
+                       AND later.activity_date BETWEEN first_activity.cohort_date + 7
+                                                   AND first_activity.cohort_date + 13
+                  ))::int AS retained_users,
+                  ROUND(100.0 * COUNT(*) FILTER (WHERE EXISTS (
+                    SELECT 1 FROM analytics_user_activity_daily later
+                     WHERE later.user_id = first_activity.user_id
+                       AND later.activity_date BETWEEN first_activity.cohort_date + 7
+                                                   AND first_activity.cohort_date + 13
+                  )) / NULLIF(COUNT(*), 0), 1) AS retained_percent
+             FROM first_activity
+            WHERE cohort_date >= $1::date AND cohort_date < $2::date
+              AND cohort_date <= (NOW() AT TIME ZONE 'UTC')::date - 13
+            GROUP BY cohort_date ORDER BY cohort_date`,
+          [range.from, toExclusive.toISOString().slice(0, 10)],
+        ),
+      ]);
+      return {
+        generatedAt: new Date().toISOString(),
+        freshness: 'live-query',
+        filters: { ...range, timezone: 'UTC', days },
+        comparison: {
+          previousFrom,
+          previousTo: new Date(from.getTime() - 86_400_000).toISOString().slice(0, 10),
+          currentDistinctActiveUsers: currentActivity.rows[0]?.active_users ?? 0,
+          previousDistinctActiveUsers: previousActivity.rows[0]?.active_users ?? 0,
+        },
+        dailyActivity: dailyActivity.rows,
+        dailyGameEvents: dailyGames.rows,
+        cohortRetention: cohortRetention.rows,
+        cohortDefinition: 'first observed authenticated activity date; D7 retention means any authenticated activity on days 7-13 after cohort start; cohorts need 13 days of follow-up',
+        limitations: [
+          'Active users are based on authenticated API requests, not foreground app sessions.',
+          'Game event totals are recorded lifecycle events, not necessarily unique games or completed matches.',
+          'Only game types with connected event producers return events; empty results do not prove zero activity.',
+          'Comparison is distinct active users over equal-length adjacent windows, not cohort retention.',
+        ],
+        sources: ['analytics_user_activity_daily', 'analytics_game_events'],
+      };
+    } catch (error) {
+      request.log.error({ err: error }, 'Advanced analytics query failed');
+      return reply.code(503).send({ error: 'Advanced analytics is temporarily unavailable.', freshness: 'unavailable' });
+    }
+  },
+);
+
+app.get<{ Querystring: { from?: string; to?: string; game?: string } }>(
+  '/api/v1/admin/analytics/export.pdf',
+  { onRequest: [requireOwnerAuth] },
+  async (request, reply) => {
+    const range = validAnalyticsRange(request.query.from, request.query.to, request.query.game ?? 'all');
+    if (!range) return reply.code(400).send({ error: 'Provide valid from/to dates (maximum 90 days) and a supported game filter.' });
+    try {
+      const rows = await pool.query(
+        `SELECT DATE(occurred_at AT TIME ZONE 'UTC')::text AS date,
+                game_type AS game, event_type AS event, COUNT(*)::int AS count
+           FROM analytics_game_events
+          WHERE occurred_at >= ($1::date::timestamp AT TIME ZONE 'UTC')
+            AND occurred_at < (($2::date + INTERVAL '1 day')::timestamp AT TIME ZONE 'UTC')
+            AND ($3 = 'all' OR game_type = $3)
+          GROUP BY DATE(occurred_at AT TIME ZONE 'UTC'), game_type, event_type
+          ORDER BY DATE(occurred_at AT TIME ZONE 'UTC'), game_type, event_type
+          LIMIT 10000`,
+        [range.from, range.to, range.game],
+      );
+      const reportLines = [
+        'ROYAL CLUB - ANALYTICS REPORT',
+        `Range UTC: ${range.from} through ${range.to}`,
+        `Game filter: ${range.game}`,
+        `Generated: ${new Date().toISOString()}`,
+        'Metric: recorded lifecycle event counts; not unique players or completed games.',
+        'Games without connected event producers are not represented.',
+        '',
+        'DATE | GAME | EVENT | COUNT',
+        ...rows.rows.map((row: { date: string; game: string; event: string; count: number }) =>
+          `${row.date} | ${row.game} | ${row.event} | ${row.count}`),
+      ];
+      const actorId = (request.user as { sub?: string }).sub;
+      if (!actorId || !isNumericId(actorId)) return reply.code(401).send({ error: 'Owner identity is unavailable.' });
+      await pool.query(
+        `INSERT INTO analytics_export_audit_log
+          (actor_user_id, export_format, date_from, date_to, game_filter, aggregate_row_count)
+         VALUES ($1, 'pdf', $2::date, $3::date, $4, $5)`,
+        [actorId, range.from, range.to, range.game, rows.rowCount ?? 0],
+      );
+      const pdf = buildAnalyticsPdf(reportLines);
+      reply.header('Content-Type', 'application/pdf');
+      reply.header('Content-Disposition', `attachment; filename="royal-club-analytics-${range.from}-${range.to}.pdf"`);
+      reply.header('Cache-Control', 'no-store');
+      return reply.send(pdf);
+    } catch (error) {
+      request.log.error({ err: error }, 'Analytics PDF export failed');
+      return reply.code(503).send({ error: 'Analytics PDF export is temporarily unavailable.' });
+    }
+  },
+);
+
+app.get<{ Querystring: { from?: string; to?: string; game?: string } }>(
+  '/api/v1/admin/analytics/export.csv',
+  { onRequest: [requireOwnerAuth] },
+  async (request, reply) => {
+    const range = validAnalyticsRange(request.query.from, request.query.to, request.query.game ?? 'all');
+    if (!range) return reply.code(400).send({ error: 'Provide valid from/to dates (maximum 90 days) and a supported game filter.' });
+    try {
+      const rows = await pool.query(
+        `SELECT DATE(occurred_at AT TIME ZONE 'UTC')::text AS date, game_type AS game, event_type AS event, COUNT(*)::int AS count
+           FROM analytics_game_events
+          WHERE occurred_at >= ($1::date::timestamp AT TIME ZONE 'UTC') AND occurred_at < (($2::date + INTERVAL '1 day')::timestamp AT TIME ZONE 'UTC')
+            AND ($3 = 'all' OR game_type = $3)
+          GROUP BY DATE(occurred_at AT TIME ZONE 'UTC'), game_type, event_type
+          ORDER BY DATE(occurred_at AT TIME ZONE 'UTC'), game_type, event_type LIMIT 10000`,
+        [range.from, range.to, range.game],
+      );
+      const actorId = (request.user as { sub?: string }).sub;
+      if (!actorId || !isNumericId(actorId)) return reply.code(401).send({ error: 'Owner identity is unavailable.' });
+      await pool.query(
+        `INSERT INTO analytics_export_audit_log
+          (actor_user_id, export_format, date_from, date_to, game_filter, aggregate_row_count)
+         VALUES ($1, 'csv', $2::date, $3::date, $4, $5)`,
+        [actorId, range.from, range.to, range.game, rows.rowCount ?? 0],
+      );
+      const escape = (value: unknown) => '"' + String(value ?? '').replaceAll('"', '""') + '"';
+      const generatedAt = new Date().toISOString();
+      const exportMetadata = [generatedAt, 'UTC', range.from, range.to,
+        'recorded_lifecycle_event_count_not_unique_games', 'live-query'];
+      const csv = [
+        ['date', 'game', 'event', 'count', 'generated_at', 'timezone', 'filter_from', 'filter_to', 'metric_definition', 'freshness'].join(','),
+        ...rows.rows.map((row: { date: string; game: string; event: string; count: number }) =>
+          [row.date, row.game, row.event, row.count, ...exportMetadata].map(escape).join(',')),
+      ].join('\r\n');
+      reply.header('Content-Type', 'text/csv; charset=utf-8');
+      reply.header('Content-Disposition', `attachment; filename="royal-club-analytics-${range.from}-${range.to}.csv"`);
+      reply.header('Cache-Control', 'no-store');
+      return reply.send('\uFEFF' + csv);
+    } catch (error) {
+      request.log.error({ err: error }, 'Analytics CSV export failed');
+      return reply.code(503).send({ error: 'Analytics export is temporarily unavailable.' });
+    }
+  },
+);
+
 app.get('/api/v1/admin/reports', { onRequest: [requireOwnerOrPermission('reports.read')] }, async () => {
   const result = await pool.query(
     `SELECT r.id, r.reported_user_id AS "reportedUserId", target.username AS "reportedUsername",
@@ -3740,7 +4179,14 @@ app.post('/api/v1/matches', { onRequest: [requireMatchAuth] }, async (request, r
       const result = await pool.query(
         `INSERT INTO backgammon_matches (room_code, host_user_id, expires_at)
          VALUES ($1, $2, NOW() + INTERVAL '60 seconds')
-         RETURNING id, room_code AS "roomCode", status, created_at AS "createdAt", expires_at AS "expiresAt"`, [roomCode, claims.sub]);
+         RETURNING id, room_code AS "roomCode", status, created_at AS "createdAt", expires_at AS "expiresAt"`,
+        [roomCode, claims.sub],
+      );
+      await pool.query(
+        `INSERT INTO analytics_game_events (game_type, event_type, match_id, user_id)
+         VALUES ('backgammon', 'room_created', $1, $2)`,
+        [result.rows[0].id, claims.sub],
+      );
       return reply.code(201).send({ match: result.rows[0] });
     } catch (error: any) {
       if (error?.code !== '23505') {
@@ -3760,9 +4206,15 @@ app.post<{ Params: { id: string } }>('/api/v1/matches/:id/join', { onRequest: [r
     await client.query('BEGIN');
     const result = await client.query(
       `SELECT id, room_code AS "roomCode", host_user_id, guest_user_id, status, expires_at AS "expiresAt"
-         FROM backgammon_matches WHERE id = $1 FOR UPDATE`, [request.params.id]);
-    const match = result.rows[0] as { id: string; host_user_id: string; guest_user_id: string | null; status: string; expiresAt: Date } | undefined;
-    if (!match || new Date(match.expiresAt).getTime() <= Date.now() || !['waiting', 'active'].includes(match.status)) {
+         FROM backgammon_matches WHERE id = $1 FOR UPDATE`,
+      [request.params.id],
+    );
+    const match = result.rows[0] as {
+      id: string; host_user_id: string; guest_user_id: string | null;
+      status: string; expiresAt: Date;
+    } | undefined;
+    if (!match || new Date(match.expiresAt).getTime() <= Date.now() ||
+        !['waiting', 'active'].includes(match.status)) {
       await client.query('ROLLBACK');
       return reply.code(404).send({ error: 'Match not found or expired.' });
     }
@@ -3780,20 +4232,30 @@ app.post<{ Params: { id: string } }>('/api/v1/matches/:id/join', { onRequest: [r
               cancellation_proposed_by = NULL, cancellation_accepted_by = NULL,
               expires_at = NOW() + INTERVAL '30 minutes', updated_at = NOW()
          WHERE id = $2`,
-      [claims.sub, match.id]);
+      [claims.sub, match.id],
+    );
     await client.query('COMMIT');
+    await pool.query(
+      `INSERT INTO analytics_game_events (game_type, event_type, match_id, user_id)
+       VALUES ('backgammon', 'player_joined', $1, $2)`,
+      [match.id, claims.sub],
+    );
     const joined = await pool.query(
       `SELECT m.id, m.room_code AS "roomCode", m.status, host.username AS "hostName",
               guest.username AS "guestName", host.avatar_data_url AS "hostAvatarDataUrl",
               guest.avatar_data_url AS "guestAvatarDataUrl", m.created_at AS "createdAt"
          FROM backgammon_matches m JOIN users host ON host.id = m.host_user_id
-         LEFT JOIN users guest ON guest.id = m.guest_user_id WHERE m.id = $1`, [match.id]);
+         LEFT JOIN users guest ON guest.id = m.guest_user_id WHERE m.id = $1`,
+      [match.id],
+    );
     return { match: joined.rows[0] };
   } catch (error) {
     await client.query('ROLLBACK').catch(() => undefined);
     request.log.error({ err: error }, 'Could not join match');
     return reply.code(500).send({ error: 'Could not join match.' });
-  } finally { client.release(); }
+  } finally {
+    client.release();
+  }
 });
 
 app.get<{ Params: { id: string } }>('/api/v1/matches/:id', { onRequest: [requireMatchAuth] }, async (request, reply) => {
@@ -4093,16 +4555,20 @@ app.post<{ Params: { id: string }; Body: { matchToWin?: number; acceptSettings?:
         }
       }
       const current = await client.query(
-        `SELECT match_to_win, host_settings_accepted, guest_settings_accepted, host_ready, guest_ready
+        `SELECT match_to_win, host_game_wins, guest_game_wins, host_settings_accepted, guest_settings_accepted, host_ready, guest_ready
            FROM backgammon_matches WHERE id = $1 FOR UPDATE`, [request.params.id]);
       const setup = current.rows[0];
       let status = 'waiting';
       if (setup.host_settings_accepted && setup.guest_settings_accepted && setup.host_ready && setup.guest_ready) {
-        await client.query(
+        const started = await client.query(
           `UPDATE backgammon_matches SET status = 'active', current_turn_user_id = host_user_id,
              dice = '[]'::jsonb, remaining_dice = '[]'::jsonb, state_version = 0,
              turn_started_at = NOW(),
              expires_at = NOW() + INTERVAL '30 minutes', updated_at = NOW() WHERE id = $1 AND status = 'waiting'`, [request.params.id]);
+        if (started.rowCount) {
+          const gameNumber = Number(setup.host_game_wins ?? 0) + Number(setup.guest_game_wins ?? 0) + 1;
+          await recordBackgammonLifecycleEvent(client, 'game_started', request.params.id, m.host_user_id, gameNumber);
+        }
         await client.query(
           `INSERT INTO backgammon_match_presence (match_id, user_id)
            VALUES ($1, $2), ($1, $3)
@@ -4229,6 +4695,8 @@ app.post<{ Params: { id: string }; Body: { scope?: 'game' | 'match' } }>(
             WHERE id = $2`,
           [winnerUserId, match.id],
         );
+        const gameNumber = Number(match.host_game_wins ?? 0) + Number(match.guest_game_wins ?? 0) + 1;
+        await recordBackgammonLifecycleEvent(client, 'game_finished', match.id, winnerUserId, gameNumber);
         await awardProgression(client, match.id, 'match-resignation', winnerUserId, claims.sub, 'quit');
         await updateBackgammonRatings(client, winnerUserId, claims.sub);
         await client.query('COMMIT');
@@ -4257,6 +4725,7 @@ app.post<{ Params: { id: string }; Body: { scope?: 'game' | 'match' } }>(
          JSON.stringify(INITIAL_BACKGAMMON_BOARD), winnerUserId, match.id],
       );
       const gameNumber = Number(match.host_game_wins ?? 0) + Number(match.guest_game_wins ?? 0) + 1;
+      await recordBackgammonLifecycleEvent(client, 'game_finished', match.id, winnerUserId, gameNumber);
       await awardProgression(client, match.id, `game:${gameNumber}`, winnerUserId, claims.sub, 'quit');
       if (matchFinished) {
         await updateBackgammonRatings(client, winnerUserId, claims.sub);
@@ -4406,6 +4875,7 @@ app.post<{ Params: { id: string }; Body: { moves: Array<{ from: number | null; t
       const winnerId = simulated.off.host >= 15 ? game.host_user_id : game.guest_user_id;
       const loserId = winnerId === game.host_user_id ? game.guest_user_id : game.host_user_id;
       const gameNumber = Number(game.host_game_wins ?? 0) + Number(game.guest_game_wins ?? 0) + 1;
+      await recordBackgammonLifecycleEvent(client, 'game_finished', game.id, winnerId, gameNumber);
       await awardProgression(client, game.id, `game:${gameNumber}`, winnerId, loserId, 'loss');
       if (matchFinished) await updateBackgammonRatings(client, winnerId, loserId);
     }
@@ -4535,6 +5005,7 @@ app.post<{ Params: { id: string }; Body: { from: number | null; to: number | nul
       const winnerId = off.host >= 15 ? game.host_user_id : game.guest_user_id;
       const loserId = winnerId === game.host_user_id ? game.guest_user_id : game.host_user_id;
       const gameNumber = Number(game.host_game_wins ?? 0) + Number(game.guest_game_wins ?? 0) + 1;
+      await recordBackgammonLifecycleEvent(client, 'game_finished', game.id, winnerId, gameNumber);
       await awardProgression(client, game.id, `game:${gameNumber}`, winnerId, loserId, 'loss');
       if (matchFinished) await updateBackgammonRatings(client, winnerId, loserId);
     }

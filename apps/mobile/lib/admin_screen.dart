@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'l10n/app_text.dart';
 import 'package:flutter/services.dart';
 import 'services/admin_service.dart';
+import 'owner_analytics_screen.dart';
 
 class AdminScreen extends StatefulWidget {
   const AdminScreen({super.key});
@@ -1314,6 +1315,15 @@ class _AdminScreenState extends State<AdminScreen> {
               SizedBox(height: 8), Text(appText(context, 'این بخش فقط برای شناسه مالک تعریف‌شده در تنظیمات سرور قابل استفاده است.', 'This section is available only to the owner ID configured on the server.'), textAlign: TextAlign.center),
             ])))
           : ListView(padding: const EdgeInsets.all(16), children: [
+              Card(
+                child: ListTile(
+                  leading: const Icon(Icons.analytics_outlined),
+                  title: Text(appText(context, 'داشبورد آمار و تحلیل مدیر کل', 'Owner executive analytics')),
+                  subtitle: Text(appText(context, 'نمای زنده و تحلیل داده‌های معتبر موجود', 'Live overview and analysis of verified available data')),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const OwnerAnalyticsScreen())),
+                ),
+              ),
 
               Card(child: Padding(padding: const EdgeInsets.all(14), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text(appText(context, 'امنیت و احراز هویت — پیامک / OTP', 'Security & authentication — SMS / OTP'), style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),

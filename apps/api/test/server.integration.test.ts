@@ -3186,3 +3186,128 @@ test('owner-managed profile customization pricing charges atomically and keeps t
     else process.env.OWNER_USER_ID = previousOwnerId;
   }
 });
+
+
+test('owner analytics overview is owner-only, read-only, and reports source coverage', async () => {
+  const previousOwnerId = process.env.OWNER_USER_ID;
+  const owner = await register('Analytics Dashboard Owner');
+  const ordinary = await register('Analytics Dashboard User');
+  process.env.OWNER_USER_ID = owner.user.id;
+  try {
+    const denied = await app.inject({
+      method: 'GET', url: '/api/v1/admin/analytics/overview', headers: auth(ordinary.token),
+    });
+    assert.equal(denied.statusCode, 403, denied.body);
+
+    const room = await app.inject({
+      method: 'POST', url: '/api/v1/matches', headers: auth(owner.token),
+    });
+    assert.equal(room.statusCode, 201, room.body);
+
+    await testPool.query(`
+      INSERT INTO analytics_game_events (game_type, event_type, user_id, occurred_at)
+      SELECT 'backgammon', 'game_started', $1,
+             ((CURRENT_DATE - ((n - 1) % 30))::timestamp + INTERVAL '12 hours') AT TIME ZONE 'UTC'
+        FROM generate_series(1, 10000) AS n
+    `, [owner.user.id]);
+
+    const response = await app.inject({
+      method: 'GET', url: '/api/v1/admin/analytics/overview', headers: auth(owner.token),
+    });
+    assert.equal(response.statusCode, 200, response.body);
+    const body = response.json();
+    assert.equal(body.freshness, 'live-query');
+    assert.equal(body.windowDays, 30);
+    assert.equal(body.operationalTelemetry.database.status, 'connected');
+    assert.ok(Number.isInteger(body.operationalTelemetry.database.probeLatencyMs));
+    assert.ok(Number.isInteger(body.operationalTelemetry.apiLatency.sampleCount));
+    assert.equal(body.operationalTelemetry.infrastructureCost.status, 'unavailable');
+    assert.equal(body.operationalTelemetry.agentExecution.status, 'unavailable');
+    assert.ok(Number.isInteger(body.metrics.registeredUsers));
+    assert.ok(Array.isArray(body.trends.backgammonMatchesLast30Days));
+    assert.equal(body.trends.backgammonMatchesLast30Days.length, 30);
+    assert.ok(body.coverage.available.includes('DAU/WAU/MAU'));
+    assert.ok(body.coverage.partial.some((item: string) => item.includes('retention cohorts')));
+    assert.ok(Number.isInteger(body.metrics.activeUsers.dau));
+    assert.ok(Number.isInteger(body.metrics.activeUsers.wau));
+    assert.ok(Number.isInteger(body.metrics.activeUsers.mau));
+    assert.equal(body.metrics.activeUsers.definition,
+      'distinct authenticated users with at least one successful authenticated API request per calendar day');
+    assert.ok(Array.isArray(body.metrics.gameActivityLast30Days));
+    assert.ok(body.metrics.gameActivityLast30Days.some((event: { game: string; event: string; count: number }) =>
+      event.game === 'backgammon' && event.event === 'room_created' && event.count >= 1));
+    assert.ok(body.metrics.activeUsers.mau >= 1);
+    assert.equal(body.metrics.walletCreditsLast30Days.classification,
+      'internal-non-transferable-credits-not-cash-revenue');
+    assert.deepEqual(body.sources, ['users', 'analytics_user_activity_daily', 'analytics_game_events', 'backgammon_matches', 'wallet_transactions', 'user_subscriptions']);
+
+    const today = new Date().toISOString().slice(0, 10);
+    const thirtyDaysAgo = new Date(Date.now() - 29 * 86_400_000).toISOString().slice(0, 10);
+    const invalidRange = await app.inject({
+      method: 'GET', url: '/api/v1/admin/analytics/advanced?from=2026-99-99&to=2026-99-99',
+      headers: auth(owner.token),
+    });
+    assert.equal(invalidRange.statusCode, 400, invalidRange.body);
+
+    const deniedAdvanced = await app.inject({
+      method: 'GET', url: `/api/v1/admin/analytics/advanced?from=${today}&to=${today}`,
+      headers: auth(ordinary.token),
+    });
+    assert.equal(deniedAdvanced.statusCode, 403, deniedAdvanced.body);
+    const deniedCsv = await app.inject({
+      method: 'GET', url: `/api/v1/admin/analytics/export.csv?from=${today}&to=${today}`,
+      headers: auth(ordinary.token),
+    });
+    assert.equal(deniedCsv.statusCode, 403, deniedCsv.body);
+    const deniedPdf = await app.inject({
+      method: 'GET', url: `/api/v1/admin/analytics/export.pdf?from=${today}&to=${today}`,
+      headers: auth(ordinary.token),
+    });
+    assert.equal(deniedPdf.statusCode, 403, deniedPdf.body);
+
+    const advanced = await app.inject({
+      method: 'GET',
+      url: `/api/v1/admin/analytics/advanced?from=${thirtyDaysAgo}&to=${today}&game=backgammon`,
+      headers: auth(owner.token),
+    });
+    assert.equal(advanced.statusCode, 200, advanced.body);
+    assert.equal(advanced.json().filters.game, 'backgammon');
+    assert.equal(advanced.json().filters.timezone, 'UTC');
+    assert.ok(Array.isArray(advanced.json().dailyGameEvents));
+    assert.ok(Array.isArray(advanced.json().cohortRetention));
+    assert.match(advanced.json().cohortDefinition, /D7 retention/);
+    const aggregatedEventCount = advanced.json().dailyGameEvents.reduce(
+      (sum: number, event: { count: number }) => sum + Number(event.count), 0);
+    assert.ok(aggregatedEventCount >= 10001, `Expected 10,000 seeded events plus the room-created event; received ${aggregatedEventCount}.`);
+
+    const csv = await app.inject({
+      method: 'GET',
+      url: `/api/v1/admin/analytics/export.csv?from=${thirtyDaysAgo}&to=${today}&game=backgammon`,
+      headers: auth(owner.token),
+    });
+    assert.equal(csv.statusCode, 200, csv.body);
+    assert.match(csv.headers['content-type'] ?? '', /text\/csv/);
+    assert.ok(csv.body.includes('date,game,event,count'));
+    assert.ok(csv.body.includes('metric_definition'));
+    assert.ok(csv.body.includes('recorded_lifecycle_event_count_not_unique_games'));
+
+    const pdf = await app.inject({
+      method: 'GET',
+      url: `/api/v1/admin/analytics/export.pdf?from=${thirtyDaysAgo}&to=${today}&game=backgammon`,
+      headers: auth(owner.token),
+    });
+    assert.equal(pdf.statusCode, 200, pdf.body.toString());
+    assert.match(pdf.headers['content-type'] ?? '', /application\/pdf/);
+    assert.ok(pdf.rawPayload.subarray(0, 8).toString('ascii').startsWith('%PDF-1.4'));
+    const exportAudit = await testPool.query(
+      `SELECT export_format, aggregate_row_count FROM analytics_export_audit_log
+        WHERE actor_user_id = $1 ORDER BY id DESC LIMIT 2`,
+      [owner.user.id],
+    );
+    assert.deepEqual(exportAudit.rows.map((row) => row.export_format).sort(), ['csv', 'pdf']);
+    assert.ok(exportAudit.rows.every((row) => Number(row.aggregate_row_count) > 0));
+  } finally {
+    if (previousOwnerId === undefined) delete process.env.OWNER_USER_ID;
+    else process.env.OWNER_USER_ID = previousOwnerId;
+  }
+});

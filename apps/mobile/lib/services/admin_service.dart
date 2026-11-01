@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import 'auth_service.dart';
@@ -122,6 +123,52 @@ class AdminService {
 
   static Future<void> revokePermissionGrant(String grantId) async {
     await _request('DELETE', '/api/v1/admin/permissions/grants/$grantId');
+  }
+
+  static Future<Map<String, dynamic>> executiveAnalyticsOverview() async =>
+      await _request('GET', '/api/v1/admin/analytics/overview');
+
+  static Future<Map<String, dynamic>> advancedAnalytics({
+    required String from,
+    required String to,
+    String game = 'all',
+  }) async {
+    final query = Uri(queryParameters: {'from': from, 'to': to, 'game': game}).query;
+    return _request('GET', '/api/v1/admin/analytics/advanced?$query');
+  }
+
+  static Future<String> exportAnalyticsCsv({
+    required String from,
+    required String to,
+    String game = 'all',
+  }) async {
+    final headers = await _headers();
+    final query = Uri(queryParameters: {'from': from, 'to': to, 'game': game}).query;
+    final response = await http.get(
+      Uri.parse('${AuthService.baseUrl}/api/v1/admin/analytics/export.csv?$query'),
+      headers: headers,
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception('خروجی آمار دریافت نشد.');
+    }
+    return response.body;
+  }
+
+  static Future<Uint8List> exportAnalyticsPdf({
+    required String from,
+    required String to,
+    String game = 'all',
+  }) async {
+    final headers = await _headers();
+    final query = Uri(queryParameters: {'from': from, 'to': to, 'game': game}).query;
+    final response = await http.get(
+      Uri.parse('${AuthService.baseUrl}/api/v1/admin/analytics/export.pdf?$query'),
+      headers: headers,
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception('خروجی PDF آمار دریافت نشد.');
+    }
+    return response.bodyBytes;
   }
 
   static Future<bool> isOwner() async => (await _request('GET', '/api/v1/admin/status'))['isOwner'] == true;

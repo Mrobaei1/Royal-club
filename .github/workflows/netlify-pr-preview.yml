@@ -1,0 +1,61 @@
+name: Royal Club Netlify PR Preview
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
+
+permissions:
+  contents: read
+
+concurrency:
+  group: netlify-pr-preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  deploy-preview:
+    name: Build and deploy isolated Netlify preview
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+      NETLIFY_SITE_ID: d2221b1c-728d-45be-9376-b0e195131891
+      API_BASE_URL: https://pr-${{ github.event.pull_request.number }}--royal-club-6ob5.netlify.app
+      PR_NUMBER: ${{ github.event.pull_request.number }}
+    steps:
+      - name: Check out pull request
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Install Flutter dependencies
+        working-directory: apps/mobile
+        run: flutter pub get
+
+      - name: Build web app for Netlify root
+        working-directory: apps/mobile
+        run: |
+          flutter build web --release --base-href / --dart-define="API_BASE_URL=$API_BASE_URL"
+
+      - name: Deploy isolated PR preview (never production)
+        run: |
+          if [ -z "$NETLIFY_AUTH_TOKEN" ]; then
+            echo "::error::Missing GitHub Actions secret NETLIFY_AUTH_TOKEN. Add it under Settings > Secrets and variables > Actions, then rerun this workflow."
+            exit 1
+          fi
+          npx --yes netlify-cli@23.11.0 deploy \
+            --dir=apps/mobile/build/web \
+            --site="$NETLIFY_SITE_ID" \
+            --auth="$NETLIFY_AUTH_TOKEN" \
+            --context=deploy-preview \
+            --alias="pr-$PR_NUMBER" \
+            --message="Royal Club PR #$PR_NUMBER preview" \
+            --json
