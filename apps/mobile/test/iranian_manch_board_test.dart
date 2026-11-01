@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:royal_club/games/manch/iranian_manch_board.dart';
+import 'package:royal_club/games/manch/manch_engine.dart';
+import 'package:royal_club/games/manch/manch_rule_profile.dart';
 
 void main() {
   testWidgets('Iranian Manch board renders as a square custom-painted board',
@@ -57,4 +59,32 @@ void main() {
     await tester.tapAt(boardTopLeft + const Offset(35, 35));
     expect(tapped, ManchSeat.red);
   });
+  testWidgets('board renders token positions from a live game state',
+      (tester) async {
+    const engine = ManchEngine();
+    final state = engine.newGame(
+      playerCount: 2,
+      profile: const ManchRuleProfile(),
+    );
+    final afterRoll = engine.roll(state, 6);
+    final afterEntry = engine.move(afterRoll, 0);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: SizedBox(
+              width: 320,
+              child: IranianManchBoard(
+                gameState: afterEntry,
+                showSampleTokens: false,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    expect(tester.takeException(), isNull);
+    expect(find.byType(IranianManchBoard), findsOneWidget);
+  });
+
 }
