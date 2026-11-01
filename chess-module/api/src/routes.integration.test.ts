@@ -20,6 +20,7 @@ const migrationFiles = [
   "007_chat_rate_limit_index.sql",
   "008_cancel_draws_on_terminal.sql",
   "009_draw_offer_expiry.sql",
+      "010_presence_sessions.sql",
 ];
 
 test("authenticated chess routes support private game, draw, chat, voice, profiles and admin audit", { skip: !databaseUrl }, async () => {
