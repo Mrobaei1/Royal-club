@@ -138,23 +138,29 @@ class AdminService {
 
   static Future<List<dynamic>> plans() async => (await _request('GET', '/api/v1/admin/subscription-plans'))['plans'] as List<dynamic>? ?? [];
 
-  static Future<List<dynamic>> leagues() async =>
-      (await _request('GET', '/api/v1/admin/leagues'))['leagues'] as List<dynamic>? ?? [];
+  static Future<List<dynamic>> leagues({String? gameCode}) async =>
+      (await _request('GET', '/api/v1/admin/leagues${gameCode == null ? '' : '?gameCode=${Uri.encodeQueryComponent(gameCode)}'}'))['leagues'] as List<dynamic>? ?? [];
 
   static Future<Map<String, dynamic>> createLeague({
-    required String code,
+    String? code,
+    String gameCode = 'backgammon',
     required String name,
     required bool enabled,
     required String entryMode,
     required int subscriptionDaysCost,
     required String format,
     required int minimumParticipants,
+    String? startsAt,
+    String? endsAt,
   }) async => (await _request('POST', '/api/v1/admin/leagues', body: {
-        'code': code.trim().toLowerCase(),
+        'gameCode': gameCode.trim().toLowerCase(),
+        if (code != null && code.trim().isNotEmpty) 'code': code.trim().toLowerCase(),
         'name': name.trim(),
         'enabled': enabled,
         'entryMode': entryMode,
         'subscriptionDaysCost': subscriptionDaysCost,
+        if (startsAt != null) 'startsAt': startsAt,
+        if (endsAt != null) 'endsAt': endsAt,
         'rules': {
           'format': format, 'minimumParticipants': minimumParticipants,
           'restPolicy': 'balanced_report_actual_games',
@@ -171,6 +177,8 @@ class AdminService {
     bool? enabled,
     String? entryMode,
     int? subscriptionDaysCost,
+    String? startsAt,
+    String? endsAt,
     Map<String, dynamic>? rules,
   }) async {
     final body = <String, dynamic>{};
@@ -178,6 +186,8 @@ class AdminService {
     if (enabled != null) body['enabled'] = enabled;
     if (entryMode != null) body['entryMode'] = entryMode;
     if (subscriptionDaysCost != null) body['subscriptionDaysCost'] = subscriptionDaysCost;
+    if (startsAt != null) body['startsAt'] = startsAt;
+    if (endsAt != null) body['endsAt'] = endsAt;
     if (rules != null) body['rules'] = rules;
     return (await _request('PATCH', '/api/v1/admin/leagues/$id', body: body))['league'] as Map<String, dynamic>;
   }
