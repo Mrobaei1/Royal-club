@@ -79,9 +79,12 @@ test('authenticated sockets enforce host start and keep hands and voice signals 
     assert.equal('drawnCardId' in publicState, false);
     assert.equal('hand' in (publicState.players as Array<Record<string, unknown>>)[0]!, false);
     const actionRoomEvent = nextEvent(guest, 'uno:room:state');
+    const updatedHostHandEvent = nextEvent(host, 'uno:game:hand');
     const drawAck = await emitAck(host, 'uno:game:action', { code, action: { type: 'draw' } });
     assert.equal(drawAck.ok, true);
     const actionRoom = await actionRoomEvent as Record<string, unknown>;
+    const updatedHostHand = await updatedHostHandEvent as unknown[];
+    assert.equal(updatedHostHand.length, 8);
     assert.equal(actionRoom.status, 'playing');
     assert.equal(actionRoom.matchToWin, 3);
 
@@ -126,6 +129,8 @@ test('authenticated sockets enforce host start and keep hands and voice signals 
     clients.push(secondHostDevice);
     const restoredHost = await emitAck(secondHostDevice, 'uno:room:reconnect', { code });
     assert.equal(restoredHost.ok, true);
+    const restoredData = restoredHost.data as Record<string, unknown>;
+    assert.deepEqual(restoredData.hand, updatedHostHand);
     host.disconnect();
     await new Promise(resolve => setTimeout(resolve, 50));
     assert.equal(roomManager.getRoom(code).players[0]!.connected, true);
