@@ -99,9 +99,17 @@ const io = new Server(app.server, {
   maxHttpBufferSize: 64 * 1024,
 });
 registerUnoSockets(io, verifyRoyalToken, roomManager, persistRooms);
+const roomCleanupTimer = setInterval(() => {
+  const removed = roomManager.cleanupExpiredRooms();
+  if (removed > 0) {
+    app.log.info({ removed }, 'Expired inactive UNO rooms');
+    void persistRooms().catch(error => app.log.error(error, 'Failed to persist UNO room cleanup'));
+  }
+}, 60_000);
+roomCleanupTimer.unref();
 const port = Number(process.env.PORT ?? 4100);
 const host = process.env.HOST ?? '0.0.0.0';
-app.addHook('onClose', async () => { await roomWriteQueue.catch(error => app.log.error(error)); await pool.end(); });
+app.addHook('onClose', async () => { clearInterval(roomCleanupTimer); await roomWriteQueue.catch(error => app.log.error(error)); await pool.end(); });
 try {
   await app.listen({ port, host });
   app.log.info(`UNO standalone service listening on ${host}:${port}`);
