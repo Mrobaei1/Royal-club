@@ -29,6 +29,7 @@ The TypeScript catalog in `apps/api/src/agent-catalog.ts` defines inert starting
 - Content and communications
 - Analytics and reporting
 - Platform operations
+- Infrastructure & reliability (dedicated server/domain/network monitoring and incident-response specialist)
 - Community moderation
 - Advertising operations
 

@@ -9,6 +9,9 @@ test('agent role catalog is unique and contains a parameterized game specialist'
   assert.equal(getAgentTemplate('chess')?.gameScoped, false);
   assert.equal(getAgentTemplate('card_games')?.gameScoped, false);
   assert.equal(getAgentTemplate('game_operations')?.gameScoped, true);
+  const infrastructure = getAgentTemplate('infrastructure_reliability');
+  assert.equal(infrastructure?.gameScoped, false);
+  assert.deepEqual(infrastructure?.defaultCapabilities, ['read', 'recommend']);
   assert.equal(gameAgentTemplateCode('uno'), 'game_operations:uno');
   assert.equal(gameAgentTemplateCode('poker'), 'game_operations:poker');
 });
