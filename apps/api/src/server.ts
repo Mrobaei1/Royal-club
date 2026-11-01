@@ -3887,9 +3887,15 @@ app.post<{ Params: { id: string } }>('/api/v1/matches/:id/join', { onRequest: [r
     await client.query('BEGIN');
     const result = await client.query(
       `SELECT id, room_code AS "roomCode", host_user_id, guest_user_id, status, expires_at AS "expiresAt"
-         FROM backgammon_matches WHERE id = $1 FOR UPDATE`, [request.params.id]);
-    const match = result.rows[0] as { id: string; host_user_id: string; guest_user_id: string | null; status: string; expiresAt: Date } | undefined;
-    if (!match || new Date(match.expiresAt).getTime() <= Date.now() || !['waiting', 'active'].includes(match.status)) {
+         FROM backgammon_matches WHERE id = $1 FOR UPDATE`,
+      [request.params.id],
+    );
+    const match = result.rows[0] as {
+      id: string; host_user_id: string; guest_user_id: string | null;
+      status: string; expiresAt: Date;
+    } | undefined;
+    if (!match || new Date(match.expiresAt).getTime() <= Date.now() ||
+        !['waiting', 'active'].includes(match.status)) {
       await client.query('ROLLBACK');
       return reply.code(404).send({ error: 'Match not found or expired.' });
     }
@@ -3907,14 +3913,12 @@ app.post<{ Params: { id: string } }>('/api/v1/matches/:id/join', { onRequest: [r
               cancellation_proposed_by = NULL, cancellation_accepted_by = NULL,
               expires_at = NOW() + INTERVAL '30 minutes', updated_at = NOW()
          WHERE id = $2`,
-      [claims.sub, match.id]);
+      [claims.sub, match.id],
+    );
     await client.query('COMMIT');
     await pool.query(
       `INSERT INTO analytics_game_events (game_type, event_type, match_id, user_id)
        VALUES ('backgammon', 'player_joined', $1, $2)`,
-      [match.id, claims.sub],
-    );
-    const joined = await pool.query()`,
       [match.id, claims.sub],
     );
     const joined = await pool.query(
@@ -3922,13 +3926,17 @@ app.post<{ Params: { id: string } }>('/api/v1/matches/:id/join', { onRequest: [r
               guest.username AS "guestName", host.avatar_data_url AS "hostAvatarDataUrl",
               guest.avatar_data_url AS "guestAvatarDataUrl", m.created_at AS "createdAt"
          FROM backgammon_matches m JOIN users host ON host.id = m.host_user_id
-         LEFT JOIN users guest ON guest.id = m.guest_user_id WHERE m.id = $1`, [match.id]);
+         LEFT JOIN users guest ON guest.id = m.guest_user_id WHERE m.id = $1`,
+      [match.id],
+    );
     return { match: joined.rows[0] };
   } catch (error) {
     await client.query('ROLLBACK').catch(() => undefined);
     request.log.error({ err: error }, 'Could not join match');
     return reply.code(500).send({ error: 'Could not join match.' });
-  } finally { client.release(); }
+  } finally {
+    client.release();
+  }
 });
 
 app.get<{ Params: { id: string } }>('/api/v1/matches/:id', { onRequest: [requireMatchAuth] }, async (request, reply) => {
