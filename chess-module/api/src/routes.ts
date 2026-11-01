@@ -264,7 +264,9 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
   app.post<{Params:{gameId:string};Body:ChatBody}>("/chess/games/:gameId/chat",{preHandler:options.authenticate},async(request,reply)=>{
     let playerId:string;
     try{playerId=userId(request,options);}catch{return fail(reply,401,"unauthorized");}
-    const message=(request.body?.message??"").trim();
+    const rawMessage=request.body?.message;
+    if(typeof rawMessage!=="string")return fail(reply,400,"invalid_message");
+    const message=rawMessage.trim();
     if(!message||message.length>2000)return fail(reply,400,"invalid_message");
     const client=await pool.connect();
     try{
