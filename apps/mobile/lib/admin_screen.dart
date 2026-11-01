@@ -1419,6 +1419,8 @@ class _AdminScreenState extends State<AdminScreen> {
         country: userId == null && _notificationAudience == 'filtered' ? _countryFilter.text : null,
         subscriptionStatus: userId == null && _notificationAudience == 'filtered' ? _subscriptionFilter : 'any',
         hasPhone: userId == null && _notificationAudience == 'filtered' ? _phoneFilter : 'any',
+        minBalance: userId == null && _notificationAudience == 'filtered' ? minBalance : null,
+        maxBalance: userId == null && _notificationAudience == 'filtered' ? maxBalance : null,
         showOnLogin: _showOnLogin,
         title: title,
         body: body,
