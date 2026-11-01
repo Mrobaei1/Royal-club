@@ -186,7 +186,11 @@ class ManchEngine {
         }
       }
     }
-    if (enemies.length >= 2 && state.profile.blockadesEnabled) return false;
+    if (enemies.length >= 2 &&
+        state.profile.blockadesEnabled &&
+        state.profile.blockadeBlocksOpponents) {
+      return false;
+    }
     return true;
   }
 
