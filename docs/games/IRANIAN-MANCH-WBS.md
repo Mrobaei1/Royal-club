@@ -39,10 +39,24 @@ Deliver a Persian/Iranian classic four-colour Manch game that fits the existing 
 - Do not create an APK unless the owner explicitly authorizes it.
 
 ## Current measured progress
-- WBS, requirements direction and source shortlist are prepared.
-- Initial board widget foundation is being added on an isolated feature branch.
-- Rules, offline mode, online mode, app integration and end-to-end tests are not yet implemented.
-- A percentage is not raised for uncompiled code or unverified CI.
+
+Measured conservatively from committed implementation and available test evidence (latest report: 2026-11-01). Percentages below are completion within each work package, not the weighted contribution.
+
+| ID | Work package | Weight | Current progress | Evidence / remaining gate |
+|---|---|---:|---:|---|
+| 1 | Requirements and Iranian rule profile | 10% | 80% | Variant research and configurable profile exist; owner must approve the final local rule matrix. |
+| 2 | Open-source research and license review | 15% | 75% | Candidate shortlist and selected license checks exist; exact commit pinning and full obligations audit remain. |
+| 3 | Iranian board visual design | 15% | 55% | 52-cell board painter, four yards, four home lanes, entry markers and widget tests exist; final visual review and geometry acceptance remain. |
+| 4 | Pure Dart rules engine | 15% | 50% | Deterministic core, serializable state, configurable profile and scenario tests exist; edge-case coverage and full CI verification remain. |
+| 5 | Offline game mode | 10% | 0% | Not implemented. |
+| 6 | Online game service | 15% | 0% | Not implemented. |
+| 7 | Royal Club integration | 10% | 0% | Not implemented. |
+| 8 | UX polish | 5% | 0% | Not implemented. |
+| 9 | End-to-end validation and stabilization | 5% | 0% | Full Manch acceptance and multi-client validation not yet complete. |
+
+Weighted overall progress: **35%** (10%×80% + 15%×75% + 15%×55% + 15%×50%). This is not a claim that 35% of the full game is playable: offline mode, online mode, integration, polish and end-to-end acceptance remain outstanding.
+
+The last confirmed green CI snapshot was for commit `bb64e1d`. A later rules/test/documentation change is being validated separately; do not treat that newer commit as green until its own workflow runs complete successfully.
 
 ## Rule decisions that must be explicitly confirmed
 - Token count per player (traditional default is four).
