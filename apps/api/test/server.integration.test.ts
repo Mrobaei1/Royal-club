@@ -3252,7 +3252,7 @@ test('owner analytics overview is owner-only, read-only, and reports source cove
       headers: auth(owner.token),
     });
     assert.equal(csv.statusCode, 200, csv.body);
-    assert.match(csv.headers['content-type'] ?? '', /text\\/csv/);
+    assert.match(csv.headers['content-type'] ?? '', /text\/csv/);
     assert.ok(csv.body.includes('date,game,event,count'));
   } finally {
     if (previousOwnerId === undefined) delete process.env.OWNER_USER_ID;
