@@ -214,6 +214,24 @@ test('registered players can join an online match and history does not expose op
   assert.ok((hostNotifications.json().notifications as Array<Record<string, unknown>>).length > 0);
   assert.ok((guestNotifications.json().notifications as Array<Record<string, unknown>>).length > 0);
 
+  await testPool.query(
+    `INSERT INTO notifications (user_id, actor_user_id, type, title, body, data)
+      VALUES
+        ($1, $2, 'system', 'Login announcement', 'Shown on entry', '{"showOnLogin":true}'::jsonb),
+        ($1, $2, 'system', 'Inbox only', 'Not shown on entry', '{"showOnLogin":false}'::jsonb)`,
+    [host.user.id, guest.user.id],
+  );
+  const loginAnnouncements = await app.inject({
+    method: 'GET',
+    url: '/api/v1/notifications?loginOnly=true',
+    headers: auth(host.token),
+  });
+  assert.equal(loginAnnouncements.statusCode, 200, loginAnnouncements.body);
+  const loginNotices = loginAnnouncements.json().notifications as Array<Record<string, unknown>>;
+  assert.ok(loginNotices.some((notice) => notice.title === 'Login announcement'));
+  assert.equal(loginNotices.some((notice) => notice.title === 'Inbox only'), false);
+  assert.ok(loginNotices.every((notice) => notice.readAt == null));
+
   const clearHostNotifications = await app.inject({
     method: 'DELETE',
     url: '/api/v1/notifications',
