@@ -116,7 +116,7 @@ export function startUnoGame(players: Array<{ id: string; username: string }>): 
   const direction = opening.direction;
   return {
     players: gamePlayers, drawPile: deck, discardPile: [first], currentPlayerIndex,
-    direction, activeColor: first.color as UnoColor, drawnCardId: null,
+    direction, activeColor: first.color === 'wild' ? 'red' : first.color as UnoColor, drawnCardId: null,
     unoPendingPlayerId: null, pendingWild4: null, openingColorPendingPlayerId: first.face === 'wild' ? gamePlayers[0]!.id : null, winnerId: null, winnerScore: 0, turnNumber: 1,
   };
 }
