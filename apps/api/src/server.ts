@@ -966,13 +966,17 @@ const requireMatchAuth = async (request: any, reply: any) => {
     const claims = request.user as { sub?: string; jti?: string; ver?: number };
     if (!await isTokenSessionActive(claims)) return reply.code(401).send({ error: 'Session expired or revoked. Please sign in again.' });
     if (claims.sub && isNumericId(claims.sub)) {
-      await pool.query(
-        `INSERT INTO analytics_user_activity_daily (user_id, activity_date, request_count)
-         VALUES ($1, CURRENT_DATE, 1)
-         ON CONFLICT (user_id, activity_date) DO UPDATE
-           SET last_seen_at = NOW(), request_count = analytics_user_activity_daily.request_count + 1`,
-        [claims.sub],
-      );
+      try {
+        await pool.query(
+          `INSERT INTO analytics_user_activity_daily (user_id, activity_date, request_count)
+           VALUES ($1, CURRENT_DATE, 1)
+           ON CONFLICT (user_id, activity_date) DO UPDATE
+             SET last_seen_at = NOW(), request_count = analytics_user_activity_daily.request_count + 1`,
+          [claims.sub],
+        );
+      } catch (error) {
+        request.log.warn({ err: error }, 'Analytics activity capture failed; authentication remains available');
+      }
     }
   } catch {
     return reply.code(401).send({ error: 'Authentication required.' });
