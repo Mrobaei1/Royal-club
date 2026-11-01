@@ -27,7 +27,8 @@ function auth(token: string) {
 }
 
 async function register(label: string) {
-  const email = `manch-${label.toLowerCase()}-${randomUUID()}@example.test`;
+  const slug = label.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+  const email = `manch-${slug}-${randomUUID()}@example.test`;
   const response = await app.inject({
     method: 'POST',
     url: '/api/v1/auth/register',
