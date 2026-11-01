@@ -186,6 +186,37 @@ void main() {
       expect(rolled.pendingDice, 3);
     });
 
+    test('game state snapshots mutable rule sets defensively', () {
+      final entryFaces = <int>{6};
+      final safeCells = <int>{0};
+      final profile = ManchRuleProfile(
+        entryFaces: entryFaces,
+        safeTrackIndices: safeCells,
+      );
+      final state = ManchGameState(
+        players: [
+          ManchPlayerState(colour: ManchColour.red),
+          ManchPlayerState(colour: ManchColour.green),
+        ],
+        activePlayerIndex: 0,
+        profile: profile,
+      );
+
+      entryFaces.add(1);
+      safeCells.clear();
+
+      expect(state.profile.entryFaces, {6});
+      expect(state.profile.safeTrackIndices, {0});
+      expect(
+        () => state.profile.entryFaces.add(1),
+        throwsUnsupportedError,
+      );
+      expect(
+        () => state.profile.safeTrackIndices.clear(),
+        throwsUnsupportedError,
+      );
+    });
+
     test('saves and restores a complete in-progress game', () {
       final state = engine.roll(engine.newGame(playerCount: 2), 6);
       final moved = engine.move(state, 0);
