@@ -35,7 +35,7 @@ The isolated Flutter package is in `flutter/`. It is not added to `apps/mobile/p
 
 ## Important deployment boundaries
 - Room state is snapshotted to the existing PostgreSQL database in `uno_room_snapshots` and restored after service restart. Snapshot writes are serialized within one service process. This provides single-instance restart durability, **not** safe horizontal scaling: do not run multiple UNO service instances until room mutations move to per-room transactional storage and Socket.IO uses a shared adapter.
-- WebRTC voice uses a peer mesh for at most six participants. Configure `TURN_URL` and `TURN_SHARED_SECRET` on the UNO service to issue short-lived Coturn REST credentials through `/ice-config`; without TURN, the client falls back to STUN and may fail behind restrictive NATs. A managed SFU is the preferred production scaling path.
+- WebRTC voice uses a peer mesh for at most six participants. Configure `TURN_URLS` (UDP, TCP and TLS URLs) and `TURN_SHARED_SECRET` on the UNO service to issue short-lived Coturn REST credentials through `/ice-config`; without TURN, the client falls back to STUN and may fail behind restrictive NATs. A managed SFU is the preferred production scaling path.
 - The socket gateway verifies Royal Club HS256 tokens, expiry and `token_version` revocation against the existing users table; only the public username is loaded. The service rejects tokens with a stale version.
 - No production secrets, database credentials, or TURN credentials belong in this repository.
 - No APK is built by this package.
