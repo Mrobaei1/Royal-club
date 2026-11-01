@@ -119,6 +119,12 @@ test("authenticated chess routes support private game, draw, chat, voice, profil
     const pending = await request(black, "GET", `/chess/games/${gameId}/draw-offers`);
     assert.equal(pending.json().pending, true);
     assert.equal(pending.json().offeredByMe, false);
+    const malformedDrawResponse = await request(black, "POST",
+      `/chess/games/${gameId}/draw-offers/${offer.json().offerId}/respond`, {});
+    assert.equal(malformedDrawResponse.statusCode, 400);
+    assert.equal(malformedDrawResponse.json().error, "invalid_draw_response");
+    const stillPending = await request(black, "GET", `/chess/games/${gameId}/draw-offers`);
+    assert.equal(stillPending.json().pending, true);
     const declined = await request(black, "POST",
       `/chess/games/${gameId}/draw-offers/${offer.json().offerId}/respond`, { accept: false });
     assert.equal(declined.statusCode, 200, declined.body);
