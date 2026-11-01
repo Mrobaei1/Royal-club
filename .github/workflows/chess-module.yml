@@ -1,0 +1,58 @@
+name: Chess module isolated validation
+on:
+  push:
+    branches:
+      - feature/standalone-chess-module
+    paths:
+      - "chess-module/**"
+      - ".github/workflows/chess-module.yml"
+  pull_request:
+    paths:
+      - "chess-module/**"
+      - ".github/workflows/chess-module.yml"
+permissions:
+  contents: read
+jobs:
+  chess-api:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: chess_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d chess_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      CHESS_TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/chess_test
+    defaults:
+      run:
+        working-directory: chess-module/api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --no-audit --no-fund
+      - run: npm test
+      - run: npm run build
+
+  chess-mobile:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: chess-module/mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - run: flutter pub get
+      - run: flutter analyze
+      - run: flutter test
