@@ -3228,6 +3228,32 @@ test('owner analytics overview is owner-only, read-only, and reports source cove
     assert.equal(body.metrics.walletCreditsLast30Days.classification,
       'internal-non-transferable-credits-not-cash-revenue');
     assert.deepEqual(body.sources, ['users', 'analytics_user_activity_daily', 'analytics_game_events', 'backgammon_matches', 'wallet_transactions', 'user_subscriptions']);
+
+    const today = new Date().toISOString().slice(0, 10);
+    const invalidRange = await app.inject({
+      method: 'GET', url: '/api/v1/admin/analytics/advanced?from=2026-99-99&to=2026-99-99',
+      headers: auth(owner.token),
+    });
+    assert.equal(invalidRange.statusCode, 400, invalidRange.body);
+
+    const advanced = await app.inject({
+      method: 'GET',
+      url: `/api/v1/admin/analytics/advanced?from=${today}&to=${today}&game=backgammon`,
+      headers: auth(owner.token),
+    });
+    assert.equal(advanced.statusCode, 200, advanced.body);
+    assert.equal(advanced.json().filters.game, 'backgammon');
+    assert.equal(advanced.json().filters.timezone, 'UTC');
+    assert.ok(Array.isArray(advanced.json().dailyGameEvents));
+
+    const csv = await app.inject({
+      method: 'GET',
+      url: `/api/v1/admin/analytics/export.csv?from=${today}&to=${today}&game=backgammon`,
+      headers: auth(owner.token),
+    });
+    assert.equal(csv.statusCode, 200, csv.body);
+    assert.match(csv.headers['content-type'] ?? '', /text\\/csv/);
+    assert.ok(csv.body.includes('date,game,event,count'));
   } finally {
     if (previousOwnerId === undefined) delete process.env.OWNER_USER_ID;
     else process.env.OWNER_USER_ID = previousOwnerId;
