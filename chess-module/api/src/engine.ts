@@ -16,8 +16,10 @@ export type EngineSnapshot = {
 
 export class ChessGame {
   private readonly game: Chess;
-  constructor(fen?: string) {
-    this.game = fen ? new Chess(fen) : new Chess();
+  constructor(fen?: string, pgn?: string) {
+    this.game = new Chess(fen);
+    // Replaying the stored PGN restores repetition history; FEN alone cannot.
+    if (pgn?.trim()) this.game.loadPgn(pgn);
   }
 
   play(command: MoveCommand): EngineSnapshot {
