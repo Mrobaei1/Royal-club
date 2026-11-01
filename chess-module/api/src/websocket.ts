@@ -26,6 +26,7 @@ export async function registerChessWebSocket(app: FastifyInstance, options: Opti
     }
     const gameId = request.query.gameId;
     let connectionClosed = false;
+    let presenceRegistered = false;
     let listenerToRelease: { release: () => void } | undefined;
     let cleanupConnection: (() => Promise<void>) | undefined;
     socket.on("close", () => {
@@ -142,6 +143,7 @@ export async function registerChessWebSocket(app: FastifyInstance, options: Opti
           [sessionId,gameId,userId]
         );
         await presenceClient.query("COMMIT");
+        presenceRegistered = true;
       } catch (error) {
         try { await presenceClient.query("ROLLBACK"); } catch {}
         throw error;
@@ -299,7 +301,7 @@ export async function registerChessWebSocket(app: FastifyInstance, options: Opti
           } finally {
             cleanupClient.release();
           }
-          if (shouldPublishOffline && listenerToRelease) {
+          if (presenceRegistered && shouldPublishOffline && listenerToRelease) {
             try {
               await listenerToRelease.query("SELECT pg_notify($1,$2)",[
                 "chess_game_" + gameId,
