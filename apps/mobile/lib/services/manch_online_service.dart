@@ -93,6 +93,18 @@ class ManchOnlineService {
     return _requireId(user['id']);
   }
 
+  static Future<Map<String, dynamic>?> mine() async {
+    final payload = await _request('GET', '/mine');
+    final raw = payload['match'];
+    if (raw == null) return null;
+    if (raw is! Map) {
+      throw Exception('اطلاعات بازی قبلی منچ نامعتبر است.');
+    }
+    final match = Map<String, dynamic>.from(raw);
+    match['id'] = _requireId(match['id']);
+    return match;
+  }
+
   static Future<List<Map<String, dynamic>>> listOpen() async {
     final payload = await _request('GET', '');
     return ((payload['matches'] as List?) ?? const [])
