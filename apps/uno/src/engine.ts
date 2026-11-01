@@ -69,17 +69,18 @@ function advance(game: UnoGame, steps = 1): void {
 }
 export function drawOpeningCard(drawPile: UnoCard[]): UnoCard {
   if (drawPile.length === 0) throw new UnoError('DRAW_PILE_EMPTY', 'The deck is empty while selecting the opening card.');
-  let first = drawPile.pop()!;
-  while (first.face === 'wild4') {
-    drawPile.push(first);
-    for (let i = drawPile.length - 1; i > 0; i--) {
-      const j = randomInt(i + 1);
-      [drawPile[i], drawPile[j]] = [drawPile[j]!, drawPile[i]!];
+  const deferredWildFours: UnoCard[] = [];
+  let first: UnoCard | undefined;
+  while (drawPile.length > 0) {
+    const candidate = drawPile.pop()!;
+    if (candidate.face === 'wild4') deferredWildFours.push(candidate);
+    else {
+      first = candidate;
+      break;
     }
-    const next = drawPile.pop();
-    if (!next) throw new UnoError('DRAW_PILE_EMPTY', 'The deck is empty while selecting the opening card.');
-    first = next;
   }
+  drawPile.push(...deferredWildFours);
+  if (!first) throw new UnoError('INVALID_OPENING_DECK', 'The deck contains no valid opening card other than Wild Draw Four.');
   return first;
 }
 export function resolveOpeningCard(
@@ -93,7 +94,7 @@ export function resolveOpeningCard(
   if (first.face === 'skip') currentPlayerIndex = nextIndex(0, direction, players.length);
   else if (first.face === 'reverse') {
     direction = -1;
-    currentPlayerIndex = players.length === 2 ? 1 : nextIndex(0, direction, players.length);
+    currentPlayerIndex = players.length === 2 ? 0 : nextIndex(0, direction, players.length);
   } else if (first.face === 'draw2') {
     const target = nextIndex(0, direction, players.length);
     for (let i = 0; i < 2; i++) {
@@ -210,9 +211,10 @@ export function applyUnoAction(source: UnoGame, playerId: string, action: GameAc
   if (card.color !== 'wild') game.activeColor = card.color;
   else game.activeColor = action.chosenColor!;
   let skip = 0;
+  let repeatTurn = false;
   if (card.face === 'reverse') {
     game.direction = game.direction === 1 ? -1 : 1;
-    if (game.players.length === 2) skip = 1;
+    if (game.players.length === 2) repeatTurn = true;
   } else if (card.face === 'skip') skip = 1;
   else if (card.face === 'draw2') {
     const target = nextIndex(index, game.direction, game.players.length);
@@ -227,7 +229,13 @@ export function applyUnoAction(source: UnoGame, playerId: string, action: GameAc
     return game;
   }
   if (player.hand.length === 1) game.unoPendingPlayerId = player.id;
-  if (card.face !== 'wild4') advance(game, 1 + skip);
+  if (card.face !== 'wild4') {
+    if (repeatTurn) {
+      game.currentPlayerIndex = index;
+      game.drawnCardId = null;
+      game.turnNumber++;
+    } else advance(game, 1 + skip);
+  }
   else {
     game.currentPlayerIndex = nextIndex(index, game.direction, game.players.length);
     game.drawnCardId = null;
