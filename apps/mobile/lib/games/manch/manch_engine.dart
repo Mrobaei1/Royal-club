@@ -38,9 +38,13 @@ class ManchEngine {
     if (playerCount < 2 || playerCount > 4) {
       throw ArgumentError('Manch supports two to four players.');
     }
+    final seats = switch (playerCount) {
+      2 => const [ManchColour.red, ManchColour.yellow],
+      3 => const [ManchColour.red, ManchColour.green, ManchColour.yellow],
+      _ => ManchColour.values,
+    };
     return ManchGameState(
-      players: ManchColour.values.take(playerCount)
-          .map((c) => ManchPlayerState(colour: c)).toList(),
+      players: seats.map((c) => ManchPlayerState(colour: c)).toList(),
       activePlayerIndex: 0,
       profile: profile,
     );
