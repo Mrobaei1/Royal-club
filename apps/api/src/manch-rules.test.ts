@@ -155,8 +155,8 @@ test('optional third consecutive six penalty loses the turn', () => {
 });
 
 test('rejects malformed state and illegal moves without mutating the source', () => {
-  const state = withTokens([0, -1, -1, -1], [-1, -1, -1, -1]);
-  const rolled = rollManchDice(state, 3);
+  const state = withTokens([56, -1, -1, -1], [-1, -1, -1, -1]);
+  const rolled = rollManchDice(state, 2);
   assert.ok('state' in rolled);
   if (!('state' in rolled)) return;
   const original = structuredClone(rolled.state);
