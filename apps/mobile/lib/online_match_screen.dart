@@ -5,6 +5,7 @@ import 'l10n/app_text.dart';
 import 'profile_avatar.dart';
 import 'services/match_service.dart';
 import 'online_match_chat_sheet.dart';
+import 'online_match_voice_control.dart';
 import 'royal_backgammon_board.dart';
 import 'match_activity_state.dart';
 
@@ -961,6 +962,8 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
                 onPressed: openMatchChat,
                 icon: const Icon(Icons.forum_outlined),
               ),
+            if (_matchStatus == 'active')
+              OnlineMatchVoiceControl(matchId: _id, isEnglish: isEnglish),
             RoomControlsMenuButton(
               tooltip: isEnglish ? 'Match controls' : 'مدیریت مسابقه',
               itemsBuilder: _buildRoomControlItems,
