@@ -16,6 +16,36 @@ class ManchRuleProfile {
     this.maxConsecutiveSixes = 3,
   });
 
+  ManchRuleProfile._({
+    required Set<int> entryFaces,
+    required this.extraRollOnSix,
+    required this.extraRollOnCapture,
+    required this.extraRollOnFinish,
+    required this.threeSixPenalty,
+    required Set<int> safeTrackIndices,
+    required this.blockadesEnabled,
+    required this.blockadeBlocksOpponents,
+    required this.friendlyStackingEnabled,
+    required this.exactFinishRequired,
+    required this.maxConsecutiveSixes,
+  })  : entryFaces = Set<int>.unmodifiable(entryFaces),
+        safeTrackIndices = Set<int>.unmodifiable(safeTrackIndices);
+
+  /// Creates a defensive immutable copy for storage inside game state.
+  ManchRuleProfile immutableSnapshot() => ManchRuleProfile._(
+        entryFaces: entryFaces,
+        extraRollOnSix: extraRollOnSix,
+        extraRollOnCapture: extraRollOnCapture,
+        extraRollOnFinish: extraRollOnFinish,
+        threeSixPenalty: threeSixPenalty,
+        safeTrackIndices: safeTrackIndices,
+        blockadesEnabled: blockadesEnabled,
+        blockadeBlocksOpponents: blockadeBlocksOpponents,
+        friendlyStackingEnabled: friendlyStackingEnabled,
+        exactFinishRequired: exactFinishRequired,
+        maxConsecutiveSixes: maxConsecutiveSixes,
+      );
+
   factory ManchRuleProfile.fromJson(Map<String, Object?> json) {
     final penalty = ThreeSixPenalty.values.firstWhere(
       (value) => value.name == json['threeSixPenalty'],
