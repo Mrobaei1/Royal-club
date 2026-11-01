@@ -23,13 +23,14 @@ There is no single universally accepted Iranian household rule set established b
 - Whether tokens can share a cell and whether friendly tokens may be stacked.
 - Whether entry requires a six only, or local variants allow another face.
 
-## Recommended implementation
-Create a versioned `ManchRuleProfile` with explicit settings for:
+## Engine implementation status
+The current `ManchRuleProfile` implements these switches:
 `entryFaces`, `extraRollOnSix`, `extraRollOnCapture`, `extraRollOnFinish`,
-`threeSixPenalty`, `safeTrackIndices`, `startingCellsSafe`,
-`blockadeEnabled`, `blockadeBlocksOpponents`, `friendlyStacking`,
-`threeEntryAttemptsWhenNoTokensOnTrack`, `exactFinishRequired`, and
-`teamModeEnabled`.
+`threeSixPenalty`, `safeTrackIndices`, `blockadesEnabled`,
+`blockadeBlocksOpponents`, `friendlyStackingEnabled`,
+`exactFinishRequired`, and `maxConsecutiveSixes`.
+
+The following researched options are **not implemented yet** and must not be presented as supported until code and tests exist: `startingCellsSafe` as an independent switch, `threeEntryAttemptsWhenNoTokensOnTrack`, and `teamModeEnabled`. The current board visually marks each colour's entry cell as safe; the engine's safe-cell behaviour is driven by `safeTrackIndices`.
 
 Default profile proposal (not yet owner-approved): common classic family rules, six-only entry, extra roll on six, exact finish, no automatic assumption about three-sixes or blockades until selected in the match settings. Never hard-code a disputed house rule into the core move algorithm.
 
