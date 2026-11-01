@@ -14,6 +14,6 @@
 
 A row is not complete merely because a contract or placeholder exists. Integration readiness requires every automated test to pass, the remaining acceptance items to be closed or explicitly accepted, and owner approval for the separate merge step.
 
-| Room lifecycle | PostgreSQL route tests cover private-room create/join/self-join/cancel/expiry, minimum-level denial, two-account matchmaking/cancellation, draw, chat, voice, moves, profiles, nonparticipant privacy and admin authorization | Multi-instance contention and actual two-device acceptance |
+| Room lifecycle | PostgreSQL route tests cover private-room create/join/self-join/cancel/expiry, concurrent duplicate room creation by one host, minimum-level denial, two-account matchmaking/cancellation, draw, chat, voice, moves, profiles, nonparticipant privacy and admin authorization | Multi-instance contention and actual two-device acceptance |
 | PostgreSQL migrations | Migrations 001–009 applied in isolated PostgreSQL 16 integration tests; real-database route flows, concurrent timeout scheduler sweeps and exactly-once adjudication, expired draw-offer cleanup and audit schema exercised | Production schema review and multi-instance contention tests |
 | Flutter API transport | Authenticated HTTP/WebSocket client, auto-connected game session view, server-synchronized clocks, reconnect handling, lobby and game controls | Full host application wiring and device-level reconnect tests |
