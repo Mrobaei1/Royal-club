@@ -218,17 +218,49 @@ class AdminService {
         if (managerNote != null) 'managerNote': managerNote,
       });
 
-  static Future<List<dynamic>> findUser(String email) async =>
-      (await _request('GET', '/api/v1/users/search?email=${Uri.encodeQueryComponent(email.trim())}'))['users'] as List<dynamic>? ?? [];
+  static Future<List<dynamic>> searchUsers({
+    String? username, String? country, String subscriptionStatus = 'any',
+    String hasPhone = 'any', int? minBalance, int? maxBalance,
+    String? registeredFrom, String? registeredTo, int limit = 100,
+  }) async {
+    final query = <String, String>{
+      if (username != null && username.trim().isNotEmpty) 'username': username.trim(),
+      if (country != null && country.trim().isNotEmpty) 'country': country.trim(),
+      'subscriptionStatus': subscriptionStatus,
+      'hasPhone': hasPhone,
+      if (minBalance != null) 'minBalance': '$minBalance',
+      if (maxBalance != null) 'maxBalance': '$maxBalance',
+      if (registeredFrom != null) 'registeredFrom': registeredFrom,
+      if (registeredTo != null) 'registeredTo': registeredTo,
+      'limit': '$limit',
+    };
+    final uri = Uri(path: '/api/v1/admin/users/search', queryParameters: query);
+    return (await _request('GET', uri.toString()))['users'] as List<dynamic>? ?? [];
+  }
   static Future<Map<String, dynamic>> exportUserProfile(String userId) async =>
       (await _request('GET', '/api/v1/admin/users/$userId/profile'))['user'] as Map<String, dynamic>;
 
-  static Future<void> credit(String userId, int amount, String description) async {
-    await _request('POST', '/api/v1/admin/wallet/credit', body: {'userId': userId, 'amount': amount, 'description': description});
-  }
-  static Future<int> sendNotification({String? userId, required String title, required String body}) async {
+  static Future<Map<String, dynamic>> credit(String userId, int amount, String description) async =>
+      await _request('POST', '/api/v1/admin/wallet/credit', body: {
+        'userId': userId, 'amount': amount, 'description': description,
+      });
+
+  static Future<int> sendNotification({
+    String? userId, List<String>? userIds, String? username, String? country,
+    String subscriptionStatus = 'any', String hasPhone = 'any',
+    String? registeredFrom, String? registeredTo, bool showOnLogin = false,
+    required String title, required String body,
+  }) async {
     final result = await _request('POST', '/api/v1/admin/notifications', body: {
       if (userId != null) 'userId': userId,
+      if (userIds != null) 'userIds': userIds,
+      if (username != null && username.trim().isNotEmpty) 'username': username.trim(),
+      if (country != null && country.trim().isNotEmpty) 'country': country.trim(),
+      'subscriptionStatus': subscriptionStatus,
+      'hasPhone': hasPhone,
+      if (registeredFrom != null) 'registeredFrom': registeredFrom,
+      if (registeredTo != null) 'registeredTo': registeredTo,
+      'showOnLogin': showOnLogin,
       'title': title,
       'body': body,
     });
