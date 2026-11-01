@@ -1395,8 +1395,9 @@ class _AdminScreenState extends State<AdminScreen> {
     final maxBalance = _maxBalanceFilter.text.trim().isEmpty ? null : int.tryParse(_maxBalanceFilter.text.trim());
     if ((_minBalanceFilter.text.trim().isNotEmpty && minBalance == null) ||
         (_maxBalanceFilter.text.trim().isNotEmpty && maxBalance == null) ||
-        (minBalance != null && maxBalance != null && minBalance > maxBalance)) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appText(context, 'محدوده اعتبار نامعتبر است.', 'Invalid credit balance range.'))));
+        (minBalance != null && maxBalance != null && minBalance > maxBalance) ||
+        (_registeredFrom != null && _registeredTo != null && _registeredFrom!.isAfter(_registeredTo!))) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appText(context, 'محدوده اعتبار یا تاریخ ثبت‌نام نامعتبر است.', 'Invalid balance or registration date range.'))));
       return;
     }
     setState(() => _busy = true);
