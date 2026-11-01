@@ -15,13 +15,6 @@ class _AdminScreenState extends State<AdminScreen> {
   String? _error;
   List<dynamic> _plans = [];
   List<dynamic> _leagues = [];
-  final _leagueCode = TextEditingController();
-  final _leagueName = TextEditingController();
-  final _leagueDays = TextEditingController(text: '1');
-  final _leagueMinParticipants = TextEditingController(text: '8');
-  String _leagueFormat = 'round_robin';
-  String _leagueEntryMode = 'free';
-  bool _leagueEnabled = false;
   List<dynamic> _reports = [];
   List<dynamic> _permissionGrants = [];
   List<dynamic> _permissionAudit = [];
@@ -78,10 +71,6 @@ class _AdminScreenState extends State<AdminScreen> {
     _agentTaskTitle.dispose();
     _agentTaskDescription.dispose();
     _agentGameCode.dispose();
-    _leagueCode.dispose();
-    _leagueName.dispose();
-    _leagueDays.dispose();
-    _leagueMinParticipants.dispose();
     _amount.dispose();
     _description.dispose();
     _price.dispose();
@@ -453,7 +442,9 @@ class _AdminScreenState extends State<AdminScreen> {
                 final days = int.tryParse(daysController.text) ?? 0;
                 if (name.isEmpty || minimum == null || minimum < 2 || minimum > 512 ||
                     (entryMode == 'subscription_days' && (days < 1 || days > 30)) ||
-                    (startsAt != null && endsAt != null && !endsAt!.isAfter(startsAt!))) return;
+                    (startsAt != null && endsAt != null && !endsAt!.isAfter(startsAt!))) {
+                  return;
+                }
                 Navigator.pop(dialogContext, {
                   'name': name,
                   'minimum': minimum,
@@ -496,46 +487,6 @@ class _AdminScreenState extends State<AdminScreen> {
       }
     } catch (error) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appError(context, error))));
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
-  Future<void> _createLeague() async {
-    final code = _leagueCode.text.trim().toLowerCase();
-    final name = _leagueName.text.trim();
-    final days = int.tryParse(_leagueDays.text) ?? 1;
-    final minimumParticipants = int.tryParse(_leagueMinParticipants.text);
-    if (code.length < 2 || name.isEmpty || minimumParticipants == null || minimumParticipants < 2 || minimumParticipants > 512 ||
-        (_leagueEntryMode == 'subscription_days' && (days < 1 || days > 30))) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(appText(context, 'کد، نام و تعداد روز معتبر وارد کنید.', 'Enter a valid code, name, and day count.')),
-      ));
-      return;
-    }
-    setState(() => _busy = true);
-    try {
-      await AdminService.createLeague(
-        code: code,
-        name: name,
-        enabled: _leagueEnabled,
-        entryMode: _leagueEntryMode,
-        subscriptionDaysCost: _leagueEntryMode == 'free' ? 0 : days,
-        format: _leagueFormat,
-        minimumParticipants: minimumParticipants,
-      );
-      _leagueCode.clear();
-      _leagueName.clear();
-      await _load();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(appText(context, 'لیگ ثبت شد. هیچ لیگ اشتراکی خودکار فعال نمی‌شود.', 'League saved. No subscription league is enabled automatically.')),
-        ));
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appError(context, e))));
-      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -634,7 +585,9 @@ class _AdminScreenState extends State<AdminScreen> {
               final minimum = int.tryParse(minParticipantsController.text);
               if (name.isEmpty || minimum == null || minimum < 2 || minimum > 512 ||
                   (mode == 'subscription_days' && (days < 1 || days > 30)) ||
-                  (startsAt != null && endsAt != null && !endsAt!.isAfter(startsAt!))) return;
+                  (startsAt != null && endsAt != null && !endsAt!.isAfter(startsAt!))) {
+                return;
+              }
               Navigator.pop(dialogContext, {
                 'name': name, 'enabled': enabled, 'entryMode': mode,
                 'startsAt': startsAt?.toUtc().toIso8601String(),
