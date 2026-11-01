@@ -21,7 +21,13 @@ void main() {
     );
 
     expect(find.byType(IranianManchBoard), findsOneWidget);
-    expect(find.byType(CustomPaint), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(IranianManchBoard),
+        matching: find.byType(CustomPaint),
+      ),
+      findsOneWidget,
+    );
     expect(find.bySemanticsLabel('Iranian four-colour Manch board'),
         findsOneWidget);
 
