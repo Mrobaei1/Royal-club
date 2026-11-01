@@ -604,21 +604,6 @@ await pool.query(`
   CREATE INDEX IF NOT EXISTS backgammon_match_messages_thread_idx
     ON backgammon_match_messages (match_id, id DESC);
 
-  CREATE TABLE IF NOT EXISTS backgammon_match_voice_signals (
-    id BIGSERIAL PRIMARY KEY,
-    match_id BIGINT NOT NULL REFERENCES backgammon_matches(id) ON DELETE CASCADE,
-    sender_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    recipient_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    kind TEXT NOT NULL CHECK (kind IN ('offer', 'answer', 'candidate', 'hangup')),
-    payload JSONB NOT NULL DEFAULT '{}'::jsonb,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    expires_at TIMESTAMPTZ NOT NULL DEFAULT (NOW() + INTERVAL '2 minutes')
-  );
-  CREATE INDEX IF NOT EXISTS backgammon_match_voice_signals_recipient_idx
-    ON backgammon_match_voice_signals (match_id, recipient_id, id);
-  CREATE INDEX IF NOT EXISTS backgammon_match_voice_signals_expiry_idx
-    ON backgammon_match_voice_signals (expires_at);
-
   CREATE TABLE IF NOT EXISTS game_disconnect_policies (
     game_type TEXT PRIMARY KEY CHECK (game_type IN ('backgammon', 'cards', 'chess')),
     enabled BOOLEAN NOT NULL DEFAULT TRUE,
@@ -4919,55 +4904,6 @@ app.post<{ Params: { id: string } }>('/api/v1/matches/:id/heartbeat', { onReques
    },
  );
 
-
- // Short-lived Cloudflare TURN credentials are generated server-side. The long-lived
- // TURN key/token never leave the API process and are never returned to mobile clients.
- app.get<{ Params: { id: string } }>(
-   '/api/v1/matches/:id/voice/ice-servers',
-   { onRequest: [requireMatchAuth], config: { rateLimit: { max: 12, timeWindow: '1 minute' } } },
-   async (request, reply) => {
-     const claims = request.user as { sub: string };
-     const matchId = request.params.id;
-     if (!isNumericId(matchId)) return reply.code(400).send({ error: 'Invalid match id.' });
-     const access = await pool.query(
-       "SELECT 1 FROM backgammon_matches WHERE id = $1 AND status = 'active' AND guest_user_id IS NOT NULL AND (host_user_id = $2 OR guest_user_id = $2)",
-       [matchId, claims.sub],
-     );
-     if (!access.rowCount) return reply.code(404).send({ error: 'Voice is not available for this match.' });
-     const keyId = process.env.CLOUDFLARE_TURN_KEY_ID?.trim();
-     const apiToken = process.env.CLOUDFLARE_TURN_API_TOKEN?.trim();
-     if (!keyId || !apiToken) {
-       return reply.code(503).send({ error: 'Voice calling is not configured on the server yet.' });
-     }
-     try {
-       const turnResponse = await fetch(
-         'https://rtc.live.cloudflare.com/v1/turn/keys/' +
-           encodeURIComponent(keyId) + '/credentials/generate-ice-servers',
-         {
-           method: 'POST',
-           headers: {
-             Authorization: 'Bearer ' + apiToken,
-             'Content-Type': 'application/json',
-           },
-           body: JSON.stringify({ ttl: 43200 }),
-         },
-       );
-       if (!turnResponse.ok) {
-         request.log.warn({ status: turnResponse.status }, 'Cloudflare TURN credential request failed');
-         return reply.code(502).send({ error: 'Could not prepare secure voice networking.' });
-       }
-       const result = await turnResponse.json() as { iceServers?: unknown };
-       if (!Array.isArray(result.iceServers) || result.iceServers.length === 0) {
-         request.log.warn('Cloudflare TURN response did not contain ICE servers');
-         return reply.code(502).send({ error: 'Voice networking returned an invalid configuration.' });
-       }
-       return { iceServers: result.iceServers };
-     } catch (error) {
-       request.log.warn({ err: error }, 'Could not reach Cloudflare TURN credential service');
-       return reply.code(502).send({ error: 'Voice networking is temporarily unavailable.' });
-     }
-   },
- );
 
  app.get<{ Params: { id: string }; Querystring: { afterId?: string } }>(
    '/api/v1/matches/:id/voice/signals',
