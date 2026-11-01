@@ -102,7 +102,7 @@ class _OwnerAnalyticsScreenState extends State<OwnerAnalyticsScreen> {
                     _KpiCard(title: 'DAU', value: _number(activeUsers['dau']), icon: Icons.today_outlined),
                     _KpiCard(title: 'WAU', value: _number(activeUsers['wau']), icon: Icons.date_range_outlined),
                     _KpiCard(title: 'MAU', value: _number(activeUsers['mau']), icon: Icons.calendar_month_outlined),
-                    _KpiCard(title: t('کاربران فعال تکراری · ۳۰ روز', 'Repeat active users · 30d'), value: _number(activeUsers['returningUsers30Days']), icon: Icons.replay_outlined),
+                    _KpiCard(title: t('کاربران فعال تکراری · ۳۰ روز', 'Repeat active users · 30d'), value: _number(activeUsers['repeatActiveUsers30Days']), icon: Icons.replay_outlined),
                     _KpiCard(title: t('اشتراک‌های فعال', 'Active subscriptions'), value: _number(subscriptions['active']), icon: Icons.workspace_premium_outlined),
                     _KpiCard(title: t('کل سوابق اشتراک', 'Subscription records'), value: _number(subscriptions['totalRecords']), icon: Icons.receipt_long_outlined),
                   ]),
