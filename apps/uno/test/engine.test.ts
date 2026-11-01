@@ -454,3 +454,33 @@ test('opening Wild Draw Four selection terminates safely when no legal opening c
   );
   assert.equal(onlyWildFours.length,2);
 });
+
+
+test('a final Wild Draw Four wins after an unsuccessful challenge and includes the six-card penalty in scoring', () => {
+  const game = makeActionGame([{id:'a',username:'a'},{id:'b',username:'b'}]);
+  game.players[0]!.hand = [{id:'last-wild4',color:'wild',face:'wild4'}];
+  game.players[1]!.hand = Array.from({length:7},(_,i)=>({id:'b'+i,color:'blue' as const,face:i}));
+  game.discardPile = [{id:'top',color:'red',face:1}];
+  game.activeColor = 'red';
+  const pending = applyUnoAction(game,'a',{type:'play',cardId:'last-wild4',chosenColor:'green'});
+  const challenged = applyUnoAction(pending,'b',{type:'challengeWild4'});
+  assert.equal(challenged.winnerId,'a');
+  assert.equal(challenged.players[1]!.hand.length,13);
+  assert.equal(challenged.winnerScore, challenged.players[1]!.hand.reduce((sum,card)=>sum+(typeof card.face==='number'?card.face:card.face==='wild'||card.face==='wild4'?50:20),0));
+});
+
+test('the UNO catch window closes as soon as the next player takes an action', () => {
+  const game = makeActionGame([{id:'a',username:'a'},{id:'b',username:'b'},{id:'c',username:'c'}]);
+  game.players[0]!.hand = [{id:'one',color:'red',face:3},{id:'two',color:'blue',face:4}];
+  game.players[1]!.hand = [{id:'b-play',color:'red',face:5}];
+  game.discardPile = [{id:'top',color:'red',face:1}];
+  game.activeColor = 'red';
+  const played = applyUnoAction(game,'a',{type:'play',cardId:'one'});
+  assert.equal(played.unoPendingPlayerId,'a');
+  const nextAction = applyUnoAction(played,'b',{type:'play',cardId:'b-play'});
+  assert.equal(nextAction.unoPendingPlayerId,null);
+  assert.throws(
+    () => applyUnoAction(nextAction,'c',{type:'catchUno'}),
+    (error: unknown) => error instanceof UnoError && error.code === 'CATCH_NOT_AVAILABLE',
+  );
+});
