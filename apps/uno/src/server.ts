@@ -39,6 +39,9 @@ await pool.query(`
 `);
 const savedRooms = await pool.query('SELECT state FROM uno_room_snapshots WHERE id = 1');
 if (savedRooms.rows[0]?.state) roomManager.restoreSnapshot(savedRooms.rows[0].state);
+// A process restart invalidates every old transport. Seats remain reserved, but
+// must be marked offline until their authenticated clients reconnect.
+roomManager.markAllPlayersDisconnected();
 let roomWriteQueue: Promise<unknown> = Promise.resolve();
 const persistRooms = (): Promise<void> => {
   const snapshot = JSON.stringify(roomManager.exportSnapshot());
