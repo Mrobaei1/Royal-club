@@ -3204,6 +3204,13 @@ test('owner analytics overview is owner-only, read-only, and reports source cove
     });
     assert.equal(room.statusCode, 201, room.body);
 
+    await testPool.query(`
+      INSERT INTO analytics_game_events (game_type, event_type, user_id, occurred_at)
+      SELECT 'backgammon', 'game_started', $1,
+             ((CURRENT_DATE - ((n - 1) % 30))::timestamp + INTERVAL '12 hours') AT TIME ZONE 'UTC'
+        FROM generate_series(1, 10000) AS n
+    `, [owner.user.id]);
+
     const response = await app.inject({
       method: 'GET', url: '/api/v1/admin/analytics/overview', headers: auth(owner.token),
     });
@@ -3235,6 +3242,7 @@ test('owner analytics overview is owner-only, read-only, and reports source cove
     assert.deepEqual(body.sources, ['users', 'analytics_user_activity_daily', 'analytics_game_events', 'backgammon_matches', 'wallet_transactions', 'user_subscriptions']);
 
     const today = new Date().toISOString().slice(0, 10);
+    const thirtyDaysAgo = new Date(Date.now() - 29 * 86_400_000).toISOString().slice(0, 10);
     const invalidRange = await app.inject({
       method: 'GET', url: '/api/v1/admin/analytics/advanced?from=2026-99-99&to=2026-99-99',
       headers: auth(owner.token),
@@ -3249,17 +3257,20 @@ test('owner analytics overview is owner-only, read-only, and reports source cove
 
     const advanced = await app.inject({
       method: 'GET',
-      url: `/api/v1/admin/analytics/advanced?from=${today}&to=${today}&game=backgammon`,
+      url: `/api/v1/admin/analytics/advanced?from=${thirtyDaysAgo}&to=${today}&game=backgammon`,
       headers: auth(owner.token),
     });
     assert.equal(advanced.statusCode, 200, advanced.body);
     assert.equal(advanced.json().filters.game, 'backgammon');
     assert.equal(advanced.json().filters.timezone, 'UTC');
     assert.ok(Array.isArray(advanced.json().dailyGameEvents));
+    const aggregatedEventCount = advanced.json().dailyGameEvents.reduce(
+      (sum: number, event: { count: number }) => sum + Number(event.count), 0);
+    assert.ok(aggregatedEventCount >= 10001, `Expected 10,000 seeded events plus the room-created event; received ${aggregatedEventCount}.`);
 
     const csv = await app.inject({
       method: 'GET',
-      url: `/api/v1/admin/analytics/export.csv?from=${today}&to=${today}&game=backgammon`,
+      url: `/api/v1/admin/analytics/export.csv?from=${thirtyDaysAgo}&to=${today}&game=backgammon`,
       headers: auth(owner.token),
     });
     assert.equal(csv.statusCode, 200, csv.body);
@@ -3268,7 +3279,7 @@ test('owner analytics overview is owner-only, read-only, and reports source cove
 
     const pdf = await app.inject({
       method: 'GET',
-      url: `/api/v1/admin/analytics/export.pdf?from=${today}&to=${today}&game=backgammon`,
+      url: `/api/v1/admin/analytics/export.pdf?from=${thirtyDaysAgo}&to=${today}&game=backgammon`,
       headers: auth(owner.token),
     });
     assert.equal(pdf.statusCode, 200, pdf.body.toString());
