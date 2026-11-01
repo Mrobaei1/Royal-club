@@ -4,13 +4,29 @@
 A recognizable Iranian four-colour Manch board, not a reskinned generic foreign Ludo screen. Royal Club styling is applied around the classic board without changing its visual grammar.
 
 ## Board anatomy
-- Square board with four distinct home yards: red, green, yellow, blue.
+- Square 15×15 logical grid with four distinct home yards: red (upper-left), green (upper-right), yellow (lower-right), blue (lower-left).
 - Four tokens begin in each player's yard.
-- Shared cross-shaped route around the central area.
-- One colour-specific home lane per player leading into the centre.
-- Four-colour centre/finish area.
-- Safe-cell markers and clear entry-cell markers.
-- Stable seat mapping independent of Persian RTL text direction.
+- A classic 52-cell shared route, not a cross-shaped route. The route is fixed and must not mirror when the locale changes between RTL and LTR.
+- Four five-cell, colour-specific home lanes lead from the shared route toward the centre.
+- The centre contains the four-colour finish area.
+- Entry cells are red (row 6, column 0), green (row 0, column 8), yellow (row 8, column 14), and blue (row 14, column 6), using zero-based grid coordinates.
+- The current painter marks those four entry cells as safe. The exact safe-cell policy remains configurable in the rules profile and is not yet owner-approved as the final Iranian house rule.
+- Stable seat mapping is independent of Persian RTL text direction.
+
+## Route geometry contract
+The route is defined by the ordered 52-cell `trackCells` sequence in `iranian_manch_board.dart`. Its four entry offsets are 0 (red), 13 (green), 26 (yellow), and 39 (blue). The engine and painter must use the same colour starts:
+- Red: 0
+- Green: 13
+- Yellow: 26
+- Blue: 39
+
+The home lanes are:
+- Red: row 7, columns 1–5
+- Green: column 7, rows 1–5
+- Yellow: row 7, columns 13–9 (toward the centre)
+- Blue: column 7, rows 13–9 (toward the centre)
+
+Keep the route-cell sequence in one source of truth or add a consistency test before changing its order. The painter currently mirrors the same start offsets as the engine; divergence is a release-blocking defect.
 
 ## Royal Club treatment
 - Outer frame: deep navy `#111B31`.
@@ -27,15 +43,18 @@ A recognizable Iranian four-colour Manch board, not a reskinned generic foreign 
 - Do not place critical text inside small route cells.
 
 ## Architecture boundary
-The board is a pure renderer. Dice generation, move legality, capture, safe-cell logic, turn progression, winner detection, persistence and networking belong to separate layers.
+The board is currently a renderer foundation. Dice generation, move legality, capture, safe-cell logic, turn progression, winner detection and persistence belong to the separate engine/state layer. Networking and server-authoritative validation belong to the future online service.
 
 ## Acceptance checks
-- All four home yards and all four home lanes are visible.
+- All four home yards and all four five-cell home lanes are visible.
+- All 52 shared-route cells are present exactly once and are connected in the intended order.
+- The four entry cells align with engine start offsets 0/13/26/39.
 - Four-colour centre is centred and symmetrical.
 - Board remains square at narrow and wide constraints.
 - RTL and LTR produce identical board geometry.
 - Active seat emphasis does not obscure token colour.
 - Theme changes around the board do not erase the four fixed player colours.
+- Live game-state token rendering maps yard, shared route, home lane and finish positions correctly.
 
 ## Not yet frozen
-Exact Iranian safe-cell locations, exact route-cell sequence, starting positions, and all local rule variants require owner confirmation before engine implementation.
+The owner must still approve the final safe-cell map, local house-rule profile, 2/3-player seat arrangements, and final visual appearance. The current painter is a foundation, not an owner-accepted production screen.
