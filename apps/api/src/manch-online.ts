@@ -320,17 +320,22 @@ export function registerManchRoutes(app: any, pool: Pool, requireMatchAuth: any)
       }
       let nextState = rolled.state;
       let autoPassed = false;
+      let noLegalMove = false;
       // A third-six penalty advances the turn inside rollManchDice and has
       // no pending die. Only a real pending die can be auto-passed here.
       if (nextState.pendingDice !== null && legalManchMoves(nextState).length === 0) {
+        noLegalMove = true;
+        const playerBeforePass = nextState.activePlayerIndex;
         const passed = passManchTurn(nextState);
         if ('error' in passed) {
           await client.query('ROLLBACK');
           return sendError(reply, 409, passed.error);
         }
         nextState = passed.state;
-        autoPassed = true;
+        autoPassed = nextState.activePlayerIndex !== playerBeforePass;
       }
+      const turnLost = nextState.activePlayerIndex !== state.activePlayerIndex &&
+        !autoPassed && nextState.pendingDice === null;
       const players = await matchPlayers(client, id);
       const nextUser = players.find((player) => player.seatIndex === nextState.activePlayerIndex);
       if (!nextUser) {
@@ -346,7 +351,7 @@ export function registerManchRoutes(app: any, pool: Pool, requireMatchAuth: any)
         [JSON.stringify(nextState), nextUser.userId, id],
       );
       await client.query('COMMIT');
-      return { dice, autoPassed, state: nextState, currentTurnUserId: nextUser.userId,
+      return { dice, autoPassed, noLegalMove, turnLost, state: nextState, currentTurnUserId: nextUser.userId,
         stateVersion: updated.rows[0].stateVersion };
     } catch (error) {
       await client.query('ROLLBACK').catch(() => undefined);
