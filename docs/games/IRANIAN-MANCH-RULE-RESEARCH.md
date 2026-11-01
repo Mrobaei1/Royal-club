@@ -44,7 +44,7 @@ These repositories were inspected as references only; **no third-party source co
 | https://github.com/smokelaboratory/fludo | `b0adc154d90e0f3e56b464f5961a1c5e2051b3b4` | Apache-2.0 | Flutter Canvas board reference; last source push is 2024, so treat as a drawing reference only. |
 | https://github.com/choganhq/chogan | `4e400bf922e9774c156e2e71e643a424b5b85325` | MIT | Persian-language game collection; latest inspected commit concerns tutorial navigation, and no confirmed reusable Manch module was identified. Not adopted. |
 
-The license identifiers and commit hashes above were read from GitHub repository metadata and commit endpoints on 2026-11-01. Before copying or vendoring any source, review the exact pinned license text, notices, copyright attribution, dependency licenses and any transitive obligations. This table is a technical screening record, not legal advice.
+The exact LICENSE text was reviewed at each pinned commit on 2026-11-01. The two MIT files require retaining the copyright and permission notice in copies or substantial portions. The fludo snapshot contains the full Apache-2.0 license, including its redistribution, attribution, NOTICE and patent provisions; its pinned tree contains LICENSE and no top-level NOTICE file. The three snapshots contain no additional top-level COPYING or NOTICE file. No source code, assets or dependencies from these repositories have been copied into Royal Club, so their redistribution obligations are not currently triggered. This audit covers the three reference snapshots only; it is not a complete inventory of the Royal Club dependency tree and is not legal advice.
 
 ## Sources reviewed
 - Gift Club Persian rules article (published 19 Oct 2026): https://giftclub.app/fa/blog/ludo-rules
