@@ -174,6 +174,32 @@ void main() {
       expect(restored.turnNumber, rolledAgain.turnNumber);
     });
 
+    test('rejects duplicate seats and an invalid declared winner', () {
+      expect(
+        () => ManchGameState(
+          players: [
+            ManchPlayerState(colour: ManchColour.red),
+            ManchPlayerState(colour: ManchColour.red),
+          ],
+          activePlayerIndex: 0,
+          profile: const ManchRuleProfile(),
+        ),
+        throwsArgumentError,
+      );
+      expect(
+        () => ManchGameState(
+          players: [
+            ManchPlayerState(colour: ManchColour.red),
+            ManchPlayerState(colour: ManchColour.green),
+          ],
+          activePlayerIndex: 0,
+          profile: const ManchRuleProfile(),
+          winnerIndex: 0,
+        ),
+        throwsArgumentError,
+      );
+    });
+
     test('rejects unsupported or incomplete save data', () {
       expect(
         () => ManchGameState.fromJson({'version': 99}),
