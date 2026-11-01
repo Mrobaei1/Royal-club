@@ -31,6 +31,7 @@ export interface UnoGame {
   drawnCardId: string | null;
   unoPendingPlayerId: string | null;
   pendingWild4: { offenderId: string; targetId: string; offenderHadActiveColor: boolean } | null;
+  openingColorPendingPlayerId: string | null;
   winnerId: string | null;
   winnerScore: number;
   turnNumber: number;
@@ -41,7 +42,8 @@ export type GameAction =
   | { type: 'pass' }
   | { type: 'callUno' }
   | { type: 'catchUno' }
-  | { type: 'challengeWild4' };
+  | { type: 'challengeWild4' }
+  | { type: 'chooseColor'; color: UnoColor };
 export interface PublicGameState {
   players: Array<{ id: string; username: string; cardCount: number }>;
   discardTop: UnoCard;
@@ -54,6 +56,7 @@ export interface PublicGameState {
   drawnCardId: string | null;
   unoPendingPlayerId: string | null;
   winnerScore: number;
+  openingColorPendingPlayerId: string | null;
   pendingWild4: { offenderId: string; targetId: string } | null;
 }
 export class UnoError extends Error {
