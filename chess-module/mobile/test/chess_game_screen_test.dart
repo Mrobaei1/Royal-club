@@ -14,6 +14,7 @@ Widget _screen({
   String? activeSide,
   bool isHost = false,
   ValueChanged<bool>? onToggleVoice,
+  String gameStatus = 'active',
 }) => MaterialApp(
   home: Scaffold(
     body: ChessGameScreen(
@@ -38,6 +39,7 @@ Widget _screen({
       activeSide: activeSide,
       isHost: isHost,
       onToggleVoice: onToggleVoice,
+      gameStatus: gameStatus,
     ),
   ),
 );
@@ -74,6 +76,15 @@ void main() {
   testWidgets('active server clock interpolates between authoritative updates', (tester) async {
     await tester.pumpWidget(_screen(activeSide: 'white'));
     await tester.pump(const Duration(seconds: 1));
+    expect(find.text('04:59'), findsOneWidget);
+  });
+
+  testWidgets('clock stops interpolating when the game becomes terminal', (tester) async {
+    await tester.pumpWidget(_screen(activeSide: 'white'));
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.text('04:59'), findsOneWidget);
+    await tester.pumpWidget(_screen(activeSide: 'white', gameStatus: 'black_win'));
+    await tester.pump(const Duration(seconds: 2));
     expect(find.text('04:59'), findsOneWidget);
   });
 
