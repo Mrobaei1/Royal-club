@@ -161,6 +161,30 @@ void main() {
       expect(rolled.pendingDice, 3);
     });
 
+    test('saves and restores a complete in-progress game', () {
+      final state = engine.roll(engine.newGame(playerCount: 2), 6);
+      final moved = engine.move(state, 0);
+      final rolledAgain = engine.roll(moved, 3);
+      final restored = ManchGameState.fromJson(rolledAgain.toJson());
+      expect(restored.players.map((p) => p.tokens).toList(),
+          equals(rolledAgain.players.map((p) => p.tokens).toList()));
+      expect(restored.activePlayerIndex, rolledAgain.activePlayerIndex);
+      expect(restored.pendingDice, rolledAgain.pendingDice);
+      expect(restored.profile.toJson(), rolledAgain.profile.toJson());
+      expect(restored.turnNumber, rolledAgain.turnNumber);
+    });
+
+    test('rejects unsupported or incomplete save data', () {
+      expect(
+        () => ManchGameState.fromJson({'version': 99}),
+        throwsFormatException,
+      );
+      expect(
+        () => ManchGameState.fromJson({'version': 1, 'players': []}),
+        throwsFormatException,
+      );
+    });
+
     test('rule profile serializes local variant switches', () {
       const profile = ManchRuleProfile(
         entryFaces: {1, 6},
