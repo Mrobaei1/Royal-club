@@ -211,19 +211,37 @@ export function registerUnoSockets(
         const room = rooms.getRoom(payload?.code ?? '');
         if (!room.voiceEnabled) throw new UnoError('VOICE_DISABLED', 'Voice chat is disabled by the host.');
         const sender = room.players.find(p => p.id === user.id);
-        const target = room.players.find(p => p.id === payload?.targetId);
-        if (!sender || !target) throw new UnoError('NOT_A_PLAYER', 'Voice signalling is only available to seated players.');
+        const targetSeat = room.players.find(p => p.id === payload?.targetId);
+        if (!sender || !targetSeat) throw new UnoError('NOT_A_PLAYER', 'Voice signalling is only available to seated players.');
+        if (!sender.connected || !targetSeat.connected) throw new UnoError('PLAYER_DISCONNECTED', 'Both players must be connected for voice signalling.');
         if (sender.muted) throw new UnoError('MICROPHONE_MUTED', 'Unmute your microphone before sending voice signalling.');
+        if (!['offer', 'answer', 'ice'].includes(payload?.kind ?? '')) throw new UnoError('INVALID_SIGNAL', 'Unsupported voice signalling message.');
+        if (!payload.data || typeof payload.data !== 'object' || Array.isArray(payload.data)) {
+          throw new UnoError('INVALID_SIGNAL', 'Voice signalling data must be an object.');
+        }
+        const signalData = payload.data as Record<string, unknown>;
+        if (payload.kind === 'ice') {
+          if (typeof signalData.candidate !== 'string' || signalData.candidate.length > 8_000) {
+            throw new UnoError('INVALID_SIGNAL', 'The ICE candidate is invalid.');
+          }
+        } else if (typeof signalData.sdp !== 'string' || signalData.sdp.length > MAX_SIGNAL_BYTES ||
+                   !['offer', 'answer'].includes(String(signalData.type))) {
+          throw new UnoError('INVALID_SIGNAL', 'The session description is invalid.');
+        }
         allowSignal(user.id);
         if (payloadSize(payload.data) > MAX_SIGNAL_BYTES) throw new UnoError('SIGNAL_TOO_LARGE', 'Voice signalling payload is too large.');
-        if (!['offer', 'answer', 'ice'].includes(payload?.kind ?? '')) throw new UnoError('INVALID_SIGNAL', 'Unsupported voice signalling message.');
         const targets = await io.in(`uno:${room.code}`).fetchSockets();
+        let delivered = false;
         for (const target of targets) {
-          const targetPlayer = (target.data as { player?: AuthenticatedPlayer }).player;
-          if (targetPlayer?.id === payload.targetId) target.emit('uno:voice:signal', {
-            fromId: user.id, targetId: payload.targetId, kind: payload.kind, data: payload.data,
-          });
+          const connectedSeat = (target.data as { player?: AuthenticatedPlayer }).player;
+          if (connectedSeat?.id === payload.targetId) {
+            target.emit('uno:voice:signal', {
+              fromId: user.id, targetId: payload.targetId, kind: payload.kind, data: payload.data,
+            });
+            delivered = true;
+          }
         }
+        if (!delivered) throw new UnoError('PLAYER_DISCONNECTED', 'The target player has no active connection.');
         ack?.({ ok: true });
       } catch (e) { fail(e, ack); }
     });
@@ -232,7 +250,8 @@ export function registerUnoSockets(
         const room = rooms.leave(payload?.code ?? '', user.id);
         await persistRooms();
         if (room) publishRoom(room);
-        socket.leave(`uno:${payload?.code}`);
+        const roomCode = room?.code ?? String(payload?.code ?? '').trim().toUpperCase();
+        if (roomCode) await socket.leave(`uno:${roomCode}`);
         ack?.({ ok: true });
       } catch (e) { fail(e, ack); }
     });
