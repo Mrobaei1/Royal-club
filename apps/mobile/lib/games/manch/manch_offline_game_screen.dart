@@ -237,6 +237,19 @@ class _ManchOfflineGameScreenState extends State<ManchOfflineGameScreen> {
                 ),
               ),
               const SizedBox(height: 12),
+              if (!_state.isFinished && _isBotTurn)
+                FilledButton.icon(
+                  onPressed: null,
+                  icon: const Icon(Icons.smart_toy_outlined),
+                  label: const Text('هوش مصنوعی در حال بازی است...'),
+                )
+              else if (!_state.isFinished && _state.pendingDice == null)
+                FilledButton.icon(
+                  onPressed: _rollDice,
+                  icon: const Icon(Icons.casino_outlined),
+                  label: const Text('انداختن تاس'),
+                ),
+              const SizedBox(height: 12),
               Center(
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 520),
@@ -254,19 +267,7 @@ class _ManchOfflineGameScreenState extends State<ManchOfflineGameScreen> {
                   icon: const Icon(Icons.refresh),
                   label: const Text('بازی جدید'),
                 )
-              else if (_isBotTurn)
-                FilledButton.icon(
-                  onPressed: null,
-                  icon: const Icon(Icons.smart_toy_outlined),
-                  label: Text('هوش مصنوعی در حال بازی است...'),
-                )
-              else if (_state.pendingDice == null)
-                FilledButton.icon(
-                  onPressed: _rollDice,
-                  icon: const Icon(Icons.casino_outlined),
-                  label: const Text('انداختن تاس'),
-                )
-              else ...[
+              else if (_state.pendingDice != null) ...[
                 Text(
                   'حرکت‌های مجاز',
                   style: Theme.of(context).textTheme.titleMedium,
