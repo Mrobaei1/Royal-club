@@ -245,7 +245,7 @@ test("expired disconnect grace transfers seat to temporary Hard bot and permits 
 });
 
 
-test("multiple temporary disconnects advance consecutive Hard bots through a complete hand", () => {
+test("multiple temporary disconnects advance consecutive Hard bots until the match-ending hand completes", () => {
   let room = startRoom(fullReadyRoom(1000, 3), "u0", { now: 2000, rng: () => 0.5 });
   for (const userId of ["u0", "u1", "u2", "u3"]) {
     room = disconnectPlayer(room, userId, { now: 3000, expectedVersion: room.version });
@@ -259,7 +259,8 @@ test("multiple temporary disconnects advance consecutive Hard bots through a com
   }
   assert.equal(room.status, "round_completed");
   assert.equal(room.round.phase, "completed");
-  assert.equal(room.round.completedTricks.length, 13);
+  // The configured match target is 3; a team reaching 7 tricks ends the hand early.
+  assert.equal(room.round.completedTricks.length, 7);
   assert.ok(room.players.every(player => player.temporaryBot && player.botControlled && !player.connected));
 });
 
