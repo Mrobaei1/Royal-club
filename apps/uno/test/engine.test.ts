@@ -271,3 +271,32 @@ test('a pending Wild Draw Four response blocks playing or passing until accepted
   assert.equal(pending.players[1]!.hand.length, 1);
   assert.equal(pending.pendingWild4?.targetId, 'b');
 });
+
+
+test('a final Wild Draw Four waits for the target response before awarding the round', () => {
+  const game = startUnoGame([{id:'a',username:'a'},{id:'b',username:'b'}]);
+  game.players[0]!.hand = [{id:'last-wild4',color:'wild',face:'wild4'}];
+  game.players[1]!.hand = Array.from({length:7},(_,i)=>({id:'b'+i,color:'blue' as const,face:i}));
+  game.discardPile = [{id:'top',color:'red',face:1}];
+  game.activeColor = 'red';
+  const pending = applyUnoAction(game, 'a', {type:'play',cardId:'last-wild4',chosenColor:'green'});
+  assert.equal(pending.winnerId, null);
+  assert.equal(pending.pendingWild4?.targetId, 'b');
+  const accepted = applyUnoAction(pending, 'b', {type:'draw'});
+  assert.equal(accepted.winnerId, 'a');
+  assert.equal(accepted.players[1]!.hand.length, 11);
+});
+
+test('a final Wild Draw Four challenge can overturn the round when the offender bluffed', () => {
+  const game = startUnoGame([{id:'a',username:'a'},{id:'b',username:'b'}]);
+  game.players[0]!.hand = [{id:'last-wild4',color:'wild',face:'wild4'}];
+  game.players[1]!.hand = Array.from({length:7},(_,i)=>({id:'b'+i,color:'blue' as const,face:i}));
+  game.discardPile = [{id:'top',color:'red',face:1}];
+  game.activeColor = 'red';
+  const pending = applyUnoAction(game, 'a', {type:'play',cardId:'last-wild4',chosenColor:'green'});
+  pending.pendingWild4!.offenderHadActiveColor = true;
+  const challenged = applyUnoAction(pending, 'b', {type:'challengeWild4'});
+  assert.equal(challenged.winnerId, null);
+  assert.equal(challenged.players[0]!.hand.length, 4);
+  assert.equal(challenged.currentPlayerIndex, 0);
+});
