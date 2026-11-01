@@ -17,6 +17,21 @@ class ManchPlayerState {
 
   ManchPlayerState withTokens(List<int> next) =>
       ManchPlayerState(colour: colour, tokens: next);
+
+  Map<String, Object?> toJson() => {
+    'colour': colour.name,
+    'tokens': tokens,
+  };
+
+  factory ManchPlayerState.fromJson(Map<String, Object?> json) {
+    final colour = ManchColour.values.firstWhere(
+      (value) => value.name == json['colour'],
+      orElse: () => throw FormatException('Unknown Manch player colour.'),
+    );
+    final tokens = (json['tokens'] as List?)?.cast<int>();
+    if (tokens == null) throw FormatException('Missing player tokens.');
+    return ManchPlayerState(colour: colour, tokens: tokens);
+  }
 }
 
 class ManchGameState {
@@ -53,6 +68,38 @@ class ManchGameState {
   final int turnNumber;
   final int? winnerIndex;
   bool get isFinished => winnerIndex != null;
+
+  Map<String, Object?> toJson() => {
+    'version': 1,
+    'players': players.map((player) => player.toJson()).toList(),
+    'activePlayerIndex': activePlayerIndex,
+    'profile': profile.toJson(),
+    'pendingDice': pendingDice,
+    'consecutiveSixes': consecutiveSixes,
+    'turnNumber': turnNumber,
+    'winnerIndex': winnerIndex,
+  };
+
+  factory ManchGameState.fromJson(Map<String, Object?> json) {
+    if (json['version'] != 1) {
+      throw FormatException('Unsupported Manch save version.');
+    }
+    final rawPlayers = json['players'] as List?;
+    final rawProfile = json['profile'] as Map?;
+    if (rawPlayers == null || rawProfile == null) {
+      throw FormatException('Incomplete Manch save data.');
+    }
+    return ManchGameState(
+      players: rawPlayers.map((item) =>
+        ManchPlayerState.fromJson(Map<String, Object?>.from(item as Map))).toList(),
+      activePlayerIndex: json['activePlayerIndex'] as int? ?? 0,
+      profile: ManchRuleProfile.fromJson(Map<String, Object?>.from(rawProfile)),
+      pendingDice: json['pendingDice'] as int?,
+      consecutiveSixes: json['consecutiveSixes'] as int? ?? 0,
+      turnNumber: json['turnNumber'] as int? ?? 1,
+      winnerIndex: json['winnerIndex'] as int?,
+    );
+  }
 
   ManchGameState copyWith({
     List<ManchPlayerState>? players,
