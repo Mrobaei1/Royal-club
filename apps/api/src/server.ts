@@ -1608,14 +1608,18 @@ app.get<{ Querystring: { gameCode?: string } }>('/api/v1/leagues', { onRequest: 
   return { leagues: result.rows };
 });
 
-app.get('/api/v1/admin/leagues', { onRequest: [requireOwnerAuth] }, async () => {
+app.get<{ Querystring: { gameCode?: string } }>('/api/v1/admin/leagues', { onRequest: [requireOwnerAuth] }, async (request) => {
+  const gameCode = request.query.gameCode?.trim().toLowerCase() || null;
   const result = await pool.query(
     `SELECT id, game_code AS "gameCode", league_number AS "leagueNumber",
             code, name, enabled, entry_mode AS "entryMode",
             subscription_days_cost AS "subscriptionDaysCost",
             starts_at AS "startsAt", ends_at AS "endsAt", rules,
             created_at AS "createdAt", updated_at AS "updatedAt"
-       FROM leagues ORDER BY id DESC`,
+       FROM leagues
+      WHERE ($1::text IS NULL OR game_code = $1)
+      ORDER BY game_code ASC, league_number ASC`,
+    [gameCode],
   );
   return { leagues: result.rows };
 });
