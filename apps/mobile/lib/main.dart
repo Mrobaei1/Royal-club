@@ -10,6 +10,7 @@ import 'notifications_screen.dart';
 import 'engine_backgammon_screen.dart';
 import 'games/manch/manch_offline_game_screen.dart';
 import 'games/manch/manch_game_state.dart';
+import 'games/manch/manch_online_screen.dart';
 import 'services/auth_service.dart';
 import 'services/admin_service.dart';
 import 'theme_state.dart';
@@ -561,6 +562,18 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                           ),
                           const SizedBox(height: 8),
+                          OutlinedButton.icon(
+                            onPressed: () => Navigator.pop(dialogContext, 'online'),
+                            icon: const Icon(Icons.public_rounded),
+                            label: Text(
+                              appText(
+                                dialogContext,
+                                'بازی آنلاین',
+                                'Online game',
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
                           for (final count in [2, 3, 4])
                             Padding(
                               padding: const EdgeInsets.only(bottom: 6),
@@ -592,16 +605,18 @@ class _HomeScreenState extends State<HomeScreen> {
                   if (!context.mounted || mode == null) return;
                   Navigator.of(context).push(
                     MaterialPageRoute<void>(
-                      builder: (_) => ManchOfflineGameScreen(
-                        playerCount: mode == 'local3'
-                            ? 3
-                            : mode == 'local4'
-                                ? 4
-                                : 2,
-                        botPlayers: mode == 'bot'
-                            ? const {ManchColour.yellow}
-                            : const {},
-                      ),
+                      builder: (_) => mode == 'online'
+                          ? const ManchOnlineLobbyScreen()
+                          : ManchOfflineGameScreen(
+                              playerCount: mode == 'local3'
+                                  ? 3
+                                  : mode == 'local4'
+                                      ? 4
+                                      : 2,
+                              botPlayers: mode == 'bot'
+                                  ? const {ManchColour.yellow}
+                                  : const {},
+                            ),
                     ),
                   );
                 },
