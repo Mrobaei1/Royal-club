@@ -13,6 +13,7 @@ Status: first-pass production code instrumentation on an isolated feature branch
 - WAU: distinct users with an activity row in the current date plus previous six calendar dates.
 - MAU: distinct users with an activity row in the current date plus previous 29 calendar dates.
 - Repeat active users (30d): users with activity on more than one distinct date in the 30-day window. This is not a cohort-retention rate or churn rate.
+- D7 activity retention cohorts use the first observed authenticated activity date as cohort start and count any activity on days 7–13. Cohorts without 13 days of follow-up are excluded. This is not signup-cohort retention.
 - Activity capture is best-effort and cannot reject a valid authenticated request if analytics persistence fails.
 - Activity dates and reporting windows are normalized to UTC.
 
@@ -22,6 +23,7 @@ Status: first-pass production code instrumentation on an isolated feature branch
 - Initial capture: backgammon room creation and player join.
 - Other game types are schema-ready only; no events are written for them until their real game flows are connected.
 - Event counts are not equivalent to completed games or unique players.
+- Backgammon room creation, player join, actual game start, and game finish (including a resignation) are captured. Lifecycle events are deduplicated per match and game number.
 - Match IDs are not constrained by a foreign key because the table is designed to accept multiple game backends with distinct match stores; source metadata must be added before cross-game drill-down.
 
 ## Advanced queries and exports
@@ -35,6 +37,7 @@ Status: first-pass production code instrumentation on an isolated feature branch
 - The sample resets on process restart and is not a durable SLA measurement.
 - Database connectivity and probe latency are measured during each overview request.
 - Infrastructure provider cost and agent execution metrics remain unavailable because no authoritative sources/runtime are connected.
+- The integration suite seeds 10,000 game events and checks aggregation plus CSV/PDF export coverage.
 
 ## Security and failure behavior
 - Analytics overview remains owner-only and read-only.
