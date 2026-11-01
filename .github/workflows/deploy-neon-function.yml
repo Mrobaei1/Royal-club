@@ -113,8 +113,6 @@ jobs:
           DATABASE_URL: ${{ steps.database.outputs.url }}
           OWNER_USER_ID: ${{ secrets.ROYAL_CLUB_OWNER_USER_ID }}
           SMS_CREDENTIALS_ENCRYPTION_KEY: ${{ secrets.ROYAL_CLUB_SMS_CREDENTIALS_ENCRYPTION_KEY }}
-          CLOUDFLARE_TURN_KEY_ID: ${{ secrets.CLOUDFLARE_TURN_KEY_ID }}
-          CLOUDFLARE_TURN_API_TOKEN: ${{ secrets.CLOUDFLARE_TURN_API_TOKEN }}
           ROYAL_CLUB_GIT_SHA: ${{ github.sha }}
         run: |
           if [ -z "$JWT_SECRET" ] || [ "${#JWT_SECRET}" -lt 32 ]; then
@@ -144,16 +142,6 @@ jobs:
           if (smsKey) {
             if (Buffer.from(smsKey, 'base64').length !== 32) throw new Error('SMS encryption key must decode to exactly 32 bytes.');
             env.SMS_CREDENTIALS_ENCRYPTION_KEY = smsKey;
-          }
-          const turnKeyId = (process.env.CLOUDFLARE_TURN_KEY_ID || '').trim();
-          const turnApiToken = (process.env.CLOUDFLARE_TURN_API_TOKEN || '').trim();
-          if (Boolean(turnKeyId) !== Boolean(turnApiToken)) throw new Error('Set both Cloudflare TURN GitHub secrets or leave both empty.');
-          if (turnKeyId) {
-            if (!/^[a-f0-9]{32}$/i.test(turnKeyId) || !/^[a-f0-9]{64}$/i.test(turnApiToken)) {
-              throw new Error('Cloudflare TURN key ID/token format is invalid.');
-            }
-            env.CLOUDFLARE_TURN_KEY_ID = turnKeyId;
-            env.CLOUDFLARE_TURN_API_TOKEN = turnApiToken;
           }
           fs.writeFileSync('function-env.json', JSON.stringify(env));
           NODE
