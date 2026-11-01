@@ -231,6 +231,7 @@ test('a best-of-three UNO match requires three round wins and readiness between 
     savedRoom.game!.direction = 1;
     savedRoom.game!.discardPile = [{id:'top',color:'red',face:2}];
     savedRoom.game!.activeColor = 'red';
+    savedRoom.game!.openingColorPendingPlayerId = null;
     const restarted = new UnoRoomManager();
     restarted.restoreSnapshot(snapshot);
     const result = restarted.act(room.code, host.id, {type:'play',cardId:'round-final'});
