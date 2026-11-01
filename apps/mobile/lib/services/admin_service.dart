@@ -30,6 +30,18 @@ class AdminService {
     return decoded;
   }
 
+  static Future<Map<String, dynamic>> voiceCallSettings() async =>
+      (await _request('GET', '/api/v1/admin/communication/voice'))['settings'] as Map<String, dynamic>;
+
+  static Future<Map<String, dynamic>> saveVoiceCallSettings(Map<String, dynamic> settings) async =>
+      (await _request('PATCH', '/api/v1/admin/communication/voice', body: settings))['settings'] as Map<String, dynamic>;
+
+  static Future<Map<String, dynamic>> testVoiceCallConnection() async =>
+      await _request('POST', '/api/v1/admin/communication/voice/test-connection');
+
+  static Future<List<dynamic>> voiceCallAudit() async =>
+      (await _request('GET', '/api/v1/admin/communication/voice/audit'))['entries'] as List<dynamic>;
+
   static Future<Map<String, dynamic>> smsOtpSettings() async =>
       (await _request('GET', '/api/v1/admin/security/sms-otp'))['settings'] as Map<String, dynamic>;
 
