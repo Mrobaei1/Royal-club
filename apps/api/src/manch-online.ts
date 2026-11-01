@@ -66,29 +66,6 @@ function seatColours(playerCount: number): ManchColour[] {
   return [...SEAT_COLOURS[playerCount]];
 }
 
-function parseProfile(value: unknown): ManchRuleProfile {
-  if (value === undefined || value === null) return defaultManchRuleProfile();
-  if (typeof value !== 'object' || Array.isArray(value)) {
-    throw new Error('Invalid Manch rule profile.');
-  }
-  const defaults = defaultManchRuleProfile();
-  const raw = value as Partial<ManchRuleProfile>;
-  return {
-    entryFaces: Array.isArray(raw.entryFaces) ? raw.entryFaces : defaults.entryFaces,
-    extraRollOnSix: raw.extraRollOnSix ?? defaults.extraRollOnSix,
-    extraRollOnCapture: raw.extraRollOnCapture ?? defaults.extraRollOnCapture,
-    extraRollOnFinish: raw.extraRollOnFinish ?? defaults.extraRollOnFinish,
-    threeSixPenalty: raw.threeSixPenalty ?? defaults.threeSixPenalty,
-    safeTrackIndices: Array.isArray(raw.safeTrackIndices)
-      ? raw.safeTrackIndices : defaults.safeTrackIndices,
-    blockadesEnabled: raw.blockadesEnabled ?? defaults.blockadesEnabled,
-    blockadeBlocksOpponents: raw.blockadeBlocksOpponents ?? defaults.blockadeBlocksOpponents,
-    friendlyStackingEnabled: raw.friendlyStackingEnabled ?? defaults.friendlyStackingEnabled,
-    exactFinishRequired: raw.exactFinishRequired ?? defaults.exactFinishRequired,
-    maxConsecutiveSixes: raw.maxConsecutiveSixes ?? defaults.maxConsecutiveSixes,
-  };
-}
-
 async function lockMatch(client: PoolClient, id: string) {
   const result = await client.query(
     `SELECT id, room_code, host_user_id, player_count, status, game_state,
@@ -156,11 +133,15 @@ export function registerManchRoutes(app: any, pool: Pool, requireMatchAuth: any)
       return sendError(reply, 400, 'Player count must be between 2 and 4.');
     }
 
-    let profile: ManchRuleProfile;
+    if (request.body?.profile !== undefined) {
+      return sendError(reply, 400, 'Manch rules are selected by the server, not by the client.');
+    }
+
     let state: ManchGameState;
     try {
-      profile = parseProfile(request.body?.profile);
-      state = createManchGame(seatColours(playerCount), profile);
+      // Until manager-controlled rule settings are integrated, every room
+      // receives the server's canonical default profile.
+      state = createManchGame(seatColours(playerCount), defaultManchRuleProfile());
     } catch (error) {
       return sendError(reply, 400, error instanceof Error ? error.message : 'Invalid Manch setup.');
     }
