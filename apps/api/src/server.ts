@@ -3860,21 +3860,14 @@ app.post('/api/v1/matches', { onRequest: [requireMatchAuth] }, async (request, r
       const result = await pool.query(
         `INSERT INTO backgammon_matches (room_code, host_user_id, expires_at)
          VALUES ($1, $2, NOW() + INTERVAL '60 seconds')
-         RETURNING id, room_code AS "roomCode", status, created_at AS "createdAt", expires_at AS "expiresAt"`, [roomCode, claims.sub]);
-       await pool.query(
-         `INSERT INTO analytics_game_events (game_type, event_type, match_id, user_id)
-          VALUES ('backgammon', 'room_created', app.post('/api/v1/matches', { onRequest: [requireMatchAuth] }, async (request, reply) => {
-  const claims = request.user as { sub: string };
-  for (let attempt = 0; attempt < 3; attempt++) {
-    const roomCode = randomBytes(3).toString('hex').toUpperCase();
-    try {
-      const result = await pool.query(
-        `INSERT INTO backgammon_matches (room_code, host_user_id, expires_at)
-         VALUES ($1, $2, NOW() + INTERVAL '60 seconds')
-         RETURNING id, room_code AS "roomCode", status, created_at AS "createdAt", expires_at AS "expiresAt"`, [roomCode, claims.sub]);
-,       return reply.code(201).send({ match: result.rows[0] });)`,
-         [result.rows[0].id, claims.sub],
-       );
+         RETURNING id, room_code AS "roomCode", status, created_at AS "createdAt", expires_at AS "expiresAt"`,
+        [roomCode, claims.sub],
+      );
+      await pool.query(
+        `INSERT INTO analytics_game_events (game_type, event_type, match_id, user_id)
+         VALUES ('backgammon', 'room_created', $1, $2)`,
+        [result.rows[0].id, claims.sub],
+      );
       return reply.code(201).send({ match: result.rows[0] });
     } catch (error: any) {
       if (error?.code !== '23505') {
@@ -3918,8 +3911,10 @@ app.post<{ Params: { id: string } }>('/api/v1/matches/:id/join', { onRequest: [r
     await client.query('COMMIT');
     await pool.query(
       `INSERT INTO analytics_game_events (game_type, event_type, match_id, user_id)
-       VALUES ('backgammon', 'player_joined', await client.query('COMMIT');
-,     const joined = await pool.query()`,
+       VALUES ('backgammon', 'player_joined', $1, $2)`,
+      [match.id, claims.sub],
+    );
+    const joined = await pool.query()`,
       [match.id, claims.sub],
     );
     const joined = await pool.query(
