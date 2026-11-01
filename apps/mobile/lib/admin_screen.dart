@@ -677,7 +677,11 @@ class _AdminScreenState extends State<AdminScreen> {
       ));
       await _showLeagueReport(league);
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appError(context, e))));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(appError(context, e))),
+        );
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -1887,7 +1891,7 @@ class _AdminScreenState extends State<AdminScreen> {
                   TextField(controller: _countryFilter, decoration: InputDecoration(labelText: appText(context, 'کشور', 'Country'), border: const OutlineInputBorder())),
                   const SizedBox(height: 8),
                   DropdownButtonFormField<String>(
-                    value: _subscriptionFilter,
+                    initialValue: _subscriptionFilter,
                     decoration: InputDecoration(labelText: appText(context, 'وضعیت اشتراک', 'Subscription status')),
                     items: [
                       DropdownMenuItem(value: 'any', child: Text(appText(context, 'همه کاربران', 'All users'))),
@@ -1898,7 +1902,7 @@ class _AdminScreenState extends State<AdminScreen> {
                   ),
                   const SizedBox(height: 8),
                   DropdownButtonFormField<String>(
-                    value: _phoneFilter,
+                    initialValue: _phoneFilter,
                     decoration: InputDecoration(labelText: appText(context, 'شماره تلفن', 'Phone number')),
                     items: [
                       DropdownMenuItem(value: 'any', child: Text(appText(context, 'مهم نیست', 'Any'))),
@@ -1954,7 +1958,7 @@ class _AdminScreenState extends State<AdminScreen> {
               TextField(controller: _notificationBody, maxLines: 3, maxLength: 1000, decoration: InputDecoration(labelText: appText(context, 'متن اعلان', 'Notification message'), border: const OutlineInputBorder())),
               const SizedBox(height: 8),
               DropdownButtonFormField<String>(
-                value: _notificationAudience,
+                initialValue: _notificationAudience,
                 decoration: InputDecoration(labelText: appText(context, 'مخاطبان اعلان', 'Notification audience')),
                 items: [
                   DropdownMenuItem(value: 'all', child: Text(appText(context, 'تمام کاربران', 'All users'))),
