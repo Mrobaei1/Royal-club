@@ -21,7 +21,7 @@ export class UnoRoomManager {
       code, hostId: host.id, status: 'waiting',
       players: [{ ...host, ready: false, connected: true, muted: true, selfMuted: true, hostMuted: false }],
       chatEnabled: true, voiceEnabled: true, createdAt: Date.now(), lastActivityAt: Date.now(),
-      matchToWin: 1, roundsWon: { [host.id]: 0 }, roundsPlayed: 0, matchWinnerId: null, game: null,
+      matchToWin: 1, roundsWon: { [host.id]: 0 }, roundsPlayed: 0, matchWinnerId: null, totalPoints: { [host.id]: 0 }, game: null,
     };
     this.rooms.set(code, room);
     this.userRooms.set(host.id, code);
@@ -45,6 +45,7 @@ export class UnoRoomManager {
       if (room.players.length >= 6) throw new UnoError('ROOM_FULL', 'UNO tables support at most 6 players.');
       room.players.push({ ...player, ready: false, connected: true, muted: true, selfMuted: true, hostMuted: false });
       room.roundsWon[player.id] = 0;
+      room.totalPoints[player.id] = 0;
       this.userRooms.set(player.id, code);
       // A changed lobby invalidates every previous ready vote.
       for (const seat of room.players) seat.ready = false;
@@ -108,6 +109,7 @@ export class UnoRoomManager {
       const winnerId = room.game.winnerId;
       room.roundsPlayed += 1;
       room.roundsWon[winnerId] = (room.roundsWon[winnerId] ?? 0) + 1;
+      room.totalPoints[winnerId] = (room.totalPoints[winnerId] ?? 0) + room.game.winnerScore;
       if (room.roundsWon[winnerId] >= room.matchToWin) {
         room.status = 'finished';
         room.matchWinnerId = winnerId;
@@ -200,6 +202,7 @@ export class UnoRoomManager {
     }
     room.players.splice(index, 1);
     delete room.roundsWon[playerId];
+    delete room.totalPoints[playerId];
     this.userRooms.delete(playerId);
     if (room.players.length === 0) {
       this.rooms.delete(room.code);
@@ -246,8 +249,12 @@ export class UnoRoomManager {
       room.roundsWon = room.roundsWon && typeof room.roundsWon === 'object'
         ? room.roundsWon
         : Object.fromEntries(room.players.map(player => [player.id, 0]));
+      room.totalPoints = room.totalPoints && typeof room.totalPoints === 'object'
+        ? room.totalPoints
+        : Object.fromEntries(room.players.map(player => [player.id, 0]));
       for (const player of room.players) {
         room.roundsWon[player.id] ??= 0;
+        room.totalPoints[player.id] ??= 0;
         player.selfMuted = typeof player.selfMuted === 'boolean' ? player.selfMuted : player.muted !== false;
         player.hostMuted = typeof player.hostMuted === 'boolean' ? player.hostMuted : false;
         player.muted = player.selfMuted || player.hostMuted;
