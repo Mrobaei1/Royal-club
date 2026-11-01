@@ -3264,6 +3264,8 @@ test('owner analytics overview is owner-only, read-only, and reports source cove
     assert.equal(advanced.json().filters.game, 'backgammon');
     assert.equal(advanced.json().filters.timezone, 'UTC');
     assert.ok(Array.isArray(advanced.json().dailyGameEvents));
+    assert.ok(Array.isArray(advanced.json().cohortRetention));
+    assert.match(advanced.json().cohortDefinition, /D7 retention/);
     const aggregatedEventCount = advanced.json().dailyGameEvents.reduce(
       (sum: number, event: { count: number }) => sum + Number(event.count), 0);
     assert.ok(aggregatedEventCount >= 10001, `Expected 10,000 seeded events plus the room-created event; received ${aggregatedEventCount}.`);
