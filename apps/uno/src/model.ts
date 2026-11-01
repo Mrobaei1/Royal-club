@@ -13,6 +13,7 @@ export interface UnoRoom {
   chatEnabled: boolean;
   voiceEnabled: boolean;
   createdAt: number;
+  lastActivityAt: number;
   matchToWin: MatchToWin;
   roundsWon: Record<string, number>;
   roundsPlayed: number;
