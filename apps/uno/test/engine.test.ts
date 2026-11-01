@@ -209,6 +209,8 @@ test('a wild card requires one of the four supported colors and failed play is a
 
 test('drawing fails cleanly when no draw cards can be recovered', () => {
   const game = startUnoGame([{id:'a',username:'a'},{id:'b',username:'b'}]);
+  game.currentPlayerIndex = 0;
+  game.direction = 1;
   game.drawPile = [];
   game.discardPile = [{id:'only-top',color:'red',face:1}];
   const originalHandSize = game.players[0]!.hand.length;
