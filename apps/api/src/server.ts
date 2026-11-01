@@ -20,6 +20,7 @@ import { hasRoyalPermission, isRoyalPermission } from './permissions.js';
 import { isValidNeonTriggerInvocation } from './neon-trigger-auth.js';
 import { promisify } from 'node:util';
 import { createRoyalLoggerOptions } from './logging-config.js';
+import { ensureManchSchema, registerManchRoutes } from './manch-online.js';
 
 const scrypt = promisify(scryptCallback);
 
@@ -682,6 +683,8 @@ await pool.query(`
   CREATE INDEX IF NOT EXISTS auth_token_revocations_expiry_idx ON auth_token_revocations (expires_at);
 `);
 
+await ensureManchSchema(pool);
+
 const messageBodyConstraint = await pool.query(
   'SELECT pg_get_constraintdef(oid) AS definition FROM pg_constraint WHERE conrelid = \'private_messages\'::regclass AND conname = \'private_messages_body_check\'',
 );
@@ -945,6 +948,8 @@ const requireMatchAuth = async (request: any, reply: any) => {
     return reply.code(401).send({ error: 'Authentication required.' });
   }
 };
+
+registerManchRoutes(app, pool, requireMatchAuth);
 
 async function updateBackgammonRatings(client: PoolClient, winnerUserId: string, loserUserId: string) {
   const orderedIds = [winnerUserId, loserUserId].sort((left, right) => {

@@ -8,6 +8,9 @@ import 'friends_screen.dart';
 import 'account_screen.dart';
 import 'notifications_screen.dart';
 import 'engine_backgammon_screen.dart';
+import 'games/manch/manch_offline_game_screen.dart';
+import 'games/manch/manch_game_state.dart';
+import 'games/manch/manch_online_screen.dart';
 import 'services/auth_service.dart';
 import 'services/admin_service.dart';
 import 'theme_state.dart';
@@ -525,6 +528,97 @@ class _HomeScreenState extends State<HomeScreen> {
                   Navigator.of(context).push(MaterialPageRoute<void>(
                     builder: (_) => mode == 'online' ? const OnlineLobbyScreen() : const EngineBackgammonScreen(),
                   ));
+                },
+              ),
+              const SizedBox(height: 12),
+              GameTile(
+                title: appText(context, 'منچ', 'Manch'),
+                subtitle: appText(
+                  context,
+                  'بازی آفلاین ۲ تا ۴ نفره',
+                  'Offline pass-and-play for 2–4 players',
+                ),
+                icon: Icons.flag_rounded,
+                onTap: () async {
+                  final mode = await showDialog<String>(
+                    context: context,
+                    builder: (dialogContext) => AlertDialog(
+                      title: Text(
+                        appText(dialogContext, 'انتخاب حالت منچ', 'Choose Manch mode'),
+                      ),
+                      content: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          FilledButton.icon(
+                            onPressed: () => Navigator.pop(dialogContext, 'bot'),
+                            icon: const Icon(Icons.smart_toy_outlined),
+                            label: Text(
+                              appText(
+                                dialogContext,
+                                'بازی دونفره با هوش مصنوعی',
+                                'Play against AI',
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          OutlinedButton.icon(
+                            onPressed: () => Navigator.pop(dialogContext, 'online'),
+                            icon: const Icon(Icons.public_rounded),
+                            label: Text(
+                              appText(
+                                dialogContext,
+                                'بازی آنلاین',
+                                'Online game',
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          for (final count in [2, 3, 4])
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 6),
+                              child: OutlinedButton.icon(
+                                onPressed: () => Navigator.pop(
+                                  dialogContext,
+                                  'local$count',
+                                ),
+                                icon: const Icon(Icons.people_outline),
+                                label: Text(
+                                  appText(
+                                    dialogContext,
+                                    'بازی محلی $count نفره',
+                                    'Local $count-player game',
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(dialogContext),
+                          child: Text(appText(dialogContext, 'انصراف', 'Cancel')),
+                        ),
+                      ],
+                    ),
+                  );
+                  if (!context.mounted || mode == null) return;
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => mode == 'online'
+                          ? const ManchOnlineLobbyScreen()
+                          : ManchOfflineGameScreen(
+                              playerCount: mode == 'local3'
+                                  ? 3
+                                  : mode == 'local4'
+                                      ? 4
+                                      : 2,
+                              botPlayers: mode == 'bot'
+                                  ? const {ManchColour.yellow}
+                                  : const {},
+                            ),
+                    ),
+                  );
                 },
               ),
               const SizedBox(height: 12),
