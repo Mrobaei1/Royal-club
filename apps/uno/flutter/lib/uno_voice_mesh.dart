@@ -130,7 +130,7 @@ class UnoVoiceMesh {
           (data['sdpMid'] as String?) ?? '',
           data['sdpMLineIndex'] as int?,
         );
-        if (peer.remoteDescription == null) {
+        if (await peer.getRemoteDescription() == null) {
           _pendingCandidates.putIfAbsent(fromId, () => <RTCIceCandidate>[]).add(iceCandidate);
         } else {
           await peer.addCandidate(iceCandidate);
