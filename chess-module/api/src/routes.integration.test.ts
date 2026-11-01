@@ -32,6 +32,7 @@ test("authenticated chess routes support private game, draw, chat, voice, profil
     options: `-c search_path=${schema},public`,
   });
   const app = Fastify();
+  const appTwo = Fastify();
 
   try {
     await pool.query(`
@@ -64,7 +65,6 @@ test("authenticated chess routes support private game, draw, chat, voice, profil
     });
     await app.ready();
     // A second Fastify process shares only PostgreSQL, matching a multi-instance deployment.
-    const appTwo = Fastify();
     await registerChessRoutes(appTwo, {
       pool,
       authenticate: async (_request: FastifyRequest) => {},
