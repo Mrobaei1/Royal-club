@@ -1,0 +1,191 @@
+import test, { after, before } from 'node:test';
+import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
+import { Pool } from 'pg';
+import { legalManchMoves, type ManchGameState } from '../src/manch-rules.js';
+
+process.env.JWT_SECRET ??= 'royal-club-manch-integration-secret-32-characters';
+process.env.DATABASE_URL ??= 'postgres://postgres:postgres@127.0.0.1:5432/royalclub_test';
+process.env.NEON_FUNCTION_RUNTIME = '1';
+process.env.NODE_ENV = 'test';
+process.env.CORS_ORIGINS ??= 'http://localhost:8080';
+
+const { app } = await import('../src/server.js');
+const testPool = new Pool({ connectionString: process.env.DATABASE_URL });
+
+before(async () => {
+  await app.ready();
+});
+
+after(async () => {
+  await app.close();
+  await testPool.end();
+});
+
+function auth(token: string) {
+  return { authorization: `Bearer ${token}` };
+}
+
+async function register(label: string) {
+  const email = `manch-${label.toLowerCase()}-${randomUUID()}@example.test`;
+  const response = await app.inject({
+    method: 'POST',
+    url: '/api/v1/auth/register',
+    payload: {
+      email,
+      password: 'ManchIntegration123!',
+      fullName: label,
+      phone: '+491234567890',
+      country: 'Germany',
+    },
+  });
+  assert.equal(response.statusCode, 201, response.body);
+  return response.json() as {
+    accessToken: string;
+    user: { id: string; username: string; email: string };
+  };
+}
+
+test('Manch online rooms join, roll and persist server-authoritative moves', async () => {
+  const host = await register('Manch Host');
+  const guest = await register('Manch Guest');
+  const third = await register('Manch Third');
+
+  const created = await app.inject({
+    method: 'POST',
+    url: '/api/v1/manch/matches',
+    headers: auth(host.accessToken),
+    payload: { playerCount: 2 },
+  });
+  assert.equal(created.statusCode, 201, created.body);
+  const waitingMatch = created.json().match;
+  assert.equal(waitingMatch.status, 'waiting');
+  assert.equal(waitingMatch.playerCount, 2);
+  assert.equal(waitingMatch.players.length, 1);
+  assert.equal(waitingMatch.players[0].seatColour, 'red');
+
+  const lobby = await app.inject({
+    method: 'GET',
+    url: '/api/v1/manch/matches',
+    headers: auth(guest.accessToken),
+  });
+  assert.equal(lobby.statusCode, 200, lobby.body);
+  assert.ok(lobby.json().matches.some((match: any) => String(match.id) === String(waitingMatch.id)));
+
+  const joined = await app.inject({
+    method: 'POST',
+    url: `/api/v1/manch/matches/${waitingMatch.id}/join`,
+    headers: auth(guest.accessToken),
+    payload: {},
+  });
+  assert.equal(joined.statusCode, 200, joined.body);
+  assert.equal(joined.json().match.status, 'active');
+  assert.equal(joined.json().match.players.length, 2);
+  assert.equal(joined.json().match.players[1].seatColour, 'yellow');
+  assert.equal(joined.json().match.currentTurnUserId, host.user.id);
+
+  const detail = await app.inject({
+    method: 'GET',
+    url: `/api/v1/manch/matches/${waitingMatch.id}`,
+    headers: auth(host.accessToken),
+  });
+  assert.equal(detail.statusCode, 200, detail.body);
+  const publicPlayers = detail.json().match.players as Array<Record<string, unknown>>;
+  assert.deepEqual(publicPlayers.map((player) => player.username), [
+    host.user.username,
+    guest.user.username,
+  ]);
+  for (const player of publicPlayers) {
+    assert.equal(Object.hasOwn(player, 'email'), false);
+    assert.equal(Object.hasOwn(player, 'fullName'), false);
+  }
+
+  const wrongTurn = await app.inject({
+    method: 'POST',
+    url: `/api/v1/manch/matches/${waitingMatch.id}/roll`,
+    headers: auth(guest.accessToken),
+    payload: {},
+  });
+  assert.equal(wrongTurn.statusCode, 403);
+
+  const rolled = await app.inject({
+    method: 'POST',
+    url: `/api/v1/manch/matches/${waitingMatch.id}/roll`,
+    headers: auth(host.accessToken),
+    payload: { dice: 1 },
+  });
+  assert.equal(rolled.statusCode, 200, rolled.body);
+  assert.ok(rolled.json().dice >= 1 && rolled.json().dice <= 6,
+    'The API must generate the dice value; the client cannot choose it.');
+  assert.equal(rolled.json().stateVersion, 1);
+
+  const staleMove = await app.inject({
+    method: 'POST',
+    url: `/api/v1/manch/matches/${waitingMatch.id}/move`,
+    headers: auth(host.accessToken),
+    payload: { tokenIndex: 0, expectedStateVersion: 0 },
+  });
+  assert.equal(staleMove.statusCode, 409);
+
+  if (!rolled.json().autoPassed) {
+    const gameState = rolled.json().state as ManchGameState;
+    const legal = legalManchMoves(gameState);
+    assert.ok(legal.length > 0);
+    const moved = await app.inject({
+      method: 'POST',
+      url: `/api/v1/manch/matches/${waitingMatch.id}/move`,
+      headers: auth(host.accessToken),
+      payload: {
+        tokenIndex: legal[0].tokenIndex,
+        expectedStateVersion: rolled.json().stateVersion,
+      },
+    });
+    assert.equal(moved.statusCode, 200, moved.body);
+    assert.equal(moved.json().stateVersion, 2);
+    assert.equal(moved.json().state.players[0].tokens[legal[0].tokenIndex],
+      legal[0].toProgress);
+  }
+
+  const fullRoomJoin = await app.inject({
+    method: 'POST',
+    url: `/api/v1/manch/matches/${waitingMatch.id}/join`,
+    headers: auth(third.accessToken),
+    payload: {},
+  });
+  assert.equal(fullRoomJoin.statusCode, 410);
+
+  const cancelledRoom = await app.inject({
+    method: 'POST',
+    url: '/api/v1/manch/matches',
+    headers: auth(host.accessToken),
+    payload: { playerCount: 2 },
+  });
+  assert.equal(cancelledRoom.statusCode, 201);
+  const cancelled = await app.inject({
+    method: 'DELETE',
+    url: `/api/v1/manch/matches/${cancelledRoom.json().match.id}`,
+    headers: auth(host.accessToken),
+  });
+  assert.equal(cancelled.statusCode, 200);
+  assert.equal(cancelled.json().cancelled, true);
+
+  const expiredRoom = await app.inject({
+    method: 'POST',
+    url: '/api/v1/manch/matches',
+    headers: auth(host.accessToken),
+    payload: { playerCount: 2 },
+  });
+  assert.equal(expiredRoom.statusCode, 201);
+  const expiredId = expiredRoom.json().match.id;
+  await testPool.query(
+    'UPDATE manch_matches SET expires_at = NOW() - INTERVAL \'1 second\' WHERE id = $1',
+    [expiredId],
+  );
+  const expiredJoin = await app.inject({
+    method: 'POST',
+    url: `/api/v1/manch/matches/${expiredId}/join`,
+    headers: auth(guest.accessToken),
+    payload: {},
+  });
+  assert.equal(expiredJoin.statusCode, 404);
+});
