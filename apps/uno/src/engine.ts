@@ -221,7 +221,7 @@ export function publicGameState(game: UnoGame) {
   return {
     players: game.players.map(p => ({ id: p.id, username: p.username, cardCount: p.hand.length })),
     discardTop: top, currentPlayerId: currentPlayer(game).id, activeColor: game.activeColor,
-    direction: game.direction, drawCount: game.drawPile.length, winnerId: game.winnerId, winnerScore: game.winnerScore,
+    direction: game.direction, drawCount: game.drawPile.length, winnerId: game.winnerId,
     turnNumber: game.turnNumber, unoPendingPlayerId: game.unoPendingPlayerId, winnerScore: game.winnerScore, pendingWild4: game.pendingWild4 ? { offenderId: game.pendingWild4.offenderId, targetId: game.pendingWild4.targetId } : null,
   };
 }
