@@ -3213,7 +3213,8 @@ app.patch<{ Params: { id: string }; Body: { status?: string } }>('/api/v1/admin/
 
 app.post<{ Body: {
   userId?: string; userIds?: string[]; username?: string; country?: string;
-  subscriptionStatus?: string; hasPhone?: string; registeredFrom?: string; registeredTo?: string;
+  subscriptionStatus?: string; hasPhone?: string; minBalance?: number; maxBalance?: number;
+  registeredFrom?: string; registeredTo?: string;
   title?: string; body?: string; showOnLogin?: boolean;
 } }>('/api/v1/admin/notifications', { onRequest: [requireOwnerAuth] }, async (request, reply) => {
   const claims = request.user as { sub: string };
@@ -3224,6 +3225,8 @@ app.post<{ Body: {
   const country = typeof input.country === 'string' ? input.country.trim() : '';
   const subscriptionStatus = input.subscriptionStatus ?? 'any';
   const hasPhone = input.hasPhone ?? 'any';
+  const minBalance = input.minBalance ?? null;
+  const maxBalance = input.maxBalance ?? null;
   const registeredFrom = input.registeredFrom ?? null;
   const registeredTo = input.registeredTo ?? null;
   if (cleanTitle.length < 1 || cleanTitle.length > 120 || cleanBody.length > 1000 ||
@@ -3232,6 +3235,9 @@ app.post<{ Body: {
       (username && username.length > 24) || country.length > 80 ||
       !['any', 'active', 'inactive'].includes(subscriptionStatus) ||
       !['any', 'yes', 'no'].includes(hasPhone) ||
+      (minBalance !== null && (!Number.isSafeInteger(minBalance) || minBalance < 0)) ||
+      (maxBalance !== null && (!Number.isSafeInteger(maxBalance) || maxBalance < 0)) ||
+      (minBalance !== null && maxBalance !== null && minBalance > maxBalance) ||
       (registeredFrom !== null && (typeof registeredFrom !== 'string' || !Number.isFinite(Date.parse(registeredFrom)))) ||
       (registeredTo !== null && (typeof registeredTo !== 'string' || !Number.isFinite(Date.parse(registeredTo)))) ||
       (input.showOnLogin !== undefined && typeof input.showOnLogin !== 'boolean')) {
@@ -3254,10 +3260,12 @@ app.post<{ Body: {
              OR ($8::text = 'active' AND EXISTS (SELECT 1 FROM user_subscriptions s WHERE s.user_id = u.id AND s.status = 'active' AND s.ends_at > NOW()))
              OR ($8::text = 'inactive' AND NOT EXISTS (SELECT 1 FROM user_subscriptions s WHERE s.user_id = u.id AND s.status = 'active' AND s.ends_at > NOW())))
         AND ($9::text = 'any' OR ($9::text = 'yes' AND u.phone <> '') OR ($9::text = 'no' AND u.phone = ''))
+        AND ($13::bigint IS NULL OR COALESCE((SELECT w.balance FROM wallet_accounts w WHERE w.user_id = u.id), 0) >= $13)
+        AND ($14::bigint IS NULL OR COALESCE((SELECT w.balance FROM wallet_accounts w WHERE w.user_id = u.id), 0) <= $14)
         AND ($11::timestamptz IS NULL OR u.created_at >= $11)
         AND ($12::timestamptz IS NULL OR u.created_at < $12 + INTERVAL '1 day')`,
     [claims.sub, cleanTitle, cleanBody, input.userId ?? null, selectedIds, username, country,
-      subscriptionStatus, hasPhone, input.showOnLogin ?? false, registeredFrom, registeredTo],
+      subscriptionStatus, hasPhone, input.showOnLogin ?? false, registeredFrom, registeredTo, minBalance, maxBalance],
   );
   return {
     sent: result.rowCount ?? 0,
@@ -3450,8 +3458,9 @@ app.delete<{ Params: { userId: string }; Body: { messageIds?: string[]; scope?: 
   return { deleted: result.rowCount ?? 0, scope };
 });
 
-app.get('/api/v1/notifications', { onRequest: [requireMatchAuth] }, async (request) => {
+app.get<{ Querystring: { loginOnly?: string } }>('/api/v1/notifications', { onRequest: [requireMatchAuth] }, async (request) => {
   const claims = request.user as { sub: string };
+  const loginOnly = request.query.loginOnly === 'true';
   // Invite notifications are intentionally ephemeral: clear expired cards even
   // when the user visits Notifications rather than the game lobby.
   await pool.query(
@@ -3465,9 +3474,10 @@ app.get('/api/v1/notifications', { onRequest: [requireMatchAuth] }, async (reque
             read_at AS "readAt", actor_user_id AS "actorUserId"
        FROM notifications
       WHERE user_id = $1
+        AND (NOT $2::boolean OR (data->>'showOnLogin' = 'true' AND read_at IS NULL))
       ORDER BY created_at DESC
       LIMIT 100`,
-    [claims.sub],
+    [claims.sub, loginOnly],
   );
   return { notifications: result.rows };
 });
