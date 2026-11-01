@@ -13,6 +13,7 @@
 | Bot | Hard difficulty only; no user/room difficulty selector. Bot uses only its own hand and public information and submits moves through the common legal-move validator. |
 | Intentional exit | The departing player receives -5 XP once; their seat remains in the same team and is permanently controlled by Hard bot for the rest of that match; match continues. |
 | Temporary disconnect | Separate from intentional exit; default grace period is 20 seconds, no XP penalty, temporary Hard bot takeover after expiry, authenticated reclaim without undoing bot moves. |
+| Match scoring | Each normally won hand awards exactly 1 match point to the winning team. No koti/coat bonus or other special hand bonus applies unless the owner later approves one. The match ends at the configured target of 3, 5, or 7 points, subject to the still-open R-09 completion details. |
 | Match XP | At full match completion only: +20 XP to each winner and +5 XP to each loser. No intermediate-hand XP. |
 | Practice | Offline/practice games award no XP. |
 | Room cleanup | A room may be expired/cleaned only when it is completely empty. |
@@ -44,8 +45,8 @@ Each item below blocks Phase 1 completion until the owner chooses or explicitly 
 | R-04 | Deal order | Five cards per player in clockwise seat order, starting with hakem | Confirm dealer, first recipient, direction and whether the same order applies to both deal stages. |
 | R-05 | Hakem selection timing | Hakem chooses after first five cards and before remaining eight | Confirm whether selection is mandatory, whether a timer/auto-choice exists, and whether the hakem may change their choice. |
 | R-06 | Early hand finish | First team to seven tricks wins immediately | Confirm whether play stops at 7, or all 13 tricks must be completed for special scoring. |
-| R-07 | Hand scoring | Current controller records trick counts; match-point mapping is not fully specified here | Confirm ordinary hand = 1 match point and any special sweep/capot scoring. |
-| R-08 | Special scores | **Koti/coat is explicitly not used**; no bonus is awarded for taking all 13 tricks. Other possible regional bonuses, if any, remain unconfirmed. | Confirm whether there are any other special scores beyond ordinary hand points; absent approval, none apply. |
+| R-07 | Hand scoring | Each normally won hand awards exactly 1 match point to the winning team; no special bonus applies. | **Approved (2026-11-01):** one match point per won hand; no koti/coat or other special hand bonus unless separately approved later. |
+| R-08 | Special scores | No special score or bonus is used. | **Approved (2026-11-01):** no koti/coat and no other special hand-scoring bonuses. |
 | R-09 | Match completion | Manager target is 3/5/7 | Confirm match ends immediately when target reached and whether a tie is possible/allowed. |
 | R-10 | Starting team/first lead | Hakem leads first trick | Confirm whether this applies to every hand and how first hakem is selected. |
 | R-11 | Illegal/missed turn | Server validates legal card and turn | Confirm timeout, invalid action, repeated invalid action and disconnect consequences. |
@@ -60,7 +61,7 @@ Each item below blocks Phase 1 completion until the owner chooses or explicitly 
 2. `round.js` currently treats seven tricks as an immediate hand finish. Any regional bonus requiring all thirteen tricks would require a different hand lifecycle.
 3. `scoreTricks` currently returns the trick tally and identifies a team at seven; it does not implement match-point awards or special regional scoring.
 4. Initial hakem selection/rotation is external to the round state machine.
-5. The current 3/5/7 target is accepted in the match layer, but owner approval is needed for the precise hand-to-match-point mapping and special scoring.
+5. The hand-to-match-point mapping is now owner-approved: one point per normally won hand, with no special bonuses. Match-end details remain open under R-09.
 6. The current code's assumptions must not be silently promoted into approved product rules.
 
 ## 5. Acceptance criteria for Phase 1
