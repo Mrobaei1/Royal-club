@@ -3492,11 +3492,14 @@ app.get<{ Querystring: { from?: string; to?: string; game?: string } }>(
          VALUES ($1, 'csv', $2::date, $3::date, $4, $5)`,
         [actorId, range.from, range.to, range.game, rows.rowCount ?? 0],
       );
-      const escape = (value: unknown) => `"${String(value ?? '').replaceAll('"', '""')}"`;
+      const escape = (value: unknown) => \`"\${String(value ?? '').replaceAll('"', '""')}"\`;
+      const generatedAt = new Date().toISOString();
+      const exportMetadata = [generatedAt, 'UTC', range.from, range.to,
+        'recorded_lifecycle_event_count_not_unique_games', 'live-query'];
       const csv = [
-        ['date', 'game', 'event', 'count'].join(','),
+        ['date', 'game', 'event', 'count', 'generated_at', 'timezone', 'filter_from', 'filter_to', 'metric_definition', 'freshness'].join(','),
         ...rows.rows.map((row: { date: string; game: string; event: string; count: number }) =>
-          [row.date, row.game, row.event, row.count].map(escape).join(',')),
+          [row.date, row.game, row.event, row.count, ...exportMetadata].map(escape).join(',')),
       ].join('\r\n');
       reply.header('Content-Type', 'text/csv; charset=utf-8');
       reply.header('Content-Disposition', `attachment; filename="royal-club-analytics-${range.from}-${range.to}.csv"`);
