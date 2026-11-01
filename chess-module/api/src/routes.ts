@@ -125,7 +125,7 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
       const timeResult=await client.query("SELECT id,display_name AS name,base_ms,increment_ms,enabled FROM chess_time_controls WHERE id=$1 AND enabled=true",[room.time_control_id]);
       const time=timeResult.rows[0] as {id:string;name:string;base_ms:number;increment_ms:number;enabled:boolean}|undefined;
       if(!time){await client.query("ROLLBACK");return fail(reply,409,"time_control_unavailable");}
-      const control:TimeControl={id:time.id,name:time.id,baseMs:Number(time.base_ms),incrementMs:Number(time.increment_ms),enabled:time.enabled};
+      const control:TimeControl={id:time.id,name:time.name,baseMs:Number(time.base_ms),incrementMs:Number(time.increment_ms),enabled:time.enabled};
       const now=Date.now();
       const clock=startClock(snapshotClock(control,now),"white",now);
       const game=await client.query(
