@@ -37,12 +37,12 @@ Build and verify an independent, Royal Club-compatible Hokm/Court Piece game mod
 
 `src/service.js` adds a framework-neutral server application boundary around the room state machine:
 - Caller identity is taken only from a verified principal supplied by trusted authentication middleware; request-body user IDs are not accepted as identity.
-- Membership-gated views and version-checked room transitions are exposed through one service.
+- Membership-gated views and version-checked room transitions are exposed through one service. `src/fastify-routes.js` registers authenticated room endpoints and requires the application to provide its real authentication preHandler.
 - In-process per-room serialization prevents two requests in the same Node process from both committing the same room version.
 - The repository contract requires `get`, `insert`, and `compareAndSwap`; `InMemoryRoomRepository` is for tests/local development, while `PostgresRoomRepository` is implemented for a node-postgres Pool. The SQL migration is `migrations/001_hokm_rooms.sql`.
 - Disconnect deadline processing is restricted to trusted service/system principals and must be invoked by a server scheduler.
 
-**Production blockers remain:** there is no HTTP/Fastify adapter, real authentication middleware/session binding, live PostgreSQL migration or database integration test, distributed concurrency control across server processes, durable deadline scheduler, event transport or reconnect recovery test against a running server. The PostgreSQL adapter is implemented but has only been exercised with a mocked Pool in CI; the in-memory queue does not coordinate multiple server processes. Do not deploy this service or describe it as production-ready.
+**Production blockers remain:** real authentication middleware/session binding must be wired to the Fastify adapter; the SQL migration has not been applied to a live PostgreSQL instance; database integration tests, distributed concurrency control across server processes, durable deadline scheduler, event transport and reconnect recovery tests against a running server remain open. The PostgreSQL adapter is implemented but has only been exercised with a mocked Pool in CI; the in-memory queue does not coordinate multiple server processes. Do not deploy this service or describe it as production-ready.
 
 ## Run tests
 Requires Node.js 20+: `npm test`
