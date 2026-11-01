@@ -226,6 +226,17 @@ export class UnoRoomManager {
     room.lastActivityAt = Date.now();
     return structuredClone(room);
   }
+  markAllPlayersDisconnected(): void {
+    for (const room of this.rooms.values()) {
+      for (const player of room.players) {
+        player.connected = false;
+        player.ready = false;
+        player.selfMuted = true;
+        player.muted = true;
+      }
+      if (room.status !== 'playing' && room.status !== 'finished') room.status = 'waiting';
+    }
+  }
   getRoom(code: string): UnoRoom { return structuredClone(this.requireRoom(code)); }
   exportSnapshot(): UnoRoomSnapshot {
     return { rooms: [...this.rooms.values()].map(room => structuredClone(room)) };
