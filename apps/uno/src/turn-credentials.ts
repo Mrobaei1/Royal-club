@@ -22,7 +22,7 @@ export function createTurnCredentials(
 
 export function parseTurnUrls(value: string | undefined): string[] {
   const urls = [...new Set((value ?? '').split(',').map(url => url.trim()).filter(Boolean))];
-  if (urls.some(url => !/^turns?:[^\\s,]+$/i.test(url))) {
+  if (urls.some(url => !/^turns?:[^\s,]+$/i.test(url))) {
     throw new Error('TURN URLs must be comma-separated turn: or turns: URLs.');
   }
   return urls;
