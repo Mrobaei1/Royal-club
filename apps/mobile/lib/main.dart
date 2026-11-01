@@ -18,6 +18,8 @@ import 'contact_screen.dart';
 import 'chat_screen.dart';
 import 'services/chat_service.dart';
 import 'services/friends_service.dart';
+import 'incoming_match_invites.dart';
+import 'match_activity_state.dart';
 
 class RoyalLocaleState extends ChangeNotifier {
   RoyalLocaleState() { _load(); }
@@ -58,6 +60,10 @@ class RoyalClubApp extends StatelessWidget {
           return AnimatedBuilder(
             animation: royalLocaleState,
             builder: (context, _) => MaterialApp(
+            navigatorKey: IncomingMatchInvites.navigatorKey,
+            builder: (context, child) => IncomingMatchInvites(
+              child: child ?? const SizedBox.shrink(),
+            ),
             debugShowCheckedModeBanner: false,
             title: 'Royal Club',
             locale: royalLocaleState.locale,
@@ -120,15 +126,18 @@ class _AuthGateState extends State<AuthGate> {
       _authenticated = valid;
       _checking = false;
     });
+    MatchActivityState.setAuthenticated(valid);
   }
 
   void _onAuthenticated() {
     if (!mounted) return;
+    MatchActivityState.setAuthenticated(true);
     setState(() => _authenticated = true);
   }
 
   void _onLogout() {
     AuthService.logout().then((_) {
+      MatchActivityState.setAuthenticated(false);
       if (mounted) setState(() => _authenticated = false);
     });
   }
