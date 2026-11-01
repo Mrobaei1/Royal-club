@@ -134,3 +134,31 @@ test('legal Wild Draw Four changes color, penalizes the next player and skips th
   assert.equal(next.currentPlayerIndex, 2);
   assert.equal(next.unoPendingPlayerId, 'a');
 });
+
+
+test('two-player Reverse acts as a skip and returns the turn to the same player', () => {
+  const game = startUnoGame([{id:'a',username:'a'},{id:'b',username:'b'}]);
+  game.players[0]!.hand = [{id:'reverse',color:'red',face:'reverse'},{id:'spare',color:'blue',face:2}];
+  game.discardPile = [{id:'top',color:'red',face:1}];
+  game.activeColor = 'red';
+  const next = applyUnoAction(game, 'a', {type:'play',cardId:'reverse'});
+  assert.equal(next.direction, -1);
+  assert.equal(next.currentPlayerIndex, 0);
+});
+
+test('recycling the discard pile preserves its top card and makes prior discards drawable', () => {
+  const game = startUnoGame([{id:'a',username:'a'},{id:'b',username:'b'}]);
+  game.players[0]!.hand = [{id:'drawn',color:'yellow',face:1}];
+  game.drawPile = [];
+  game.discardPile = [
+    {id:'old-1',color:'red',face:1},
+    {id:'old-2',color:'blue',face:2},
+    {id:'top',color:'green',face:3},
+  ];
+  game.activeColor = 'green';
+  const next = applyUnoAction(game, 'a', {type:'draw'});
+  assert.equal(next.discardPile.length, 1);
+  assert.equal(next.discardPile[0]!.id, 'top');
+  assert.equal(next.players[0]!.hand.length, 2);
+  assert.equal(next.drawPile.length, 1);
+});
