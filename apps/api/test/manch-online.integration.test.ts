@@ -292,4 +292,24 @@ test('Manch online rooms join, roll and persist server-authoritative moves', asy
   assert.equal(afterForfeit.statusCode, 200);
   assert.equal(afterForfeit.json().match.winnerUserId, host.user.id);
   assert.equal(afterForfeit.json().match.finishReason, 'forfeit');
+
+  const rematch = await app.inject({
+    method: 'POST',
+    url: `/api/v1/manch/matches/${raceId}/rematch`,
+    headers: auth(host.accessToken),
+    payload: {},
+  });
+  assert.equal(rematch.statusCode, 201, rematch.body);
+  assert.equal(rematch.json().match.status, 'waiting');
+  assert.equal(rematch.json().match.playerCount, 2);
+  assert.equal(rematch.json().match.players.length, 1);
+
+  const rematchJoin = await app.inject({
+    method: 'POST',
+    url: `/api/v1/manch/matches/${rematch.json().match.id}/join`,
+    headers: auth(guest.accessToken),
+    payload: {},
+  });
+  assert.equal(rematchJoin.statusCode, 200, rematchJoin.body);
+  assert.equal(rematchJoin.json().match.status, 'active');
 });
