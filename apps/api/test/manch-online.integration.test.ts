@@ -52,6 +52,15 @@ test('Manch online rooms join, roll and persist server-authoritative moves', asy
   const guest = await register('Manch Guest');
   const third = await register('Manch Third');
 
+  const clientSelectedRules = await app.inject({
+    method: 'POST',
+    url: '/api/v1/manch/matches',
+    headers: auth(host.accessToken),
+    payload: { playerCount: 2, profile: { entryFaces: [1] } },
+  });
+  assert.equal(clientSelectedRules.statusCode, 400,
+    'Clients must not be able to change server-approved rules.');
+
   const created = await app.inject({
     method: 'POST',
     url: '/api/v1/manch/matches',
@@ -61,6 +70,7 @@ test('Manch online rooms join, roll and persist server-authoritative moves', asy
   assert.equal(created.statusCode, 201, created.body);
   const waitingMatch = created.json().match;
   assert.equal(waitingMatch.status, 'waiting');
+  assert.deepEqual(waitingMatch.gameState.profile.entryFaces, [6]);
   assert.equal(waitingMatch.playerCount, 2);
   assert.equal(waitingMatch.players.length, 1);
   assert.equal(waitingMatch.players[0].seatColour, 'red');
