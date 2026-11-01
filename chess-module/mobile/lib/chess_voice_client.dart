@@ -291,12 +291,8 @@ class ChessVoiceClient {
           final enabled = event['enabled'] == true;
           onVoiceEnabledChanged?.call(enabled);
           if (!enabled) {
-            _talkRequested = false;
             onSpeakingChanged?.call(null);
-            _disableLocalAudio();
-            _leaseId = null;
-            _leaseRenewal?.cancel();
-            _leaseRenewal = null;
+            await disconnect();
           }
           break;
         case 'chess:voice:released':
