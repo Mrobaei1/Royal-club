@@ -61,6 +61,11 @@ export class UnoRoomManager {
     seat.connected = true;
     seat.ready = false;
     seat.username = player.username;
+    // If the previous host was the last connected player to disappear,
+    // the first authenticated player to return inherits table control.
+    if (!room.players.some(p => p.id === room.hostId && p.connected)) {
+      room.hostId = player.id;
+    }
     if (room.status !== 'playing' && room.status !== 'finished') {
       room.status = room.players.length >= 2 && room.players.every(p => p.ready && p.connected) ? 'ready' : 'waiting';
     }
