@@ -36,13 +36,13 @@
 | 2.0 | Core engine, duplicate-deck validation, deterministic tests, public completed-trick history and 2,000 seeded deal / 5,000 seeded trick property checks; CI green | 88% |
 | 3.0 | Round/match transitions, public trick-history views and full-hand regression tests; CI green | 85% |
 | 4.0 | In-memory lifecycle, readiness, host transfer, empty-only cleanup and match target tracking | 80% |
-| 5.0 | No production Fastify/network/persistence adapter yet | 0% |
+| 5.0 | Framework-neutral authenticated-principal service boundary, per-room in-process serialization, repository contract, PostgreSQL CAS adapter, atomic room+XP transaction and migration implemented; Fastify/auth middleware/session binding, live DB migration, distributed concurrency and event delivery remain open | 20% |
 | 6.0 | In-memory transient disconnect grace (20s default/configurable), version-checked timeout takeover, safe reclaim without rollback, permanent forfeit distinction, and consecutive multi-seat Hard bot takeover through match-ending hand test (the configured 3-point target can end a hand after 7 tricks); production scheduler/session binding and distributed race handling remain open | 60% |
 | 7.0 | Fixed hard-only policy uses deterministic public-information determinization; 24 seeded allocations respect public void-suit evidence and remaining-card counts; candidate evaluation includes partner-aware play and a validated two-trick lookahead; 300-deal benchmarks: 86.67% wins vs legal-random and 55.67% vs deterministic greedy, with 70.87% and 54.47% trick share; determinism, hidden-hand invariance and legal-action tests pass; three-trick experiment was benchmarked and rejected because its 87.00% random win rate came with a lower 54.33% greedy win rate; expert baselines and broader match-level strategy evaluation remain pending | 84% |
 | 8.0 | Not implemented | 0% |
 | 9.0 | Not implemented | 0% |
 | 10.0 | Core accepts only 3/5/7 and architecture reserves source for trusted manager config; admin auth/UI/audit pending | 20% |
-| 11.0 | Engine/room/round/progression tests plus 2,000 seeded deal, 5,000 seeded trick, 3,000 scoring and 52 malformed-deck property cases; 24 seeded bot deals, 100 seeded full matches, 300-deal random and greedy benchmarks with two-trick search, deterministic mid-trick decision checks, hidden-hand invariance, public card-count validation, partnership edge cases, public-history privacy, forfeit takeover, disconnect/reclaim, stale-version checks and multi-seat disconnect takeover regression (match-ending hand may correctly stop at 7 tricks once the configured target is reached); production integration/concurrency/security suites pending | 67% |
+| 11.0 | Existing engine/AI/room/progression regression suite plus authenticated service, stale-version race, trusted scheduler boundary, PostgreSQL transaction/rollback/CAS mocked-adapter tests; latest CI run 41302564256 passed 80/80; live database, HTTP integration, distributed race, penetration and end-to-end suites pending | 70% |
 | 12.0 | WBS, architecture contract and setup README documented; final handoff pending | 20% |
 
 ## Confirmed match scoring and progression rules (2026-10-31)
@@ -52,9 +52,19 @@
 - Level curve: level 1 starts at 0 XP; advancement cost from level L is round(300 + 5(L−1) + 0.08(L−1)^2). Level 100 starts at 79,439 XP; 95,000 XP is level 109. XP floors at zero and achieved level never decreases.
 - In-memory calculation and unit tests are now in the isolated lab. Production persistence, atomic ledger transactions and server identity integration remain open.
 
-**Weighted overall progress: 45.10%** (sum of each WBS weight multiplied by its current estimate). This is a planning estimate only; packages with no implementation remain at 0%, and the standalone lab is not production-ready.
+**Weighted overall progress: 47.74%** (sum of each WBS weight multiplied by its current estimate). This is a planning estimate only; packages with no implementation remain at 0%, and the standalone lab is not production-ready.
 
 These are planning estimates, not a claim of completed production functionality. On 2026-10-31 the bot public-card ledger, void-suit inference, full-hand simulation, round-history tests, in-memory disconnect/reclaim lifecycle, seeded engine property suite, 300-deal Hard-vs-random benchmark, 300-deal Hard-vs-greedy benchmark, focused partnership edge-case tests and deterministic public-information sampled trick search were added. With 24 samples and two-trick lookahead, latest validated benchmark results: 260/300 wins (86.67%) vs random and 167/300 wins (55.67%) vs greedy; trick shares were 70.87% and 54.47%. CI run 41233863640 passed with 63/63 tests. A 16-sample comparison was also green but scored lower (85.33% vs random and 54.67% vs greedy), so the 24-sample budget was retained. Production integration and deeper multi-trick search remain open. On the latest validation pass, the sampler now rejects inconsistent public card counts before attempting hidden-hand allocation; three seeded mid-trick positions verify legal, repeatable second/third-seat decisions. CI run 41234651631 passed 64/64 tests; run 41234647639 passed the bot source validation and 63/63 tests. Earlier CI runs 41232745980 and 41232884938 (benchmarks), and 41232886320 (partnership edge cases) also passed. Production integration and stronger AI search remain open.
 
 
 Three-trick search experiment review (2026-10-31): CI runs 41249664663, 41249711339 and 41249740986 completed successfully. The 300-deal three-trick run measured 261/300 wins (87.00%; 71.61% trick share) vs legal-random and 163/300 wins (54.33%; 54.33% trick share) vs deterministic greedy. The validated two-trick baseline measured 260/300 (86.67%; 70.87%) vs random and 167/300 (55.67%; 54.47%) vs greedy. The tiny random-baseline gain did not compensate for the greedy-baseline regression, so the experimental three-trick extension was reverted and two-trick search retained. This is a benchmark-based rejection, not a claim that deeper search is inherently worse.
+
+
+## Additional server-service milestone (2026-11-01)
+
+- Added `src/service.js`: authenticated-principal boundary, membership-gated views, expected-version transitions, per-room process-local serialization and trusted-service-only timeout processing.
+- Added `src/postgres-repository.js` and `migrations/001_hokm_rooms.sql`: PostgreSQL room storage with compare-and-swap and atomic XP aggregate upserts in the same transaction.
+- Added service and repository tests, including concurrent stale-write rejection and transaction rollback on XP-write failure.
+- CI run 41302430868 passed 75/75 after fixing a rejected internal queue-tail promise. CI run 41302564256 passed 80/80 including PostgreSQL adapter mocked-Pool tests.
+- Follow-up runs 41302348714 and 41302366506 failed during intermediate test iterations; the identified assertion and unhandled queue-tail rejection were corrected and the later 80-test run is green.
+- No live PostgreSQL instance or production HTTP/auth adapter was connected or deployed. These items remain acceptance blockers.
