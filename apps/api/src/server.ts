@@ -1631,13 +1631,14 @@ app.post<{
   };
 }>('/api/v1/admin/leagues', { onRequest: [requireOwnerAuth] }, async (request, reply) => {
   const body = request.body ?? {};
+  const invalidGameCodeType = body.gameCode !== undefined && typeof body.gameCode !== 'string';
   const gameCode = typeof body.gameCode === 'string' ? body.gameCode.trim().toLowerCase() : 'backgammon';
   const requestedCode = typeof body.code === 'string' ? body.code.trim().toLowerCase() : undefined;
   const invalidCodeType = body.code !== undefined && typeof body.code !== 'string';
   const name = typeof body.name === 'string' ? body.name.trim() : '';
   const entryMode = body.entryMode ?? 'free';
   const days = body.subscriptionDaysCost ?? 0;
-  if (!/^[a-z0-9][a-z0-9_-]{1,39}$/.test(gameCode) || invalidCodeType ||
+  if (invalidGameCodeType || !/^[a-z0-9][a-z0-9_-]{1,39}$/.test(gameCode) || invalidCodeType ||
       (requestedCode !== undefined && !/^[a-z0-9][a-z0-9_-]{1,39}$/.test(requestedCode)) ||
       !name || name.length > 120 ||
       typeof (body.enabled ?? false) !== 'boolean' ||
@@ -1652,8 +1653,8 @@ app.post<{
   const rules = normalizeWeeklyLeagueRules(body.rules, body.enabled ?? false);
   if (!rules) return reply.code(400).send({ error: 'Invalid weekly league rules; set a valid minimum before enabling.' });
   if (
-      (startsAt !== null && !Number.isFinite(Date.parse(startsAt))) ||
-      (endsAt !== null && !Number.isFinite(Date.parse(endsAt))) ||
+      (startsAt !== null && (typeof startsAt !== 'string' || !Number.isFinite(Date.parse(startsAt)))) ||
+      (endsAt !== null && (typeof endsAt !== 'string' || !Number.isFinite(Date.parse(endsAt)))) ||
       (startsAt !== null && endsAt !== null && Date.parse(endsAt) <= Date.parse(startsAt))
   ) {
     return reply.code(400).send({ error: 'Invalid league schedule.' });
