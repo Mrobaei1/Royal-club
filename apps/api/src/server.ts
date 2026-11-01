@@ -3211,6 +3211,45 @@ function validAnalyticsRange(from: unknown, to: unknown, game: unknown): Analyti
   return { from, to, game: game as AnalyticsRange['game'] };
 }
 
+function buildAnalyticsPdf(reportLines: string[]): Buffer {
+  const safe = (value: string) => value
+    .replace(/[^\\x20-\\x7E]/g, '?')
+    .replace(/\\\\/g, '\\\\\\\\')
+    .replace(/\\(/g, '\\\\(')
+    .replace(/\\)/g, '\\\\)');
+  const pages: string[][] = [];
+  for (let i = 0; i < reportLines.length; i += 48) pages.push(reportLines.slice(i, i + 48));
+  if (pages.length === 0) pages.push(['No analytics events in the selected range.']);
+  const fontId = 3;
+  const pageIds = pages.map((_, i) => 4 + i * 2);
+  const objects: string[] = [];
+  objects[1] = '<< /Type /Catalog /Pages 2 0 R >>';
+  objects[2] = `<< /Type /Pages /Kids [${pageIds.map((id) => `${id} 0 R`).join(' ')}] /Count ${pages.length} >>`;
+  objects[fontId] = '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>';
+  pages.forEach((lines, index) => {
+    const pageId = pageIds[index];
+    const contentId = pageId + 1;
+    const textLines = lines.map((line, lineIndex) =>
+      `(${safe(line).slice(0, 110)}) Tj${lineIndex === lines.length - 1 ? '' : ' T*'}`).join(' ');
+    const stream = `BT /F1 9 Tf 48 790 Td 13 TL ${textLines} ET`;
+    objects[pageId] = `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 842] /Resources << /Font << /F1 ${fontId} 0 R >> >> /Contents ${contentId} 0 R >>`;
+    objects[contentId] = `<< /Length ${Buffer.byteLength(stream, 'ascii')} >>\\nstream\\n${stream}\\nendstream`;
+  });
+  let pdf = '%PDF-1.4\\n';
+  const offsets = [0];
+  for (let id = 1; id < objects.length; id++) {
+    offsets[id] = Buffer.byteLength(pdf, 'ascii');
+    pdf += `${id} 0 obj\\n${objects[id]}\\nendobj\\n`;
+  }
+  const xrefOffset = Buffer.byteLength(pdf, 'ascii');
+  pdf += `xref\\n0 ${objects.length}\\n0000000000 65535 f \\n`;
+  for (let id = 1; id < objects.length; id++) {
+    pdf += `${String(offsets[id]).padStart(10, '0')} 00000 n \\n`;
+  }
+  pdf += `trailer\\n<< /Size ${objects.length} /Root 1 0 R >>\\nstartxref\\n${xrefOffset}\\n%%EOF`;
+  return Buffer.from(pdf, 'ascii');
+}
+
 app.get<{ Querystring: { from?: string; to?: string; game?: string } }>(
   '/api/v1/admin/analytics/advanced',
   { onRequest: [requireOwnerAuth] },
@@ -3272,6 +3311,49 @@ app.get<{ Querystring: { from?: string; to?: string; game?: string } }>(
     } catch (error) {
       request.log.error({ err: error }, 'Advanced analytics query failed');
       return reply.code(503).send({ error: 'Advanced analytics is temporarily unavailable.', freshness: 'unavailable' });
+    }
+  },
+);
+
+app.get<{ Querystring: { from?: string; to?: string; game?: string } }>(
+  '/api/v1/admin/analytics/export.pdf',
+  { onRequest: [requireOwnerAuth] },
+  async (request, reply) => {
+    const range = validAnalyticsRange(request.query.from, request.query.to, request.query.game ?? 'all');
+    if (!range) return reply.code(400).send({ error: 'Provide valid from/to dates (maximum 90 days) and a supported game filter.' });
+    try {
+      const rows = await pool.query(
+        `SELECT DATE(occurred_at AT TIME ZONE 'UTC')::text AS date,
+                game_type AS game, event_type AS event, COUNT(*)::int AS count
+           FROM analytics_game_events
+          WHERE occurred_at >= ($1::date::timestamp AT TIME ZONE 'UTC')
+            AND occurred_at < (($2::date + INTERVAL '1 day')::timestamp AT TIME ZONE 'UTC')
+            AND ($3 = 'all' OR game_type = $3)
+          GROUP BY DATE(occurred_at AT TIME ZONE 'UTC'), game_type, event_type
+          ORDER BY DATE(occurred_at AT TIME ZONE 'UTC'), game_type, event_type
+          LIMIT 10000`,
+        [range.from, range.to, range.game],
+      );
+      const reportLines = [
+        'ROYAL CLUB - ANALYTICS REPORT',
+        `Range UTC: ${range.from} through ${range.to}`,
+        `Game filter: ${range.game}`,
+        `Generated: ${new Date().toISOString()}`,
+        'Metric: recorded lifecycle event counts; not unique players or completed games.',
+        'Games without connected event producers are not represented.',
+        '',
+        'DATE | GAME | EVENT | COUNT',
+        ...rows.rows.map((row: { date: string; game: string; event: string; count: number }) =>
+          `${row.date} | ${row.game} | ${row.event} | ${row.count}`),
+      ];
+      const pdf = buildAnalyticsPdf(reportLines);
+      reply.header('Content-Type', 'application/pdf');
+      reply.header('Content-Disposition', `attachment; filename="royal-club-analytics-${range.from}-${range.to}.pdf"`);
+      reply.header('Cache-Control', 'no-store');
+      return reply.send(pdf);
+    } catch (error) {
+      request.log.error({ err: error }, 'Analytics PDF export failed');
+      return reply.code(503).send({ error: 'Analytics PDF export is temporarily unavailable.' });
     }
   },
 );
