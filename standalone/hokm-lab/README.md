@@ -26,7 +26,7 @@ Build and verify an independent, Royal Club-compatible Hokm/Court Piece game mod
 - [x] Match XP calculation and level progression module.
 - [x] Intentional forfeit penalty with duplicate-event protection and permanent fixed-Hard bot takeover.
 - [x] Transient disconnect grace, timeout-triggered temporary bot takeover, version-checked reconnect and no-rollback seat reclaim.
-- [ ] Persistent per-user XP ledger and atomic match-result transaction.
+- [x] PostgreSQL repository adapter and transactional room/XP aggregate writes implemented with migration and mocked transaction tests; [ ] live database migration, deployed database verification and durable XP ledger reconciliation.
 - [x] Fixed-hard bot with legal-card selection, public unseen-card counting, void-suit inference, deterministic full-hand simulation, 24 seeded-deal simulations, 100 seeded full-match simulations to target 3, deterministic 24-sample public-information hidden-hand allocation with a validated two-trick lookahead; a three-trick experiment was benchmarked and reverted because it did not improve both random and greedy baselines; public card-count consistency checks, repeatable mid-trick decision tests, a 300-deal legal-random comparison (260/300 Hard wins, 86.67%; 70.87% trick share), a 300-deal deterministic-greedy comparison (167/300 wins, 55.67%; 54.47% trick share), and hidden-hand invariance tests.
 - [ ] Multi-trick lookahead / endgame search, expert and varied partnership-aware opponent baselines, broader calibrated public inference and match-level tournament simulations.
 - [x] Public completed-trick history retained in round state and sanitized per-seat views.
@@ -39,10 +39,10 @@ Build and verify an independent, Royal Club-compatible Hokm/Court Piece game mod
 - Caller identity is taken only from a verified principal supplied by trusted authentication middleware; request-body user IDs are not accepted as identity.
 - Membership-gated views and version-checked room transitions are exposed through one service.
 - In-process per-room serialization prevents two requests in the same Node process from both committing the same room version.
-- The repository contract requires `get`, `insert`, and `compareAndSwap`; the included in-memory repository is for tests and local development only.
+- The repository contract requires `get`, `insert`, and `compareAndSwap`; `InMemoryRoomRepository` is for tests/local development, while `PostgresRoomRepository` is implemented for a node-postgres Pool. The SQL migration is `migrations/001_hokm_rooms.sql`.
 - Disconnect deadline processing is restricted to trusted service/system principals and must be invoked by a server scheduler.
 
-**Production blockers remain:** there is no HTTP/Fastify adapter, real authentication middleware, durable PostgreSQL repository, database transaction/compare-and-swap implementation, distributed lock or event transport. The in-memory queue does not coordinate multiple server processes. Do not deploy this service or describe it as a production-authoritative online backend.
+**Production blockers remain:** there is no HTTP/Fastify adapter, real authentication middleware/session binding, live PostgreSQL migration or database integration test, distributed concurrency control across server processes, durable deadline scheduler, event transport or reconnect recovery test against a running server. The PostgreSQL adapter is implemented but has only been exercised with a mocked Pool in CI; the in-memory queue does not coordinate multiple server processes. Do not deploy this service or describe it as production-ready.
 
 ## Run tests
 Requires Node.js 20+: `npm test`
