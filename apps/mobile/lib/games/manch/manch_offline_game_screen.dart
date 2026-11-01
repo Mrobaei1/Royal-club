@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 
 import 'iranian_manch_board.dart';
+import 'manch_bot.dart';
 import 'manch_engine.dart';
 import 'manch_game_state.dart';
 import 'manch_rule_profile.dart';
@@ -15,11 +16,13 @@ class ManchOfflineGameScreen extends StatefulWidget {
     this.playerCount = 2,
     this.profile = const ManchRuleProfile(),
     this.diceRoller,
+    this.botPlayers = const {},
   }) : assert(playerCount >= 2 && playerCount <= 4);
 
   final int playerCount;
   final ManchRuleProfile profile;
   final int Function()? diceRoller;
+  final Set<ManchColour> botPlayers;
 
   @override
   State<ManchOfflineGameScreen> createState() => _ManchOfflineGameScreenState();
@@ -28,6 +31,9 @@ class ManchOfflineGameScreen extends StatefulWidget {
 class _ManchOfflineGameScreenState extends State<ManchOfflineGameScreen> {
   final _engine = const ManchEngine();
   final _random = Random();
+  final _bot = const ManchBot();
+  late final Set<ManchColour> _botPlayers =
+      Set<ManchColour>.unmodifiable(widget.botPlayers);
   late ManchGameState _state;
   int? _lastDice;
   String _message = 'برای شروع نوبت، تاس را بینداز.';
@@ -41,8 +47,50 @@ class _ManchOfflineGameScreenState extends State<ManchOfflineGameScreen> {
     );
   }
 
+  bool get _isBotTurn =>
+      _botPlayers.contains(_state.players[_state.activePlayerIndex].colour);
+
+  void _scheduleBotTurn() {
+    WidgetsBinding.instance.addPostFrameCallback((_) => _runBotTurn());
+  }
+
+  void _runBotTurn() {
+    if (!mounted || _state.isFinished || !_isBotTurn ||
+        _state.pendingDice != null) {
+      return;
+    }
+    final dice = widget.diceRoller?.call() ?? _random.nextInt(6) + 1;
+    if (dice < 1 || dice > 6) {
+      throw StateError('Dice roller must return a value from 1 to 6.');
+    }
+    var next = _engine.roll(_state, dice);
+    final moves = _engine.legalMoves(next);
+    if (moves.isEmpty) {
+      final playerIndex = next.activePlayerIndex;
+      next = _engine.passTurn(next);
+      setState(() {
+        _state = next;
+        _lastDice = dice;
+        _message = next.activePlayerIndex == playerIndex
+            ? 'هوش مصنوعی شش آورد اما حرکت ندارد؛ دوباره تاس می‌اندازد.'
+            : 'هوش مصنوعی حرکت قانونی نداشت.';
+      });
+    } else {
+      final chosen = _bot.chooseMove(next)!;
+      next = _engine.move(next, chosen.tokenIndex);
+      setState(() {
+        _state = next;
+        _lastDice = dice;
+        _message = next.isFinished
+            ? 'هوش مصنوعی برنده شد!'
+            : 'هوش مصنوعی مهره خود را حرکت داد.';
+      });
+    }
+    if (mounted && !next.isFinished && _isBotTurn) _scheduleBotTurn();
+  }
+
   void _rollDice() {
-    if (_state.isFinished || _state.pendingDice != null) return;
+    if (_state.isFinished || _state.pendingDice != null || _isBotTurn) return;
     final dice = widget.diceRoller?.call() ?? _random.nextInt(6) + 1;
     if (dice < 1 || dice > 6) {
       throw StateError('Dice roller must return a value from 1 to 6.');
@@ -61,10 +109,11 @@ class _ManchOfflineGameScreenState extends State<ManchOfflineGameScreen> {
       _lastDice = dice;
       _message = message;
     });
+    if (mounted && !next.isFinished && _isBotTurn) _scheduleBotTurn();
   }
 
   void _moveToken(ManchMove move) {
-    if (_state.pendingDice == null || _state.isFinished) return;
+    if (_state.pendingDice == null || _state.isFinished || _isBotTurn) return;
     final next = _engine.move(_state, move.tokenIndex);
     final won = next.isFinished;
     final winnerName = won
@@ -201,6 +250,12 @@ class _ManchOfflineGameScreenState extends State<ManchOfflineGameScreen> {
                   onPressed: _restart,
                   icon: const Icon(Icons.refresh),
                   label: const Text('بازی جدید'),
+                )
+              else if (_isBotTurn)
+                const FilledButton.icon(
+                  onPressed: null,
+                  icon: Icon(Icons.smart_toy_outlined),
+                  label: Text('هوش مصنوعی در حال بازی است...'),
                 )
               else if (_state.pendingDice == null)
                 FilledButton.icon(
