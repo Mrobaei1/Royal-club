@@ -141,8 +141,15 @@ class ManchOnlineService {
     return match;
   }
 
-  static Future<Map<String, dynamic>> roll(String id) async =>
-      _request('POST', '/${_requireId(id)}/roll');
+  static Future<Map<String, dynamic>> roll(
+    String id, {
+    required int expectedStateVersion,
+  }) async =>
+      _request(
+        'POST',
+        '/${_requireId(id)}/roll',
+        body: {'expectedStateVersion': expectedStateVersion},
+      );
 
   static Future<Map<String, dynamic>> move(
     String id, {
