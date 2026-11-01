@@ -150,7 +150,7 @@ test('authenticated sockets enforce host start and keep hands and voice signals 
     assert.equal(hostSeatAfterLeave?.connected, false);
     host.disconnect();
     await new Promise(resolve => setTimeout(resolve, 50));
-    assert.equal(roomManager.getRoom(code).players[0]!.connected, true);
+    assert.equal(roomManager.getRoom(code).players[0]!.connected, false);
     assert.ok(persistenceWrites >= 7);
 
   } finally {
