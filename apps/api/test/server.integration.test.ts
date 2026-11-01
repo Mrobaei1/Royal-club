@@ -3278,6 +3278,8 @@ test('owner analytics overview is owner-only, read-only, and reports source cove
     assert.equal(csv.statusCode, 200, csv.body);
     assert.match(csv.headers['content-type'] ?? '', /text\/csv/);
     assert.ok(csv.body.includes('date,game,event,count'));
+    assert.ok(csv.body.includes('metric_definition'));
+    assert.ok(csv.body.includes('recorded_lifecycle_event_count_not_unique_games'));
 
     const pdf = await app.inject({
       method: 'GET',
