@@ -32,7 +32,7 @@
 
 | WBS | Evidence-based status | Estimate |
 |---|---|---:|
-| 1.0 | Initial assumptions documented; regional rule sign-off pending | 25% |
+| 1.0 | Owner-confirmed constraints separated from unapproved engine assumptions; detailed rules specification and R-01–R-15 owner sign-off checklist added; final decisions/sign-off pending | 45% |
 | 2.0 | Core engine, duplicate-deck validation, deterministic tests, public completed-trick history and 2,000 seeded deal / 5,000 seeded trick property checks; CI green | 88% |
 | 3.0 | Round/match transitions, public trick-history views and full-hand regression tests; CI green | 85% |
 | 4.0 | In-memory lifecycle, readiness, host transfer, empty-only cleanup and match target tracking | 80% |
@@ -52,7 +52,7 @@
 - Level curve: level 1 starts at 0 XP; advancement cost from level L is round(300 + 5(L−1) + 0.08(L−1)^2). Level 100 starts at 79,439 XP; 95,000 XP is level 109. XP floors at zero and achieved level never decreases.
 - In-memory calculation and unit tests are now in the isolated lab. Production persistence, atomic ledger transactions and server identity integration remain open.
 
-**Weighted overall progress: 49.70%** (sum of each WBS weight multiplied by its current estimate). This is a planning estimate only; packages with no implementation remain at 0%, and the standalone lab is not production-ready.
+**Weighted overall progress: 51.30%** (sum of each WBS weight multiplied by its current estimate). This is a planning estimate only; packages with no implementation remain at 0%, and the standalone lab is not production-ready.
 
 These are planning estimates, not a claim of completed production functionality. On 2026-10-31 the bot public-card ledger, void-suit inference, full-hand simulation, round-history tests, in-memory disconnect/reclaim lifecycle, seeded engine property suite, 300-deal Hard-vs-random benchmark, 300-deal Hard-vs-greedy benchmark, focused partnership edge-case tests and deterministic public-information sampled trick search were added. With 24 samples and two-trick lookahead, latest validated benchmark results: 260/300 wins (86.67%) vs random and 167/300 wins (55.67%) vs greedy; trick shares were 70.87% and 54.47%. CI run 41233863640 passed with 63/63 tests. A 16-sample comparison was also green but scored lower (85.33% vs random and 54.67% vs greedy), so the 24-sample budget was retained. Production integration and deeper multi-trick search remain open. On the latest validation pass, the sampler now rejects inconsistent public card counts before attempting hidden-hand allocation; three seeded mid-trick positions verify legal, repeatable second/third-seat decisions. CI run 41234651631 passed 64/64 tests; run 41234647639 passed the bot source validation and 63/63 tests. Earlier CI runs 41232745980 and 41232884938 (benchmarks), and 41232886320 (partnership edge cases) also passed. Production integration and stronger AI search remain open.
 
@@ -71,3 +71,10 @@ Three-trick search experiment review (2026-10-31): CI runs 41249664663, 41249711
 
 
 - CI run 41302783311 passed 85/85 after adding the Fastify route adapter and tests for authentication preHandler enforcement, request-body identity spoofing, HTTP error mapping and endpoint registration.
+
+
+## Rules specification milestone (2026-11-01)
+
+- Added `docs/rules-spec.md` with confirmed owner decisions, current engine assumptions explicitly marked unapproved, 15 open rule decisions (R-01–R-15), code/spec discrepancies and Phase 1 acceptance criteria.
+- Phase 1 estimate moved from 25% to 45% because the specification and sign-off checklist now exist; it is not signed off and cannot be marked complete until the owner resolves the open decisions.
+- Weighted overall estimate recalculated from 49.70% to 51.30% (8% Phase 1 weight × 20 percentage-point increase = +1.60 points).
