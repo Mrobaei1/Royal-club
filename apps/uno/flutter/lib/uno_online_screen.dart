@@ -419,6 +419,7 @@ class _UnoOnlineScreenState extends State<UnoOnlineScreen> {
     final top = Map<String, dynamic>.from(game['discardTop'] as Map);
     final currentId = game['currentPlayerId'];
     final myTurn = currentId == widget.playerId;
+    final pendingWild4 = game['pendingWild4'] is Map && (game['pendingWild4'] as Map)['targetId'] == widget.playerId;
     final gameOver = game['winnerId'] != null;
     final winner = gameOver ? List<Map<String, dynamic>>.from((game['players'] as List).map((p) => Map<String, dynamic>.from(p as Map))).firstWhere((p) => p['id'] == game['winnerId'], orElse: () => {}) : <String, dynamic>{};
     final color = game['activeColor']?.toString() ?? top['color'].toString();
@@ -436,11 +437,14 @@ class _UnoOnlineScreenState extends State<UnoOnlineScreen> {
       ]),
       const SizedBox(height: 12),
       Wrap(spacing: 6, runSpacing: 6, alignment: WrapAlignment.center, children: _hand.map((raw) => InkWell(
-        onTap: myTurn && !gameOver && (_drawnCardId == null || Map<String, dynamic>.from(raw as Map)['id'] == _drawnCardId) ? () => _playCard(Map<String, dynamic>.from(raw as Map)) : null,
+        onTap: myTurn && !gameOver && !pendingWild4 && (_drawnCardId == null || Map<String, dynamic>.from(raw as Map)['id'] == _drawnCardId) ? () => _playCard(Map<String, dynamic>.from(raw as Map)) : null,
         child: _unoCard(Map<String, dynamic>.from(raw as Map)),
       )).toList()),
       if (myTurn && !gameOver) Wrap(spacing: 8, children: [
-        if (_drawnCardId == null) OutlinedButton(onPressed: () => _run('uno:game:action', {'code': code, 'action': {'type': 'draw'}}), child: const Text('برداشتن کارت')),
+        if (pendingWild4) ...[
+          FilledButton(onPressed: () => _run('uno:game:action', {'code': code, 'action': {'type': 'challengeWild4'}}), child: const Text('چالش +۴')),
+          OutlinedButton(onPressed: () => _run('uno:game:action', {'code': code, 'action': {'type': 'draw'}}), child: const Text('قبول +۴ و برداشتن ۴ کارت')),
+        ] else if (_drawnCardId == null) OutlinedButton(onPressed: () => _run('uno:game:action', {'code': code, 'action': {'type': 'draw'}}), child: const Text('برداشتن کارت')),
         if (_drawnCardId != null) OutlinedButton(onPressed: () => _run('uno:game:action', {'code': code, 'action': {'type': 'pass'}}), child: const Text('پایان نوبت')),
         if (game['unoPendingPlayerId'] != null && game['unoPendingPlayerId'] != widget.playerId) OutlinedButton(onPressed: () => _run('uno:game:action', {'code': code, 'action': {'type': 'catchUno'}}), child: const Text('اعلام تخلف UNO')),
       ]),
