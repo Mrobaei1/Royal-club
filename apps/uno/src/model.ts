@@ -51,6 +51,7 @@ export interface PublicGameState {
   turnNumber: number;
   drawnCardId: string | null;
   unoPendingPlayerId: string | null;
+  pendingWild4: { offenderId: string; targetId: string } | null;
 }
 export class UnoError extends Error {
   constructor(public readonly code: string, message: string) { super(message); this.name = 'UnoError'; }
