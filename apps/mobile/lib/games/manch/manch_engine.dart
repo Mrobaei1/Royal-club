@@ -135,7 +135,11 @@ class ManchEngine {
     if (legalMoves(state).isNotEmpty) {
       throw StateError('A legal move exists; cannot pass.');
     }
-    return _advance(state.copyWith(pendingDice: null));
+    final passed = state.copyWith(pendingDice: null);
+    if (state.pendingDice == 6 && state.profile.extraRollOnSix) {
+      return passed;
+    }
+    return _advance(passed);
   }
 
   (int, int)? _captureAt(ManchGameState state, int playerIndex, int progress) {
