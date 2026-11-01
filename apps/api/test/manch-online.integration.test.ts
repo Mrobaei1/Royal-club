@@ -113,12 +113,24 @@ test('Manch online rooms join, roll and persist server-authoritative moves', asy
     method: 'POST',
     url: `/api/v1/manch/matches/${waitingMatch.id}/roll`,
     headers: auth(host.accessToken),
-    payload: { dice: 1 },
+    payload: {
+      dice: 1,
+      expectedStateVersion: joined.json().match.stateVersion,
+    },
   });
   assert.equal(rolled.statusCode, 200, rolled.body);
   assert.ok(rolled.json().dice >= 1 && rolled.json().dice <= 6,
     'The API must generate the dice value; the client cannot choose it.');
   assert.equal(rolled.json().stateVersion, 2);
+
+  const duplicateRoll = await app.inject({
+    method: 'POST',
+    url: `/api/v1/manch/matches/${waitingMatch.id}/roll`,
+    headers: auth(host.accessToken),
+    payload: { expectedStateVersion: joined.json().match.stateVersion },
+  });
+  assert.equal(duplicateRoll.statusCode, 409,
+    'A repeated roll with an old version must not consume another die.');
 
   const staleMove = await app.inject({
     method: 'POST',
