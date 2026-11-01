@@ -7,7 +7,7 @@ This checklist prepares the UNO module for a later Royal Club integration. **Do 
 - Deploy apps/uno as a separate Node.js 22 service.
 - Configure DATABASE_URL to the Royal Club PostgreSQL database and reuse the existing JWT_SECRET.
 - Configure CORS_ORIGINS with the exact production web origins.
-- Configure TURN_URL and TURN_SHARED_SECRET for a Coturn REST-auth server. Keep the shared secret in the hosting provider's secret store; never commit it.
+- Configure TURN_URLS (UDP, TCP and TLS endpoints) and TURN_SHARED_SECRET for a Coturn REST-auth server. Keep the shared secret in the hosting provider's secret store; never commit it.
 - Follow [TURN_DEPLOYMENT_RUNBOOK.md](./TURN_DEPLOYMENT_RUNBOOK.md) for Coturn, DNS, TLS, firewall, credential, and cross-network verification. A successful /ice-config response alone does not prove media connectivity.
 - Keep the service to **one instance** until room mutations use distributed per-room transactions and Socket.IO has a shared adapter. PostgreSQL snapshots currently preserve rooms across restarts but do not make multiple live instances safe.
 - Verify /health, authenticated /ice-config, Socket.IO authentication, and room restore before opening access to players.
