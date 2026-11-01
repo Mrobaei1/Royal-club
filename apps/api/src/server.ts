@@ -3135,7 +3135,7 @@ app.get('/api/v1/admin/analytics/overview', { onRequest: [requireOwnerAuth] }, a
         COUNT(DISTINCT user_id) FILTER (WHERE activity_date >= CURRENT_DATE - 29)::int AS mau,
         COUNT(DISTINCT user_id) FILTER (WHERE activity_date >= CURRENT_DATE - 29
           AND user_id IN (SELECT user_id FROM analytics_user_activity_daily
-            WHERE activity_date >= CURRENT_DATE - 29 GROUP BY user_id HAVING COUNT(DISTINCT activity_date) > 1))::int AS returning_users
+            WHERE activity_date >= CURRENT_DATE - 29 GROUP BY user_id HAVING COUNT(DISTINCT activity_date) > 1))::int AS repeat_active_users
         FROM analytics_user_activity_daily WHERE activity_date >= CURRENT_DATE - 29`),
       pool.query(`SELECT game_type, event_type, COUNT(*)::int AS count
         FROM analytics_game_events WHERE occurred_at >= NOW() - INTERVAL '30 days'
@@ -3153,7 +3153,7 @@ app.get('/api/v1/admin/analytics/overview', { onRequest: [requireOwnerAuth] }, a
           dau: activity.rows[0]?.dau ?? null,
           wau: activity.rows[0]?.wau ?? null,
           mau: activity.rows[0]?.mau ?? null,
-          returningUsers30Days: activity.rows[0]?.returning_users ?? null,
+          repeatActiveUsers30Days: activity.rows[0]?.repeat_active_users ?? null,
           definition: 'distinct authenticated users with at least one successful authenticated API request per calendar day',
           freshness: 'daily-upsert-on-authenticated-request',
         },
@@ -3185,7 +3185,7 @@ app.get('/api/v1/admin/analytics/overview', { onRequest: [requireOwnerAuth] }, a
         })),
       },
       coverage: {
-        available: ['registeredUsers', 'registrationsLast30Days', 'DAU/WAU/MAU', 'returningUsers30Days', 'backgammonMatches', 'backgammonRoomEvents', 'walletCreditsLast30Days', 'subscriptions', 'backgammonMatchesLast30Days'],
+        available: ['registeredUsers', 'registrationsLast30Days', 'DAU/WAU/MAU', 'repeatActiveUsers30Days', 'backgammonMatches', 'backgammonRoomEvents', 'walletCreditsLast30Days', 'subscriptions', 'backgammonMatchesLast30Days'],
         partial: ['retention cohorts (requires longer history and cohort policy)', 'chess/card/UNO/Mafia (no game execution/event source currently wired)'],
         notInstrumented: ['session duration', 'API latency percentiles', 'infrastructure resource usage and cost', 'agent execution cost and quality'],
       },
