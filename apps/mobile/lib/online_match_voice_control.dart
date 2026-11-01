@@ -244,7 +244,8 @@ class _OnlineMatchVoiceControlState extends State<OnlineMatchVoiceControl> {
           } else {
             await _peer!.addCandidate(candidate);
           }
-        } else if (kind == 'hangup' && incomingCallId == _callId) {
+        } else if (kind == 'hangup' &&
+            (incomingCallId == _callId || incomingCallId == _incomingOffer?['callId'])) {
           await _cleanup(sendHangup: false);
         }
       }
@@ -267,6 +268,19 @@ class _OnlineMatchVoiceControlState extends State<OnlineMatchVoiceControl> {
 
   Future<void> _hangUp() async {
     await _cleanup(sendHangup: true);
+  }
+
+  Future<void> _rejectIncomingCall() async {
+    final callId = _incomingOffer?['callId']?.toString();
+    if (callId != null) {
+      try {
+        await MatchService.sendVoiceSignal(widget.matchId, 'hangup', {
+          'callId': callId,
+        });
+      } catch (_) {}
+    }
+    if (mounted) setState(() => _incomingOffer = null);
+    _pendingRemoteCandidates.clear();
   }
 
   Future<void> _cleanup({required bool sendHangup}) async {
@@ -345,6 +359,12 @@ class _OnlineMatchVoiceControlState extends State<OnlineMatchVoiceControl> {
                 )
               : Icon(icon),
         ),
+        if (incoming)
+          IconButton(
+            tooltip: widget.isEnglish ? 'Decline voice call' : 'رد تماس صوتی',
+            onPressed: _rejectIncomingCall,
+            icon: const Icon(Icons.call_end_rounded),
+          ),
         if (active)
           IconButton(
             tooltip: widget.isEnglish ? 'End voice call' : 'پایان تماس صوتی',
