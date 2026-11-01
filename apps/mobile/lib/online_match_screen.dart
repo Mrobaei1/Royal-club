@@ -598,7 +598,8 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
       setState(() => _error = _isEnglish ? 'No remaining die can bear off this checker.' : 'با تاس‌های باقی‌مانده نمی‌توان این مهره را خارج کرد.');
       return;
     }
-    await _submitMove(from: from, to: null, die: candidates.first);
+    final selectedDie = candidates.contains(distance) ? distance : candidates.last;
+    await _submitMove(from: from, to: null, die: selectedDie);
   }
 
 
