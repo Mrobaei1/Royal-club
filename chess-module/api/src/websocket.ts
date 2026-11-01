@@ -270,8 +270,43 @@ export async function registerChessWebSocket(app: FastifyInstance, options: Opti
       }
     })().catch(async () => {
       try {
-        if (cleanupConnection) await cleanupConnection();
-        else {
+        if (cleanupConnection) {
+          await cleanupConnection();
+        } else {
+          // A failure after inserting presence but before installing the normal
+          // close handler must not leave a ghost-online session behind.
+          const cleanupClient = await options.pool.connect();
+          let shouldPublishOffline = false;
+          try {
+            await cleanupClient.query("BEGIN");
+            await cleanupClient.query(
+              "SELECT pg_advisory_xact_lock(hashtext('chess_presence'),hashtext($1))",
+              [`${gameId}:${userId}`]
+            );
+            await cleanupClient.query(
+              "DELETE FROM chess_presence_sessions WHERE session_id=$1",
+              [sessionId]
+            );
+            const remaining = await cleanupClient.query(
+              "SELECT 1 FROM chess_presence_sessions WHERE game_id=$1 AND user_id=$2 LIMIT 1",
+              [gameId,userId]
+            );
+            shouldPublishOffline = !remaining.rowCount;
+            await cleanupClient.query("COMMIT");
+          } catch (cleanupError) {
+            try { await cleanupClient.query("ROLLBACK"); } catch {}
+            throw cleanupError;
+          } finally {
+            cleanupClient.release();
+          }
+          if (shouldPublishOffline && listenerToRelease) {
+            try {
+              await listenerToRelease.query("SELECT pg_notify($1,$2)",[
+                "chess_game_" + gameId,
+                JSON.stringify({type:"presence",id:userId,connected:false})
+              ]);
+            } catch {}
+          }
           listenerToRelease?.release();
           listenerToRelease = undefined;
         }
