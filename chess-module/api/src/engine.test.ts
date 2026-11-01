@@ -88,3 +88,20 @@ test("deterministic legal-move fuzzing keeps adapter FEN in sync with chess.js",
     }
   }
 });
+
+
+test("restores repetition history when a game is reconstructed from persisted PGN", () => {
+  const original = new ChessGame();
+  for (let cycle = 0; cycle < 2; cycle++) {
+    original.play({from:"g1",to:"f3"});
+    original.play({from:"g8",to:"f6"});
+    original.play({from:"f3",to:"g1"});
+    original.play({from:"f6",to:"g8"});
+  }
+  const saved = original.snapshot();
+  assert.equal(saved.draw, true);
+  const restored = new ChessGame(undefined, saved.pgn).snapshot();
+  assert.equal(restored.fen, saved.fen);
+  assert.equal(restored.draw, true);
+  assert.equal(restored.gameOver, true);
+});
