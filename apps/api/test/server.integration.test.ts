@@ -3254,6 +3254,15 @@ test('owner analytics overview is owner-only, read-only, and reports source cove
     assert.equal(csv.statusCode, 200, csv.body);
     assert.match(csv.headers['content-type'] ?? '', /text\/csv/);
     assert.ok(csv.body.includes('date,game,event,count'));
+
+    const pdf = await app.inject({
+      method: 'GET',
+      url: `/api/v1/admin/analytics/export.pdf?from=${today}&to=${today}&game=backgammon`,
+      headers: auth(owner.token),
+    });
+    assert.equal(pdf.statusCode, 200, pdf.body.toString());
+    assert.match(pdf.headers['content-type'] ?? '', /application\/pdf/);
+    assert.ok(pdf.rawPayload.subarray(0, 8).toString('ascii').startsWith('%PDF-1.4'));
   } finally {
     if (previousOwnerId === undefined) delete process.env.OWNER_USER_ID;
     else process.env.OWNER_USER_ID = previousOwnerId;
