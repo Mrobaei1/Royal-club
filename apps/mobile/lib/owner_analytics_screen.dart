@@ -1,4 +1,7 @@
+import 'dart:convert';
+import 'package:cross_file/cross_file.dart';
 import 'package:flutter/material.dart';
+import 'package:share_plus/share_plus.dart';
 import 'services/admin_service.dart';
 import 'l10n/app_text.dart';
 
@@ -35,6 +38,33 @@ class _OwnerAnalyticsScreenState extends State<OwnerAnalyticsScreen> {
       _overview = AdminService.executiveAnalyticsOverview();
       _advanced = _loadAdvanced();
     });
+  }
+
+  Future<void> _shareAnalyticsExport({required bool pdf}) async {
+    try {
+      final from = _date(_range.start);
+      final to = _date(_range.end);
+      final file = pdf
+          ? XFile.fromData(
+              await AdminService.exportAnalyticsPdf(from: from, to: to, game: _selectedGame),
+              mimeType: 'application/pdf',
+              name: 'royal-club-analytics-$from-$to.pdf',
+            )
+          : XFile.fromData(
+              utf8.encode(await AdminService.exportAnalyticsCsv(from: from, to: to, game: _selectedGame)),
+              mimeType: 'text/csv',
+              name: 'royal-club-analytics-$from-$to.csv',
+            );
+      await SharePlus.instance.share(ShareParams(
+        files: [file],
+        subject: pdf ? 'Royal Club analytics PDF' : 'Royal Club analytics CSV',
+      ));
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${Localizations.localeOf(context).languageCode == 'en' ? 'Export failed' : 'تهیه خروجی ناموفق بود'}: $error')),
+      );
+    }
   }
 
   Future<void> _chooseRange() async {
@@ -188,6 +218,19 @@ class _OwnerAnalyticsScreenState extends State<OwnerAnalyticsScreen> {
                               });
                             },
                           ),
+                        ),
+                      ]),
+                      const SizedBox(height: 10),
+                      Wrap(spacing: 8, runSpacing: 8, children: [
+                        OutlinedButton.icon(
+                          onPressed: () => _shareAnalyticsExport(pdf: false),
+                          icon: const Icon(Icons.table_view_outlined),
+                          label: const Text('CSV'),
+                        ),
+                        OutlinedButton.icon(
+                          onPressed: () => _shareAnalyticsExport(pdf: true),
+                          icon: const Icon(Icons.picture_as_pdf_outlined),
+                          label: const Text('PDF'),
                         ),
                       ]),
                       const SizedBox(height: 10),
