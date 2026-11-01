@@ -238,6 +238,29 @@ export function registerManchRoutes(app: any, pool: Pool, requireMatchAuth: any)
     }
   });
 
+  app.get('/api/v1/manch/matches/mine', { onRequest: [requireMatchAuth] }, async (request: any, reply: any) => {
+    const userId = String(request.user?.sub ?? '');
+    if (!userId) return sendError(reply, 401, 'Authentication required.');
+    await cleanupExpiredManchRooms(pool);
+    const result = await pool.query(
+      `SELECT m.id, m.room_code AS "roomCode", m.player_count AS "playerCount",
+              m.status, m.game_state AS "gameState",
+              m.current_turn_user_id AS "currentTurnUserId",
+              m.state_version AS "stateVersion",
+              m.expires_at AS "expiresAt", m.updated_at AS "updatedAt"
+         FROM manch_matches m
+         JOIN manch_match_players p ON p.match_id = m.id
+        WHERE p.user_id = $1 AND m.status IN ('waiting', 'active')
+        ORDER BY m.updated_at DESC
+        LIMIT 1`,
+      [userId],
+    );
+    const match = result.rows[0];
+    if (!match) return { match: null };
+    const players = await matchPlayers(pool as unknown as PoolClient, String(match.id));
+    return { match: { ...match, players } };
+  });
+
   app.get('/api/v1/manch/matches/:id', { onRequest: [requireMatchAuth] }, async (request: any, reply: any) => {
     await cleanupExpiredManchRooms(pool);
     const userId = String(request.user?.sub ?? '');
