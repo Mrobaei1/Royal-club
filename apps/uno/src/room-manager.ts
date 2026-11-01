@@ -20,11 +20,12 @@ export class UnoRoomManager {
     const room: UnoRoom = {
       code, hostId: host.id, status: 'waiting',
       players: [{ ...host, ready: false, connected: true, muted: true, selfMuted: true, hostMuted: false }],
-      chatEnabled: true, voiceEnabled: true, createdAt: Date.now(),
+      chatEnabled: true, voiceEnabled: true, createdAt: Date.now(), lastActivityAt: Date.now(),
       matchToWin: 1, roundsWon: { [host.id]: 0 }, roundsPlayed: 0, matchWinnerId: null, game: null,
     };
     this.rooms.set(code, room);
     this.userRooms.set(host.id, code);
+    room.lastActivityAt = Date.now();
     return structuredClone(room);
   }
   joinRoom(codeInput: string, player: AuthenticatedPlayer): UnoRoom {
@@ -49,6 +50,7 @@ export class UnoRoomManager {
       for (const seat of room.players) seat.ready = false;
     }
     room.status = 'waiting';
+    room.lastActivityAt = Date.now();
     return structuredClone(room);
   }
   reconnect(codeInput: string, player: AuthenticatedPlayer): UnoRoom {
@@ -61,6 +63,7 @@ export class UnoRoomManager {
     if (room.status !== 'playing' && room.status !== 'finished') {
       room.status = room.players.length >= 2 && room.players.every(p => p.ready && p.connected) ? 'ready' : 'waiting';
     }
+    room.lastActivityAt = Date.now();
     return structuredClone(room);
   }
   setReady(code: string, playerId: string, ready: boolean): UnoRoom {
@@ -69,6 +72,7 @@ export class UnoRoomManager {
     const player = this.requirePlayer(room, playerId);
     player.ready = ready;
     room.status = room.players.length >= 2 && room.players.every(p => p.ready) ? 'ready' : 'waiting';
+    room.lastActivityAt = Date.now();
     return structuredClone(room);
   }
   setMatchToWin(code: string, playerId: string, rounds: number): UnoRoom {
@@ -81,6 +85,7 @@ export class UnoRoomManager {
       throw new UnoError('INVALID_MATCH_LENGTH', 'Choose 1, 3 or 5 wins to take the match.');
     }
     room.matchToWin = rounds as 1 | 3 | 5;
+    room.lastActivityAt = Date.now();
     return structuredClone(room);
   }
   start(code: string, playerId: string) {
@@ -91,6 +96,7 @@ export class UnoRoomManager {
     }
     room.game = startUnoGame(room.players.map(p => ({ id: p.id, username: p.username })));
     room.status = 'playing';
+    room.lastActivityAt = Date.now();
     return { room: structuredClone(room), game: publicGameState(room.game) };
   }
   act(code: string, playerId: string, action: GameAction) {
@@ -110,6 +116,7 @@ export class UnoRoomManager {
         for (const participant of room.players) participant.ready = false;
       }
     }
+    room.lastActivityAt = Date.now();
     return { game: publicGameState(room.game), hand: privateHand(room.game, playerId), room: structuredClone(room) };
   }
   setMuted(code: string, actorId: string, targetId: string, muted: boolean): UnoRoom {
@@ -127,6 +134,7 @@ export class UnoRoomManager {
       if (muted) target.selfMuted = true;
     }
     target.muted = target.selfMuted || target.hostMuted;
+    room.lastActivityAt = Date.now();
     return structuredClone(room);
   }
   setCommunication(code: string, actorId: string, setting: 'chatEnabled' | 'voiceEnabled', enabled: boolean): UnoRoom {
@@ -140,6 +148,7 @@ export class UnoRoomManager {
         player.muted = player.selfMuted || player.hostMuted;
       }
     }
+    room.lastActivityAt = Date.now();
     return structuredClone(room);
   }
   disconnect(code: string, playerId: string): UnoRoom | null {
@@ -163,6 +172,7 @@ export class UnoRoomManager {
     player.selfMuted = true;
     player.muted = true;
     if (room.status !== 'playing') room.status = 'waiting';
+    room.lastActivityAt = Date.now();
     return structuredClone(room);
   }
   leave(code: string, playerId: string): UnoRoom | null {
@@ -173,7 +183,8 @@ export class UnoRoomManager {
       room.players[index]!.connected = false;
       room.players[index]!.selfMuted = true;
       room.players[index]!.muted = true;
-      return structuredClone(room);
+      room.lastActivityAt = Date.now();
+    return structuredClone(room);
     }
     room.players.splice(index, 1);
     delete room.roundsWon[playerId];
@@ -197,6 +208,7 @@ export class UnoRoomManager {
     if (room.status !== 'finished') {
       room.status = room.players.length >= 2 && room.players.every(p => p.ready) ? 'ready' : 'waiting';
     }
+    room.lastActivityAt = Date.now();
     return structuredClone(room);
   }
   getRoom(code: string): UnoRoom { return structuredClone(this.requireRoom(code)); }
@@ -216,6 +228,7 @@ export class UnoRoomManager {
       if (typeof room.code !== 'string' || !Array.isArray(room.players) ||
           !['waiting', 'ready', 'playing', 'finished'].includes(room.status)) continue;
       room.matchToWin = [1, 3, 5].includes(room.matchToWin) ? room.matchToWin : 1;
+      room.lastActivityAt = Number.isFinite(room.lastActivityAt) ? room.lastActivityAt : room.createdAt;
       room.roundsPlayed = Number.isInteger(room.roundsPlayed) && room.roundsPlayed >= 0 ? room.roundsPlayed : 0;
       room.matchWinnerId = typeof room.matchWinnerId === 'string' ? room.matchWinnerId : null;
       room.roundsWon = room.roundsWon && typeof room.roundsWon === 'object'
@@ -232,6 +245,24 @@ export class UnoRoomManager {
         for (const player of room.players) this.userRooms.set(player.id, room.code);
       }
     }
+  }
+
+  cleanupExpiredRooms(now = Date.now(), policy: { lobbyTtlMs?: number; finishedTtlMs?: number; abandonedGameTtlMs?: number } = {}): number {
+    const lobbyTtl = policy.lobbyTtlMs ?? 2 * 60 * 60 * 1000;
+    const finishedTtl = policy.finishedTtlMs ?? 30 * 60 * 1000;
+    const abandonedGameTtl = policy.abandonedGameTtlMs ?? 24 * 60 * 60 * 1000;
+    let removed = 0;
+    for (const [code, room] of this.rooms) {
+      const idle = Math.max(0, now - (room.lastActivityAt ?? room.createdAt));
+      const expiredLobby = (room.status === 'waiting' || room.status === 'ready') && idle >= lobbyTtl;
+      const expiredFinished = room.status === 'finished' && idle >= finishedTtl;
+      const abandonedGame = room.status === 'playing' && room.players.every(player => !player.connected) && idle >= abandonedGameTtl;
+      if (!expiredLobby && !expiredFinished && !abandonedGame) continue;
+      this.rooms.delete(code);
+      for (const player of room.players) if (this.userRooms.get(player.id) === code) this.userRooms.delete(player.id);
+      removed++;
+    }
+    return removed;
   }
   getRoomForUser(userId: string): string | null { return this.userRooms.get(userId) ?? null; }
   private requireRoom(code: string): UnoRoom {
