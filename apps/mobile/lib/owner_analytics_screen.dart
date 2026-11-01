@@ -128,6 +128,11 @@ class _OwnerAnalyticsScreenState extends State<OwnerAnalyticsScreen> {
             final wallet = Map<String, dynamic>.from(metrics['walletCreditsLast30Days'] as Map? ?? {});
             final subscriptions = Map<String, dynamic>.from(metrics['subscriptions'] as Map? ?? {});
             final activeUsers = Map<String, dynamic>.from(metrics['activeUsers'] as Map? ?? {});
+            final operational = Map<String, dynamic>.from(data['operationalTelemetry'] as Map? ?? {});
+            final apiLatency = Map<String, dynamic>.from(operational['apiLatency'] as Map? ?? {});
+            final database = Map<String, dynamic>.from(operational['database'] as Map? ?? {});
+            final infrastructureCost = Map<String, dynamic>.from(operational['infrastructureCost'] as Map? ?? {});
+            final agentExecution = Map<String, dynamic>.from(operational['agentExecution'] as Map? ?? {});
             final gameEvents = (metrics['gameActivityLast30Days'] as List? ?? const [])
                 .whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
             final trends = (data['trends']?['backgammonMatchesLast30Days'] as List? ?? const [])
@@ -275,6 +280,24 @@ class _OwnerAnalyticsScreenState extends State<OwnerAnalyticsScreen> {
                           ]);
                         },
                       ),
+                    ]),
+                  )),
+                  const SizedBox(height: 18),
+                  Text(t('سلامت سرویس و زیرساخت', 'Service and infrastructure health'), style: Theme.of(context).textTheme.titleLarge),
+                  const SizedBox(height: 8),
+                  Card(child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      _MetricRow(label: t('پایگاه داده', 'Database'), value: '${database['status'] ?? '—'}'),
+                      _MetricRow(label: t('زمان پاسخ بررسی پایگاه داده (ms)', 'Database probe (ms)'), value: _number(database['probeLatencyMs'])),
+                      _MetricRow(label: 'API p50 (ms)', value: _number(apiLatency['p50Ms'])),
+                      _MetricRow(label: 'API p95 (ms)', value: _number(apiLatency['p95Ms'])),
+                      _MetricRow(label: t('تعداد نمونه در ۵ دقیقه', 'Samples · 5 min'), value: _number(apiLatency['sampleCount'])),
+                      _MetricRow(label: t('نرخ خطای ۵xx', '5xx error rate'), value: apiLatency['serverErrorRate'] == null ? '—' : '${(apiLatency['serverErrorRate'] as num) * 100}%'),
+                      const Divider(),
+                      Text('${t('هزینه زیرساخت', 'Infrastructure cost')}: ${infrastructureCost['status'] ?? 'unavailable'}', style: Theme.of(context).textTheme.bodySmall),
+                      Text('${t('هزینه و کیفیت اجرای Agent', 'Agent execution cost and quality')}: ${agentExecution['status'] ?? 'unavailable'}', style: Theme.of(context).textTheme.bodySmall),
+                      Text(t('تأخیر API فقط از نمونه‌های همین پردازه و پنج دقیقه اخیر محاسبه می‌شود و پس از راه‌اندازی مجدد پاک می‌شود؛ معیار SLA یا هزینه ارائه‌دهنده نیست.', 'API latency uses only this process memory and the last five minutes; it resets on restart and is not a provider SLA or billing metric.'), style: Theme.of(context).textTheme.bodySmall),
                     ]),
                   )),
                   const SizedBox(height: 18),
