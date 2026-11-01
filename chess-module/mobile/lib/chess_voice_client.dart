@@ -43,6 +43,10 @@ class ChessVoiceClient {
   MediaStream? _localStream;
   String? _leaseId;
   Timer? _leaseRenewal;
+  Timer? _reconnectTimer;
+  Future<void>? _connectFuture;
+  bool _wantConnection = false;
+  int _reconnectAttempt = 0;
   bool _disposed = false;
   bool _makingOffer = false;
   bool _talkRequested = false;
@@ -54,37 +58,80 @@ class ChessVoiceClient {
     return Uri.parse('$base$path');
   }
 
-  Future<void> connect() async {
-    if (_disposed) throw StateError('voice_client_disposed');
-    if (_socket != null) return;
+  Future<void> connect() {
+    if (_disposed) return Future.error(StateError('voice_client_disposed'));
+    _wantConnection = true;
+    _reconnectTimer?.cancel();
+    _reconnectTimer = null;
+    if (_socket != null) return Future.value();
+    return _connectFuture ??= _connectInternal().whenComplete(() {
+      _connectFuture = null;
+    });
+  }
+
+  Future<void> _connectInternal() async {
     final wsUri = _endpoint('/chess/ws').replace(
       scheme: apiBaseUri.scheme == 'https' ? 'wss' : 'ws',
       queryParameters: {'gameId': gameId},
     );
-    final socket = await WebSocket.connect(
-      wsUri.toString(),
-      headers: {HttpHeaders.authorizationHeader: 'Bearer $token'},
-    );
-    if (_disposed) {
-      await socket.close();
-      return;
+    try {
+      final socket = await WebSocket.connect(
+        wsUri.toString(),
+        headers: {HttpHeaders.authorizationHeader: 'Bearer $token'},
+      );
+      if (_disposed || !_wantConnection) {
+        await socket.close();
+        return;
+      }
+      _socket = socket;
+      _reconnectAttempt = 0;
+      _socketSubscription = socket.listen(
+        _handleSocketMessage,
+        onError: (Object error) {
+          onError?.call(error);
+          _scheduleReconnect();
+        },
+        onDone: () {
+          _socket = null;
+          _socketSubscription = null;
+          _talkRequested = false;
+          _leaseId = null; // Server releases the lease when this socket disconnects.
+          _leaseRenewal?.cancel();
+          _leaseRenewal = null;
+          onSpeakingChanged?.call(null);
+          _disableLocalAudio();
+          _scheduleReconnect();
+        },
+        cancelOnError: false,
+      );
+    } catch (error) {
+      onError?.call(error);
+      _scheduleReconnect();
+      rethrow;
     }
-    _socket = socket;
-    _socketSubscription = socket.listen(
-      _handleSocketMessage,
-      onError: (Object error) => onError?.call(error),
-      onDone: () {
-        _socket = null;
-        _socketSubscription = null;
-        _talkRequested = false;
-        _leaseId = null; // Server releases the lease when this socket disconnects.
-        _leaseRenewal?.cancel();
-        _leaseRenewal = null;
-        onSpeakingChanged?.call(null);
-        _disableLocalAudio();
-      },
-      cancelOnError: false,
-    );
+  }
+
+  void _scheduleReconnect() {
+    if (_disposed || !_wantConnection || _reconnectTimer != null) return;
+    final seconds = (1 << _reconnectAttempt.clamp(0, 5)).clamp(1, 30);
+    _reconnectAttempt++;
+    _reconnectTimer = Timer(Duration(seconds: seconds), () {
+      _reconnectTimer = null;
+      if (_disposed || !_wantConnection || _socket != null) return;
+      connect().catchError((Object _) {});
+    });
+  }
+
+  Future<void> disconnect() async {
+    _wantConnection = false;
+    _reconnectTimer?.cancel();
+    _reconnectTimer = null;
+    await releaseTalk();
+    await _socketSubscription?.cancel();
+    _socketSubscription = null;
+    final socket = _socket;
+    _socket = null;
+    await socket?.close();
   }
 
   Future<void> pressToTalk() async {
@@ -335,6 +382,9 @@ class ChessVoiceClient {
   Future<void> dispose() async {
     if (_disposed) return;
     _disposed = true;
+    _wantConnection = false;
+    _reconnectTimer?.cancel();
+    _reconnectTimer = null;
     await releaseTalk();
     await _socketSubscription?.cancel();
     await _socket?.close();
