@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'room_controls_menu.dart';
 import 'l10n/app_text.dart';
 import 'profile_avatar.dart';
@@ -59,6 +61,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
   @override
   void initState() {
     super.initState();
+    _lockLandscapeOnMobile();
     MatchActivityState.setActivelyPlaying(
       ['waiting', 'active'].contains(widget.match['status']),
     );
@@ -78,6 +81,18 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
     _turnClock?.cancel();
     MatchActivityState.setActivelyPlaying(false);
     super.dispose();
+  }
+
+  Future<void> _lockLandscapeOnMobile() async {
+    if (kIsWeb) return;
+    try {
+      await SystemChrome.setPreferredOrientations(const [
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ]);
+    } catch (_) {
+      // Orientation locking is best-effort in widget tests and unsupported hosts.
+    }
   }
 
   Future<void> _refresh({bool silent = false}) async {
