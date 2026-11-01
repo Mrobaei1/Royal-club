@@ -45,7 +45,7 @@ test("authenticated chess routes support private game, draw, chat, voice, profil
     }
 
     const users = await pool.query(
-      "INSERT INTO users(username) VALUES ('route_white'),('route_black'),('queue_one'),('queue_two'),('queue_cancel') RETURNING id,username"
+      "INSERT INTO users(username) VALUES ('route_white'),('route_black'),('queue_one'),('queue_two'),('queue_cancel'),('concurrent_room_host') RETURNING id,username"
     );
     const ids = users.rows.map(row => String(row.id));
     const white = ids[0]!;
@@ -53,6 +53,7 @@ test("authenticated chess routes support private game, draw, chat, voice, profil
     const queueOne = ids[2]!;
     const queueTwo = ids[3]!;
     const queueCancel = ids[4]!;
+    const concurrentRoomHost = ids[5]!;
 
     await registerChessRoutes(app, {
       pool,
@@ -74,6 +75,20 @@ test("authenticated chess routes support private game, draw, chat, voice, profil
       headers: { "x-user-id": userId },
       ...(payload === undefined ? {} : { payload }),
     } as never) as unknown as Promise<TestResponse>);
+
+    const concurrentRoomAttempts = await Promise.all([
+      request(concurrentRoomHost, "POST", "/chess/rooms", {
+        timeControlId: "rapid", minOpponentLevel: 1, chatEnabled: true, voiceEnabled: false,
+      }),
+      request(concurrentRoomHost, "POST", "/chess/rooms", {
+        timeControlId: "rapid", minOpponentLevel: 1, chatEnabled: true, voiceEnabled: false,
+      }),
+    ]);
+    assert.deepEqual(concurrentRoomAttempts.map(response => response.statusCode).sort(), [201, 409]);
+    const concurrentRoomWinner = concurrentRoomAttempts.find(response => response.statusCode === 201)!;
+    const concurrentRoomCleanup = await request(concurrentRoomHost, "DELETE",
+      `/chess/rooms/${concurrentRoomWinner.json().roomCode}`);
+    assert.equal(concurrentRoomCleanup.statusCode, 200, concurrentRoomCleanup.body);
 
     const levelGateRoom = await request(white, "POST", "/chess/rooms", {
       timeControlId: "rapid",
