@@ -83,7 +83,7 @@ test("repository compare-and-swap rejects non-sequential versions", async () => 
   const { service } = serviceFixture();
   const created = await service.create(user("u0"));
   await repository.insert({ ...created, roomId: "cas-room", version: 1 });
-  assert.equal(await repository.compareAndSwap("cas-room", 1, { ...created, roomId: "cas-room", version: 3 }), false);
+  await assert.rejects(repository.compareAndSwap("cas-room", 1, { ...created, roomId: "cas-room", version: 3 }), /Invalid room compare-and-swap transition/);
   assert.equal((await repository.get("cas-room")).version, 1);
   void service;
 });
