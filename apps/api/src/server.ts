@@ -3323,7 +3323,7 @@ app.get<{ Querystring: { from?: string; to?: string; game?: string } }>(
     const days = Math.round((toExclusive.getTime() - from.getTime()) / 86_400_000);
     const previousFrom = new Date(from.getTime() - days * 86_400_000).toISOString().slice(0, 10);
     try {
-      const [dailyActivity, dailyGames, previousActivity, currentActivity] = await Promise.all([
+      const [dailyActivity, dailyGames, previousActivity, currentActivity, cohortRetention] = await Promise.all([
         pool.query(
           `SELECT activity_date::text AS date, COUNT(DISTINCT user_id)::int AS active_users
              FROM analytics_user_activity_daily
@@ -3349,6 +3349,31 @@ app.get<{ Querystring: { from?: string; to?: string; game?: string } }>(
             WHERE activity_date >= $1::date AND activity_date < $2::date`,
           [range.from, toExclusive.toISOString().slice(0, 10)],
         ),
+        pool.query(
+          `WITH first_activity AS (
+             SELECT user_id, MIN(activity_date) AS cohort_date
+               FROM analytics_user_activity_daily GROUP BY user_id
+           )
+           SELECT cohort_date::text AS cohort_date,
+                  COUNT(*)::int AS cohort_users,
+                  COUNT(*) FILTER (WHERE EXISTS (
+                    SELECT 1 FROM analytics_user_activity_daily later
+                     WHERE later.user_id = first_activity.user_id
+                       AND later.activity_date BETWEEN first_activity.cohort_date + 7
+                                                   AND first_activity.cohort_date + 13
+                  ))::int AS retained_users,
+                  ROUND(100.0 * COUNT(*) FILTER (WHERE EXISTS (
+                    SELECT 1 FROM analytics_user_activity_daily later
+                     WHERE later.user_id = first_activity.user_id
+                       AND later.activity_date BETWEEN first_activity.cohort_date + 7
+                                                   AND first_activity.cohort_date + 13
+                  )) / NULLIF(COUNT(*), 0), 1) AS retained_percent
+             FROM first_activity
+            WHERE cohort_date >= $1::date AND cohort_date < $2::date
+              AND cohort_date <= (NOW() AT TIME ZONE 'UTC')::date - 13
+            GROUP BY cohort_date ORDER BY cohort_date`,
+          [range.from, toExclusive.toISOString().slice(0, 10)],
+        ),
       ]);
       return {
         generatedAt: new Date().toISOString(),
@@ -3362,6 +3387,8 @@ app.get<{ Querystring: { from?: string; to?: string; game?: string } }>(
         },
         dailyActivity: dailyActivity.rows,
         dailyGameEvents: dailyGames.rows,
+        cohortRetention: cohortRetention.rows,
+        cohortDefinition: 'first observed authenticated activity date; D7 retention means any authenticated activity on days 7-13 after cohort start; cohorts need 13 days of follow-up',
         limitations: [
           'Active users are based on authenticated API requests, not foreground app sessions.',
           'Game event totals are recorded lifecycle events, not necessarily unique games or completed matches.',
