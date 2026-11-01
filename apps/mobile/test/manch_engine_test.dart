@@ -16,6 +16,12 @@ void main() {
       expect(() => engine.newGame(playerCount: 1), throwsArgumentError);
     });
 
+    test('assigns opposing seats in a two-player match', () {
+      final state = engine.newGame(playerCount: 2);
+      expect(state.players.map((player) => player.colour).toList(),
+          [ManchColour.red, ManchColour.yellow]);
+    });
+
     test('requires an entry face and grants an extra roll after six', () {
       final state = engine.newGame(playerCount: 2);
       final noEntry = engine.roll(state, 5);
