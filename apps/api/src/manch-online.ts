@@ -503,6 +503,52 @@ export function registerManchRoutes(app: any, pool: Pool, requireMatchAuth: any)
       client.release();
     }
   });
+  app.post('/api/v1/manch/matches/:id/rematch', { onRequest: [requireMatchAuth] }, async (request: any, reply: any) => {
+    const userId = String(request.user?.sub ?? '');
+    const id = String(request.params?.id ?? '');
+    if (!/^\\d+$/.test(id) || !userId) return sendError(reply, 400, 'Invalid match identifier.');
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const previous = await lockMatch(client, id);
+      if (!previous || previous.status !== 'finished') {
+        await client.query('ROLLBACK');
+        return sendError(reply, 409, 'Only a finished Manch match can be rematched.');
+      }
+      const previousPlayers = await matchPlayers(client, id);
+      if (!previousPlayers.some((player) => player.userId === userId)) {
+        await client.query('ROLLBACK');
+        return sendError(reply, 403, 'You are not a player in this Manch match.');
+      }
+      const colours = seatColours(previous.player_count);
+      const state = createManchGame(colours, defaultManchRuleProfile());
+      const roomCode = randomBytes(6).toString('hex').toUpperCase();
+      const inserted = await client.query(
+        `INSERT INTO manch_matches
+          (room_code, host_user_id, player_count, status, game_state, expires_at)
+         VALUES ($1, $2, $3, 'waiting', $4::jsonb, NOW() + INTERVAL '30 seconds')
+         RETURNING id, room_code AS "roomCode", player_count AS "playerCount",
+                   status, state_version AS "stateVersion", expires_at AS "expiresAt"`,
+        [roomCode, userId, previous.player_count, JSON.stringify(state)],
+      );
+      const created = inserted.rows[0];
+      await client.query(
+        `INSERT INTO manch_match_players (match_id, user_id, seat_index, seat_colour)
+         VALUES ($1, $2, 0, $3)`,
+        [created.id, userId, colours[0]],
+      );
+      await client.query('COMMIT');
+      return reply.code(201).send({
+        match: { ...created, gameState: state, players: [{ userId, seatIndex: 0, seatColour: colours[0] }] },
+      });
+    } catch (error) {
+      await client.query('ROLLBACK').catch(() => undefined);
+      request.log.error({ err: error }, 'Manch rematch creation failed');
+      return sendError(reply, 500, 'Could not create a Manch rematch.');
+    } finally {
+      client.release();
+    }
+  });
   app.delete('/api/v1/manch/matches/:id', { onRequest: [requireMatchAuth] }, async (request: any, reply: any) => {
     const userId = String(request.user?.sub ?? '');
     const id = String(request.params?.id ?? '');
