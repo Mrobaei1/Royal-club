@@ -142,8 +142,11 @@ export class HokmRoomService {
 
   #serialize(key, operation) {
     const previous = this.#queues.get(key) ?? Promise.resolve();
-    const current = previous.catch(() => {}).then(operation);
-    const tail = current.finally(() => {
+    const current = previous.then(operation, operation);
+    // Keep the queue tail fulfilled even when an operation rejects. Returning
+    // current still propagates the request error to its caller, while the
+    // internal tail cannot become an unhandled rejected promise.
+    const tail = current.then(() => undefined, () => undefined).then(() => {
       if (this.#queues.get(key) === tail) this.#queues.delete(key);
     });
     this.#queues.set(key, tail);
