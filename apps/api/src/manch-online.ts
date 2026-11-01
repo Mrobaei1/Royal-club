@@ -415,6 +415,13 @@ export function registerManchRoutes(app: any, pool: Pool, requireMatchAuth: any)
       const nextUser = finished
         ? null
         : players.find((player) => player.seatIndex === nextState.activePlayerIndex)?.userId ?? null;
+      const winnerUser = finished
+        ? players.find((player) => player.seatIndex === nextState.winnerIndex)?.userId ?? null
+        : null;
+      if (finished && !winnerUser) {
+        await client.query('ROLLBACK');
+        return sendError(reply, 409, 'Winner seat is missing.');
+      }
       if (!finished && !nextUser) {
         await client.query('ROLLBACK');
         return sendError(reply, 409, 'Active player seat is missing.');
@@ -422,11 +429,13 @@ export function registerManchRoutes(app: any, pool: Pool, requireMatchAuth: any)
       const updated = await client.query(
         `UPDATE manch_matches
             SET game_state = $1::jsonb, status = $2,
-                current_turn_user_id = $3,
+                current_turn_user_id = $3, winner_user_id = $5,
+                finish_reason = $6,
                 state_version = state_version + 1, updated_at = NOW()
           WHERE id = $4
           RETURNING state_version AS "stateVersion"`,
-        [JSON.stringify(nextState), finished ? 'finished' : 'active', nextUser, id],
+        [JSON.stringify(nextState), finished ? 'finished' : 'active', nextUser,
+          id, winnerUser, finished ? 'completed' : null],
       );
       await client.query('COMMIT');
       return {
@@ -434,6 +443,8 @@ export function registerManchRoutes(app: any, pool: Pool, requireMatchAuth: any)
         move: applied.move,
         status: finished ? 'finished' : 'active',
         currentTurnUserId: nextUser,
+        winnerUserId: winnerUser,
+        finishReason: finished ? 'completed' : null,
         stateVersion: updated.rows[0].stateVersion,
       };
     } catch (error) {
