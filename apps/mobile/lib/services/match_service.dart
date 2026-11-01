@@ -258,6 +258,63 @@ class MatchService {
     return Map<String, dynamic>.from((await _postJson('/matches/$id/cancellation', {'accept': accept}))['cancellation'] as Map);
   }
 
+  static Future<List<Map<String, dynamic>>> matchChatMessages(
+    String id, {String? afterId}
+  ) async {
+    if (!RegExp(r'^[1-9][0-9]*    String id, {required String scope}
+  ) async {
+    if (scope != 'game' && scope != 'match') {
+      throw ArgumentError.value(scope, 'scope', 'Expected game or match');
+    }
+    return Map<String, dynamic>.from(
+      (await _postJson('/matches/$id/resign', {'scope': scope}))['result'] as Map,
+    );
+  }
+
+}
+).hasMatch(id)) {
+      throw Exception('شناسه اتاق بازی معتبر نیست.');
+    }
+    final suffix = afterId == null ? '' : '?afterId=${Uri.encodeQueryComponent(afterId)}';
+    final response = await _getWithRetry(
+      _apiUri('/matches/$id/chat$suffix'),
+      await _headers(),
+    );
+    dynamic decoded;
+    try { decoded = jsonDecode(response.body); }
+    catch (_) { throw Exception('پاسخ چت مسابقه قابل‌خواندن نیست.'); }
+    if (decoded is! Map<String, dynamic> ||
+        response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(decoded is Map ? decoded['error']?.toString() : 'دریافت پیام‌ها ناموفق بود.');
+    }
+    return ((decoded['messages'] as List?) ?? const [])
+        .whereType<Map>()
+        .map((item) => Map<String, dynamic>.from(item))
+        .toList();
+  }
+
+  static Future<Map<String, dynamic>> sendMatchChatMessage(
+    String id, String body,
+  ) async {
+    if (!RegExp(r'^[1-9][0-9]*    String id, {required String scope}
+  ) async {
+    if (scope != 'game' && scope != 'match') {
+      throw ArgumentError.value(scope, 'scope', 'Expected game or match');
+    }
+    return Map<String, dynamic>.from(
+      (await _postJson('/matches/$id/resign', {'scope': scope}))['result'] as Map,
+    );
+  }
+
+}
+).hasMatch(id) || body.trim().isEmpty) {
+      throw Exception('پیام یا شناسه اتاق معتبر نیست.');
+    }
+    return Map<String, dynamic>.from(
+      (await _postJson('/matches/$id/chat', {'body': body.trim()}))['message'] as Map,
+    );
+  }
+
   static Future<Map<String, dynamic>> resign(
     String id, {required String scope}
   ) async {
