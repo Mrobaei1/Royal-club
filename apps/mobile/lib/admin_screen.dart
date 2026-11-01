@@ -41,6 +41,8 @@ class _AdminScreenState extends State<AdminScreen> {
   final _maxBalanceFilter = TextEditingController();
   String _subscriptionFilter = 'any';
   String _phoneFilter = 'any';
+  DateTime? _registeredFrom;
+  DateTime? _registeredTo;
   String _notificationAudience = 'all';
   bool _showOnLogin = false;
   final Set<String> _selectedUserIds = <String>{};
@@ -1370,6 +1372,24 @@ class _AdminScreenState extends State<AdminScreen> {
     }
   }
 
+  Future<void> _pickRegistrationDate({required bool from}) async {
+    final current = from ? _registeredFrom : _registeredTo;
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: current ?? DateTime.now(),
+      firstDate: DateTime(2000),
+      lastDate: DateTime.now(),
+    );
+    if (picked == null || !mounted) return;
+    setState(() {
+      if (from) {
+        _registeredFrom = DateTime(picked.year, picked.month, picked.day);
+      } else {
+        _registeredTo = DateTime(picked.year, picked.month, picked.day, 23, 59, 59);
+      }
+    });
+  }
+
   Future<void> _search() async {
     final minBalance = _minBalanceFilter.text.trim().isEmpty ? null : int.tryParse(_minBalanceFilter.text.trim());
     final maxBalance = _maxBalanceFilter.text.trim().isEmpty ? null : int.tryParse(_maxBalanceFilter.text.trim());
@@ -1388,6 +1408,8 @@ class _AdminScreenState extends State<AdminScreen> {
         hasPhone: _phoneFilter,
         minBalance: minBalance,
         maxBalance: maxBalance,
+        registeredFrom: _registeredFrom?.toUtc().toIso8601String(),
+        registeredTo: _registeredTo?.toUtc().toIso8601String(),
       );
       if (mounted) {
         setState(() {
@@ -1486,6 +1508,8 @@ class _AdminScreenState extends State<AdminScreen> {
         hasPhone: userId == null && _notificationAudience == 'filtered' ? _phoneFilter : 'any',
         minBalance: userId == null && _notificationAudience == 'filtered' ? minBalance : null,
         maxBalance: userId == null && _notificationAudience == 'filtered' ? maxBalance : null,
+        registeredFrom: userId == null && _notificationAudience == 'filtered' ? _registeredFrom?.toUtc().toIso8601String() : null,
+        registeredTo: userId == null && _notificationAudience == 'filtered' ? _registeredTo?.toUtc().toIso8601String() : null,
         showOnLogin: _showOnLogin,
         title: title,
         body: body,
@@ -1979,6 +2003,27 @@ class _AdminScreenState extends State<AdminScreen> {
                     Expanded(child: TextField(controller: _minBalanceFilter, keyboardType: TextInputType.number, decoration: InputDecoration(labelText: appText(context, 'حداقل اعتبار', 'Min balance')))),
                     const SizedBox(width: 8),
                     Expanded(child: TextField(controller: _maxBalanceFilter, keyboardType: TextInputType.number, decoration: InputDecoration(labelText: appText(context, 'حداکثر اعتبار', 'Max balance')))),
+                  ]),
+                  const SizedBox(height: 8),
+                  Wrap(spacing: 8, runSpacing: 8, children: [
+                    OutlinedButton.icon(
+                      onPressed: _busy ? null : () => _pickRegistrationDate(from: true),
+                      icon: const Icon(Icons.calendar_today_outlined),
+                      label: Text(appText(context,
+                        'از: ${_registeredFrom?.toLocal().toString().substring(0, 10) ?? 'ابتدا'}',
+                        'From: ${_registeredFrom?.toLocal().toString().substring(0, 10) ?? 'Any'}')),
+                    ),
+                    OutlinedButton.icon(
+                      onPressed: _busy ? null : () => _pickRegistrationDate(from: false),
+                      icon: const Icon(Icons.event_outlined),
+                      label: Text(appText(context,
+                        'تا: ${_registeredTo?.toLocal().toString().substring(0, 10) ?? 'اکنون'}',
+                        'To: ${_registeredTo?.toLocal().toString().substring(0, 10) ?? 'Now'}')),
+                    ),
+                    TextButton(
+                      onPressed: _busy ? null : () => setState(() { _registeredFrom = null; _registeredTo = null; }),
+                      child: Text(appText(context, 'پاک کردن تاریخ', 'Clear dates')),
+                    ),
                   ]),
                 ],
               ),
