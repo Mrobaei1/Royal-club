@@ -63,6 +63,15 @@ test("authenticated chess routes support private game, draw, chat, voice, profil
       canManageSettings: async (userId: string) => userId === white,
     });
     await app.ready();
+    // A second Fastify process shares only PostgreSQL, matching a multi-instance deployment.
+    const appTwo = Fastify();
+    await registerChessRoutes(appTwo, {
+      pool,
+      authenticate: async (_request: FastifyRequest) => {},
+      getUserId: (request: FastifyRequest) => String(request.headers["x-user-id"] ?? ""),
+      canManageSettings: async (userId: string) => userId === white,
+    });
+    await appTwo.ready();
 
     type TestResponse = { statusCode: number; body: string; json: () => any };
     const request = async (
@@ -70,7 +79,8 @@ test("authenticated chess routes support private game, draw, chat, voice, profil
       method: 'GET' | 'POST' | 'PUT' | 'DELETE',
       url: string,
       payload?: unknown,
-    ): Promise<TestResponse> => await (app.inject({
+      server: typeof app | typeof appTwo = app,
+    ): Promise<TestResponse> => await (server.inject({
       method,
       url,
       headers: { "x-user-id": userId },
@@ -80,10 +90,10 @@ test("authenticated chess routes support private game, draw, chat, voice, profil
     const concurrentRoomAttempts = await Promise.all([
       request(concurrentRoomHost, "POST", "/chess/rooms", {
         timeControlId: "rapid", minOpponentLevel: 1, chatEnabled: true, voiceEnabled: false,
-      }),
+      }, app),
       request(concurrentRoomHost, "POST", "/chess/rooms", {
         timeControlId: "rapid", minOpponentLevel: 1, chatEnabled: true, voiceEnabled: false,
-      }),
+      }, appTwo),
     ]);
     assert.deepEqual(concurrentRoomAttempts.map(response => response.statusCode).sort(), [201, 409]);
     const concurrentRoomWinner = concurrentRoomAttempts.find(response => response.statusCode === 201)!;
@@ -372,6 +382,7 @@ test("authenticated chess routes support private game, draw, chat, voice, profil
     assert.equal(idle.json().status, "idle");
   } finally {
     await app.close();
+    await appTwo.close();
     await pool.end();
     await admin.query(`DROP SCHEMA IF EXISTS "${schema}" CASCADE`);
     await admin.end();
