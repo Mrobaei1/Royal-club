@@ -248,6 +248,7 @@ class AdminService {
   static Future<int> sendNotification({
     String? userId, List<String>? userIds, String? username, String? country,
     String subscriptionStatus = 'any', String hasPhone = 'any',
+    int? minBalance, int? maxBalance,
     String? registeredFrom, String? registeredTo, bool showOnLogin = false,
     required String title, required String body,
   }) async {
@@ -258,6 +259,8 @@ class AdminService {
       if (country != null && country.trim().isNotEmpty) 'country': country.trim(),
       'subscriptionStatus': subscriptionStatus,
       'hasPhone': hasPhone,
+      if (minBalance != null) 'minBalance': minBalance,
+      if (maxBalance != null) 'maxBalance': maxBalance,
       if (registeredFrom != null) 'registeredFrom': registeredFrom,
       if (registeredTo != null) 'registeredTo': registeredTo,
       'showOnLogin': showOnLogin,
