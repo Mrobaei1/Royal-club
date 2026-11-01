@@ -119,6 +119,15 @@ class _IncomingMatchInvitesState extends State<IncomingMatchInvites> {
     final isEnglish = Localizations.localeOf(dialogContext).languageCode == 'en';
 
     String? result;
+    final expiryTimer = Timer(
+      remaining.isNegative ? Duration.zero : remaining,
+      () {
+        final activeNavigator = IncomingMatchInvites.navigatorKey.currentState;
+        if (activeNavigator?.canPop() == true) {
+          activeNavigator!.pop('expired');
+        }
+      },
+    );
     try {
       result = await showDialog<String>(
         context: dialogContext,
@@ -143,10 +152,11 @@ class _IncomingMatchInvitesState extends State<IncomingMatchInvites> {
             ],
           ),
         ),
-      ).timeout(remaining.isNegative ? Duration.zero : remaining,
-          onTimeout: () => 'expired');
+      );
     } catch (_) {
       result = 'expired';
+    } finally {
+      expiryTimer.cancel();
     }
 
     _queued.remove(next.key);
