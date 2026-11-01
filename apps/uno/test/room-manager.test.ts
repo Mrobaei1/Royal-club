@@ -377,3 +377,17 @@ test('host voluntarily leaving during a live round transfers host to next connec
   assert.equal(afterLeave.players[0]!.muted, true);
   assert.equal(manager.getRoomForUser(host.id), room.code);
 });
+
+
+test('a disconnected seat cannot change readiness until it reconnects', () => {
+  const manager = new UnoRoomManager();
+  const room = manager.createRoom(host);
+  manager.joinRoom(room.code, guest);
+  manager.disconnect(room.code, guest.id);
+  assert.throws(
+    () => manager.setReady(room.code, guest.id, true),
+    (error: unknown) => error instanceof UnoError && error.code === 'PLAYER_DISCONNECTED',
+  );
+  manager.reconnect(room.code, guest);
+  assert.equal(manager.setReady(room.code, guest.id, true).players[1]!.ready, true);
+});
