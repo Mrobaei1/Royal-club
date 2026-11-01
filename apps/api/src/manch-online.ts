@@ -1,5 +1,5 @@
 import { randomBytes, randomInt } from 'node:crypto';
-import type { Pool } from 'pg';
+import type { Pool, PoolClient } from 'pg';
 import {
   createManchGame,
   defaultManchRuleProfile,
