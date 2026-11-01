@@ -417,9 +417,13 @@ class _ManchOnlineGameScreenState extends State<ManchOnlineGameScreen> {
         _stateVersion = (result['stateVersion'] as num?)?.toInt() ?? _stateVersion + 1;
         _currentTurnUserId = result['currentTurnUserId']?.toString();
         _lastDice = (result['dice'] as num?)?.toInt();
-        _status = result['autoPassed'] == true
-            ? _text('حرکت قانونی نداشتی؛ نوبت به‌روزرسانی شد.', 'No legal move; the turn was passed.')
-            : _text('تاس انداخته شد؛ مهره را انتخاب کن.', 'Dice rolled; choose a token.');
+        _status = result['turnLost'] == true
+            ? _text('سه شش متوالی؛ نوبت خود را از دست دادی.', 'Three consecutive sixes; your turn was lost.')
+            : result['autoPassed'] == true
+                ? _text('حرکت قانونی نداشتی؛ نوبت بازیکن بعدی است.', 'No legal move; turn passed to the next player.')
+                : result['noLegalMove'] == true
+                    ? _text('حرکت قانونی نداری؛ به‌دلیل شش، دوباره تاس بینداز.', 'No legal move; roll again because you got a six.')
+                    : _text('تاس انداخته شد؛ مهره را انتخاب کن.', 'Dice rolled; choose a token.');
       });
     } catch (error) {
       if (mounted) setState(() => _error = error.toString());
