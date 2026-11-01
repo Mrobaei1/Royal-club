@@ -5,7 +5,7 @@ import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import { Pool } from 'pg';
-import { createTurnCredentials } from './turn-credentials.js';
+import { createTurnCredentials, parseTurnUrls } from './turn-credentials.js';
 import { Server } from 'socket.io';
 import { registerUnoSockets } from './socket.js';
 import { UnoRoomManager, type AuthenticatedPlayer } from './room-manager.js';
@@ -77,19 +77,19 @@ app.get('/ice-config', async (request, reply) => {
   } catch {
     return reply.code(401).send({ error: 'UNAUTHORIZED' });
   }
-  const iceServers: Array<Record<string, string>> = [
+  const iceServers: Array<Record<string, unknown>> = [
     { urls: 'stun:stun.l.google.com:19302' },
   ];
-  const turnUrl = process.env.TURN_URL?.trim() ?? '';
+  const turnUrls = parseTurnUrls(process.env.TURN_URLS ?? process.env.TURN_URL);
   const turnSecret = process.env.TURN_SHARED_SECRET ?? '';
-  if (turnUrl && !turnSecret) {
+  if (turnUrls.length > 0 && !turnSecret) {
     return reply.code(503).send({ error: 'TURN_NOT_CONFIGURED' });
   }
-  if (turnUrl && turnSecret) {
+  if (turnUrls.length > 0 && turnSecret) {
     const ttl = Number(process.env.TURN_TTL_SECONDS ?? 3600);
     const credentials = createTurnCredentials(player.id, turnSecret, ttl);
     iceServers.push({
-      urls: turnUrl,
+      urls: turnUrls.length === 1 ? turnUrls[0]! : turnUrls,
       username: credentials.username,
       credential: credentials.credential,
     });
