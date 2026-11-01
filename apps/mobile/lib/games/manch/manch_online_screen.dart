@@ -404,7 +404,10 @@ class _ManchOnlineGameScreenState extends State<ManchOnlineGameScreen> {
     if (!_myTurn || _state == null || _state!.pendingDice != null || _busy) return;
     setState(() => _busy = true);
     try {
-      final result = await ManchOnlineService.roll(widget.matchId);
+      final result = await ManchOnlineService.roll(
+        widget.matchId,
+        expectedStateVersion: _stateVersion,
+      );
       final raw = result['state'];
       if (raw is! Map) throw Exception('پاسخ تاس از سرور ناقص است.');
       final state = ManchGameState.fromJson(Map<String, Object?>.from(raw));
