@@ -98,6 +98,7 @@ test('any seated opponent can catch an uncalled UNO before the next action', () 
 test('a final Draw Two applies its penalty before the round is awarded', () => {
   const game = startUnoGame([{id:'a',username:'a'},{id:'b',username:'b'}]);
   game.players[0]!.hand = [{id:'last-draw-two',color:'red',face:'draw2'}];
+  game.players[1]!.hand = Array.from({length:7},(_,i)=>({id:'target-'+i,color:'blue' as const,face:i}));
   game.discardPile = [{id:'top',color:'red',face:5}];
   game.activeColor = 'red';
   game.currentPlayerIndex = 0;
