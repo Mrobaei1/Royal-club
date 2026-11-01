@@ -91,6 +91,25 @@ void main() {
       expect(won.winnerIndex, 0);
     });
 
+    test('allows landing on a blockade when the profile disables opponent blocking', () {
+      final state = ManchGameState(
+        players: [
+          ManchPlayerState(colour: ManchColour.red),
+          ManchPlayerState(colour: ManchColour.green, tokens: [39, 39, -1, -1]),
+        ],
+        activePlayerIndex: 0,
+        profile: const ManchRuleProfile(
+          blockadesEnabled: true,
+          blockadeBlocksOpponents: false,
+        ),
+      );
+      final rolled = engine.roll(state, 6);
+      expect(engine.legalMoves(rolled), hasLength(4));
+      final moved = engine.move(rolled, 0);
+      expect(moved.players[0].tokens[0], 0);
+      expect(moved.players[1].tokens.take(2), [39, 39]);
+    });
+
     test('blockades block landing and passing when enabled', () {
       final state = ManchGameState(
         players: [
