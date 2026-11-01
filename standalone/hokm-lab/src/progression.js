@@ -11,9 +11,17 @@ export function totalXpForLevel(level) {
 }
 export function levelForXp(xp) {
   if (!Number.isFinite(xp) || xp < 0) throw new RangeError("xp must be non-negative");
+
+  // Accumulate each level threshold once. Recomputing totalXpForLevel(level + 1)
+  // inside the loop made large XP values quadratic in the resulting level.
   let level = 1;
-  while (xp >= totalXpForLevel(level + 1)) level += 1;
-  return level;
+  let threshold = 0;
+  while (true) {
+    const nextThreshold = threshold + xpRequiredForNextLevel(level);
+    if (xp < nextThreshold) return level;
+    threshold = nextThreshold;
+    level += 1;
+  }
 }
 export function applyXpChange(progress = { xp: 0, level: 1 }, delta) {
   if (!Number.isFinite(delta)) throw new TypeError("XP delta must be finite");
