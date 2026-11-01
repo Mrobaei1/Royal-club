@@ -288,3 +288,34 @@ test('a connected player inherits host controls when the host disconnects', () =
   assert.equal(afterDisconnect.hostId, guest.id);
   assert.equal(afterDisconnect.players.find(player => player.id === host.id)!.connected, false);
 });
+
+
+test('host disconnect transfers control to the next connected seat in turn order', () => {
+  const manager = new UnoRoomManager();
+  const room = manager.createRoom(host);
+  manager.joinRoom(room.code, { id: 'player-1', username: 'player_one' });
+  manager.joinRoom(room.code, { id: 'player-2', username: 'player_two' });
+  manager.joinRoom(room.code, { id: 'player-3', username: 'player_three' });
+  const snapshot = manager.exportSnapshot();
+  snapshot.rooms[0]!.hostId = 'player-2';
+  manager.restoreSnapshot(snapshot);
+  for (const player of manager.getRoom(room.code).players) {
+    manager.setReady(room.code, player.id, true);
+  }
+  manager.start(room.code, 'player-2');
+  const afterDisconnect = manager.disconnect(room.code, 'player-2')!;
+  assert.equal(afterDisconnect.hostId, 'player-3');
+});
+
+test('host leaving a lobby transfers control to the next connected seat in turn order', () => {
+  const manager = new UnoRoomManager();
+  const room = manager.createRoom(host);
+  manager.joinRoom(room.code, { id: 'player-1', username: 'player_one' });
+  manager.joinRoom(room.code, { id: 'player-2', username: 'player_two' });
+  manager.joinRoom(room.code, { id: 'player-3', username: 'player_three' });
+  const snapshot = manager.exportSnapshot();
+  snapshot.rooms[0]!.hostId = 'player-2';
+  manager.restoreSnapshot(snapshot);
+  const afterLeave = manager.leave(room.code, 'player-2')!;
+  assert.equal(afterLeave.hostId, 'player-3');
+});
