@@ -29,7 +29,7 @@ Status: first-pass production code instrumentation on an isolated feature branch
 ## Advanced queries and exports
 - Owner-only advanced endpoint supports an ISO date range of up to 90 days, a game-type filter, and equal-length adjacent-period comparison.
 - Date windows and event-day grouping are UTC.
-- CSV and PDF exports are owner-only, bounded to 10,000 event aggregate rows, and marked no-store.
+- CSV and PDF exports are owner-only, bounded to 10,000 event aggregate rows, marked no-store, and written to `analytics_export_audit_log` with actor, filters, format, and aggregate row count.
 - PDF export uses a basic built-in Helvetica report; non-ASCII characters are replaced with question marks. It is an English-safe operational export, not a Persian-localized document.
 
 ## Operational telemetry
