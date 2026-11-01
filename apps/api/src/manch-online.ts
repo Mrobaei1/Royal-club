@@ -236,7 +236,7 @@ export function registerManchRoutes(app: any, pool: Pool, requireMatchAuth: any)
       const updated = await client.query(
         `UPDATE manch_matches
             SET status = $1,
-                current_turn_user_id = CASE WHEN $1 = 'active' THEN $2 ELSE NULL END,
+                current_turn_user_id = CASE WHEN $1 = 'active' THEN $2::bigint ELSE NULL END,
                 expires_at = CASE WHEN $1 = 'active' THEN NULL ELSE expires_at END,
                 state_version = state_version + 1,
                 updated_at = NOW()
