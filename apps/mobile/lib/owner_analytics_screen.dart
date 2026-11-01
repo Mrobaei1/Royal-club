@@ -166,7 +166,7 @@ class _OwnerAnalyticsScreenState extends State<OwnerAnalyticsScreen> {
                         SizedBox(
                           width: 150,
                           child: DropdownButtonFormField<String>(
-                            value: _selectedGame,
+                            initialValue: _selectedGame,
                             decoration: InputDecoration(
                               labelText: t('بازی', 'Game'),
                               border: const OutlineInputBorder(),
