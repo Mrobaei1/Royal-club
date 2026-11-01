@@ -692,6 +692,11 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
       await client.query("SELECT pg_advisory_xact_lock(hashtext('royal_chess_player'),hashtext($1))",[playerId]);
       const activeGame=await client.query("SELECT id FROM chess_games WHERE status='active' AND (white_user_id=$1 OR black_user_id=$1) LIMIT 1",[playerId]);
       if(activeGame.rowCount){await client.query("ROLLBACK");return fail(reply,409,"active_chess_game_exists");}
+      const waitingRoom=await client.query(
+        "SELECT id FROM chess_rooms WHERE host_user_id=$1 AND status='waiting' AND expires_at>NOW() LIMIT 1",
+        [playerId]
+      );
+      if(waitingRoom.rowCount){await client.query("ROLLBACK");return fail(reply,409,"waiting_room_already_exists");}
       const ownLevelResult=await client.query("SELECT level FROM chess_player_progression WHERE user_id=$1",[playerId]);
       const ownLevel=Number(ownLevelResult.rows[0]?.level??1);
       if(ownLevel<minOpponentLevel){await client.query("ROLLBACK");return fail(reply,403,"minimum_chess_level_required");}
