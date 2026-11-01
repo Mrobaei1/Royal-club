@@ -1,5 +1,5 @@
 import { randomBytes, randomInt } from 'node:crypto';
-import type { Pool, PoolClient } from 'pg';
+import type { Pool } from 'pg';
 import {
   createManchGame,
   defaultManchRuleProfile,
@@ -109,7 +109,7 @@ async function lockMatch(client: PoolClient, id: string) {
   } | undefined;
 }
 
-async function matchPlayers(client: PoolClient, matchId: string) {
+async function matchPlayers(client: any, matchId: string) {
   const result = await client.query(
     `SELECT p.user_id AS "userId", p.seat_index AS "seatIndex",
             p.seat_colour AS "seatColour", u.username
