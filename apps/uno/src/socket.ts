@@ -162,7 +162,7 @@ export function registerUnoSockets(
     });
     socket.on('uno:game:action', async (payload: { code?: string; action?: GameAction }, ack?: Ack) => {
       try {
-        if (!payload?.action || !['play', 'draw', 'pass', 'callUno', 'catchUno', 'challengeWild4'].includes(payload.action.type)) {
+        if (!payload?.action || !['play', 'draw', 'pass', 'callUno', 'catchUno', 'challengeWild4', 'chooseColor'].includes(payload.action.type)) {
           throw new UnoError('INVALID_ACTION', 'This UNO action is not supported.');
         }
         const result = rooms.act(payload.code ?? '', user.id, payload.action);
