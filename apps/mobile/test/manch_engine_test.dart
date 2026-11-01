@@ -85,6 +85,39 @@ void main() {
       expect(won.winnerIndex, 0);
     });
 
+    test('blockades block landing and passing when enabled', () {
+      final state = ManchGameState(
+        players: [
+          ManchPlayerState(colour: ManchColour.red, tokens: [0, -1, -1, -1]),
+          ManchPlayerState(colour: ManchColour.green, tokens: [40, 40, -1, -1]),
+        ],
+        activePlayerIndex: 0,
+        profile: const ManchRuleProfile(
+          blockadesEnabled: true,
+          blockadeBlocksOpponents: true,
+        ),
+      );
+      final rolled = engine.roll(state, 2);
+      expect(engine.legalMoves(rolled), isEmpty);
+      expect(engine.passTurn(rolled).activePlayerIndex, 1);
+    });
+
+    test('blockade before home lane still blocks the final shared-track step', () {
+      final state = ManchGameState(
+        players: [
+          ManchPlayerState(colour: ManchColour.red, tokens: [50, -1, -1, -1]),
+          ManchPlayerState(colour: ManchColour.green, tokens: [38, 38, -1, -1]),
+        ],
+        activePlayerIndex: 0,
+        profile: const ManchRuleProfile(
+          blockadesEnabled: true,
+          blockadeBlocksOpponents: true,
+        ),
+      );
+      final rolled = engine.roll(state, 6);
+      expect(engine.legalMoves(rolled), isEmpty);
+    });
+
     test('a six grants an extra roll even when no token can move', () {
       final state = ManchGameState(
         players: [
