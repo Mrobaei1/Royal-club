@@ -30,7 +30,6 @@ export interface UnoGame {
   activeColor: UnoColor;
   drawnCardId: string | null;
   unoPendingPlayerId: string | null;
-  winnerScore: number;
   pendingWild4: { offenderId: string; targetId: string; offenderHadActiveColor: boolean } | null;
   winnerId: string | null;
   winnerScore: number;
@@ -54,6 +53,7 @@ export interface PublicGameState {
   turnNumber: number;
   drawnCardId: string | null;
   unoPendingPlayerId: string | null;
+  winnerScore: number;
   pendingWild4: { offenderId: string; targetId: string } | null;
 }
 export class UnoError extends Error {
