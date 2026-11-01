@@ -3,6 +3,13 @@ import assert from 'node:assert/strict';
 import { createDeck, startUnoGame, applyUnoAction, publicGameState, privateTurnState, resolveOpeningCard, drawOpeningCard } from '../src/engine.js';
 import { UnoError } from '../src/model.js';
 
+function makeActionGame(players: Array<{id:string;username:string}>) {
+  const game = startUnoGame(players);
+  // Most engine tests target mid-game rules, not the random opening-Wild flow.
+  game.openingColorPendingPlayerId = null;
+  return game;
+}
+
 test('deck has 108 unique cards and cryptographically generated ids', () => {
   const deck = createDeck();
   assert.equal(deck.length, 108);
@@ -11,14 +18,14 @@ test('deck has 108 unique cards and cryptographically generated ids', () => {
   assert.equal(deck.filter(c => c.face === 'wild4').length, 4);
 });
 test('game starts with 2 to 6 players and seven private cards each', () => {
-  const game = startUnoGame([{ id: 'a', username: 'alpha' }, { id: 'b', username: 'beta' }]);
+  const game = makeActionGame([{ id: 'a', username: 'alpha' }, { id: 'b', username: 'beta' }]);
   assert.ok(game.players.every(player => player.hand.length >= 7));
   assert.equal(game.players.reduce((sum, player) => sum + player.hand.length, 0) + game.drawPile.length + game.discardPile.length, 108);
-  assert.throws(() => startUnoGame([{ id: 'a', username: 'a' }]), (e: unknown) => e instanceof UnoError && e.code === 'INVALID_PLAYER_COUNT');
-  assert.throws(() => startUnoGame(Array.from({length:7},(_,i)=>({id:String(i),username:String(i)}))), /2 to 6/);
+  assert.throws(() => makeActionGame([{ id: 'a', username: 'a' }]), (e: unknown) => e instanceof UnoError && e.code === 'INVALID_PLAYER_COUNT');
+  assert.throws(() => makeActionGame(Array.from({length:7},(_,i)=>({id:String(i),username:String(i)}))), /2 to 6/);
 });
 test('only the current player can draw and a drawn card must be played or passed', () => {
-  let game = startUnoGame([{id:'a',username:'a'},{id:'b',username:'b'}]);
+  let game = makeActionGame([{id:'a',username:'a'},{id:'b',username:'b'}]);
   assert.throws(() => applyUnoAction(game, 'b', {type:'draw'}), (e: unknown) => e instanceof UnoError && e.code === 'NOT_YOUR_TURN');
   game = applyUnoAction(game, 'a', {type:'draw'});
   assert.ok(game.drawnCardId);
@@ -27,7 +34,7 @@ test('only the current player can draw and a drawn card must be played or passed
   assert.equal(game.currentPlayerIndex, 1);
 });
 test('public state never exposes player hands', () => {
-  const game = startUnoGame([{id:'a',username:'a'},{id:'b',username:'b'}]);
+  const game = makeActionGame([{id:'a',username:'a'},{id:'b',username:'b'}]);
   const state = publicGameState(game) as unknown as Record<string, unknown>;
   assert.equal('hands' in state, false);
   assert.equal('hand' in (state.players as Array<Record<string,unknown>>)[0]!, false);
@@ -35,7 +42,7 @@ test('public state never exposes player hands', () => {
 });
 
 test('UNO can be called after the player has yielded the turn, and an opponent can catch it', () => {
-  const base = startUnoGame([{id:'a',username:'a'},{id:'b',username:'b'}]);
+  const base = makeActionGame([{id:'a',username:'a'},{id:'b',username:'b'}]);
   base.players[0]!.hand = [
     {id:'play-me',color:'red',face:3},
     {id:'keep-me',color:'blue',face:4},
@@ -54,7 +61,7 @@ test('UNO can be called after the player has yielded the turn, and an opponent c
 });
 
 test('drawn-card identity is private to the active player', () => {
-  let game = startUnoGame([{id:'a',username:'a'},{id:'b',username:'b'}]);
+  let game = makeActionGame([{id:'a',username:'a'},{id:'b',username:'b'}]);
   game = applyUnoAction(game, 'a', {type:'draw'});
   assert.ok(privateTurnState(game, 'a').drawnCardId);
   assert.equal(privateTurnState(game, 'b').drawnCardId, null);
@@ -62,7 +69,7 @@ test('drawn-card identity is private to the active player', () => {
 });
 
 test('wild cards reject colors outside the four UNO colors', () => {
-  const game = startUnoGame([{id:'a',username:'a'},{id:'b',username:'b'}]);
+  const game = makeActionGame([{id:'a',username:'a'},{id:'b',username:'b'}]);
   game.players[0]!.hand = [{id:'wild-card',color:'wild',face:'wild'}];
   game.discardPile = [{id:'top',color:'red',face:1}];
   game.activeColor = 'red';
@@ -75,7 +82,7 @@ test('wild cards reject colors outside the four UNO colors', () => {
 });
 
 test('any seated opponent can catch an uncalled UNO before the next action', () => {
-  const game = startUnoGame([
+  const game = makeActionGame([
     {id:'a',username:'a'},
     {id:'b',username:'b'},
     {id:'c',username:'c'},
@@ -96,7 +103,7 @@ test('any seated opponent can catch an uncalled UNO before the next action', () 
 });
 
 test('a final Draw Two applies its penalty before the round is awarded', () => {
-  const game = startUnoGame([{id:'a',username:'a'},{id:'b',username:'b'}]);
+  const game = makeActionGame([{id:'a',username:'a'},{id:'b',username:'b'}]);
   game.players[0]!.hand = [{id:'last-draw-two',color:'red',face:'draw2'}];
   game.players[1]!.hand = Array.from({length:7},(_,i)=>({id:'target-'+i,color:'blue' as const,face:i}));
   game.discardPile = [{id:'top',color:'red',face:5}];
@@ -110,7 +117,7 @@ test('a final Draw Two applies its penalty before the round is awarded', () => {
 
 
 test('Wild Draw Four with an active-color card is playable but exposes a valid challenge', () => {
-  const game = startUnoGame([{id:'a',username:'a'},{id:'b',username:'b'},{id:'c',username:'c'}]);
+  const game = makeActionGame([{id:'a',username:'a'},{id:'b',username:'b'},{id:'c',username:'c'}]);
   game.players[0]!.hand = [
     {id:'bluff-wild4',color:'wild',face:'wild4'},
     {id:'red-card',color:'red',face:8},
@@ -126,7 +133,7 @@ test('Wild Draw Four with an active-color card is playable but exposes a valid c
 });
 
 test('legal Wild Draw Four waits for the target to accept or challenge', () => {
-  const game = startUnoGame([{id:'a',username:'a'},{id:'b',username:'b'},{id:'c',username:'c'}]);
+  const game = makeActionGame([{id:'a',username:'a'},{id:'b',username:'b'},{id:'c',username:'c'}]);
   game.players[0]!.hand = [
     {id:'legal-wild4',color:'wild',face:'wild4'},
     {id:'other-color',color:'blue',face:8},
@@ -148,7 +155,7 @@ test('legal Wild Draw Four waits for the target to accept or challenge', () => {
 
 
 test('two-player Reverse acts as a skip and returns the turn to the same player', () => {
-  const game = startUnoGame([{id:'a',username:'a'},{id:'b',username:'b'}]);
+  const game = makeActionGame([{id:'a',username:'a'},{id:'b',username:'b'}]);
   game.players[0]!.hand = [{id:'reverse',color:'red',face:'reverse'},{id:'spare',color:'blue',face:2}];
   game.discardPile = [{id:'top',color:'red',face:1}];
   game.activeColor = 'red';
@@ -160,7 +167,7 @@ test('two-player Reverse acts as a skip and returns the turn to the same player'
 });
 
 test('recycling the discard pile preserves its top card and makes prior discards drawable', () => {
-  const game = startUnoGame([{id:'a',username:'a'},{id:'b',username:'b'}]);
+  const game = makeActionGame([{id:'a',username:'a'},{id:'b',username:'b'}]);
   game.players[0]!.hand = [{id:'drawn',color:'yellow',face:1}];
   game.drawPile = [];
   game.discardPile = [
@@ -180,7 +187,7 @@ test('recycling the discard pile preserves its top card and makes prior discards
 
 
 test('Skip advances past exactly one player in a three-player game', () => {
-  const game = startUnoGame([{id:'a',username:'a'},{id:'b',username:'b'},{id:'c',username:'c'}]);
+  const game = makeActionGame([{id:'a',username:'a'},{id:'b',username:'b'},{id:'c',username:'c'}]);
   game.players[0]!.hand = [{id:'skip',color:'red',face:'skip'},{id:'spare',color:'blue',face:2}];
   game.discardPile = [{id:'top',color:'red',face:1}];
   game.activeColor = 'red';
@@ -191,7 +198,7 @@ test('Skip advances past exactly one player in a three-player game', () => {
 });
 
 test('Draw Two gives exactly two cards and skips the targeted player', () => {
-  const game = startUnoGame([{id:'a',username:'a'},{id:'b',username:'b'},{id:'c',username:'c'}]);
+  const game = makeActionGame([{id:'a',username:'a'},{id:'b',username:'b'},{id:'c',username:'c'}]);
   game.players[0]!.hand = [{id:'draw2',color:'red',face:'draw2'},{id:'spare',color:'blue',face:2}];
   game.discardPile = [{id:'top',color:'red',face:1}];
   game.activeColor = 'red';
@@ -203,7 +210,7 @@ test('Draw Two gives exactly two cards and skips the targeted player', () => {
 });
 
 test('a wild card requires one of the four supported colors and failed play is atomic', () => {
-  const game = startUnoGame([{id:'a',username:'a'},{id:'b',username:'b'}]);
+  const game = makeActionGame([{id:'a',username:'a'},{id:'b',username:'b'}]);
   game.players[0]!.hand = [{id:'wild',color:'wild',face:'wild'},{id:'spare',color:'blue',face:2}];
   game.discardPile = [{id:'top',color:'red',face:1}];
   game.activeColor = 'red';
@@ -218,7 +225,7 @@ test('a wild card requires one of the four supported colors and failed play is a
 });
 
 test('drawing fails cleanly when no draw cards can be recovered', () => {
-  const game = startUnoGame([{id:'a',username:'a'},{id:'b',username:'b'}]);
+  const game = makeActionGame([{id:'a',username:'a'},{id:'b',username:'b'}]);
   game.currentPlayerIndex = 0;
   game.direction = 1;
   game.drawPile = [];
@@ -234,7 +241,7 @@ test('drawing fails cleanly when no draw cards can be recovered', () => {
 
 
 test('Wild Draw Four challenge succeeds when offender held the active color', () => {
-  const game = startUnoGame([{id:'a',username:'a'},{id:'b',username:'b'},{id:'c',username:'c'}]);
+  const game = makeActionGame([{id:'a',username:'a'},{id:'b',username:'b'},{id:'c',username:'c'}]);
   game.players[0]!.hand = [
     {id:'wild4',color:'wild',face:'wild4'},
     {id:'red-card',color:'red',face:8},
@@ -255,7 +262,7 @@ test('Wild Draw Four challenge succeeds when offender held the active color', ()
 });
 
 test('Wild Draw Four challenge fails when offender had no active color; challenger draws six and loses turn', () => {
-  const game = startUnoGame([{id:'a',username:'a'},{id:'b',username:'b'},{id:'c',username:'c'}]);
+  const game = makeActionGame([{id:'a',username:'a'},{id:'b',username:'b'},{id:'c',username:'c'}]);
   game.players[0]!.hand = [
     {id:'wild4',color:'wild',face:'wild4'},
     {id:'blue-card',color:'blue',face:8},
@@ -273,7 +280,7 @@ test('Wild Draw Four challenge fails when offender had no active color; challeng
 });
 
 test('accepting Wild Draw Four draws four and skips the targeted player', () => {
-  const game = startUnoGame([{id:'a',username:'a'},{id:'b',username:'b'},{id:'c',username:'c'}]);
+  const game = makeActionGame([{id:'a',username:'a'},{id:'b',username:'b'},{id:'c',username:'c'}]);
   game.players[0]!.hand = [{id:'wild4',color:'wild',face:'wild4'},{id:'spare',color:'blue',face:2}];
   game.discardPile = [{id:'top',color:'red',face:1}];
   game.activeColor = 'red';
@@ -288,7 +295,7 @@ test('accepting Wild Draw Four draws four and skips the targeted player', () => 
 
 
 test('a pending Wild Draw Four response blocks playing or passing until accepted or challenged', () => {
-  const game = startUnoGame([{id:'a',username:'a'},{id:'b',username:'b'},{id:'c',username:'c'}]);
+  const game = makeActionGame([{id:'a',username:'a'},{id:'b',username:'b'},{id:'c',username:'c'}]);
   game.players[0]!.hand = [{id:'wild4',color:'wild',face:'wild4'},{id:'spare',color:'blue',face:2}];
   game.players[1]!.hand = [{id:'playable',color:'green',face:3}];
   game.discardPile = [{id:'top',color:'red',face:1}];
@@ -304,7 +311,7 @@ test('a pending Wild Draw Four response blocks playing or passing until accepted
 
 
 test('a final Wild Draw Four waits for the target response before awarding the round', () => {
-  const game = startUnoGame([{id:'a',username:'a'},{id:'b',username:'b'}]);
+  const game = makeActionGame([{id:'a',username:'a'},{id:'b',username:'b'}]);
   game.players[0]!.hand = [{id:'last-wild4',color:'wild',face:'wild4'}];
   game.players[1]!.hand = Array.from({length:7},(_,i)=>({id:'b'+i,color:'blue' as const,face:i}));
   game.discardPile = [{id:'top',color:'red',face:1}];
@@ -320,7 +327,7 @@ test('a final Wild Draw Four waits for the target response before awarding the r
 });
 
 test('a final Wild Draw Four challenge can overturn the round when the offender bluffed', () => {
-  const game = startUnoGame([{id:'a',username:'a'},{id:'b',username:'b'}]);
+  const game = makeActionGame([{id:'a',username:'a'},{id:'b',username:'b'}]);
   game.players[0]!.hand = [{id:'last-wild4',color:'wild',face:'wild4'}];
   game.players[1]!.hand = Array.from({length:7},(_,i)=>({id:'b'+i,color:'blue' as const,face:i}));
   game.discardPile = [{id:'top',color:'red',face:1}];
@@ -344,7 +351,7 @@ test('official UNO card points are calculated and exposed when a round ends', as
   assert.equal(cardPointValue({id:'d',color:'red',face:'draw2'}), 20);
   assert.equal(cardPointValue({id:'w',color:'wild',face:'wild'}), 50);
   assert.equal(cardPointValue({id:'w4',color:'wild',face:'wild4'}), 50);
-  const game = startUnoGame([{id:'a',username:'a'},{id:'b',username:'b'}]);
+  const game = makeActionGame([{id:'a',username:'a'},{id:'b',username:'b'}]);
   game.players[0]!.hand = [{id:'last',color:'red',face:1}];
   game.players[1]!.hand = [
     {id:'n',color:'red',face:9},
@@ -387,7 +394,7 @@ test('opening Skip, Reverse and Draw Two apply their official first-turn effects
 
 
 test('an opening Wild requires the first player to choose a color before any move', () => {
-  const game = startUnoGame([{id:'a',username:'a'},{id:'b',username:'b'}]);
+  const game = makeActionGame([{id:'a',username:'a'},{id:'b',username:'b'}]);
   game.openingColorPendingPlayerId = 'a';
   game.currentPlayerIndex = 0;
   assert.throws(() => applyUnoAction(game,'a',{type:'draw'}), (error: unknown) => error instanceof UnoError && error.code === 'OPENING_COLOR_REQUIRED');
@@ -409,7 +416,7 @@ test('an opening Wild Draw Four is returned to the draw deck and replaced', () =
 
 
 test('Reverse acts as Skip in a two-player game and the same player takes the next turn', () => {
-  const game = startUnoGame([{id:'a',username:'a'},{id:'b',username:'b'}]);
+  const game = makeActionGame([{id:'a',username:'a'},{id:'b',username:'b'}]);
   game.players[0]!.hand = [{id:'reverse',color:'red',face:'reverse'},{id:'spare',color:'blue',face:2}];
   game.discardPile = [{id:'top',color:'red',face:1}];
   game.activeColor = 'red';
