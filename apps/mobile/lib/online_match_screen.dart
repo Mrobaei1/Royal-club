@@ -59,7 +59,9 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
   @override
   void initState() {
     super.initState();
-    MatchActivityState.setActivelyPlaying(widget.match['status'] == 'active');
+    MatchActivityState.setActivelyPlaying(
+      ['waiting', 'active'].contains(widget.match['status']),
+    );
     _matchDetails = Map<String, dynamic>.from(widget.match);
     if (_hasValidId) {
       _refresh();
@@ -127,7 +129,9 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
             _connectionLost = false;
           });
         }
-        MatchActivityState.setActivelyPlaying(match['status'] == 'active');
+        MatchActivityState.setActivelyPlaying(
+          ['waiting', 'active'].contains(match['status']),
+        );
       } else if (mounted) {
         setState(() {
           _pendingMoves.clear();
