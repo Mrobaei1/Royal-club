@@ -18,6 +18,7 @@ All endpoints require a Bearer access token.
 | Method | Path | Purpose |
 |---|---|---|
 | GET | `/api/v1/manch/matches` | List unexpired waiting rooms |
+| GET | `/api/v1/manch/matches/mine` | Recover the caller's latest waiting or active match after reconnect |
 | POST | `/api/v1/manch/matches` | Create a 2-, 3- or 4-player room |
 | POST | `/api/v1/manch/matches/:id/join` | Join the next available seat |
 | GET | `/api/v1/manch/matches/:id` | Read match state and public usernames |
@@ -43,6 +44,7 @@ All endpoints require a Bearer access token.
 - Friend-specific invitation records and invitation notifications.
 - WebSocket push; the first client uses bounded 2-second state polling.
 - Reconnect leases, disconnect grace periods and temporary AI takeover.
+- The current-match lookup restores the latest waiting/active room after app restart; it does not yet implement disconnect grace timers or temporary AI takeover.
 - Match history, ranked results, rating/progression, spectator access and league integration.
 - Active-match leave/forfeit and rematch flows.
 
