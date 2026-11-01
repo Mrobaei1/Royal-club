@@ -16,6 +16,29 @@ class ManchRuleProfile {
     this.maxConsecutiveSixes = 3,
   });
 
+  factory ManchRuleProfile.fromJson(Map<String, Object?> json) {
+    final penalty = ThreeSixPenalty.values.firstWhere(
+      (value) => value.name == json['threeSixPenalty'],
+      orElse: () => ThreeSixPenalty.none,
+    );
+    final profile = ManchRuleProfile(
+      entryFaces: ((json['entryFaces'] as List?)?.cast<int>() ?? const {6}).toSet(),
+      extraRollOnSix: json['extraRollOnSix'] as bool? ?? true,
+      extraRollOnCapture: json['extraRollOnCapture'] as bool? ?? false,
+      extraRollOnFinish: json['extraRollOnFinish'] as bool? ?? false,
+      threeSixPenalty: penalty,
+      safeTrackIndices: ((json['safeTrackIndices'] as List?)?.cast<int>() ??
+          const [0, 13, 26, 39]).toSet(),
+      blockadesEnabled: json['blockadesEnabled'] as bool? ?? false,
+      blockadeBlocksOpponents: json['blockadeBlocksOpponents'] as bool? ?? true,
+      friendlyStackingEnabled: json['friendlyStackingEnabled'] as bool? ?? true,
+      exactFinishRequired: json['exactFinishRequired'] as bool? ?? true,
+      maxConsecutiveSixes: json['maxConsecutiveSixes'] as int? ?? 3,
+    );
+    profile.validate();
+    return profile;
+  }
+
   void validate() {
     if (entryFaces.isEmpty) {
       throw ArgumentError('At least one entry face must be configured.');
