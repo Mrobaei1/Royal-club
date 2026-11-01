@@ -161,6 +161,81 @@ test("WebSocket presence remains online until the player's last device disconnec
       m.type === "chess:opponent:presence" && m.username === "ws_white" && m.connected === true,
     );
 
+    // Verify persisted chat reaches the other participant through PostgreSQL NOTIFY.
+    const chatDelivery = waitForMessage(blackSocket, m =>
+      m.type === "chess:chat:message" && m.username === "ws_white" && m.message === "Realtime hello",
+    );
+    const chatResponse = await app.inject({
+      method: "POST",
+      url: `/chess/games/${gameId}/chat`,
+      headers: { "x-user-id": white },
+      payload: { message: "Realtime hello" },
+    });
+    assert.equal(chatResponse.statusCode, 201, chatResponse.body);
+    await chatDelivery;
+
+    // Verify host voice settings and the authenticated WebRTC signaling relay.
+    const voiceSettings = waitForMessage(blackSocket, m =>
+      m.type === "chess:voice:settings" && m.enabled === true,
+    );
+    const enabled = await app.inject({
+      method: "POST",
+      url: `/chess/games/${gameId}/voice/enable`,
+      headers: { "x-user-id": white },
+    });
+    assert.equal(enabled.statusCode, 200, enabled.body);
+    await voiceSettings;
+
+    const leaseResponse = await app.inject({
+      method: "POST",
+      url: `/chess/games/${gameId}/voice/request`,
+      headers: { "x-user-id": white },
+    });
+    assert.equal(leaseResponse.statusCode, 200, leaseResponse.body);
+    const lease = leaseResponse.json();
+    assert.equal(lease.granted, true);
+
+    const offerDelivery = waitForMessage(blackSocket, m =>
+      m.type === "chess:voice:signal" && m.signalType === "offer",
+    );
+    whiteFirst.send(JSON.stringify({
+      type: "chess:voice:signal",
+      signalType: "offer",
+      payload: { type: "offer", sdp: "v=0\\r\\n" },
+    }));
+    await offerDelivery;
+
+    const answerDelivery = waitForMessage(whiteFirst, m =>
+      m.type === "chess:voice:signal" && m.signalType === "answer",
+    );
+    blackSocket.send(JSON.stringify({
+      type: "chess:voice:signal",
+      signalType: "answer",
+      payload: { type: "answer", sdp: "v=0\\r\\n" },
+    }));
+    await answerDelivery;
+
+    const candidateDelivery = waitForMessage(blackSocket, m =>
+      m.type === "chess:voice:signal" && m.signalType === "candidate",
+    );
+    whiteFirst.send(JSON.stringify({
+      type: "chess:voice:signal",
+      signalType: "candidate",
+      payload: { candidate: "candidate:1 1 UDP 1 127.0.0.1 9 typ host", sdpMid: "0", sdpMLineIndex: 0 },
+    }));
+    await candidateDelivery;
+
+    const disabledSettings = waitForMessage(blackSocket, m =>
+      m.type === "chess:voice:settings" && m.enabled === false,
+    );
+    const disabled = await app.inject({
+      method: "POST",
+      url: `/chess/games/${gameId}/voice/disable`,
+      headers: { "x-user-id": white },
+    });
+    assert.equal(disabled.statusCode, 200, disabled.body);
+    await disabledSettings;
+
     const whiteSecond = await connect(wsUrl, white);
     sockets.push(whiteSecond);
     await waitForMessage(whiteSecond, m => m.type === "chess:connected");
