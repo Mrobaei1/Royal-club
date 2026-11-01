@@ -66,9 +66,13 @@ class _OwnerAnalyticsScreenState extends State<OwnerAnalyticsScreen> {
             final games = Map<String, dynamic>.from(metrics['backgammonMatches'] as Map? ?? {});
             final wallet = Map<String, dynamic>.from(metrics['walletCreditsLast30Days'] as Map? ?? {});
             final subscriptions = Map<String, dynamic>.from(metrics['subscriptions'] as Map? ?? {});
+            final activeUsers = Map<String, dynamic>.from(metrics['activeUsers'] as Map? ?? {});
+            final gameEvents = (metrics['gameActivityLast30Days'] as List? ?? const [])
+                .whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
             final trends = (data['trends']?['backgammonMatchesLast30Days'] as List? ?? const [])
                 .whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
             final coverage = Map<String, dynamic>.from(data['coverage'] as Map? ?? {});
+            final partial = (coverage['partial'] as List? ?? const []).map((e) => e.toString()).toList();
             final unavailable = (coverage['notInstrumented'] as List? ?? const []).map((e) => e.toString()).toList();
             final stamp = data['generatedAt']?.toString() ?? '';
             return RefreshIndicator(
@@ -95,9 +99,27 @@ class _OwnerAnalyticsScreenState extends State<OwnerAnalyticsScreen> {
                   Wrap(spacing: 10, runSpacing: 10, children: [
                     _KpiCard(title: t('کل کاربران ثبت‌نام‌شده', 'Registered users'), value: _number(metrics['registeredUsers']), icon: Icons.people_outline),
                     _KpiCard(title: t('ثبت‌نام در ۳۰ روز', 'Registrations · 30d'), value: _number(metrics['registrationsLast30Days']), icon: Icons.person_add_alt),
+                    _KpiCard(title: 'DAU', value: _number(activeUsers['dau']), icon: Icons.today_outlined),
+                    _KpiCard(title: 'WAU', value: _number(activeUsers['wau']), icon: Icons.date_range_outlined),
+                    _KpiCard(title: 'MAU', value: _number(activeUsers['mau']), icon: Icons.calendar_month_outlined),
+                    _KpiCard(title: t('کاربران فعال تکراری · ۳۰ روز', 'Repeat active users · 30d'), value: _number(activeUsers['returningUsers30Days']), icon: Icons.replay_outlined),
                     _KpiCard(title: t('اشتراک‌های فعال', 'Active subscriptions'), value: _number(subscriptions['active']), icon: Icons.workspace_premium_outlined),
                     _KpiCard(title: t('کل سوابق اشتراک', 'Subscription records'), value: _number(subscriptions['totalRecords']), icon: Icons.receipt_long_outlined),
                   ]),
+                  const SizedBox(height: 18),
+                  Text(t('فعالیت بازی‌ها در ۳۰ روز اخیر', 'Game events · last 30 days'), style: Theme.of(context).textTheme.titleLarge),
+                  const SizedBox(height: 8),
+                  Card(child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: gameEvents.isEmpty
+                      ? Text(t('هنوز رویداد بازی ثبت نشده است.', 'No game events have been recorded yet.'))
+                      : Column(children: gameEvents.map((event) => _MetricRow(
+                          label: '${event['game']} · ${event['event']}',
+                          value: _number(event['count']),
+                        )).toList()),
+                  )),
+                  const SizedBox(height: 6),
+                  Text(t('منبع: analytics_game_events · فقط رویدادهای ثبت‌شده؛ بازی‌های بدون اتصال رویداد در این آمار ظاهر نمی‌شوند.', 'Source: analytics_game_events · recorded events only; games without event integration are not represented.'), style: Theme.of(context).textTheme.bodySmall),
                   const SizedBox(height: 18),
                   Text(t('وضعیت بازی تخته‌نرد', 'Backgammon status'), style: Theme.of(context).textTheme.titleLarge),
                   const SizedBox(height: 8),
@@ -138,6 +160,18 @@ class _OwnerAnalyticsScreenState extends State<OwnerAnalyticsScreen> {
                     ]),
                   )),
                   const SizedBox(height: 18),
+                  Text(t('شاخص‌های دارای پوشش ناقص', 'Metrics with partial coverage'), style: Theme.of(context).textTheme.titleLarge),
+                  const SizedBox(height: 8),
+                  Card(child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: partial.isEmpty
+                      ? Text(t('موردی ثبت نشده است.', 'None reported.'))
+                      : Column(crossAxisAlignment: CrossAxisAlignment.start, children: partial.map((item) => Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [const Icon(Icons.warning_amber_outlined, size: 17), const SizedBox(width: 8), Expanded(child: Text(item))]),
+                        )).toList()),
+                  )),
+                  const SizedBox(height: 12),
                   Text(t('شاخص‌هایی که هنوز ابزارگذاری نشده‌اند', 'Metrics not yet instrumented'), style: Theme.of(context).textTheme.titleLarge),
                   const SizedBox(height: 8),
                   Card(child: Padding(
