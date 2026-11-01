@@ -45,7 +45,7 @@ Measured conservatively from committed implementation and available test evidenc
 | ID | Work package | Weight | Current progress | Evidence / remaining gate |
 |---|---|---:|---:|---|
 | 1 | Requirements and Iranian rule profile | 10% | 80% | Variant research and configurable profile exist; owner must approve the final local rule matrix. |
-| 2 | Open-source research and license review | 15% | 75% | Candidate shortlist and selected license checks exist; exact commit pinning and full obligations audit remain. |
+| 2 | Open-source research and license review | 15% | 80% | Three reference repositories now have pinned commit hashes and declared MIT/Apache-2.0 license identifiers recorded; full license-text, notices and transitive-obligation audit remains. No third-party source was copied. |
 | 3 | Iranian board visual design | 15% | 55% | 52-cell board painter, four yards, four home lanes, entry markers and widget tests exist; final visual review and geometry acceptance remain. |
 | 4 | Pure Dart rules engine | 15% | 55% | Deterministic core, serializable state, defensive immutable rule snapshots, blockade variants and scenario tests are implemented; broader edge-case coverage and owner-approved rules remain. |
 | 5 | Offline game mode | 10% | 35% | Local 2–4 player pass-and-play, optional AI opponent, deterministic bot policy, secure save/resume and widget tests are implemented; broader bot strategy, difficulty settings and full play acceptance remain. |
@@ -54,7 +54,7 @@ Measured conservatively from committed implementation and available test evidenc
 | 8 | UX polish | 5% | 10% | Initial Persian/English screen labels, status messaging and responsive scrolling are present; animation, sound, accessibility review and full localization/visual polish remain. |
 | 9 | End-to-end validation and stabilization | 5% | 20% | CI is green for API build/unit tests, API integration tests, Flutter analyze/widget tests and backgammon engine/AI regression; 101 Flutter tests passed. Full multi-device acceptance, live reconnect and release sign-off remain. |
 
-Weighted overall progress: **54%** (10%×80% + 15%×75% + 15%×55% + 15%×55% + 10%×35% + 15%×75% + 10%×20% + 5%×10% + 5%×20%). This is a conservative implementation estimate, not a release-readiness claim. Offline play has an initial AI/local mode and secure save/resume. Online play now has an initial server-authoritative API and client lobby/game flow, but reconnect, friend invitations, active-match recovery, concurrency stress and end-to-end acceptance remain outstanding.
+Weighted overall progress: **54.75%** (10%×80% + 15%×80% + 15%×55% + 15%×55% + 10%×35% + 15%×75% + 10%×20% + 5%×10% + 5%×20%). This is a conservative implementation estimate, not a release-readiness claim. Offline play has an initial AI/local mode and secure save/resume. Online play now has an initial server-authoritative API and client lobby/game flow, but reconnect, friend invitations, active-match recovery, concurrency stress and end-to-end acceptance remain outstanding.
 
 Implementation commit `0aaf3c1` passed API build/unit tests, API integration tests, Flutter analyze/widget tests (101 passed), and backgammon engine/AI regression (41 passed). The API integration suite verified concurrent rolls with the same state version yield one success and one HTTP 409. After that green snapshot, current-match recovery, two-player forfeit/winner metadata and rematch creation were added to the API/client, with integration coverage; these newer changes are awaiting their own CI validation.
 
