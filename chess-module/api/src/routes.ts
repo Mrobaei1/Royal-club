@@ -155,7 +155,7 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
     );
     if(!result.rowCount)return fail(reply,404,"game_not_found");
     const row=result.rows[0];
-    const engine=new ChessGame(row.current_fen);
+    const engine=new ChessGame(row.initial_fen, row.pgn);
     const engineState=engine.snapshot();
     return {gameId:String(row.id),fen:row.current_fen,pgn:row.pgn,status:row.status,revision:Number(row.revision),
       turn:engineState.turn,legalMoves:engineState.legalMoves,
@@ -200,7 +200,7 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
       const row=result.rows[0];
       if(!row||row.status!=="active"){await client.query("ROLLBACK");return fail(reply,404,"active_game_not_found");}
       const white=String(row.white_user_id),black=String(row.black_user_id);
-      const game=new ChessGame(row.current_fen);
+      const game=new ChessGame(row.initial_fen, row.pgn);
       const before=game.snapshot();
       const expected=before.turn==="w"?white:black;
       if(playerId!==expected){await client.query("ROLLBACK");return fail(reply,403,"not_your_turn");}
