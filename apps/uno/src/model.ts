@@ -29,6 +29,7 @@ export interface UnoGame {
   activeColor: UnoColor;
   drawnCardId: string | null;
   unoPendingPlayerId: string | null;
+  pendingWild4: { offenderId: string; targetId: string; offenderHadActiveColor: boolean } | null;
   winnerId: string | null;
   turnNumber: number;
 }
@@ -37,7 +38,8 @@ export type GameAction =
   | { type: 'draw' }
   | { type: 'pass' }
   | { type: 'callUno' }
-  | { type: 'catchUno' };
+  | { type: 'catchUno' }
+  | { type: 'challengeWild4' };
 export interface PublicGameState {
   players: Array<{ id: string; username: string; cardCount: number }>;
   discardTop: UnoCard;
