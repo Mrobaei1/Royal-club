@@ -124,6 +124,9 @@ class AdminService {
     await _request('DELETE', '/api/v1/admin/permissions/grants/$grantId');
   }
 
+  static Future<Map<String, dynamic>> executiveAnalyticsOverview() async =>
+      await _request('GET', '/api/v1/admin/analytics/overview');
+
   static Future<bool> isOwner() async => (await _request('GET', '/api/v1/admin/status'))['isOwner'] == true;
   static Future<Map<String, dynamic>> accountCustomizationPricing() async =>
       (await _request('GET', '/api/v1/admin/account-customization-pricing'))['settings'] as Map<String, dynamic>;
