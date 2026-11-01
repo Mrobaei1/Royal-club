@@ -70,6 +70,7 @@ export class UnoRoomManager {
     const room = this.requireRoom(code);
     if (room.status === 'playing' || room.status === 'finished') throw new UnoError('GAME_ALREADY_STARTED', 'Readiness is locked after the game starts.');
     const player = this.requirePlayer(room, playerId);
+    if (!player.connected) throw new UnoError('PLAYER_DISCONNECTED', 'Reconnect before changing your ready state.');
     player.ready = ready;
     room.status = room.players.length >= 2 && room.players.every(p => p.ready) ? 'ready' : 'waiting';
     room.lastActivityAt = Date.now();
