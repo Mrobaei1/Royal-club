@@ -158,6 +158,7 @@ export function applyUnoAction(source: UnoGame, playerId: string, action: GameAc
   if (player.hand.length === 0) {
     game.winnerId = player.id;
     game.unoPendingPlayerId = null;
+    game.pendingWild4 = null;
     return game;
   }
   if (player.hand.length === 1) game.unoPendingPlayerId = player.id;
