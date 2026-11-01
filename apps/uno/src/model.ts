@@ -18,6 +18,7 @@ export interface UnoRoom {
   roundsWon: Record<string, number>;
   roundsPlayed: number;
   matchWinnerId: string | null;
+  totalPoints: Record<string, number>;
   game: UnoGame | null;
 }
 export interface UnoGame {
@@ -29,8 +30,10 @@ export interface UnoGame {
   activeColor: UnoColor;
   drawnCardId: string | null;
   unoPendingPlayerId: string | null;
+  winnerScore: number;
   pendingWild4: { offenderId: string; targetId: string; offenderHadActiveColor: boolean } | null;
   winnerId: string | null;
+  winnerScore: number;
   turnNumber: number;
 }
 export type GameAction =
