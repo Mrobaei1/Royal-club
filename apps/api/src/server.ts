@@ -5033,7 +5033,7 @@ app.post<{ Params: { id: string } }>('/api/v1/matches/:id/heartbeat', { onReques
        return reply.code(404).send({ error: 'Voice is not available for this match.' });
      }
      const inserted = await pool.query(
-       'INSERT INTO backgammon_match_voice_signals (match_id, sender_id, recipient_id, kind, payload, expires_at) VALUES ($1, $2, $3, $4, $5::jsonb, NOW() + INTERVAL \\'2 minutes\\') RETURNING id::text AS id',
+       'INSERT INTO backgammon_match_voice_signals (match_id, sender_id, recipient_id, kind, payload, expires_at) VALUES ($1, $2, $3, $4, $5::jsonb, NOW() + INTERVAL \'2 minutes\') RETURNING id::text AS id',
        [matchId, claims.sub, match.rows[0].peer_id, kind, JSON.stringify(payload)],
      );
      return reply.code(201).send({ sent: true, signalId: inserted.rows[0].id });
