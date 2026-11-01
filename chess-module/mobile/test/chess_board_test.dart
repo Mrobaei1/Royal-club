@@ -25,6 +25,30 @@ void main() {
     semantics.dispose();
   });
 
+  testWidgets('server position updates clear stale selected squares', (tester) async {
+    final semantics = tester.ensureSemantics();
+    Widget board(String fen, List<String> moves) => MaterialApp(
+      home: Scaffold(body: ChessBoard(fen: fen, legalMoves: moves, onMove: (_) {})),
+    );
+    await tester.pumpWidget(board(
+      'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+      const ['e2e4'],
+    ));
+    await tester.tap(find.byWidgetPredicate((widget) => widget is Semantics && (widget.properties.label ?? '').startsWith('e2 ')));
+    await tester.pump();
+    Finder selectedSquares() => find.byWidgetPredicate((widget) =>
+      widget is DecoratedBox && widget.decoration is BoxDecoration &&
+      (widget.decoration as BoxDecoration).color == const Color(0xFFE8C547));
+    expect(selectedSquares(), findsOneWidget);
+    await tester.pumpWidget(board(
+      'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1',
+      const ['e7e5'],
+    ));
+    await tester.pump();
+    expect(selectedSquares(), findsNothing);
+    semantics.dispose();
+  });
+
   testWidgets('non-interactive board ignores taps', (tester) async {
     final semantics = tester.ensureSemantics();
     String? submitted;
