@@ -103,6 +103,35 @@ void main() {
       expect(game.bar[1], 1);
     });
 
+    test('blocked bar pass is idempotent for both players', () {
+      for (final player in [1, -1]) {
+        clearPosition(player: player, rolledDice: [1, 2]);
+        if (player == 1) {
+          game.bar[1] = 1;
+          for (var point = 0; point < 6; point++) {
+            game.points[point] = -2;
+          }
+        } else {
+          game.bar[0] = 1;
+          for (var point = 18; point < 24; point++) {
+            game.points[point] = 2;
+          }
+        }
+
+        expect(game.legalMoves(), isEmpty,
+            reason: 'Player $player must have no legal bar entry.');
+        expect(game.passTurnAfterNoLegalMoves(), isTrue);
+        expect(game.currentPlayer, -player);
+        expect(game.dice, isEmpty);
+
+        // A duplicate timer/callback must not pass the opponent's turn too.
+        expect(game.passTurnAfterNoLegalMoves(), isFalse);
+        expect(game.currentPlayer, -player);
+        expect(game.dice, isEmpty);
+        expect(game.bar[player == 1 ? 1 : 0], 1);
+      }
+    });
+
     test('a turn cannot be passed while a legal bar entry exists', () {
       clearPosition(rolledDice: [1, 2]);
       game.bar[1] = 1;
