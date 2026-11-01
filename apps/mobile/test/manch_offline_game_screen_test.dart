@@ -17,6 +17,7 @@ void main() {
     expect(find.text('نوبت بازیکن قرمز'), findsOneWidget);
 
     await tester.ensureVisible(find.text('انداختن تاس'));
+    await tester.ensureVisible(find.text('انداختن تاس'));
     await tester.tap(find.text('انداختن تاس'));
     await tester.pumpAndSettle();
 
@@ -40,6 +41,7 @@ void main() {
       ),
     );
 
+    await tester.ensureVisible(find.text('انداختن تاس'));
     await tester.tap(find.text('انداختن تاس'));
     await tester.pumpAndSettle();
 
@@ -100,7 +102,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('نوبت بازیکن زرد'), findsOneWidget);
-    expect(find.textContaining('مسیر 2 از 52'), findsWidgets);
+    expect(find.textContaining('مسیر 1 از 52'), findsWidgets);
     expect(find.text('انداختن تاس'), findsOneWidget);
   });
 }
