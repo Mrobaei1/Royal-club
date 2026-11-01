@@ -30,8 +30,8 @@ String localizedNotificationBody(Map<String, dynamic> item, bool isEnglish) {
       : <String, dynamic>{};
   if (data.containsKey('inviteId')) {
     return isEnglish
-        ? 'A friend invited you to a backgammon match. Accept within 60 seconds to join.'
-        : 'دوست شما را به مسابقه تخته‌نرد دعوت کرده است. برای ورود، تا ۶۰ ثانیه دعوت را بپذیرید.';
+        ? 'A friend invited you to a backgammon match. Accept within 30 seconds to join.'
+        : 'دوست شما را به مسابقه تخته‌نرد دعوت کرده است. برای ورود، تا ۳۰ ثانیه دعوت را بپذیرید.';
   }
   switch (item['type']?.toString()) {
     case 'friend_request':
@@ -125,7 +125,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       if (data is! Map || !data.containsKey('inviteId')) continue;
       final createdAt = DateTime.tryParse(item['createdAt']?.toString() ?? '');
       if (createdAt == null) continue;
-      final expiresAt = createdAt.add(const Duration(seconds: 60));
+      final expiresAt = createdAt.add(const Duration(seconds: 30));
       if (nextExpiry == null || expiresAt.isBefore(nextExpiry)) nextExpiry = expiresAt;
     }
     if (nextExpiry == null) return;

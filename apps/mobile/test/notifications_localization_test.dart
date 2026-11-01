@@ -32,7 +32,7 @@ void main() {
       'data': {'inviteId': 'invite-1', 'matchId': 'match-1'},
     };
     expect(localizedNotificationTitle(invite, true), 'Backgammon invitation');
-    expect(localizedNotificationBody(invite, true), contains('Accept within 60 seconds'));
+    expect(localizedNotificationBody(invite, true), contains('Accept within 30 seconds'));
   });
   testWidgets('notification details open in a small dialog with a close action', (tester) async {
     await tester.pumpWidget(MaterialApp(

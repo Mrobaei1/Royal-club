@@ -873,6 +873,11 @@ test('registered players can join an online match and history does not expose op
   const incomingInvite = (invitesInbox.json().invites as Array<Record<string, unknown>>)
     .find((invite) => String(invite.matchId) === invitedRoomId);
   assert.ok(incomingInvite);
+  const inviteCreatedAt = Date.parse(String(incomingInvite.createdAt));
+  const inviteExpiresAt = Date.parse(String(incomingInvite.expiresAt));
+  assert.ok(Number.isFinite(inviteCreatedAt) && Number.isFinite(inviteExpiresAt));
+  assert.ok(inviteExpiresAt - inviteCreatedAt <= 30_000 && inviteExpiresAt - inviteCreatedAt >= 29_000,
+    'A pending game invitation should expire after 30 seconds.');
   const inviteNotifications = await app.inject({
     method: 'GET',
     url: '/api/v1/notifications',
@@ -948,6 +953,46 @@ test('registered players can join an online match and history does not expose op
   );
   assert.equal(expiredRoomInviteStatus.rows[0].status, 'rejected');
 
+  // Invitation acceptance must be rejected after 30 seconds even if the room remains open.
+  const staleInviteRoom = await app.inject({
+    method: 'POST',
+    url: '/api/v1/matches',
+    headers: auth(host.token),
+  });
+  assert.equal(staleInviteRoom.statusCode, 201, staleInviteRoom.body);
+  const staleInviteRoomId = String(staleInviteRoom.json().match.id);
+  const staleInviteSent = await app.inject({
+    method: 'POST',
+    url: `/api/v1/matches/${staleInviteRoomId}/invites`,
+    headers: auth(host.token),
+    payload: { inviteeId: String(guest.user.id) },
+  });
+  assert.equal(staleInviteSent.statusCode, 201, staleInviteSent.body);
+  const staleInviteRow = await testPool.query(
+    `SELECT id FROM backgammon_match_invites
+      WHERE match_id = $1 AND invitee_id = $2 AND status = 'pending'
+      ORDER BY id DESC LIMIT 1`,
+    [staleInviteRoomId, guest.user.id],
+  );
+  assert.ok(staleInviteRow.rows[0]);
+  await testPool.query(
+    `UPDATE backgammon_match_invites SET created_at = NOW() - INTERVAL '31 seconds'
+      WHERE id = $1`,
+    [staleInviteRow.rows[0].id],
+  );
+  const rejectStaleInvite = await app.inject({
+    method: 'POST',
+    url: `/api/v1/match-invites/${staleInviteRow.rows[0].id}/respond`,
+    headers: auth(guest.token),
+    payload: { accept: true },
+  });
+  assert.equal(rejectStaleInvite.statusCode, 410, rejectStaleInvite.body);
+  const staleInviteStatus = await testPool.query(
+    'SELECT status FROM backgammon_match_invites WHERE id = $1',
+    [staleInviteRow.rows[0].id],
+  );
+  assert.equal(staleInviteStatus.rows[0].status, 'rejected');
+
   const acceptInvite = await app.inject({
     method: 'POST',
     url: `/api/v1/match-invites/${incomingInvite.id}/respond`,
@@ -984,7 +1029,7 @@ test('registered players can join an online match and history does not expose op
 
   const expiredInviteNotice = await testPool.query(
     `INSERT INTO notifications (user_id, actor_user_id, type, title, body, data, created_at)
-      VALUES ($1, $2, 'system', 'Expired invite', 'Expired', jsonb_build_object('inviteId', 'expired-test', 'matchId', $3::text), NOW() - INTERVAL '61 seconds')
+      VALUES ($1, $2, 'system', 'Expired invite', 'Expired', jsonb_build_object('inviteId', 'expired-test', 'matchId', $3::text), NOW() - INTERVAL '31 seconds')
       RETURNING id`,
     [guest.user.id, host.user.id, invitedRoomId],
   );
@@ -996,7 +1041,7 @@ test('registered players can join an online match and history does not expose op
   assert.equal(notificationsAfterExpiry.statusCode, 200, notificationsAfterExpiry.body);
   assert.equal((notificationsAfterExpiry.json().notifications as Array<Record<string, unknown>>)
     .some((notice) => String(notice.id) === String(expiredInviteNotice.rows[0].id)), false,
-    'Invite notices older than sixty seconds must be removed from the notifications inbox.');
+    'Invite notices older than thirty seconds must be removed from the notifications inbox.');
 
 
 
