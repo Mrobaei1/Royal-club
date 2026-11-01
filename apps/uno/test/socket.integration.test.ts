@@ -136,6 +136,18 @@ test('authenticated sockets enforce host start and keep hands and voice signals 
     assert.equal(restoredHost.ok, true);
     const restoredData = restoredHost.data as Record<string, unknown>;
     assert.equal((restoredData.hand as unknown[]).length, (hostHand as unknown[]).length + (currentPlayerId === 'host-id' ? 1 : 0));
+
+    const invalidSignal = await emitAck(host, 'uno:voice:signal', {
+      code, targetId: 'guest-id', kind: 'offer', data: { sdp: 'missing-type' },
+    });
+    assert.equal(invalidSignal.ok, false);
+    assert.equal(invalidSignal.error?.code, 'INVALID_SIGNAL');
+
+    const roomAfterLeaveEvent = nextEvent(guest, 'uno:room:state');
+    assert.equal((await emitAck(secondHostDevice, 'uno:room:leave', { code })).ok, true);
+    const roomAfterLeave = await roomAfterLeaveEvent as Record<string, unknown>;
+    const hostSeatAfterLeave = (roomAfterLeave.players as Array<Record<string, unknown>>).find(p => p.id === 'host-id');
+    assert.equal(hostSeatAfterLeave?.connected, false);
     host.disconnect();
     await new Promise(resolve => setTimeout(resolve, 50));
     assert.equal(roomManager.getRoom(code).players[0]!.connected, true);
