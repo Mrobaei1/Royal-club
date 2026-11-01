@@ -63,15 +63,19 @@ test("WebSocket presence remains online until the player's last device disconnec
   const schema = `chess_ws_${randomUUID().replaceAll("-", "")}`;
   const admin = new Pool({ connectionString: databaseUrl, connectionTimeoutMillis: 3_000, query_timeout: 5_000, statement_timeout: 5_000 });
   await admin.query(`CREATE SCHEMA "${schema}"`);
-  const pool = new Pool({
+  const poolOptions = {
     connectionString: databaseUrl,
     options: `-c search_path=${schema},public`,
     connectionTimeoutMillis: 3_000,
     query_timeout: 5_000,
     statement_timeout: 5_000,
-  });
+  };
+  const pool = new Pool(poolOptions);
+  const pool2 = new Pool(poolOptions);
   const app = Fastify();
+  const app2 = Fastify();
   let address: string | undefined;
+  let address2: string | undefined;
   let activeGameId: string | undefined;
   const sockets: WebSocket[] = [];
 
@@ -122,17 +126,23 @@ test("WebSocket presence remains online until the player's last device disconnec
       getUserId: (request: FastifyRequest) => String(request.headers["x-user-id"] ?? ""),
       canManageSettings: async (userId: string) => userId === white,
     });
-    await registerChessWebSocket(app, {
-      pool,
+    const websocketOptions = {
       authenticate: async (_request: FastifyRequest) => {},
       getUserId: (request: FastifyRequest) => String(request.headers["x-user-id"] ?? ""),
-    });
+    };
+    await registerChessWebSocket(app, { pool, ...websocketOptions });
+    await registerChessWebSocket(app2, { pool: pool2, ...websocketOptions });
     await app.listen({ host: "127.0.0.1", port: 0 });
+    await app2.listen({ host: "127.0.0.1", port: 0 });
     const serverAddress = app.server.address();
+    const serverAddress2 = app2.server.address();
     address = serverAddress && typeof serverAddress !== "string"
       ? `ws://127.0.0.1:${(serverAddress as AddressInfo).port}/chess/ws`
       : undefined;
-    assert.ok(address, "Fastify should listen on an ephemeral port");
+    address2 = serverAddress2 && typeof serverAddress2 !== "string"
+      ? `ws://127.0.0.1:${(serverAddress2 as AddressInfo).port}/chess/ws`
+      : undefined;
+    assert.ok(address && address2, "both Fastify instances should listen on ephemeral ports");
 
     const room = await app.inject({
       method: "POST",
@@ -151,7 +161,7 @@ test("WebSocket presence remains online until the player's last device disconnec
     activeGameId = gameId;
     const wsUrl = `${address}?gameId=${gameId}`;
 
-    const blackSocket = await connect(wsUrl, black);
+    const blackSocket = await connect(`${address2}?gameId=${gameId}`, black);
     sockets.push(blackSocket);
     await waitForMessage(blackSocket, m => m.type === "chess:connected");
     const whiteFirst = await connect(wsUrl, white);
@@ -236,7 +246,7 @@ test("WebSocket presence remains online until the player's last device disconnec
     assert.equal(disabled.statusCode, 200, disabled.body);
     await disabledSettings;
 
-    const whiteSecond = await connect(wsUrl, white);
+    const whiteSecond = await connect(`${address2}?gameId=${gameId}`, white);
     sockets.push(whiteSecond);
     await waitForMessage(whiteSecond, m => m.type === "chess:connected");
     let sessions = await pool.query(
@@ -292,7 +302,9 @@ test("WebSocket presence remains online until the player's last device disconnec
       }
     }
     await app.close().catch(() => {});
+    await app2.close().catch(() => {});
     await pool.end();
+    await pool2.end();
     await admin.query(`DROP SCHEMA IF EXISTS "${schema}" CASCADE`);
     await admin.end();
   }
