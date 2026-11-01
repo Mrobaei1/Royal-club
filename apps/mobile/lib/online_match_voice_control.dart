@@ -42,20 +42,20 @@ class _OnlineMatchVoiceControlState extends State<OnlineMatchVoiceControl> {
   @override
   void initState() {
     super.initState();
-    _poller = Timer.periodic(const Duration(seconds: 1), (_) => _pollSignals());
+    _poller = Timer.periodic(const Duration(milliseconds: 1500), (_) => _pollSignals());
   }
 
   @override
   void dispose() {
     _disposed = true;
     _poller?.cancel();
-    unawaited(_cleanup(sendHangup: false));
+    unawaited(_cleanup(sendHangup: true));
     super.dispose();
   }
 
   String _newCallId() {
     final random = Random.secure();
-    return ''${DateTime.now().microsecondsSinceEpoch}-${random.nextInt(1 << 32)}'';
+    return '${DateTime.now().microsecondsSinceEpoch}-${random.nextInt(1 << 32)}';
   }
 
   void _showError(Object error) {
