@@ -319,3 +319,46 @@ test('host leaving a lobby transfers control to the next connected seat in turn 
   const afterLeave = manager.leave(room.code, 'player-2')!;
   assert.equal(afterLeave.hostId, 'player-3');
 });
+
+test('cleanup removes expired lobby rooms and releases memberships', () => {
+  const manager = new UnoRoomManager();
+  const room = manager.createRoom(host);
+  const snapshot = manager.exportSnapshot();
+  snapshot.rooms[0]!.lastActivityAt = 1000;
+  manager.restoreSnapshot(snapshot);
+  assert.equal(manager.cleanupExpiredRooms(1000 + 2 * 60 * 60 * 1000), 1);
+  assert.equal(manager.getRoomForUser(host.id), null);
+  assert.throws(() => manager.getRoom(room.code), /does not exist/);
+});
+
+test('cleanup never removes an active game based on age alone', () => {
+  const manager = new UnoRoomManager();
+  const room = manager.createRoom(host);
+  manager.joinRoom(room.code, guest);
+  manager.setReady(room.code, host.id, true);
+  manager.setReady(room.code, guest.id, true);
+  manager.start(room.code, host.id);
+  const snapshot = manager.exportSnapshot();
+  snapshot.rooms[0]!.lastActivityAt = 1;
+  manager.restoreSnapshot(snapshot);
+  assert.equal(manager.cleanupExpiredRooms(10_000_000_000), 0);
+  assert.equal(manager.getRoom(room.code).status, 'playing');
+});
+
+test('cleanup expires a playing room only when all players are disconnected', () => {
+  const manager = new UnoRoomManager();
+  const room = manager.createRoom(host);
+  manager.joinRoom(room.code, guest);
+  manager.setReady(room.code, host.id, true);
+  manager.setReady(room.code, guest.id, true);
+  manager.start(room.code, host.id);
+  manager.disconnect(room.code, host.id);
+  manager.disconnect(room.code, guest.id);
+  const snapshot = manager.exportSnapshot();
+  snapshot.rooms[0]!.lastActivityAt = 1;
+  manager.restoreSnapshot(snapshot);
+  assert.equal(manager.cleanupExpiredRooms(1 + 24 * 60 * 60 * 1000 - 1), 0);
+  assert.equal(manager.cleanupExpiredRooms(1 + 24 * 60 * 60 * 1000), 1);
+  assert.equal(manager.getRoomForUser(host.id), null);
+  assert.equal(manager.getRoomForUser(guest.id), null);
+});
