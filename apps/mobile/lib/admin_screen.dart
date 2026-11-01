@@ -339,6 +339,168 @@ class _AdminScreenState extends State<AdminScreen> {
     }
   }
 
+  Future<void> _createLeagueForGame(String gameCode) async {
+    final nameController = TextEditingController();
+    final minimumController = TextEditingController(text: '8');
+    final daysController = TextEditingController(text: '1');
+    var format = 'round_robin';
+    var entryMode = 'free';
+    var enabled = false;
+    DateTime? startsAt;
+    DateTime? endsAt;
+    String dateText(DateTime? value) => value == null
+        ? appText(context, 'تعیین نشده', 'Not set')
+        : value.toLocal().toString().substring(0, 10);
+
+    final result = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text(appText(context, 'ایجاد لیگ مستقل', 'Create game league')),
+          content: SizedBox(
+            width: 520,
+            child: SingleChildScrollView(
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                TextField(
+                  controller: nameController,
+                  maxLength: 120,
+                  decoration: InputDecoration(labelText: appText(context, 'نام لیگ', 'League name')),
+                ),
+                const SizedBox(height: 8),
+                DropdownButtonFormField<String>(
+                  initialValue: format,
+                  decoration: InputDecoration(labelText: appText(context, 'فرمت لیگ', 'League format')),
+                  items: [
+                    DropdownMenuItem(value: 'round_robin', child: Text(appText(context, 'دوره‌ای', 'Round robin'))),
+                    DropdownMenuItem(value: 'swiss', child: Text(appText(context, 'سوئیسی', 'Swiss'))),
+                    DropdownMenuItem(value: 'knockout', child: Text(appText(context, 'حذفی', 'Knockout'))),
+                    DropdownMenuItem(value: 'groups_then_knockout', child: Text(appText(context, 'گروهی سپس حذفی', 'Groups then knockout'))),
+                  ],
+                  onChanged: (value) => setDialogState(() => format = value ?? 'round_robin'),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: minimumController,
+                  keyboardType: TextInputType.number,
+                  decoration: InputDecoration(labelText: appText(context, 'حداقل شرکت‌کنندگان (۲ تا ۵۱۲)', 'Minimum participants (2–512)')),
+                ),
+                const SizedBox(height: 8),
+                DropdownButtonFormField<String>(
+                  initialValue: entryMode,
+                  decoration: InputDecoration(labelText: appText(context, 'قانون ورود', 'Entry rule')),
+                  items: [
+                    DropdownMenuItem(value: 'free', child: Text(appText(context, 'رایگان', 'Free'))),
+                    DropdownMenuItem(value: 'subscription_days', child: Text(appText(context, 'مصرف روز اشتراک', 'Consume subscription days'))),
+                  ],
+                  onChanged: (value) => setDialogState(() => entryMode = value ?? 'free'),
+                ),
+                if (entryMode == 'subscription_days')
+                  TextField(
+                    controller: daysController,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(labelText: appText(context, 'روزهای مصرفی (۱ تا ۳۰)', 'Days consumed (1–30)')),
+                  ),
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  onPressed: () async {
+                    final picked = await showDatePicker(
+                      context: dialogContext,
+                      initialDate: startsAt ?? DateTime.now(),
+                      firstDate: DateTime(2020),
+                      lastDate: DateTime(2100),
+                    );
+                    if (picked != null) setDialogState(() => startsAt = DateTime(picked.year, picked.month, picked.day));
+                  },
+                  icon: const Icon(Icons.event_available_outlined),
+                  label: Text('${appText(context, 'شروع لیگ', 'League starts')}: ${dateText(startsAt)}'),
+                ),
+                OutlinedButton.icon(
+                  onPressed: () async {
+                    final picked = await showDatePicker(
+                      context: dialogContext,
+                      initialDate: endsAt ?? startsAt ?? DateTime.now(),
+                      firstDate: DateTime(2020),
+                      lastDate: DateTime(2100),
+                    );
+                    if (picked != null) setDialogState(() => endsAt = DateTime(picked.year, picked.month, picked.day, 23, 59, 59, 999));
+                  },
+                  icon: const Icon(Icons.event_busy_outlined),
+                  label: Text('${appText(context, 'پایان لیگ', 'League ends')}: ${dateText(endsAt)}'),
+                ),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(appText(context, 'فعال‌سازی لیگ هنگام ایجاد', 'Enable league on creation')),
+                  subtitle: Text(appText(context, 'در حالت خاموش، لیگ برای کاربران نمایش داده نمی‌شود.', 'When off, the league is not visible to players.')),
+                  value: enabled,
+                  onChanged: (value) => setDialogState(() => enabled = value),
+                ),
+                Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: Text(
+                    appText(context, 'شماره لیگ به‌صورت خودکار و مستقل برای همین بازی تخصیص داده می‌شود. ورود به لیگ از کیف پول اعتبار کم نمی‌کند.', 'The league number is allocated automatically within this game only. League entry never debits wallet credits.'),
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                ),
+              ]),
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(dialogContext), child: Text(appText(context, 'انصراف', 'Cancel'))),
+            FilledButton(
+              onPressed: () {
+                final name = nameController.text.trim();
+                final minimum = int.tryParse(minimumController.text);
+                final days = int.tryParse(daysController.text) ?? 0;
+                if (name.isEmpty || minimum == null || minimum < 2 || minimum > 512 ||
+                    (entryMode == 'subscription_days' && (days < 1 || days > 30)) ||
+                    (startsAt != null && endsAt != null && !endsAt!.isAfter(startsAt!))) return;
+                Navigator.pop(dialogContext, {
+                  'name': name,
+                  'minimum': minimum,
+                  'format': format,
+                  'entryMode': entryMode,
+                  'days': entryMode == 'free' ? 0 : days,
+                  'enabled': enabled,
+                  'startsAt': startsAt?.toUtc().toIso8601String(),
+                  'endsAt': endsAt?.toUtc().toIso8601String(),
+                });
+              },
+              child: Text(appText(context, 'ایجاد لیگ', 'Create league')),
+            ),
+          ],
+        ),
+      ),
+    );
+    nameController.dispose();
+    minimumController.dispose();
+    daysController.dispose();
+    if (result == null || !mounted) return;
+    setState(() => _busy = true);
+    try {
+      final league = await AdminService.createLeague(
+        gameCode: gameCode,
+        name: result['name'] as String,
+        enabled: result['enabled'] as bool,
+        entryMode: result['entryMode'] as String,
+        subscriptionDaysCost: result['days'] as int,
+        format: result['format'] as String,
+        minimumParticipants: result['minimum'] as int,
+        startsAt: result['startsAt'] as String?,
+        endsAt: result['endsAt'] as String?,
+      );
+      await _load();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(appText(context, 'لیگ شماره ${league['leagueNumber']} ثبت شد.', 'League #${league['leagueNumber']} created.')),
+        ));
+      }
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appError(context, error))));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   Future<void> _createLeague() async {
     final code = _leagueCode.text.trim().toLowerCase();
     final name = _leagueName.text.trim();
