@@ -1,6 +1,6 @@
 import websocket from "@fastify/websocket";
 import type { FastifyInstance, FastifyRequest, preHandlerHookHandler } from "fastify";
-import type { Pool } from "pg";
+import type { Pool, PoolClient } from "pg";
 import type { WebSocket } from "ws";
 import { Buffer } from "node:buffer";
 import { randomUUID } from "node:crypto";
@@ -28,7 +28,7 @@ export async function registerChessWebSocket(app: FastifyInstance, options: Opti
     let connectionClosed = false;
     let presenceRegistered = false;
     let sessionId: string | undefined;
-    let listenerToRelease: { release: () => void } | undefined;
+    let listenerToRelease: PoolClient | undefined;
     let cleanupConnection: (() => Promise<void>) | undefined;
     socket.on("close", () => {
       connectionClosed = true;
