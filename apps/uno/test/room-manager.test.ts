@@ -227,6 +227,8 @@ test('a best-of-three UNO match requires three round wins and readiness between 
     const snapshot = manager.exportSnapshot();
     const savedRoom = snapshot.rooms[0]!;
     savedRoom.game!.players[0]!.hand = [{id:'round-final',color:'red',face:1}];
+    savedRoom.game!.currentPlayerIndex = 0;
+    savedRoom.game!.direction = 1;
     savedRoom.game!.discardPile = [{id:'top',color:'red',face:2}];
     savedRoom.game!.activeColor = 'red';
     const restarted = new UnoRoomManager();
@@ -263,6 +265,7 @@ test('disconnect between rounds preserves the seat for reconnection', () => {
   const snapshot = manager.exportSnapshot();
   snapshot.rooms[0]!.game!.players[0]!.hand = [{id:'last',color:'red',face:1}];
     snapshot.rooms[0]!.game!.currentPlayerIndex = 0;
+    snapshot.rooms[0]!.game!.direction = 1;
   snapshot.rooms[0]!.game!.discardPile = [{id:'top',color:'red',face:2}];
   snapshot.rooms[0]!.game!.activeColor = 'red';
   manager.restoreSnapshot(snapshot);
