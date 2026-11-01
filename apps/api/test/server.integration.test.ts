@@ -3211,6 +3211,11 @@ test('owner analytics overview is owner-only, read-only, and reports source cove
     const body = response.json();
     assert.equal(body.freshness, 'live-query');
     assert.equal(body.windowDays, 30);
+    assert.equal(body.operationalTelemetry.database.status, 'connected');
+    assert.ok(Number.isInteger(body.operationalTelemetry.database.probeLatencyMs));
+    assert.ok(Number.isInteger(body.operationalTelemetry.apiLatency.sampleCount));
+    assert.equal(body.operationalTelemetry.infrastructureCost.status, 'unavailable');
+    assert.equal(body.operationalTelemetry.agentExecution.status, 'unavailable');
     assert.ok(Number.isInteger(body.metrics.registeredUsers));
     assert.ok(Array.isArray(body.trends.backgammonMatchesLast30Days));
     assert.equal(body.trends.backgammonMatchesLast30Days.length, 30);
@@ -3235,6 +3240,12 @@ test('owner analytics overview is owner-only, read-only, and reports source cove
       headers: auth(owner.token),
     });
     assert.equal(invalidRange.statusCode, 400, invalidRange.body);
+
+    const deniedAdvanced = await app.inject({
+      method: 'GET', url: `/api/v1/admin/analytics/advanced?from=${today}&to=${today}`,
+      headers: auth(ordinary.token),
+    });
+    assert.equal(deniedAdvanced.statusCode, 403, deniedAdvanced.body);
 
     const advanced = await app.inject({
       method: 'GET',
