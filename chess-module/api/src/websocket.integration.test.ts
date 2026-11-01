@@ -57,17 +57,46 @@ function connect(url: string, userId: string): Promise<WebSocket> {
 
 test("WebSocket presence remains online until the player's last device disconnects", {
   skip: !databaseUrl,
+  timeout: 45_000,
 }, async () => {
   const schema = `chess_ws_${randomUUID().replaceAll("-", "")}`;
-  const admin = new Pool({ connectionString: databaseUrl });
+  const admin = new Pool({ connectionString: databaseUrl, connectionTimeoutMillis: 3_000, query_timeout: 5_000, statement_timeout: 5_000 });
   await admin.query(`CREATE SCHEMA "${schema}"`);
   const pool = new Pool({
     connectionString: databaseUrl,
     options: `-c search_path=${schema},public`,
+    connectionTimeoutMillis: 3_000,
+    query_timeout: 5_000,
+    statement_timeout: 5_000,
   });
   const app = Fastify();
   let address: string | undefined;
+  let activeGameId: string | undefined;
   const sockets: WebSocket[] = [];
+
+  const closeSocket = async (socket: WebSocket): Promise<void> => {
+    if (socket.readyState === WebSocket.CLOSED) return;
+    await new Promise<void>((resolve) => {
+      let settled = false;
+      const finish = () => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        socket.off("close", finish);
+        resolve();
+      };
+      const timer = setTimeout(() => {
+        try { socket.terminate(); } catch {}
+        finish();
+      }, 2_000);
+      socket.once("close", finish);
+      try {
+        if (socket.readyState === WebSocket.OPEN) socket.close(1000, "test_cleanup");
+        else if (socket.readyState === WebSocket.CONNECTING) socket.terminate();
+      } catch { finish(); }
+      if (socket.readyState === WebSocket.CLOSED) finish();
+    });
+  };
 
   try {
     await pool.query(`
@@ -117,6 +146,7 @@ test("WebSocket presence remains online until the player's last device disconnec
     });
     assert.equal(joined.statusCode, 201, joined.body);
     const gameId = String(joined.json().gameId);
+    activeGameId = gameId;
     const wsUrl = `${address}?gameId=${gameId}`;
 
     const blackSocket = await connect(wsUrl, black);
@@ -171,8 +201,18 @@ test("WebSocket presence remains online until the player's last device disconnec
     );
     assert.equal(sessions.rows[0].count, 0, "last device closing must clear presence sessions");
   } finally {
-    for (const socket of sockets) {
-      try { socket.terminate(); } catch {}
+    // Wait for client close events before closing Fastify; server-side presence cleanup is asynchronous.
+    await Promise.all(sockets.map(closeSocket));
+    if (activeGameId) {
+      const cleanupDeadline = Date.now() + 5_000;
+      while (Date.now() < cleanupDeadline) {
+        const remaining = await pool.query(
+          "SELECT COUNT(*)::int AS count FROM chess_presence_sessions WHERE game_id=$1",
+          [activeGameId],
+        ).catch(() => ({ rows: [{ count: 0 }] }));
+        if (remaining.rows[0].count === 0) break;
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
     }
     await app.close().catch(() => {});
     await pool.end();
