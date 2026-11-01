@@ -394,11 +394,15 @@ class _ManchOnlineGameScreenState extends State<ManchOnlineGameScreen> {
         _winnerUserId = match['winnerUserId']?.toString();
         _finishReason = match['finishReason']?.toString();
         _lastDice = state.pendingDice ?? _lastDice;
-        _status = state.isFinished
-            ? _text('بازی به پایان رسید.', 'The game has finished.')
-            : _myTurn
-                ? _text('نوبت شماست.', 'It is your turn.')
-                : _text('در انتظار حرکت بازیکن دیگر...', 'Waiting for the other player...');
+        _status = _matchStatus == 'finished' && _finishReason == 'forfeit'
+            ? _winnerUserId == widget.currentUserId
+                ? _text('حریف تسلیم شد؛ شما برنده شدید.', 'Opponent forfeited; you win.')
+                : _text('بازی با تسلیم حریف پایان یافت.', 'The match ended by forfeit.')
+            : state.isFinished
+                ? _text('بازی به پایان رسید.', 'The game has finished.')
+                : _myTurn
+                    ? _text('نوبت شماست.', 'It is your turn.')
+                    : _text('در انتظار حرکت بازیکن دیگر...', 'Waiting for the other player...');
         _error = null;
       });
     } catch (error) {
