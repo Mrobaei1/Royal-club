@@ -42,7 +42,7 @@ export async function registerChessWebSocket(app: FastifyInstance, options: Opti
     }
     void (async () => {
       const membership = await options.pool.query(
-        "SELECT id,room_id FROM chess_games WHERE id=$1 AND (white_user_id=$2 OR black_user_id=$2)",
+        "SELECT id,room_id,white_user_id,black_user_id FROM chess_games WHERE id=$1 AND (white_user_id=$2 OR black_user_id=$2)",
         [gameId, userId]
       );
       if (!membership.rowCount) {
@@ -148,6 +148,16 @@ export async function registerChessWebSocket(app: FastifyInstance, options: Opti
       } finally { presenceClient.release(); }
       if (wasOffline) await publish({type:"presence",id:userId,connected:true});
       send({type:"chess:connected",gameId});
+      const opponentId = String(membership.rows[0].white_user_id) === userId
+        ? String(membership.rows[0].black_user_id)
+        : String(membership.rows[0].white_user_id);
+      const opponentPresence = await options.pool.query(
+        "SELECT u.username,EXISTS(SELECT 1 FROM chess_presence_sessions s WHERE s.game_id=$1 AND s.user_id=$2) AS connected FROM users u WHERE u.id=$2",
+        [gameId,opponentId]
+      );
+      if (opponentPresence.rowCount) {
+        send({type:"chess:opponent:presence",username:opponentPresence.rows[0].username,connected:Boolean(opponentPresence.rows[0].connected)});
+      }
       const currentLease = await options.pool.query(
         "SELECT u.username,l.expires_at FROM chess_voice_leases l JOIN users u ON u.id=l.user_id WHERE l.room_id=$1 AND l.expires_at>NOW()",
         [roomId]
