@@ -16,7 +16,13 @@ export async function registerChessWebSocket(app: FastifyInstance, options: Opti
     websocket: true,
     preHandler: options.authenticate
   }, (socket: WebSocket, request) => {
-    const userId = options.getUserId(request);
+    let userId: string;
+    try {
+      userId = options.getUserId(request);
+    } catch {
+      socket.close(1008, "invalid_identity");
+      return;
+    }
     const gameId = request.query.gameId;
     let connectionClosed = false;
     let listenerToRelease: { release: () => void } | undefined;
