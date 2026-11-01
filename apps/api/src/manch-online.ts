@@ -172,7 +172,7 @@ export function registerManchRoutes(app: any, pool: Pool, requireMatchAuth: any)
       const inserted = await client.query(
         `INSERT INTO manch_matches
           (room_code, host_user_id, player_count, status, game_state, expires_at)
-         VALUES ($1, $2, $3, 'waiting', $4::jsonb, NOW() + INTERVAL '60 seconds')
+         VALUES ($1, $2, $3, 'waiting', $4::jsonb, NOW() + INTERVAL '30 seconds')
          RETURNING id, room_code AS "roomCode", player_count AS "playerCount",
                    status, state_version AS "stateVersion", expires_at AS "expiresAt"`,
         [roomCode, userId, playerCount, JSON.stringify(state)],
