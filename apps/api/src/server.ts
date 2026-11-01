@@ -124,6 +124,25 @@ function apiLatencySnapshot() {
   };
 }
 
+async function recordBackgammonLifecycleEvent(
+  client: PoolClient,
+  eventType: 'game_started' | 'game_finished',
+  matchId: string,
+  userId: string,
+  gameNumber: number,
+): Promise<void> {
+  await client.query(
+    `INSERT INTO analytics_game_events (game_type, event_type, match_id, user_id, metadata)
+     SELECT 'backgammon', $1, $2, $3, jsonb_build_object('gameNumber', $4::int)
+      WHERE NOT EXISTS (
+        SELECT 1 FROM analytics_game_events
+         WHERE game_type = 'backgammon' AND match_id = $2 AND event_type = $1
+           AND metadata->>'gameNumber' = $4::text
+      )`,
+    [eventType, matchId, userId, gameNumber],
+  );
+}
+
 // Expire empty waiting rooms after 60 seconds and remove their related notices.
 // The lazy calls also cover serverless runtimes where a persistent timer is not guaranteed.
 async function cleanupExpiredEmptyRooms(): Promise<number> {
@@ -1233,6 +1252,7 @@ async function processTemporaryAiTakeover(matchId: string, requesterId?: string)
     );
     if (gameFinished && winnerId && loserId) {
       const gameNumber = Number(game.host_game_wins ?? 0) + Number(game.guest_game_wins ?? 0) + 1;
+      await recordBackgammonLifecycleEvent(client, 'game_finished', matchId, winnerId, gameNumber);
       await awardProgression(client, matchId, `game:${gameNumber}`, winnerId, loserId, 'loss');
       if (matchFinished) await updateBackgammonRatings(client, winnerId, loserId);
     }
@@ -4476,16 +4496,20 @@ app.post<{ Params: { id: string }; Body: { matchToWin?: number; acceptSettings?:
         }
       }
       const current = await client.query(
-        `SELECT match_to_win, host_settings_accepted, guest_settings_accepted, host_ready, guest_ready
+        `SELECT match_to_win, host_game_wins, guest_game_wins, host_settings_accepted, guest_settings_accepted, host_ready, guest_ready
            FROM backgammon_matches WHERE id = $1 FOR UPDATE`, [request.params.id]);
       const setup = current.rows[0];
       let status = 'waiting';
       if (setup.host_settings_accepted && setup.guest_settings_accepted && setup.host_ready && setup.guest_ready) {
-        await client.query(
+        const started = await client.query(
           `UPDATE backgammon_matches SET status = 'active', current_turn_user_id = host_user_id,
              dice = '[]'::jsonb, remaining_dice = '[]'::jsonb, state_version = 0,
              turn_started_at = NOW(),
              expires_at = NOW() + INTERVAL '30 minutes', updated_at = NOW() WHERE id = $1 AND status = 'waiting'`, [request.params.id]);
+        if (started.rowCount) {
+          const gameNumber = Number(setup.host_game_wins ?? 0) + Number(setup.guest_game_wins ?? 0) + 1;
+          await recordBackgammonLifecycleEvent(client, 'game_started', request.params.id, m.host_user_id, gameNumber);
+        }
         await client.query(
           `INSERT INTO backgammon_match_presence (match_id, user_id)
            VALUES ($1, $2), ($1, $3)
@@ -4612,6 +4636,8 @@ app.post<{ Params: { id: string }; Body: { scope?: 'game' | 'match' } }>(
             WHERE id = $2`,
           [winnerUserId, match.id],
         );
+        const gameNumber = Number(match.host_game_wins ?? 0) + Number(match.guest_game_wins ?? 0) + 1;
+        await recordBackgammonLifecycleEvent(client, 'game_finished', match.id, winnerUserId, gameNumber);
         await awardProgression(client, match.id, 'match-resignation', winnerUserId, claims.sub, 'quit');
         await updateBackgammonRatings(client, winnerUserId, claims.sub);
         await client.query('COMMIT');
@@ -4640,6 +4666,7 @@ app.post<{ Params: { id: string }; Body: { scope?: 'game' | 'match' } }>(
          JSON.stringify(INITIAL_BACKGAMMON_BOARD), winnerUserId, match.id],
       );
       const gameNumber = Number(match.host_game_wins ?? 0) + Number(match.guest_game_wins ?? 0) + 1;
+      await recordBackgammonLifecycleEvent(client, 'game_finished', match.id, winnerUserId, gameNumber);
       await awardProgression(client, match.id, `game:${gameNumber}`, winnerUserId, claims.sub, 'quit');
       if (matchFinished) {
         await updateBackgammonRatings(client, winnerUserId, claims.sub);
@@ -4789,6 +4816,7 @@ app.post<{ Params: { id: string }; Body: { moves: Array<{ from: number | null; t
       const winnerId = simulated.off.host >= 15 ? game.host_user_id : game.guest_user_id;
       const loserId = winnerId === game.host_user_id ? game.guest_user_id : game.host_user_id;
       const gameNumber = Number(game.host_game_wins ?? 0) + Number(game.guest_game_wins ?? 0) + 1;
+      await recordBackgammonLifecycleEvent(client, 'game_finished', game.id, winnerId, gameNumber);
       await awardProgression(client, game.id, `game:${gameNumber}`, winnerId, loserId, 'loss');
       if (matchFinished) await updateBackgammonRatings(client, winnerId, loserId);
     }
@@ -4918,6 +4946,7 @@ app.post<{ Params: { id: string }; Body: { from: number | null; to: number | nul
       const winnerId = off.host >= 15 ? game.host_user_id : game.guest_user_id;
       const loserId = winnerId === game.host_user_id ? game.guest_user_id : game.host_user_id;
       const gameNumber = Number(game.host_game_wins ?? 0) + Number(game.guest_game_wins ?? 0) + 1;
+      await recordBackgammonLifecycleEvent(client, 'game_finished', game.id, winnerId, gameNumber);
       await awardProgression(client, game.id, `game:${gameNumber}`, winnerId, loserId, 'loss');
       if (matchFinished) await updateBackgammonRatings(client, winnerId, loserId);
     }
