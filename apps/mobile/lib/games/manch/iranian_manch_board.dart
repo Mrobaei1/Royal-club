@@ -215,7 +215,7 @@ class _IranianManchPainter extends CustomPainter {
       center + Offset(0, radius * .15),
       radius,
       Paint()
-        ..color = Colors.black.withOpacity(.25)
+        ..color = Colors.black.withValues(alpha: .25)
         ..maskFilter = MaskFilter.blur(BlurStyle.normal, radius * .18),
     );
     canvas.drawCircle(
@@ -242,7 +242,7 @@ class _IranianManchPainter extends CustomPainter {
     canvas.drawCircle(
       center - Offset(radius * .18, radius * .2),
       radius * .12,
-      Paint()..color = Colors.white.withOpacity(.65),
+      Paint()..color = Colors.white.withValues(alpha: .65),
     );
   }
 
@@ -251,7 +251,7 @@ class _IranianManchPainter extends CustomPainter {
     final color = seatColors[seat]!;
     for (final cell in cells) {
       final rect = Rect.fromLTWH(cell.$2 * u, cell.$1 * u, u, u);
-      canvas.drawRect(rect, Paint()..color = color.withOpacity(.9));
+      canvas.drawRect(rect, Paint()..color = color.withValues(alpha: .9));
       canvas.drawRect(
         rect,
         Paint()
