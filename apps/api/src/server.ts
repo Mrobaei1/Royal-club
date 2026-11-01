@@ -3836,24 +3836,10 @@ app.get<{ Params: { id: string } }>('/api/v1/matches/:id', { onRequest: [require
 
 app.get('/api/v1/match-invites', { onRequest: [requireMatchAuth] }, async (request) => {
   const claims = request.user as { sub: string };
-  // Also clean up expired rooms when the notifications screen is polling.
-  await cleanupExpiredEmptyRooms();
-  // Invitation cards expire after 60 seconds. Mark them responded without
-  // deleting the waiting room, so the host can invite the same friend again.
-  await pool.query(
-    `UPDATE backgammon_match_invites SET status = 'rejected', responded_at = NOW()
-      WHERE invitee_id = $1 AND status = 'pending'
-        AND created_at <= NOW() - INTERVAL '60 seconds'`,
-    [claims.sub]);
-  await pool.query(
-    `DELETE FROM notifications
-      WHERE user_id = $1 AND data ? 'inviteId'
-        AND data->>'inviteId' IN (
-          SELECT id::text FROM backgammon_match_invites
-           WHERE invitee_id = $1 AND status = 'rejected'
-             AND responded_at >= NOW() - INTERVAL '1 minute'
-        )`,
-    [claims.sub]);
+  // This endpoint is polled frequently by the mobile app. Keep it read-only:
+  // room cleanup runs on /matches/open (and the scheduled/server timer paths),
+  // while expired invitations are filtered by created_at and lazily marked
+  // rejected when the host sends a replacement or the invite is answered.
   const result = await pool.query(
     `SELECT i.id, i.match_id AS "matchId", i.status, i.created_at AS "createdAt",
             (i.created_at + INTERVAL '60 seconds') AS "expiresAt",
