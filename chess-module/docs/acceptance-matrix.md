@@ -3,7 +3,7 @@
 | Area | Automated coverage | Remaining acceptance |
 |---|---|---|
 | Legal chess | Engine unit tests for ordinary/illegal moves, castling, en passant, promotion, checkmate, stalemate, repetition, 50/75-move and insufficient material | Remaining rare FEN edge cases and broader property-based fuzzing |
-| Time controls | Defaults, active-player decrement/increment, automatic scheduler with concurrent PostgreSQL sweeps, timeout adjudication and duplicate-run idempotency, row-lock adjudication and reconnect snapshot API | Simultaneous clock/move race tests and physical-device reconnect acceptance |
+| Time controls | Defaults, active-player decrement/increment, automatic scheduler with concurrent PostgreSQL sweeps, timeout adjudication and duplicate-run idempotency, row-lock adjudication, concurrent move-vs-timeout integration race test and reconnect snapshot API | Physical-device reconnect acceptance and broader multi-instance stress testing |
 | Progression | Cost curve, cumulative thresholds, permanent levels, zero floor, win/draw/resignation deltas, PostgreSQL XP/Elo awards and duplicate-result idempotency |
 | Room level gate | Unit and PostgreSQL route tests cover minimum-level rejection, host cancellation and self-join rejection | Multi-account adversarial and concurrent admission acceptance |
 | Voice PTT | Exclusive lease, expiry, release, disconnect and disable unit tests; DB-backed lease, authenticated signaling relay, lease renewal and Flutter WebRTC client implemented | Multi-instance PostgreSQL atomicity, device permission, TURN/NAT traversal and two-device media acceptance |
