@@ -3209,10 +3209,17 @@ test('owner analytics overview is owner-only, read-only, and reports source cove
     assert.ok(Number.isInteger(body.metrics.registeredUsers));
     assert.ok(Array.isArray(body.trends.backgammonMatchesLast30Days));
     assert.equal(body.trends.backgammonMatchesLast30Days.length, 30);
-    assert.ok(body.coverage.notInstrumented.includes('DAU/WAU/MAU'));
+    assert.ok(body.coverage.available.includes('DAU/WAU/MAU'));
+    assert.ok(body.coverage.partial.some((item: string) => item.includes('retention cohorts')));
+    assert.ok(Number.isInteger(body.metrics.activeUsers.dau));
+    assert.ok(Number.isInteger(body.metrics.activeUsers.wau));
+    assert.ok(Number.isInteger(body.metrics.activeUsers.mau));
+    assert.equal(body.metrics.activeUsers.definition,
+      'distinct authenticated users with at least one successful authenticated API request per calendar day');
+    assert.ok(Array.isArray(body.metrics.gameActivityLast30Days));
     assert.equal(body.metrics.walletCreditsLast30Days.classification,
       'internal-non-transferable-credits-not-cash-revenue');
-    assert.deepEqual(body.sources, ['users', 'backgammon_matches', 'wallet_transactions', 'user_subscriptions']);
+    assert.deepEqual(body.sources, ['users', 'analytics_user_activity_daily', 'analytics_game_events', 'backgammon_matches', 'wallet_transactions', 'user_subscriptions']);
   } finally {
     if (previousOwnerId === undefined) delete process.env.OWNER_USER_ID;
     else process.env.OWNER_USER_ID = previousOwnerId;
