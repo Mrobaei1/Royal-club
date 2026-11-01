@@ -38,13 +38,14 @@ class ManchGameState {
   ManchGameState({
     required List<ManchPlayerState> players,
     required this.activePlayerIndex,
-    required this.profile,
+    required ManchRuleProfile profile,
     this.pendingDice,
     this.consecutiveSixes = 0,
     this.turnNumber = 1,
     this.winnerIndex,
-  }) : players = List<ManchPlayerState>.unmodifiable(players) {
-    profile.validate();
+  })  : profile = profile.immutableSnapshot(),
+        players = List<ManchPlayerState>.unmodifiable(players) {
+    this.profile.validate();
     if (players.length < 2 || players.length > 4) {
       throw ArgumentError('Manch supports two to four players.');
     }
