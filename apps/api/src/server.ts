@@ -4862,7 +4862,7 @@ app.post<{ Params: { id: string } }>('/api/v1/matches/:id/heartbeat', { onReques
      const claims = request.user as { sub: string };
      const matchId = request.params.id;
      const afterId = request.query.afterId ?? '0';
-     if (!isNumericId(matchId) || !/^\d+$/.test(afterId)) {
+     if (!isNumericId(matchId) || !/^\d+$/.test(afterId) || !Number.isSafeInteger(Number(afterId))) {
        return reply.code(400).send({ error: 'Invalid match chat cursor.' });
      }
      const access = await pool.query(
@@ -4876,7 +4876,7 @@ app.post<{ Params: { id: string } }>('/api/v1/matches/:id/heartbeat', { onReques
            [matchId, afterId],
          )
        : await pool.query(
-           'SELECT id::text AS id, match_id::text AS "matchId", sender_id::text AS "senderId", sender_username AS "senderUsername", body, created_at AS "createdAt" FROM (SELECT m.id, m.match_id, m.sender_id, u.username AS sender_username, m.body, m.created_at FROM backgammon_match_messages m JOIN users u ON u.id = m.sender_id WHERE m.match_id = $1 ORDER BY m.id DESC LIMIT 100) latest ORDER BY id ASC',
+           'SELECT id::text AS id, match_id::text AS "matchId", sender_id::text AS "senderId", sender_username AS "senderUsername", body, created_at AS "createdAt" FROM (SELECT m.id, m.match_id, m.sender_id, u.username AS sender_username, m.body, m.created_at FROM backgammon_match_messages m JOIN users u ON u.id = m.sender_id WHERE m.match_id = $1 ORDER BY m.id DESC LIMIT 100) latest ORDER BY id::bigint ASC',
            [matchId],
          );
      return { messages: messages.rows };
