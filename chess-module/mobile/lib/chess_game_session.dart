@@ -100,6 +100,14 @@ class ChessGameSession extends ChangeNotifier {
     if (_disposed || generation != _refreshGeneration) return;
     game = gameResult;
     _applyClock(game?['clock'] as Map<String, dynamic>?);
+    // Never keep microphone capture or a voice lease alive after the game ends
+    // or the room voice setting is disabled in the authoritative snapshot.
+    final gameActive = game?['status'] == 'active';
+    final roomVoiceEnabled = game?['settings']?['voiceEnabled'] == true;
+    if (!gameActive || !roomVoiceEnabled) {
+      await voiceClient?.disconnect();
+      speakingUsername = null;
+    }
     final rawMessages = (results[0] as List).cast<Map<String, dynamic>>();
     messages = rawMessages.map(_chatMessage).toList(growable: false);
     final offer = Map<String, dynamic>.from(results[1] as Map);
