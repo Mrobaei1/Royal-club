@@ -50,6 +50,15 @@ class _ChessBoardState extends State<ChessBoard> {
 
   String _square(int row, int col) => '${'abcdefgh'[col]}${8 - row}';
 
+  @override
+  void didUpdateWidget(covariant ChessBoard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.fen != widget.fen || oldWidget.legalMoves != widget.legalMoves ||
+        oldWidget.interactive != widget.interactive) {
+      _selected = null;
+    }
+  }
+
   Future<void> _tap(int row, int col) async {
     if (!widget.interactive) return;
     final square = _square(row, col);
