@@ -105,7 +105,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     // Keep this page live while it is open so invitations sent after entry
     // appear before their ten-second lifetime ends.
     _notificationPoller = Timer.periodic(
-      const Duration(seconds: 1),
+      const Duration(milliseconds: 500),
       (_) => _refresh(silent: true),
     );
   }
