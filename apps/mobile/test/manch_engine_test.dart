@@ -85,6 +85,23 @@ void main() {
       expect(won.winnerIndex, 0);
     });
 
+    test('a six grants an extra roll even when no token can move', () {
+      final state = ManchGameState(
+        players: [
+          ManchPlayerState(colour: ManchColour.red, tokens: [56, 57, 57, 57]),
+          ManchPlayerState(colour: ManchColour.green),
+        ],
+        activePlayerIndex: 0,
+        profile: const ManchRuleProfile(),
+      );
+      final rolled = engine.roll(state, 6);
+      expect(engine.legalMoves(rolled), isEmpty);
+      final passed = engine.passTurn(rolled);
+      expect(passed.activePlayerIndex, 0);
+      expect(passed.pendingDice, isNull);
+      expect(passed.consecutiveSixes, 1);
+    });
+
     test('optional third consecutive six penalty loses the turn', () {
       final state = ManchGameState(
         players: [
