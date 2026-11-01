@@ -7,6 +7,7 @@ import 'manch_bot.dart';
 import 'manch_engine.dart';
 import 'manch_game_state.dart';
 import 'manch_rule_profile.dart';
+import 'manch_save_store.dart';
 
 /// Local pass-and-play mode. Online play uses a separate server-authoritative
 /// controller; this widget deliberately keeps all state on this device.
@@ -17,12 +18,14 @@ class ManchOfflineGameScreen extends StatefulWidget {
     this.profile = const ManchRuleProfile(),
     this.diceRoller,
     this.botPlayers = const {},
+    this.saveStore,
   }) : assert(playerCount >= 2 && playerCount <= 4);
 
   final int playerCount;
   final ManchRuleProfile profile;
   final int Function()? diceRoller;
   final Set<ManchColour> botPlayers;
+  final ManchSaveStore? saveStore;
 
   @override
   State<ManchOfflineGameScreen> createState() => _ManchOfflineGameScreenState();
@@ -32,6 +35,8 @@ class _ManchOfflineGameScreenState extends State<ManchOfflineGameScreen> {
   final _engine = const ManchEngine();
   final _random = Random();
   final _bot = const ManchBot();
+  late final ManchSaveStore _saveStore =
+      widget.saveStore ?? const SecureManchSaveStore();
   late final Set<ManchColour> _botPlayers =
       Set<ManchColour>.unmodifiable(widget.botPlayers);
   late ManchGameState _state;
@@ -129,6 +134,45 @@ class _ManchOfflineGameScreenState extends State<ManchOfflineGameScreen> {
               : 'حرکت انجام شد؛ نوبت بازیکن بعدی است.';
     });
     if (mounted && !next.isFinished && _isBotTurn) _scheduleBotTurn();
+  }
+
+  Future<void> _saveGame() async {
+    try {
+      await _saveStore.save(_state);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('بازی ذخیره شد.')),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('ذخیره بازی انجام نشد: $error')),
+      );
+    }
+  }
+
+  Future<void> _restoreGame() async {
+    try {
+      final restored = await _saveStore.load();
+      if (!mounted) return;
+      if (restored == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('بازی ذخیره‌شده‌ای پیدا نشد.')),
+        );
+        return;
+      }
+      setState(() {
+        _state = restored;
+        _lastDice = restored.pendingDice;
+        _message = 'بازی ذخیره‌شده بازیابی شد.';
+      });
+      if (_isBotTurn) _scheduleBotTurn();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('بازیابی انجام نشد: $error')),
+      );
+    }
   }
 
   void _restart() {
@@ -249,6 +293,24 @@ class _ManchOfflineGameScreenState extends State<ManchOfflineGameScreen> {
                   icon: const Icon(Icons.casino_outlined),
                   label: const Text('انداختن تاس'),
                 ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                alignment: WrapAlignment.center,
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: _saveGame,
+                    icon: const Icon(Icons.save_outlined),
+                    label: const Text('ذخیره'),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: _restoreGame,
+                    icon: const Icon(Icons.restore_rounded),
+                    label: const Text('بازیابی'),
+                  ),
+                ],
+              ),
               const SizedBox(height: 12),
               Center(
                 child: ConstrainedBox(
