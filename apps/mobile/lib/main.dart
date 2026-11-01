@@ -9,6 +9,7 @@ import 'account_screen.dart';
 import 'notifications_screen.dart';
 import 'engine_backgammon_screen.dart';
 import 'games/manch/manch_offline_game_screen.dart';
+import 'games/manch/manch_game_state.dart';
 import 'services/auth_service.dart';
 import 'services/admin_service.dart';
 import 'theme_state.dart';
@@ -537,11 +538,61 @@ class _HomeScreenState extends State<HomeScreen> {
                   'Offline pass-and-play for 2–4 players',
                 ),
                 icon: Icons.flag_rounded,
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => const ManchOfflineGameScreen(),
-                  ),
-                ),
+                onTap: () async {
+                  final mode = await showDialog<String>(
+                    context: context,
+                    builder: (dialogContext) => AlertDialog(
+                      title: Text(
+                        appText(dialogContext, 'انتخاب حالت منچ', 'Choose Manch mode'),
+                      ),
+                      content: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          FilledButton.icon(
+                            onPressed: () => Navigator.pop(dialogContext, 'bot'),
+                            icon: const Icon(Icons.smart_toy_outlined),
+                            label: Text(
+                              appText(
+                                dialogContext,
+                                'بازی دونفره با هوش مصنوعی',
+                                'Play against AI',
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          OutlinedButton.icon(
+                            onPressed: () => Navigator.pop(dialogContext, 'local'),
+                            icon: const Icon(Icons.people_outline),
+                            label: Text(
+                              appText(
+                                dialogContext,
+                                'بازی محلی ۲ تا ۴ نفره',
+                                'Local game for 2–4 players',
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(dialogContext),
+                          child: Text(appText(dialogContext, 'انصراف', 'Cancel')),
+                        ),
+                      ],
+                    ),
+                  );
+                  if (!context.mounted || mode == null) return;
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => ManchOfflineGameScreen(
+                        botPlayers: mode == 'bot'
+                            ? const {ManchColour.yellow}
+                            : const {},
+                      ),
+                    ),
+                  );
+                },
               ),
               const SizedBox(height: 12),
               GameTile(title: AppLocalizations.of(context).chess, subtitle: AppLocalizations.of(context).comingSoon, icon: Icons.grid_4x4_rounded, comingSoon: true),
