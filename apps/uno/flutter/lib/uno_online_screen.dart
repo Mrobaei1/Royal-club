@@ -446,8 +446,9 @@ class _UnoOnlineScreenState extends State<UnoOnlineScreen> {
           OutlinedButton(onPressed: () => _run('uno:game:action', {'code': code, 'action': {'type': 'draw'}}), child: const Text('قبول +۴ و برداشتن ۴ کارت')),
         ] else if (_drawnCardId == null) OutlinedButton(onPressed: () => _run('uno:game:action', {'code': code, 'action': {'type': 'draw'}}), child: const Text('برداشتن کارت')),
         if (_drawnCardId != null) OutlinedButton(onPressed: () => _run('uno:game:action', {'code': code, 'action': {'type': 'pass'}}), child: const Text('پایان نوبت')),
-        if (game['unoPendingPlayerId'] != null && game['unoPendingPlayerId'] != widget.playerId) OutlinedButton(onPressed: () => _run('uno:game:action', {'code': code, 'action': {'type': 'catchUno'}}), child: const Text('اعلام تخلف UNO')),
       ]),
+      if (game['unoPendingPlayerId'] != null && game['unoPendingPlayerId'] != widget.playerId && !gameOver)
+        OutlinedButton(onPressed: _busy ? null : () => _run('uno:game:action', {'code': code, 'action': {'type': 'catchUno'}}), child: const Text('اعلام تخلف UNO')),
       if (game['unoPendingPlayerId'] == widget.playerId) TextButton(onPressed: () => _run('uno:game:action', {'code': code, 'action': {'type': 'callUno'}}), child: const Text('UNO!')),
     ])));
   }
