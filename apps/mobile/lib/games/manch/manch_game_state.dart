@@ -29,6 +29,7 @@ class ManchGameState {
     this.turnNumber = 1,
     this.winnerIndex,
   }) : players = List<ManchPlayerState>.unmodifiable(players) {
+    profile.validate();
     if (players.length < 2 || players.length > 4) {
       throw ArgumentError('Manch supports two to four players.');
     }
