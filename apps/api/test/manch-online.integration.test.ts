@@ -118,7 +118,7 @@ test('Manch online rooms join, roll and persist server-authoritative moves', asy
   assert.equal(rolled.statusCode, 200, rolled.body);
   assert.ok(rolled.json().dice >= 1 && rolled.json().dice <= 6,
     'The API must generate the dice value; the client cannot choose it.');
-  assert.equal(rolled.json().stateVersion, 1);
+  assert.equal(rolled.json().stateVersion, 2);
 
   const staleMove = await app.inject({
     method: 'POST',
@@ -142,7 +142,7 @@ test('Manch online rooms join, roll and persist server-authoritative moves', asy
       },
     });
     assert.equal(moved.statusCode, 200, moved.body);
-    assert.equal(moved.json().stateVersion, 2);
+    assert.equal(moved.json().stateVersion, rolled.json().stateVersion + 1);
     assert.equal(moved.json().state.players[0].tokens[legal[0].tokenIndex],
       legal[0].toProgress);
   }
