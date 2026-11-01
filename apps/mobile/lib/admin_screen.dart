@@ -549,6 +549,11 @@ class _AdminScreenState extends State<AdminScreen> {
     var format = currentRules['format']?.toString() ?? 'round_robin';
     var mode = league['entryMode']?.toString() == 'subscription_days' ? 'subscription_days' : 'free';
     var enabled = league['enabled'] == true;
+    DateTime? startsAt = DateTime.tryParse(league['startsAt']?.toString() ?? '')?.toLocal();
+    DateTime? endsAt = DateTime.tryParse(league['endsAt']?.toString() ?? '')?.toLocal();
+    String dateText(DateTime? value) => value == null
+        ? appText(context, 'تعیین نشده', 'Not set')
+        : value.toLocal().toString().substring(0, 10);
     final result = await showDialog<Map<String, dynamic>>(
       context: context,
       builder: (dialogContext) => StatefulBuilder(
@@ -556,6 +561,33 @@ class _AdminScreenState extends State<AdminScreen> {
           title: Text(appText(context, 'تنظیم قوانین لیگ', 'Edit league rules')),
           content: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
             TextField(controller: nameController, decoration: InputDecoration(labelText: appText(context, 'نام لیگ', 'League name'))),
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              onPressed: () async {
+                final picked = await showDatePicker(
+                  context: dialogContext,
+                  initialDate: startsAt ?? DateTime.now(),
+                  firstDate: DateTime(2020),
+                  lastDate: DateTime(2100),
+                );
+                if (picked != null) setDialogState(() => startsAt = DateTime(picked.year, picked.month, picked.day));
+              },
+              icon: const Icon(Icons.event_available_outlined),
+              label: Text('${appText(context, 'شروع لیگ', 'League starts')}: ${dateText(startsAt)}'),
+            ),
+            OutlinedButton.icon(
+              onPressed: () async {
+                final picked = await showDatePicker(
+                  context: dialogContext,
+                  initialDate: endsAt ?? startsAt ?? DateTime.now(),
+                  firstDate: DateTime(2020),
+                  lastDate: DateTime(2100),
+                );
+                if (picked != null) setDialogState(() => endsAt = DateTime(picked.year, picked.month, picked.day, 23, 59, 59, 999));
+              },
+              icon: const Icon(Icons.event_busy_outlined),
+              label: Text('${appText(context, 'پایان لیگ', 'League ends')}: ${dateText(endsAt)}'),
+            ),
             const SizedBox(height: 10),
             DropdownButtonFormField<String>(
               initialValue: format,
@@ -600,9 +632,13 @@ class _AdminScreenState extends State<AdminScreen> {
               final name = nameController.text.trim();
               final days = int.tryParse(daysController.text) ?? 0;
               final minimum = int.tryParse(minParticipantsController.text);
-              if (name.isEmpty || minimum == null || minimum < 2 || minimum > 512 || (mode == 'subscription_days' && (days < 1 || days > 30))) return;
+              if (name.isEmpty || minimum == null || minimum < 2 || minimum > 512 ||
+                  (mode == 'subscription_days' && (days < 1 || days > 30)) ||
+                  (startsAt != null && endsAt != null && !endsAt!.isAfter(startsAt!))) return;
               Navigator.pop(dialogContext, {
                 'name': name, 'enabled': enabled, 'entryMode': mode,
+                'startsAt': startsAt?.toUtc().toIso8601String(),
+                'endsAt': endsAt?.toUtc().toIso8601String(),
                 'subscriptionDaysCost': mode == 'free' ? 0 : days,
                 'rules': {
                   'format': format, 'minimumParticipants': minimum,
@@ -630,6 +666,8 @@ class _AdminScreenState extends State<AdminScreen> {
         enabled: result['enabled'] as bool,
         entryMode: result['entryMode'] as String,
         subscriptionDaysCost: result['subscriptionDaysCost'] as int,
+        startsAt: result['startsAt'] as String?,
+        endsAt: result['endsAt'] as String?,
         rules: Map<String, dynamic>.from(result['rules'] as Map),
       );
       await _load();
