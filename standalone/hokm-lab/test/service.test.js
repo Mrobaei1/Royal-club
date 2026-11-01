@@ -87,3 +87,23 @@ test("repository compare-and-swap rejects non-sequential versions", async () => 
   assert.equal((await repository.get("cas-room")).version, 1);
   void service;
 });
+test("service views expose only the authenticated seat hand", async () => {
+  const { service } = serviceFixture();
+  const created = await service.create(user("u0"));
+  let version = created.version;
+  for (const id of ["u1", "u2", "u3"]) {
+    version = (await service.join(user(id), created.roomId, version)).version;
+  }
+  for (const id of ["u0", "u1", "u2", "u3"]) {
+    version = (await service.ready(user(id), created.roomId, true, version)).version;
+  }
+  await service.start(user("u0"), created.roomId, version);
+  for (let seat = 0; seat < 4; seat += 1) {
+    const view = await service.view(user(`u${seat}`), created.roomId);
+    assert.equal(view.game.ownSeat, seat);
+    assert.equal(view.game.ownHand.length, 5);
+    assert.equal("hands" in view.game, false);
+    assert.equal("undealtDeck" in view.game, false);
+  }
+});
+
