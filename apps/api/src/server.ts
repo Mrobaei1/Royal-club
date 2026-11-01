@@ -228,6 +228,19 @@ await pool.query(`
     ON analytics_game_events (game_type, occurred_at DESC);
   CREATE INDEX IF NOT EXISTS analytics_game_events_match_idx
     ON analytics_game_events (match_id, event_type);
+  CREATE TABLE IF NOT EXISTS analytics_export_audit_log (
+    id BIGSERIAL PRIMARY KEY,
+    actor_user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+    export_format TEXT NOT NULL CHECK (export_format IN ('csv', 'pdf')),
+    date_from DATE NOT NULL,
+    date_to DATE NOT NULL,
+    game_filter TEXT NOT NULL CHECK (game_filter IN ('all', 'backgammon', 'chess', 'cards', 'uno', 'mafia')),
+    aggregate_row_count INTEGER NOT NULL CHECK (aggregate_row_count >= 0),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CHECK (date_to >= date_from)
+  );
+  CREATE INDEX IF NOT EXISTS analytics_export_audit_actor_time_idx
+    ON analytics_export_audit_log (actor_user_id, created_at DESC);
 
   CREATE TABLE IF NOT EXISTS sms_otp_settings (
     id INTEGER PRIMARY KEY CHECK (id = 1),
@@ -3435,6 +3448,14 @@ app.get<{ Querystring: { from?: string; to?: string; game?: string } }>(
         ...rows.rows.map((row: { date: string; game: string; event: string; count: number }) =>
           `${row.date} | ${row.game} | ${row.event} | ${row.count}`),
       ];
+      const actorId = (request.user as { sub?: string }).sub;
+      if (!actorId || !isNumericId(actorId)) return reply.code(401).send({ error: 'Owner identity is unavailable.' });
+      await pool.query(
+        `INSERT INTO analytics_export_audit_log
+          (actor_user_id, export_format, date_from, date_to, game_filter, aggregate_row_count)
+         VALUES ($1, 'pdf', $2::date, $3::date, $4, $5)`,
+        [actorId, range.from, range.to, range.game, rows.rowCount ?? 0],
+      );
       const pdf = buildAnalyticsPdf(reportLines);
       reply.header('Content-Type', 'application/pdf');
       reply.header('Content-Disposition', `attachment; filename="royal-club-analytics-${range.from}-${range.to}.pdf"`);
@@ -3462,6 +3483,14 @@ app.get<{ Querystring: { from?: string; to?: string; game?: string } }>(
           GROUP BY DATE(occurred_at AT TIME ZONE 'UTC'), game_type, event_type
           ORDER BY DATE(occurred_at AT TIME ZONE 'UTC'), game_type, event_type LIMIT 10000`,
         [range.from, range.to, range.game],
+      );
+      const actorId = (request.user as { sub?: string }).sub;
+      if (!actorId || !isNumericId(actorId)) return reply.code(401).send({ error: 'Owner identity is unavailable.' });
+      await pool.query(
+        `INSERT INTO analytics_export_audit_log
+          (actor_user_id, export_format, date_from, date_to, game_filter, aggregate_row_count)
+         VALUES ($1, 'csv', $2::date, $3::date, $4, $5)`,
+        [actorId, range.from, range.to, range.game, rows.rowCount ?? 0],
       );
       const escape = (value: unknown) => `"${String(value ?? '').replaceAll('"', '""')}"`;
       const csv = [
