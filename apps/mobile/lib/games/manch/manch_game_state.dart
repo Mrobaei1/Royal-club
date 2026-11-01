@@ -48,6 +48,12 @@ class ManchGameState {
     if (players.length < 2 || players.length > 4) {
       throw ArgumentError('Manch supports two to four players.');
     }
+    if (players.map((player) => player.colour).toSet().length != players.length) {
+      throw ArgumentError('Each player must have a unique colour.');
+    }
+    if (consecutiveSixes < 0 || turnNumber < 1) {
+      throw ArgumentError('Invalid turn counters in Manch state.');
+    }
     if (activePlayerIndex < 0 || activePlayerIndex >= players.length) {
       throw ArgumentError('Invalid active player index.');
     }
@@ -57,6 +63,10 @@ class ManchGameState {
     if (winnerIndex != null &&
         (winnerIndex! < 0 || winnerIndex! >= players.length)) {
       throw ArgumentError('Invalid winner index.');
+    }
+    if (winnerIndex != null &&
+        !players[winnerIndex!].tokens.every((position) => position == 57)) {
+      throw ArgumentError('Winner must have finished all four tokens.');
     }
   }
 
