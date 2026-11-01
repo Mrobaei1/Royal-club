@@ -1184,15 +1184,4 @@ class OnlineBackgammonBoard extends StatelessWidget {
   );
 }
 
-class _Die extends StatelessWidget {
-  final int? value;
-  const _Die({required this.value});
 
-  @override
-  Widget build(BuildContext context) => Container(
-    width: 54, height: 54,
-    alignment: Alignment.center,
-    decoration: BoxDecoration(color: const Color(0xFFF5E7C4), borderRadius: BorderRadius.circular(12), boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 6, offset: Offset(0, 3))]),
-    child: Text(value?.toString() ?? '—', style: const TextStyle(color: Color(0xFF20202A), fontSize: 26, fontWeight: FontWeight.w900)),
-  );
-}
