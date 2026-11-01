@@ -38,6 +38,7 @@ All endpoints require a Bearer access token.
 - If the selected profile applies a third-consecutive-six penalty, the rules engine advances the turn immediately; the API must not attempt to pass a nonexistent pending die.
 - A normal winner is recorded when all four of that player's tokens reach the finish.
 - In two-player matches, either participant may forfeit; the opponent is recorded as winner. Three- and four-player forfeit is intentionally rejected until multi-player withdrawal semantics are defined.
+- After a match is finished, any participant may create a new 30-second waiting room for a rematch. The original opponent must explicitly join; the rematch does not silently enroll other players.
 - Public match payloads expose usernames and seat colours, never email or full name.
 
 ## Persistence
@@ -48,8 +49,7 @@ All endpoints require a Bearer access token.
 - WebSocket push; the first client uses bounded 2-second state polling.
 - Reconnect leases, disconnect grace periods and temporary AI takeover.
 - The current-match lookup restores the latest waiting/active room after app restart; it does not yet implement disconnect grace timers or temporary AI takeover.
-- A participant may create a fresh 30-second waiting room after a finished match; the opponent must explicitly join it.
 - Match history, ranked results, rating/progression, spectator access and league integration.
-- Active-match leave/forfeit and rematch flows.
+- Disconnect leases, grace periods, temporary AI takeover and push notifications.
 
 Do not advertise these deferred capabilities as available until their API, UI and integration tests are complete.
