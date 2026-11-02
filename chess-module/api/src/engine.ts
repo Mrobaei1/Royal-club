@@ -23,8 +23,13 @@ export class ChessGame {
   }
 
   play(command: MoveCommand): EngineSnapshot {
-    if (!/^[a-h][1-8]$/.test(command.from) || !/^[a-h][1-8]$/.test(command.to)) {
+    if (!command || typeof command !== "object" ||
+        typeof command.from !== "string" || typeof command.to !== "string" ||
+        !/^[a-h][1-8]$/.test(command.from) || !/^[a-h][1-8]$/.test(command.to)) {
       throw new Error("invalid_square");
+    }
+    if (command.promotion !== undefined && !["q", "r", "b", "n"].includes(command.promotion)) {
+      throw new Error("invalid_promotion");
     }
     let move;
     try {
