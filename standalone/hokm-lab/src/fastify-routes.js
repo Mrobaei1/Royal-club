@@ -6,7 +6,7 @@
 function statusFor(error) {
   const message = String(error?.message ?? "");
   if (/verified authenticated principal/.test(message)) return 401;
-  if (/not a member|Only the host|trusted service principal|cannot submit/.test(message)) return 403;
+  if (/not a member|Only the host|trusted service principal|Only an authorized manager|cannot submit/.test(message)) return 403;
   if (/not found/.test(message)) return 404;
   if (/Stale room version|Concurrent room update|already exists|full|not accepting|already started|not completed|not playing|not accepting card plays/.test(message)) return 409;
   if (error instanceof TypeError || error instanceof RangeError) return 400;
@@ -60,4 +60,25 @@ export async function registerHokmRoutes(fastify, { service, authenticate }) {
 
   route(fastify, authenticate, "POST", "/hokm/rooms/:roomId/reconnect", request =>
     service.reconnect(request.auth, request.params.roomId, request.body?.expectedVersion));
+
+  route(fastify, authenticate, "POST", "/hokm/rooms/:roomId/leave", request =>
+    service.leave(request.auth, request.params.roomId, request.body?.expectedVersion));
+
+  route(fastify, authenticate, "POST", "/hokm/rooms/:roomId/cancel-vote", request =>
+    service.voteCancel(request.auth, request.params.roomId, request.body?.approve, request.body?.expectedVersion));
+
+  route(fastify, authenticate, "POST", "/hokm/rooms/:roomId/reports", request =>
+    service.reportCheating(request.auth, request.params.roomId, request.body?.reportedUserId,
+      request.body?.reason, request.body?.expectedVersion));
+
+  route(fastify, authenticate, "POST", "/hokm/rooms/:roomId/appeals", request =>
+    service.submitAppeal(request.auth, request.params.roomId, request.body?.reason, request.body?.expectedVersion));
+
+  route(fastify, authenticate, "POST", "/hokm/rooms/:roomId/manager/reports/:reportId/review", request =>
+    service.reviewCheating(request.auth, request.params.roomId, request.params.reportId,
+      request.body?.notes ?? "", request.body?.expectedVersion));
+
+  route(fastify, authenticate, "POST", "/hokm/rooms/:roomId/manager/appeals/:appealId/review", request =>
+    service.reviewAppeal(request.auth, request.params.roomId, request.params.appealId,
+      request.body?.decision, request.body?.notes ?? "", request.body?.expectedVersion));
 }
