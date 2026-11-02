@@ -65,7 +65,7 @@ test("detects 50-move, 75-move and threefold repetition draws", () => {
 
 test("rejects malformed promotion values before reaching the chess engine", () => {
   const game = new ChessGame("7k/P7/8/8/8/8/8/7K w - - 0 1");
-  assert.throws(() => game.play({from:"a7",to:"a8",promotion:"x" as "q"}), /illegal_move/);
+  assert.throws(() => game.play({from:"a7",to:"a8",promotion:"x" as "q"}), /invalid_promotion/);
 });
 
 test("deterministic legal-move fuzzing keeps adapter FEN in sync with chess.js", () => {
