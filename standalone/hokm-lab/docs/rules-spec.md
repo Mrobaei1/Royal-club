@@ -78,3 +78,8 @@ Phase 1 is complete only when all of the following are true:
 ## 6. Current status
 
 Phase 1 remains **in progress**. This document separates confirmed owner decisions from implementation assumptions and enumerates the remaining sign-off questions. No unresolved assumption is considered an approved rule.
+
+
+## Approved decisions
+
+**R-16 illegal card handling (2026-11-02):** If a player attempts to play an illegal card, the play is rejected and the same player may select a legal card. The turn does not advance and no penalty is applied.
