@@ -2,7 +2,6 @@ import websocket from "@fastify/websocket";
 import type { FastifyInstance, FastifyRequest, preHandlerHookHandler } from "fastify";
 import type { Pool, PoolClient } from "pg";
 import type { WebSocket } from "ws";
-import { Buffer } from "node:buffer";
 import { randomUUID } from "node:crypto";
 
 type Options = {
@@ -52,7 +51,6 @@ export async function registerChessWebSocket(app: FastifyInstance, options: Opti
         return;
       }
       if (connectionClosed) return;
-      const roomId = String(membership.rows[0].room_id);
       sessionId = randomUUID();
       const channel = "chess_game_" + gameId;
       const listener = await options.pool.connect();
@@ -64,10 +62,6 @@ export async function registerChessWebSocket(app: FastifyInstance, options: Opti
       }
       let closed = false;
       let cleaned = false;
-      let voiceWasActive = false;
-      let signalWindowStarted = Date.now();
-      let signalCount = 0;
-      let expiryTimer: ReturnType<typeof setInterval> | undefined;
       const send = (value: unknown) => {
         if (!closed && socket.readyState === 1) socket.send(JSON.stringify(value));
       };
@@ -106,24 +100,6 @@ export async function registerChessWebSocket(app: FastifyInstance, options: Opti
           } else if (event.type === "presence" && event.id && typeof event.connected === "boolean") {
             const user = await options.pool.query("SELECT username FROM users WHERE id=$1",[event.id]);
             send({type:"chess:opponent:presence",username:user.rows[0]?.username??"",connected:event.connected});
-          } else if (event.type === "voice:signal" && event.fromUserId !== userId &&
-                     typeof event.signalType === "string" && event.payload !== undefined) {
-            send({type:"chess:voice:signal",signalType:event.signalType,payload:event.payload});
-          } else if (event.type === "voice_settings") {
-            const settings = await options.pool.query(
-              "SELECT COALESCE((settings_snapshot->>'voiceEnabled')::boolean,false) AS enabled FROM chess_rooms WHERE id=$1",
-              [roomId]
-            );
-            send({type:"chess:voice:settings",enabled:Boolean(settings.rows[0]?.enabled)});
-          } else if (event.type === "voice") {
-            const lease = await options.pool.query(
-              "SELECT u.username,l.expires_at FROM chess_voice_leases l JOIN users u ON u.id=l.user_id WHERE l.room_id=$1 AND l.expires_at>NOW()",
-              [roomId]
-            );
-            voiceWasActive = Boolean(lease.rowCount);
-            send(lease.rowCount
-              ? {type:"chess:voice:granted",speakingUsername:lease.rows[0].username,expiresAt:lease.rows[0].expires_at}
-              : {type:"chess:voice:released"});
           }
         })().catch(() => send({type:"chess:error",code:"event_delivery_failed"}));
       });
@@ -161,24 +137,9 @@ export async function registerChessWebSocket(app: FastifyInstance, options: Opti
       if (opponentPresence.rowCount) {
         send({type:"chess:opponent:presence",username:opponentPresence.rows[0].username,connected:Boolean(opponentPresence.rows[0].connected)});
       }
-      const currentLease = await options.pool.query(
-        "SELECT u.username,l.expires_at FROM chess_voice_leases l JOIN users u ON u.id=l.user_id WHERE l.room_id=$1 AND l.expires_at>NOW()",
-        [roomId]
-      );
-      voiceWasActive = Boolean(currentLease.rowCount);
-      if (currentLease.rowCount) send({type:"chess:voice:granted",speakingUsername:currentLease.rows[0].username,expiresAt:currentLease.rows[0].expires_at});
-      expiryTimer = setInterval(() => {
-        void options.pool.query("SELECT 1 FROM chess_voice_leases WHERE room_id=$1 AND expires_at>NOW()",[roomId])
-          .then(result => {
-            if (voiceWasActive && !result.rowCount) {
-              voiceWasActive = false;
-              send({type:"chess:voice:released"});
-            }
-          }).catch(() => send({type:"chess:error",code:"voice_status_unavailable"}));
-      },1000);
       socket.on("message", (raw) => {
-        let message: {type?:string; signalType?:string; payload?:unknown; clientTime?:number};
-        try { message = JSON.parse(raw.toString()) as {type?:string;signalType?:string;payload?:unknown;clientTime?:number}; }
+        let message: {type?:string; clientTime?:number};
+        try { message = JSON.parse(raw.toString()) as {type?:string;clientTime?:number}; }
         catch { send({type:"chess:error",code:"invalid_json"}); return; }
         if (message.type === "ping") {
           send({
@@ -188,59 +149,12 @@ export async function registerChessWebSocket(app: FastifyInstance, options: Opti
           });
           return;
         }
-        if (message.type !== "chess:voice:signal" ||
-            !["offer","answer","candidate"].includes(message.signalType ?? "") ||
-            message.payload === undefined || typeof message.payload !== "object" ||
-            message.payload === null || Array.isArray(message.payload)) {
-          send({type:"chess:error",code:"unsupported_command_use_authenticated_api"});
-          return;
-        }
-        const signalPayload = message.payload as Record<string, unknown>;
-        if ((message.signalType === "offer" || message.signalType === "answer") &&
-            (typeof signalPayload.sdp !== "string" || signalPayload.sdp.length > 6000 ||
-             signalPayload.type !== message.signalType)) {
-          send({type:"chess:error",code:"invalid_sdp_signal"});
-          return;
-        }
-        if (message.signalType === "candidate" &&
-            (typeof signalPayload.candidate !== "string" || signalPayload.candidate.length > 4096)) {
-          send({type:"chess:error",code:"invalid_ice_candidate"});
-          return;
-        }
-        const signalNow = Date.now();
-        if (signalNow - signalWindowStarted >= 10_000) {
-          signalWindowStarted = signalNow;
-          signalCount = 0;
-        }
-        signalCount += 1;
-        if (signalCount > 30) {
-          send({type:"chess:error",code:"voice_signaling_rate_limited"});
-          return;
-        }
-        void (async () => {
-          const allowed = await options.pool.query(
-            "SELECT 1 FROM chess_games g JOIN chess_rooms r ON r.id=g.room_id JOIN chess_voice_leases l ON l.room_id=r.id WHERE g.id=$1 AND g.status='active' AND (g.white_user_id=$2 OR g.black_user_id=$2) AND COALESCE((r.settings_snapshot->>'voiceEnabled')::boolean,false)=true AND l.expires_at>NOW() AND (($3='offer' AND l.user_id=$2) OR ($3='answer' AND l.user_id<>$2) OR $3='candidate')",
-            [gameId,userId,message.signalType]
-          );
-          if (!allowed.rowCount) {
-            send({type:"chess:error",code:"voice_signaling_not_allowed"});
-            return;
-          }
-          const payload = JSON.stringify({
-            type:"voice:signal",fromUserId:userId,signalType:message.signalType,payload:message.payload
-          });
-          if (Buffer.byteLength(payload,"utf8") > 7000) {
-            send({type:"chess:error",code:"voice_signal_too_large"});
-            return;
-          }
-          await publish(JSON.parse(payload) as object);
-        })().catch(() => send({type:"chess:error",code:"voice_signal_delivery_failed"}));
+        send({type:"chess:error",code:"unsupported_command_use_authenticated_api"});
       });
       const cleanup = async () => {
         if (cleaned) return;
         cleaned = true;
         closed = true;
-        if (expiryTimer) clearInterval(expiryTimer);
         let lastConnection = false;
         const presenceClient = await options.pool.connect();
         try {
@@ -252,9 +166,6 @@ export async function registerChessWebSocket(app: FastifyInstance, options: Opti
             [gameId,userId]
           );
           lastConnection = !remaining.rowCount;
-          if (lastConnection) {
-            await presenceClient.query("DELETE FROM chess_voice_leases WHERE room_id=$1 AND user_id=$2",[roomId,userId]);
-          }
           await presenceClient.query("COMMIT");
         } catch {
           try { await presenceClient.query("ROLLBACK"); } catch {}
