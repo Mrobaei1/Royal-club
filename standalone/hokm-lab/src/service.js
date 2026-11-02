@@ -34,6 +34,17 @@ export class InMemoryRoomRepository {
     return room;
   }
 
+  async listDueRooms(now, limit = 100) {
+    if (!Number.isFinite(now) || !Number.isInteger(limit) || limit < 1) throw new TypeError("Invalid due-room query");
+    return [...this.#rooms.values()].filter(room => {
+      if (!["playing", "round_completed"].includes(room.status)) return false;
+      if (Number.isFinite(room.turnDeadlineAt) && room.turnDeadlineAt <= now) return true;
+      if (Number.isFinite(room.allDisconnectedDeadline) && room.allDisconnectedDeadline <= now) return true;
+      return room.players.some(player => !player.connected && !player.forfeited && !player.temporaryBot &&
+        Number.isFinite(player.reconnectDeadline) && player.reconnectDeadline <= now);
+    }).slice(0, limit);
+  }
+
   async compareAndSwap(roomId, expectedVersion, nextRoom) {
     const current = this.#rooms.get(roomId);
     if (!current || current.version !== expectedVersion) return false;
@@ -58,8 +69,9 @@ export class HokmRoomService {
   constructor({ repository = new InMemoryRoomRepository(), now = () => Date.now(), id = () => randomUUID() } = {}) {
     if (!repository || typeof repository.get !== "function" ||
         typeof repository.insert !== "function" ||
-        typeof repository.compareAndSwap !== "function") {
-      throw new TypeError("A room repository implementing get/insert/compareAndSwap is required");
+        typeof repository.compareAndSwap !== "function" ||
+        typeof repository.listDueRooms !== "function") {
+      throw new TypeError("A room repository implementing get/insert/compareAndSwap/listDueRooms is required");
     }
     if (typeof now !== "function" || typeof id !== "function") throw new TypeError("now and id must be functions");
     this.#repository = repository;
