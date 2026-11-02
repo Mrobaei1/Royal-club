@@ -47,7 +47,7 @@ Each item below blocks Phase 1 completion until the owner chooses or explicitly 
 | R-06 | Early hand finish | **Approved (2026-11-03):** The hand ends immediately when a team reaches seven tricks; award that team one match point and do not play the remaining tricks. |
 | R-07 | Hand scoring | Each normally won hand awards exactly 1 match point to the winning team; no special bonus applies. | **Approved (2026-11-01):** one match point per won hand; no koti/coat or other special hand bonus unless separately approved later. |
 | R-08 | Special scores | No special score or bonus is used. | **Approved (2026-11-01):** no koti/coat and no other special hand-scoring bonuses. |
-| R-09 | Match completion | Manager target is 3/5/7 | Confirm match ends immediately when target reached and whether a tie is possible/allowed. |
+| R-09 | Match completion | **Approved (2026-11-03):** The match ends immediately when a team reaches the manager-selected target of 3, 5, or 7 match points. A tied match result is not permitted; the match rules and state machine must always produce one winning team. |
 | R-10 | Starting team/first lead | Hakem leads first trick | **Approved (2026-11-02):** the hakem leads the first trick of every hand. First hakem of each new match is selected randomly; subsequent hakem rotation follows R-03. |
 | R-11 | Illegal/missed turn | Server validates legal card and turn | Confirm timeout, invalid action, repeated invalid action and disconnect consequences. |
 | R-12 | Draw/abandoned match | Not specified | Define behavior for unrecoverable room loss, all players leaving, or match cancellation. |
@@ -81,6 +81,8 @@ Phase 1 remains **in progress**. This document separates confirmed owner decisio
 
 
 ## Approved decisions
+
+**R-09 match end and no-draw rule (2026-11-03):** The match ends immediately when either team reaches the manager-configured target of 3, 5, or 7 match points. A match can never end in a draw; the rules and match state machine must ensure a winning team is determined.
 
 **R-06 immediate hand completion (2026-11-03):** As soon as a team reaches seven tricks, the hand ends immediately. Award that team one match point; do not continue playing the remaining tricks.
 
