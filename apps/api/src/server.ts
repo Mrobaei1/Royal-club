@@ -20,6 +20,9 @@ import { hasRoyalPermission, isRoyalPermission } from './permissions.js';
 import { isValidNeonTriggerInvocation } from './neon-trigger-auth.js';
 import { promisify } from 'node:util';
 import { createRoyalLoggerOptions } from './logging-config.js';
+import { PostgresRoomRepository } from './hokm/postgres-repository.js';
+import { HokmRoomService } from './hokm/service.js';
+import { registerHokmRoutes } from './hokm/fastify-routes.js';
 
 const scrypt = promisify(scryptCallback);
 
