@@ -82,6 +82,8 @@ Phase 1 remains **in progress**. This document separates confirmed owner decisio
 
 ## Approved decisions
 
+**R-22 voluntary-exit XP penalty timing (2026-11-02):** The 5 XP penalty for a voluntary match exit is applied once, at the end of the match, not immediately when the player exits.
+
 **R-21 voluntary exit is final (2026-11-02):** When a player explicitly chooses to leave an active match, that seat remains under Hard bot control until the match ends. The departed player cannot rejoin or regain control of that same match. This is distinct from a temporary network disconnection and its reconnect grace flow.
 
 **R-20 all players disconnected (2026-11-02):** If all four players lose connection simultaneously, the match continues without pausing under Hard bot control for all four seats. Each bot must use only its own hand and public game state, and every play must pass through the shared legal-move validator. Authenticated players regain control immediately when they reconnect, without rolling back completed bot moves.
