@@ -21,6 +21,37 @@ export class PostgresRoomRepository {
     return result.rows[0]?.room_data ?? null;
   }
 
+  /** Find persisted rooms whose server-owned deadlines have elapsed. */
+  async listDueRooms(now, limit = 100) {
+    if (!Number.isFinite(now) || !Number.isInteger(limit) || limit < 1 || limit > 1000) {
+      throw new TypeError("Invalid due-room query");
+    }
+    const sql = [
+      "SELECT room_data",
+      "FROM hokm_rooms",
+      "WHERE room_data->>'status' IN ('playing', 'round_completed')",
+      "AND (",
+      "  CASE WHEN jsonb_typeof(room_data->'turnDeadlineAt') = 'number'",
+      "       THEN (room_data->>'turnDeadlineAt')::double precision END <= $1",
+      "  OR CASE WHEN jsonb_typeof(room_data->'allDisconnectedDeadline') = 'number'",
+      "          THEN (room_data->>'allDisconnectedDeadline')::double precision END <= $1",
+      "  OR EXISTS (",
+      "    SELECT 1",
+      "    FROM jsonb_array_elements(COALESCE(room_data->'players', '[]'::jsonb)) AS p(value)",
+      "    WHERE p.value->>'connected' = 'false'",
+      "      AND COALESCE(p.value->>'forfeited', 'false') <> 'true'",
+      "      AND COALESCE(p.value->>'temporaryBot', 'false') <> 'true'",
+      "      AND CASE WHEN jsonb_typeof(p.value->'reconnectDeadline') = 'number'",
+      "               THEN (p.value->>'reconnectDeadline')::double precision END <= $1",
+      "  )",
+      ")",
+      "ORDER BY updated_at ASC",
+      "LIMIT $2"
+    ].join("\n");
+    const result = await this.#pool.query(sql, [now, limit]);
+    return result.rows.map(row => row.room_data);
+  }
+
   async insert(room) {
     await this.#pool.query(
       "INSERT INTO hokm_rooms (room_id, version, room_data) VALUES ($1, $2, $3::jsonb)",

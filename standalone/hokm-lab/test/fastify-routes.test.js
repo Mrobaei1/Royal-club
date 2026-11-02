@@ -20,10 +20,12 @@ test("Fastify adapter registers authenticated room endpoints", async () => {
   const service = {
     create: async principal => ({ roomId: "r1", hostUserId: principal.userId }),
     view: async () => ({}), join: async () => ({}), ready: async () => ({}),
-    start: async () => ({}), command: async () => ({}), disconnect: async () => ({}), reconnect: async () => ({})
+    start: async () => ({}), command: async () => ({}), disconnect: async () => ({}), reconnect: async () => ({}),
+    leave: async () => ({}), voteCancel: async () => ({}), reportCheating: async () => ({}),
+    submitAppeal: async () => ({}), reviewCheating: async () => ({}), reviewAppeal: async () => ({})
   };
   await registerHokmRoutes(fastify, { service, authenticate });
-  assert.equal(fastify.routes.length, 8);
+  assert.equal(fastify.routes.length, 14);
   assert.ok(fastify.routes.every(route => route.preHandler === authenticate));
   assert.ok(fastify.routes.some(route => route.url === "/hokm/rooms/:roomId/command"));
 });
@@ -69,4 +71,22 @@ test("Fastify adapter refuses registration without explicit auth middleware", as
     registerHokmRoutes(fakeFastify(), { service: {}, authenticate: null }),
     /Authentication preHandler is required/
   );
+});
+
+test("new participant and manager endpoints are all authenticated", async () => {
+  const fastify = fakeFastify();
+  const authenticate = async () => {};
+  const service = {
+    create: async () => ({}), view: async () => ({}), join: async () => ({}), ready: async () => ({}),
+    start: async () => ({}), command: async () => ({}), disconnect: async () => ({}), reconnect: async () => ({}),
+    leave: async () => ({}), voteCancel: async () => ({}), reportCheating: async () => ({}),
+    submitAppeal: async () => ({}), reviewCheating: async () => ({}), reviewAppeal: async () => ({})
+  };
+  await registerHokmRoutes(fastify, { service, authenticate });
+  const urls = fastify.routes.map(route => route.url);
+  for (const suffix of ["/leave", "/cancel-vote", "/reports", "/appeals",
+    "/manager/reports/:reportId/review", "/manager/appeals/:appealId/review"]) {
+    assert.ok(urls.some(url => url.endsWith(suffix)), `missing route ${suffix}`);
+  }
+  assert.ok(fastify.routes.every(route => route.preHandler === authenticate));
 });

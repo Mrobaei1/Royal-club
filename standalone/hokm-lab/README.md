@@ -6,7 +6,7 @@
 Build and verify an independent, Royal Club-compatible Hokm/Court Piece game module before any integration. This is not yet a complete or production-ready game.
 
 ## Owner-approved decisions
-The full owner decision and acceptance specification is maintained in [OWNER-DECISIONS-2026-11-03.md](docs/OWNER-DECISIONS-2026-11-03.md). It records the 60-question decisions, timing, privacy, cancellation, disconnect, appeal, and technical reconciliation rules.
+The full owner decision and acceptance specification is maintained in [OWNER-DECISIONS-2026-11-03.md](docs/OWNER-DECISIONS-2026-11-03.md). The evidence-based 12-package progress breakdown is in [HOKM-WBS-2026-11-03.md](docs/HOKM-WBS-2026-11-03.md). It records the 60-question decisions, timing, privacy, cancellation, disconnect, appeal, and technical reconciliation rules.
 
 ## Fixed product decisions
 - Bot difficulty is permanently **Hard**; no player or room selector may change it. The bot may use only its own hand and public information and must use the normal legal-move validator.
@@ -46,8 +46,11 @@ The full owner decision and acceptance specification is maintained in [OWNER-DEC
 - [x] Twenty-second all-four-disconnected cancellation, unanimous four-player cancellation, and unrecoverable technical-failure cancellation in the room/service layer.
 - [x] Participant cheating reports and post-match appeals with manager/owner review records; these records do not silently change match results.
 - [x] Final match view hides full replay/history.
-- [x] Dedicated Node 20 syntax and test workflow; latest exact-head result: 97/97 tests passed.
-- [ ] Durable scheduler integration, real PostgreSQL verification, authenticated Fastify route wiring for new controls, and multi-instance race/recovery testing.
+- [x] Dedicated Node 20 syntax and test workflow; latest exact-head result: 112/112 tests passed, including live PostgreSQL 16 migration, multi-instance CAS and scheduler restart-recovery acceptance.
+- [x] Durable deadline poller reads persisted turn, reconnect and all-disconnected deadlines from PostgreSQL room rows; a 250ms default poll interval, bounded batches, trusted service identity and version/CAS transitions protect execution across multiple workers. Runtime assembly wires PostgreSQL, authenticated Fastify routes and the scheduler; startup remains explicit.
+- [x] Authenticated Fastify routes for room leave, unanimous cancellation votes, participant cheating reports, appeals, and manager review. Report/appeal player responses and management review projections omit private hands and raw round state.
+- [x] Live ephemeral PostgreSQL migration/application and two-instance CAS/restart recovery acceptance in CI.
+- [ ] Production Royal Club database migration/deployment, production auth middleware/session binding, event transport and multi-instance soak testing.
 - [ ] Opponent-team private text chat integration and Flutter game/manager UI, localization, and four-device end-to-end acceptance.
 
 ## Communication policy (owner-confirmed, 2026-11-03)
@@ -62,16 +65,17 @@ Royal Club is a game platform, not a voice/video calling or conferencing applica
 
 ## Server-side application boundary (in progress)
 
-The room/service layer now exposes version-checked seven-second turn deadline processing, all-four-disconnected cancellation, unanimous cancellation votes, unrecoverable technical-failure cancellation, participant reports/appeals, and manager/owner review methods. These methods still require durable scheduler and authenticated HTTP route wiring before they are end-to-end features.
+The room/service layer exposes version-checked seven-second turn deadline processing, all-four-disconnected cancellation, unanimous cancellation votes, unrecoverable technical-failure cancellation, participant reports/appeals, and manager/owner review methods. `src/deadline-scheduler.js` polls persisted room deadlines from the repository every 250ms by default; `src/runtime.js` wires it to the PostgreSQL adapter and authenticated Fastify routes. The host server must explicitly start the scheduler after applying the migration.
 
 `src/service.js` adds a framework-neutral server application boundary around the room state machine:
 - Caller identity is taken only from a verified principal supplied by trusted authentication middleware; request-body user IDs are not accepted as identity.
 - Membership-gated views and version-checked room transitions are exposed through one service. `src/fastify-routes.js` registers authenticated room endpoints and requires the application to provide its real authentication preHandler.
 - In-process per-room serialization prevents two requests in the same Node process from both committing the same room version.
 - The repository contract requires `get`, `insert`, and `compareAndSwap`; `InMemoryRoomRepository` is for tests/local development, while `PostgresRoomRepository` is implemented for a node-postgres Pool. The SQL migration is `migrations/001_hokm_rooms.sql`.
-- Disconnect deadline processing is restricted to trusted service/system principals and must be invoked by a server scheduler.
+- Disconnect, turn and all-disconnected deadline processing is restricted to trusted service/system principals and invoked by the durable database-polled scheduler. The scheduler reloads current room versions before transitions; PostgreSQL compare-and-swap prevents two server instances from committing the same version.
+- Fastify routes expose participant leave/cancel/report/appeal actions and manager review endpoints; private card state is stripped from participant and manager responses.
 
-**Production blockers remain:** real authentication middleware/session binding must be wired to the Fastify adapter; the SQL migration has not been applied to a live PostgreSQL instance; database integration tests, distributed concurrency control across server processes, durable deadline scheduler, event transport and reconnect recovery tests against a running server remain open. The PostgreSQL adapter is implemented but has only been exercised with a mocked Pool in CI; the in-memory queue does not coordinate multiple server processes. Do not deploy this service or describe it as production-ready.
+**Production blockers remain:** real authentication middleware/session binding must be wired to the Fastify adapter; the SQL migration has not been applied to a live PostgreSQL instance; database integration tests, distributed concurrency control across server processes, event transport and reconnect recovery tests against a running server remain open. The durable scheduler and route/runtime adapters are now implemented in the isolated lab but are not yet wired into the production Royal Club API. The PostgreSQL adapter and durable scheduler have been exercised against a real ephemeral PostgreSQL 16 instance in CI, including two independent service instances and restart recovery. The host Royal Club API still does not import or start this isolated runtime; production deployment and sustained multi-instance soak tests remain open. Do not deploy this service or describe it as production-ready.
 
 ## Run tests
 Requires Node.js 20+: `npm test`

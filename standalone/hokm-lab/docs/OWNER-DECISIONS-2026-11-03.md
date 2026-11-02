@@ -151,9 +151,9 @@ The isolated lab already has a rules engine, match target 3/5/7, four-seat rooms
 
 ### Still open before end-to-end acceptance
 
-1. Wire turn/all-disconnected deadline methods to a durable server scheduler and verify retries, missed jobs and multi-instance races.
-2. Wire new cancellation, report and appeal methods into authenticated Fastify routes and the real manager authorization policy.
-3. Verify the PostgreSQL adapter, migration, reports, appeals and room state against a live PostgreSQL service; mocked Pool tests are not sufficient.
+1. **Implemented in isolated lab:** durable database-polled scheduler discovers persisted turn, reconnect and all-disconnected deadlines from PostgreSQL room rows; default polling interval 250ms, bounded batches, trusted internal service identity, version reloads and database CAS. Still requires live multi-instance/restart/race acceptance.
+2. **Implemented in isolated lab:** authenticated Fastify routes for unanimous cancellation, participant reports/appeals, waiting-room leave and manager review; service-level role checks and sanitized player/manager response projections. Still requires binding to Royal Club production authentication/session middleware and its actual manager permission source.
+3. **Verified in CI against live PostgreSQL 16:** the actual migration is applied; two independent repository/service instances race a room-version update and exactly one CAS succeeds; four disconnect deadlines are persisted; a newly constructed service/scheduler (simulated process restart) discovers and processes the 20-second all-disconnected cancellation. This is ephemeral-database evidence, not production deployment acceptance.
 4. Implement recoverable server-process restart/recovery and durable event transport; unrecoverable cancellation is implemented at the domain/service layer only.
 5. Implement opposing-team private text chat authorization and Flutter UI acceptance.
 6. Implement the Flutter game UI, manager review screens, Persian/English localization and real-device four-client flows.
@@ -161,7 +161,7 @@ The isolated lab already has a rules engine, match target 3/5/7, four-seat rooms
 8. Add a persistent, server-generated operation/idempotency key at the HTTP/persistence boundary. Expected-version/CAS currently prevents stale duplicate transitions from being applied twice, but does not yet expose a client operation-key contract.
 9. Q15–Q23 from the earlier conversation were not present in the retrievable conversation context; their meaning has not been invented or implemented as assumptions.
 
-Do not award completion percentage for documentation alone. The current green lab test suite verifies the isolated domain/service layer, not production deployment, Flutter UI, live database, or four-device acceptance. Update the Hokm WBS only when each acceptance criterion has implementation and test evidence.
+Do not award completion percentage for documentation alone. The green lab test suite verifies the isolated domain/service/runtime layer and a live ephemeral PostgreSQL 16 instance, not production deployment, Flutter UI, or four-device acceptance. The durable scheduler and additional authenticated routes are implemented only in the isolated lab until explicitly integrated into the production Royal Club API. Update the Hokm WBS only when each acceptance criterion has implementation and test evidence.
 
 ## 10. Verification and release gates
 

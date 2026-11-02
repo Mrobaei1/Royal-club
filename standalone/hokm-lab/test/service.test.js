@@ -7,9 +7,11 @@ const user = userId => ({ authenticated: true, userId });
 function serviceFixture() {
   let clock = 1000;
   let nextId = 0;
+  const repository = new InMemoryRoomRepository();
   return {
+    repository,
     service: new HokmRoomService({
-      repository: new InMemoryRoomRepository(),
+      repository,
       now: () => clock,
       id: () => `service-room-${++nextId}`
     }),
@@ -136,4 +138,22 @@ test("appeal and cheating-report review reject ordinary player principals", asyn
     service.reviewCheating(user("u0"), created.roomId, "report-id", "", created.version),
     /authorized manager/
   );
+});
+
+test("manager report review returns a sanitized management projection", async () => {
+  const { service } = serviceFixture();
+  let room = await service.create(user("u0"));
+  for (const id of ["u1", "u2", "u3"]) room = await service.join(user(id), room.roomId, room.version);
+  for (const id of ["u0", "u1", "u2", "u3"]) room = await service.ready(user(id), room.roomId, true, room.version);
+  room = await service.start(user("u0"), room.roomId, room.version);
+  const reported = await service.reportCheating(user("u0"), room.roomId, "u1",
+    "The opponent revealed hidden cards to another participant.", room.version);
+  const managerView = await service.reviewCheating(
+    { authenticated: true, userId: "manager-1", role: "manager" },
+    room.roomId, "service-room-2", "Evidence reviewed.", reported.version
+  );
+  assert.equal(managerView.reports[0].status, "reviewed");
+  assert.equal("round" in managerView, false);
+  assert.equal("revealedHands" in managerView, false);
+  assert.equal("game" in managerView, false);
 });

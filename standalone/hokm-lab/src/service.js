@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import {
-  createRoom, joinRoom, setPlayerReady, startRoom, applyRoomCommand,
+  createRoom, joinRoom, leaveRoom, setPlayerReady, startRoom, applyRoomCommand,
   roomViewForUser, disconnectPlayer, reconnectPlayer, handleDisconnectTimeout,
   processTurnTimeout, processAllDisconnectedTimeout, voteToCancelMatch,
   cancelForUnrecoverableTechnicalFailure, submitMatchAppeal, reviewMatchAppeal,
@@ -21,6 +21,19 @@ function authenticatedUser(principal) {
  * get(roomId), insert(room), compareAndSwap(roomId, expectedVersion, nextRoom).
  * A production adapter MUST implement compareAndSwap transactionally in its database.
  */
+function managerRoomView(room) {
+  return Object.freeze({
+    roomId: room.roomId, status: room.status, version: room.version,
+    matchTarget: room.matchTarget, matchScore: [...room.matchScore],
+    hostUserId: room.hostUserId, cancelReason: room.cancelReason ?? null,
+    result: room.result ?? null,
+    players: room.players.map(({ userId, seat, ready, connected, botControlled, forfeited }) =>
+      ({ userId, seat, ready, connected, botControlled: Boolean(botControlled), forfeited: Boolean(forfeited) })),
+    reports: (room.reports ?? []).map(report => ({ ...report })),
+    appeals: (room.appeals ?? []).map(appeal => ({ ...appeal }))
+  });
+}
+
 export class InMemoryRoomRepository {
   #rooms = new Map();
 
@@ -32,6 +45,17 @@ export class InMemoryRoomRepository {
     if (this.#rooms.has(room.roomId)) throw new Error("Room already exists");
     this.#rooms.set(room.roomId, room);
     return room;
+  }
+
+  async listDueRooms(now, limit = 100) {
+    if (!Number.isFinite(now) || !Number.isInteger(limit) || limit < 1) throw new TypeError("Invalid due-room query");
+    return [...this.#rooms.values()].filter(room => {
+      if (!["playing", "round_completed"].includes(room.status)) return false;
+      if (Number.isFinite(room.turnDeadlineAt) && room.turnDeadlineAt <= now) return true;
+      if (Number.isFinite(room.allDisconnectedDeadline) && room.allDisconnectedDeadline <= now) return true;
+      return room.players.some(player => !player.connected && !player.forfeited && !player.temporaryBot &&
+        Number.isFinite(player.reconnectDeadline) && player.reconnectDeadline <= now);
+    }).slice(0, limit);
   }
 
   async compareAndSwap(roomId, expectedVersion, nextRoom) {
@@ -58,8 +82,9 @@ export class HokmRoomService {
   constructor({ repository = new InMemoryRoomRepository(), now = () => Date.now(), id = () => randomUUID() } = {}) {
     if (!repository || typeof repository.get !== "function" ||
         typeof repository.insert !== "function" ||
-        typeof repository.compareAndSwap !== "function") {
-      throw new TypeError("A room repository implementing get/insert/compareAndSwap is required");
+        typeof repository.compareAndSwap !== "function" ||
+        typeof repository.listDueRooms !== "function") {
+      throw new TypeError("A room repository implementing get/insert/compareAndSwap/listDueRooms is required");
     }
     if (typeof now !== "function" || typeof id !== "function") throw new TypeError("now and id must be functions");
     this.#repository = repository;
@@ -87,6 +112,11 @@ export class HokmRoomService {
   async join(principal, roomId, expectedVersion) {
     const userId = authenticatedUser(principal);
     return this.#transition(roomId, expectedVersion, room => joinRoom(room, userId, this.now()), userId);
+  }
+
+  async leave(principal, roomId, expectedVersion) {
+    const userId = authenticatedUser(principal);
+    return this.#transition(roomId, expectedVersion, room => leaveRoom(room, userId), userId);
   }
 
   async ready(principal, roomId, ready, expectedVersion) {
@@ -129,7 +159,7 @@ export class HokmRoomService {
     return this.#transition(roomId, expectedVersion,
       room => submitCheatingReport(room, reporterId, {
         reportId: this.id(), reportedUserId, reason, now: this.now()
-      }), null);
+      }), reporterId);
   }
 
   async reviewCheating(principal, roomId, reportId, notes, expectedVersion) {
@@ -138,13 +168,13 @@ export class HokmRoomService {
       throw new Error("Only an authorized manager may review cheating reports");
     }
     return this.#transition(roomId, expectedVersion,
-      room => reviewCheatingReport(room, reviewerId, reportId, { notes, now: this.now() }), null);
+      room => reviewCheatingReport(room, reviewerId, reportId, { notes, now: this.now() }), managerRoomView);
   }
 
   async submitAppeal(principal, roomId, reason, expectedVersion) {
     const userId = authenticatedUser(principal);
     return this.#transition(roomId, expectedVersion,
-      room => submitMatchAppeal(room, userId, { appealId: this.id(), reason, now: this.now() }), null);
+      room => submitMatchAppeal(room, userId, { appealId: this.id(), reason, now: this.now() }), userId);
   }
 
   async reviewAppeal(principal, roomId, appealId, decision, notes, expectedVersion) {
@@ -153,7 +183,7 @@ export class HokmRoomService {
       throw new Error("Only an authorized manager may review match appeals");
     }
     return this.#transition(roomId, expectedVersion,
-      room => reviewMatchAppeal(room, reviewerId, appealId, { decision, notes, now: this.now() }), null);
+      room => reviewMatchAppeal(room, reviewerId, appealId, { decision, notes, now: this.now() }), managerRoomView);
   }
 
   async processTurnDeadline(principal, roomId, expectedVersion) {
@@ -183,6 +213,42 @@ export class HokmRoomService {
       room => cancelForUnrecoverableTechnicalFailure(room, { reason }), null);
   }
 
+  async processDueDeadlines(principal, roomId) {
+    authenticatedUser(principal);
+    if (principal.role !== "system" && principal.role !== "service") {
+      throw new Error("Only a trusted service principal may process scheduled deadlines");
+    }
+    let room = await this.#repository.get(roomId);
+    if (!room) throw new Error("Room not found");
+    const outcomes = [];
+
+    // The all-four-disconnected rule takes precedence over individual bot takeover
+    // and turn deadlines: no bot should continue a match after the owner's 20s grace.
+    if (Number.isFinite(room.allDisconnectedDeadline) && this.now() >= room.allDisconnectedDeadline) {
+      outcomes.push(await this.processAllDisconnectedDeadline(principal, roomId, room.version));
+      return outcomes;
+    }
+
+    if (room.status === "playing") {
+      const expiredSeats = room.players.filter(player => !player.connected && !player.forfeited &&
+        !player.temporaryBot && Number.isFinite(player.reconnectDeadline) && this.now() >= player.reconnectDeadline);
+      for (const player of expiredSeats) {
+        room = await this.#repository.get(roomId);
+        if (!room || room.status !== "playing") break;
+        const current = room.players.find(candidate => candidate.userId === player.userId);
+        if (!current || current.connected || current.forfeited || current.temporaryBot ||
+            !Number.isFinite(current.reconnectDeadline) || this.now() < current.reconnectDeadline) continue;
+        outcomes.push(await this.processDisconnectTimeout(principal, roomId, current.userId, room.version));
+      }
+    }
+
+    room = await this.#repository.get(roomId);
+    if (room?.status === "playing" && Number.isFinite(room.turnDeadlineAt) && this.now() >= room.turnDeadlineAt) {
+      outcomes.push(await this.processTurnDeadline(principal, roomId, room.version));
+    }
+    return outcomes;
+  }
+
   async processDisconnectTimeout(principal, roomId, userId, expectedVersion) {
     authenticatedUser(principal);
     // A trusted scheduler/service identity invokes this method. It cannot be
@@ -202,10 +268,10 @@ export class HokmRoomService {
       if (!current) throw new Error("Room not found");
       if (current.version !== expectedVersion) throw new Error("Stale room version");
       const next = transform(current);
-      if (next === current) return viewUserId ? roomViewForUser(current, viewUserId) : current;
+      if (next === current) return typeof viewUserId === "function" ? viewUserId(current) : viewUserId ? roomViewForUser(current, viewUserId) : current;
       const saved = await this.#repository.compareAndSwap(roomId, expectedVersion, next);
       if (!saved) throw new Error("Concurrent room update; retry with the latest version");
-      return viewUserId ? roomViewForUser(next, viewUserId) : next;
+      return typeof viewUserId === "function" ? viewUserId(next) : viewUserId ? roomViewForUser(next, viewUserId) : next;
     });
   }
 
