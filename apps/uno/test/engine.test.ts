@@ -412,13 +412,14 @@ test('an opening Wild requires the first player to choose a color before any mov
 
 test('an opening Wild Draw Four is returned to the draw deck and replaced', () => {
   const drawPile = [
+    {id:'next-card',color:'blue' as const,face:7},
     {id:'replacement',color:'red' as const,face:4},
     {id:'opening-wild4',color:'wild' as const,face:'wild4' as const},
   ];
   const opening = drawOpeningCard(drawPile);
   assert.equal(opening.id,'replacement');
   assert.equal(drawPile.some(card => card.id === 'opening-wild4'),true);
-  assert.equal(drawPile.at(-1)?.id,'replacement');
+  assert.equal(drawPile.at(-1)?.id,'next-card');
 });
 
 
