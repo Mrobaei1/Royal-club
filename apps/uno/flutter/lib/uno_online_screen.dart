@@ -236,12 +236,30 @@ class _UnoOnlineScreenState extends State<UnoOnlineScreen> {
             ),
           ]),
         const Divider(),
-        ...players.map((p) => ListTile(
-          dense: true, leading: Icon(p['id'] == room['hostId'] ? Icons.workspace_premium : Icons.person),
-          title: Text('@${p['username']}'),
-          subtitle: Text('${p['ready'] == true ? _t('آماده', 'Ready') : _t('در انتظار آمادگی', 'Not ready')} • ${_t('برد', 'Wins')}: ${(room['roundsWon'] as Map?)?[p['id']] ?? 0} • ${_t('امتیاز', 'Points')}: ${(room['totalPoints'] as Map?)?[p['id']] ?? 0}'),
-
-        )),
+        ...players.map((p) {
+          final livePlayer = _game?['players'] is List
+              ? List<Map<String, dynamic>>.from((_game!['players'] as List).map((entry) => Map<String, dynamic>.from(entry as Map)))
+                  .firstWhere((entry) => entry['id'] == p['id'], orElse: () => {})
+              : <String, dynamic>{};
+          final isCurrentPlayer = _game?['currentPlayerId'] == p['id'];
+          final details = <String>[
+            p['ready'] == true ? _t('آماده', 'Ready') : _t('در انتظار آمادگی', 'Not ready'),
+            '${_t('برد', 'Wins')}: ${(room['roundsWon'] as Map?)?[p['id']] ?? 0}',
+            '${_t('امتیاز', 'Points')}: ${(room['totalPoints'] as Map?)?[p['id']] ?? 0}',
+          ];
+          if (livePlayer['cardCount'] is num) {
+            details.add('${_t('کارت', 'Cards')}: ${livePlayer['cardCount']}');
+          }
+          if (isCurrentPlayer) details.add(_t('نوبت', 'Turn'));
+          return ListTile(
+            dense: true,
+            selected: isCurrentPlayer,
+            selectedTileColor: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.35),
+            leading: Icon(p['id'] == room['hostId'] ? Icons.workspace_premium : Icons.person),
+            title: Text('@${p['username']}'),
+            subtitle: Text(details.join(' • ')),
+          );
+        }),
         if (room['status'] == 'waiting' || room['status'] == 'ready')
           Row(children: [
             Expanded(child: OutlinedButton(onPressed: () => _run('uno:room:ready', {'code': code, 'ready': !ready}), child: Text(ready ? _t('لغو آمادگی', 'Not ready') : _t('آماده‌ام', 'Ready')))),
