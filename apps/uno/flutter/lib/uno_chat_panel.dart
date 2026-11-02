@@ -41,7 +41,7 @@ class UnoChatPanel extends StatelessWidget {
                       controller: controller,
                       enabled: enabled,
                       maxLength: 500,
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         hintText: _isPersian(context) ? 'پیام بنویس…' : 'Write a message…',
                         counterText: '',
                       ),
