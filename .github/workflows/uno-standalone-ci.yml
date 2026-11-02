@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - feature/uno-standalone-development
+      - fix/uno-remove-live-voice
   pull_request:
     branches:
       - main
