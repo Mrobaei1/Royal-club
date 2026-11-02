@@ -26,156 +26,29 @@ export class PostgresRoomRepository {
     if (!Number.isFinite(now) || !Number.isInteger(limit) || limit < 1 || limit > 1000) {
       throw new TypeError("Invalid due-room query");
     }
-    const result = await this.#pool.query(
-      `SELECT room_data
-       FROM hokm_rooms
-       WHERE room_data->>'status' IN ('playing', 'round_completed')
-         AND (
-           ((room_data->>'turnDeadlineAt') ~ '^[0-9]+([.][0-9]+)?
-    await this.#pool.query(
-      "INSERT INTO hokm_rooms (room_id, version, room_data) VALUES ($1, $2, $3::jsonb)",
-      [room.roomId, room.version, JSON.stringify(room)]
-    );
-    return room;
-  }
-
-  async compareAndSwap(roomId, expectedVersion, nextRoom) {
-    if (nextRoom.roomId !== roomId || nextRoom.version !== expectedVersion + 1) {
-      throw new Error("Invalid room compare-and-swap transition");
-    }
-    const client = await this.#pool.connect();
-    try {
-      await client.query("BEGIN");
-      const updated = await client.query(
-        "UPDATE hokm_rooms SET version = $3, room_data = $4::jsonb, updated_at = now() WHERE room_id = $1 AND version = $2 RETURNING room_id",
-        [roomId, expectedVersion, nextRoom.version, JSON.stringify(nextRoom)]
-      );
-      if (updated.rowCount !== 1) {
-        await client.query("ROLLBACK");
-        return false;
-      }
-
-      // Persist every changed player's aggregate in the same transaction as
-      // the room state, covering both match rewards and one-time leaver penalties.
-      for (const [userId, progress] of Object.entries(nextRoom.playerProgress ?? {})) {
-        await client.query(
-          "INSERT INTO hokm_player_progress (user_id, xp, level) VALUES ($1, $2, $3) ON CONFLICT (user_id) DO UPDATE SET xp = EXCLUDED.xp, level = EXCLUDED.level, updated_at = now()",
-          [userId, progress.xp, progress.level]
-        );
-      }
-      await client.query("COMMIT");
-      return true;
-    } catch (error) {
-      try { await client.query("ROLLBACK"); } catch { /* preserve original error */ }
-      throw error;
-    } finally {
-      client.release();
-    }
-  }
-}
-
-             AND (room_data->>'turnDeadlineAt')::double precision <= $1)
-           OR
-           ((room_data->>'allDisconnectedDeadline') ~ '^[0-9]+([.][0-9]+)?
-    await this.#pool.query(
-      "INSERT INTO hokm_rooms (room_id, version, room_data) VALUES ($1, $2, $3::jsonb)",
-      [room.roomId, room.version, JSON.stringify(room)]
-    );
-    return room;
-  }
-
-  async compareAndSwap(roomId, expectedVersion, nextRoom) {
-    if (nextRoom.roomId !== roomId || nextRoom.version !== expectedVersion + 1) {
-      throw new Error("Invalid room compare-and-swap transition");
-    }
-    const client = await this.#pool.connect();
-    try {
-      await client.query("BEGIN");
-      const updated = await client.query(
-        "UPDATE hokm_rooms SET version = $3, room_data = $4::jsonb, updated_at = now() WHERE room_id = $1 AND version = $2 RETURNING room_id",
-        [roomId, expectedVersion, nextRoom.version, JSON.stringify(nextRoom)]
-      );
-      if (updated.rowCount !== 1) {
-        await client.query("ROLLBACK");
-        return false;
-      }
-
-      // Persist every changed player's aggregate in the same transaction as
-      // the room state, covering both match rewards and one-time leaver penalties.
-      for (const [userId, progress] of Object.entries(nextRoom.playerProgress ?? {})) {
-        await client.query(
-          "INSERT INTO hokm_player_progress (user_id, xp, level) VALUES ($1, $2, $3) ON CONFLICT (user_id) DO UPDATE SET xp = EXCLUDED.xp, level = EXCLUDED.level, updated_at = now()",
-          [userId, progress.xp, progress.level]
-        );
-      }
-      await client.query("COMMIT");
-      return true;
-    } catch (error) {
-      try { await client.query("ROLLBACK"); } catch { /* preserve original error */ }
-      throw error;
-    } finally {
-      client.release();
-    }
-  }
-}
-
-             AND (room_data->>'allDisconnectedDeadline')::double precision <= $1)
-           OR EXISTS (
-             SELECT 1
-             FROM jsonb_array_elements(COALESCE(room_data->'players', '[]'::jsonb)) AS player
-             WHERE player->>'connected' = 'false'
-               AND COALESCE(player->>'forfeited', 'false') <> 'true'
-               AND COALESCE(player->>'temporaryBot', 'false') <> 'true'
-               AND (player->>'reconnectDeadline') ~ '^[0-9]+([.][0-9]+)?
-    await this.#pool.query(
-      "INSERT INTO hokm_rooms (room_id, version, room_data) VALUES ($1, $2, $3::jsonb)",
-      [room.roomId, room.version, JSON.stringify(room)]
-    );
-    return room;
-  }
-
-  async compareAndSwap(roomId, expectedVersion, nextRoom) {
-    if (nextRoom.roomId !== roomId || nextRoom.version !== expectedVersion + 1) {
-      throw new Error("Invalid room compare-and-swap transition");
-    }
-    const client = await this.#pool.connect();
-    try {
-      await client.query("BEGIN");
-      const updated = await client.query(
-        "UPDATE hokm_rooms SET version = $3, room_data = $4::jsonb, updated_at = now() WHERE room_id = $1 AND version = $2 RETURNING room_id",
-        [roomId, expectedVersion, nextRoom.version, JSON.stringify(nextRoom)]
-      );
-      if (updated.rowCount !== 1) {
-        await client.query("ROLLBACK");
-        return false;
-      }
-
-      // Persist every changed player's aggregate in the same transaction as
-      // the room state, covering both match rewards and one-time leaver penalties.
-      for (const [userId, progress] of Object.entries(nextRoom.playerProgress ?? {})) {
-        await client.query(
-          "INSERT INTO hokm_player_progress (user_id, xp, level) VALUES ($1, $2, $3) ON CONFLICT (user_id) DO UPDATE SET xp = EXCLUDED.xp, level = EXCLUDED.level, updated_at = now()",
-          [userId, progress.xp, progress.level]
-        );
-      }
-      await client.query("COMMIT");
-      return true;
-    } catch (error) {
-      try { await client.query("ROLLBACK"); } catch { /* preserve original error */ }
-      throw error;
-    } finally {
-      client.release();
-    }
-  }
-}
-
-               AND (player->>'reconnectDeadline')::double precision <= $1
-           )
-         )
-       ORDER BY updated_at ASC
-       LIMIT $2`,
-      [now, limit]
-    );
+    const sql = [
+      "SELECT room_data",
+      "FROM hokm_rooms",
+      "WHERE room_data->>'status' IN ('playing', 'round_completed')",
+      "AND (",
+      "  CASE WHEN jsonb_typeof(room_data->'turnDeadlineAt') = 'number'",
+      "       THEN (room_data->>'turnDeadlineAt')::double precision END <= $1",
+      "  OR CASE WHEN jsonb_typeof(room_data->'allDisconnectedDeadline') = 'number'",
+      "          THEN (room_data->>'allDisconnectedDeadline')::double precision END <= $1",
+      "  OR EXISTS (",
+      "    SELECT 1",
+      "    FROM jsonb_array_elements(COALESCE(room_data->'players', '[]'::jsonb)) AS p(value)",
+      "    WHERE p.value->>'connected' = 'false'",
+      "      AND COALESCE(p.value->>'forfeited', 'false') <> 'true'",
+      "      AND COALESCE(p.value->>'temporaryBot', 'false') <> 'true'",
+      "      AND CASE WHEN jsonb_typeof(p.value->'reconnectDeadline') = 'number'",
+      "               THEN (p.value->>'reconnectDeadline')::double precision END <= $1",
+      "  )",
+      ")",
+      "ORDER BY updated_at ASC",
+      "LIMIT $2"
+    ].join("\n");
+    const result = await this.#pool.query(sql, [now, limit]);
     return result.rows.map(row => row.room_data);
   }
 
