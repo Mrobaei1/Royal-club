@@ -49,3 +49,5 @@ The worker uses the PostgreSQL CAS repository, handles SIGTERM/SIGINT, and logs 
 - No APK build is included.
 - No voice/video calls, conference calls, live push-to-talk, WebRTC calling/signalling, TURN or media relay are allowed.
 - Optional recorded voice messages remain dormant and disabled; this work adds no audio feature.
+
+Implementation note: the TypeScript API build uses explicit adapter-option boundaries for repository and scheduler injection; this keeps the PostgreSQL adapter substitutable for the in-memory test repository and allows the worker to supply structured error monitoring.
