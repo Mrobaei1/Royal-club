@@ -82,6 +82,8 @@ Phase 1 remains **in progress**. This document separates confirmed owner decisio
 
 ## Approved decisions
 
+**R-27 all-bot match completion awards no XP (2026-11-02):** If all four players remain disconnected and Hard bots complete the entire match for all four seats, none of the four players receives match XP, regardless of the result. This does not change the normal XP rules when at least one player participates or reconnects before the match ends.
+
 **R-26 recovered disconnect does not reduce loser XP (2026-11-02):** A player on the losing team who temporarily disconnects but successfully reconnects before the match ends receives the normal 5 XP loser award, with no reduction or additional penalty for that recovered disconnection.
 
 **R-25 recovered disconnect does not reduce winner XP (2026-11-02):** A player on the winning team who temporarily disconnects but successfully reconnects before the match ends receives the normal 20 XP winner award, with no reduction or additional penalty for that recovered disconnection.
