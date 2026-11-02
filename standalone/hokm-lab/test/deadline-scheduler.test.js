@@ -22,8 +22,8 @@ async function startedRoom() {
 
 test("in-memory repository lists only active rooms with elapsed deadlines", async () => {
   const { repository, room } = await startedRoom();
-  assert.deepEqual((await repository.listDueRooms(8999)).map(item => item.roomId), []);
-  assert.deepEqual((await repository.listDueRooms(9000)).map(item => item.roomId), [room.roomId]);
+  assert.deepEqual((await repository.listDueRooms(7999)).map(item => item.roomId), []);
+  assert.deepEqual((await repository.listDueRooms(8000)).map(item => item.roomId), [room.roomId]);
 });
 
 test("deadline scheduler applies expired trump selection through trusted service", async () => {
