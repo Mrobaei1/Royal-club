@@ -1,7 +1,7 @@
 # Iranian Manch — Work Breakdown Structure (Royal Club)
 
 Status: active; implementation isolated on `feature/iranian-manch-foundation`.
-Owner acceptance and rules confirmation remain required before final online release.
+The owner approved the common classic four-token baseline on 2026-11-02. Board visual acceptance and final online release acceptance remain required.
 
 ## Goal
 Deliver a Persian/Iranian classic four-colour Manch game that fits the existing Flutter mobile app and Fastify/PostgreSQL backend without changing or regressing backgammon, chess, or card games.
@@ -44,29 +44,30 @@ Measured conservatively from committed implementation and available test evidenc
 
 | ID | Work package | Weight | Current progress | Evidence / remaining gate |
 |---|---|---:|---:|---|
-| 1 | Requirements and Iranian rule profile | 10% | 80% | Variant research and configurable profile exist; owner must approve the final local rule matrix. |
+| 1 | Requirements and Iranian rule profile | 10% | 90% | Owner approved the common classic four-token baseline on 2026-11-02; configurable implemented variants are documented. Remaining: implement and test currently unsupported options and complete edge-case matrix. |
 | 2 | Open-source research and license review | 15% | 90% | Three pinned reference snapshots and exact LICENSE texts reviewed; MIT notice obligations and Apache-2.0 redistribution/NOTICE/patent provisions recorded. No source/assets/dependencies copied; full Royal Club dependency-tree inventory remains. |
 | 3 | Iranian board visual design | 15% | 55% | 52-cell board painter, four yards, four home lanes, entry markers and widget tests exist; final visual review and geometry acceptance remain. |
-| 4 | Pure Dart rules engine | 15% | 55% | Deterministic core, serializable state, defensive immutable rule snapshots, blockade variants and scenario tests are implemented; broader edge-case coverage and owner-approved rules remain. |
+| 4 | Pure Dart rules engine | 15% | 55% | Deterministic core, serializable state, defensive immutable rule snapshots, blockade variants and scenario tests are implemented; broader edge-case coverage and broader edge-case coverage remains. |
 | 5 | Offline game mode | 10% | 35% | Local 2–4 player pass-and-play, optional AI opponent, deterministic bot policy, secure save/resume and widget tests are implemented; broader bot strategy, difficulty settings and full play acceptance remain. |
 | 6 | Online game service | 15% | 75% | Authenticated room lifecycle, 2–4 player seats, expiry/cancel, server-generated dice, server-side rule validation, transactional row locking, state versions, persistence, concurrent-roll protection, current-match recovery, two-player forfeit/winner metadata and rematch rooms are implemented; disconnect grace/AI takeover, push delivery and multi-client UI acceptance remain. |
 | 7 | Royal Club integration | 10% | 20% | Home-screen mode picker routes to offline AI/local modes and online lobby; authenticated identity and latest-match recovery are wired into the client. Friends/invite integration, profile/history, ranked records and settings remain. |
 | 8 | UX polish | 5% | 10% | Initial Persian/English screen labels, status messaging and responsive scrolling are present; animation, sound, accessibility review and full localization/visual polish remain. |
 | 9 | End-to-end validation and stabilization | 5% | 20% | CI is green for API build/unit tests, API integration tests, Flutter analyze/widget tests and backgammon engine/AI regression; 101 Flutter tests passed. Full multi-device acceptance, live reconnect and release sign-off remain. |
 
-Weighted overall progress: **56.25%** (10%×80% + 15%×90% + 15%×55% + 15%×55% + 10%×35% + 15%×75% + 10%×20% + 5%×10% + 5%×20%). This is a conservative implementation estimate, not a release-readiness claim. Offline play has an initial AI/local mode and secure save/resume. Online play now has an initial server-authoritative API and client lobby/game flow, but reconnect, friend invitations, active-match recovery, concurrency stress and end-to-end acceptance remain outstanding.
+Weighted overall progress: **57.25%** (10%×90% + 15%×90% + 15%×55% + 15%×55% + 10%×35% + 15%×75% + 10%×20% + 5%×10% + 5%×20%). This is a conservative implementation estimate, not a release-readiness claim. Offline play has an initial AI/local mode and secure save/resume. Online play now has an initial server-authoritative API and client lobby/game flow, but reconnect, friend invitations, active-match recovery, concurrency stress and end-to-end acceptance remain outstanding.
 
 Commit `e8191a329f6aeb526f8662d350a620ffc8977879` passed the API build/unit tests, API integration tests, Flutter analyze/widget tests (101 passed), backgammon engine/AI regression (41 passed), and Web Preview workflow. The API integration suite verifies same-version concurrent rolls yield one success and one HTTP 409. Current-match recovery, two-player forfeit/winner metadata and rematch creation are present in the current implementation. Additional 3-/4-player seat-allocation and non-member-forfeit regression tests have now been added in follow-up commits; their CI result is pending.
 
-## Rule decisions that must be explicitly confirmed
-- Token count per player (traditional default is four).
-- First entry and whether a specific dice result is required.
-- Extra turn on six and handling of consecutive sixes.
-- Capture behaviour and exact safe-cell positions.
-- Blockades / stacked pieces and whether they block passage.
-- Exact roll requirement to finish and what happens when overshooting.
-- Turn order and seat-to-colour orientation.
-- Local variants for 2- and 3-player games.
+## Owner-approved base rule profile (2026-11-02)
+- Four tokens per player; 2–4 players.
+- Entry requires a six; rolling a six grants another roll.
+- Exact count is required to finish; overshoots are illegal.
+- Capturing an unprotected single opponent token returns it to its yard; capture does not grant an extra roll by default.
+- The four colour entry cells (track indices 0, 13, 26, 39) are safe in the base profile.
+- Three consecutive sixes do not automatically forfeit the turn in the base profile.
+- Blockades are disabled in the base profile; friendly stacking is enabled.
+- Turn order follows the selected seats and fixed red/green/yellow/blue colour mapping; 2-/3-player seat layouts remain subject to playtest.
+- Local variants remain configurable only where the engine currently implements a corresponding switch. Unsupported variants are explicitly listed in the rule-research document and are not claimed as implemented.
 
 ## Definition of 100%
 All nine work packages have evidence; game is playable offline and online; server validates all moves; reconnect and expiry are tested; Persian/English UI works; the game is integrated in Royal Club; CI is green; existing games pass regression tests; owner accepts the Iranian board and rule profile.
