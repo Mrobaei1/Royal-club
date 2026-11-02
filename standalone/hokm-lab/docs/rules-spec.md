@@ -82,6 +82,8 @@ Phase 1 remains **in progress**. This document separates confirmed owner decisio
 
 ## Approved decisions
 
+**R-21 voluntary exit is final (2026-11-02):** When a player explicitly chooses to leave an active match, that seat remains under Hard bot control until the match ends. The departed player cannot rejoin or regain control of that same match. This is distinct from a temporary network disconnection and its reconnect grace flow.
+
 **R-20 all players disconnected (2026-11-02):** If all four players lose connection simultaneously, the match continues without pausing under Hard bot control for all four seats. Each bot must use only its own hand and public game state, and every play must pass through the shared legal-move validator. Authenticated players regain control immediately when they reconnect, without rolling back completed bot moves.
 
 **R-19 reconnect control restoration (2026-11-02):** If a disconnected player reconnects and is successfully re-authenticated while the match is still in progress, control returns to that player immediately from the current game state. Any moves already made by the temporary bot remain in place; there is no rollback. The player's normal 7-second turn timer applies when it becomes their turn.
