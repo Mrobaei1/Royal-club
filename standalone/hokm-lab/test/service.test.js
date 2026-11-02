@@ -157,3 +157,20 @@ test("manager report review returns a sanitized management projection", async ()
   assert.equal("revealedHands" in managerView, false);
   assert.equal("game" in managerView, false);
 });
+
+test("appeal submission returns a participant-visible reference without exposing match state", async () => {
+  const { service, repository } = serviceFixture();
+  let room = await service.create(user("u0"));
+  for (const id of ["u1", "u2", "u3"]) room = await service.join(user(id), room.roomId, room.version);
+  for (const id of ["u0", "u1", "u2", "u3"]) room = await service.ready(user(id), room.roomId, true, room.version);
+  room = await service.start(user("u0"), room.roomId, room.version);
+  const persisted = await repository.get(room.roomId);
+  const completed = { ...persisted, status: "completed", result: { winnerTeam: 0 }, version: persisted.version + 1 };
+  assert.equal(await repository.compareAndSwap(room.roomId, persisted.version, completed), true);
+  const appeal = await service.submitAppeal(user("u0"), room.roomId,
+    "The match result does not match the server score record.", completed.version);
+  assert.ok(appeal.submittedAppealId);
+  assert.equal(appeal.status, "completed");
+  assert.equal(appeal.game, null);
+  assert.equal(Object.hasOwn(appeal, "round"), false);
+});
