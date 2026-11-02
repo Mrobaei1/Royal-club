@@ -10,6 +10,7 @@ Standalone and not imported by the Royal Club mobile app or API. Integration, de
 - Public identity is username only. Private hands go only to their owner; public state exposes card counts.
 - Text chat is limited to seated players and can be disabled by the host.
 - No voice/video calls, microphone capture, WebRTC, TURN or live-media signalling.
+- Recorded voice messages are a possible future option only; they remain disabled and are not implemented in this package. Any future activation requires a separate owner decision and manager-controlled setting; no paid audio provider is permitted.
 
 ## Backend
 Node.js 22+, TypeScript, Fastify and Socket.IO.
