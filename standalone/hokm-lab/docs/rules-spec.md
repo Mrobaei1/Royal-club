@@ -83,3 +83,5 @@ Phase 1 remains **in progress**. This document separates confirmed owner decisio
 ## Approved decisions
 
 **R-16 illegal card handling (2026-11-02):** If a player attempts to play an illegal card, the play is rejected and the same player may select a legal card. The turn does not advance and no penalty is applied.
+
+- **R-16 illegal-card handling (2026-11-02):** If a player attempts to play an illegal card on their turn, the play is rejected and that same player may choose a legal card. The turn does not advance and no penalty is applied.
