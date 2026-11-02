@@ -82,6 +82,8 @@ Phase 1 remains **in progress**. This document separates confirmed owner decisio
 
 ## Approved decisions
 
+**R-18 immediate next-turn start (2026-11-02):** When a player legally plays a card before the 7-second deadline, their turn ends immediately and the next player's 7-second timer starts immediately; the system does not wait for the unused portion of the previous turn.
+
 **R-18 immediate turn transition (2026-11-02):** When a player successfully plays a legal card before the 7-second deadline, their turn ends immediately and the next player's 7-second timer starts immediately. The system does not wait for the unused portion of the previous player's timer.
 
 **R-18 immediate turn advance (2026-11-02):** When a player legally plays a card before the 7-second deadline, the turn advances immediately to the next player; the system does not wait for the unused portion of the timer to expire.
