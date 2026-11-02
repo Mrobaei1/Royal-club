@@ -82,6 +82,10 @@ Phase 1 remains **in progress**. This document separates confirmed owner decisio
 
 ## Approved decisions
 
+**R-09 no drawn matches (2026-11-03):** A Hokm match must never end in a tie. The match flow and completion logic must always produce a winning team; a tied match result must not be recorded.
+
+**R-09 immediate match completion (2026-11-03):** The match ends immediately when either team reaches the manager-configured target of 3, 5, or 7 match points. No additional hand is played after the target is reached.
+
 **R-09 match end and no-draw rule (2026-11-03):** The match ends immediately when either team reaches the manager-configured target of 3, 5, or 7 match points. A match can never end in a draw; the rules and match state machine must ensure a winning team is determined.
 
 **R-06 immediate hand completion (2026-11-03):** As soon as a team reaches seven tricks, the hand ends immediately. Award that team one match point; do not continue playing the remaining tricks.
