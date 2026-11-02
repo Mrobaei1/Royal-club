@@ -234,6 +234,15 @@ class _IranianManchPainter extends CustomPainter {
       ManchSeat.yellow: 26,
       ManchSeat.blue: 39,
     };
+    final tokens = <({
+      ManchSeat seat,
+      int tokenIndex,
+      int progress,
+      Offset center,
+      String cellKey,
+      bool active,
+    })>[];
+
     for (var p = 0; p < state.players.length; p++) {
       final player = state.players[p];
       final seat = ManchSeat.values.byName(player.colour.name);
@@ -253,15 +262,21 @@ class _IranianManchPainter extends CustomPainter {
       for (var t = 0; t < 4; t++) {
         final progress = player.tokens[t];
         late final Offset center;
+        late final String cellKey;
         if (progress == -1) {
           final offset = yardOffsets[t];
           center = yardOrigin + Offset(offset.dx * u, offset.dy * u);
+          cellKey = 'yard:${seat.name}:$t';
         } else if (progress < 52) {
-          final cell = trackCells[(starts[seat]! + progress) % 52];
+          final global = (starts[seat]! + progress) % 52;
+          final cell = trackCells[global];
           center = Offset((cell.$2 + .5) * u, (cell.$1 + .5) * u);
+          cellKey = 'track:$global';
         } else if (progress < 57) {
-          final cell = lane[progress - 52];
+          final laneIndex = progress - 52;
+          final cell = lane[laneIndex];
           center = Offset((cell.$2 + .5) * u, (cell.$1 + .5) * u);
+          cellKey = 'lane:${seat.name}:$laneIndex';
         } else {
           const offsets = [
             Offset(-.22, -.22), Offset(.22, -.22),
@@ -269,8 +284,56 @@ class _IranianManchPainter extends CustomPainter {
           ];
           center = Offset(7.5 * u, 7.5 * u) +
               Offset(offsets[t].dx * u, offsets[t].dy * u);
+          cellKey = 'finish:${seat.name}:$t';
         }
-        _drawToken(canvas, center, u * .34, seatColors[seat]!, active);
+        tokens.add((
+          seat: seat,
+          tokenIndex: t,
+          progress: progress,
+          center: center,
+          cellKey: cellKey,
+          active: active,
+        ));
+      }
+    }
+
+    // Keep stacked checkers visible instead of painting every checker at
+    // exactly the same centre. Grouping by shared-track cell also handles
+    // opposing colours that legally coexist on a non-safe cell.
+    final stacks = <String, List<int>>{};
+    for (var i = 0; i < tokens.length; i++) {
+      stacks.putIfAbsent(tokens[i].cellKey, () => []).add(i);
+    }
+    for (final indices in stacks.values) {
+      final count = indices.length;
+      for (var stackIndex = 0; stackIndex < count; stackIndex++) {
+        final token = tokens[indices[stackIndex]];
+        late final Offset offset;
+        late final double radius;
+        if (count == 1) {
+          offset = Offset.zero;
+          radius = u * .34;
+        } else if (count <= 4) {
+          const positions = [
+            Offset(-.22, -.22), Offset(.22, -.22),
+            Offset(-.22, .22), Offset(.22, .22),
+          ];
+          offset = positions[stackIndex] * u;
+          radius = u * .21;
+        } else {
+          final column = stackIndex % 4;
+          final row = stackIndex ~/ 4;
+          offset = Offset((column - 1.5) * .18 * u,
+              (row - 1.5) * .18 * u);
+          radius = u * .105;
+        }
+        _drawToken(
+          canvas,
+          token.center + offset,
+          radius,
+          seatColors[token.seat]!,
+          token.active,
+        );
       }
     }
   }
