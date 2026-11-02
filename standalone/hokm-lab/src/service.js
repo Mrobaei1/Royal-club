@@ -111,7 +111,10 @@ export class HokmRoomService {
 
   async join(principal, roomId, expectedVersion) {
     const userId = authenticatedUser(principal);
-    return this.#transition(roomId, expectedVersion, room => joinRoom(room, userId, this.now()), userId);
+    const current = await this.#repository.get(roomId);
+    if (!current) throw new Error("Room not found");
+    const version = expectedVersion ?? current.version;
+    return this.#transition(roomId, version, room => joinRoom(room, userId, this.now()), userId);
   }
 
   async leave(principal, roomId, expectedVersion) {
