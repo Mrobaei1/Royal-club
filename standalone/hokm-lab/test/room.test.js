@@ -127,7 +127,7 @@ test("match completes exactly when a team reaches the manager target", () => {
     roundsPlayed += 1;
     if (room.status === "round_completed") {
       const sample = (0.17 + roundsPlayed * 0.061) % 0.99;
-      room = startNextRound(room, "u0", { rng: () => sample });
+      room = startNextRound(room, "u0", { rng: () => sample, now: room.handRevealUntil });
     }
   }
   assert.equal(room.status, "completed");
