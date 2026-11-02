@@ -1,4 +1,4 @@
-import { randomBytes, randomUUID } from "node:crypto";
+import { randomBytes } from "node:crypto";
 import type { FastifyInstance, FastifyRequest, preHandlerHookHandler } from "fastify";
 import type { Pool, PoolClient } from "pg";
 import { ChessGame } from "./engine.js";
@@ -13,7 +13,7 @@ type RouteOptions = {
   getUserId: (request: FastifyRequest) => string;
   canManageSettings: (userId: string) => Promise<boolean>;
 };
-type CreateRoomBody = { minOpponentLevel?: number; timeControlId?: string; chatEnabled?: boolean; voiceEnabled?: boolean };
+type CreateRoomBody = { minOpponentLevel?: number; timeControlId?: string; chatEnabled?: boolean };
 type MoveBody = { from: string; to: string; promotion?: "q"|"r"|"b"|"n" };
 type ChatBody = { message: string };
 
@@ -44,8 +44,7 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
     const settings:ChessRoomSettings={
       minOpponentLevel:body.minOpponentLevel??1,
       timeControlId:body.timeControlId??"rapid",
-      chatEnabled:body.chatEnabled??true,
-      voiceEnabled:body.voiceEnabled??false
+      chatEnabled:body.chatEnabled??true
     };
     try{validateRoomSettings(settings);}catch{return fail(reply,400,"invalid_room_settings");}
     const client=await pool.connect();
@@ -145,9 +144,7 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
     let playerId:string;
     try{playerId=userId(request,options);}catch{return fail(reply,401,"unauthorized");}
     const result=await pool.query(
-      `SELECT g.*, wu.username AS white_username, bu.username AS black_username, r.host_user_id,
-         jsonb_set(COALESCE(g.settings_snapshot,'{}'::jsonb),'{voiceEnabled}',
-           to_jsonb(COALESCE((r.settings_snapshot->>'voiceEnabled')::boolean,false)),true) AS live_settings_snapshot
+      `SELECT g.*, wu.username AS white_username, bu.username AS black_username, r.host_user_id
        FROM chess_games g JOIN users wu ON wu.id=g.white_user_id JOIN users bu ON bu.id=g.black_user_id
        JOIN chess_rooms r ON r.id=g.room_id
        WHERE g.id=$1 AND (g.white_user_id=$2 OR g.black_user_id=$2)`,
@@ -159,7 +156,7 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
     const engineState=engine.snapshot();
     return {gameId:String(row.id),fen:row.current_fen,pgn:row.pgn,status:row.status,revision:Number(row.revision),
       turn:engineState.turn,legalMoves:engineState.legalMoves,
-      clock:row.clock_snapshot,settings:row.live_settings_snapshot,isHost:String(row.host_user_id)===playerId,
+      clock:row.clock_snapshot,settings:row.settings_snapshot,isHost:String(row.host_user_id)===playerId,
       players:{white:{username:row.white_username},black:{username:row.black_username}}};
   });
 
@@ -215,8 +212,7 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
         await client.query("UPDATE chess_games SET status=$2,clock_snapshot=$3::jsonb,finished_at=NOW(),revision=revision+1 WHERE id=$1",
           [row.id,terminal,JSON.stringify({...elapsed,active:null,lastStartedAt:null,finished:true})]);
         await client.query("UPDATE chess_rooms SET status='finished' WHERE id=$1",[row.room_id]);
-        await client.query("DELETE FROM chess_voice_leases WHERE room_id=$1",[row.room_id]);
-        await awardChessResult(client,String(row.id),"final_result",white,black,{outcome:"win",winnerId:winner,loserId:winner===white?black:white});
+                await awardChessResult(client,String(row.id),"final_result",white,black,{outcome:"win",winnerId:winner,loserId:winner===white?black:white});
         await client.query("COMMIT");
         return fail(reply,409,"clock_expired");
       }
@@ -243,8 +239,7 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
       );
       if(status!=="active"){
         await client.query("UPDATE chess_rooms SET status='finished' WHERE id=$1",[row.room_id]);
-        await client.query("DELETE FROM chess_voice_leases WHERE room_id=$1",[row.room_id]);
-        if(status==="draw")await awardChessResult(client,String(row.id),"final_result",white,black,{outcome:"draw",winnerId:null,loserId:null});
+                if(status==="draw")await awardChessResult(client,String(row.id),"final_result",white,black,{outcome:"draw",winnerId:null,loserId:null});
         else {const winner=status==="white_win"?white:black;await awardChessResult(client,String(row.id),"final_result",white,black,{outcome:"win",winnerId:winner,loserId:winner===white?black:white});}
       }
       await client.query("COMMIT");
@@ -315,8 +310,7 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
         const timeoutStatus=timeoutWinner===white?"white_win":"black_win";
         await client.query("UPDATE chess_games SET status=$2,clock_snapshot=$3::jsonb,finished_at=NOW(),revision=revision+1 WHERE id=$1",[row.id,timeoutStatus,JSON.stringify({...elapsed,active:null,lastStartedAt:null,finished:true})]);
         await client.query("UPDATE chess_rooms SET status='finished' WHERE id=$1",[row.room_id]);
-        await client.query("DELETE FROM chess_voice_leases WHERE room_id=$1",[row.room_id]);
-        await awardChessResult(client,String(row.id),"final_result",white,black,{outcome:"win",winnerId:timeoutWinner,loserId:timeoutWinner===white?black:white});
+                await awardChessResult(client,String(row.id),"final_result",white,black,{outcome:"win",winnerId:timeoutWinner,loserId:timeoutWinner===white?black:white});
         await client.query("COMMIT");
         return fail(reply,409,"clock_expired");
       }
@@ -325,8 +319,7 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
       const clock={...elapsed,active:null,lastStartedAt:null,finished:true};
       await client.query("UPDATE chess_games SET status=$2,clock_snapshot=$3::jsonb,finished_at=NOW(),revision=revision+1 WHERE id=$1",[row.id,status,JSON.stringify(clock)]);
       await client.query("UPDATE chess_rooms SET status='finished' WHERE id=$1",[row.room_id]);
-      await client.query("DELETE FROM chess_voice_leases WHERE room_id=$1",[row.room_id]);
-      await awardChessResult(client,String(row.id),"final_result",white,black,{outcome:"resignation",winnerId:winner,loserId:playerId});
+            await awardChessResult(client,String(row.id),"final_result",white,black,{outcome:"resignation",winnerId:winner,loserId:playerId});
       await client.query("COMMIT");
       return {status,winnerId:winner};
     }catch(error){await rollback(client);request.log.error(error);return fail(reply,500,"chess_resign_failed");}
@@ -422,47 +415,6 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
       byMode:stats.rows};
   });
 
-  app.post<{Params:{gameId:string}}>("/chess/games/:gameId/voice/request",{preHandler:options.authenticate},async(request,reply)=>{
-    let playerId:string;
-    try{playerId=userId(request,options);}catch{return fail(reply,401,"unauthorized");}
-    const leaseId=randomUUID();
-    const result=await pool.query(
-      "INSERT INTO chess_voice_leases(room_id,user_id,lease_id,expires_at) SELECT r.id,$2,$3,NOW()+INTERVAL '8 seconds' FROM chess_games g JOIN chess_rooms r ON r.id=g.room_id WHERE g.id=$1 AND g.status='active' AND (g.white_user_id=$2 OR g.black_user_id=$2) AND COALESCE((r.settings_snapshot->>'voiceEnabled')::boolean,false)=true ON CONFLICT(room_id) DO UPDATE SET user_id=EXCLUDED.user_id,lease_id=EXCLUDED.lease_id,expires_at=EXCLUDED.expires_at WHERE chess_voice_leases.expires_at<=NOW() OR chess_voice_leases.user_id=EXCLUDED.user_id RETURNING lease_id,expires_at,user_id",
-      [request.params.gameId,playerId,leaseId]
-    );
-    if(!result.rowCount){
-      const occupied=await pool.query("SELECT u.username FROM chess_voice_leases l JOIN chess_games g ON g.room_id=l.room_id JOIN users u ON u.id=l.user_id WHERE g.id=$1 AND l.expires_at>NOW()",[request.params.gameId]);
-      return reply.code(409).send({granted:false,reason:"occupied",speakingUsername:occupied.rows[0]?.username??null});
-    }
-    return {granted:true,leaseId:result.rows[0].lease_id,expiresAt:result.rows[0].expires_at};
-  });
-
-  app.post<{Params:{gameId:string};Body:{leaseId:string}}>("/chess/games/:gameId/voice/release",{preHandler:options.authenticate},async(request,reply)=>{
-    let playerId:string;
-    try{playerId=userId(request,options);}catch{return fail(reply,401,"unauthorized");}
-    const result=await pool.query("DELETE FROM chess_voice_leases l USING chess_games g WHERE g.id=$1 AND l.room_id=g.room_id AND l.user_id=$2 AND l.lease_id=$3 RETURNING l.room_id",
-      [request.params.gameId,playerId,request.body?.leaseId]);
-    return {released:Boolean(result.rowCount)};
-  });
-
-  app.post<{Params:{gameId:string}}>("/chess/games/:gameId/voice/disable",{preHandler:options.authenticate},async(request,reply)=>{
-    let actor:string;
-    try{actor=userId(request,options);}catch{return fail(reply,401,"unauthorized");}
-    const client=await pool.connect();
-    try{
-      await client.query("BEGIN");
-      const room=await client.query("SELECT r.id,r.host_user_id,r.settings_snapshot FROM chess_rooms r JOIN chess_games g ON g.room_id=r.id AND g.status='active' WHERE g.id=$1 FOR UPDATE OF r",[request.params.gameId]);
-      if(!room.rowCount||String(room.rows[0].host_user_id)!==actor){await client.query("ROLLBACK");return fail(reply,403,"host_only");}
-      const settings={...(room.rows[0].settings_snapshot??{}),voiceEnabled:false};
-      await client.query("UPDATE chess_rooms SET settings_snapshot=$2::jsonb WHERE id=$1",[room.rows[0].id,JSON.stringify(settings)]);
-      await client.query("DELETE FROM chess_voice_leases WHERE room_id=$1",[room.rows[0].id]);
-      await client.query("COMMIT");
-      try{await publishGameEvent(pool,request.params.gameId,{type:"voice_settings"});}catch(error){request.log.warn({err:error},"voice disable notification failed");}
-      return {voiceEnabled:false};
-    }catch(error){await rollback(client);request.log.error(error);return fail(reply,500,"voice_disable_failed");}
-    finally{client.release();}
-  });
-
   app.delete<{Params:{id:string}}>("/chess/admin/time-controls/:id",{preHandler:options.authenticate},async(request,reply)=>{
     let actor:string;
     try{actor=userId(request,options);}catch{return fail(reply,401,"unauthorized");}
@@ -545,8 +497,7 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
         const terminal=winner===white?"white_win":"black_win";
         await client.query("UPDATE chess_games SET status=$2,clock_snapshot=$3::jsonb,finished_at=NOW(),revision=revision+1 WHERE id=$1",[row.id,terminal,JSON.stringify({...elapsed,active:null,lastStartedAt:null,finished:true})]);
         await client.query("UPDATE chess_rooms SET status='finished' WHERE id=$1",[row.room_id]);
-        await client.query("DELETE FROM chess_voice_leases WHERE room_id=$1",[row.room_id]);
-        await awardChessResult(client,String(row.id),"final_result",white,black,{outcome:"win",winnerId:winner,loserId:winner===white?black:white});
+                await awardChessResult(client,String(row.id),"final_result",white,black,{outcome:"win",winnerId:winner,loserId:winner===white?black:white});
         await client.query("COMMIT");
         return fail(reply,409,"clock_expired");
       }
@@ -580,8 +531,7 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
         const terminal=winner===white?"white_win":"black_win";
         await client.query("UPDATE chess_games SET status=$2,clock_snapshot=$3::jsonb,finished_at=NOW(),revision=revision+1 WHERE id=$1",[row.id,terminal,JSON.stringify({...elapsed,active:null,lastStartedAt:null,finished:true})]);
         await client.query("UPDATE chess_rooms SET status='finished' WHERE id=$1",[row.room_id]);
-        await client.query("DELETE FROM chess_voice_leases WHERE room_id=$1",[row.room_id]);
-        await awardChessResult(client,String(row.id),"final_result",white,black,{outcome:"win",winnerId:winner,loserId:winner===white?black:white});
+                await awardChessResult(client,String(row.id),"final_result",white,black,{outcome:"win",winnerId:winner,loserId:winner===white?black:white});
         await client.query("COMMIT");
         return fail(reply,409,"clock_expired");
       }
@@ -592,8 +542,7 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
         await client.query("UPDATE chess_draw_offers SET status='accepted',responded_by=$2,responded_at=NOW() WHERE id=$1",[offer.rows[0].id,playerId]);
         await client.query("UPDATE chess_games SET status='draw',clock_snapshot=$2::jsonb,finished_at=NOW(),revision=revision+1 WHERE id=$1",[row.id,JSON.stringify(clock)]);
         await client.query("UPDATE chess_rooms SET status='finished' WHERE id=$1",[row.room_id]);
-        await client.query("DELETE FROM chess_voice_leases WHERE room_id=$1",[row.room_id]);
-        await awardChessResult(client,String(row.id),"final_result",white,black,{outcome:"draw",winnerId:null,loserId:null});
+                await awardChessResult(client,String(row.id),"final_result",white,black,{outcome:"draw",winnerId:null,loserId:null});
         await client.query("COMMIT");
         try{
           await publishGameEvent(pool,row.id,{type:"draw_response",offerId:String(offer.rows[0].id),status:"accepted"});
@@ -607,30 +556,6 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
     }catch(error){await rollback(client);request.log.error(error);return fail(reply,500,"draw_response_failed");}
     finally{client.release();}
   });
-
-  app.post<{Params:{gameId:string};Body:{leaseId:string}}>("/chess/games/:gameId/voice/renew",{preHandler:options.authenticate},async(request,reply)=>{
-    let playerId:string;
-    try{playerId=userId(request,options);}catch{return fail(reply,401,"unauthorized");}
-    const renewed=await pool.query(
-      "UPDATE chess_voice_leases l SET expires_at=NOW()+INTERVAL '8 seconds' FROM chess_games g JOIN chess_rooms r ON r.id=g.room_id WHERE g.id=$1 AND g.status='active' AND COALESCE((r.settings_snapshot->>'voiceEnabled')::boolean,false)=true AND g.room_id=l.room_id AND l.user_id=$2 AND l.lease_id=$3 AND l.expires_at>NOW() RETURNING l.expires_at",
-      [request.params.gameId,playerId,request.body?.leaseId]
-    );
-    if(!renewed.rowCount)return fail(reply,409,"voice_lease_expired");
-    return {renewed:true,expiresAt:renewed.rows[0].expires_at};
-  });
-
-  app.post<{Params:{gameId:string}}>("/chess/games/:gameId/voice/enable",{preHandler:options.authenticate},async(request,reply)=>{
-    let actor:string;
-    try{actor=userId(request,options);}catch{return fail(reply,401,"unauthorized");}
-    const changed=await pool.query(
-      "UPDATE chess_rooms r SET settings_snapshot=jsonb_set(COALESCE(r.settings_snapshot,'{}'::jsonb),'{voiceEnabled}','true'::jsonb) FROM chess_games g WHERE g.id=$1 AND g.status='active' AND g.room_id=r.id AND r.host_user_id=$2 RETURNING r.id",
-      [request.params.gameId,actor]
-    );
-    if(!changed.rowCount)return fail(reply,403,"host_only");
-    try{await publishGameEvent(pool,request.params.gameId,{type:"voice_settings"});}catch(error){request.log.warn({err:error},"voice enable notification failed");}
-    return {voiceEnabled:true};
-  });
-
 
   // Any authenticated participant may ask the server to adjudicate an expired clock.
   // The row lock makes simultaneous claims idempotent across API instances.
@@ -665,8 +590,7 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
         [row.id,terminal,JSON.stringify(frozen)]
       );
       await client.query("UPDATE chess_rooms SET status='finished' WHERE id=$1",[row.room_id]);
-      await client.query("DELETE FROM chess_voice_leases WHERE room_id=$1",[row.room_id]);
-      await awardChessResult(client,String(row.id),"final_result",white,black,{outcome:"win",winnerId:winner,loserId:winner===white?black:white});
+            await awardChessResult(client,String(row.id),"final_result",white,black,{outcome:"win",winnerId:winner,loserId:winner===white?black:white});
       await client.query("COMMIT");
       return {adjudicated:true,status:terminal,winnerId:winner,clock:frozen};
     }catch(error){
@@ -731,7 +655,7 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
       const opponentId=String(opponentResult.rows[0].user_id);
       const roomCode=randomBytes(5).toString("hex").toUpperCase();
       const settings={minOpponentLevel:Math.max(minOpponentLevel,Number(opponentResult.rows[0].min_opponent_level)),
-        timeControlId,chatEnabled:true,voiceEnabled:false,
+        timeControlId,chatEnabled:true,
         timeControl:{id:controlRow.id,name:controlRow.id,baseMs:Number(controlRow.base_ms),
           incrementMs:Number(controlRow.increment_ms),enabled:controlRow.enabled}};
       const room=await client.query(
