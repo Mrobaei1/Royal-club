@@ -204,6 +204,37 @@ export function voteToCancelMatch(room, userId, approve, expectedVersion) {
     version: room.version + 1 };
 }
 
+/** Participant report of suspected cheating; reports never adjudicate or change a match result. */
+export function submitCheatingReport(room, reporterId, { reportId, reportedUserId, reason, now } = {}) {
+  requireUserId(reporterId); requireUserId(reportedUserId); requireNow(now);
+  if (!["playing", "round_completed", "completed"].includes(room.status)) throw new Error("This match cannot accept reports");
+  if (reporterId === reportedUserId) throw new Error("A player cannot report themselves");
+  if (!room.players.some(player => player.userId === reporterId) ||
+      !room.players.some(player => player.userId === reportedUserId)) {
+    throw new Error("Both reporter and reported player must be match participants");
+  }
+  if (typeof reportId !== "string" || !reportId.trim()) throw new TypeError("reportId is required");
+  if (typeof reason !== "string" || reason.trim().length < 10 || reason.length > 1000) {
+    throw new TypeError("Report reason must contain between 10 and 1000 characters");
+  }
+  const report = { reportId, reporterId, reportedUserId, reason: reason.trim(),
+    status: "pending", createdAt: now, reviewedBy: null, reviewedAt: null, reviewNotes: null };
+  return { ...room, reports: [...(room.reports ?? []), report], version: room.version + 1 };
+}
+
+/** Authorized management review is recorded separately from game adjudication. */
+export function reviewCheatingReport(room, reviewerId, reportId, { notes = "", now } = {}) {
+  requireUserId(reviewerId); requireNow(now);
+  if (typeof notes !== "string" || notes.length > 1000) throw new TypeError("Review notes must be at most 1000 characters");
+  const index = (room.reports ?? []).findIndex(report => report.reportId === reportId);
+  if (index < 0) throw new Error("Cheating report not found");
+  if (room.reports[index].status !== "pending") throw new Error("Cheating report has already been reviewed");
+  const reports = room.reports.map((report, i) => i === index
+    ? { ...report, status: "reviewed", reviewedBy: reviewerId, reviewedAt: now, reviewNotes: notes }
+    : report);
+  return { ...room, reports, version: room.version + 1 };
+}
+
 /** Participant appeal after a committed match result; the result itself remains immutable. */
 export function submitMatchAppeal(room, userId, { appealId, reason, now } = {}) {
   requireUserId(userId); requireNow(now);
