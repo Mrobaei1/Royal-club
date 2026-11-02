@@ -56,7 +56,8 @@ Tasks:
 - Complete chat text/image/emoji flows and notification targeting, including clear-all.
 - Complete avatar and username-edit rules without leaking private account data.
 - Complete Persian/English navigation and dynamic labels; manually verify RTL/LTR, theme consistency and VPN on/off continuity on real devices.
-- Keep voice/video chat out of scope.
+- Keep all live audio/video calls, WebRTC calling and TURN/media-relay infrastructure out of scope.
+- Recorded voice messages are a future optional private-chat message type, not a call feature. Keep recording/send/playback disabled by default; the current admin controls store owner intent and future storage configuration only. Do not expose a microphone control to users until the media pipeline, moderation/privacy rules, storage limits, deletion behavior and tests are implemented and separately accepted.
 
 **Exit gate:** API authorization/privacy tests pass; Persian and English flows are manually accepted on supported Android layouts; no public surface reveals full name, phone or email.
 
