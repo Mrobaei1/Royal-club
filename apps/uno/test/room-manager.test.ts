@@ -100,6 +100,27 @@ test('active match state and private hands survive snapshot restoration', () => 
   assert.equal(restored.getRoomForUser(guest.id), room.code);
 });
 
+test('snapshot restoration removes legacy live-media flags from old room data', () => {
+  const manager = new UnoRoomManager();
+  manager.restoreSnapshot({
+    rooms: [{
+      code: 'OLD123',
+      hostId: 'host',
+      status: 'waiting',
+      players: [{ id: 'host', username: 'host_name', ready: false, connected: true, muted: false, selfMuted: false, hostMuted: false }],
+      chatEnabled: true,
+      voiceEnabled: true,
+      createdAt: 1,
+      game: null,
+    }],
+  });
+  const restored = manager.getRoom('OLD123') as typeof manager extends never ? never : ReturnType<UnoRoomManager['getRoom']> & { voiceEnabled?: boolean };
+  assert.equal('voiceEnabled' in restored, false);
+  assert.equal('muted' in restored.players[0]!, false);
+  assert.equal('selfMuted' in restored.players[0]!, false);
+  assert.equal('hostMuted' in restored.players[0]!, false);
+});
+
 test('a room accepts six seats and rejects a seventh player', () => {
   const manager = new UnoRoomManager();
   const room = manager.createRoom(host);
