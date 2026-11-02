@@ -19,8 +19,8 @@ export class UnoRoomManager {
     while (this.rooms.has(code)) code = makeCode();
     const room: UnoRoom = {
       code, hostId: host.id, status: 'waiting',
-      players: [{ ...host, ready: false, connected: true, muted: true, selfMuted: true, hostMuted: false }],
-      chatEnabled: true, voiceEnabled: true, createdAt: Date.now(), lastActivityAt: Date.now(),
+      players: [{ ...host, ready: false, connected: true }],
+      chatEnabled: true, createdAt: Date.now(), lastActivityAt: Date.now(),
       matchToWin: 1, roundsWon: { [host.id]: 0 }, roundsPlayed: 0, matchWinnerId: null, totalPoints: { [host.id]: 0 }, game: null,
     };
     this.rooms.set(code, room);
@@ -43,7 +43,7 @@ export class UnoRoomManager {
       existing.ready = false;
     } else {
       if (room.players.length >= 6) throw new UnoError('ROOM_FULL', 'UNO tables support at most 6 players.');
-      room.players.push({ ...player, ready: false, connected: true, muted: true, selfMuted: true, hostMuted: false });
+      room.players.push({ ...player, ready: false, connected: true });
       room.roundsWon[player.id] = 0;
       room.totalPoints[player.id] = 0;
       this.userRooms.set(player.id, code);
@@ -127,35 +127,10 @@ export class UnoRoomManager {
     room.lastActivityAt = Date.now();
     return { game: publicGameState(room.game), hand: privateHand(room.game, playerId), room: structuredClone(room) };
   }
-  setMuted(code: string, actorId: string, targetId: string, muted: boolean): UnoRoom {
-    const room = this.requireRoom(code);
-    this.requirePlayer(room, actorId);
-    const target = this.requirePlayer(room, targetId);
-    if (actorId !== targetId && room.hostId !== actorId) throw new UnoError('HOST_ONLY', 'Only the player or host can change this microphone state.');
-    if (actorId === targetId) {
-      if (!muted && target.hostMuted) {
-        throw new UnoError('HOST_MUTED', 'The host has muted your microphone.');
-      }
-      target.selfMuted = muted;
-    } else {
-      target.hostMuted = muted;
-      if (muted) target.selfMuted = true;
-    }
-    target.muted = target.selfMuted || target.hostMuted;
-    room.lastActivityAt = Date.now();
-    return structuredClone(room);
-  }
-  setCommunication(code: string, actorId: string, setting: 'chatEnabled' | 'voiceEnabled', enabled: boolean): UnoRoom {
+  setCommunication(code: string, actorId: string, setting: 'chatEnabled', enabled: boolean): UnoRoom {
     const room = this.requireRoom(code);
     if (room.hostId !== actorId) throw new UnoError('HOST_ONLY', 'Only the host can change table communication settings.');
     room[setting] = enabled;
-    if (setting === 'voiceEnabled') {
-      for (const player of room.players) {
-        player.hostMuted = !enabled;
-        if (!enabled) player.selfMuted = true;
-        player.muted = player.selfMuted || player.hostMuted;
-      }
-    }
     room.lastActivityAt = Date.now();
     return structuredClone(room);
   }
@@ -177,8 +152,6 @@ export class UnoRoomManager {
         }
       }
     }
-    player.selfMuted = true;
-    player.muted = true;
     if (room.status !== 'playing') room.status = 'waiting';
     room.lastActivityAt = Date.now();
     return structuredClone(room);
@@ -191,8 +164,6 @@ export class UnoRoomManager {
       const departing = room.players[index]!;
       departing.connected = false;
       departing.ready = false;
-      departing.selfMuted = true;
-      departing.muted = true;
       if (room.hostId === playerId) {
         for (let offset = 1; offset < room.players.length; offset++) {
           const successor = room.players[(index + offset) % room.players.length]!;
@@ -236,8 +207,6 @@ export class UnoRoomManager {
       for (const player of room.players) {
         player.connected = false;
         player.ready = false;
-        player.selfMuted = true;
-        player.muted = true;
       }
       if (room.status !== 'playing' && room.status !== 'finished') room.status = 'waiting';
     }
@@ -271,9 +240,6 @@ export class UnoRoomManager {
       for (const player of room.players) {
         room.roundsWon[player.id] ??= 0;
         room.totalPoints[player.id] ??= 0;
-        player.selfMuted = typeof player.selfMuted === 'boolean' ? player.selfMuted : player.muted !== false;
-        player.hostMuted = typeof player.hostMuted === 'boolean' ? player.hostMuted : false;
-        player.muted = player.selfMuted || player.hostMuted;
       }
       this.rooms.set(room.code, structuredClone(room));
       if (room.status !== 'finished') {
