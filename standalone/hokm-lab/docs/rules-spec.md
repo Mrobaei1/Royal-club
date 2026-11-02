@@ -41,7 +41,7 @@ Each item below blocks Phase 1 completion until the owner chooses or explicitly 
 |---|---|---|---|
 | R-01 | Regional variant | Generic Persian-style Hokm assumption | Confirm exact variant/house rules intended for Royal Club. |
 | R-02 | First hakem | Supplied as a round input; default seat 0 in tests | **Approved (2026-11-02):** select the first hakem randomly from the four players. |
-| R-03 | Hakem rotation | Not specified in current round controller | **Approved (2026-11-02):** from the second hand onward, the team that won the previous hand supplies the next hakem. If the previous hakem belongs to the winning team, that same player remains hakem; otherwise, the previous hakem's teammate becomes hakem. Match-boundary behavior remains to be specified. |
+| R-03 | Hakem rotation | Not specified in current round controller | **Approved (2026-11-02):** from the second hand onward, the team that won the previous hand supplies the next hakem. If the previous hakem belongs to the winning team, that same player remains hakem; otherwise, the previous hakem's teammate becomes hakem. At the start of every new match, the first hakem is selected randomly from all four players. |
 | R-04 | Deal order | Five cards per player in clockwise seat order, starting with hakem | Confirm dealer, first recipient, direction and whether the same order applies to both deal stages. |
 | R-05 | Hakem selection timing | Hakem chooses after first five cards and before remaining eight | Confirm whether selection is mandatory, whether a timer/auto-choice exists, and whether the hakem may change their choice. |
 | R-06 | Early hand finish | First team to seven tricks wins immediately | Confirm whether play stops at 7, or all 13 tricks must be completed for special scoring. |
