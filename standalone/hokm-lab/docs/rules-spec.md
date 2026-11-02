@@ -170,3 +170,10 @@ Phase 1 remains **in progress**. This document separates confirmed owner decisio
 **R-39 single-player unrecovered disconnection (2026-11-03):** If exactly one player disconnects and does not reconnect before the match ends, Hard bot controls that seat after the 20-second grace period and the match continues. At match end, apply the player's normal team-result XP award (+20 for a win or +5 for a loss) and the existing single 5 XP unrecovered-disconnection deduction. Thus the net result before the XP floor is +15 XP for a winning player or 0 XP for a losing player. The deduction does not stack with a voluntary-exit deduction.
 
 **R-40 canceled match has no retained scoring or XP effects (2026-11-03):** If a match is canceled under any approved cancellation rule, discard all match points accumulated in that match. Do not record a match result or award/deduct XP. Cancellation must have no effect on player ratings, rankings, or other progression derived from that match.
+
+
+**R-38 single intentional exit (2026-11-03):** If exactly one player voluntarily leaves an active match, the match continues with Hard bot permanently controlling that player's seat until match completion. The departed player receives a single 5 XP deduction at match end and cannot rejoin that match.
+
+**R-39 single unrecovered disconnection (2026-11-03):** If exactly one player disconnects and does not reconnect before the match ends, the match continues with Hard bot controlling that seat after the 20-second grace period. Apply the previously approved single 5 XP disconnection penalty at match end. Do not stack this penalty with the voluntary-exit penalty; if both conditions apply, deduct only 5 XP total. Reconnected players receive normal match XP as previously approved.
+
+**R-40 cancellation clears all match effects (2026-11-03):** When a match is cancelled under any approved cancellation rule, discard all match-point progress and all provisional hand results from that match. Do not record a final result or apply any XP awards or deductions. Cancellation must have no effect on player ratings, rankings, or XP.
