@@ -146,3 +146,8 @@ Phase 1 remains **in progress**. This document separates confirmed owner decisio
 **R-31 next-trick lead (2026-11-03):** The player who wins a trick leads the next trick.
 
 **R-32 card rank order (2026-11-03):** Card ranks are ordered from lowest to highest as 2, 3, 4, 5, 6, 7, 8, 9, 10, Jack, Queen, King, Ace. This ordering is used when comparing cards within the same suit, including trump comparisons and automatic trump-selection tie-breaks.
+
+
+**R-31 next trick lead (2026-11-03):** The player who wins a trick leads the first card of the next trick.
+
+**R-32 card rank order (2026-11-03):** Card ranks are ordered from lowest to highest as 2, 3, 4, 5, 6, 7, 8, 9, 10, Jack, Queen, King, Ace. For rank-based comparisons, this is the canonical order; suits do not change rank order except that trump status determines trick precedence as specified in R-30.
