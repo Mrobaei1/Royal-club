@@ -53,7 +53,7 @@ class _HokmScreenState extends State<HokmScreen> with WidgetsBindingObserver {
   bool get _ready => _me?['ready'] == true;
   int get _serverNow => DateTime.now().millisecondsSinceEpoch + _serverClockOffsetMs;
   int _secondsLeft(Object? deadline) => deadline is num
-      ? ((deadline.toInt() - _serverNow) / 1000).ceil().clamp(0, 99)
+      ? ((deadline.toInt() - _serverNow) / 1000).ceil().clamp(0, 99).toInt()
       : 0;
   Map<String, dynamic>? get _game {
     final game = _room?['game'];
