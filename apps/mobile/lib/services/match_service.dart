@@ -2,18 +2,15 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
-import 'auth_service.dart';
+import 'api_transport.dart';
 
 class MatchService {
   static const _storage = FlutterSecureStorage();
-  static const _baseUrl = AuthService.baseUrl;
 
   // Normalize the configured API URL in one place so a trailing slash cannot
   // create a double-slash route, and fail clearly when the API is not configured.
   static Uri _uri(String path) {
-    AuthService.ensureConfigured();
-    final base = _baseUrl.trim().replaceFirst(RegExp(r'/+$'), '');
-    return Uri.parse('$base/api/v1/matches$path');
+    return ApiTransport.uri('/api/v1/matches$path');
   }
 
   static Future<http.Response> _getWithRetry(Uri uri, Map<String, String> headers) async {
@@ -184,9 +181,7 @@ class MatchService {
     return Map<String, dynamic>.from(decoded['state'] as Map);
   }
   static Uri _apiUri(String path) {
-    AuthService.ensureConfigured();
-    final base = _baseUrl.trim().replaceFirst(RegExp(r'/+$'), '');
-    return Uri.parse('$base/api/v1$path');
+    return ApiTransport.uri('/api/v1$path');
   }
 
   static Future<Map<String, dynamic>> _postJson(String path, Map<String, dynamic> body) async {
