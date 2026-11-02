@@ -156,10 +156,12 @@ export class HokmRoomService {
 
   async reportCheating(principal, roomId, reportedUserId, reason, expectedVersion) {
     const reporterId = authenticatedUser(principal);
-    return this.#transition(roomId, expectedVersion,
-      room => submitCheatingReport(room, reporterId, {
-        reportId: this.id(), reportedUserId, reason, now: this.now()
+    const reportId = this.id();
+    const room = await this.#transition(roomId, expectedVersion,
+      current => submitCheatingReport(current, reporterId, {
+        reportId, reportedUserId, reason, now: this.now()
       }), reporterId);
+    return Object.freeze({ ...room, submittedReportId: reportId });
   }
 
   async reviewCheating(principal, roomId, reportId, notes, expectedVersion) {
@@ -173,8 +175,10 @@ export class HokmRoomService {
 
   async submitAppeal(principal, roomId, reason, expectedVersion) {
     const userId = authenticatedUser(principal);
-    return this.#transition(roomId, expectedVersion,
-      room => submitMatchAppeal(room, userId, { appealId: this.id(), reason, now: this.now() }), userId);
+    const appealId = this.id();
+    const room = await this.#transition(roomId, expectedVersion,
+      current => submitMatchAppeal(current, userId, { appealId, reason, now: this.now() }), userId);
+    return Object.freeze({ ...room, submittedAppealId: appealId });
   }
 
   async reviewAppeal(principal, roomId, appealId, decision, notes, expectedVersion) {
