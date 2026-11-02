@@ -57,6 +57,9 @@ export async function registerHokmRoutes(fastify, { service, authenticate, prefi
   route(fastify, authenticate, "POST", path("/hokm/rooms/:roomId/start"), request =>
     service.start(request.auth, request.params.roomId, request.body?.expectedVersion));
 
+  route(fastify, authenticate, "POST", path("/hokm/rooms/:roomId/next-round"), request =>
+    service.nextRound(request.auth, request.params.roomId, request.body?.expectedVersion));
+
   route(fastify, authenticate, "POST", path("/hokm/rooms/:roomId/command"), request =>
     service.command(request.auth, request.params.roomId, request.body?.command, request.body?.expectedVersion));
 
