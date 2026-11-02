@@ -11,13 +11,13 @@ This module is intentionally isolated from the production Flutter app and API. I
 - Username-only public profiles, independent XP progression and Elo ratings.
 - Bilingual Persian/English Flutter lobby, board, text chat controls and manager time-control screen.
 
-## Deferred feature policy: voice messages
-Royal Club is a games platform and will not provide voice calls, video calls, live push-to-talk, WebRTC media or media relay infrastructure.
+## Deferred voice-message policy
+Royal Club is a games platform and will not provide voice calls, video calls, live push-to-talk, WebRTC media or media relay infrastructure. Those routes, clients, signaling handlers, dependencies and database lease objects are removed.
 
-A future asynchronous voice-message feature may use a microphone button to record and send audio clips in chat. It is deferred and disabled for now. The current release must not request microphone permission, record audio, play voice messages, or provision paid audio infrastructure. Only manager-facing configuration scaffolding may be prepared, with the feature defaulting to disabled. Future activation requires the manager's explicit decision and an approved secure implementation. No paid provider or service may be enabled automatically.
+A future asynchronous voice-message feature may use a microphone button to record and send audio clips in chat. It is deferred and disabled for now. The current release must not request microphone permission, record audio, play voice messages, or provision paid audio infrastructure. The manager screen contains only a locked, disabled placeholder; there is no active feature flag or backend endpoint. Future activation requires the owner's explicit decision and an approved secure implementation. No paid provider or service may be enabled automatically.
 
 ## Structure
-- `api/`: Fastify routes, chess engine, clocks, scheduler, matchmaking, progression, rating, WebSocket chat and tests.
+- `api/`: Fastify routes, chess engine, clocks, scheduler, matchmaking, progression, rating, WebSocket text chat and tests.
 - `mobile/`: Flutter UI and authenticated API client.
 - `database/migrations/`: isolated migrations `001` through `010`; never included in the production migration runner.
 - `contracts/`: WebSocket event contract.
@@ -42,7 +42,7 @@ flutter test
 ```
 
 ## Acceptance boundary
-Green CI proves static analysis, automated tests and migration smoke tests only. It does not replace physical-device reconnect tests, accessibility and RTL/LTR device acceptance, production database review, or security review. The acceptance matrix tracks these separately.
+Green CI proves static analysis, automated tests and migration smoke tests only. It does not replace physical-device reconnect tests, accessibility and RTL/LTR device acceptance, production database review, or security review.
 
 ## Integration gate
 Do not merge into `main`, register routes, expose a home-screen entry, deploy, migrate production, or build an APK without the owner's separate explicit instruction.
