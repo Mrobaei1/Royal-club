@@ -86,7 +86,6 @@ export async function adjudicateExpiredChessClocks(pool: Pool, now = Date.now())
         [row.id, status, JSON.stringify(frozen)]
       );
       await client.query("UPDATE chess_rooms SET status='finished' WHERE id=$1", [row.room_id]);
-      await client.query("DELETE FROM chess_voice_leases WHERE room_id=$1", [row.room_id]);
       await awardChessResult(client, String(row.id), "final_result", white, black, {
         outcome: "win",
         winnerId: winner,
