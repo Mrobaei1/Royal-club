@@ -79,7 +79,8 @@ export function drawOpeningCard(drawPile: UnoCard[]): UnoCard {
       break;
     }
   }
-  drawPile.push(...deferredWildFours);
+  // drawPile is consumed with pop(); return excluded Wild Draw Fours to its bottom.
+  drawPile.unshift(...deferredWildFours);
   if (!first) throw new UnoError('INVALID_OPENING_DECK', 'The deck contains no valid opening card other than Wild Draw Four.');
   return first;
 }
