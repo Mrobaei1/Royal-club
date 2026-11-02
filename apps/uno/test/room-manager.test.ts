@@ -114,7 +114,7 @@ test('snapshot restoration removes legacy live-media flags from old room data', 
       game: null,
     }],
   });
-  const restored = manager.getRoom('OLD123') as typeof manager extends never ? never : ReturnType<UnoRoomManager['getRoom']> & { voiceEnabled?: boolean };
+  const restored = manager.getRoom('OLD123') as ReturnType<UnoRoomManager['getRoom']> & { voiceEnabled?: boolean };
   assert.equal('voiceEnabled' in restored, false);
   assert.equal('muted' in restored.players[0]!, false);
   assert.equal('selfMuted' in restored.players[0]!, false);
