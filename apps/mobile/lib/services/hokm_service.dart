@@ -3,7 +3,7 @@ import 'auth_service.dart';
 abstract class HokmApi {
   Future<Map<String, dynamic>> createRoom({required int matchTarget, required bool privateRoom});
   Future<Map<String, dynamic>> viewRoom(String roomId);
-  Future<Map<String, dynamic>> joinRoom(String roomId, int expectedVersion);
+  Future<Map<String, dynamic>> joinRoom(String roomId, [int? expectedVersion]);
   Future<Map<String, dynamic>> setReady(String roomId, bool ready, int expectedVersion);
   Future<Map<String, dynamic>> startMatch(String roomId, int expectedVersion);
   Future<Map<String, dynamic>> startNextRound(String roomId, int expectedVersion);
@@ -31,8 +31,10 @@ class HokmService implements HokmApi {
       AuthService.authenticatedGet(_roomPath(roomId));
 
   @override
-  Future<Map<String, dynamic>> joinRoom(String roomId, int expectedVersion) =>
-      AuthService.authenticatedPost('${_roomPath(roomId)}/join', {'expectedVersion': expectedVersion});
+  Future<Map<String, dynamic>> joinRoom(String roomId, [int? expectedVersion]) =>
+      AuthService.authenticatedPost('${_roomPath(roomId)}/join', {
+        if (expectedVersion != null) 'expectedVersion': expectedVersion,
+      });
 
   @override
   Future<Map<String, dynamic>> setReady(String roomId, bool ready, int expectedVersion) =>
