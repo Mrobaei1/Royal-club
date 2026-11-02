@@ -130,10 +130,20 @@ class ChessAdminSettingsScreen extends StatelessWidget {
       ),
       body: ListView.separated(
         padding: const EdgeInsets.all(16),
-        itemCount: controls.length,
+        itemCount: controls.length + 1,
         separatorBuilder: (_, __) => const Divider(),
         itemBuilder: (context, index) {
-          final control = controls[index];
+          if (index == 0) {
+            return ListTile(
+              leading: const Icon(Icons.lock_outline),
+              title: Text(fa ? 'پیام صوتی (قابلیت آینده)' : 'Voice messages (future feature)'),
+              subtitle: Text(fa
+                  ? 'فعلاً غیرفعال است؛ تماس صوتی و تصویری در این پروژه وجود ندارد.'
+                  : 'Disabled for now. Live audio and video calls are out of scope.'),
+              trailing: Switch(value: false, onChanged: null),
+            );
+          }
+          final control = controls[index - 1];
           return ListTile(
             title: Text(control.displayName),
             subtitle: Text('${_duration(control.baseMs, fa)} • +${control.incrementMs ~/ 1000}s'),
