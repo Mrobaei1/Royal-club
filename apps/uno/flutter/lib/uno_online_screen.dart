@@ -31,6 +31,9 @@ class _UnoOnlineScreenState extends State<UnoOnlineScreen> {
   bool _busy = false;
   String? _error;
 
+  bool get _isPersian => Localizations.localeOf(context).languageCode == 'fa';
+  String _t(String fa, String en) => _isPersian ? fa : en;
+
   @override
   void initState() {
     super.initState();
@@ -52,7 +55,7 @@ class _UnoOnlineScreenState extends State<UnoOnlineScreen> {
       final code = _room?['code']?.toString();
       if (code != null) _restoreRoom(code);
     });
-    socket.onConnectError((error) { if (mounted) setState(() => _error = 'اتصال به سرور برقرار نشد: $error'); });
+    socket.onConnectError((error) { if (mounted) setState(() => _error = _t('اتصال به سرور برقرار نشد: $error', 'Could not connect to server: $error')); });
     socket.on('uno:room:state', (data) {
       if (!mounted) return;
       final room = Map<String, dynamic>.from(data as Map);
@@ -99,7 +102,7 @@ class _UnoOnlineScreenState extends State<UnoOnlineScreen> {
     });
     return completer.future.timeout(
       const Duration(seconds: 12),
-      onTimeout: () => {'ok': false, 'error': {'message': 'پاسخی از سرور دریافت نشد.'}},
+      onTimeout: () => {'ok': false, 'error': {'message': _t('پاسخی از سرور دریافت نشد.', 'The server did not respond.')}},
     );
   }
 
@@ -109,7 +112,7 @@ class _UnoOnlineScreenState extends State<UnoOnlineScreen> {
       final result = await _emit(event, payload);
       if (result['ok'] != true) {
         final error = Map<String, dynamic>.from(result['error'] as Map? ?? {});
-        throw StateError(error['message']?.toString() ?? 'عملیات انجام نشد.');
+        throw StateError(error['message']?.toString() ?? _t('عملیات انجام نشد.', 'The operation failed.'));
       }
       final data = result['data'];
       if (event == 'uno:room:create' || event == 'uno:room:join') {
@@ -175,7 +178,7 @@ class _UnoOnlineScreenState extends State<UnoOnlineScreen> {
     'blue' => Colors.blue.shade700,
     _ => Colors.black87,
   };
-  String _colorName(String color) => switch (color) {'red' => 'قرمز', 'yellow' => 'زرد', 'green' => 'سبز', _ => 'آبی'};
+  String _colorName(String color) => switch (color) {'red' => _t('قرمز', 'Red'), 'yellow' => _t('زرد', 'Yellow'), 'green' => _t('سبز', 'Green'), _ => _t('آبی', 'Blue')};
 
   @override
   void dispose() {
@@ -190,19 +193,19 @@ class _UnoOnlineScreenState extends State<UnoOnlineScreen> {
   Widget build(BuildContext context) {
     final room = _room;
     return Scaffold(
-      appBar: AppBar(title: const Text('UNO آنلاین')),
+      appBar: AppBar(title: Text(_t('UNO آنلاین', 'Online UNO'))),
       body: _busy ? const Center(child: CircularProgressIndicator()) : room == null ? _buildLobby() : _buildRoom(room),
     );
   }
 
   Widget _buildLobby() => ListView(padding: const EdgeInsets.all(20), children: [
-    const Text('یک میز بساز یا با کد میز وارد شو.', style: TextStyle(fontSize: 18)),
+    Text(_t('یک میز بساز یا با کد میز وارد شو.', 'Create a table or join with its code.'), style: const TextStyle(fontSize: 18)),
     const SizedBox(height: 16),
-    FilledButton.icon(onPressed: () => _run('uno:room:create', {}), icon: const Icon(Icons.add), label: const Text('ساخت میز جدید')),
+    FilledButton.icon(onPressed: () => _run('uno:room:create', {}), icon: const Icon(Icons.add), label: Text(_t('ساخت میز جدید', 'Create table'))),
     const SizedBox(height: 18),
-    TextField(controller: _codeController, textCapitalization: TextCapitalization.characters, decoration: const InputDecoration(labelText: 'کد میز', border: OutlineInputBorder())),
+    TextField(controller: _codeController, textCapitalization: TextCapitalization.characters, decoration: const InputDecoration(labelText: _t('کد میز', 'Table code'), border: OutlineInputBorder())),
     const SizedBox(height: 8),
-    OutlinedButton(onPressed: () => _run('uno:room:join', {'code': _codeController.text}), child: const Text('ورود به میز')),
+    OutlinedButton(onPressed: () => _run('uno:room:join', {'code': _codeController.text}), child: Text(_t('ورود به میز', 'Join table'))),
     if (_error != null) _errorText(),
   ]);
 
@@ -213,17 +216,17 @@ class _UnoOnlineScreenState extends State<UnoOnlineScreen> {
     final code = room['code'].toString();
     return ListView(padding: const EdgeInsets.all(12), children: [
       Card(child: Padding(padding: const EdgeInsets.all(14), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text('کد میز: $code', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20)),
-        Text('ظرفیت: ${players.length}/6 — حداقل ۲ نفر'),
-        Text('برد لازم برای قهرمانی: ${room['matchToWin'] ?? 1}  |  دست‌های انجام‌شده: ${room['roundsPlayed'] ?? 0}'),
+        Text('${_t('کد میز', 'Table code')}: $code', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20)),
+        Text(_t('ظرفیت: ${players.length}/6 — حداقل ۲ نفر', 'Players: ${players.length}/6 — minimum 2')),
+        Text(_t('برد لازم برای قهرمانی: ${room['matchToWin'] ?? 1}  |  دست‌های انجام‌شده: ${room['roundsPlayed'] ?? 0}', 'Wins to win match: ${room['matchToWin'] ?? 1}  |  Rounds played: ${room['roundsPlayed'] ?? 0}')),
         if (isHost && (room['roundsPlayed'] ?? 0) == 0)
           Row(children: [
-            const Expanded(child: Text('تعداد برد لازم برای قهرمانی')),
+            Expanded(child: Text(_t('تعداد برد لازم برای قهرمانی', 'Wins needed to win the match'))),
             DropdownButton<int>(
               value: (room['matchToWin'] as int?) ?? 1,
               items: const [1, 3, 5].map((value) => DropdownMenuItem<int>(
                 value: value,
-                child: Text('$value برد'),
+                child: Text(_t('$value برد', '$value wins')),
               )).toList(),
               onChanged: (value) {
                 if (value != null) _run('uno:room:match-to-win', {'code': code, 'rounds': value});
@@ -234,23 +237,23 @@ class _UnoOnlineScreenState extends State<UnoOnlineScreen> {
         ...players.map((p) => ListTile(
           dense: true, leading: Icon(p['id'] == room['hostId'] ? Icons.workspace_premium : Icons.person),
           title: Text('@${p['username']}'),
-          subtitle: Text('${p['ready'] == true ? 'آماده' : 'در انتظار آمادگی'} • برد: ${(room['roundsWon'] as Map?)?[p['id']] ?? 0} • امتیاز: ${(room['totalPoints'] as Map?)?[p['id']] ?? 0}'),
+          subtitle: Text('${p['ready'] == true ? _t('آماده', 'Ready') : _t('در انتظار آمادگی', 'Not ready')} • ${_t('برد', 'Wins')}: ${(room['roundsWon'] as Map?)?[p['id']] ?? 0} • ${_t('امتیاز', 'Points')}: ${(room['totalPoints'] as Map?)?[p['id']] ?? 0}'),
 
         )),
         if (room['status'] == 'waiting' || room['status'] == 'ready')
           Row(children: [
-            Expanded(child: OutlinedButton(onPressed: () => _run('uno:room:ready', {'code': code, 'ready': !ready}), child: Text(ready ? 'لغو آمادگی' : 'آماده‌ام'))),
+            Expanded(child: OutlinedButton(onPressed: () => _run('uno:room:ready', {'code': code, 'ready': !ready}), child: Text(ready ? _t('لغو آمادگی', 'Not ready') : _t('آماده‌ام', 'Ready')))),
             const SizedBox(width: 8),
-            if (isHost) Expanded(child: FilledButton(onPressed: room['status'] == 'ready' ? () => _run('uno:room:start', {'code': code}) : null, child: const Text('شروع بازی'))),
+            if (isHost) Expanded(child: FilledButton(onPressed: room['status'] == 'ready' ? () => _run('uno:room:start', {'code': code}) : null, child: Text(_t('شروع بازی', 'Start game')))),
           ]),
         if (room['status'] == 'waiting')
           Text((room['roundsPlayed'] ?? 0) > 0
-              ? 'این دست تمام شد؛ برای دست بعد همه بازیکنان باید دوباره آماده شوند.'
-              : 'شروع بازی فقط پس از آمادگی همه و با دستور میزبان امکان‌پذیر است.'),
+              ? _t('این دست تمام شد؛ برای دست بعد همه بازیکنان باید دوباره آماده شوند.', 'This round is over; everyone must ready up again for the next round.')
+              : _t('شروع بازی فقط پس از آمادگی همه و با دستور میزبان امکان‌پذیر است.', 'The host can start only after every player is ready.')),
         if (room['status'] == 'finished')
-          Text('قهرمان مسابقه: @${players.firstWhere((p) => p['id'] == room['matchWinnerId'], orElse: () => {})['username'] ?? ''}'),
-        if (isHost) SwitchListTile(title: const Text('فعال‌بودن چت'), value: room['chatEnabled'] == true, onChanged: (value) => _run('uno:room:communication', {'code': code, 'setting': 'chatEnabled', 'enabled': value})),
-        if (room['status'] != 'playing') TextButton.icon(onPressed: () => _run('uno:room:leave', {'code': code}), icon: const Icon(Icons.exit_to_app), label: const Text('خروج از میز')),
+          Text('${_t('قهرمان مسابقه', 'Match champion')}: @${players.firstWhere((p) => p['id'] == room['matchWinnerId'], orElse: () => {})['username'] ?? ''}'),
+        if (isHost) SwitchListTile(title: Text(_t('فعال‌بودن چت', 'Enable chat')), value: room['chatEnabled'] == true, onChanged: (value) => _run('uno:room:communication', {'code': code, 'setting': 'chatEnabled', 'enabled': value})),
+        if (room['status'] != 'playing') TextButton.icon(onPressed: () => _run('uno:room:leave', {'code': code}), icon: const Icon(Icons.exit_to_app), label: Text(_t('خروج از میز', 'Leave table'))),
       ]))),
       if (_game != null) _buildGame(code),
       _buildChat(room),
@@ -271,14 +274,14 @@ class _UnoOnlineScreenState extends State<UnoOnlineScreen> {
     return Card(child: Padding(padding: const EdgeInsets.all(14), child: Column(children: [
       Text(gameOver
           ? (_room?['matchWinnerId'] != null
-              ? 'قهرمان مسابقه: @${winner['username'] ?? ''} • امتیاز این دست: ${game['winnerScore'] ?? 0}'
-              : 'برنده این دست: @${winner['username'] ?? ''} • امتیاز: ${game['winnerScore'] ?? 0}')
-          : (myTurn ? 'نوبت شماست' : 'نوبت بازیکن دیگر')),
+              ? '${_t('قهرمان مسابقه', 'Match champion')}: @${winner['username'] ?? ''} • ${_t('امتیاز این دست', 'Round points')}: ${game['winnerScore'] ?? 0}'
+              : '${_t('برنده این دست', 'Round winner')}: @${winner['username'] ?? ''} • ${_t('امتیاز', 'Points')}: ${game['winnerScore'] ?? 0}')
+          : (myTurn ? _t('نوبت شماست', 'Your turn') : _t('نوبت بازیکن دیگر', 'Another player’s turn'))),
       const SizedBox(height: 8),
       Row(mainAxisAlignment: MainAxisAlignment.center, children: [
         _unoCard(top, large: true),
         const SizedBox(width: 14),
-        Column(children: [Text('رنگ فعال: ${_colorName(color)}'), Text('کارت‌های باقی‌مانده: ${game['drawCount']}')]),
+        Column(children: [Text('${_t('رنگ فعال', 'Active color')}: ${_colorName(color)}'), Text('${_t('کارت‌های باقی‌مانده', 'Cards in draw pile')}: ${game['drawCount']}')]),
       ]),
       const SizedBox(height: 12),
       Wrap(spacing: 6, runSpacing: 6, alignment: WrapAlignment.center, children: _hand.map((raw) => InkWell(
@@ -291,14 +294,14 @@ class _UnoOnlineScreenState extends State<UnoOnlineScreen> {
       ]),
       if (myTurn && !gameOver && !openingColorPending) Wrap(spacing: 8, children: [
         if (pendingWild4) ...[
-          FilledButton(onPressed: () => _run('uno:game:action', {'code': code, 'action': {'type': 'challengeWild4'}}), child: const Text('چالش +۴')),
-          OutlinedButton(onPressed: () => _run('uno:game:action', {'code': code, 'action': {'type': 'draw'}}), child: const Text('قبول +۴ و برداشتن ۴ کارت')),
-        ] else if (_drawnCardId == null) OutlinedButton(onPressed: () => _run('uno:game:action', {'code': code, 'action': {'type': 'draw'}}), child: const Text('برداشتن کارت')),
-        if (_drawnCardId != null) OutlinedButton(onPressed: () => _run('uno:game:action', {'code': code, 'action': {'type': 'pass'}}), child: const Text('پایان نوبت')),
+          FilledButton(onPressed: () => _run('uno:game:action', {'code': code, 'action': {'type': 'challengeWild4'}}), child: Text(_t('چالش +۴', 'Challenge +4'))),
+          OutlinedButton(onPressed: () => _run('uno:game:action', {'code': code, 'action': {'type': 'draw'}}), child: Text(_t('قبول +۴ و برداشتن ۴ کارت', 'Accept +4 (draw four)'))),
+        ] else if (_drawnCardId == null) OutlinedButton(onPressed: () => _run('uno:game:action', {'code': code, 'action': {'type': 'draw'}}), child: Text(_t('برداشتن کارت', 'Draw card'))),
+        if (_drawnCardId != null) OutlinedButton(onPressed: () => _run('uno:game:action', {'code': code, 'action': {'type': 'pass'}}), child: Text(_t('پایان نوبت', 'End turn'))),
       ]),
       if (game['unoPendingPlayerId'] != null && game['unoPendingPlayerId'] != widget.playerId && !gameOver)
-        OutlinedButton(onPressed: _busy ? null : () => _run('uno:game:action', {'code': code, 'action': {'type': 'catchUno'}}), child: const Text('اعلام تخلف UNO')),
-      if (game['unoPendingPlayerId'] == widget.playerId) TextButton(onPressed: () => _run('uno:game:action', {'code': code, 'action': {'type': 'callUno'}}), child: const Text('UNO!')),
+        OutlinedButton(onPressed: _busy ? null : () => _run('uno:game:action', {'code': code, 'action': {'type': 'catchUno'}}), child: Text(_t('اعلام تخلف UNO', 'Catch UNO'))),
+      if (game['unoPendingPlayerId'] == widget.playerId) TextButton(onPressed: () => _run('uno:game:action', {'code': code, 'action': {'type': 'callUno'}}), child: Text(_t('UNO!', 'UNO!'))),
     ])));
   }
 
