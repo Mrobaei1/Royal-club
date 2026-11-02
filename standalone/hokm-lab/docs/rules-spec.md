@@ -82,6 +82,8 @@ Phase 1 remains **in progress**. This document separates confirmed owner decisio
 
 ## Approved decisions
 
+**R-23 unrecovered disconnection XP penalty (2026-11-02):** If a player disconnects during an active match and does not reconnect before the match ends, apply a 5 XP penalty to that player at match end. This penalty applies once. A temporary disconnection that is recovered before match end incurs no such penalty. The rule is separate from the voluntary-exit penalty.
+
 **R-22 voluntary-exit XP penalty timing (2026-11-02):** The 5 XP penalty for a voluntary match exit is applied once, at the end of the match, not immediately when the player exits.
 
 **R-21 voluntary exit is final (2026-11-02):** When a player explicitly chooses to leave an active match, that seat remains under Hard bot control until the match ends. The departed player cannot rejoin or regain control of that same match. This is distinct from a temporary network disconnection and its reconnect grace flow.
