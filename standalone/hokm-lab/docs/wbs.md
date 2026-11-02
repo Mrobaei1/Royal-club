@@ -20,7 +20,14 @@
 | 11.0 | QA and security | Engine/room/round/progression tests, seeded property tests, full-match simulations, AI benchmarks, privacy and reconnect checks; production integration/concurrency/security suites still pending | 8% |
 | 12.0 | Handoff readiness | API contract, setup/deployment guide, integration checklist and evidence-based completion report | 3% |
 
-## Communication policy (owner-confirmed, 2026-11-02)\n\n- Royal Club is a game platform, not a voice/video calling or conferencing application. Voice calls, video calls, conference rooms and related call infrastructure are explicitly out of scope.\n- Voice messages (recorded audio clips sent through a microphone button) are a separate, optional feature. Keep the capability dormant and disabled by default; do not consume paid services or provision operational media infrastructure now.\n- Build only the manager-side feature-flag/configuration foundation needed for the owner/manager to enable voice messages later, including secure configuration fields and auditability. Actual activation requires a later manager decision and an approved free implementation/provider.\n- TURN servers, coturn, TURN credentials/URLs, WebRTC call signaling and call-related dependencies/configuration are not to be used. Remove any existing TURN/call-specific configuration or code if found; do not replace it with another paid relay.\n\n## Completion rules
+## Communication policy (owner-confirmed, 2026-11-02)
+
+- Royal Club is a game platform, not a voice/video calling or conferencing application. Voice calls, video calls, conference rooms and related call infrastructure are explicitly out of scope.
+- Voice messages (recorded audio clips sent through a microphone button) are a separate, optional feature. Keep the capability dormant and disabled by default; do not consume paid services or provision operational media infrastructure now.
+- Build only the manager-side feature-flag/configuration foundation needed for the owner/manager to enable voice messages later, including secure configuration fields and auditability. Actual activation requires a later manager decision and an approved free implementation/provider.
+- TURN servers, coturn, TURN credentials/URLs, WebRTC call signaling and call-related dependencies/configuration are not to be used. Remove any existing TURN/call-specific configuration or code if found; do not replace it with another paid relay.
+
+## Completion rules
 
 - A package is 100% only when its acceptance criteria are implemented, reviewed, tested in CI or a reproducible environment, and documented.
 - Overall progress is the weighted sum of package completion, not a subjective estimate.
