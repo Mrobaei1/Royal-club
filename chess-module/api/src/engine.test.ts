@@ -105,3 +105,85 @@ test("restores repetition history when a game is reconstructed from persisted PG
   assert.equal(restored.draw, true);
   assert.equal(restored.gameOver, true);
 });
+
+
+test("rejects malformed runtime commands without mutating the position", () => {
+  const game = new ChessGame();
+  const before = game.snapshot();
+  for (const command of [null, undefined, {}, {from: 1, to: "e4"}, {from: "e2", to: "e4x"}]) {
+    assert.throws(() => game.play(command as never), /invalid_square/);
+    assert.equal(game.snapshot().fen, before.fen);
+  }
+  assert.throws(() => game.play({from: "e2", to: "e4", promotion: "king" as never}), /invalid_promotion/);
+  assert.equal(game.snapshot().fen, before.fen);
+});
+
+test("does not permit castling through check or moving a pinned piece", () => {
+  const castleThroughCheck = new ChessGame("k4r2/8/8/8/8/8/8/4K2R w K - 0 1");
+  assert.ok(!castleThroughCheck.snapshot().legalMoves.includes("e1g1"));
+  assert.throws(() => castleThroughCheck.play({from: "e1", to: "g1"}), /illegal_move/);
+
+  const pinned = new ChessGame("k3r3/8/8/8/8/8/4R3/4K3 w - - 0 1");
+  assert.ok(!pinned.snapshot().legalMoves.includes("e2d2"));
+  assert.throws(() => pinned.play({from: "e2", to: "d2"}), /illegal_move/);
+});
+
+test("rejects en-passant capture that exposes the moving side king", () => {
+  const game = new ChessGame("k3r3/8/8/3pPp2/8/8/8/4K3 w - f6 0 1");
+  assert.ok(!game.snapshot().legalMoves.includes("e5f6"));
+  assert.throws(() => game.play({from: "e5", to: "f6"}), /illegal_move/);
+});
+
+test("supports all promotion choices and preserves promoted piece in FEN", () => {
+  for (const promotion of ["q", "r", "b", "n"] as const) {
+    const game = new ChessGame("7k/P7/8/8/8/8/8/7K w - - 0 1");
+    const result = game.play({from: "a7", to: "a8", promotion});
+    assert.match(result.fen.split(" ")[0]!, new RegExp(promotion.toUpperCase()));
+    assert.match(result.san ?? "", new RegExp("=" + promotion.toUpperCase()));
+  }
+});
+
+test("handles repeated position cycles and restores full move history from PGN", () => {
+  const game = new ChessGame();
+  for (let cycle = 0; cycle < 4; cycle++) {
+    game.play({from: "g1", to: "f3"});
+    game.play({from: "g8", to: "f6"});
+    game.play({from: "f3", to: "g1"});
+    game.play({from: "f6", to: "g8"});
+  }
+  const snapshot = game.snapshot();
+  assert.equal(snapshot.draw, true);
+  assert.equal(snapshot.gameOver, true);
+  const restored = new ChessGame(undefined, snapshot.pgn).snapshot();
+  assert.equal(restored.fen, snapshot.fen);
+  assert.equal(restored.draw, true);
+});
+
+test("validates malformed FEN at construction and reports no legal moves after terminal position", () => {
+  assert.throws(() => new ChessGame("not-a-fen"));
+  const mate = new ChessGame("7k/6Q1/6K1/8/8/8/8/8 b - - 0 1").snapshot();
+  assert.equal(mate.checkmate, true);
+  assert.deepEqual(mate.legalMoves, []);
+});
+
+test("extended deterministic fuzzing covers 40 seeds and up to 250 plies per game", () => {
+  for (let seed = 9; seed < 49; seed++) {
+    const adapter = new ChessGame();
+    const reference = new Chess();
+    let random = seed;
+    for (let ply = 0; ply < 250 && !reference.isGameOver(); ply++) {
+      const legal = reference.moves({verbose: true});
+      assert.ok(legal.length > 0, `seed ${seed}, ply ${ply}`);
+      random = (random * 48271) % 2147483647;
+      const move = legal[random % legal.length]!;
+      const result = adapter.play({
+        from: move.from,
+        to: move.to,
+        ...(move.promotion ? {promotion: move.promotion as Promotion} : {}),
+      });
+      reference.move({from: move.from, to: move.to, ...(move.promotion ? {promotion: move.promotion} : {})});
+      assert.equal(result.fen, reference.fen(), `seed ${seed}, ply ${ply}`);
+      assert.deepEqual(result.legalMoves, reference.moves({verbose: true}).map(m => `${m.from}${m.to}${m.promotion ?? ""}`));
+    }
+  }
+});
