@@ -20,15 +20,16 @@ export class HokmDeadlineScheduler {
   #running = false;
   #polling = false;
 
-  constructor({
-    service,
-    repository,
-    now = () => Date.now(),
-    intervalMs = 250,
-    batchSize = 100,
-    servicePrincipal = { authenticated: true, userId: "hokm-deadline-scheduler", role: "system" },
-    onError = () => {}
-  } = {}) {
+  constructor(options: any = {}) {
+    const {
+      service,
+      repository,
+      now = () => Date.now(),
+      intervalMs = 250,
+      batchSize = 100,
+      servicePrincipal = { authenticated: true, userId: "hokm-deadline-scheduler", role: "system" },
+      onError = () => {}
+    } = options;
     if (!service || typeof service.processDueDeadlines !== "function") {
       throw new TypeError("A HokmRoomService with processDueDeadlines is required");
     }
