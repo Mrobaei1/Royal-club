@@ -18,7 +18,7 @@ const scheduler = new HokmDeadlineScheduler({
   repository,
   intervalMs: Number(process.env.HOKM_SCHEDULER_INTERVAL_MS ?? 250),
   batchSize: Number(process.env.HOKM_SCHEDULER_BATCH_SIZE ?? 100),
-  onError(error, context) {
+  onError(error: unknown, context?: { roomId?: string; scope?: string }) {
     // Never log room payloads, hands, credentials, or connection strings.
     console.error(JSON.stringify({
       event: 'hokm_deadline_scheduler_error',
