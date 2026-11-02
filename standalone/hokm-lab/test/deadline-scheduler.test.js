@@ -4,7 +4,6 @@ import { HokmRoomService, InMemoryRoomRepository } from "../src/service.js";
 import { HokmDeadlineScheduler } from "../src/deadline-scheduler.js";
 
 const user = userId => ({ authenticated: true, userId });
-const system = { authenticated: true, userId: "scheduler-test", role: "system" };
 
 async function startedRoom() {
   let clock = 1000;
@@ -17,20 +16,20 @@ async function startedRoom() {
   for (const id of ["u1", "u2", "u3"]) room = await service.join(user(id), room.roomId, room.version);
   for (const id of ["u0", "u1", "u2", "u3"]) room = await service.ready(user(id), room.roomId, true, room.version);
   room = await service.start(user("u0"), room.roomId, room.version);
-  return { repository, service, room, setNow(value) { clock = value; } };
+  return { repository, service, room, now: () => clock, setNow(value) { clock = value; } };
 }
 
 test("in-memory repository lists only active rooms with elapsed deadlines", async () => {
   const { repository, room } = await startedRoom();
-  assert.deepEqual((await repository.listDueRooms(7999)).map(item => item.roomId), []);
-  assert.deepEqual((await repository.listDueRooms(8000)).map(item => item.roomId), [room.roomId]);
+  assert.deepEqual((await repository.listDueRooms(room.turnDeadlineAt - 1)).map(item => item.roomId), []);
+  assert.deepEqual((await repository.listDueRooms(room.turnDeadlineAt)).map(item => item.roomId), [room.roomId]);
 });
 
 test("deadline scheduler applies expired trump selection through trusted service", async () => {
   const fixture = await startedRoom();
   fixture.setNow(fixture.room.turnDeadlineAt);
   const scheduler = new HokmDeadlineScheduler({
-    service: fixture.service, repository: fixture.repository, now: fixture.setNow.bind(fixture),
+    service: fixture.service, repository: fixture.repository, now: fixture.now,
     intervalMs: 250
   });
   const result = await scheduler.pollOnce();
