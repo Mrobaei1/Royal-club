@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:royal_club_uno/uno_chat_panel.dart';
 
@@ -8,6 +9,8 @@ void main() {
     var sendCount = 0;
     await tester.pumpWidget(MaterialApp(
       locale: const Locale('fa'),
+      supportedLocales: const [Locale('fa'), Locale('en')],
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
       home: Scaffold(
         body: UnoChatPanel(
           controller: controller,
@@ -34,6 +37,8 @@ void main() {
     final controller = TextEditingController();
     var sendCount = 0;
     await tester.pumpWidget(MaterialApp(
+      supportedLocales: const [Locale('fa'), Locale('en')],
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
       home: Scaffold(
         body: UnoChatPanel(
           controller: controller,
@@ -52,6 +57,8 @@ void main() {
     final controller = TextEditingController();
     await tester.pumpWidget(MaterialApp(
       locale: const Locale('en'),
+      supportedLocales: const [Locale('fa'), Locale('en')],
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
       home: Scaffold(
         body: UnoChatPanel(
           controller: controller,
