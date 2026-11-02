@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 import 'uno_chat_panel.dart';
+import 'uno_card_label.dart';
 
 class UnoOnlineScreen extends StatefulWidget {
   const UnoOnlineScreen({
@@ -356,7 +357,7 @@ class _UnoOnlineScreenState extends State<UnoOnlineScreen> {
       width: large ? 70 : 48, height: large ? 104 : 72,
       decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(9), border: Border.all(color: Colors.white, width: 2)),
       alignment: Alignment.center,
-      child: Text(card['face'].toString().toUpperCase(), style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: large ? 18 : 12)),
+      child: Text(unoCardLabel(card['face'], persian: _isPersian), style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: large ? 18 : 12)),
     );
   }
 
