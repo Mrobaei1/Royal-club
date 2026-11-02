@@ -4,7 +4,7 @@ import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 
-import 'auth_service.dart';
+import 'api_transport.dart';
 
 class ChatService {
   static const FlutterSecureStorage _storage = FlutterSecureStorage();
@@ -26,9 +26,8 @@ class ChatService {
     Map<String, dynamic>? body,
     String method = 'GET',
   }) async {
-    AuthService.ensureConfigured();
-    final base = AuthService.baseUrl.trim().replaceFirst(RegExp(r'/+$'), '');
-    final uri = Uri.parse('$base$path');
+    ApiTransport.ensureConfigured();
+    final uri = ApiTransport.uri(path);
     final headers = await _headers();
     late final http.Response response;
 
