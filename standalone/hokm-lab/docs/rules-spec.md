@@ -156,3 +156,10 @@ Phase 1 remains **in progress**. This document separates confirmed owner decisio
 **R-33 standard deck (2026-11-03):** Use a standard 52-card deck consisting of four suits and ranks 2 through Ace, with no jokers.
 
 **R-34 automatic trump selection (2026-11-03):** If the hakem does not manually select a trump suit within the 7-second selection window, the system selects automatically from the hakem's first five cards. Compare suits by card count; if tied, compare the sum of card rank values; if still tied, compare each tied suit's highest individual card; if still tied, choose randomly among the remaining tied suits. Rank order is 2 through Ace as approved in R-32.
+
+
+**R-35 numeric card rank values (2026-11-03):** For rank-sum comparisons in automatic trump selection, use numeric values 2 through 10 at face value, Jack = 11, Queen = 12, King = 13, and Ace = 14.
+
+**R-36 cancellation after multiple voluntary exits (2026-11-03):** If two or three players voluntarily leave an active match before it ends, cancel the match. Do not record a winner or match result, award match points, or award/deduct XP. This rule is distinct from the unanimously-approved four-player voluntary-departure cancellation and makes cancellation apply when at least two players voluntarily exit.
+
+**R-37 cancellation after multiple unrecovered disconnections (2026-11-03):** If two or three players disconnect from an active match and do not reconnect within their 20-second grace periods, cancel the match. Do not record a winner or match result, award match points, or award/deduct XP. This cancellation rule does not apply to a single unrecovered disconnection, for which the existing Hard-bot takeover and XP rules remain in force.
