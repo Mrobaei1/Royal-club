@@ -30,6 +30,12 @@ class AdminService {
     return decoded;
   }
 
+  static Future<Map<String, dynamic>> voiceMessageSettings() async =>
+      (await _request('GET', '/api/v1/admin/social/voice-messages'))['settings'] as Map<String, dynamic>;
+
+  static Future<Map<String, dynamic>> saveVoiceMessageSettings(Map<String, dynamic> settings) async =>
+      (await _request('PATCH', '/api/v1/admin/social/voice-messages', body: settings))['settings'] as Map<String, dynamic>;
+
   static Future<Map<String, dynamic>> smsOtpSettings() async =>
       (await _request('GET', '/api/v1/admin/security/sms-otp'))['settings'] as Map<String, dynamic>;
 
