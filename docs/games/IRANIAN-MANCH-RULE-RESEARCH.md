@@ -32,7 +32,12 @@ The current `ManchRuleProfile` implements these switches:
 
 The following researched options are **not implemented yet** and must not be presented as supported until code and tests exist: `startingCellsSafe` as an independent switch, `threeEntryAttemptsWhenNoTokensOnTrack`, and `teamModeEnabled`. The current board visually marks each colour's entry cell as safe; the engine's safe-cell behaviour is driven by `safeTrackIndices`.
 
-Default profile proposal (not yet owner-approved): common classic family rules, six-only entry, extra roll on six, exact finish, no automatic assumption about three-sixes or blockades until selected in the match settings. Never hard-code a disputed house rule into the core move algorithm.
+## Owner-approved base profile (2026-11-02)
+The owner approved a common classic four-token profile for the Royal Club baseline: 2–4 players; entry on six only; an extra roll on six; exact-count finish; single unprotected opponent token is captured and returned to its yard; no extra roll on capture or finish; the four colour entry cells (0, 13, 26, 39) are safe; no three-consecutive-six penalty; blockades disabled; friendly stacking enabled. This matches the current `defaultManchRuleProfile()` and `ManchRuleProfile` defaults. The approval is for the base profile, not for every possible household variant.
+
+The following switches are implemented and configurable in the current profile: entry faces, extra roll on six/capture/finish, three-six penalty and maximum, safe track indices, blockade enablement and opponent blocking, friendly stacking, and exact finish. Persist the selected profile with each match; never silently change rules mid-match.
+
+The researched options `startingCellsSafe` as a separate boolean, `threeEntryAttemptsWhenNoTokensOnTrack`, and `teamModeEnabled` remain **not implemented** and require code plus tests before being offered in settings. Other unresolved product acceptance gates include final 2-/3-player seat arrangement and board visual acceptance.
 
 ## Open-source reference audit (pinned snapshots)
 
@@ -53,4 +58,4 @@ The exact LICENSE text was reviewed at each pinned commit on 2026-11-01. The two
 - Beytoote Persian rule description: https://www.beytoote.com/fun/native-games/play7-game.html
 - Wikijoo Persian encyclopedia entry: https://wikijoo.ir/index.php/منچ،_بازی
 
-These are secondary descriptions, not a national rulebook. The owner must confirm the desired Royal Club profile before the rules engine is frozen.
+These are secondary descriptions, not a national rulebook. The owner has approved the base profile above; variant additions still require implementation, tests and a versioned rule-profile migration strategy.
