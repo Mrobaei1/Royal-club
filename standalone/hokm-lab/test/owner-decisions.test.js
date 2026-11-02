@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { legalCards } from "../src/engine.js";
 import {
   createRoom, joinRoom, setPlayerReady, startRoom, applyRoomCommand,
-  processTurnTimeout, disconnectPlayer, processAllDisconnectedTimeout,
+  processTurnTimeout, disconnectPlayer, reconnectPlayer, processAllDisconnectedTimeout,
   voteToCancelMatch, cancelForUnrecoverableTechnicalFailure,
   roomViewForUser, startNextRound, submitMatchAppeal, reviewMatchAppeal
 } from "../src/room.js";
@@ -58,7 +58,7 @@ test("all remaining cards are revealed to all four seats for exactly three secon
   let room = startRoom(readyRoom(1000), "u0", { now: 2000, rng: () => 0.37 });
   room = finishOneHand(room, 3000);
   assert.ok(["round_completed", "completed"].includes(room.status));
-  assert.equal(room.handRevealUntil, room.turnStartedAt === null ? room.handRevealUntil : room.handRevealUntil);
+  assert.ok(Number.isFinite(room.handRevealUntil));
   for (const id of ["u0", "u1", "u2", "u3"]) {
     const view = roomViewForUser(room, id, { now: room.handRevealUntil - 1 });
     assert.equal(view.revealedHands.length, 4);
@@ -100,7 +100,7 @@ test("reconnecting any player clears the all-four-disconnected cancellation dead
   room = { ...room, players: room.players.map(player => player.userId === "u0"
     ? { ...player, reconnectDeadline: 50000, temporaryBot: true, botControlled: true }
     : player) };
-  room = (awaitReconnect(room, "u0", 4000));
+  room = reconnectPlayer(room, "u0", { now: 4000, expectedVersion: room.version });
   assert.equal(room.allDisconnectedDeadline, null);
   assert.equal(room.players.find(player => player.userId === "u0").connected, true);
 });
