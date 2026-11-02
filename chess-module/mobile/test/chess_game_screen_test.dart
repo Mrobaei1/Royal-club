@@ -14,7 +14,11 @@ Widget _screen({
   String? activeSide,
   bool isHost = false,
   String gameStatus = 'active',
+  Locale? locale,
+  ValueChanged<String>? onSendMessage,
 }) => MaterialApp(
+  locale: locale,
+  supportedLocales: const [Locale('en'), Locale('fa')],
   home: Scaffold(
     body: ChessGameScreen(
       fen: _fen,
@@ -25,7 +29,7 @@ Widget _screen({
       blackClock: const Duration(minutes: 5),
       onMove: (_) {},
       messages: const [],
-      onSendMessage: (_) {},
+      onSendMessage: onSendMessage ?? (_) {},
       onOfferDraw: onOfferDraw,
       onResign: onResign,
       pendingDrawOfferId: pendingDrawOfferId,
@@ -107,4 +111,30 @@ void main() {
     expect(tester.widget<ChessBoard>(find.byType(ChessBoard)).interactive, isFalse);
   });
 
+  testWidgets('chat sends trimmed non-empty text and ignores whitespace', (tester) async {
+    final sent = <String>[];
+    await tester.pumpWidget(_screen(onSendMessage: sent.add));
+    await tester.enterText(find.byType(TextField), '   hello chess   ');
+    await tester.tap(find.byTooltip('Send message'));
+    expect(sent, ['hello chess']);
+    await tester.enterText(find.byType(TextField), '   ');
+    await tester.tap(find.byTooltip('Send message'));
+    expect(sent, ['hello chess']);
+  });
+
+  testWidgets('Persian game screen uses RTL and renders Persian controls on a phone viewport', (tester) async {
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 3;
+    await tester.pumpWidget(_screen(
+      locale: const Locale('fa'),
+      activeSide: 'white',
+      onOfferDraw: () {},
+    ));
+    expect(find.text('پیشنهاد مساوی'), findsOneWidget);
+    expect(find.text('پیام متنی...'), findsOneWidget);
+    expect(Directionality.of(tester.element(find.byType(ChessGameScreen))), TextDirection.rtl);
+    expect(tester.takeException(), isNull);
+    tester.view.resetPhysicalSize();
+    tester.view.resetDevicePixelRatio();
+  });
 }
