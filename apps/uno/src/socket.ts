@@ -8,9 +8,7 @@ type Ack = (result: { ok: boolean; data?: unknown; error?: { code: string; messa
 type TokenVerifier = (token: string) => Promise<AuthenticatedPlayer>;
 type ClientSocket = Socket & { data: { player: AuthenticatedPlayer } };
 const MAX_CHAT_LENGTH = 500;
-const MAX_SIGNAL_BYTES = 48_000;
 const chatWindows = new Map<string, number[]>();
-const signalWindows = new Map<string, number[]>();
 const userSockets = new Map<string, Set<string>>();
 
 function fail(error: unknown, ack?: Ack) {
@@ -46,17 +44,6 @@ function allowChat(userId: string): void {
   chatWindows.set(userId, times);
   pruneRateWindows(chatWindows);
 }
-function allowSignal(userId: string): void {
-  const now = Date.now();
-  const times = (signalWindows.get(userId) ?? []).filter(t => now - t < 10_000);
-  if (times.length >= 40) throw new UnoError('SIGNAL_RATE_LIMIT', 'Too many voice signalling messages.');
-  times.push(now);
-  signalWindows.set(userId, times);
-  pruneRateWindows(signalWindows);
-}
-function payloadSize(value: unknown): number {
-  try { return Buffer.byteLength(JSON.stringify(value)); } catch { return Number.MAX_SAFE_INTEGER; }
-}
 export function registerUnoSockets(
   io: Server,
   verifyToken: TokenVerifier,
@@ -81,8 +68,8 @@ export function registerUnoSockets(
     const joinSocketRoom = async (code: string) => socket.join(`uno:${code}`);
     const publicRoom = (room: ReturnType<typeof rooms.getRoom>) => ({
       code: room.code, hostId: room.hostId, status: room.status,
-      players: room.players.map(p => ({ id: p.id, username: p.username, ready: p.ready, connected: p.connected, muted: p.muted })),
-      chatEnabled: room.chatEnabled, voiceEnabled: room.voiceEnabled,
+      players: room.players.map(p => ({ id: p.id, username: p.username, ready: p.ready, connected: p.connected })),
+      chatEnabled: room.chatEnabled,
       matchToWin: room.matchToWin, roundsWon: room.roundsWon, totalPoints: room.totalPoints,
       roundsPlayed: room.roundsPlayed, matchWinnerId: room.matchWinnerId,
     });
@@ -186,62 +173,14 @@ export function registerUnoSockets(
         ack?.({ ok: true });
       } catch (e) { fail(e, ack); }
     });
-    socket.on('uno:voice:mute', async (payload: { code?: string; targetId?: string; muted?: boolean }, ack?: Ack) => {
+    socket.on('uno:room:communication', async (payload: { code?: string; setting?: 'chatEnabled'; enabled?: boolean }, ack?: Ack) => {
       try {
-        if (typeof payload?.targetId !== 'string' || typeof payload.muted !== 'boolean') throw new UnoError('INVALID_MUTE', 'A target and mute state are required.');
-        const room = rooms.setMuted(payload.code ?? '', user.id, payload.targetId, payload.muted);
-        await persistRooms();
-        publishRoom(room);
-        ack?.({ ok: true });
-      } catch (e) { fail(e, ack); }
-    });
-    socket.on('uno:room:communication', async (payload: { code?: string; setting?: 'chatEnabled' | 'voiceEnabled'; enabled?: boolean }, ack?: Ack) => {
-      try {
-        if (!['chatEnabled', 'voiceEnabled'].includes(payload?.setting ?? '') || typeof payload.enabled !== 'boolean') {
+        if (payload?.setting !== 'chatEnabled' || typeof payload.enabled !== 'boolean') {
           throw new UnoError('INVALID_SETTING', 'A supported communication setting is required.');
         }
         const room = rooms.setCommunication(payload.code ?? '', user.id, payload.setting!, payload.enabled);
         await persistRooms();
         publishRoom(room);
-        ack?.({ ok: true });
-      } catch (e) { fail(e, ack); }
-    });
-    socket.on('uno:voice:signal', async (payload: { code?: string; targetId?: string; kind?: string; data?: unknown }, ack?: Ack) => {
-      try {
-        const room = rooms.getRoom(payload?.code ?? '');
-        if (!room.voiceEnabled) throw new UnoError('VOICE_DISABLED', 'Voice chat is disabled by the host.');
-        const sender = room.players.find(p => p.id === user.id);
-        const targetSeat = room.players.find(p => p.id === payload?.targetId);
-        if (!sender || !targetSeat) throw new UnoError('NOT_A_PLAYER', 'Voice signalling is only available to seated players.');
-        if (!sender.connected || !targetSeat.connected) throw new UnoError('PLAYER_DISCONNECTED', 'Both players must be connected for voice signalling.');
-        if (sender.muted) throw new UnoError('MICROPHONE_MUTED', 'Unmute your microphone before sending voice signalling.');
-        if (!['offer', 'answer', 'ice'].includes(payload?.kind ?? '')) throw new UnoError('INVALID_SIGNAL', 'Unsupported voice signalling message.');
-        if (!payload.data || typeof payload.data !== 'object' || Array.isArray(payload.data)) {
-          throw new UnoError('INVALID_SIGNAL', 'Voice signalling data must be an object.');
-        }
-        const signalData = payload.data as Record<string, unknown>;
-        if (payload.kind === 'ice') {
-          if (typeof signalData.candidate !== 'string' || signalData.candidate.length > 8_000) {
-            throw new UnoError('INVALID_SIGNAL', 'The ICE candidate is invalid.');
-          }
-        } else if (typeof signalData.sdp !== 'string' || signalData.sdp.length > MAX_SIGNAL_BYTES ||
-                   !['offer', 'answer'].includes(String(signalData.type))) {
-          throw new UnoError('INVALID_SIGNAL', 'The session description is invalid.');
-        }
-        allowSignal(user.id);
-        if (payloadSize(payload.data) > MAX_SIGNAL_BYTES) throw new UnoError('SIGNAL_TOO_LARGE', 'Voice signalling payload is too large.');
-        const targets = await io.in(`uno:${room.code}`).fetchSockets();
-        let delivered = false;
-        for (const target of targets) {
-          const connectedSeat = (target.data as { player?: AuthenticatedPlayer }).player;
-          if (connectedSeat?.id === payload.targetId) {
-            target.emit('uno:voice:signal', {
-              fromId: user.id, targetId: payload.targetId, kind: payload.kind, data: payload.data,
-            });
-            delivered = true;
-          }
-        }
-        if (!delivered) throw new UnoError('PLAYER_DISCONNECTED', 'The target player has no active connection.');
         ack?.({ ok: true });
       } catch (e) { fail(e, ack); }
     });
