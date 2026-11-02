@@ -81,13 +81,6 @@ CREATE TABLE IF NOT EXISTS chess_chat_messages (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE TABLE IF NOT EXISTS chess_voice_leases (
-  room_id bigint PRIMARY KEY REFERENCES chess_rooms(id) ON DELETE CASCADE,
-  user_id bigint NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  lease_id uuid NOT NULL,
-  expires_at timestamptz NOT NULL
-);
-
 CREATE INDEX IF NOT EXISTS chess_games_players_idx ON chess_games (white_user_id, black_user_id, started_at DESC);
 CREATE INDEX IF NOT EXISTS chess_chat_game_created_idx ON chess_chat_messages (game_id, created_at);
 CREATE INDEX IF NOT EXISTS chess_progression_user_idx ON chess_progression_events (user_id, created_at DESC);
