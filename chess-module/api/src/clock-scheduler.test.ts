@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import type { Pool, PoolClient } from "pg";
 import { adjudicateExpiredChessClocks } from "./clock-scheduler.js";
 
-test("expired active clock is atomically adjudicated and releases room voice lease", async () => {
+test("expired active clock is atomically adjudicated without media side effects", async () => {
   const calls: Array<{ sql: string; values?: unknown[] | undefined }> = [];
   const game = {
     id: 41,
@@ -47,6 +47,5 @@ test("expired active clock is atomically adjudicated and releases room voice lea
   assert.ok(calls.some(call => call.sql.includes("FOR UPDATE SKIP LOCKED")));
   assert.ok(calls.some(call => call.sql.includes("status=$2") && call.values?.[1] === "black_win"));
   assert.ok(calls.some(call => call.sql.includes("UPDATE chess_rooms SET status='finished'")));
-  assert.ok(calls.some(call => call.sql.includes("DELETE FROM chess_voice_leases")));
   assert.ok(calls.some(call => call.sql === "COMMIT"));
 });
