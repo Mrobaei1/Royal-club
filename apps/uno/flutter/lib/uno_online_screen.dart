@@ -107,9 +107,11 @@ class _UnoOnlineScreenState extends State<UnoOnlineScreen> {
   }
 
   Future<void> _run(String event, Map<String, dynamic> payload) async {
+    if (!mounted) return;
     setState(() { _busy = true; _error = null; });
     try {
       final result = await _emit(event, payload);
+      if (!mounted) return;
       if (result['ok'] != true) {
         final error = Map<String, dynamic>.from(result['error'] as Map? ?? {});
         throw StateError(error['message']?.toString() ?? _t('عملیات انجام نشد.', 'The operation failed.'));
@@ -140,7 +142,7 @@ class _UnoOnlineScreenState extends State<UnoOnlineScreen> {
         setState(() => _game = Map<String, dynamic>.from(map['game'] as Map));
       }
     } catch (error) {
-      setState(() => _error = error.toString().replaceFirst('Bad state: ', ''));
+      if (mounted) setState(() => _error = error.toString().replaceFirst('Bad state: ', ''));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -168,7 +170,7 @@ class _UnoOnlineScreenState extends State<UnoOnlineScreen> {
     if (text.isEmpty) return;
     final code = _room?['code']?.toString() ?? '';
     await _run('uno:chat:send', {'code': code, 'text': text});
-    if (_error == null) _chatController.clear();
+    if (mounted && _error == null) _chatController.clear();
   }
 
   Color _cardColor(Object? color) => switch (color) {
@@ -203,7 +205,7 @@ class _UnoOnlineScreenState extends State<UnoOnlineScreen> {
     const SizedBox(height: 16),
     FilledButton.icon(onPressed: () => _run('uno:room:create', {}), icon: const Icon(Icons.add), label: Text(_t('ساخت میز جدید', 'Create table'))),
     const SizedBox(height: 18),
-    TextField(controller: _codeController, textCapitalization: TextCapitalization.characters, decoration: const InputDecoration(labelText: _t('کد میز', 'Table code'), border: OutlineInputBorder())),
+    TextField(controller: _codeController, textCapitalization: TextCapitalization.characters, decoration: InputDecoration(labelText: _t('کد میز', 'Table code'), border: OutlineInputBorder())),
     const SizedBox(height: 8),
     OutlinedButton(onPressed: () => _run('uno:room:join', {'code': _codeController.text}), child: Text(_t('ورود به میز', 'Join table'))),
     if (_error != null) _errorText(),
