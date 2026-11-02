@@ -41,10 +41,14 @@ The full owner decision and acceptance specification is maintained in [OWNER-DEC
 - [ ] Multi-trick lookahead / endgame search, expert and varied partnership-aware opponent baselines, broader calibrated public inference and match-level tournament simulations.
 - [x] Public completed-trick history retained in round state and sanitized per-seat views.
 - [ ] Production online service, network-driven deadline scheduler, authenticated session binding/persistent reconnect; text/image/emoji chat. Optional voice messages remain dormant/disabled pending separate owner activation and an approved implementation.
-- [ ] Seven-second trump/card deadline enforcement and automatic legal-card selection.
-- [ ] Three-second end-of-hand remaining-card reveal.
-- [ ] Twenty-second all-four-disconnected cancellation, unanimous cancellation, technical-failure cancellation and appeal/report workflows.
-- [ ] Flutter UI, manager controls and end-to-end/security testing.
+- [x] Seven-second server-side trump/card deadlines; expired card turns select randomly from legal cards only, and expired trump selection uses fixed Hard policy.
+- [x] Three-second end-of-hand remaining-card reveal and server guard against starting the next hand too early.
+- [x] Twenty-second all-four-disconnected cancellation, unanimous four-player cancellation, and unrecoverable technical-failure cancellation in the room/service layer.
+- [x] Participant cheating reports and post-match appeals with manager/owner review records; these records do not silently change match results.
+- [x] Final match view hides full replay/history.
+- [x] Dedicated Node 20 syntax and test workflow; latest exact-head result: 97/97 tests passed.
+- [ ] Durable scheduler integration, real PostgreSQL verification, authenticated Fastify route wiring for new controls, and multi-instance race/recovery testing.
+- [ ] Opponent-team private text chat integration and Flutter game/manager UI, localization, and four-device end-to-end acceptance.
 
 ## Communication policy (owner-confirmed, 2026-11-03)
 
@@ -57,6 +61,8 @@ Royal Club is a game platform, not a voice/video calling or conferencing applica
 - Do not use TURN/coturn, TURN relay credentials, WebRTC calling/signaling, or call-related infrastructure. Remove any such code/configuration if present; do not substitute another paid relay.
 
 ## Server-side application boundary (in progress)
+
+The room/service layer now exposes version-checked seven-second turn deadline processing, all-four-disconnected cancellation, unanimous cancellation votes, unrecoverable technical-failure cancellation, participant reports/appeals, and manager/owner review methods. These methods still require durable scheduler and authenticated HTTP route wiring before they are end-to-end features.
 
 `src/service.js` adds a framework-neutral server application boundary around the room state machine:
 - Caller identity is taken only from a verified principal supplied by trusted authentication middleware; request-body user IDs are not accepted as identity.
