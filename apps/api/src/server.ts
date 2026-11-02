@@ -642,6 +642,25 @@ await pool.query(`
     ON backgammon_player_stats (rating DESC, wins DESC, games_played ASC);
 `);
 
+// Hokm authoritative room state and progression aggregates.
+await pool.query(`
+  CREATE TABLE IF NOT EXISTS hokm_rooms (
+    room_id TEXT PRIMARY KEY,
+    version INTEGER NOT NULL CHECK (version >= 1),
+    room_data JSONB NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+  CREATE INDEX IF NOT EXISTS hokm_rooms_status_updated_idx
+    ON hokm_rooms ((room_data->>'status'), updated_at);
+  CREATE TABLE IF NOT EXISTS hokm_player_progress (
+    user_id BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    xp DOUBLE PRECISION NOT NULL DEFAULT 0 CHECK (xp >= 0),
+    level INTEGER NOT NULL DEFAULT 1 CHECK (level >= 1),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+`);
+
 const walletTypeConstraint = await pool.query(
   `SELECT pg_get_constraintdef(oid) AS definition
      FROM pg_constraint
