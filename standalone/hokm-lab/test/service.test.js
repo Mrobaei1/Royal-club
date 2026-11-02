@@ -174,3 +174,31 @@ test("appeal submission returns a participant-visible reference without exposing
   assert.equal(appeal.game, null);
   assert.equal(Object.hasOwn(appeal, "round"), false);
 });
+
+test("only the host can start the next round after the full three-second reveal", async () => {
+  const { service, repository, setNow } = serviceFixture();
+  let room = await service.create(user("u0"));
+  for (const id of ["u1", "u2", "u3"]) room = await service.join(user(id), room.roomId, room.version);
+  for (const id of ["u0", "u1", "u2", "u3"]) room = await service.ready(user(id), room.roomId, true, room.version);
+  room = await service.start(user("u0"), room.roomId, room.version);
+  const persisted = await repository.get(room.roomId);
+  const revealUntil = 4000;
+  const roundCompleted = {
+    ...persisted, status: "round_completed", handRevealUntil: revealUntil,
+    version: persisted.version + 1
+  };
+  assert.equal(await repository.compareAndSwap(room.roomId, persisted.version, roundCompleted), true);
+  await assert.rejects(
+    service.nextRound(user("u1"), room.roomId, roundCompleted.version),
+    /Only the host may start the next round/
+  );
+  await assert.rejects(
+    service.nextRound(user("u0"), room.roomId, roundCompleted.version),
+    /3-second end-of-hand reveal is still active/
+  );
+  setNow(revealUntil);
+  const next = await service.nextRound(user("u0"), room.roomId, roundCompleted.version);
+  assert.equal(next.status, "playing");
+  assert.equal(next.handRevealUntil, null);
+  assert.equal(next.turnDeadlineAt, revealUntil + 7000);
+});
