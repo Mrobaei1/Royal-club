@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
-import 'auth_service.dart';
+import 'api_transport.dart';
 
 class AdminService {
   static const FlutterSecureStorage _storage = FlutterSecureStorage();
@@ -14,7 +14,7 @@ class AdminService {
 
   static Future<Map<String, dynamic>> _request(String method, String path, {Map<String, dynamic>? body}) async {
     final headers = await _headers();
-    final uri = Uri.parse('${AuthService.baseUrl}$path');
+    final uri = ApiTransport.uri(path);
     final response = switch (method) {
       'GET' => await http.get(uri, headers: headers),
       'POST' => await http.post(uri, headers: headers, body: jsonEncode(body ?? {})),
