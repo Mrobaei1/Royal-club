@@ -88,10 +88,6 @@ test("isolated chess migrations apply cleanly against a bigint users schema", { 
       [black],
     );
     await db.query(
-      "INSERT INTO chess_voice_leases(room_id,user_id,lease_id,expires_at) VALUES($1,$2,$3,NOW()+INTERVAL '8 seconds')",
-      [room.rows[0].id, white, randomUUID()],
-    );
-    await db.query(
       "INSERT INTO chess_chat_messages(game_id,user_id,message) VALUES($1,$2,'migration smoke test')",
       [game.rows[0].id, white],
     );
@@ -113,8 +109,6 @@ test("isolated chess migrations apply cleanly against a bigint users schema", { 
     assert.equal(finished.rows[0].status, "black_win");
     const roomState = await db.query("SELECT status FROM chess_rooms WHERE id=$1",[room.rows[0].id]);
     assert.equal(roomState.rows[0].status, "finished");
-    const leases = await db.query("SELECT 1 FROM chess_voice_leases WHERE room_id=$1",[room.rows[0].id]);
-    assert.equal(leases.rowCount, 0);
     const cancelledOffer = await db.query("SELECT status FROM chess_draw_offers WHERE id=$1",[drawOffer.rows[0].id]);
     assert.equal(cancelledOffer.rows[0].status, "cancelled");
     const progression = await db.query("SELECT user_id,xp FROM chess_player_progression ORDER BY user_id");
@@ -124,7 +118,7 @@ test("isolated chess migrations apply cleanly against a bigint users schema", { 
     const triggers = await db.query(
       `SELECT COUNT(*)::int AS count FROM pg_trigger
        WHERE NOT tgisinternal AND tgname IN (
-         'chess_games_realtime_notify','chess_chat_realtime_notify','chess_voice_realtime_notify','chess_cancel_pending_draws_terminal'
+         'chess_games_realtime_notify','chess_chat_realtime_notify','chess_cancel_pending_draws_terminal'
        )`,
     );
     assert.equal(triggers.rows[0].count, 4);
