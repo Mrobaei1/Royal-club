@@ -14,6 +14,8 @@ class UnoChatPanel extends StatelessWidget {
   final bool enabled;
   final VoidCallback onSend;
 
+  bool _isPersian(BuildContext context) => Localizations.localeOf(context).languageCode == 'fa';
+
   @override
   Widget build(BuildContext context) => Card(
         child: Padding(
@@ -21,7 +23,7 @@ class UnoChatPanel extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('چت میز', style: TextStyle(fontWeight: FontWeight.bold)),
+              Text(_isPersian(context) ? 'چت میز' : 'Table chat', style: const TextStyle(fontWeight: FontWeight.bold)),
               SizedBox(
                 height: 130,
                 child: ListView(
@@ -40,14 +42,14 @@ class UnoChatPanel extends StatelessWidget {
                       enabled: enabled,
                       maxLength: 500,
                       decoration: const InputDecoration(
-                        hintText: 'پیام بنویس…',
+                        hintText: _isPersian(context) ? 'پیام بنویس…' : 'Write a message…',
                         counterText: '',
                       ),
                       onSubmitted: enabled ? (_) => onSend() : null,
                     ),
                   ),
                   IconButton(
-                    tooltip: 'ارسال پیام',
+                    tooltip: _isPersian(context) ? 'ارسال پیام' : 'Send message',
                     onPressed: enabled ? onSend : null,
                     icon: const Icon(Icons.send),
                   ),
