@@ -288,3 +288,10 @@ test("intentional forfeit remains permanent after a temporary disconnect", () =>
   assert.equal(room.playerProgress.u0.xp, 0, "XP penalty floors at zero");
   assert.throws(() => reconnectPlayer(room, "u0", { now: 40000, expectedVersion: room.version }), /forfeited player/);
 });
+
+test("private seat view exposes server time for synchronized turn countdowns", () => {
+  const room = createRoom({ roomId: "clock-view-room", hostUserId: "u0", now: 1000 });
+  const view = roomViewForUser(room, "u0", { now: 4321 });
+  assert.equal(view.serverNow, 4321);
+  assert.equal(Object.hasOwn(view, "round"), false);
+});
