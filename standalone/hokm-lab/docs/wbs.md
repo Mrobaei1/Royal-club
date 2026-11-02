@@ -14,13 +14,13 @@
 | 5.0 | Authoritative online service | Fastify adapter, authenticated membership, atomic/versioned commands, persistence and event delivery | 12% |
 | 6.0 | Reconnect and availability | Disconnect grace period, seat recovery, bot substitution policy, reconnect idempotency | 8% |
 | 7.0 | Hard-only AI strategy | Fixed Hard policy with deterministic public-information sampling, void-suit constraints, partner-aware two-trick lookahead; 300-deal benchmarks and hidden-hand / legality tests | 7% |
-| 8.0 | Chat and voice | Room chat, abuse controls, mic permission/consent, mute/report and provider decision | 7% |
+| 8.0 | Messaging and optional voice messages (dormant) | Text/image/emoji room messaging and abuse controls; optional push-to-talk voice-message capability designed behind manager feature flags, disabled by default; no voice/video calls, conferencing, WebRTC calling or TURN infrastructure | 7% |
 | 9.0 | Flutter game UI | Responsive RTL table, cards, hands, trick animation, score, invite/waiting room and accessibility | 12% |
-| 10.0 | Manager controls | Authenticated manager-only target selector (3/5/7), room/connection policy and audit trail | 5% |
+| 10.0 | Manager controls | Authenticated manager-only target selector (3/5/7), room/connection policy, audited feature flags for optional voice messages (enable/disable and required configuration), with no call/video controls or TURN settings | 5% |
 | 11.0 | QA and security | Engine/room/round/progression tests, seeded property tests, full-match simulations, AI benchmarks, privacy and reconnect checks; production integration/concurrency/security suites still pending | 8% |
 | 12.0 | Handoff readiness | API contract, setup/deployment guide, integration checklist and evidence-based completion report | 3% |
 
-## Completion rules
+## Communication policy (owner-confirmed, 2026-11-02)\n\n- Royal Club is a game platform, not a voice/video calling or conferencing application. Voice calls, video calls, conference rooms and related call infrastructure are explicitly out of scope.\n- Voice messages (recorded audio clips sent through a microphone button) are a separate, optional feature. Keep the capability dormant and disabled by default; do not consume paid services or provision operational media infrastructure now.\n- Build only the manager-side feature-flag/configuration foundation needed for the owner/manager to enable voice messages later, including secure configuration fields and auditability. Actual activation requires a later manager decision and an approved free implementation/provider.\n- TURN servers, coturn, TURN credentials/URLs, WebRTC call signaling and call-related dependencies/configuration are not to be used. Remove any existing TURN/call-specific configuration or code if found; do not replace it with another paid relay.\n\n## Completion rules
 
 - A package is 100% only when its acceptance criteria are implemented, reviewed, tested in CI or a reproducible environment, and documented.
 - Overall progress is the weighted sum of package completion, not a subjective estimate.
@@ -28,7 +28,7 @@
 - Unconfirmed regional rules remain explicit assumptions and block final rules sign-off.
 - Integration into the main Royal Club application requires a separate explicit approval.
 
-## Current baseline (2026-10-31)
+## Current baseline (2026-11-02; WBS scope clarification)
 
 | WBS | Evidence-based status | Estimate |
 |---|---|---:|
@@ -39,7 +39,7 @@
 | 5.0 | Framework-neutral authenticated-principal service boundary, Fastify route adapter with required auth preHandler, per-room in-process serialization, repository contract, PostgreSQL CAS adapter, atomic room+XP transaction and migration implemented; real auth/session wiring, live DB migration, distributed concurrency and event delivery remain open | 35% |
 | 6.0 | In-memory transient disconnect grace (20s default/configurable), version-checked timeout takeover, safe reclaim without rollback, permanent forfeit distinction, and consecutive multi-seat Hard bot takeover through match-ending hand test (the configured 3-point target can end a hand after 7 tricks); production scheduler/session binding and distributed race handling remain open | 60% |
 | 7.0 | Fixed hard-only policy uses deterministic public-information determinization; 24 seeded allocations respect public void-suit evidence and remaining-card counts; candidate evaluation includes partner-aware play and a validated two-trick lookahead; 300-deal benchmarks: 86.67% wins vs legal-random and 55.67% vs deterministic greedy, with 70.87% and 54.47% trick share; determinism, hidden-hand invariance and legal-action tests pass; three-trick experiment was benchmarked and rejected because its 87.00% random win rate came with a lower 54.33% greedy win rate; expert baselines and broader match-level strategy evaluation remain pending | 84% |
-| 8.0 | Not implemented | 0% |
+| 8.0 | Text/image/emoji messaging and optional voice-message capability not yet implemented in this lab; voice messages must remain dormant and disabled until manager activation and free-provider/configuration approval. No voice/video calling or TURN/WebRTC calling infrastructure is in scope. | 0% |
 | 9.0 | Not implemented | 0% |
 | 10.0 | Core accepts only 3/5/7 and architecture reserves source for trusted manager config; admin auth/UI/audit pending | 20% |
 | 11.0 | Existing engine/AI/room/progression regression suite plus authenticated service, stale-version race, trusted scheduler boundary, PostgreSQL transaction/rollback/CAS mocked-adapter tests, private-hand non-disclosure and Fastify route/auth/error mapping tests; latest CI run 41302783311 passed 85/85; live database, distributed race, penetration and full end-to-end suites pending | 72% |
