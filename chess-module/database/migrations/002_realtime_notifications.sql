@@ -10,8 +10,6 @@ BEGIN
     game_key := NEW.game_id::text;
     event_payload := json_build_object('type','chat','id',NEW.id::text);
   END IF;
-    event_payload := json_build_object('type','voice');
-  END IF;
   IF game_key IS NOT NULL THEN
     PERFORM pg_notify('chess_game_' || game_key,event_payload::text);
   END IF;
