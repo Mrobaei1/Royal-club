@@ -1,12 +1,7 @@
 import 'dart:async';
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'package:permission_handler/permission_handler.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
-import 'uno_voice_mesh.dart';
 import 'uno_chat_panel.dart';
-import 'uno_mic_button.dart';
 
 class UnoOnlineScreen extends StatefulWidget {
   const UnoOnlineScreen({
@@ -14,17 +9,11 @@ class UnoOnlineScreen extends StatefulWidget {
     required this.serverUrl,
     required this.accessToken,
     required this.playerId,
-    this.turnUrl,
-    this.turnUsername,
-    this.turnCredential,
   });
 
   final String serverUrl;
   final String accessToken;
   final String playerId;
-  final String? turnUrl;
-  final String? turnUsername;
-  final String? turnCredential;
 
   @override
   State<UnoOnlineScreen> createState() => _UnoOnlineScreenState();
@@ -32,7 +21,6 @@ class UnoOnlineScreen extends StatefulWidget {
 
 class _UnoOnlineScreenState extends State<UnoOnlineScreen> {
   io.Socket? _socket;
-  UnoVoiceMesh? _voice;
   Map<String, dynamic>? _room;
   Map<String, dynamic>? _game;
   List<dynamic> _hand = [];
@@ -41,7 +29,6 @@ class _UnoOnlineScreenState extends State<UnoOnlineScreen> {
   final _codeController = TextEditingController();
   final _chatController = TextEditingController();
   bool _busy = false;
-  bool _micMuted = true;
   String? _error;
 
   @override
@@ -70,7 +57,6 @@ class _UnoOnlineScreenState extends State<UnoOnlineScreen> {
       if (!mounted) return;
       final room = Map<String, dynamic>.from(data as Map);
       setState(() => _room = room);
-      _syncRemoteMute(room);
     });
     socket.on('uno:game:state', (data) {
       if (!mounted) return;
@@ -89,17 +75,6 @@ class _UnoOnlineScreenState extends State<UnoOnlineScreen> {
       if (!mounted) return;
       setState(() => _messages.add(Map<String, dynamic>.from(data as Map)));
     });
-    socket.on('uno:voice:signal', (data) async {
-      final signal = Map<String, dynamic>.from(data as Map);
-      if (signal['targetId'] != widget.playerId) return;
-      final voice = _voice;
-      if (voice == null) return;
-      await voice.handleSignal(
-        fromId: signal['fromId'] as String,
-        kind: signal['kind'] as String,
-        data: Map<String, dynamic>.from(signal['data'] as Map),
-      );
-    });
     socket.connect();
   }
 
@@ -111,35 +86,11 @@ class _UnoOnlineScreenState extends State<UnoOnlineScreen> {
       final room = Map<String, dynamic>.from(data['room'] as Map);
       setState(() => _room = room);
       await _setupVoice();
-      _syncRemoteMute(room);
       if (data['game'] is Map) {
         setState(() => _game = Map<String, dynamic>.from(data['game'] as Map));
         if (data['hand'] is List) setState(() => _hand = List<dynamic>.from(data['hand'] as List));
       }
     } catch (_) { /* Reconnect is best-effort; the next room action reports errors. */ }
-  }
-
-  void _syncRemoteMute(Map<String, dynamic> room) {
-    final voice = _voice;
-    if (voice == null) return;
-    final players = List<Map<String, dynamic>>.from((room['players'] as List).map((p) => Map<String, dynamic>.from(p as Map)));
-    for (final player in players) {
-      if (player['id'] == widget.playerId && player['muted'] == true && !_micMuted) {
-        unawaited(voice.setMuted(true));
-        if (mounted) setState(() => _micMuted = true);
-      }
-      if (player['id'] != widget.playerId) {
-        unawaited(voice.setRemoteMuted(player['id'] as String, player['muted'] == true));
-      }
-    }
-    final peerIds = room['voiceEnabled'] == true
-        ? players.where((p) => p['id'] != widget.playerId && p['connected'] == true).map((p) => p['id'] as String)
-        : const <String>[];
-    unawaited(voice.syncPeers(peerIds));
-    if (room['voiceEnabled'] != true && !_micMuted) {
-      unawaited(voice.setMuted(true));
-      if (mounted) setState(() => _micMuted = true);
-    }
   }
 
   Future<Map<String, dynamic>> _emit(String event, Map<String, dynamic> payload) async {
@@ -172,18 +123,14 @@ class _UnoOnlineScreenState extends State<UnoOnlineScreen> {
           _drawnCardId = null;
           _messages.clear();
         });
-        await _setupVoice();
       }
       if (event == 'uno:room:leave') {
-        await _voice?.dispose();
-        _voice = null;
         setState(() {
           _room = null;
           _game = null;
           _hand = [];
           _drawnCardId = null;
           _messages.clear();
-          _micMuted = true;
         });
       }
       if (event == 'uno:room:start') {
@@ -194,98 +141,6 @@ class _UnoOnlineScreenState extends State<UnoOnlineScreen> {
       setState(() => _error = error.toString().replaceFirst('Bad state: ', ''));
     } finally {
       if (mounted) setState(() => _busy = false);
-    }
-  }
-
-  Future<void> _setupVoice() async {
-    _voice ??= UnoVoiceMesh(
-      localPlayerId: widget.playerId,
-      turnUrl: widget.turnUrl,
-      turnUsername: widget.turnUsername,
-      turnCredential: widget.turnCredential,
-      sendSignal: (targetId, kind, data) {
-        final code = _room?['code']?.toString();
-        if (code != null) _socket?.emit('uno:voice:signal', {'code': code, 'targetId': targetId, 'kind': kind, 'data': data});
-      },
-    );
-    try {
-      await _voice!.setIceServers(await _fetchIceServers());
-    } catch (_) {
-      // STUN fallback remains configured if the optional TURN service is unavailable.
-    }
-  }
-
-  Future<List<Map<String, dynamic>>> _fetchIceServers() async {
-    var baseUrl = widget.serverUrl;
-    while (baseUrl.endsWith('/')) {
-      baseUrl = baseUrl.substring(0, baseUrl.length - 1);
-    }
-    final response = await http.get(
-      Uri.parse('$baseUrl/ice-config'),
-      headers: {'Authorization': 'Bearer ${widget.accessToken}'},
-    );
-    if (response.statusCode != 200) {
-      throw StateError('تنظیمات ارتباط صوتی از سرور دریافت نشد.');
-    }
-    final decoded = Map<String, dynamic>.from(jsonDecode(response.body) as Map);
-    return List<Map<String, dynamic>>.from(
-      (decoded['iceServers'] as List)
-          .map((item) => Map<String, dynamic>.from(item as Map)),
-    );
-  }
-
-  Future<void> _toggleMic() async {
-    final room = _room;
-    if (room == null) return;
-    try {
-      await _setupVoice();
-      if (_micMuted) {
-        final permission = await Permission.microphone.request();
-        if (!permission.isGranted) {
-          throw StateError('برای گفت‌وگوی صوتی باید مجوز میکروفون را فعال کنی.');
-        }
-        final authorization = await _emit('uno:voice:mute', {
-          'code': room['code'],
-          'targetId': widget.playerId,
-          'muted': false,
-        });
-        if (authorization['ok'] != true) {
-          final message = (authorization['error'] as Map?)?['message']?.toString();
-          throw StateError(message ?? 'میزبان اجازهٔ فعال‌کردن میکروفون را نداده است.');
-        }
-        try {
-          final players = List<Map<String, dynamic>>.from(
-            (room['players'] as List).map((p) => Map<String, dynamic>.from(p as Map)),
-          );
-          await _voice!.enableMicrophone(
-            players.where((p) => p['id'] != widget.playerId && p['connected'] == true).map((p) => p['id'] as String),
-          );
-          await _voice!.setMuted(false);
-          if (mounted) setState(() => _micMuted = false);
-        } catch (_) {
-          await _voice!.setMuted(true);
-          await _emit('uno:voice:mute', {
-            'code': room['code'],
-            'targetId': widget.playerId,
-            'muted': true,
-          });
-          rethrow;
-        }
-      } else {
-        await _voice!.setMuted(true);
-        if (mounted) setState(() => _micMuted = true);
-        final result = await _emit('uno:voice:mute', {
-          'code': room['code'],
-          'targetId': widget.playerId,
-          'muted': true,
-        });
-        if (result['ok'] != true) {
-          final message = (result['error'] as Map?)?['message']?.toString();
-          throw StateError(message ?? 'وضعیت میکروفون در سرور ثبت نشد.');
-        }
-      }
-    } catch (error) {
-      if (mounted) setState(() => _error = error.toString().replaceFirst('Bad state: ', ''));
     }
   }
 
@@ -325,7 +180,6 @@ class _UnoOnlineScreenState extends State<UnoOnlineScreen> {
 
   @override
   void dispose() {
-    _voice?.dispose();
     _socket?.disconnect();
     _socket?.dispose();
     _codeController.dispose();
@@ -337,13 +191,7 @@ class _UnoOnlineScreenState extends State<UnoOnlineScreen> {
   Widget build(BuildContext context) {
     final room = _room;
     return Scaffold(
-      appBar: AppBar(title: const Text('UNO آنلاین'), actions: [
-        if (room != null) UnoMicButton(
-          muted: _micMuted,
-          enabled: room['voiceEnabled'] == true,
-          onPressed: _toggleMic,
-        ),
-      ]),
+      appBar: AppBar(title: const Text('UNO آنلاین')),
       body: _busy ? const Center(child: CircularProgressIndicator()) : room == null ? _buildLobby() : _buildRoom(room),
     );
   }
@@ -388,9 +236,7 @@ class _UnoOnlineScreenState extends State<UnoOnlineScreen> {
           dense: true, leading: Icon(p['id'] == room['hostId'] ? Icons.workspace_premium : Icons.person),
           title: Text('@${p['username']}'),
           subtitle: Text('${p['ready'] == true ? 'آماده' : 'در انتظار آمادگی'} • برد: ${(room['roundsWon'] as Map?)?[p['id']] ?? 0} • امتیاز: ${(room['totalPoints'] as Map?)?[p['id']] ?? 0}'),
-          trailing: isHost && p['id'] != widget.playerId
-              ? IconButton(icon: Icon(p['muted'] == true ? Icons.mic_off : Icons.mic), onPressed: () => _run('uno:voice:mute', {'code': code, 'targetId': p['id'], 'muted': p['muted'] != true}))
-              : Icon(p['muted'] == true ? Icons.mic_off : Icons.mic),
+
         )),
         if (room['status'] == 'waiting' || room['status'] == 'ready')
           Row(children: [
@@ -405,7 +251,6 @@ class _UnoOnlineScreenState extends State<UnoOnlineScreen> {
         if (room['status'] == 'finished')
           Text('قهرمان مسابقه: @${players.firstWhere((p) => p['id'] == room['matchWinnerId'], orElse: () => {})['username'] ?? ''}'),
         if (isHost) SwitchListTile(title: const Text('فعال‌بودن چت'), value: room['chatEnabled'] == true, onChanged: (value) => _run('uno:room:communication', {'code': code, 'setting': 'chatEnabled', 'enabled': value})),
-        if (isHost) SwitchListTile(title: const Text('فعال‌بودن گفت‌وگوی صوتی'), value: room['voiceEnabled'] == true, onChanged: (value) => _run('uno:room:communication', {'code': code, 'setting': 'voiceEnabled', 'enabled': value})),
         if (room['status'] != 'playing') TextButton.icon(onPressed: () => _run('uno:room:leave', {'code': code}), icon: const Icon(Icons.exit_to_app), label: const Text('خروج از میز')),
       ]))),
       if (_game != null) _buildGame(code),
