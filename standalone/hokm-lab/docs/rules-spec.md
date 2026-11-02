@@ -136,3 +136,8 @@ Phase 1 remains **in progress**. This document separates confirmed owner decisio
 **R-14 disconnect grace configuration (2026-11-03):** The temporary-disconnection grace period is 20 seconds. Only the General Manager/owner may change this value; a game manager or other administrator cannot change it. After the grace period expires, Hard bot temporarily controls the disconnected seat. If the authenticated player reconnects during the match, control returns immediately without rolling back bot moves.
 
 **R-13 online-only scope (2026-11-03):** Royal Club is an online-only gaming project. Offline/practice matches are not part of the product scope and must not be implemented or offered as a Hokm game mode. The approved voluntary-exit and XP rules apply to online matches only.
+
+
+**R-29 mandatory follow-suit (2026-11-03):** A player must play a card of the suit led for the trick whenever they hold at least one card of that suit. If they hold none, they may play any card, including a trump.
+
+**R-30 trick winner (2026-11-03):** If one or more trump cards are played in a trick, the highest-ranked trump wins the trick. If no trump is played, the highest-ranked card of the suit led wins. Cards from other non-trump suits cannot win the trick.
