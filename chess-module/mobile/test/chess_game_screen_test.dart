@@ -131,7 +131,7 @@ void main() {
       onOfferDraw: () {},
     ));
     expect(find.text('پیشنهاد مساوی'), findsOneWidget);
-    expect(find.text('پیام متنی...'), findsOneWidget);
+    expect(find.byTooltip('ارسال پیام'), findsOneWidget);
     expect(Directionality.of(tester.element(find.byType(ChessGameScreen))), TextDirection.rtl);
     expect(tester.takeException(), isNull);
     tester.view.resetPhysicalSize();
