@@ -85,7 +85,6 @@ class _UnoOnlineScreenState extends State<UnoOnlineScreen> {
       final data = Map<String, dynamic>.from(result['data'] as Map);
       final room = Map<String, dynamic>.from(data['room'] as Map);
       setState(() => _room = room);
-      await _setupVoice();
       if (data['game'] is Map) {
         setState(() => _game = Map<String, dynamic>.from(data['game'] as Map));
         if (data['hand'] is List) setState(() => _hand = List<dynamic>.from(data['hand'] as List));
