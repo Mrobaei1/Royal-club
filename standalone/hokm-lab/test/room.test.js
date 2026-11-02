@@ -114,7 +114,7 @@ test("completed hands award one match point and preserve the configured target",
   assert.equal(room.status, "round_completed");
   assert.equal(room.matchScore[0] + room.matchScore[1], 1);
   assert.equal(room.matchTarget, 3);
-  room = startNextRound(room, "u0", { rng: () => 0.61 });
+  room = startNextRound(room, "u0", { rng: () => 0.61, now: room.handRevealUntil });
   assert.equal(room.status, "playing");
   assert.equal(room.round.hakemSeat, 1);
 });
@@ -143,7 +143,7 @@ test("personal XP is awarded only after the entire match finishes", () => {
   assert.deepEqual(room.playerProgress, {});
   let rounds = 1;
   while (room.status !== "completed" && rounds < 12) {
-    room = startNextRound(room, "u0", { rng: () => (0.17 + rounds * 0.061) % 0.99 });
+    room = startNextRound(room, "u0", { rng: () => (0.17 + rounds * 0.061) % 0.99, now: room.handRevealUntil });
     room = completeOneRound(room);
     rounds += 1;
   }
