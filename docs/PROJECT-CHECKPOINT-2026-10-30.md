@@ -42,7 +42,7 @@ The jobs in each of the four runs were inspected and all reported `completed / s
 - Flutter Android-first client; Fastify/TypeScript API; PostgreSQL/Neon.
 - Backgammon is the current game-development priority; chess and card-game entry points must remain.
 - Persian and English only.
-- Main includes the shared backgammon board, server-authoritative move handling, invite/room expiry foundations, invitation cancellation, resignation scopes, username-only public payload regression tests, wallet/ledger foundations, social/chat foundations, league foundations, and owner-reviewed agent task proposals.
+- Main includes the shared backgammon board, server-authoritative move handling, invite/room expiry foundations, invitation cancellation, resignation scopes, username-only public payload regression tests, wallet/ledger foundations, social/chat foundations (text, image and emoji; recorded voice-note configuration remains dormant), league foundations, and owner-reviewed agent task proposals.
 - These features have differing levels of automated coverage; do not imply every UI flow has passed manual acceptance.
 - APK workflow is manual-only. **Do not build an APK until the owner explicitly authorizes it.**
 
@@ -83,7 +83,7 @@ No production deployment, migration, trigger creation, environment update, SMS a
 - Do not bind login identity to IP/VPN. Phone field must not force a country code.
 - Public views expose usernames, not full names or email addresses.
 - Friends limit: 100. Private chat initially restricted to friends/active subscribers; image and emoji messages supported.
-- No voice/video chat; no replay. Spectator access requires host permission and approved friend/follower status.
+- No live audio or video calls, no WebRTC call stack and no TURN/media-relay infrastructure. Recorded voice messages are a possible future chat feature, controlled by an owner-only admin setting and disabled by default. The current implementation only stores dormant configuration; it does not record, upload, send or play voice messages. No replay. Spectator access requires host permission and approved friend/follower status.
 - Manager controls league configuration; minimum participants selected by manager and audited; 24-hour appeals; fair bye/rest balance and actual-game reporting; final stage requires format compatibility and explicit manager approval; reschedule where possible for double absence/technical interruption.
 - Owner must be notified before any future successor-admin activation. Never grant super-admin based only on a username.
 - Do not build APK without explicit approval.
