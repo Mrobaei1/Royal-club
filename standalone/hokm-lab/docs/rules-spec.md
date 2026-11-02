@@ -163,3 +163,10 @@ Phase 1 remains **in progress**. This document separates confirmed owner decisio
 **R-36 cancellation after multiple voluntary exits (2026-11-03):** If two or three players voluntarily leave an active match before it ends, cancel the match. Do not record a winner or match result, award match points, or award/deduct XP. This rule is distinct from the unanimously-approved four-player voluntary-departure cancellation and makes cancellation apply when at least two players voluntarily exit.
 
 **R-37 cancellation after multiple unrecovered disconnections (2026-11-03):** If two or three players disconnect from an active match and do not reconnect within their 20-second grace periods, cancel the match. Do not record a winner or match result, award match points, or award/deduct XP. This cancellation rule does not apply to a single unrecovered disconnection, for which the existing Hard-bot takeover and XP rules remain in force.
+
+
+**R-38 single-player voluntary exit (2026-11-03):** If exactly one player voluntarily exits an active match, the match continues with Hard bot permanently controlling that player's seat. The departed player cannot rejoin that match and receives a single 5 XP deduction at match end, subject to the existing no-stacking rule.
+
+**R-39 single-player unrecovered disconnection (2026-11-03):** If exactly one player disconnects and does not reconnect before the match ends, Hard bot controls that seat after the 20-second grace period and the match continues. At match end, apply the player's normal team-result XP award (+20 for a win or +5 for a loss) and the existing single 5 XP unrecovered-disconnection deduction. Thus the net result before the XP floor is +15 XP for a winning player or 0 XP for a losing player. The deduction does not stack with a voluntary-exit deduction.
+
+**R-40 canceled match has no retained scoring or XP effects (2026-11-03):** If a match is canceled under any approved cancellation rule, discard all match points accumulated in that match. Do not record a match result or award/deduct XP. Cancellation must have no effect on player ratings, rankings, or other progression derived from that match.
