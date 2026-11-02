@@ -23,7 +23,7 @@ const migrationFiles = [
       "010_presence_sessions.sql",
 ];
 
-test("authenticated chess routes support private game, draw, chat, voice, profiles and admin audit", { skip: !databaseUrl }, async () => {
+test("authenticated chess routes support private game, draw, chat, profiles and admin audit", { skip: !databaseUrl }, async () => {
   const schema = `chess_routes_${randomUUID().replaceAll("-", "")}`;
   const admin = new Pool({ connectionString: databaseUrl });
   await admin.query(`CREATE SCHEMA "${schema}"`);
@@ -89,10 +89,10 @@ test("authenticated chess routes support private game, draw, chat, voice, profil
 
     const concurrentRoomAttempts = await Promise.all([
       request(concurrentRoomHost, "POST", "/chess/rooms", {
-        timeControlId: "rapid", minOpponentLevel: 1, chatEnabled: true, voiceEnabled: false,
+        timeControlId: "rapid", minOpponentLevel: 1, chatEnabled: true,
       }, app),
       request(concurrentRoomHost, "POST", "/chess/rooms", {
-        timeControlId: "rapid", minOpponentLevel: 1, chatEnabled: true, voiceEnabled: false,
+        timeControlId: "rapid", minOpponentLevel: 1, chatEnabled: true,
       }, appTwo),
     ]);
     assert.deepEqual(concurrentRoomAttempts.map(response => response.statusCode).sort(), [201, 409]);
@@ -105,8 +105,7 @@ test("authenticated chess routes support private game, draw, chat, voice, profil
       timeControlId: "rapid",
       minOpponentLevel: 3,
       chatEnabled: true,
-      voiceEnabled: false,
-    });
+          });
     assert.equal(levelGateRoom.statusCode, 201, levelGateRoom.body);
     const underLevel = await request(black, "POST", `/chess/rooms/${levelGateRoom.json().roomCode}/join`);
     assert.equal(underLevel.statusCode, 403, underLevel.body);
@@ -117,12 +116,11 @@ test("authenticated chess routes support private game, draw, chat, voice, profil
       timeControlId: "rapid",
       minOpponentLevel: 1,
       chatEnabled: true,
-      voiceEnabled: false,
-    });
+          });
     assert.equal(created.statusCode, 201, created.body);
     const roomCode = created.json().roomCode as string;
     const duplicateRoom = await request(white, "POST", "/chess/rooms", {
-      timeControlId: "rapid", minOpponentLevel: 1, chatEnabled: true, voiceEnabled: false,
+      timeControlId: "rapid", minOpponentLevel: 1, chatEnabled: true,
     });
     assert.equal(duplicateRoom.statusCode, 409);
 
@@ -164,25 +162,6 @@ test("authenticated chess routes support private game, draw, chat, voice, profil
     const history = await request(black, "GET", `/chess/games/${gameId}/chat`);
     assert.equal(history.json().messages[0].message, "hello chess");
     assert.equal(history.json().messages[0].username, "route_white");
-
-    const deniedEnable = await request(black, "POST", `/chess/games/${gameId}/voice/enable`);
-    assert.equal(deniedEnable.statusCode, 403);
-    const enabled = await request(white, "POST", `/chess/games/${gameId}/voice/enable`);
-    assert.equal(enabled.statusCode, 200, enabled.body);
-    const lease = await request(white, "POST", `/chess/games/${gameId}/voice/request`);
-    assert.equal(lease.statusCode, 200, lease.body);
-    assert.equal(lease.json().granted, true);
-    const occupied = await request(black, "POST", `/chess/games/${gameId}/voice/request`);
-    assert.equal(occupied.statusCode, 409);
-    const released = await request(white, "POST", `/chess/games/${gameId}/voice/release`, {
-      leaseId: lease.json().leaseId,
-    });
-    assert.equal(released.statusCode, 200);
-    assert.equal(released.json().released, true);
-    const deniedDisable = await request(black, "POST", `/chess/games/${gameId}/voice/disable`);
-    assert.equal(deniedDisable.statusCode, 403);
-    const disabled = await request(white, "POST", `/chess/games/${gameId}/voice/disable`);
-    assert.equal(disabled.statusCode, 200, disabled.body);
 
     const moveWhite = await request(white, "POST", `/chess/games/${gameId}/moves`, { from: "e2", to: "e4" });
     assert.equal(moveWhite.statusCode, 200, moveWhite.body);
@@ -252,7 +231,7 @@ test("authenticated chess routes support private game, draw, chat, voice, profil
     assert.deepEqual(progressionAfter.rows.map(row => Number(row.xp)), [0, 20]);
 
     const timeoutRoom = await request(white, "POST", "/chess/rooms", {
-      timeControlId: "rapid", minOpponentLevel: 1, chatEnabled: true, voiceEnabled: false,
+      timeControlId: "rapid", minOpponentLevel: 1, chatEnabled: true,
     });
     const timeoutJoin = await request(black, "POST", `/chess/rooms/${timeoutRoom.json().roomCode}/join`);
     assert.equal(timeoutJoin.statusCode, 201, timeoutJoin.body);
@@ -292,7 +271,7 @@ test("authenticated chess routes support private game, draw, chat, voice, profil
     // Race a player's move against the scheduler at an already-expired clock.
     // Exactly one transaction must finalize the game and award progression/rating.
     const raceRoom = await request(white, "POST", "/chess/rooms", {
-      timeControlId: "rapid", minOpponentLevel: 1, chatEnabled: true, voiceEnabled: false,
+      timeControlId: "rapid", minOpponentLevel: 1, chatEnabled: true,
     });
     assert.equal(raceRoom.statusCode, 201, raceRoom.body);
     const raceJoin = await request(black, "POST", `/chess/rooms/${raceRoom.json().roomCode}/join`);
@@ -328,7 +307,7 @@ test("authenticated chess routes support private game, draw, chat, voice, profil
     assert.equal(await adjudicateExpiredChessClocks(pool, raceNow + 1000), 0);
 
     const cancellable = await request(white, "POST", "/chess/rooms", {
-      timeControlId: "rapid", minOpponentLevel: 1, chatEnabled: true, voiceEnabled: false,
+      timeControlId: "rapid", minOpponentLevel: 1, chatEnabled: true,
     });
     const cancellableCode = cancellable.json().roomCode as string;
     const guestCancel = await request(black, "DELETE", `/chess/rooms/${cancellableCode}`);
@@ -338,7 +317,7 @@ test("authenticated chess routes support private game, draw, chat, voice, profil
     assert.equal(hostCancel.json().cancelled, true);
 
     const expiring = await request(white, "POST", "/chess/rooms", {
-      timeControlId: "rapid", minOpponentLevel: 1, chatEnabled: true, voiceEnabled: false,
+      timeControlId: "rapid", minOpponentLevel: 1, chatEnabled: true,
     });
     const expiringCode = expiring.json().roomCode as string;
     await pool.query("UPDATE chess_rooms SET expires_at=NOW()-INTERVAL '1 second' WHERE room_code=$1", [expiringCode]);
@@ -351,7 +330,7 @@ test("authenticated chess routes support private game, draw, chat, voice, profil
     assert.equal(queued.statusCode, 202, queued.body);
     assert.equal(queued.json().status, "waiting");
     const queuedRoom = await request(queueOne, "POST", "/chess/rooms", {
-      timeControlId: "rapid", minOpponentLevel: 1, chatEnabled: true, voiceEnabled: false,
+      timeControlId: "rapid", minOpponentLevel: 1, chatEnabled: true,
     });
     assert.equal(queuedRoom.statusCode, 409);
     const matched = await request(queueTwo, "POST", "/chess/matchmaking/join", { timeControlId: "rapid" });
@@ -360,12 +339,12 @@ test("authenticated chess routes support private game, draw, chat, voice, profil
     const matchStatus = await request(queueOne, "GET", "/chess/matchmaking/status");
     assert.equal(matchStatus.json().status, "matched");
     const activeRoom = await request(queueOne, "POST", "/chess/rooms", {
-      timeControlId: "rapid", minOpponentLevel: 1, chatEnabled: true, voiceEnabled: false,
+      timeControlId: "rapid", minOpponentLevel: 1, chatEnabled: true,
     });
     assert.equal(activeRoom.statusCode, 409);
 
     const queueCancelRoom = await request(queueCancel, "POST", "/chess/rooms", {
-      timeControlId: "rapid", minOpponentLevel: 1, chatEnabled: true, voiceEnabled: false,
+      timeControlId: "rapid", minOpponentLevel: 1, chatEnabled: true,
     });
     assert.equal(queueCancelRoom.statusCode, 201, queueCancelRoom.body);
     const queueCancelMatchmaking = await request(queueCancel, "POST", "/chess/matchmaking/join", { timeControlId: "rapid" });
