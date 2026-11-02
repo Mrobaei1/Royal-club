@@ -7,7 +7,8 @@ import 'services/hokm_service.dart';
 
 class HokmScreen extends StatefulWidget {
   final HokmApi? api;
-  const HokmScreen({super.key, this.api});
+  final Future<String?> Function()? identityLoader;
+  const HokmScreen({super.key, this.api, this.identityLoader});
   @override
   State<HokmScreen> createState() => _HokmScreenState();
 }
@@ -63,10 +64,16 @@ class _HokmScreenState extends State<HokmScreen> with WidgetsBindingObserver {
 
   Future<void> _loadIdentity() async {
     try {
-      final data = await AuthService.me();
-      final user = data['user'];
+      String? id;
+      if (widget.identityLoader != null) {
+        id = await widget.identityLoader!();
+      } else {
+        final data = await AuthService.me();
+        final user = data['user'];
+        id = user is Map ? user['id']?.toString() : null;
+      }
       if (!mounted) return;
-      setState(() => _userId = user is Map ? user['id']?.toString() : null);
+      setState(() => _userId = id);
     } catch (error) { _showError(error); }
   }
 
@@ -159,7 +166,11 @@ class _HokmScreenState extends State<HokmScreen> with WidgetsBindingObserver {
 
   Future<void> _leave() async {
     if (_roomId.isEmpty) return;
-    await _run(() => _api.leaveRoom(_roomId, _version));
+    if (_status == 'waiting') {
+      await _run(() => _api.leaveRoom(_roomId, _version));
+    } else if (_status == 'playing') {
+      try { _accept(await _api.disconnect(_roomId, _version)); } catch (_) {}
+    }
     if (!mounted) return;
     _pollTimer?.cancel();
     _pollTimer = null;
