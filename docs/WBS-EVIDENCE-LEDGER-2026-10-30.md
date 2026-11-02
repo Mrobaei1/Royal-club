@@ -1,8 +1,8 @@
-# Royal Club — WBS v1.0 Evidence Ledger (rolling audit)
+# Royal Club — WBS v1.1 Evidence Ledger (rolling audit)
 
-- **Audit date:** 2026-10-31
-- **Governing baseline:** `docs/PROJECT-WBS-BASELINE.md`, WBS v1.0
-- **Live main at this audit:** `7c7502dd70cff487def0768b6726c9451a4a00e6`
+- **Audit date:** 2026-11-02 (scope revision; package scoring remains pending)
+- **Governing baseline:** `docs/PROJECT-WBS-BASELINE.md`, WBS v1.1
+- **Live main checked for this revision:** `3a7d68354f628b43c0080b4ea5bebc6d241ea325`
 - **Documentation follow-up:** PR #70 merged as `22dbff4caf81e3507da31e38bc2905cc964baf41` (WBS count correction and evidence ledger; no application code changed).
 - **Online disconnect implementation:** PR #67 merged as `69f315b2c2d38eba3c1e688ab48be77d17a2137c`.
 - **Notification/empty-bar fixes:** PR #75 merged as `227563f82c63ec5e9e4d4fa6c3e78e27cd059d26`.
@@ -11,11 +11,19 @@
 - **Post-merge main verification:** PR #78 merge head `10e3921` passed API build/integration, Flutter, engine and Web Preview in runs `41186639789`, `41186639847`, `41186639831` (and exact PR-head runs below). Current docs-only main head `7c7502` has Production API/database health passed in `41186861447`; its remaining CI workflows were in progress at this audit.
 - **Leaf package count:** **53** (six + seven + ten + seven + seven + eight + eight)
 - **Total baseline weight:** **1,000 points**; the package weights below sum to exactly 1,000.
-- **Purpose:** evidence inventory and status register; this is not yet the scored baseline.
+- **Purpose:** rolling evidence inventory and status register. The WBS v1.1 scope clarification does not itself earn progress points; the scored baseline remains pending a leaf-by-leaf acceptance-criteria audit.
 
 ## Important count correction
 
 The roadmap previously said 47 packages. Counting the actual leaf IDs in the approved WBS tables gives **53**. This is a documentation/count correction only: no work package, scope, package weight, workstream weight or owner decision has been added, removed or changed. The WBS remains v1.0 and 1,000 points.
+
+## Scope clarification — 2026-11-02 (WBS v1.1)
+
+- PR #117, `release/promote-1.1.15-main`, is **closed and unmerged**. Its WebRTC calling and Cloudflare TURN implementation is not part of `main` and earns no WBS points.
+- Live audio/video calls and video chat are explicitly excluded. No WebRTC calling stack, TURN service, TURN credentials, or related paid infrastructure is required or planned.
+- Recorded voice messages are a future optional capability only. They remain OFF by default; current user-facing chat has no enabled microphone/send action. WBS 4.2 records this product boundary; WBS 6.1 and 6.3 include the dormant manager-only feature control/configuration and authorization requirements; WBS 7.6 requires any future provider credentials to remain server-side and redacted.
+- This is a clarification and acceptance-criteria update inside existing packages. **The WBS remains 53 leaf packages and 1,000 points; no package weight is removed or transferred.**
+- Because the approved WBS v1.0 inventory explicitly had no scored leaf-package fractions, the scope clarification does not create a new numeric project percentage. The official score remains **pending**, not 0%, and prior informal percentages are not accepted as an audited score.
 
 ## Scoring discipline
 
