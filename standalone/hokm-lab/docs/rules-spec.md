@@ -82,6 +82,10 @@ Phase 1 remains **in progress**. This document separates confirmed owner decisio
 
 ## Approved decisions
 
+**R-11 unrecoverable server failure cancellation (2026-11-03):** If a server failure makes continuation of the match genuinely impossible and recovery is not possible, cancel the match. Do not determine a winner from the last saved state, record a match result, award match points, or award/deduct XP.
+
+**R-10 unanimous voluntary departure cancellation (2026-11-03):** If all four players voluntarily leave the match before it ends, cancel the match. Do not record a match result, award match points, or award/deduct XP.
+
 **R-09 no drawn match (2026-11-03):** A match cannot end in a draw. The first team to reach or exceed the configured match-point target is declared the winner.
 
 **R-09 no drawn matches (2026-11-03):** A Hokm match must never end in a tie. The match flow and completion logic must always produce a winning team; a tied match result must not be recorded.
