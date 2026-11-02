@@ -142,11 +142,11 @@ test('authenticated sockets enforce host start, private hands and text-chat memb
 test('six-player tables enforce capacity, all-ready start and private hands', { timeout: 15_000 }, async () => {
   const http = createServer();
   const io = new SocketServer(http, { cors: { origin: '*' } });
-  const identities = new Map(
+  const identities = new Map<string, { id: string; username: string }>(
     Array.from({ length: 7 }, (_, index) => [
       `player-token-${index}`,
       { id: `player-${index}`, username: `player_${index}` },
-    ]),
+    ] as const),
   );
   const manager = registerUnoSockets(io, async token => {
     const player = identities.get(token);
