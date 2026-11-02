@@ -24,6 +24,7 @@ class _HokmScreenState extends State<HokmScreen> with WidgetsBindingObserver {
   bool _busy = false;
   bool _pollBusy = false;
   bool _background = false;
+  int _serverClockOffsetMs = 0;
 
   String t(String fa, String en) => appText(context, fa, en);
   bool get _english => Localizations.localeOf(context).languageCode == 'en';
@@ -50,6 +51,10 @@ class _HokmScreenState extends State<HokmScreen> with WidgetsBindingObserver {
   }
   int? get _mySeat => (_me?['seat'] as num?)?.toInt();
   bool get _ready => _me?['ready'] == true;
+  int get _serverNow => DateTime.now().millisecondsSinceEpoch + _serverClockOffsetMs;
+  int _secondsLeft(Object? deadline) => deadline is num
+      ? ((deadline.toInt() - _serverNow) / 1000).ceil().clamp(0, 99)
+      : 0;
   Map<String, dynamic>? get _game {
     final game = _room?['game'];
     return game is Map ? Map<String, dynamic>.from(game) : null;
@@ -114,6 +119,8 @@ class _HokmScreenState extends State<HokmScreen> with WidgetsBindingObserver {
 
   void _accept(Map<String, dynamic> room) {
     if (!mounted) return;
+    final serverNow = (room['serverNow'] as num?)?.toInt();
+    if (serverNow != null) _serverClockOffsetMs = serverNow - DateTime.now().millisecondsSinceEpoch;
     setState(() { _room = room; _error = null; });
     if (_roomId.isNotEmpty && _pollTimer == null) {
       _pollTimer = Timer.periodic(const Duration(milliseconds: 500), (_) => _refresh());
@@ -401,6 +408,11 @@ class _HokmScreenState extends State<HokmScreen> with WidgetsBindingObserver {
             child: Text(_suit(suit), style: TextStyle(fontSize: 24, color: _suitColor(suit))),
           )).toList(),
         ),
+        final turnLeft = _secondsLeft(_room?['turnDeadlineAt']);
+        if (phase == 'choose_trump' || phase == 'playing')
+          Text(t('زمان باقی‌مانده: ${turnLeft} ثانیه', 'Time remaining: ${turnLeft}s'),
+            style: TextStyle(fontWeight: FontWeight.w800,
+              color: turnLeft <= 2 ? Colors.redAccent : Theme.of(context).colorScheme.primary)),
         if (game['trumpSuit'] != null)
           Text('${t('حکم', 'Trump')}: ${_suit(game['trumpSuit'].toString())}',
             style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
@@ -417,7 +429,7 @@ class _HokmScreenState extends State<HokmScreen> with WidgetsBindingObserver {
         ),
         if (reveal != null) ...[
           const Divider(),
-          Text(t('نمایش کارت‌های باقی‌مانده', 'Remaining cards reveal'), style: const TextStyle(fontWeight: FontWeight.bold)),
+          Text(t('نمایش کارت‌های باقی‌مانده • ${_secondsLeft(_room?['handRevealUntil'])} ثانیه', 'Remaining cards reveal • ${_secondsLeft(_room?['handRevealUntil'])}s'), style: const TextStyle(fontWeight: FontWeight.bold)),
           ...List.generate(reveal.length, (seat) {
             final hand = (reveal[seat] as List? ?? const []).whereType<Map>()
               .map((card) => Map<String, dynamic>.from(card)).toList();
