@@ -1,0 +1,36 @@
+name: Hokm isolated lab validation
+
+on:
+  push:
+    branches:
+      - research/hokm-standalone
+    paths:
+      - "standalone/hokm-lab/**"
+      - ".github/workflows/hokm-lab-validation.yml"
+  pull_request:
+    paths:
+      - "standalone/hokm-lab/**"
+      - ".github/workflows/hokm-lab-validation.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  hokm-lab:
+    name: Node 20 — Hokm rules and room tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: standalone/hokm-lab
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Syntax-check source and tests
+        run: |
+          find src test -name '*.js' -print0 | xargs -0 -n1 node --check
+      - name: Run Hokm lab tests
+        run: npm test
