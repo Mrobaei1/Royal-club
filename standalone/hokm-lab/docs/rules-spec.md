@@ -141,3 +141,8 @@ Phase 1 remains **in progress**. This document separates confirmed owner decisio
 **R-29 mandatory follow-suit (2026-11-03):** A player must play a card of the suit led for the trick whenever they hold at least one card of that suit. If they hold none, they may play any card, including a trump.
 
 **R-30 trick winner (2026-11-03):** If one or more trump cards are played in a trick, the highest-ranked trump wins the trick. If no trump is played, the highest-ranked card of the suit led wins. Cards from other non-trump suits cannot win the trick.
+
+
+**R-31 next-trick lead (2026-11-03):** The player who wins a trick leads the next trick.
+
+**R-32 card rank order (2026-11-03):** Card ranks are ordered from lowest to highest as 2, 3, 4, 5, 6, 7, 8, 9, 10, Jack, Queen, King, Ace. This ordering is used when comparing cards within the same suit, including trump comparisons and automatic trump-selection tie-breaks.
