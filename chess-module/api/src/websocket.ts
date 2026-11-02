@@ -127,6 +127,17 @@ export async function registerChessWebSocket(app: FastifyInstance, options: Opti
       } finally { presenceClient.release(); }
       if (wasOffline) await publish({type:"presence",id:userId,connected:true});
       send({type:"chess:connected",gameId});
+      // Every fresh connection receives an authoritative snapshot after LISTEN is active.
+      // This closes the reconnect gap without relying on transient NOTIFY delivery.
+      const initialState = await options.pool.query(
+        "SELECT id,current_fen,pgn,status,revision,clock_snapshot,settings_snapshot FROM chess_games WHERE id=$1",
+        [gameId]
+      );
+      if (initialState.rowCount) {
+        const row = initialState.rows[0];
+        send({type:"chess:state",gameId:String(row.id),fen:row.current_fen,pgn:row.pgn,
+          status:row.status,revision:Number(row.revision),clock:row.clock_snapshot,settings:row.settings_snapshot});
+      }
       const opponentId = String(membership.rows[0].white_user_id) === userId
         ? String(membership.rows[0].black_user_id)
         : String(membership.rows[0].white_user_id);
