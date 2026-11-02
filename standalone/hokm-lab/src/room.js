@@ -123,7 +123,7 @@ export function handleDisconnectTimeout(room, userId, { now, expectedVersion } =
 /** Cancel after all four seats have been disconnected for the full 20-second window. */
 export function processAllDisconnectedTimeout(room, { now, expectedVersion } = {}) {
   requireNow(now); requireExpectedVersion(room, expectedVersion);
-  if (room.status !== "playing") throw new Error("Only an active match can expire its all-disconnected lease");
+  if (!["playing", "round_completed"].includes(room.status)) throw new Error("Only an unfinished match can expire its all-disconnected lease");
   if (!room.allDisconnectedDeadline || room.players.length !== MAX_PLAYERS || room.players.some(player => player.connected)) {
     throw new Error("All four players are not disconnected");
   }
@@ -173,6 +173,7 @@ export function startNextRound(room, requesterUserId, { rng = Math.random, now =
   requireNow(now);
   if (requesterUserId !== room.hostUserId) throw new Error("Only the host may start the next round");
   if (room.status !== "round_completed") throw new Error("The previous round is not completed");
+  if (Number.isFinite(room.handRevealUntil) && now < room.handRevealUntil) throw new Error("The 3-second end-of-hand reveal is still active");
   const nextHakem = (room.round.hakemSeat + 1) % 4;
   const round = createRound({ deck: shuffleDeck(createDeck(), rng), hakemSeat: nextHakem });
   return { ...room, status: "playing", round, turnStartedAt: now,
