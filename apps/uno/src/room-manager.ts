@@ -237,9 +237,15 @@ export class UnoRoomManager {
       room.totalPoints = room.totalPoints && typeof room.totalPoints === 'object'
         ? room.totalPoints
         : Object.fromEntries(room.players.map(player => [player.id, 0]));
+      const legacyRoom = room as UnoRoom & { voiceEnabled?: unknown };
+      delete legacyRoom.voiceEnabled;
       for (const player of room.players) {
         room.roundsWon[player.id] ??= 0;
         room.totalPoints[player.id] ??= 0;
+        const legacyPlayer = player as typeof player & { muted?: unknown; selfMuted?: unknown; hostMuted?: unknown };
+        delete legacyPlayer.muted;
+        delete legacyPlayer.selfMuted;
+        delete legacyPlayer.hostMuted;
       }
       this.rooms.set(room.code, structuredClone(room));
       if (room.status !== 'finished') {
