@@ -25,4 +25,4 @@ Do not merge or wire this standalone module into the production app until the ow
 - Standalone CI and physical Android Persian/English tests pass.
 - APK build requires separate explicit owner instruction.
 
-No voice/video calling, microphone permission, TURN service, live media or paid audio provider is required or permitted.
+No voice/video calling, microphone permission, TURN service, live media or paid audio provider is required or permitted. Recorded voice messages remain a future optional capability, disabled and outside this release; activation requires separate owner approval and manager control.
