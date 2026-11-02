@@ -77,3 +77,24 @@ test("PostgreSQL repository rejects invalid version jumps before opening a trans
   );
   assert.equal(pool.calls.length, 0);
 });
+
+test("PostgreSQL due-room scan finds elapsed turn, all-disconnected and reconnect deadlines", async () => {
+  const pool = fakePool();
+  const repository = new PostgresRoomRepository(pool);
+  const due = await repository.listDueRooms(9000, 50);
+  assert.deepEqual(due, [{ roomId: "r1", version: 2 }]);
+  const query = pool.calls[0];
+  assert.match(query.sql, /turnDeadlineAt/);
+  assert.match(query.sql, /allDisconnectedDeadline/);
+  assert.match(query.sql, /reconnectDeadline/);
+  assert.match(query.sql, /jsonb_array_elements/);
+  assert.deepEqual(query.params, [9000, 50]);
+});
+
+test("PostgreSQL due-room scan validates bounded query parameters", async () => {
+  const pool = fakePool();
+  const repository = new PostgresRoomRepository(pool);
+  await assert.rejects(repository.listDueRooms(Number.NaN, 10), /Invalid due-room query/);
+  await assert.rejects(repository.listDueRooms(1000, 1001), /Invalid due-room query/);
+  assert.equal(pool.calls.length, 0);
+});
