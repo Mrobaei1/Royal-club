@@ -19,6 +19,22 @@ jobs:
   hokm-lab:
     name: Node 20 — Hokm rules and room tests
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: hokm_lab_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d hokm_lab_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      HOKM_LIVE_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/hokm_lab_test
     defaults:
       run:
         working-directory: standalone/hokm-lab
@@ -32,5 +48,7 @@ jobs:
       - name: Syntax-check source and tests
         run: |
           find src test -name '*.js' -print0 | xargs -0 -n1 node --check
-      - name: Run Hokm lab tests
+      - name: Install live PostgreSQL test driver
+        run: npm install --no-save pg@8
+      - name: Run Hokm lab tests including live PostgreSQL acceptance
         run: npm test
