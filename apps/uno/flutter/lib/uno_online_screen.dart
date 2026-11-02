@@ -254,7 +254,7 @@ class _UnoOnlineScreenState extends State<UnoOnlineScreen> {
           return ListTile(
             dense: true,
             selected: isCurrentPlayer,
-            selectedTileColor: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.35),
+            selectedTileColor: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.35),
             leading: Icon(p['id'] == room['hostId'] ? Icons.workspace_premium : Icons.person),
             title: Text('@${p['username']}'),
             subtitle: Text(details.join(' • ')),
