@@ -7,6 +7,7 @@ void main() {
     final controller = TextEditingController();
     var sendCount = 0;
     await tester.pumpWidget(MaterialApp(
+      locale: const Locale('fa'),
       home: Scaffold(
         body: UnoChatPanel(
           controller: controller,
@@ -47,4 +48,25 @@ void main() {
     expect(tester.widget<IconButton>(find.ancestor(of: find.byIcon(Icons.send), matching: find.byType(IconButton))).onPressed, isNull);
     controller.dispose();
   });
+  testWidgets('chat panel localizes to English and keeps messages readable', (tester) async {
+    final controller = TextEditingController();
+    await tester.pumpWidget(MaterialApp(
+      locale: const Locale('en'),
+      home: Scaffold(
+        body: UnoChatPanel(
+          controller: controller,
+          messages: const [{'username': 'player_two', 'text': 'Hello'}],
+          enabled: true,
+          onSend: () {},
+        ),
+      ),
+    ));
+    expect(find.text('Table chat'), findsOneWidget);
+    expect(find.text('Write a message…'), findsOneWidget);
+    expect(find.byTooltip('Send message'), findsOneWidget);
+    expect(find.text('@player_two: Hello'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+    controller.dispose();
+  });
+
 }
