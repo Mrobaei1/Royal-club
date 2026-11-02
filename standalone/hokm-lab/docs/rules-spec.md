@@ -177,3 +177,10 @@ Phase 1 remains **in progress**. This document separates confirmed owner decisio
 **R-39 single unrecovered disconnection (2026-11-03):** If exactly one player disconnects and does not reconnect before the match ends, the match continues with Hard bot controlling that seat after the 20-second grace period. Apply the previously approved single 5 XP disconnection penalty at match end. Do not stack this penalty with the voluntary-exit penalty; if both conditions apply, deduct only 5 XP total. Reconnected players receive normal match XP as previously approved.
 
 **R-40 cancellation clears all match effects (2026-11-03):** When a match is cancelled under any approved cancellation rule, discard all match-point progress and all provisional hand results from that match. Do not record a final result or apply any XP awards or deductions. Cancellation must have no effect on player ratings, rankings, or XP.
+
+
+**R-41 XP floor (2026-11-03):** XP must never become negative. Any XP deduction, including the 5 XP intentional-exit or unrecovered-disconnection penalty, is capped at the player's current XP; the resulting XP value cannot be lower than zero.
+
+**R-42 room behavior after cancellation (2026-11-03):** When a match is cancelled, close that match room immediately and return the players to the lobby. No cancelled room remains open awaiting manual closure.
+
+**R-43 no replacement human after voluntary exit (2026-11-03):** After a player voluntarily exits an active match, their seat remains controlled by Hard bot until that match ends. A new human player cannot join and take over that seat during the same match.
