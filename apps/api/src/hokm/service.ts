@@ -2,7 +2,7 @@
 // Ported from the independently verified Hokm lab; strict runtime validation remains in the domain/service layer.
 import { randomUUID } from "node:crypto";
 import {
-  createRoom, joinRoom, leaveRoom, setPlayerReady, startRoom, applyRoomCommand,
+  createRoom, joinRoom, leaveRoom, setPlayerReady, startRoom, startNextRound, applyRoomCommand,
   roomViewForUser, disconnectPlayer, reconnectPlayer, handleDisconnectTimeout,
   processTurnTimeout, processAllDisconnectedTimeout, voteToCancelMatch,
   cancelForUnrecoverableTechnicalFailure, submitMatchAppeal, reviewMatchAppeal,
@@ -131,6 +131,12 @@ export class HokmRoomService {
     const userId = authenticatedUser(principal);
     return this.#transition(roomId, expectedVersion,
       room => startRoom(room, userId, { now: this.now() }), userId);
+  }
+
+  async nextRound(principal, roomId, expectedVersion) {
+    const userId = authenticatedUser(principal);
+    return this.#transition(roomId, expectedVersion,
+      room => startNextRound(room, userId, { now: this.now() }), userId);
   }
 
   async command(principal, roomId, command, expectedVersion) {
