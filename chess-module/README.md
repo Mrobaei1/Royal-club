@@ -7,14 +7,18 @@ This module is intentionally isolated from the production Flutter app and API. I
 - Three seeded, manager-configurable time controls: 90 seconds, 5 minutes and 15 minutes.
 - Server clocks, timeout adjudication, draw offers, resignation and immutable per-game settings snapshots.
 - Private rooms with host cancellation and 10-minute expiry; random matchmaking with level compatibility, queue cancellation and status polling.
-- Persisted in-game chat with PostgreSQL-triggered WebSocket notifications.
+- Persisted in-game text chat with PostgreSQL-triggered WebSocket notifications.
 - Username-only public profiles, independent XP progression and Elo ratings.
-- Push-to-talk with PostgreSQL-backed exclusive speaker leases, authenticated offer/answer/ICE signaling and a Flutter WebRTC client.
-- Bilingual Persian/English Flutter lobby, board, game chat/voice controls and manager time-control screen.
+- Bilingual Persian/English Flutter lobby, board, text chat controls and manager time-control screen.
+
+## Deferred feature policy: voice messages
+Royal Club is a games platform and will not provide voice calls, video calls, live push-to-talk, WebRTC media or media relay infrastructure.
+
+A future asynchronous voice-message feature may use a microphone button to record and send audio clips in chat. It is deferred and disabled for now. The current release must not request microphone permission, record audio, play voice messages, or provision paid audio infrastructure. Only manager-facing configuration scaffolding may be prepared, with the feature defaulting to disabled. Future activation requires the manager's explicit decision and an approved secure implementation. No paid provider or service may be enabled automatically.
 
 ## Structure
-- `api/`: Fastify routes, chess engine, clocks, scheduler, matchmaking, progression, rating, WebSocket signaling and tests.
-- `mobile/`: Flutter UI, authenticated API client and WebRTC voice client.
+- `api/`: Fastify routes, chess engine, clocks, scheduler, matchmaking, progression, rating, WebSocket chat and tests.
+- `mobile/`: Flutter UI and authenticated API client.
 - `database/migrations/`: isolated migrations `001` through `010`; never included in the production migration runner.
 - `contracts/`: WebSocket event contract.
 - `docs/`: architecture, security boundaries and acceptance matrix.
@@ -37,11 +41,8 @@ flutter analyze
 flutter test
 ```
 
-## Voice deployment requirements
-The host Android application must request microphone permission (`RECORD_AUDIO`) and internet access. iOS hosts must provide `NSMicrophoneUsageDescription`. The sample client includes STUN defaults and accepts injected ICE server configuration; production deployments must supply TURN over UDP/TCP/TLS credentials and verify real-device NAT traversal. Microphone permission prompts and audio routing must be accepted on physical devices before voice is considered production-ready.
-
 ## Acceptance boundary
-Green CI proves static analysis, automated tests and migration smoke tests only. It does not replace two-physical-device voice tests, reconnect/network-loss tests, accessibility and RTL/LTR device acceptance, production database review, or security review. The acceptance matrix tracks these separately.
+Green CI proves static analysis, automated tests and migration smoke tests only. It does not replace physical-device reconnect tests, accessibility and RTL/LTR device acceptance, production database review, or security review. The acceptance matrix tracks these separately.
 
 ## Integration gate
 Do not merge into `main`, register routes, expose a home-screen entry, deploy, migrate production, or build an APK without the owner's separate explicit instruction.
