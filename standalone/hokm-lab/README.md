@@ -33,7 +33,15 @@ Build and verify an independent, Royal Club-compatible Hokm/Court Piece game mod
 - [ ] Production online service, network-driven deadline scheduler, authenticated session binding/persistent reconnect; text/image/emoji chat. Optional voice messages remain dormant/disabled pending manager activation and a free approved implementation.
 - [ ] Flutter UI, manager controls and end-to-end/security testing.
 
-## Communication policy (owner-confirmed, 2026-11-02)\n\n- Royal Club is a game platform, not a voice/video calling or conferencing application. Voice calls, video calls and conference calling are prohibited product scope.\n- Voice messages are optional audio clips recorded with a microphone button and sent as messages; they are not live calls. Keep this feature dormant and disabled by default.\n- For now, use only free capabilities. Do not provision paid media services or operational voice infrastructure.\n- Implement only manager-side feature flags and secure configuration controls needed to enable voice messages in a future owner-approved release. Actual activation requires a later manager decision and an approved free implementation/provider.\n- Do not use TURN/coturn, TURN relay credentials, WebRTC calling/signaling, or call-related infrastructure. Remove any such code/configuration if present; do not substitute another paid relay.\n\n## Server-side application boundary (in progress)
+## Communication policy (owner-confirmed, 2026-11-02)
+
+- Royal Club is a game platform, not a voice/video calling or conferencing application. Voice calls, video calls and conference calling are prohibited product scope.
+- Voice messages are optional audio clips recorded with a microphone button and sent as messages; they are not live calls. Keep this feature dormant and disabled by default.
+- For now, use only free capabilities. Do not provision paid media services or operational voice infrastructure.
+- Implement only manager-side feature flags and secure configuration controls needed to enable voice messages in a future owner-approved release. Actual activation requires a later manager decision and an approved free implementation/provider.
+- Do not use TURN/coturn, TURN relay credentials, WebRTC calling/signaling, or call-related infrastructure. Remove any such code/configuration if present; do not substitute another paid relay.
+
+## Server-side application boundary (in progress)
 
 `src/service.js` adds a framework-neutral server application boundary around the room state machine:
 - Caller identity is taken only from a verified principal supplied by trusted authentication middleware; request-body user IDs are not accepted as identity.
