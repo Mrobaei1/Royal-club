@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:royal_club_chess/chess_game_screen.dart';
 import 'package:royal_club_chess/chess_board.dart';
@@ -19,6 +20,7 @@ Widget _screen({
 }) => MaterialApp(
   locale: locale,
   supportedLocales: const [Locale('en'), Locale('fa')],
+  localizationsDelegates: GlobalMaterialLocalizations.delegates,
   home: Directionality(
     textDirection: locale?.languageCode == 'fa' ? TextDirection.rtl : TextDirection.ltr,
     child: Scaffold(
