@@ -367,6 +367,7 @@ class _HokmScreenState extends State<HokmScreen> with WidgetsBindingObserver {
     final trick = (game['currentTrick'] as List? ?? const [])
       .whereType<Map>().map((play) => Map<String, dynamic>.from(play)).toList();
     final reveal = _room?['revealedHands'] as List?;
+    final turnLeft = _secondsLeft(_room?['turnDeadlineAt']);
     final canPlay = phase == 'playing' && mySeat != null && currentSeat == mySeat;
     final canChoose = phase == 'choose_trump' && mySeat != null && hakemSeat == mySeat;
 
@@ -408,7 +409,6 @@ class _HokmScreenState extends State<HokmScreen> with WidgetsBindingObserver {
             child: Text(_suit(suit), style: TextStyle(fontSize: 24, color: _suitColor(suit))),
           )).toList(),
         ),
-        final turnLeft = _secondsLeft(_room?['turnDeadlineAt']);
         if (phase == 'choose_trump' || phase == 'playing')
           Text(t('زمان باقی‌مانده: ${turnLeft} ثانیه', 'Time remaining: ${turnLeft}s'),
             style: TextStyle(fontWeight: FontWeight.w800,
