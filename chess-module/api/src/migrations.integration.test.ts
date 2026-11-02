@@ -60,7 +60,7 @@ test("isolated chess migrations apply cleanly against a bigint users schema", { 
       `INSERT INTO chess_games(room_id,white_user_id,black_user_id,initial_fen,current_fen,clock_snapshot,settings_snapshot)
        VALUES($1,$2,$3,'start','start',
        '{"whiteMs":100,"blackMs":300000,"active":"white","lastStartedAt":1000,"finished":false}',
-       '{"timeControl":{"id":"rapid","baseMs":300000,"incrementMs":0}}') RETURNING id`,
+       '{"timeControl":{"id":"rapid","name":"rapid","baseMs":300000,"incrementMs":0,"enabled":true}}') RETURNING id`,
       [room.rows[0].id, white, black],
     );
 
