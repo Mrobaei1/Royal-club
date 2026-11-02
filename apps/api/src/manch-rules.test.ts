@@ -179,3 +179,73 @@ test('round-trips the full versioned state through JSON', () => {
   const restored = JSON.parse(JSON.stringify(state)) as ManchGameState;
   assert.deepEqual(restored, state);
 });
+
+
+test('a stacked pair is not captured as a single exposed token', () => {
+  const state = withTokens([0, -1, -1, -1], [40, 40, -1, -1]);
+  const rolled = rollManchDice(state, 1);
+  assert.ok('state' in rolled);
+  if (!('state' in rolled)) return;
+  const move = legalManchMoves(rolled.state).find((candidate) => candidate.tokenIndex === 0);
+  assert.ok(move);
+  assert.equal(move.capturedPlayerIndex, null);
+  const moved = applyManchMove(rolled.state, 0);
+  assert.ok('state' in moved);
+  if ('state' in moved) assert.deepEqual(moved.state.players[1].tokens.slice(0, 2), [40, 40]);
+});
+
+test('capture grants another roll only when the selected profile enables it', () => {
+  const profile = { ...defaultManchRuleProfile(), extraRollOnCapture: true };
+  const state = withTokens([0, -1, -1, -1], [40, -1, -1, -1], profile);
+  const rolled = rollManchDice(state, 1);
+  assert.ok('state' in rolled);
+  if (!('state' in rolled)) return;
+  const moved = applyManchMove(rolled.state, 0);
+  assert.ok('state' in moved);
+  if ('state' in moved) {
+    assert.equal(moved.state.players[1].tokens[0], -1);
+    assert.equal(moved.state.activePlayerIndex, 0);
+    assert.equal(moved.state.turnNumber, state.turnNumber);
+  }
+});
+
+test('friendly stacking can be disabled without blocking other legal moves', () => {
+  const profile = { ...defaultManchRuleProfile(), friendlyStackingEnabled: false };
+  const state = withTokens([1, 0, -1, -1], [-1, -1, -1, -1], profile);
+  const rolled = rollManchDice(state, 1);
+  assert.ok('state' in rolled);
+  if (!('state' in rolled)) return;
+  const moves = legalManchMoves(rolled.state);
+  assert.equal(moves.some((move) => move.tokenIndex === 1), false);
+  assert.equal(moves.some((move) => move.tokenIndex === 0), true);
+});
+
+test('non-exact finish clamps an overshoot to the finish cell', () => {
+  const profile = { ...defaultManchRuleProfile(), exactFinishRequired: false };
+  const state = withTokens([56, 57, 57, 57], [-1, -1, -1, -1], profile);
+  const rolled = rollManchDice(state, 6);
+  assert.ok('state' in rolled);
+  if (!('state' in rolled)) return;
+  const moved = applyManchMove(rolled.state, 0);
+  assert.ok('state' in moved);
+  if ('state' in moved) {
+    assert.equal(moved.state.winnerIndex, 0);
+    assert.equal(moved.state.players[0].tokens.every((position) => position === 57), true);
+  }
+});
+
+test('rejects invalid rule-profile faces, safe cells and six limits', () => {
+  const base = createManchGame(['red', 'green']);
+  assert.equal(isValidManchState({
+    ...base,
+    profile: { ...base.profile, entryFaces: [0] },
+  }), false);
+  assert.equal(isValidManchState({
+    ...base,
+    profile: { ...base.profile, safeTrackIndices: [52] },
+  }), false);
+  assert.equal(isValidManchState({
+    ...base,
+    profile: { ...base.profile, maxConsecutiveSixes: 1 },
+  }), false);
+});
