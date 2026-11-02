@@ -3218,7 +3218,7 @@ test('Hokm production API uses verified JWT identity, hides private hands, and g
         method: 'POST',
         url: `/api/v1/hokm/rooms/${roomId}/join`,
         headers: auth(player.token),
-        payload: { expectedVersion: version },
+        payload: {},
       });
       assert.equal(joined.statusCode, 200, joined.body);
       version = joined.json().version;
