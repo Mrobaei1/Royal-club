@@ -138,7 +138,6 @@ class _ChessGameSessionViewState extends State<ChessGameSessionView> {
                     blackProfile: session.blackProfile,
                     gameStatus: session.status ?? 'active',
                     isHost: session.isHost,
-                    onToggleVoice: (enabled) => unawaited(_guard(session.setVoiceEnabled(enabled), messenger)),
                     onMove: (uci) {
                       if (uci.length < 4) return;
                       unawaited(_guard(
@@ -152,10 +151,6 @@ class _ChessGameSessionViewState extends State<ChessGameSessionView> {
                     },
                     messages: session.messages,
                     onSendMessage: (message) => unawaited(_guard(session.sendChat(message), messenger)),
-                    onVoicePressed: () => unawaited(_guard(session.pressToTalk(), messenger)),
-                    onVoiceReleased: () => unawaited(_guard(session.releaseTalk(), messenger)),
-                    voiceEnabled: session.voiceEnabled,
-                    speakingUsername: session.speakingUsername,
                     onOfferDraw: () => unawaited(_guard(session.offerDraw(), messenger)),
                     onResign: () => unawaited(_guard(session.resign(), messenger)),
                     pendingDrawOfferId: session.pendingDrawOfferId,
