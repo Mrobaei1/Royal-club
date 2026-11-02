@@ -1,11 +1,10 @@
 import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
-import 'auth_service.dart';
+import 'api_transport.dart';
 
 class NotificationsService {
   static const _storage = FlutterSecureStorage();
-  static const _baseUrl = AuthService.baseUrl;
 
   static Future<Map<String, String>> _headers() async {
     final token = await _storage.read(key: 'royal_club_token');
@@ -20,7 +19,7 @@ class NotificationsService {
 
   static Future<Map<String, dynamic>> _send(String path) async {
     final response = await http.post(
-      Uri.parse('$_baseUrl$path'),
+      ApiTransport.uri(path),
       headers: await _headers(),
       body: jsonEncode(<String, dynamic>{}),
     );
@@ -45,7 +44,7 @@ class NotificationsService {
 
   static Future<List<Map<String, dynamic>>> list() async {
     final response = await http.get(
-      Uri.parse('$_baseUrl/api/v1/notifications'),
+      ApiTransport.uri('/api/v1/notifications'),
       headers: await _headers(),
     );
     final result = await _decode(response);
@@ -66,7 +65,7 @@ class NotificationsService {
 
   static Future<void> deleteAll() async {
     final response = await http.delete(
-      Uri.parse('$_baseUrl/api/v1/notifications'),
+      ApiTransport.uri('/api/v1/notifications'),
       headers: await _headers(),
     );
     await _decode(response);
