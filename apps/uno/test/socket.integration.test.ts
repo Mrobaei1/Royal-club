@@ -137,3 +137,76 @@ test('authenticated sockets enforce host start, private hands and text-chat memb
     await new Promise<void>(resolve => io.close(() => resolve()));
   }
 });
+
+
+test('six-player tables enforce capacity, all-ready start and private hands', { timeout: 15_000 }, async () => {
+  const http = createServer();
+  const io = new SocketServer(http, { cors: { origin: '*' } });
+  const identities = new Map(
+    Array.from({ length: 7 }, (_, index) => [
+      `player-token-${index}`,
+      { id: `player-${index}`, username: `player_${index}` },
+    ]),
+  );
+  const manager = registerUnoSockets(io, async token => {
+    const player = identities.get(token);
+    if (!player) throw new Error('bad token');
+    return player;
+  });
+  await new Promise<void>(resolve => http.listen(0, '127.0.0.1', resolve));
+  const address = http.address() as AddressInfo;
+  const url = `http://127.0.0.1:${address.port}`;
+  const clients: Socket[] = [];
+  try {
+    clients.push(...await Promise.all(
+      Array.from({ length: 7 }, (_, index) => connectClient(url, `player-token-${index}`)),
+    ));
+    const host = clients[0]!;
+    const created = await emitAck(host, 'uno:room:create', {});
+    assert.equal(created.ok, true);
+    const code = String((created.data as Record<string, unknown>).code);
+
+    for (let index = 1; index < 6; index++) {
+      const joined = await emitAck(clients[index]!, 'uno:room:join', { code });
+      assert.equal(joined.ok, true);
+    }
+    const fullRoomJoin = await emitAck(clients[6]!, 'uno:room:join', { code });
+    assert.equal(fullRoomJoin.ok, false);
+    assert.equal(fullRoomJoin.error?.code, 'ROOM_FULL');
+
+    const prematureStart = await emitAck(host, 'uno:room:start', { code });
+    assert.equal(prematureStart.ok, false);
+    assert.equal(prematureStart.error?.code, 'PLAYERS_NOT_READY');
+
+    for (let index = 0; index < 6; index++) {
+      const ready = await emitAck(clients[index]!, 'uno:room:ready', { code, ready: true });
+      assert.equal(ready.ok, true);
+    }
+    const deniedNonHostStart = await emitAck(clients[1]!, 'uno:room:start', { code });
+    assert.equal(deniedNonHostStart.ok, false);
+    assert.equal(deniedNonHostStart.error?.code, 'HOST_ONLY');
+
+    const privateHands = clients.slice(0, 6).map(client => nextEvent(client, 'uno:game:hand'));
+    const publicStateEvent = nextEvent(host, 'uno:game:state');
+    const started = await emitAck(host, 'uno:room:start', { code });
+    assert.equal(started.ok, true);
+    const [hands, publicState] = await Promise.all([
+      Promise.all(privateHands),
+      publicStateEvent,
+    ]);
+    assert.equal(hands.length, 6);
+    assert.ok(hands.every(hand => (hand as unknown[]).length >= 7));
+    const publicGame = publicState as Record<string, unknown>;
+    assert.equal((publicGame.players as Array<Record<string, unknown>>).length, 6);
+    assert.equal((publicGame.players as Array<Record<string, unknown>>).every(player => typeof player.cardCount === 'number' && !('hand' in player)), true);
+    assert.equal('hands' in publicGame, false);
+
+    const lateJoin = await emitAck(clients[6]!, 'uno:room:join', { code });
+    assert.equal(lateJoin.ok, false);
+    assert.equal(lateJoin.error?.code, 'GAME_ALREADY_STARTED');
+    assert.equal(manager.getRoom(code).players.length, 6);
+  } finally {
+    for (const client of clients) client.disconnect();
+    await new Promise<void>(resolve => io.close(() => resolve()));
+  }
+});
