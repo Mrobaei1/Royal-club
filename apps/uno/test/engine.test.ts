@@ -418,6 +418,7 @@ test('an opening Wild Draw Four is returned to the draw deck and replaced', () =
   const opening = drawOpeningCard(drawPile);
   assert.equal(opening.id,'replacement');
   assert.equal(drawPile.some(card => card.id === 'opening-wild4'),true);
+  assert.equal(drawPile.at(-1)?.id,'replacement');
 });
 
 
