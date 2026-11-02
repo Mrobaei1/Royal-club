@@ -9,12 +9,7 @@ BEGIN
   ELSIF TG_TABLE_NAME = 'chess_chat_messages' THEN
     game_key := NEW.game_id::text;
     event_payload := json_build_object('type','chat','id',NEW.id::text);
-  ELSIF TG_TABLE_NAME = 'chess_voice_leases' THEN
-    IF TG_OP = 'DELETE' THEN
-      SELECT id::text INTO game_key FROM chess_games WHERE room_id=OLD.room_id ORDER BY id DESC LIMIT 1;
-    ELSE
-      SELECT id::text INTO game_key FROM chess_games WHERE room_id=NEW.room_id ORDER BY id DESC LIMIT 1;
-    END IF;
+  END IF;
     event_payload := json_build_object('type','voice');
   END IF;
   IF game_key IS NOT NULL THEN
@@ -33,6 +28,3 @@ DROP TRIGGER IF EXISTS chess_chat_realtime_notify ON chess_chat_messages;
 CREATE TRIGGER chess_chat_realtime_notify AFTER INSERT ON chess_chat_messages
 FOR EACH ROW EXECUTE FUNCTION chess_emit_realtime_event();
 
-DROP TRIGGER IF EXISTS chess_voice_realtime_notify ON chess_voice_leases;
-CREATE TRIGGER chess_voice_realtime_notify AFTER INSERT OR UPDATE OR DELETE ON chess_voice_leases
-FOR EACH ROW EXECUTE FUNCTION chess_emit_realtime_event();
