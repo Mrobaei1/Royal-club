@@ -5,12 +5,22 @@
 ## Purpose
 Build and verify an independent, Royal Club-compatible Hokm/Court Piece game module before any integration. This is not yet a complete or production-ready game.
 
+## Owner-approved decisions
+The full owner decision and acceptance specification is maintained in [OWNER-DECISIONS-2026-11-03.md](docs/OWNER-DECISIONS-2026-11-03.md). It records the 60-question decisions, timing, privacy, cancellation, disconnect, appeal, and technical reconciliation rules.
+
 ## Fixed product decisions
 - Bot difficulty is permanently **Hard**; no player or room selector may change it. The bot may use only its own hand and public information and must use the normal legal-move validator.
 - Personal XP is awarded only after the entire match ends: each winning-team player receives +20 XP; each losing-team player receives +5 XP. Intermediate hands change only the team match score.
 - An intentional active-match exit receives −5 XP once for that player only; the seat is permanently controlled by the fixed-Hard bot and the leaver cannot reclaim it. A transient network disconnect is different: it has a configurable grace period (20 seconds by default), no XP penalty, temporary bot takeover after expiry, and authenticated seat reclaim without rolling back bot moves.
 - Level 1 starts at 0 XP. Advancement from level L to L+1 costs round(300 + 5(L−1) + 0.08(L−1)^2). Level 100 starts at 79,439 XP; 95,000 XP is level 109. XP is non-spendable, cannot fall below zero, and achieved level never decreases.
-- Offline/practice games do not award XP.
+- Offline/practice games do not award XP; offline/practice mode is outside the approved Hokm scope.
+- Match target is manager-selected from 3, 5, or 7 hand points. The first team to reach the target wins; a match is never a draw.
+- Trump selection and card play each have a 7-second server deadline. A timed-out card is selected randomly from legal cards only.
+- After each hand, all remaining cards are revealed to all four players for exactly 3 seconds. After the whole match, players see the final result only; no full replay/history viewer is provided.
+- If all four players disconnect, preserve the last valid state for 20 seconds; cancel the match if nobody reconnects.
+- Player-agreed cancellation requires explicit agreement from all four players.
+- Private text chat with opposing players is allowed. Cheating reports and post-match appeals must be reviewable by management.
+- Rooms are cleaned up only when empty; elapsed time alone never expires an occupied room.
 
 ## Requirements and planned modules
 1. Rules engine and round/match controller.
@@ -18,7 +28,7 @@ Build and verify an independent, Royal Club-compatible Hokm/Court Piece game mod
 3. Fixed hard-only AI.
 4. Four-seat authoritative online service, invitations, reconnect and timeout handling.
 5. Private hands and server-side command validation.
-6. Flutter UI, localization, text/image/emoji chat, and an optional dormant voice-message feature (microphone button; disabled until manager activation). Voice/video calls are out of scope.
+6. Flutter UI, localization, text/image/emoji chat. **Voice calls, video calls, conference calls, live push-to-talk, WebRTC calling/signalling, TURN/coturn and media relays are prohibited and must not be implemented.** Recorded voice messages are a separate future-optional feature, dormant and disabled; no user-facing microphone/record/send/play action is enabled.
 7. Security, concurrency, recovery and end-to-end QA.
 
 ## Current status
@@ -30,15 +40,20 @@ Build and verify an independent, Royal Club-compatible Hokm/Court Piece game mod
 - [x] Fixed-hard bot with legal-card selection, public unseen-card counting, void-suit inference, deterministic full-hand simulation, 24 seeded-deal simulations, 100 seeded full-match simulations to target 3, deterministic 24-sample public-information hidden-hand allocation with a validated two-trick lookahead; a three-trick experiment was benchmarked and reverted because it did not improve both random and greedy baselines; public card-count consistency checks, repeatable mid-trick decision tests, a 300-deal legal-random comparison (260/300 Hard wins, 86.67%; 70.87% trick share), a 300-deal deterministic-greedy comparison (167/300 wins, 55.67%; 54.47% trick share), and hidden-hand invariance tests.
 - [ ] Multi-trick lookahead / endgame search, expert and varied partnership-aware opponent baselines, broader calibrated public inference and match-level tournament simulations.
 - [x] Public completed-trick history retained in round state and sanitized per-seat views.
-- [ ] Production online service, network-driven deadline scheduler, authenticated session binding/persistent reconnect; text/image/emoji chat. Optional voice messages remain dormant/disabled pending manager activation and a free approved implementation.
+- [ ] Production online service, network-driven deadline scheduler, authenticated session binding/persistent reconnect; text/image/emoji chat. Optional voice messages remain dormant/disabled pending separate owner activation and an approved implementation.
+- [ ] Seven-second trump/card deadline enforcement and automatic legal-card selection.
+- [ ] Three-second end-of-hand remaining-card reveal.
+- [ ] Twenty-second all-four-disconnected cancellation, unanimous cancellation, technical-failure cancellation and appeal/report workflows.
 - [ ] Flutter UI, manager controls and end-to-end/security testing.
 
-## Communication policy (owner-confirmed, 2026-11-02)
+## Communication policy (owner-confirmed, 2026-11-03)
 
-- Royal Club is a game platform, not a voice/video calling or conferencing application. Voice calls, video calls and conference calling are prohibited product scope.
-- Voice messages are optional audio clips recorded with a microphone button and sent as messages; they are not live calls. Keep this feature dormant and disabled by default.
+Royal Club is a game platform, not a voice/video calling or conferencing application.
+
+- Voice calls, video calls, conference calling, live push-to-talk, WebRTC calling/signalling, TURN/coturn and media-relay infrastructure are permanently out of scope.
+- Recorded voice messages are not calls. They remain future-optional, dormant and disabled by default; no user-facing microphone/record/send/play action is currently enabled.
 - For now, use only free capabilities. Do not provision paid media services or operational voice infrastructure.
-- Implement only manager-side feature flags and secure configuration controls needed to enable voice messages in a future owner-approved release. Actual activation requires a later manager decision and an approved free implementation/provider.
+- Any future recorded-voice-message activation requires a separate explicit owner decision and security/cost review.
 - Do not use TURN/coturn, TURN relay credentials, WebRTC calling/signaling, or call-related infrastructure. Remove any such code/configuration if present; do not substitute another paid relay.
 
 ## Server-side application boundary (in progress)
