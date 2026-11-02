@@ -82,6 +82,8 @@ Phase 1 remains **in progress**. This document separates confirmed owner decisio
 
 ## Approved decisions
 
+**R-25 recovered disconnect does not reduce winner XP (2026-11-02):** A player on the winning team who temporarily disconnects but successfully reconnects before the match ends receives the normal 20 XP winner award, with no reduction or additional penalty for that recovered disconnection.
+
 **R-24 penalty stacking prevention (2026-11-02):** If a player qualifies for both the voluntary-exit penalty and the unrecovered-disconnection penalty in the same match, apply only one 5 XP deduction total. The two penalties do not stack.
 
 **R-23 unrecovered disconnection XP penalty (2026-11-02):** If a player disconnects during an active match and does not reconnect before the match ends, apply a 5 XP penalty to that player at match end. This penalty applies once. A temporary disconnection that is recovered before match end incurs no such penalty. The rule is separate from the voluntary-exit penalty.
