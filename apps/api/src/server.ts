@@ -1503,6 +1503,32 @@ const requireOwnerAuth = async (request: any, reply: any) => {
   }
 };
 
+// Hokm player identity comes only from the verified Royal Club JWT session.
+// Until a delegated Hokm manager permission is explicitly approved and wired,
+// manager review endpoints are fail-closed to the configured platform owner.
+const requireHokmAuth = async (request: any, reply: any) => {
+  await requireMatchAuth(request, reply);
+  if (reply.sent) return;
+  const claims = request.user as { sub?: string };
+  if (!claims.sub || !isNumericId(claims.sub)) {
+    return reply.code(401).send({ error: 'A valid authenticated Royal Club user is required.' });
+  }
+  const ownerUserId = process.env.OWNER_USER_ID?.trim();
+  request.auth = {
+    authenticated: true,
+    userId: claims.sub,
+    role: ownerUserId && isNumericId(ownerUserId) && claims.sub === ownerUserId ? 'owner' : 'player'
+  };
+};
+
+const hokmRepository = new PostgresRoomRepository(pool);
+const hokmService = new HokmRoomService({ repository: hokmRepository });
+await registerHokmRoutes(app, {
+  service: hokmService,
+  authenticate: requireHokmAuth,
+  prefix: '/api/v1'
+});
+
 app.get('/api/v1/admin/game-disconnect-policies', { onRequest: [requireOwnerAuth] }, async () => {
   const result = await pool.query('SELECT game_type AS "gameType", enabled, grace_seconds AS "graceSeconds", takeover_mode AS "takeoverMode", updated_at AS "updatedAt" FROM game_disconnect_policies ORDER BY game_type');
   return { policies: result.rows };
