@@ -49,3 +49,5 @@ The worker uses the PostgreSQL CAS repository, handles SIGTERM/SIGINT, and logs 
 - No APK build is included.
 - No voice/video calls, conference calls, live push-to-talk, WebRTC calling/signalling, TURN or media relay are allowed.
 - Optional recorded voice messages remain dormant and disabled; this work adds no audio feature.
+
+The worker's scheduler error callback is explicitly typed and emits only room identifier, error message, and event timestamp; it never logs private card state or database credentials.
