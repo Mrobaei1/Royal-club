@@ -48,9 +48,10 @@ test("all-four-disconnected expiry wins over individual reconnect and turn deadl
     room = await fixture.service.disconnect(user(ids[i]), room.roomId, room.version);
     fixture.setNow(3000 + i);
   }
-  fixture.setNow(room.allDisconnectedDeadline);
+  const persisted = await fixture.repository.get(room.roomId);
+  fixture.setNow(persisted.allDisconnectedDeadline);
   const scheduler = new HokmDeadlineScheduler({
-    service: fixture.service, repository: fixture.repository, now: () => room.allDisconnectedDeadline
+    service: fixture.service, repository: fixture.repository, now: () => persisted.allDisconnectedDeadline
   });
   const result = await scheduler.pollOnce();
   const latest = await fixture.repository.get(room.roomId);
