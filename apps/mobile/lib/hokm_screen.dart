@@ -140,7 +140,11 @@ class _HokmScreenState extends State<HokmScreen> with WidgetsBindingObserver {
       if (!mounted) return;
       if (_room?['version'] != latest['version'] ||
           _room?['handRevealUntil'] != latest['handRevealUntil'] ||
-          _room?['status'] != latest['status']) _accept(latest);
+          _room?['status'] != latest['status']) {
+        _accept(latest);
+      } else if (mounted) {
+        setState(() {});
+      }
     } catch (error) {
       if (_error == null) _showError(error);
     } finally { _pollBusy = false; }
