@@ -187,3 +187,34 @@ test("extended deterministic fuzzing covers 40 seeds and up to 250 plies per gam
     }
   }
 });
+
+
+test("rejects structurally invalid and impossible FEN positions", () => {
+  const invalidPositions = [
+    "8/8/8/8/8/8/8/8 w - - 0 1", // no kings
+    "4k3/8/8/8/8/8/8/4K3 x - - 0 1", // invalid active color
+    "4k3/8/8/8/8/8/8/4K3 w Z - 0 1", // invalid castling rights
+    "4k3/8/8/8/8/8/8/4K3 w - - -1 1", // negative halfmove clock
+    "4k3/8/8/8/8/8/8/4K3 w - - 0 0", // invalid fullmove number
+    "4k3/8/8/8/8/8/8/4K3 w - - 0", // missing FEN field
+  ];
+  for (const fen of invalidPositions) {
+    assert.throws(() => new ChessGame(fen), undefined, `expected invalid FEN rejection: ${fen}`);
+  }
+});
+
+test("keeps terminal edge positions immutable when a move is attempted", () => {
+  const terminalFens = [
+    "7k/6Q1/6K1/8/8/8/8/8 b - - 0 1", // checkmate
+    "7k/5K2/6Q1/8/8/8/8/8 b - - 0 1", // stalemate
+    "8/8/8/8/8/2k5/8/4K3 w - - 0 1", // insufficient material
+  ];
+  for (const fen of terminalFens) {
+    const game = new ChessGame(fen);
+    const before = game.snapshot();
+    assert.equal(before.gameOver, true);
+    assert.throws(() => game.play({from: "e1", to: "e2"}));
+    assert.equal(game.snapshot().fen, before.fen);
+    assert.deepEqual(game.snapshot().legalMoves, before.legalMoves);
+  }
+});
