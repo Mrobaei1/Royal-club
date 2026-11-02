@@ -28,7 +28,8 @@ If the workflow fails:
 
 ## Security and cost notes
 
-- Do not commit `DATABASE_URL`, a Neon API key, or `JWT_SECRET` to GitHub source files or repository variables.
+- Do not commit `DATABASE_URL`, a Neon API key, `JWT_SECRET`, SMS encryption keys, or `VOICE_STORAGE_CREDENTIALS_ENCRYPTION_KEY` to GitHub source files or repository variables.
+- `VOICE_STORAGE_CREDENTIALS_ENCRYPTION_KEY` is optional and only needed if the owner later configures S3-compatible credentials for recorded voice messages. The voice-message admin settings are dormant configuration only; recording, upload and playback routes are not implemented. Do not provision TURN/WebRTC/live-media services.
 - Neon injects the branch's `DATABASE_URL` into the Function environment. The workflow stores only the JWT secret in Neon Function environment configuration.
 - The Function is public HTTPS; the API's authentication and rate limits still apply.
 - Neon Functions are available on the free plan subject to current quotas and limits. Check Neon usage if traffic grows.
