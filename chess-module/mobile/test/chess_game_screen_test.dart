@@ -13,7 +13,6 @@ Widget _screen({
   ValueChanged<bool>? onRespondToDraw,
   String? activeSide,
   bool isHost = false,
-  ValueChanged<bool>? onToggleVoice,
   String gameStatus = 'active',
 }) => MaterialApp(
   home: Scaffold(
@@ -27,10 +26,6 @@ Widget _screen({
       onMove: (_) {},
       messages: const [],
       onSendMessage: (_) {},
-      onVoicePressed: () {},
-      onVoiceReleased: () {},
-      voiceEnabled: false,
-      speakingUsername: null,
       onOfferDraw: onOfferDraw,
       onResign: onResign,
       pendingDrawOfferId: pendingDrawOfferId,
@@ -38,7 +33,6 @@ Widget _screen({
       onRespondToDraw: onRespondToDraw,
       activeSide: activeSide,
       isHost: isHost,
-      onToggleVoice: onToggleVoice,
       gameStatus: gameStatus,
     ),
   ),
@@ -88,20 +82,6 @@ void main() {
     expect(find.text('04:59'), findsOneWidget);
   });
 
-  testWidgets('host can toggle room voice but guests cannot', (tester) async {
-    bool? enabled;
-    await tester.pumpWidget(_screen(
-      isHost: true,
-      onToggleVoice: (value) => enabled = value,
-    ));
-    expect(find.text('Enable room voice'), findsOneWidget);
-    await tester.tap(find.byType(Switch));
-    expect(enabled, isTrue);
-
-    await tester.pumpWidget(_screen());
-    expect(find.text('Enable room voice'), findsNothing);
-  });
-
   testWidgets('finished game displays result and hides active-game actions', (tester) async {
     await tester.pumpWidget(MaterialApp(
       home: Scaffold(
@@ -115,10 +95,6 @@ void main() {
           onMove: (_) {},
           messages: const [],
           onSendMessage: (_) {},
-          onVoicePressed: () {},
-          onVoiceReleased: () {},
-          voiceEnabled: true,
-          speakingUsername: null,
           onOfferDraw: () {},
           onResign: () {},
           gameStatus: 'white_win',
