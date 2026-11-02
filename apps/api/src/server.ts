@@ -258,7 +258,7 @@ await pool.query(`
     ON admin_permission_audit_log (created_at DESC);
   ALTER TABLE admin_permission_audit_log DROP CONSTRAINT IF EXISTS admin_permission_audit_log_action_check;
   ALTER TABLE admin_permission_audit_log ADD CONSTRAINT admin_permission_audit_log_action_check
-    CHECK (action IN ('grant_created', 'grant_revoked', 'grant_rejected', 'kill_switch_changed'));
+    CHECK (action IN ('grant_created', 'grant_revoked', 'grant_rejected', 'kill_switch_changed', 'voice_message_settings_updated'));
   -- Dormant Phase 4 agent control plane. Definitions are plans only; no runtime executes them.
   CREATE TABLE IF NOT EXISTS agent_task_definitions (
     id BIGSERIAL PRIMARY KEY,
