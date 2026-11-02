@@ -132,25 +132,36 @@ This document converts the owner's Hokm questionnaire decisions into implementat
 - Q43/Q45/Q57 are interpreted together: ordinary app closure/backgrounding or transient network loss is not automatically a forfeit; a missed turn is handled by the 7-second legal auto-play; an explicit intentional active-match exit uses the existing −5 XP permanent-forfeit policy.
 - Q55 and Q59 are reconciled by distinguishing recoverable interruption (resume from the last valid state) from unrecoverable failure (cancel without a winner).
 
-## 9. Implementation gaps identified during repository inspection
+## 9. Implementation status after owner-decision work (2026-11-03)
 
 The isolated lab already has a rules engine, match target 3/5/7, four-seat rooms, server-authoritative private seat views, fixed Hard Bot, XP progression, forfeit handling, temporary disconnect/reconnect, 20-second default per-player disconnect grace, PostgreSQL adapter foundation, and tests.
 
-The following owner decisions are **not yet evidenced as implemented end-to-end** and must be added with tests:
+### Implemented in the room state machine and service boundary
 
-1. Seven-second server-side trump and card deadlines, including deterministic legal auto-play and idempotent timeout processing.
-2. Three-second post-hand remaining-card reveal, with a safe transition to the next hand.
-3. Twenty-second all-four-disconnected deadline and automatic match cancellation.
-4. Unanimous four-player match cancellation request/vote lifecycle.
-5. Recoverable versus unrecoverable server interruption handling and cancellation result semantics.
-6. Post-match appeal creation, audit evidence access, and manager review state.
-7. Cheating report workflow and management review.
-8. Explicit end-of-match privacy behavior: final result only, no full replay/history UI or retained match replay payload.
-9. Opponent private text chat authorization and UI acceptance, without live-call features.
-10. Authenticated, distributed-safe deadline scheduling and database concurrency tests against a real PostgreSQL instance.
-11. Flutter UI, Persian/English acceptance, and multi-device end-to-end testing.
+1. **Implemented:** seven-second server turn deadlines; expired trump selection uses the fixed Hard policy; expired card play chooses randomly from legal cards only. A trusted service method processes the deadline with expected-version checks.
+2. **Implemented:** three-second post-hand reveal of all remaining hands; the next hand cannot start before the reveal window expires.
+3. **Implemented:** twenty-second all-four-disconnected deadline and cancellation transition, including the round-completed state. A trusted service method processes the deadline.
+4. **Implemented:** unanimous four-player cancellation votes; fewer than four approvals cannot cancel.
+5. **Implemented:** unrecoverable technical-failure cancellation with no winner/result and no progression award.
+6. **Implemented:** participant appeal records and manager/owner review records. Review does not silently rewrite the committed result.
+7. **Implemented:** participant cheating reports and manager/owner review records; a report does not automatically adjudicate the match.
+8. **Implemented:** completed-match player view returns no full game/replay history; the short end-of-hand reveal remains available for its three-second window.
+9. **Implemented at service boundary:** authenticated service methods exist for the above operations; trusted scheduler and manager methods reject ordinary player principals.
+10. **Verified:** Node 20 syntax check and Hokm lab suite passed on PR #125 exact head; 97 tests passed, 0 failed. The existing isolated-lab workflow also passed. See [Node 20 Hokm validation](https://github.com/Mrobaei1/Royal-club/actions/runs/41532108280) and [isolated Hokm test suite](https://github.com/Mrobaei1/Royal-club/actions/runs/41532108302).
 
-Do not award completion percentage for documentation alone. Update the Hokm WBS only when each acceptance criterion has implementation and test evidence.
+### Still open before end-to-end acceptance
+
+1. Wire turn/all-disconnected deadline methods to a durable server scheduler and verify retries, missed jobs and multi-instance races.
+2. Wire new cancellation, report and appeal methods into authenticated Fastify routes and the real manager authorization policy.
+3. Verify the PostgreSQL adapter, migration, reports, appeals and room state against a live PostgreSQL service; mocked Pool tests are not sufficient.
+4. Implement recoverable server-process restart/recovery and durable event transport; unrecoverable cancellation is implemented at the domain/service layer only.
+5. Implement opposing-team private text chat authorization and Flutter UI acceptance.
+6. Implement the Flutter game UI, manager review screens, Persian/English localization and real-device four-client flows.
+7. Verify the 7-second countdown/automatic action, 3-second reveal, 20-second cancellation and unanimous vote behavior on four independent authenticated clients.
+8. Add a persistent, server-generated operation/idempotency key at the HTTP/persistence boundary. Expected-version/CAS currently prevents stale duplicate transitions from being applied twice, but does not yet expose a client operation-key contract.
+9. Q15–Q23 from the earlier conversation were not present in the retrievable conversation context; their meaning has not been invented or implemented as assumptions.
+
+Do not award completion percentage for documentation alone. The current green lab test suite verifies the isolated domain/service layer, not production deployment, Flutter UI, live database, or four-device acceptance. Update the Hokm WBS only when each acceptance criterion has implementation and test evidence.
 
 ## 10. Verification and release gates
 
