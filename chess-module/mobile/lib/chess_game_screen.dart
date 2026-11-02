@@ -183,13 +183,16 @@ class _ChessGameScreenState extends State<ChessGameScreen> {
         final availableHeight = constraints.maxHeight.isFinite
             ? constraints.maxHeight : constraints.maxWidth;
         final boardSize = math.min(constraints.maxWidth, availableHeight * 0.38);
-        return Column(
+        return SingleChildScrollView(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight.isFinite ? constraints.maxHeight : 0),
+            child: Column(
       children: [
         _player(widget.blackUsername, _blackDisplay, profile: widget.blackProfile, active: widget.activeSide == 'black'),
         const SizedBox(height: 8),
         Center(
-          child: SizedBox(
-            width: boardSize,
+          child: SizedBox.square(
+            dimension: boardSize,
             child: ChessBoard(fen: widget.fen, legalMoves: widget.legalMoves, onMove: widget.onMove, interactive: widget.gameStatus == 'active'),
           ),
         ),
@@ -301,6 +304,8 @@ class _ChessGameScreenState extends State<ChessGameScreen> {
         ),
 
       ],
+            ),
+          ),
         );
       },
     );
