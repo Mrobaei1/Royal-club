@@ -243,6 +243,8 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
         else {const winner=status==="white_win"?white:black;await awardChessResult(client,String(row.id),"final_result",white,black,{outcome:"win",winnerId:winner,loserId:winner===white?black:white});}
       }
       await client.query("COMMIT");
+      try{await publishGameEvent(pool,row.id,{type:"state"});}
+      catch(error){request.log.warn({err:error},"chess move state notification failed");}
       for(const offer of cancelledOffers.rows){
         try{await publishGameEvent(pool,row.id,{type:"draw_response",offerId:String(offer.id),status:"cancelled"});}
         catch(error){request.log.warn({err:error},"chess draw cancellation notification failed");}
