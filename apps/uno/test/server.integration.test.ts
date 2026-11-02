@@ -50,9 +50,6 @@ function startService(database: string): { child: ChildProcess; logs: () => stri
       JWT_SECRET: jwtSecret,
       DATABASE_URL: database,
       CORS_ORIGINS: 'http://localhost:3000',
-      TURN_URLS: 'turn:turn.test.invalid:3478?transport=udp,turn:turn.test.invalid:3478?transport=tcp,turns:turn.test.invalid:5349?transport=tcp',
-      TURN_SHARED_SECRET: 'test-turn-shared-secret',
-      TURN_TTL_SECONDS: '300',
     },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
@@ -96,7 +93,7 @@ function emitAck(socket: Socket, event: string, payload: unknown): Promise<Recor
   });
 }
 
-test('PostgreSQL-backed UNO service authenticates, issues TURN credentials and restores live rooms', {
+test('PostgreSQL-backed UNO service authenticates and restores live rooms', {
   skip: !databaseUrl,
   timeout: 45_000,
 }, async () => {
@@ -127,23 +124,10 @@ test('PostgreSQL-backed UNO service authenticates, issues TURN credentials and r
     getServiceLogs = running.logs;
     await waitForHealth(service, running.logs);
 
-    const iceResponse = await fetch(`${baseUrl}/ice-config`, {
+    const removedMediaEndpoint = await fetch(`${baseUrl}/ice-config`, {
       headers: { Authorization: `Bearer ${hostToken}` },
     });
-    assert.equal(iceResponse.status, 200);
-    const iceConfig = await iceResponse.json() as { iceServers: Array<Record<string, unknown>> };
-    assert.equal(iceConfig.iceServers.length, 2);
-    assert.deepEqual(iceConfig.iceServers[1]!.urls, [
-      'turn:turn.test.invalid:3478?transport=udp',
-      'turn:turn.test.invalid:3478?transport=tcp',
-      'turns:turn.test.invalid:5349?transport=tcp',
-    ]);
-    const turnUsername = String(iceConfig.iceServers[1]!.username);
-    assert.match(turnUsername, /^\d+:\d+$/);
-    assert.equal(
-      String(iceConfig.iceServers[1]!.credential),
-      createHmac('sha1', 'test-turn-shared-secret').update(turnUsername).digest('base64'),
-    );
+    assert.equal(removedMediaEndpoint.status, 404);
 
     const host = await connectSocket(hostToken);
     const guest = await connectSocket(guestToken);
