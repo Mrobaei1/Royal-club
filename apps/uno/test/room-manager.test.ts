@@ -40,8 +40,8 @@ test('room displays usernames only and host can manage communication switches', 
   const manager = new UnoRoomManager();
   const room = manager.createRoom(host);
   manager.joinRoom(room.code, guest);
-  const updated = manager.setCommunication(room.code, host.id, 'voiceEnabled', false);
-  assert.equal(updated.voiceEnabled, false);
+  const updated = manager.setCommunication(room.code, host.id, 'chatEnabled', false);
+  assert.equal(updated.chatEnabled, false);
   assert.equal(updated.players[0]!.username, 'host_name');
   assert.equal('fullName' in (updated.players[0] as object), false);
   assert.throws(() => manager.setCommunication(room.code, guest.id, 'chatEnabled', false), /Only the host/);
@@ -67,58 +67,6 @@ test('a disconnected player can restore their seat during an active game', () =>
   const restored = manager.reconnect(room.code, guest);
   assert.equal(restored.players[1]!.connected, true);
 });
-test('host disabling voice forces every seat into muted state', () => {
-  const manager = new UnoRoomManager();
-  const room = manager.createRoom(host);
-  manager.joinRoom(room.code, guest);
-  manager.setMuted(room.code, host.id, host.id, false);
-  manager.setMuted(room.code, guest.id, guest.id, false);
-  const updated = manager.setCommunication(room.code, host.id, 'voiceEnabled', false);
-  assert.equal(updated.players.every(p => p.muted), true);
-});
-
-test('host mute cannot be overridden by a player and respects self-mute', () => {
-  const manager = new UnoRoomManager();
-  const room = manager.createRoom(host);
-  manager.joinRoom(room.code, guest);
-  manager.setMuted(room.code, host.id, guest.id, true);
-  assert.throws(
-    () => manager.setMuted(room.code, guest.id, guest.id, false),
-    (error: unknown) => error instanceof UnoError && error.code === 'HOST_MUTED',
-  );
-  const hostUnmuted = manager.setMuted(room.code, host.id, guest.id, false);
-  assert.equal(hostUnmuted.players[1]!.muted, true);
-  manager.setMuted(room.code, guest.id, guest.id, false);
-  assert.equal(manager.getRoom(room.code).players[1]!.muted, false);
-});
-
-test('re-enabling voice preserves each player self-mute preference', () => {
-  const manager = new UnoRoomManager();
-  const room = manager.createRoom(host);
-  manager.joinRoom(room.code, guest);
-  manager.setMuted(room.code, guest.id, guest.id, true);
-  manager.setCommunication(room.code, host.id, 'voiceEnabled', false);
-  const enabled = manager.setCommunication(room.code, host.id, 'voiceEnabled', true);
-  assert.equal(enabled.players[0]!.muted, true);
-  assert.equal(enabled.players[1]!.muted, true);
-});
-
-test('host mute and voice shutdown require players to opt in again', () => {
-  const manager = new UnoRoomManager();
-  const room = manager.createRoom(host);
-  manager.joinRoom(room.code, guest);
-  manager.setMuted(room.code, guest.id, guest.id, false);
-  assert.equal(manager.getRoom(room.code).players[1]!.muted, false);
-  manager.setMuted(room.code, host.id, guest.id, true);
-  manager.setMuted(room.code, host.id, guest.id, false);
-  assert.equal(manager.getRoom(room.code).players[1]!.muted, true);
-  manager.setMuted(room.code, guest.id, guest.id, false);
-  assert.equal(manager.getRoom(room.code).players[1]!.muted, false);
-  manager.setCommunication(room.code, host.id, 'voiceEnabled', false);
-  manager.setCommunication(room.code, host.id, 'voiceEnabled', true);
-  assert.equal(manager.getRoom(room.code).players[1]!.muted, true);
-});
-
 test('room snapshots survive manager recreation and restore user membership', () => {
   const first = new UnoRoomManager();
   const room = first.createRoom(host);
@@ -150,26 +98,6 @@ test('active match state and private hands survive snapshot restoration', () => 
   assert.equal(afterRestart.game?.players[0]!.hand.length, 7);
   assert.deepEqual(afterRestart.game?.players[0]!.hand, original.game?.players[0]!.hand);
   assert.equal(restored.getRoomForUser(guest.id), room.code);
-});
-
-test('snapshot restoration upgrades older microphone state safely', () => {
-  const manager = new UnoRoomManager();
-  manager.restoreSnapshot({
-    rooms: [{
-      code: 'OLD123',
-      hostId: 'host',
-      status: 'waiting',
-      players: [{id:'host',username:'host_name',ready:false,connected:true,muted:false}],
-      chatEnabled: true,
-      voiceEnabled: true,
-      createdAt: 1,
-      game: null,
-    }],
-  });
-  const player = manager.getRoom('OLD123').players[0]!;
-  assert.equal(player.selfMuted, false);
-  assert.equal(player.hostMuted, false);
-  assert.equal(player.muted, false);
 });
 
 test('a room accepts six seats and rejects a seventh player', () => {
@@ -379,7 +307,7 @@ test('host voluntarily leaving during a live round transfers host to next connec
   const afterLeave = manager.leave(room.code, host.id)!;
   assert.equal(afterLeave.hostId, guest.id);
   assert.equal(afterLeave.players[0]!.connected, false);
-  assert.equal(afterLeave.players[0]!.muted, true);
+  assert.equal('muted' in afterLeave.players[0]!, false);
   assert.equal(manager.getRoomForUser(host.id), room.code);
 });
 
@@ -443,7 +371,8 @@ test('server restart marks every restored seat offline until authenticated recon
   restarted.markAllPlayersDisconnected();
   const offline = restarted.getRoom(room.code);
   assert.equal(offline.status, 'playing');
-  assert.equal(offline.players.every(player => !player.connected && player.muted), true);
+  assert.equal(offline.players.every(player => !player.connected), true);
+  assert.equal(offline.players.every(player => !('muted' in player)), true);
   assert.equal(restarted.reconnect(room.code, guest).players.find(player => player.id === guest.id)!.connected, true);
 });
 
