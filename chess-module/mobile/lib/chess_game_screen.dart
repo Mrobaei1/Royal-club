@@ -17,10 +17,6 @@ class ChessGameScreen extends StatefulWidget {
     required this.onMove,
     required this.messages,
     required this.onSendMessage,
-    required this.onVoicePressed,
-    required this.onVoiceReleased,
-    required this.voiceEnabled,
-    required this.speakingUsername,
     this.onOfferDraw,
     this.onResign,
     this.pendingDrawOfferId,
@@ -31,7 +27,6 @@ class ChessGameScreen extends StatefulWidget {
     this.blackProfile,
     this.isHost = false,
     this.gameStatus = 'active',
-    this.onToggleVoice,
   });
 
   final String fen;
@@ -43,10 +38,6 @@ class ChessGameScreen extends StatefulWidget {
   final ValueChanged<String> onMove;
   final List<ChessChatMessage> messages;
   final ValueChanged<String> onSendMessage;
-  final VoidCallback onVoicePressed;
-  final VoidCallback onVoiceReleased;
-  final bool voiceEnabled;
-  final String? speakingUsername;
   final VoidCallback? onOfferDraw;
   final VoidCallback? onResign;
   final String? pendingDrawOfferId;
@@ -57,7 +48,6 @@ class ChessGameScreen extends StatefulWidget {
   final ChessPlayerProfile? blackProfile;
   final String gameStatus;
   final bool isHost;
-  final ValueChanged<bool>? onToggleVoice;
 
   @override
   State<ChessGameScreen> createState() => _ChessGameScreenState();
@@ -275,65 +265,7 @@ class _ChessGameScreenState extends State<ChessGameScreen> {
                 ),
             ],
           ),
-        if (widget.gameStatus == 'active' && widget.isHost && widget.onToggleVoice != null)
-          SwitchListTile(
-            dense: true,
-            contentPadding: EdgeInsets.zero,
-            title: Text(fa ? 'فعال‌سازی صدای اتاق' : 'Enable room voice'),
-            value: widget.voiceEnabled,
-            onChanged: widget.onToggleVoice,
-          ),
-        if (widget.gameStatus == 'active' && widget.voiceEnabled)
-          Row(
-            children: [
-              Expanded(
-                child: Text(widget.speakingUsername == null
-                    ? (fa ? 'کانال صوتی آماده است' : 'Voice channel ready')
-                    : (fa ? '${widget.speakingUsername} در حال صحبت است' : '${widget.speakingUsername} is speaking')),
-              ),
-              GestureDetector(
-                onTapDown: (_) => widget.onVoicePressed(),
-                onTapUp: (_) => widget.onVoiceReleased(),
-                onTapCancel: widget.onVoiceReleased,
-                child: Semantics(
-                  button: true,
-                  label: fa ? 'برای صحبت نگه دارید' : 'Hold to talk',
-                  child: const CircleAvatar(child: Icon(Icons.mic)),
-                ),
-              ),
-            ],
-          ),
-        const Divider(),
-        Expanded(
-          child: ListView.builder(
-            itemCount: widget.messages.length,
-            itemBuilder: (context, index) {
-              final message = widget.messages[index];
-              return ListTile(
-                dense: true,
-                title: Text(message.username),
-                subtitle: Text(message.text),
-                trailing: Text(
-                  '${message.timestamp.hour.toString().padLeft(2, '0')}:${message.timestamp.minute.toString().padLeft(2, '0')}',
-                ),
-              );
-            },
-          ),
-        ),
-        Row(
-          children: [
-            Expanded(
-              child: TextField(
-                controller: _messageController,
-                enabled: widget.gameStatus == 'active',
-                maxLength: 2000,
-                decoration: InputDecoration(hintText: fa ? 'پیام' : 'Message', counterText: ''),
-                onSubmitted: (_) => _send(),
-              ),
-            ),
-            IconButton(onPressed: widget.gameStatus == 'active' ? _send : null, icon: const Icon(Icons.send)),
-          ],
-        ),
+
       ],
         );
       },
