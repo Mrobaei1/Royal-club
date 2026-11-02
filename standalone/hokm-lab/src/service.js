@@ -3,7 +3,7 @@ import {
   createRoom, joinRoom, setPlayerReady, startRoom, applyRoomCommand,
   roomViewForUser, disconnectPlayer, reconnectPlayer, handleDisconnectTimeout,
   processTurnTimeout, processAllDisconnectedTimeout, voteToCancelMatch,
-  cancelForUnrecoverableTechnicalFailure
+  cancelForUnrecoverableTechnicalFailure, submitMatchAppeal, reviewMatchAppeal
 } from "./room.js";
 
 function authenticatedUser(principal) {
@@ -121,6 +121,21 @@ export class HokmRoomService {
     const userId = authenticatedUser(principal);
     return this.#transition(roomId, expectedVersion,
       room => voteToCancelMatch(room, userId, approve, expectedVersion), userId);
+  }
+
+  async submitAppeal(principal, roomId, reason, expectedVersion) {
+    const userId = authenticatedUser(principal);
+    return this.#transition(roomId, expectedVersion,
+      room => submitMatchAppeal(room, userId, { appealId: this.id(), reason, now: this.now() }), null);
+  }
+
+  async reviewAppeal(principal, roomId, appealId, decision, notes, expectedVersion) {
+    const reviewerId = authenticatedUser(principal);
+    if (principal.role !== "manager" && principal.role !== "owner") {
+      throw new Error("Only an authorized manager may review match appeals");
+    }
+    return this.#transition(roomId, expectedVersion,
+      room => reviewMatchAppeal(room, reviewerId, appealId, { decision, notes, now: this.now() }), null);
   }
 
   async processTurnDeadline(principal, roomId, expectedVersion) {
