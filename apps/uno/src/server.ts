@@ -5,7 +5,6 @@ import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import { Pool } from 'pg';
-import { createTurnCredentials, parseTurnUrls } from './turn-credentials.js';
 import { Server } from 'socket.io';
 import { registerUnoSockets } from './socket.js';
 import { UnoRoomManager, type AuthenticatedPlayer } from './room-manager.js';
@@ -66,36 +65,6 @@ const origins = (process.env.CORS_ORIGINS ?? '').split(',').map(s => s.trim()).f
 await app.register(helmet);
 await app.register(cors, { origin: origins.length ? origins : false, credentials: true });
 app.get('/health', async () => ({ ok: true, service: 'royal-club-uno', version: '0.1.0' }));
-app.get('/ice-config', async (request, reply) => {
-  const authorization = request.headers.authorization ?? '';
-  if (!authorization.startsWith('Bearer ')) {
-    return reply.code(401).send({ error: 'UNAUTHORIZED' });
-  }
-  let player: AuthenticatedPlayer;
-  try {
-    player = await verifyRoyalToken(authorization.slice(7));
-  } catch {
-    return reply.code(401).send({ error: 'UNAUTHORIZED' });
-  }
-  const iceServers: Array<Record<string, unknown>> = [
-    { urls: 'stun:stun.l.google.com:19302' },
-  ];
-  const turnUrls = parseTurnUrls(process.env.TURN_URLS ?? process.env.TURN_URL);
-  const turnSecret = process.env.TURN_SHARED_SECRET ?? '';
-  if (turnUrls.length > 0 && !turnSecret) {
-    return reply.code(503).send({ error: 'TURN_NOT_CONFIGURED' });
-  }
-  if (turnUrls.length > 0 && turnSecret) {
-    const ttl = Number(process.env.TURN_TTL_SECONDS ?? 3600);
-    const credentials = createTurnCredentials(player.id, turnSecret, ttl);
-    iceServers.push({
-      urls: turnUrls.length === 1 ? turnUrls[0]! : turnUrls,
-      username: credentials.username,
-      credential: credentials.credential,
-    });
-  }
-  return { iceServers };
-});
 const io = new Server(app.server, {
   cors: { origin: origins.length ? origins : false, credentials: true },
   transports: ['websocket', 'polling'],
