@@ -1,6 +1,9 @@
+import { randomUUID } from "node:crypto";
 import {
   createRoom, joinRoom, setPlayerReady, startRoom, applyRoomCommand,
-  roomViewForUser, disconnectPlayer, reconnectPlayer, handleDisconnectTimeout
+  roomViewForUser, disconnectPlayer, reconnectPlayer, handleDisconnectTimeout,
+  processTurnTimeout, processAllDisconnectedTimeout, voteToCancelMatch,
+  cancelForUnrecoverableTechnicalFailure
 } from "./room.js";
 
 function authenticatedUser(principal) {
@@ -70,7 +73,7 @@ export class HokmRoomService {
       privateRoom, matchTarget, ...(disconnectGraceMs === undefined ? {} : { disconnectGraceMs })
     });
     await this.#repository.insert(room);
-    return roomViewForUser(room, userId);
+    return roomViewForUser(room, userId, { now: this.now() });
   }
 
   async view(principal, roomId) {
@@ -99,7 +102,7 @@ export class HokmRoomService {
   async command(principal, roomId, command, expectedVersion) {
     const userId = authenticatedUser(principal);
     return this.#transition(roomId, expectedVersion,
-      room => applyRoomCommand(room, userId, command, expectedVersion), userId);
+      room => applyRoomCommand(room, userId, command, expectedVersion, this.now()), userId);
   }
 
   async disconnect(principal, roomId, expectedVersion) {
@@ -112,6 +115,39 @@ export class HokmRoomService {
     const userId = authenticatedUser(principal);
     return this.#transition(roomId, expectedVersion,
       room => reconnectPlayer(room, userId, { now: this.now(), expectedVersion }), userId);
+  }
+
+  async voteCancel(principal, roomId, approve, expectedVersion) {
+    const userId = authenticatedUser(principal);
+    return this.#transition(roomId, expectedVersion,
+      room => voteToCancelMatch(room, userId, approve, expectedVersion), userId);
+  }
+
+  async processTurnDeadline(principal, roomId, expectedVersion) {
+    authenticatedUser(principal);
+    if (principal.role !== "system" && principal.role !== "service") {
+      throw new Error("Only a trusted service principal may process turn deadlines");
+    }
+    return this.#transition(roomId, expectedVersion,
+      room => processTurnTimeout(room, { now: this.now(), expectedVersion }), null);
+  }
+
+  async processAllDisconnectedDeadline(principal, roomId, expectedVersion) {
+    authenticatedUser(principal);
+    if (principal.role !== "system" && principal.role !== "service") {
+      throw new Error("Only a trusted service principal may process all-disconnected deadlines");
+    }
+    return this.#transition(roomId, expectedVersion,
+      room => processAllDisconnectedTimeout(room, { now: this.now(), expectedVersion }), null);
+  }
+
+  async cancelForTechnicalFailure(principal, roomId, expectedVersion, reason) {
+    authenticatedUser(principal);
+    if (principal.role !== "system" && principal.role !== "service") {
+      throw new Error("Only a trusted service principal may cancel for technical failure");
+    }
+    return this.#transition(roomId, expectedVersion,
+      room => cancelForUnrecoverableTechnicalFailure(room, { reason }), null);
   }
 
   async processDisconnectTimeout(principal, roomId, userId, expectedVersion) {
