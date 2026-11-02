@@ -20,7 +20,9 @@ test("Fastify adapter registers authenticated room endpoints", async () => {
   const service = {
     create: async principal => ({ roomId: "r1", hostUserId: principal.userId }),
     view: async () => ({}), join: async () => ({}), ready: async () => ({}),
-    start: async () => ({}), command: async () => ({}), disconnect: async () => ({}), reconnect: async () => ({}),\n    leave: async () => ({}), voteCancel: async () => ({}), reportCheating: async () => ({}),\n    submitAppeal: async () => ({}), reviewCheating: async () => ({}), reviewAppeal: async () => ({})
+    start: async () => ({}), command: async () => ({}), disconnect: async () => ({}), reconnect: async () => ({}),
+    leave: async () => ({}), voteCancel: async () => ({}), reportCheating: async () => ({}),
+    submitAppeal: async () => ({}), reviewCheating: async () => ({}), reviewAppeal: async () => ({})
   };
   await registerHokmRoutes(fastify, { service, authenticate });
   assert.equal(fastify.routes.length, 14);
