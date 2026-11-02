@@ -107,3 +107,33 @@ test("service views expose only the authenticated seat hand", async () => {
   }
 });
 
+
+test("deadline and technical-failure jobs reject ordinary player principals", async () => {
+  const { service } = serviceFixture();
+  const created = await service.create(user("u0"));
+  await assert.rejects(
+    service.processTurnDeadline(user("u0"), created.roomId, created.version),
+    /trusted service principal/
+  );
+  await assert.rejects(
+    service.processAllDisconnectedDeadline(user("u0"), created.roomId, created.version),
+    /trusted service principal/
+  );
+  await assert.rejects(
+    service.cancelForTechnicalFailure(user("u0"), created.roomId, created.version, "test_failure"),
+    /trusted service principal/
+  );
+});
+
+test("appeal and cheating-report review reject ordinary player principals", async () => {
+  const { service } = serviceFixture();
+  const created = await service.create(user("u0"));
+  await assert.rejects(
+    service.reviewAppeal(user("u0"), created.roomId, "appeal-id", "confirmed", "", created.version),
+    /authorized manager/
+  );
+  await assert.rejects(
+    service.reviewCheating(user("u0"), created.roomId, "report-id", "", created.version),
+    /authorized manager/
+  );
+});
