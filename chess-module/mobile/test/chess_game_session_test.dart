@@ -12,7 +12,6 @@ class _FakeChessApiClient extends ChessApiClient {
         'status': 'active',
         'legalMoves': ['e2e4', 'g1f3'],
         'isHost': true,
-        'settings': {'voiceEnabled': true},
         'clock': {
           'whiteMs': 300000,
           'blackMs': 300000,
@@ -51,7 +50,7 @@ class _FakeChessApiClient extends ChessApiClient {
 }
 
 void main() {
-  test('game session refresh hydrates game, profiles, chat, clock and room voice settings', () async {
+  test('game session refresh hydrates game, profiles, chat, and clocks', () async {
     final session = ChessGameSession(api: _FakeChessApiClient(), gameId: '99');
     await session.refresh();
 
@@ -62,7 +61,6 @@ void main() {
     expect(session.whiteProfile?.rating, 1320);
     expect(session.blackProfile?.level, 4);
     expect(session.messages.single.text, 'hello');
-    expect(session.voiceEnabled, isTrue);
     expect(session.isHost, isTrue);
     expect(session.activeSide, 'white');
     expect(session.whiteClock.inMilliseconds, lessThanOrEqualTo(300000));
