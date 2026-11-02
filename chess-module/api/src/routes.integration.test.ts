@@ -47,7 +47,7 @@ test("authenticated chess routes support private game, draw, chat, profiles and 
     }
 
     const users = await pool.query(
-      "INSERT INTO users(username) VALUES ('route_white'),('route_black'),('queue_one'),('queue_two'),('queue_cancel'),('concurrent_room_host') RETURNING id,username"
+      "INSERT INTO users(username) VALUES ('route_white'),('route_black'),('queue_one'),('queue_two'),('queue_cancel'),('concurrent_room_host'),('race_room_host'),('race_guest_one'),('race_guest_two') RETURNING id,username"
     );
     const ids = users.rows.map(row => String(row.id));
     const white = ids[0]!;
@@ -100,6 +100,41 @@ test("authenticated chess routes support private game, draw, chat, profiles and 
     const concurrentRoomCleanup = await request(concurrentRoomHost, "DELETE",
       `/chess/rooms/${concurrentRoomWinner.json().roomCode}`);
     assert.equal(concurrentRoomCleanup.statusCode, 200, concurrentRoomCleanup.body);
+
+    // Two different guests race to claim one room through separate Fastify instances.
+    const raceRoomHost = ids[6]!;
+    const raceGuestOne = ids[7]!;
+    const raceGuestTwo = ids[8]!;
+    const joinRaceRoom = await request(raceRoomHost, "POST", "/chess/rooms", {
+      timeControlId: "rapid", minOpponentLevel: 1, chatEnabled: true,
+    });
+    assert.equal(joinRaceRoom.statusCode, 201, joinRaceRoom.body);
+    const joinRaceCode = joinRaceRoom.json().roomCode as string;
+    const racingJoins = await Promise.all([
+      request(raceGuestOne, "POST", `/chess/rooms/${joinRaceCode}/join`, undefined, app),
+      request(raceGuestTwo, "POST", `/chess/rooms/${joinRaceCode}/join`, undefined, appTwo),
+    ]);
+    assert.deepEqual(racingJoins.map(response => response.statusCode).sort(), [201, 404]);
+    const joinedRaceGameId = racingJoins.find(response => response.statusCode === 201)!.json().gameId as string;
+    const raceGamePlayers = await pool.query(
+      "SELECT white_user_id,black_user_id,status FROM chess_games WHERE id=$1",
+      [joinedRaceGameId],
+    );
+    assert.equal(raceGamePlayers.rowCount, 1);
+    assert.equal(raceGamePlayers.rows[0].status, "active");
+    assert.ok([raceGuestOne, raceGuestTwo].includes(String(raceGamePlayers.rows[0].black_user_id)));
+
+    // Concurrent moves from the same side must serialize; only the first legal move commits.
+    const competingMoves = await Promise.all([
+      request(raceRoomHost, "POST", `/chess/games/${joinedRaceGameId}/moves`, { from: "e2", to: "e4" }, app),
+      request(raceRoomHost, "POST", `/chess/games/${joinedRaceGameId}/moves`, { from: "d2", to: "d4" }, appTwo),
+    ]);
+    assert.deepEqual(competingMoves.map(response => response.statusCode).sort(), [200, 403]);
+    const raceMoveCount = await pool.query(
+      "SELECT COUNT(*)::int AS count FROM chess_moves WHERE game_id=$1",
+      [joinedRaceGameId],
+    );
+    assert.equal(raceMoveCount.rows[0].count, 1);
 
     const levelGateRoom = await request(white, "POST", "/chess/rooms", {
       timeControlId: "rapid",
