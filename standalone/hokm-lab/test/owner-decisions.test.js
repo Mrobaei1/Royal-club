@@ -158,3 +158,23 @@ test("completed match view exposes no full replay/history", () => {
   assert.equal(view.game, null);
   assert.equal(view.revealedHands, null);
 });
+
+test("cheating reports are participant-scoped and management review does not decide the winner", async () => {
+  const { submitCheatingReport, reviewCheatingReport } = await import("../src/room.js");
+  const playing = startRoom(readyRoom(1000), "u0", { now: 2000, rng: () => 0.4 });
+  let room = submitCheatingReport(playing, "u0", {
+    reportId: "report-1", reportedUserId: "u1",
+    reason: "The player disclosed their private hand to an opposing player.", now: 3000
+  });
+  assert.equal(room.reports[0].status, "pending");
+  assert.throws(() => submitCheatingReport(room, "outsider", {
+    reportId: "report-2", reportedUserId: "u1",
+    reason: "This report must be limited to match participants.", now: 3001
+  }), /participants/);
+  room = reviewCheatingReport(room, "manager-1", "report-1", {
+    notes: "Evidence reviewed by management.", now: 4000
+  });
+  assert.equal(room.reports[0].status, "reviewed");
+  assert.equal(room.status, "playing");
+  assert.deepEqual(room.matchScore, [0, 0]);
+});
