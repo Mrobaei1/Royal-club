@@ -6,6 +6,7 @@ abstract class HokmApi {
   Future<Map<String, dynamic>> joinRoom(String roomId, int expectedVersion);
   Future<Map<String, dynamic>> setReady(String roomId, bool ready, int expectedVersion);
   Future<Map<String, dynamic>> startMatch(String roomId, int expectedVersion);
+  Future<Map<String, dynamic>> startNextRound(String roomId, int expectedVersion);
   Future<Map<String, dynamic>> sendCommand(String roomId, Map<String, dynamic> command, int expectedVersion);
   Future<Map<String, dynamic>> voteCancel(String roomId, bool approve, int expectedVersion);
   Future<Map<String, dynamic>> leaveRoom(String roomId, int expectedVersion);
@@ -43,6 +44,10 @@ class HokmService implements HokmApi {
   @override
   Future<Map<String, dynamic>> startMatch(String roomId, int expectedVersion) =>
       AuthService.authenticatedPost('${_roomPath(roomId)}/start', {'expectedVersion': expectedVersion});
+
+  @override
+  Future<Map<String, dynamic>> startNextRound(String roomId, int expectedVersion) =>
+      AuthService.authenticatedPost('${_roomPath(roomId)}/next-round', {'expectedVersion': expectedVersion});
 
   @override
   Future<Map<String, dynamic>> sendCommand(String roomId, Map<String, dynamic> command, int expectedVersion) =>
