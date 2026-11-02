@@ -42,9 +42,9 @@ Each item below blocks Phase 1 completion until the owner chooses or explicitly 
 | R-01 | Regional variant | Generic Persian-style Hokm assumption | Confirm exact variant/house rules intended for Royal Club. |
 | R-02 | First hakem | Supplied as a round input; default seat 0 in tests | **Approved (2026-11-02):** select the first hakem randomly from the four players. |
 | R-03 | Hakem rotation | Not specified in current round controller | **Approved (2026-11-02):** from the second hand onward, the team that won the previous hand supplies the next hakem. If the previous hakem's team wins, the same hakem remains hakem. If the previous hakem's team loses, the next player in the winning team in the clockwise seat order becomes hakem (the player opposite the previous hakem). At the start of every new match, the first hakem is selected randomly from all four players. |
-| R-04 | Deal order | Five cards per player in clockwise seat order, starting with hakem | Confirm dealer, first recipient, direction and whether the same order applies to both deal stages. |
+| R-04 | Deal order | **Approved (2026-11-03):** Deal counterclockwise, starting with the hakem; deal five cards to each player first, then after trump selection deal the remaining eight cards to each player in the same direction and starting order. |
 | R-05 | Hakem selection timing | Hakem chooses after first five cards and before remaining eight | **Partially approved (2026-11-02):** hakem has a limited time to choose; if time expires without a choice, the system selects a trump suit automatically. Timeout duration and automatic-selection method remain open. |
-| R-06 | Early hand finish | First team to seven tricks wins immediately | Confirm whether play stops at 7, or all 13 tricks must be completed for special scoring. |
+| R-06 | Early hand finish | **Approved (2026-11-03):** The hand ends immediately when a team reaches seven tricks; award that team one match point and do not play the remaining tricks. |
 | R-07 | Hand scoring | Each normally won hand awards exactly 1 match point to the winning team; no special bonus applies. | **Approved (2026-11-01):** one match point per won hand; no koti/coat or other special hand bonus unless separately approved later. |
 | R-08 | Special scores | No special score or bonus is used. | **Approved (2026-11-01):** no koti/coat and no other special hand-scoring bonuses. |
 | R-09 | Match completion | Manager target is 3/5/7 | Confirm match ends immediately when target reached and whether a tie is possible/allowed. |
@@ -81,6 +81,10 @@ Phase 1 remains **in progress**. This document separates confirmed owner decisio
 
 
 ## Approved decisions
+
+**R-06 immediate hand completion (2026-11-03):** As soon as a team reaches seven tricks, the hand ends immediately. Award that team one match point; do not continue playing the remaining tricks.
+
+**R-04 deal direction and sequence (2026-11-03):** Deal counterclockwise, beginning with the hakem. First deal five cards to each player; after the hakem selects trump, deal the remaining eight cards to each player, using the same counterclockwise direction and starting player.
 
 **R-28 XP when one human remains (2026-11-02):** If only one human player remains connected/participating and Hard bots control the other three seats through match completion, the human player still receives the normal XP award based on the match result: 20 XP if their team wins, or 5 XP if their team loses. The all-bot/no-XP rule applies only when all four seats are bot-controlled through completion.
 
