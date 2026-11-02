@@ -14,11 +14,27 @@ export type ClockSnapshot = {
 };
 
 export function validateTimeControl(control: TimeControl): void {
-  if (!control.id.trim() || !Number.isSafeInteger(control.baseMs) || control.baseMs < 1_000 ||
-      !Number.isSafeInteger(control.incrementMs) || control.incrementMs < 0) {
+  if (!control || typeof control.id !== "string" || !/^[a-zA-Z0-9_-]{1,40}$/.test(control.id) ||
+      typeof control.name !== "string" || !control.name.trim() ||
+      !Number.isSafeInteger(control.baseMs) || control.baseMs < 1_000 || control.baseMs > 86_400_000 ||
+      !Number.isSafeInteger(control.incrementMs) || control.incrementMs < 0 || control.incrementMs > 60_000 ||
+      typeof control.enabled !== "boolean") {
     throw new RangeError("invalid_time_control");
   }
 }
+
+export function validateClockSnapshot(clock: ClockSnapshot): void {
+  if (!clock || !Number.isSafeInteger(clock.whiteMs) || clock.whiteMs < 0 ||
+      !Number.isSafeInteger(clock.blackMs) || clock.blackMs < 0 ||
+      ![null, "white", "black"].includes(clock.active) ||
+      (clock.lastStartedAt !== null && (!Number.isSafeInteger(clock.lastStartedAt) || clock.lastStartedAt < 0)) ||
+      typeof clock.finished !== "boolean" ||
+      ((clock.active === null) !== (clock.lastStartedAt === null)) ||
+      (clock.finished && (clock.active !== null || clock.lastStartedAt !== null))) {
+    throw new RangeError("invalid_clock_snapshot");
+  }
+}
+
 export function defaultTimeControls(): TimeControl[] {
   return [
     { id:"ultra_fast", name:"ultra_fast", baseMs:90_000, incrementMs:0, enabled:true },
@@ -28,15 +44,22 @@ export function defaultTimeControls(): TimeControl[] {
 }
 export function snapshotClock(control: TimeControl, now: number): ClockSnapshot {
   validateTimeControl(control);
-  if (!Number.isFinite(now)) throw new RangeError("invalid_timestamp");
+  if (!Number.isSafeInteger(now) || now < 0) throw new RangeError("invalid_timestamp");
   return { whiteMs:control.baseMs, blackMs:control.baseMs, active:null, lastStartedAt:null, finished:false };
 }
 export function startClock(clock: ClockSnapshot, side: "white"|"black", now: number): ClockSnapshot {
-  if (clock.finished || clock.active !== null || !Number.isFinite(now)) throw new Error("clock_cannot_start");
+  validateClockSnapshot(clock);
+  if (clock.finished || clock.active !== null || !["white", "black"].includes(side) ||
+      !Number.isSafeInteger(now) || now < 0) throw new Error("clock_cannot_start");
   return { ...clock, active:side, lastStartedAt:now };
 }
 export function settleClock(clock: ClockSnapshot, control: TimeControl, now: number, moveCompleted: boolean): ClockSnapshot {
-  if (clock.finished || clock.active === null || clock.lastStartedAt === null || now < clock.lastStartedAt) throw new Error("clock_not_running");
+  validateClockSnapshot(clock);
+  validateTimeControl(control);
+  if (typeof moveCompleted !== "boolean" || clock.finished || clock.active === null ||
+      clock.lastStartedAt === null || !Number.isSafeInteger(now) || now < clock.lastStartedAt) {
+    throw new Error("clock_not_running");
+  }
   const elapsed = now - clock.lastStartedAt;
   const field = clock.active === "white" ? "whiteMs" : "blackMs";
   const remaining = Math.max(0, clock[field] - elapsed);
