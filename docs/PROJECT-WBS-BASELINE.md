@@ -95,7 +95,7 @@ A green workflow only earns the automated-test portion it actually ran. Producti
 | ID | Work package / acceptance outcome | Points |
 |---|---|---:|
 | 4.1 | Friend search/add/remove/request lifecycle works by username; maximum 100 accepted friends is enforced by the API. | 20 |
-| 4.2 | Private chat works for the approved audience and supports text, images, all supported emoji, edit/delete rules and delivery behavior. No voice/video chat is in scope. | 25 |
+| 4.2 | Private chat works for the approved audience and supports text, images, all supported emoji, edit/delete rules and delivery behavior. Live audio/video calls, WebRTC calling and TURN/media-relay infrastructure are out of scope. Recorded voice messages may be added later as ordinary private-chat messages behind an owner-only, disabled-by-default feature switch; dormant admin configuration does not count as an implemented user-facing feature. | 25 |
 | 4.3 | Notifications are correctly targeted, localized, lifecycle-managed and support clear-all without affecting unrelated users. | 15 |
 | 4.4 | Spectator access requires host permission and approved friend/follower status; finished-match restrictions apply and replay is not introduced. | 15 |
 | 4.5 | Public profile, friend lists, chat, leaderboard, match history and spectator views consistently expose usernames only; audit legacy/empty profiles too. | 15 |
@@ -188,7 +188,7 @@ The live repository and readiness documents show substantial implementation and 
 - All core games and social features are free initially. No monetization or payment activation without the owner's later explicit decision.
 - Internal non-transferable credit-token wallet; manager-controlled prices. League entry does not directly debit wallet credits.
 - Login identity must not depend on IP/VPN. Public views expose usernames, not full names or email.
-- Friends maximum: 100. Private chat is for the approved audience; images and emoji are supported. No voice/video chat and no replay.
+- Friends maximum: 100. Private chat is for the approved audience; images and emoji are supported. No live audio/video calls or TURN/WebRTC infrastructure. Recorded voice notes are a future owner-controlled feature, disabled by default and not available until recording/storage/playback are implemented and accepted. No replay.
 - Spectator access requires host permission and approved friend/follower status.
 - Weekly league decisions: manager-selected minimum participants with audit trail; fair rest/bye balance and actual game counts; final stage only when format-compatible and explicitly approved; 24-hour appeals; reschedule double absence/technical interruptions where possible.
 - Agent tooling stays dormant; no role is granted based only on a username. Financial, role, outbound-message, destructive and production actions require human approval.
