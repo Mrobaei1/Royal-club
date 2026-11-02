@@ -22,7 +22,7 @@ function connectClient(url: string, token: string): Promise<Socket> {
   });
 }
 
-test('authenticated sockets enforce host start and keep hands and voice signals private', { timeout: 15_000 }, async () => {
+test('authenticated sockets enforce host start, private hands and text-chat membership', { timeout: 15_000 }, async () => {
   const http = createServer();
   const io = new SocketServer(http, { cors: { origin: '*' } });
   const identities = new Map([
@@ -109,26 +109,11 @@ test('authenticated sockets enforce host start and keep hands and voice signals 
     assert.equal(chat.username, 'host_handle');
     assert.equal('fullName' in chat, false);
 
-    assert.equal((await emitAck(host, 'uno:voice:mute', { code, targetId: 'host-id', muted: false })).ok, true);
-    const voiceEvent = nextEvent(guest, 'uno:voice:signal');
-    const signalAck = await emitAck(host, 'uno:voice:signal', {
-      code, targetId: 'guest-id', kind: 'offer', data: { sdp: 'test-offer', type: 'offer' },
-    });
-    assert.equal(signalAck.ok, true);
-    const signal = await voiceEvent as Record<string, unknown>;
-    assert.equal(signal.fromId, 'host-id');
-    assert.equal(signal.targetId, 'guest-id');
-
-    const roomUpdate = nextEvent(guest, 'uno:room:state');
-    assert.equal((await emitAck(host, 'uno:voice:mute', { code, targetId: 'guest-id', muted: true })).ok, true);
-    const updated = await roomUpdate as Record<string, unknown>;
-    const guestSeat = (updated.players as Array<Record<string, unknown>>).find(p => p.id === 'guest-id');
-    assert.equal(guestSeat?.muted, true);
-    const blockedMutedSignal = await emitAck(guest, 'uno:voice:signal', {
-      code, targetId: 'host-id', kind: 'offer', data: { sdp: 'muted-offer', type: 'offer' },
-    });
-    assert.equal(blockedMutedSignal.ok, false);
-    assert.equal(blockedMutedSignal.error?.code, 'MICROPHONE_MUTED');
+    const hostServerSocket = [...io.sockets.sockets.values()].find(serverSocket =>
+      (serverSocket.data as { player?: { id?: string } }).player?.id === 'host-id');
+    assert.ok(hostServerSocket);
+    assert.equal(hostServerSocket.listeners('uno:voice:signal').length, 0);
+    assert.equal(hostServerSocket.listeners('uno:voice:mute').length, 0);
 
     const secondHostDevice = await connectClient(url, 'host-token');
     clients.push(secondHostDevice);
@@ -136,12 +121,6 @@ test('authenticated sockets enforce host start and keep hands and voice signals 
     assert.equal(restoredHost.ok, true);
     const restoredData = restoredHost.data as Record<string, unknown>;
     assert.equal((restoredData.hand as unknown[]).length, (hostHand as unknown[]).length + (currentPlayerId === 'host-id' ? 1 : 0));
-
-    const invalidSignal = await emitAck(host, 'uno:voice:signal', {
-      code, targetId: 'guest-id', kind: 'offer', data: { sdp: 'missing-type' },
-    });
-    assert.equal(invalidSignal.ok, false);
-    assert.equal(invalidSignal.error?.code, 'INVALID_SIGNAL');
 
     const roomAfterLeaveEvent = nextEvent(guest, 'uno:room:state');
     assert.equal((await emitAck(secondHostDevice, 'uno:room:leave', { code })).ok, true);
