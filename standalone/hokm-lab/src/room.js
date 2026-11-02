@@ -43,7 +43,7 @@ export function createRoom({ roomId, hostUserId, now, privateRoom = true, matchT
     // No wall-clock TTL: a room remains alive while at least one player is in it.
     status: "waiting", matchTarget, disconnectGraceMs, matchScore: [0, 0],
     playerProgress: {}, penalizedLeavers: [], cancellationVotes: [],
-    appeals: [], allDisconnectedDeadline: null, handRevealUntil: null, revealedHands: null,
+    appeals: [], reports: [], allDisconnectedDeadline: null, handRevealUntil: null, revealedHands: null,
     players: [{ userId: hostUserId, seat: 0, ready: false, connected: true, botControlled: false }],
     version: 1, round: null, turnDeadlineAt: null
   };
@@ -202,6 +202,38 @@ export function voteToCancelMatch(room, userId, approve, expectedVersion) {
   return { ...room, cancellationVotes: [...votes],
     ...(unanimous ? { status: "cancelled", cancelReason: "unanimous_player_request", result: null, turnDeadlineAt: null } : {}),
     version: room.version + 1 };
+}
+
+/** Participant appeal after a committed match result; the result itself remains immutable. */
+export function submitMatchAppeal(room, userId, { appealId, reason, now } = {}) {
+  requireUserId(userId); requireNow(now);
+  if (room.status !== "completed") throw new Error("Only a completed match result can be appealed");
+  if (!room.players.some(player => player.userId === userId)) throw new Error("User is not a participant in this match");
+  if (typeof appealId !== "string" || !appealId.trim()) throw new TypeError("appealId is required");
+  if (typeof reason !== "string" || reason.trim().length < 10 || reason.length > 1000) {
+    throw new TypeError("Appeal reason must contain between 10 and 1000 characters");
+  }
+  if ((room.appeals ?? []).some(appeal => appeal.userId === userId && appeal.status === "pending")) {
+    throw new Error("This player already has a pending appeal");
+  }
+  const appeal = { appealId, userId, reason: reason.trim(), status: "pending", createdAt: now,
+    decision: null, reviewedBy: null, reviewedAt: null, reviewNotes: null };
+  return { ...room, appeals: [...(room.appeals ?? []), appeal], version: room.version + 1 };
+}
+
+/** Manager review records a decision but never silently rewrites the committed match result. */
+export function reviewMatchAppeal(room, reviewerId, appealId, { decision, notes = "", now } = {}) {
+  requireUserId(reviewerId); requireNow(now);
+  if (room.status !== "completed") throw new Error("Only completed match appeals can be reviewed");
+  if (!["confirmed", "dismissed"].includes(decision)) throw new RangeError("decision must be confirmed or dismissed");
+  if (typeof notes !== "string" || notes.length > 1000) throw new TypeError("Review notes must be at most 1000 characters");
+  const index = (room.appeals ?? []).findIndex(appeal => appeal.appealId === appealId);
+  if (index < 0) throw new Error("Appeal not found");
+  if (room.appeals[index].status !== "pending") throw new Error("Appeal has already been reviewed");
+  const appeals = room.appeals.map((appeal, i) => i === index
+    ? { ...appeal, status: "reviewed", decision, reviewedBy: reviewerId, reviewedAt: now, reviewNotes: notes }
+    : appeal);
+  return { ...room, appeals, version: room.version + 1 };
 }
 
 /** A trusted server/operator may cancel only when technical failure makes continuation impossible. */
