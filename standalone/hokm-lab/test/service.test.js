@@ -202,3 +202,12 @@ test("only the host can start the next round after the full three-second reveal"
   assert.equal(next.handRevealUntil, null);
   assert.equal(next.turnDeadlineAt, revealUntil + 7000);
 });
+
+test("a player can join by room code without first reading a member-only room view", async () => {
+  const { service } = serviceFixture();
+  const created = await service.create(user("u0"));
+  const joined = await service.join(user("u1"), created.roomId);
+  assert.equal(joined.roomId, created.roomId);
+  assert.equal(joined.players.length, 2);
+  assert.equal(joined.version, created.version + 1);
+});
