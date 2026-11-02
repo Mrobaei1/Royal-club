@@ -3,7 +3,8 @@ import {
   createRoom, joinRoom, setPlayerReady, startRoom, applyRoomCommand,
   roomViewForUser, disconnectPlayer, reconnectPlayer, handleDisconnectTimeout,
   processTurnTimeout, processAllDisconnectedTimeout, voteToCancelMatch,
-  cancelForUnrecoverableTechnicalFailure, submitMatchAppeal, reviewMatchAppeal
+  cancelForUnrecoverableTechnicalFailure, submitMatchAppeal, reviewMatchAppeal,
+  submitCheatingReport, reviewCheatingReport
 } from "./room.js";
 
 function authenticatedUser(principal) {
@@ -121,6 +122,23 @@ export class HokmRoomService {
     const userId = authenticatedUser(principal);
     return this.#transition(roomId, expectedVersion,
       room => voteToCancelMatch(room, userId, approve, expectedVersion), userId);
+  }
+
+  async reportCheating(principal, roomId, reportedUserId, reason, expectedVersion) {
+    const reporterId = authenticatedUser(principal);
+    return this.#transition(roomId, expectedVersion,
+      room => submitCheatingReport(room, reporterId, {
+        reportId: this.id(), reportedUserId, reason, now: this.now()
+      }), null);
+  }
+
+  async reviewCheating(principal, roomId, reportId, notes, expectedVersion) {
+    const reviewerId = authenticatedUser(principal);
+    if (principal.role !== "manager" && principal.role !== "owner") {
+      throw new Error("Only an authorized manager may review cheating reports");
+    }
+    return this.#transition(roomId, expectedVersion,
+      room => reviewCheatingReport(room, reviewerId, reportId, { notes, now: this.now() }), null);
   }
 
   async submitAppeal(principal, roomId, reason, expectedVersion) {
