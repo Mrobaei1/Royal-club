@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import {
-  createRoom, joinRoom, setPlayerReady, startRoom, applyRoomCommand,
+  createRoom, joinRoom, leaveRoom, setPlayerReady, startRoom, applyRoomCommand,
   roomViewForUser, disconnectPlayer, reconnectPlayer, handleDisconnectTimeout,
   processTurnTimeout, processAllDisconnectedTimeout, voteToCancelMatch,
   cancelForUnrecoverableTechnicalFailure, submitMatchAppeal, reviewMatchAppeal,
@@ -21,6 +21,19 @@ function authenticatedUser(principal) {
  * get(roomId), insert(room), compareAndSwap(roomId, expectedVersion, nextRoom).
  * A production adapter MUST implement compareAndSwap transactionally in its database.
  */
+function managerRoomView(room) {
+  return Object.freeze({
+    roomId: room.roomId, status: room.status, version: room.version,
+    matchTarget: room.matchTarget, matchScore: [...room.matchScore],
+    hostUserId: room.hostUserId, cancelReason: room.cancelReason ?? null,
+    result: room.result ?? null,
+    players: room.players.map(({ userId, seat, ready, connected, botControlled, forfeited }) =>
+      ({ userId, seat, ready, connected, botControlled: Boolean(botControlled), forfeited: Boolean(forfeited) })),
+    reports: (room.reports ?? []).map(report => ({ ...report })),
+    appeals: (room.appeals ?? []).map(appeal => ({ ...appeal }))
+  });
+}
+
 export class InMemoryRoomRepository {
   #rooms = new Map();
 
@@ -101,7 +114,7 @@ export class HokmRoomService {
     return this.#transition(roomId, expectedVersion, room => joinRoom(room, userId, this.now()), userId);
   }
 
-  async ready(principal, roomId, ready, expectedVersion) {
+  async leave(principal, roomId, expectedVersion) {\n    const userId = authenticatedUser(principal);\n    return this.#transition(roomId, expectedVersion, room => leaveRoom(room, userId), userId);\n  }\n\n  async ready(principal, roomId, ready, expectedVersion) {
     const userId = authenticatedUser(principal);
     return this.#transition(roomId, expectedVersion, room => setPlayerReady(room, userId, ready), userId);
   }
@@ -150,13 +163,13 @@ export class HokmRoomService {
       throw new Error("Only an authorized manager may review cheating reports");
     }
     return this.#transition(roomId, expectedVersion,
-      room => reviewCheatingReport(room, reviewerId, reportId, { notes, now: this.now() }), null);
+      room => reviewCheatingReport(room, reviewerId, reportId, { notes, now: this.now() }), managerRoomView);
   }
 
   async submitAppeal(principal, roomId, reason, expectedVersion) {
     const userId = authenticatedUser(principal);
     return this.#transition(roomId, expectedVersion,
-      room => submitMatchAppeal(room, userId, { appealId: this.id(), reason, now: this.now() }), null);
+      room => submitMatchAppeal(room, userId, { appealId: this.id(), reason, now: this.now() }), userId);
   }
 
   async reviewAppeal(principal, roomId, appealId, decision, notes, expectedVersion) {
@@ -165,7 +178,7 @@ export class HokmRoomService {
       throw new Error("Only an authorized manager may review match appeals");
     }
     return this.#transition(roomId, expectedVersion,
-      room => reviewMatchAppeal(room, reviewerId, appealId, { decision, notes, now: this.now() }), null);
+      room => reviewMatchAppeal(room, reviewerId, appealId, { decision, notes, now: this.now() }), managerRoomView);
   }
 
   async processTurnDeadline(principal, roomId, expectedVersion) {
@@ -250,10 +263,10 @@ export class HokmRoomService {
       if (!current) throw new Error("Room not found");
       if (current.version !== expectedVersion) throw new Error("Stale room version");
       const next = transform(current);
-      if (next === current) return viewUserId ? roomViewForUser(current, viewUserId) : current;
+      if (next === current) return typeof viewUserId === "function" ? viewUserId(current) : viewUserId ? roomViewForUser(current, viewUserId) : current;
       const saved = await this.#repository.compareAndSwap(roomId, expectedVersion, next);
       if (!saved) throw new Error("Concurrent room update; retry with the latest version");
-      return viewUserId ? roomViewForUser(next, viewUserId) : next;
+      return typeof viewUserId === "function" ? viewUserId(next) : viewUserId ? roomViewForUser(next, viewUserId) : next;
     });
   }
 
