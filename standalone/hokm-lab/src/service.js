@@ -183,6 +183,42 @@ export class HokmRoomService {
       room => cancelForUnrecoverableTechnicalFailure(room, { reason }), null);
   }
 
+  async processDueDeadlines(principal, roomId) {
+    authenticatedUser(principal);
+    if (principal.role !== "system" && principal.role !== "service") {
+      throw new Error("Only a trusted service principal may process scheduled deadlines");
+    }
+    let room = await this.#repository.get(roomId);
+    if (!room) throw new Error("Room not found");
+    const outcomes = [];
+
+    // The all-four-disconnected rule takes precedence over individual bot takeover
+    // and turn deadlines: no bot should continue a match after the owner's 20s grace.
+    if (Number.isFinite(room.allDisconnectedDeadline) && this.now() >= room.allDisconnectedDeadline) {
+      outcomes.push(await this.processAllDisconnectedDeadline(principal, roomId, room.version));
+      return outcomes;
+    }
+
+    if (room.status === "playing") {
+      const expiredSeats = room.players.filter(player => !player.connected && !player.forfeited &&
+        !player.temporaryBot && Number.isFinite(player.reconnectDeadline) && this.now() >= player.reconnectDeadline);
+      for (const player of expiredSeats) {
+        room = await this.#repository.get(roomId);
+        if (!room || room.status !== "playing") break;
+        const current = room.players.find(candidate => candidate.userId === player.userId);
+        if (!current || current.connected || current.forfeited || current.temporaryBot ||
+            !Number.isFinite(current.reconnectDeadline) || this.now() < current.reconnectDeadline) continue;
+        outcomes.push(await this.processDisconnectTimeout(principal, roomId, current.userId, room.version));
+      }
+    }
+
+    room = await this.#repository.get(roomId);
+    if (room?.status === "playing" && Number.isFinite(room.turnDeadlineAt) && this.now() >= room.turnDeadlineAt) {
+      outcomes.push(await this.processTurnDeadline(principal, roomId, room.version));
+    }
+    return outcomes;
+  }
+
   async processDisconnectTimeout(principal, roomId, userId, expectedVersion) {
     authenticatedUser(principal);
     // A trusted scheduler/service identity invokes this method. It cannot be
