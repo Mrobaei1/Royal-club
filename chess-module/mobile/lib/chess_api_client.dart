@@ -60,12 +60,10 @@ class ChessApiClient {
     required String timeControlId,
     int minOpponentLevel = 1,
     bool chatEnabled = true,
-    bool voiceEnabled = false,
   }) => _request('POST', '/chess/rooms', body: {
         'timeControlId': timeControlId,
         'minOpponentLevel': minOpponentLevel,
         'chatEnabled': chatEnabled,
-        'voiceEnabled': voiceEnabled,
       });
 
   Future<Map<String, dynamic>> joinRoom(String roomCode) =>
@@ -159,10 +157,6 @@ class ChessApiClient {
 
   Future<void> deleteTimeControl(String id) async {
     await _request('DELETE', '/chess/admin/time-controls/${Uri.encodeComponent(id)}');
-  }
-
-  Future<void> setVoiceEnabled(String gameId, bool enabled) async {
-    await _request('POST', '/chess/games/${Uri.encodeComponent(gameId)}/voice/${enabled ? 'enable' : 'disable'}');
   }
 
   Future<WebSocket> connectGameSocket(String gameId) async {
