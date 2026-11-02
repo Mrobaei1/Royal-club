@@ -19,7 +19,9 @@ Widget _screen({
 }) => MaterialApp(
   locale: locale,
   supportedLocales: const [Locale('en'), Locale('fa')],
-  home: Scaffold(
+  home: Directionality(
+    textDirection: locale?.languageCode == 'fa' ? TextDirection.rtl : TextDirection.ltr,
+    child: Scaffold(
     body: ChessGameScreen(
       fen: _fen,
       legalMoves: const [],
@@ -39,6 +41,7 @@ Widget _screen({
       isHost: isHost,
       gameStatus: gameStatus,
     ),
+  ),
   ),
 );
 
