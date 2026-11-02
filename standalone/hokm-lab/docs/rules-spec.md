@@ -82,6 +82,8 @@ Phase 1 remains **in progress**. This document separates confirmed owner decisio
 
 ## Approved decisions
 
+**R-09 no drawn match (2026-11-03):** A match cannot end in a draw. The first team to reach or exceed the configured match-point target is declared the winner.
+
 **R-09 no drawn matches (2026-11-03):** A Hokm match must never end in a tie. The match flow and completion logic must always produce a winning team; a tied match result must not be recorded.
 
 **R-09 immediate match completion (2026-11-03):** The match ends immediately when either team reaches the manager-configured target of 3, 5, or 7 match points. No additional hand is played after the target is reached.
