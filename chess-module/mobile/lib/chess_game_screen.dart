@@ -265,6 +265,40 @@ class _ChessGameScreenState extends State<ChessGameScreen> {
                 ),
             ],
           ),
+        const Divider(),
+        SizedBox(
+          height: 104,
+          child: ListView.builder(
+            itemCount: widget.messages.length,
+            itemBuilder: (context, index) {
+              final message = widget.messages[index];
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 2),
+                child: Text('${message.username}: ${message.text}', maxLines: 2, overflow: TextOverflow.ellipsis),
+              );
+            },
+          ),
+        ),
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _messageController,
+                textInputAction: TextInputAction.send,
+                onSubmitted: (_) => _send(),
+                decoration: InputDecoration(
+                  hintText: fa ? 'پیام متنی...' : 'Text message...',
+                  isDense: true,
+                ),
+              ),
+            ),
+            IconButton(
+              tooltip: fa ? 'ارسال پیام' : 'Send message',
+              onPressed: _send,
+              icon: const Icon(Icons.send),
+            ),
+          ],
+        ),
 
       ],
         );
