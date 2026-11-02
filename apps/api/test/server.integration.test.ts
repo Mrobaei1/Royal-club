@@ -3186,3 +3186,59 @@ test('owner-managed profile customization pricing charges atomically and keeps t
     else process.env.OWNER_USER_ID = previousOwnerId;
   }
 });
+
+
+test('recorded voice-message configuration is owner-only, dormant and secret-safe', async () => {
+  const previousOwnerId = process.env.OWNER_USER_ID;
+  const owner = await register('Voice Settings Owner');
+  const regular = await register('Voice Settings Regular');
+  process.env.OWNER_USER_ID = owner.user.id;
+  try {
+    const deniedRead = await app.inject({
+      method: 'GET', url: '/api/v1/admin/social/voice-messages', headers: auth(regular.token),
+    });
+    assert.equal(deniedRead.statusCode, 403);
+
+    const defaults = await app.inject({
+      method: 'GET', url: '/api/v1/admin/social/voice-messages', headers: auth(owner.token),
+    });
+    assert.equal(defaults.statusCode, 200, defaults.body);
+    assert.equal(defaults.json().runtimeAvailable, false);
+    assert.equal(defaults.json().settings.requestedEnabled, false);
+    assert.equal(defaults.json().settings.storageMode, 'disabled');
+    assert.equal(defaults.json().settings.accessKeyConfigured, false);
+    assert.equal(defaults.json().settings.secretKeyConfigured, false);
+
+    const badStorage = await app.inject({
+      method: 'PATCH', url: '/api/v1/admin/social/voice-messages', headers: auth(owner.token),
+      payload: { requestedEnabled: true, storageMode: 's3_compatible' },
+    });
+    assert.equal(badStorage.statusCode, 400);
+
+    const saved = await app.inject({
+      method: 'PATCH', url: '/api/v1/admin/social/voice-messages', headers: auth(owner.token),
+      payload: {
+        requestedEnabled: true, storageMode: 'database',
+        maxDurationSeconds: 45, maxFileBytes: 2097152,
+      },
+    });
+    assert.equal(saved.statusCode, 200, saved.body);
+    assert.equal(saved.json().runtimeAvailable, false,
+      'Manager intent must not activate a missing recording/upload/playback runtime.');
+    assert.equal(saved.json().settings.requestedEnabled, true);
+    assert.equal(saved.json().settings.storageMode, 'database');
+    assert.equal(saved.json().settings.maxDurationSeconds, 45);
+    assert.equal(saved.json().settings.maxFileBytes, 2097152);
+    assert.equal(Object.hasOwn(saved.json().settings, 'accessKey'), false);
+    assert.equal(Object.hasOwn(saved.json().settings, 'secretKey'), false);
+
+    const deniedWrite = await app.inject({
+      method: 'PATCH', url: '/api/v1/admin/social/voice-messages', headers: auth(regular.token),
+      payload: { requestedEnabled: false },
+    });
+    assert.equal(deniedWrite.statusCode, 403);
+  } finally {
+    if (previousOwnerId === undefined) delete process.env.OWNER_USER_ID;
+    else process.env.OWNER_USER_ID = previousOwnerId;
+  }
+});
