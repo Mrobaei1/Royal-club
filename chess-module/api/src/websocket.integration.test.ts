@@ -184,6 +184,19 @@ test("WebSocket presence remains online until the player's last device disconnec
     assert.equal(chatResponse.statusCode, 201, chatResponse.body);
     await chatDelivery;
 
+    // A committed move must reach the opponent's WebSocket across API instances.
+    const moveDelivery = waitForMessage(blackSocket, m =>
+      m.type === "chess:state" && m.revision === 1 && typeof m.fen === "string" && m.fen.includes(" b "),
+    );
+    const moveResponse = await app.inject({
+      method: "POST",
+      url: `/chess/games/${gameId}/moves`,
+      headers: { "x-user-id": white },
+      payload: { from: "e2", to: "e4" },
+    });
+    assert.equal(moveResponse.statusCode, 200, moveResponse.body);
+    await moveDelivery;
+
     const whiteSecond = await connect(`${address2}?gameId=${gameId}`, white);
     sockets.push(whiteSecond);
     await waitForMessage(whiteSecond, m => m.type === "chess:connected");
@@ -225,6 +238,15 @@ test("WebSocket presence remains online until the player's last device disconnec
       [gameId, white],
     );
     assert.equal(sessions.rows[0].count, 0, "last device closing must clear presence sessions");
+
+    // Reconnecting after missed transient events must immediately restore the persisted board.
+    const reconnectedWhite = await connect(wsUrl, white);
+    sockets.push(reconnectedWhite);
+    await waitForMessage(reconnectedWhite, m => m.type === "chess:connected");
+    const restoredState = await waitForMessage(reconnectedWhite, m =>
+      m.type === "chess:state" && m.revision === 1 && typeof m.fen === "string" && m.fen.includes(" b "),
+    );
+    assert.equal(restoredState.status, "active");
   } finally {
     // Wait for client close events before closing Fastify; server-side presence cleanup is asynchronous.
     await Promise.all(sockets.map(closeSocket));
