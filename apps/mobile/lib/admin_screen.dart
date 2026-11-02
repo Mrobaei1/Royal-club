@@ -175,9 +175,11 @@ class _AdminScreenState extends State<AdminScreen> {
       _voiceAccessKey.clear();
       _voiceSecretKey.clear();
       if (mounted) setState(() => _voiceSettings = saved);
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appText(context,
-        'تنظیمات زیرساخت ویس ذخیره شد؛ ارسال و پخش هنوز غیرفعال است.',
-        'Voice infrastructure settings saved; recording and playback remain unavailable.'))));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appText(context,
+          'تنظیمات زیرساخت ویس ذخیره شد؛ ارسال و پخش هنوز غیرفعال است.',
+          'Voice infrastructure settings saved; recording and playback remain unavailable.'))));
+      }
     } catch (error) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appError(context, error))));
     } finally {
