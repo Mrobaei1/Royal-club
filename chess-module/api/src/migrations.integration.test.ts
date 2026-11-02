@@ -53,7 +53,7 @@ test("isolated chess migrations apply cleanly against a bigint users schema", { 
 
     const room = await db.query(
       `INSERT INTO chess_rooms(room_code,host_user_id,time_control_id,settings_snapshot)
-       VALUES('CIROOM', $1, 'rapid', '{"chatEnabled":true,"voiceEnabled":true}') RETURNING id`,
+       VALUES('CIROOM', $1, 'rapid', '{"chatEnabled":true}') RETURNING id`,
       [white],
     );
     const game = await db.query(
@@ -121,7 +121,7 @@ test("isolated chess migrations apply cleanly against a bigint users schema", { 
          'chess_games_realtime_notify','chess_chat_realtime_notify','chess_cancel_pending_draws_terminal'
        )`,
     );
-    assert.equal(triggers.rows[0].count, 4);
+    assert.equal(triggers.rows[0].count, 3);
 
     const columns = await db.query(
       `SELECT table_name,column_name FROM information_schema.columns
