@@ -82,6 +82,8 @@ Phase 1 remains **in progress**. This document separates confirmed owner decisio
 
 ## Approved decisions
 
+**R-18 immediate turn advance (2026-11-02):** When a player legally plays a card before the 7-second deadline, the turn advances immediately to the next player; the system does not wait for the unused portion of the timer to expire.
+
 **R-17 per-turn timeout (2026-11-02):** Each player has exactly 7 seconds to play a card on their turn. If the player does not play a card before the deadline, the Hard bot automatically selects and plays one legal card for that seat, following the game rules. This is a timeout takeover for that turn; it does not by itself count as a voluntary exit or incur an XP penalty.
 
 **R-16 illegal card handling (2026-11-02):** If a player attempts to play an illegal card, the play is rejected and the same player may select a legal card. The turn does not advance and no penalty is applied.
