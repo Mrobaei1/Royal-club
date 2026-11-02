@@ -7,16 +7,14 @@ import 'package:flutter/foundation.dart';
 import 'chess_api_client.dart';
 import 'chess_game_screen.dart';
 import 'chess_player_profile_card.dart';
-import 'chess_voice_client.dart';
 
 /// Orchestrates the HTTP snapshot, live WebSocket events, chat, draw offers
 /// and server-synchronized display clocks for one authenticated chess game.
 class ChessGameSession extends ChangeNotifier {
-  ChessGameSession({required this.api, required this.gameId, this.voiceClient});
+  ChessGameSession({required this.api, required this.gameId});
 
   final ChessApiClient api;
   final String gameId;
-  final ChessVoiceClient? voiceClient;
 
   Map<String, dynamic>? game;
   List<ChessChatMessage> messages = [];
@@ -25,8 +23,6 @@ class ChessGameSession extends ChangeNotifier {
   String? activeSide;
   String? pendingDrawOfferId;
   bool drawOfferedByOpponent = false;
-  bool voiceEnabled = false;
-  String? speakingUsername;
   bool connected = false;
   String? errorCode;
   ChessPlayerProfile? whiteProfile;
@@ -64,7 +60,6 @@ class ChessGameSession extends ChangeNotifier {
   Future<void> _connectInternal() async {
     try {
       await refresh();
-      if (voiceEnabled) await voiceClient?.connect();
       await _openSocket();
       await refresh(); // Close the snapshot-to-subscription race window.
       _heartbeat?.cancel();
@@ -100,14 +95,6 @@ class ChessGameSession extends ChangeNotifier {
     if (_disposed || generation != _refreshGeneration) return;
     game = gameResult;
     _applyClock(game?['clock'] as Map<String, dynamic>?);
-    // Never keep microphone capture or a voice lease alive after the game ends
-    // or the room voice setting is disabled in the authoritative snapshot.
-    final gameActive = game?['status'] == 'active';
-    final roomVoiceEnabled = game?['settings']?['voiceEnabled'] == true;
-    if (!gameActive || !roomVoiceEnabled) {
-      await voiceClient?.disconnect();
-      speakingUsername = null;
-    }
     final rawMessages = (results[0] as List).cast<Map<String, dynamic>>();
     messages = rawMessages.map(_chatMessage).toList(growable: false);
     final offer = Map<String, dynamic>.from(results[1] as Map);
@@ -121,7 +108,6 @@ class ChessGameSession extends ChangeNotifier {
     }
     pendingDrawOfferId = offer['pending'] == true ? offer['offerId'] as String? : null;
     drawOfferedByOpponent = offer['pending'] == true && offer['offeredByMe'] != true;
-    voiceEnabled = game?['settings']?['voiceEnabled'] == true;
     errorCode = null;
     if (!_disposed) notifyListeners();
   }
@@ -213,25 +199,6 @@ class ChessGameSession extends ChangeNotifier {
             notifyListeners();
           }
           break;
-        case 'chess:voice:settings':
-          voiceEnabled = event['enabled'] == true;
-          if (voiceEnabled) {
-            await voiceClient?.connect();
-          } else {
-            speakingUsername = null;
-            await voiceClient?.disconnect();
-          }
-          notifyListeners();
-          break;
-        case 'chess:voice:granted':
-          speakingUsername = event['speakingUsername'] as String?;
-          notifyListeners();
-          break;
-        case 'chess:voice:released':
-        case 'chess:voice:disabled':
-          speakingUsername = null;
-          notifyListeners();
-          break;
         case 'chess:opponent:presence':
           // Presence is intentionally username-only.
           break;
@@ -269,7 +236,6 @@ class ChessGameSession extends ChangeNotifier {
       if (_disposed) return;
       try {
         await refresh();
-        if (voiceEnabled) await voiceClient?.connect();
         await _openSocket();
         await refresh();
       } catch (_) {
@@ -312,28 +278,6 @@ class ChessGameSession extends ChangeNotifier {
     await refresh();
   }
 
-  Future<void> pressToTalk() async {
-    if (!voiceEnabled) throw StateError('voice_disabled_by_host');
-    final client = voiceClient;
-    if (client == null) throw StateError('voice_client_not_configured');
-    await client.pressToTalk();
-  }
-
-  Future<void> releaseTalk() async {
-    await voiceClient?.releaseTalk();
-  }
-
-  Future<void> setVoiceEnabled(bool enabled) async {
-    await api.setVoiceEnabled(gameId, enabled);
-    if (enabled) await voiceClient?.connect();
-    voiceEnabled = enabled;
-    if (!enabled) {
-      speakingUsername = null;
-      await voiceClient?.disconnect();
-    }
-    if (!_disposed) notifyListeners();
-  }
-
   @override
   void dispose() {
     _disposed = true;
@@ -342,7 +286,6 @@ class ChessGameSession extends ChangeNotifier {
     unawaited(_subscription?.cancel());
     unawaited(_socket?.close());
     _socket = null;
-    unawaited(voiceClient?.dispose());
     super.dispose();
   }
 }
