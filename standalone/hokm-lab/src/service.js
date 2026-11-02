@@ -114,7 +114,12 @@ export class HokmRoomService {
     return this.#transition(roomId, expectedVersion, room => joinRoom(room, userId, this.now()), userId);
   }
 
-  async leave(principal, roomId, expectedVersion) {\n    const userId = authenticatedUser(principal);\n    return this.#transition(roomId, expectedVersion, room => leaveRoom(room, userId), userId);\n  }\n\n  async ready(principal, roomId, ready, expectedVersion) {
+  async leave(principal, roomId, expectedVersion) {
+    const userId = authenticatedUser(principal);
+    return this.#transition(roomId, expectedVersion, room => leaveRoom(room, userId), userId);
+  }
+
+  async ready(principal, roomId, ready, expectedVersion) {
     const userId = authenticatedUser(principal);
     return this.#transition(roomId, expectedVersion, room => setPlayerReady(room, userId, ready), userId);
   }
@@ -154,7 +159,7 @@ export class HokmRoomService {
     return this.#transition(roomId, expectedVersion,
       room => submitCheatingReport(room, reporterId, {
         reportId: this.id(), reportedUserId, reason, now: this.now()
-      }), null);
+      }), reporterId);
   }
 
   async reviewCheating(principal, roomId, reportId, notes, expectedVersion) {
