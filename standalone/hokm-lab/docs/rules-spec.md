@@ -184,3 +184,12 @@ Phase 1 remains **in progress**. This document separates confirmed owner decisio
 **R-42 room behavior after cancellation (2026-11-03):** When a match is cancelled, close that match room immediately and return the players to the lobby. No cancelled room remains open awaiting manual closure.
 
 **R-43 no replacement human after voluntary exit (2026-11-03):** After a player voluntarily exits an active match, their seat remains controlled by Hard bot until that match ends. A new human player cannot join and take over that seat during the same match.
+
+
+**R-41 XP floor (2026-11-03):** XP must never become negative. Apply any approved 5 XP exit/disconnection deduction with a floor of zero; if the player's current XP is below 5, reduce it only to zero.
+
+
+**R-42 room closure after cancellation (2026-11-03):** When a match is cancelled under an approved cancellation rule, close the match room immediately and return all remaining participants to the lobby. No cancelled room remains open awaiting manual administrator closure.
+
+
+**R-43 no replacement human after voluntary exit (2026-11-03):** When a player voluntarily exits an active match, no new human player may join and occupy that seat before the match ends. Hard bot permanently controls the seat for the remainder of that match.
