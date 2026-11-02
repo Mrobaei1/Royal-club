@@ -34,6 +34,31 @@ class _UnoOnlineScreenState extends State<UnoOnlineScreen> {
   bool get _isPersian => Localizations.localeOf(context).languageCode == 'fa';
   String _t(String fa, String en) => _isPersian ? fa : en;
 
+  String _errorMessage(Map<String, dynamic> error) {
+    final message = error['message']?.toString();
+    if (!_isPersian) return message ?? 'The operation failed.';
+    return switch (error['code']?.toString()) {
+      'UNAUTHORIZED' => 'نشست شما معتبر نیست؛ دوباره وارد حساب شوید.',
+      'ROOM_NOT_FOUND' => 'میز پیدا نشد یا منقضی شده است.',
+      'ROOM_FULL' => 'ظرفیت میز تکمیل است؛ حداکثر ۶ بازیکن.',
+      'ALREADY_IN_ROOM' => 'ابتدا از میز فعلی خارج شوید.',
+      'GAME_ALREADY_STARTED' => 'پس از شروع بازی امکان ورود یا تغییر آمادگی وجود ندارد.',
+      'PLAYERS_NOT_READY' => 'برای شروع، حداقل دو بازیکن باید آماده باشند و میزبان شروع کند.',
+      'HOST_ONLY' => 'فقط میزبان می‌تواند این کار را انجام دهد.',
+      'NOT_A_PLAYER' => 'شما عضو این میز نیستید.',
+      'NOT_YOUR_TURN' => 'هنوز نوبت شما نیست.',
+      'CARD_NOT_IN_HAND' => 'این کارت در دست شما نیست.',
+      'ILLEGAL_CARD' => 'این کارت با رنگ یا عدد فعال مطابقت ندارد.',
+      'CHOOSE_COLOR' => 'برای کارت ویژه یکی از چهار رنگ را انتخاب کنید.',
+      'WILD4_RESPONSE_REQUIRED' => 'ابتدا باید +۴ را قبول یا به آن اعتراض کنید.',
+      'CHALLENGE_NOT_AVAILABLE' => 'در حال حاضر امکان اعتراض وجود ندارد.',
+      'CHAT_DISABLED' => 'چت میز توسط میزبان غیرفعال شده است.',
+      'RATE_LIMITED' => 'برای ارسال پیام کمی صبر کنید.',
+      'TEXT_TOO_LONG' => 'پیام بیش از حد طولانی است.',
+      _ => message ?? 'عملیات انجام نشد.',
+    };
+  }
+
   @override
   void initState() {
     super.initState();
@@ -114,7 +139,7 @@ class _UnoOnlineScreenState extends State<UnoOnlineScreen> {
       if (!mounted) return;
       if (result['ok'] != true) {
         final error = Map<String, dynamic>.from(result['error'] as Map? ?? {});
-        throw StateError(error['message']?.toString() ?? _t('عملیات انجام نشد.', 'The operation failed.'));
+        throw StateError(_errorMessage(error));
       }
       final data = result['data'];
       if (event == 'uno:room:create' || event == 'uno:room:join') {
