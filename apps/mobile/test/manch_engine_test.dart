@@ -279,4 +279,64 @@ void main() {
       expect(json['extraRollOnCapture'], true);
     });
   });
+
+    test('a stacked pair is not captured as one exposed token', () {
+      final state = ManchGameState(
+        players: [
+          ManchPlayerState(colour: ManchColour.red, tokens: [0, -1, -1, -1]),
+          ManchPlayerState(colour: ManchColour.green, tokens: [40, 40, -1, -1]),
+        ],
+        activePlayerIndex: 0,
+        profile: const ManchRuleProfile(),
+      );
+      final rolled = engine.roll(state, 1);
+      final move = engine.legalMoves(rolled).single;
+      expect(move.isCapture, isFalse);
+      final next = engine.move(rolled, move.tokenIndex);
+      expect(next.players[1].tokens.take(2), [40, 40]);
+    });
+
+    test('capture extra roll follows the configured profile', () {
+      final state = ManchGameState(
+        players: [
+          ManchPlayerState(colour: ManchColour.red, tokens: [0, -1, -1, -1]),
+          ManchPlayerState(colour: ManchColour.green, tokens: [40, -1, -1, -1]),
+        ],
+        activePlayerIndex: 0,
+        profile: const ManchRuleProfile(extraRollOnCapture: true),
+      );
+      final next = engine.move(engine.roll(state, 1), 0);
+      expect(next.players[1].tokens[0], -1);
+      expect(next.activePlayerIndex, 0);
+      expect(next.turnNumber, state.turnNumber);
+    });
+
+    test('friendly stacking can be disabled while other moves remain legal', () {
+      final state = ManchGameState(
+        players: [
+          ManchPlayerState(colour: ManchColour.red, tokens: [1, 0, -1, -1]),
+          ManchPlayerState(colour: ManchColour.green),
+        ],
+        activePlayerIndex: 0,
+        profile: const ManchRuleProfile(friendlyStackingEnabled: false),
+      );
+      final moves = engine.legalMoves(engine.roll(state, 1));
+      expect(moves.any((move) => move.tokenIndex == 1), isFalse);
+      expect(moves.any((move) => move.tokenIndex == 0), isTrue);
+    });
+
+    test('non-exact finish clamps an overshoot to the finish cell', () {
+      final state = ManchGameState(
+        players: [
+          ManchPlayerState(colour: ManchColour.red, tokens: [56, 57, 57, 57]),
+          ManchPlayerState(colour: ManchColour.green),
+        ],
+        activePlayerIndex: 0,
+        profile: const ManchRuleProfile(exactFinishRequired: false),
+      );
+      final won = engine.move(engine.roll(state, 6), 0);
+      expect(won.isFinished, isTrue);
+      expect(won.players[0].tokens, everyElement(57));
+    });
+
 }
