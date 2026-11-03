@@ -230,6 +230,7 @@ class _UnoOnlineScreenState extends State<UnoOnlineScreen> {
 
   Future<void> _run(String event, Map<String, dynamic> payload) async {
     if (!mounted) return;
+    final playerId = widget.playerId;
     setState(() { _busy = true; _error = null; });
     try {
       final result = await _emit(event, payload);
