@@ -91,6 +91,14 @@ test("WebSocket ping limiter prevents bursts across fixed-window boundaries", ()
   assert.equal(allow(), true, "the second ping expires at its exact window boundary");
 });
 
+test("WebSocket ping limiter rejects invalid configuration", () => {
+  assert.throws(() => createPingRateLimiter(0, 10_000), RangeError);
+  assert.throws(() => createPingRateLimiter(-1, 10_000), RangeError);
+  assert.throws(() => createPingRateLimiter(1.5, 10_000), RangeError);
+  assert.throws(() => createPingRateLimiter(30, 0), RangeError);
+  assert.throws(() => createPingRateLimiter(30, Number.POSITIVE_INFINITY), RangeError);
+});
+
 test("WebSocket presence remains online until the player's last device disconnects", {
   skip: !databaseUrl,
   timeout: 45_000,
