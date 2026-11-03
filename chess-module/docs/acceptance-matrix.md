@@ -23,3 +23,4 @@ A row is not complete merely because a contract or placeholder exists. Integrati
 
 - Physical-device, two-player, reconnect, accessibility, abuse and staging load acceptance procedure: [`device-acceptance-checklist.md`](./device-acceptance-checklist.md). These checks remain open until executed on real devices and recorded.
 - Staging authorization, input-boundary, concurrency, database and operational security review: [`security-resilience-checklist.md`](./security-resilience-checklist.md). These checks remain open until evidence is attached; the checklist is not a substitute for an independent security review.
+- Host-app integration prerequisites and owner-controlled execution sequence: [`host-integration-plan.md`](./host-integration-plan.md). Preparation is complete; actual host wiring remains blocked pending explicit owner authorization.
