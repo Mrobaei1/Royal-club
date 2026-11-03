@@ -53,8 +53,8 @@
 | 2.4-B | Visible static UI localization | 5 | Pending | Not audited |
 | 2.4-C | Dynamic errors/notifications localization | 5 | Pending | Not audited |
 | 2.4-D | Locale-switch regression tests | 5 | Pending | Not audited |
-| 2.5-A | Persian RTL on Android | 5 | Pending | Not audited |
-| 2.5-B | English LTR on Android | 5 | Pending | Not audited |
+| 2.5-A | Persian RTL on Android | 5 | Passed | Owner-confirmed manual Android check, 2026-11-04; no issue reported |
+| 2.5-B | English LTR on Android | 5 | Passed | Owner-confirmed manual Android check, 2026-11-04; no issue reported |
 | 2.5-C | Dialogs/forms/overflow | 5 | Pending | Not audited |
 | 2.5-D | Dynamic text/directional UI | 5 | Pending | Not audited |
 | 2.6-A | JWT/session negative tests | 5 | Pending | Not audited |
@@ -252,8 +252,9 @@
 - Packages decomposed: **53/53**
 - Acceptance criteria: **200**
 - Points represented: **1000/1,000**
-- Earned points at creation: **not scored**
-- Official project percentage: **pending evidence audit**
+- Earned points currently evidenced: **10/1,000 (1.0%)** — criteria 2.5-A and 2.5-B passed on 2026-11-04.
+- Remaining criteria: **198 Pending** (990 points not yet earned).
+- Official project percentage: **1.0% evidence-backed minimum**; this is not a full-project audit and will increase only as additional criteria pass.
 
 ## Required evidence record
 
