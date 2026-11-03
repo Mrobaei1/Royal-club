@@ -2,9 +2,9 @@ import 'package:flutter/foundation.dart';
 
 /// The single source of truth for the public Royal Club API origin.
 ///
-/// The build-time value is a bootstrap fallback. A future signed-network-config
-/// verifier may call [setVerifiedOrigin] only after validating the complete
-/// signed payload, schema, expiry and monotonic configuration version.
+/// The build-time value is the only production origin source for now. Remote
+/// origin changes remain disabled until a signed-config protocol, pinned key,
+/// expiry/version checks and rollback policy are implemented and tested.
 class ApiTransport {
   ApiTransport._();
 
