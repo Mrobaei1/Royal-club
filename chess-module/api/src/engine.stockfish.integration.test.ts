@@ -60,8 +60,7 @@ test("independent Stockfish perft agrees with adapter and reference legal moves 
     assert.deepEqual(actualMoves, expectedLegal, `Stockfish legal moves differ for FEN: ${fen}`);
 
     const referenceCounts = new Map<string, number>();
-    const reference = new Chess(fen);
-    for (const move of reference.moves({ verbose: true })) {
+    for (const move of new Chess(fen).moves({ verbose: true })) {
       const branch = new Chess(fen);
       branch.move({
         from: move.from,
@@ -81,8 +80,7 @@ test("independent Stockfish perft agrees with adapter and reference legal moves 
     );
   });
 
-  const initialPositionPerft3 = Number(
-    result.stdout.match(/Nodes searched:\s*(\d+)\s*$/m)?.[1],
-  );
+  const totals = [...result.stdout.matchAll(/Nodes searched:\s*(\d+)/g)];
+  const initialPositionPerft3 = Number(totals.at(-1)?.[1]);
   assert.equal(initialPositionPerft3, 8902, "standard initial-position perft-3 must equal 8,902");
 });
