@@ -120,7 +120,7 @@ class _ManchOfflineGameScreenState extends State<ManchOfflineGameScreen> {
     }
     _matchStarted = true;
     var next = _engine.roll(_state, dice);
-    var message = 'عدد تاس: $dice';
+    var message = _text('عدد تاس: $dice', 'Dice: $dice');
     if (next.pendingDice == null) {
       message = _text('سه شش متوالی؛ نوبت خود را از دست دادی.', 'Three consecutive sixes; you lose your turn.');
     } else if (_engine.legalMoves(next).isEmpty) {
@@ -148,7 +148,7 @@ class _ManchOfflineGameScreenState extends State<ManchOfflineGameScreen> {
     setState(() {
       _state = next;
       _message = won
-          ? 'بازیکن $winnerName برنده شد!'
+          ? _text('بازیکن $winnerName برنده شد!', 'Player $winnerName wins!')
           : next.activePlayerIndex == move.playerIndex
               ? _text('حرکت انجام شد؛ نوبت اضافه داری.', 'Move completed; you get another turn.')
               : _text('حرکت انجام شد؛ نوبت بازیکن بعدی است.', 'Move completed; next player\'s turn.');
