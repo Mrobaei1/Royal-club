@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { legalCards } from "../src/engine.js";
-import { createRoom, joinRoom, leaveRoom, setPlayerReady, startRoom, expireRoom, roomViewForUser, applyRoomCommand, startNextRound, recordMatchForfeit, disconnectPlayer, reconnectPlayer, handleDisconnectTimeout } from "../src/room.js";
+import { createRoom, joinRoom, leaveRoom, setPlayerReady, startRoom, expireRoom, roomViewForUser, applyRoomCommand, startNextRound, recordMatchForfeit, disconnectPlayer, reconnectPlayer, handleDisconnectTimeout, processAllDisconnectedTimeout, ALL_PLAYERS_DISCONNECTED_MS } from "../src/room.js";
 
 function fullReadyRoom(now = 1000, matchTarget = 7) {
   let room = createRoom({ roomId: "test-room", hostUserId: "u0", now, matchTarget });
@@ -294,4 +294,29 @@ test("private seat view exposes server time for synchronized turn countdowns", (
   const view = roomViewForUser(room, "u0", { now: 4321 });
   assert.equal(view.serverNow, 4321);
   assert.equal(Object.hasOwn(view, "round"), false);
+});
+
+
+test("temporary disconnect and reconnect are accepted during the three-second hand reveal", () => {
+  let room = startRoom(fullReadyRoom(), "u0", { now: 2000, rng: () => 0 });
+  room = { ...room, status: "round_completed", handRevealUntil: 6000 };
+  room = disconnectPlayer(room, "u0", { now: 3000, expectedVersion: room.version });
+  assert.equal(room.players[0].connected, false);
+  room = reconnectPlayer(room, "u0", { now: 4000, expectedVersion: room.version });
+  assert.equal(room.players[0].connected, true);
+  assert.equal(room.allDisconnectedDeadline, null);
+});
+
+test("all-four-disconnected cancellation also runs during the hand reveal", () => {
+  let room = startRoom(fullReadyRoom(), "u0", { now: 2000, rng: () => 0 });
+  room = { ...room, status: "round_completed", handRevealUntil: 6000 };
+  for (const userId of ["u0", "u1", "u2", "u3"]) {
+    room = disconnectPlayer(room, userId, { now: 3000, expectedVersion: room.version });
+  }
+  assert.equal(room.allDisconnectedDeadline, 3000 + ALL_PLAYERS_DISCONNECTED_MS);
+  const cancelled = processAllDisconnectedTimeout(room, {
+    now: 3000 + ALL_PLAYERS_DISCONNECTED_MS, expectedVersion: room.version
+  });
+  assert.equal(cancelled.status, "cancelled");
+  assert.equal(cancelled.cancelReason, "all_players_disconnected");
 });
