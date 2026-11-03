@@ -347,6 +347,44 @@ test("authenticated chess routes support private game, draw, chat, profiles and 
     );
     assert.deepEqual(claimTimeoutAwards.rows.map(row => Number(row.xp_delta)), [5, 20]);
 
+    const claimRaceRoom = await request(claimTimeoutWhite, "POST", "/chess/rooms", {
+      timeControlId: "rapid", minOpponentLevel: 1, chatEnabled: true,
+    });
+    assert.equal(claimRaceRoom.statusCode, 201, claimRaceRoom.body);
+    const claimRaceJoin = await request(claimTimeoutBlack, "POST", `/chess/rooms/${claimRaceRoom.json().roomCode}/join`);
+    assert.equal(claimRaceJoin.statusCode, 201, claimRaceJoin.body);
+    const claimRaceGameId = claimRaceJoin.json().gameId as string;
+    const claimRaceNow = Date.now();
+    await pool.query(
+      "UPDATE chess_games SET initial_fen=$2,current_fen=$2,pgn='',clock_snapshot=jsonb_set(jsonb_set(clock_snapshot,'{whiteMs}','1'::jsonb),'{lastStartedAt}',to_jsonb($3::bigint)) WHERE id=$1",
+      [claimRaceGameId, claimTimeoutFen, claimRaceNow - 5000],
+    );
+    const [racingDrawClaim, racingTimeoutSweep] = await Promise.all([
+      request(claimTimeoutWhite, "POST", `/chess/games/${claimRaceGameId}/claim-draw`),
+      adjudicateExpiredChessClocks(pool, claimRaceNow),
+    ]);
+    assert.ok(
+      (racingDrawClaim.statusCode === 409 && racingDrawClaim.json().error === "clock_expired" && racingTimeoutSweep === 0) ||
+      (racingDrawClaim.statusCode === 404 && racingDrawClaim.json().error === "active_game_not_found" && racingTimeoutSweep === 1),
+      JSON.stringify({claimStatus:racingDrawClaim.statusCode,sweep:racingTimeoutSweep}),
+    );
+    const claimRaceResult = await pool.query(
+      "SELECT status FROM chess_games WHERE id=$1",
+      [claimRaceGameId],
+    );
+    assert.equal(claimRaceResult.rows[0].status, "black_win");
+    const claimRaceAwards = await pool.query(
+      "SELECT COUNT(*)::int AS count FROM chess_progression_events WHERE game_id=$1 AND event_key='final_result'",
+      [claimRaceGameId],
+    );
+    assert.equal(claimRaceAwards.rows[0].count, 2);
+    const claimRaceRatings = await pool.query(
+      "SELECT COUNT(*)::int AS count FROM chess_rating_events WHERE game_id=$1",
+      [claimRaceGameId],
+    );
+    assert.equal(claimRaceRatings.rows[0].count, 2);
+    assert.equal(await adjudicateExpiredChessClocks(pool, claimRaceNow + 1000), 0);
+
     const malformedChat = await request(white, "POST", `/chess/games/${gameId}/chat`, { message: { text: "not a string" } });
     assert.equal(malformedChat.statusCode, 400);
     assert.equal(malformedChat.json().error, "invalid_message");
