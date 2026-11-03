@@ -468,7 +468,9 @@ class _ManchOnlineGameScreenState extends State<ManchOnlineGameScreen> {
     try {
       final match = await ManchOnlineService.get(widget.matchId);
       final rawState = match['gameState'];
-      if (rawState is! Map) throw Exception('وضعیت بازی از سرور ناقص است.');
+      if (rawState is! Map) {
+        throw Exception(_text('وضعیت بازی از سرور ناقص است.', 'The server returned an incomplete game state.'));
+      }
       final state = ManchGameState.fromJson(Map<String, Object?>.from(rawState));
       final incomingVersion = parseManchOnlineStateVersion(match['stateVersion']);
       if (incomingVersion == null) {
@@ -526,7 +528,9 @@ class _ManchOnlineGameScreenState extends State<ManchOnlineGameScreen> {
         expectedStateVersion: _stateVersion,
       );
       final raw = result['state'];
-      if (raw is! Map) throw Exception('پاسخ تاس از سرور ناقص است.');
+      if (raw is! Map) {
+        throw Exception(_text('پاسخ تاس از سرور ناقص است.', 'The server returned an incomplete dice response.'));
+      }
       final state = ManchGameState.fromJson(Map<String, Object?>.from(raw));
       final incomingVersion = parseManchOnlineStateVersion(result['stateVersion']);
       if (incomingVersion == null) {
@@ -569,7 +573,9 @@ class _ManchOnlineGameScreenState extends State<ManchOnlineGameScreen> {
         expectedStateVersion: _stateVersion,
       );
       final raw = result['state'];
-      if (raw is! Map) throw Exception('پاسخ حرکت از سرور ناقص است.');
+      if (raw is! Map) {
+        throw Exception(_text('پاسخ حرکت از سرور ناقص است.', 'The server returned an incomplete move response.'));
+      }
       final state = ManchGameState.fromJson(Map<String, Object?>.from(raw));
       final incomingVersion = parseManchOnlineStateVersion(result['stateVersion']);
       if (incomingVersion == null) {
