@@ -90,7 +90,7 @@ export async function registerChessWebSocket(app: FastifyInstance, options: Opti
       socket.on("message", (raw) => {
         let message: {type?:string; clientTime?:number};
         try { message = JSON.parse(raw.toString()) as {type?:string;clientTime?:number}; }
-        catch { send({type:"chess:error",code:"invalid_json"}); return; }
+        catch { socket.close(1008, "invalid_json"); return; }
         if (message.type === "ping") {
           if (!allowPing()) {
             socket.close(1008, "rate_limited");
@@ -103,7 +103,7 @@ export async function registerChessWebSocket(app: FastifyInstance, options: Opti
           });
           return;
         }
-        send({type:"chess:error",code:"unsupported_command_use_authenticated_api"});
+        socket.close(1008, "unsupported_command");
       });
       const publish = async (event: object) => {
         await listener.query("SELECT pg_notify($1,$2)", [channel, JSON.stringify(event)]);
