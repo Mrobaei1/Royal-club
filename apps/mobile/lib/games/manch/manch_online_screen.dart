@@ -539,7 +539,10 @@ class _ManchOnlineGameScreenState extends State<ManchOnlineGameScreen> {
     if (confirmed != true || !mounted) return;
     setState(() => _busy = true);
     try {
-      final result = await ManchOnlineService.forfeit(widget.matchId);
+      final result = await ManchOnlineService.forfeit(
+        widget.matchId,
+        expectedStateVersion: _stateVersion,
+      );
       final incomingVersion = parseManchOnlineStateVersion(result['stateVersion']);
       if (incomingVersion == null) {
         throw const FormatException('Missing or invalid Manch state version in action response.');
