@@ -7,6 +7,7 @@ import 'manch_engine.dart';
 import 'manch_game_state.dart';
 import 'manch_online_version_guard.dart';
 import '../../services/manch_online_service.dart';
+import '../../services/friends_service.dart';
 
 class ManchOnlineLobbyScreen extends StatefulWidget {
   const ManchOnlineLobbyScreen({super.key});
@@ -18,6 +19,8 @@ class ManchOnlineLobbyScreen extends StatefulWidget {
 class _ManchOnlineLobbyScreenState extends State<ManchOnlineLobbyScreen> {
   List<Map<String, dynamic>> _matches = [];
   List<Map<String, dynamic>> _history = [];
+  List<Map<String, dynamic>> _friends = [];
+  List<Map<String, dynamic>> _invites = [];
   Map<String, int>? _stats;
   Map<String, dynamic>? _myMatch;
   String? _userId;
@@ -90,6 +93,22 @@ class _ManchOnlineLobbyScreenState extends State<ManchOnlineLobbyScreen> {
       } catch (_) {
         // History is supplementary; a history outage must not block the lobby.
       }
+      var invites = _invites;
+      var friends = _friends;
+      try {
+        invites = await ManchOnlineService.pendingInvites();
+      } catch (_) {
+        // Invitation inbox is supplementary; lobby access remains available.
+      }
+      try {
+        final friendData = await FriendsService.list();
+        friends = (friendData['friends'] as List? ?? const [])
+            .whereType<Map>()
+            .map((item) => Map<String, dynamic>.from(item))
+            .toList();
+      } catch (_) {
+        // Friend discovery is supplementary; public room joining remains available.
+      }
       try {
         stats = await ManchOnlineService.stats();
       } catch (_) {
@@ -100,6 +119,8 @@ class _ManchOnlineLobbyScreenState extends State<ManchOnlineLobbyScreen> {
         _matches = matches;
         _history = history;
         _stats = stats;
+        _friends = friends;
+        _invites = invites;
         _loading = false;
         _error = null;
       });
@@ -159,6 +180,72 @@ class _ManchOnlineLobbyScreenState extends State<ManchOnlineLobbyScreen> {
         _loading = false;
         _error = error.toString();
       });
+    }
+  }
+
+  Future<void> _inviteFriend() async {
+    final match = _myMatch;
+    if (match == null || match['status'] != 'waiting') return;
+    if (_friends.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(_text('برای دعوت، ابتدا باید دوستی داشته باشید.', 'Add a friend before sending an invitation.')),
+      ));
+      return;
+    }
+    final selected = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (dialogContext) => SimpleDialog(
+        title: Text(_text('دعوت دوست به منچ', 'Invite a friend to Manch')),
+        children: [
+          for (final friend in _friends)
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(dialogContext, friend),
+              child: Text('@${friend['username']?.toString() ?? friend['name']?.toString() ?? 'player'}'),
+            ),
+        ],
+      ),
+    );
+    if (selected == null || !mounted) return;
+    try {
+      await ManchOnlineService.inviteFriend(
+        match['id'].toString(),
+        selected['userId'].toString(),
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(_text('دعوت منچ ارسال شد.', 'Manch invitation sent.')),
+      ));
+      await _refresh(silent: true);
+    } catch (error) {
+      if (mounted) setState(() => _error = error.toString());
+    }
+  }
+
+  Future<void> _respondToInvite(Map<String, dynamic> invite, {required bool accept}) async {
+    try {
+      final response = await ManchOnlineService.respondToInvite(
+        invite['id'].toString(),
+        accept: accept,
+      );
+      if (!mounted) return;
+      setState(() {
+        _invites.removeWhere((item) => item['id'].toString() == invite['id'].toString());
+        if (accept && response['match'] is Map) {
+          _myMatch = Map<String, dynamic>.from(response['match'] as Map);
+        }
+      });
+      if (accept && response['match'] is Map) {
+        final match = Map<String, dynamic>.from(response['match'] as Map);
+        if (match['status'] == 'active') {
+          await _openGame(match['id'].toString());
+        } else {
+          await _refresh(silent: true);
+        }
+      } else {
+        await _refresh(silent: true);
+      }
+    } catch (error) {
+      if (mounted) setState(() => _error = error.toString());
     }
   }
 
@@ -280,18 +367,58 @@ class _ManchOnlineLobbyScreenState extends State<ManchOnlineLobbyScreen> {
                               ),
                       ),
                       if (myMatch['status'] == 'waiting')
-                        Align(
-                          alignment: AlignmentDirectional.centerEnd,
-                          child: TextButton.icon(
-                            onPressed: _cancelMine,
-                            icon: const Icon(Icons.close),
-                            label: Text(_text('لغو اتاق', 'Cancel room')),
-                          ),
+                        Wrap(
+                          alignment: WrapAlignment.end,
+                          spacing: 8,
+                          children: [
+                            TextButton.icon(
+                              onPressed: _inviteFriend,
+                              icon: const Icon(Icons.person_add_alt_1),
+                              label: Text(_text('دعوت دوست', 'Invite friend')),
+                            ),
+                            TextButton.icon(
+                              onPressed: _cancelMine,
+                              icon: const Icon(Icons.close),
+                              label: Text(_text('لغو اتاق', 'Cancel room')),
+                            ),
+                          ],
                         ),
                     ],
                   ),
                 ),
               ),
+            ],
+            if (_invites.isNotEmpty) ...[
+              Text(_text('دعوت‌های دریافتی منچ', 'Manch invitations'), style: Theme.of(context).textTheme.titleLarge),
+              const SizedBox(height: 8),
+              for (final invite in _invites)
+                Card(
+                  child: ListTile(
+                    title: Text(_text(
+                      'دعوت از @${invite['inviterUsername'] ?? 'بازیکن'}',
+                      'Invite from @${invite['inviterUsername'] ?? 'player'}',
+                    )),
+                    subtitle: Text(_text(
+                      'اتاق ${invite['roomCode'] ?? '—'} · ${invite['playerCount'] ?? 2} نفره',
+                      'Room ${invite['roomCode'] ?? '—'} · ${invite['playerCount'] ?? 2} players',
+                    )),
+                    trailing: Wrap(
+                      spacing: 4,
+                      children: [
+                        IconButton(
+                          tooltip: _text('پذیرفتن', 'Accept'),
+                          onPressed: _loading ? null : () => _respondToInvite(invite, accept: true),
+                          icon: const Icon(Icons.check_circle_outline),
+                        ),
+                        IconButton(
+                          tooltip: _text('رد کردن', 'Decline'),
+                          onPressed: _loading ? null : () => _respondToInvite(invite, accept: false),
+                          icon: const Icon(Icons.cancel_outlined),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
             ],
             if (_stats != null)
               Card(
