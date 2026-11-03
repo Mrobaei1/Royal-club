@@ -467,10 +467,13 @@ test('Manch online supports complete 3- and 4-player seat allocation and rejects
       headers: auth(host.accessToken),
     });
     assert.equal(afterTurn.statusCode, 200, afterTurn.body);
+    const expectedTurnUserId = hostRoll.json().dice === 6
+      ? host.user.id
+      : players[1].userId;
     assert.equal(
       afterTurn.json().match.currentTurnUserId,
-      players[1].userId,
-      'Turn ownership must advance in the fixed seat order.',
+      expectedTurnUserId,
+      'Turn ownership must follow the fixed seat order, retaining the turn after a six.',
     );
 
     const unsupportedForfeit = await app.inject({
