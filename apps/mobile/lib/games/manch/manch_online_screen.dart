@@ -389,7 +389,9 @@ class _ManchOnlineGameScreenState extends State<ManchOnlineGameScreen> {
       if (!mounted || !shouldAcceptManchOnlineVersion(
         incomingVersion: incomingVersion,
         currentVersion: _stateVersion,
-      )) return;
+      )) {
+        return;
+      }
       setState(() {
         _state = state;
         _players = (match['players'] as List? ?? const [])
@@ -439,7 +441,9 @@ class _ManchOnlineGameScreenState extends State<ManchOnlineGameScreen> {
       if (!mounted || !shouldAcceptManchOnlineVersion(
         incomingVersion: incomingVersion,
         currentVersion: _stateVersion,
-      )) return;
+      )) {
+        return;
+      }
       setState(() {
         _state = state;
         _stateVersion = incomingVersion;
@@ -480,7 +484,9 @@ class _ManchOnlineGameScreenState extends State<ManchOnlineGameScreen> {
       if (!mounted || !shouldAcceptManchOnlineVersion(
         incomingVersion: incomingVersion,
         currentVersion: _stateVersion,
-      )) return;
+      )) {
+        return;
+      }
       setState(() {
         _state = state;
         _stateVersion = incomingVersion;
@@ -550,7 +556,9 @@ class _ManchOnlineGameScreenState extends State<ManchOnlineGameScreen> {
       if (!mounted || !shouldAcceptManchOnlineVersion(
         incomingVersion: incomingVersion,
         currentVersion: _stateVersion,
-      )) return;
+      )) {
+        return;
+      }
       setState(() {
         _matchStatus = result['status']?.toString() ?? 'finished';
         _finishReason = result['finishReason']?.toString() ?? 'forfeit';
