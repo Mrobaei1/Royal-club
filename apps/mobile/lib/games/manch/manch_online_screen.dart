@@ -431,7 +431,10 @@ class _ManchOnlineGameScreenState extends State<ManchOnlineGameScreen> {
       final state = ManchGameState.fromJson(Map<String, Object?>.from(raw));
       final incomingVersion =
           (result['stateVersion'] as num?)?.toInt() ?? _stateVersion + 1;
-      if (!mounted || incomingVersion < _stateVersion) return;
+      if (!mounted || !shouldAcceptManchOnlineVersion(
+        incomingVersion: incomingVersion,
+        currentVersion: _stateVersion,
+      )) return;
       setState(() {
         _state = state;
         _stateVersion = incomingVersion;
@@ -467,7 +470,10 @@ class _ManchOnlineGameScreenState extends State<ManchOnlineGameScreen> {
       final state = ManchGameState.fromJson(Map<String, Object?>.from(raw));
       final incomingVersion =
           (result['stateVersion'] as num?)?.toInt() ?? _stateVersion + 1;
-      if (!mounted || incomingVersion < _stateVersion) return;
+      if (!mounted || !shouldAcceptManchOnlineVersion(
+        incomingVersion: incomingVersion,
+        currentVersion: _stateVersion,
+      )) return;
       setState(() {
         _state = state;
         _stateVersion = incomingVersion;
@@ -529,7 +535,10 @@ class _ManchOnlineGameScreenState extends State<ManchOnlineGameScreen> {
       final result = await ManchOnlineService.forfeit(widget.matchId);
       final incomingVersion =
           (result['stateVersion'] as num?)?.toInt() ?? _stateVersion + 1;
-      if (!mounted || incomingVersion < _stateVersion) return;
+      if (!mounted || !shouldAcceptManchOnlineVersion(
+        incomingVersion: incomingVersion,
+        currentVersion: _stateVersion,
+      )) return;
       setState(() {
         _matchStatus = result['status']?.toString() ?? 'finished';
         _finishReason = result['finishReason']?.toString() ?? 'forfeit';
