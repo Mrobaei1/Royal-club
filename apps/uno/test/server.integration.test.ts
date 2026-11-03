@@ -161,6 +161,24 @@ test('PostgreSQL-backed UNO service authenticates and restores live rooms', {
     assert.equal((await emitAck(host, 'uno:room:ready', { code, ready: true })).ok, true);
     assert.equal((await emitAck(guest, 'uno:room:ready', { code, ready: true })).ok, true);
     assert.equal((await emitAck(host, 'uno:room:start', { code })).ok, true);
+    await new Promise<void>((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        host.off('uno:game:hand', check);
+        guest.off('uno:game:hand', check);
+        reject(new Error(`Timed out waiting for private hands (host=${hostHand.length}, guest=${guestHand.length})`));
+      }, 5000);
+      const check = () => {
+        if (hostHand.length === 7 && guestHand.length === 7) {
+          clearTimeout(timeout);
+          host.off('uno:game:hand', check);
+          guest.off('uno:game:hand', check);
+          resolve();
+        }
+      };
+      host.on('uno:game:hand', check);
+      guest.on('uno:game:hand', check);
+      check();
+    });
     assert.equal(hostHand.length, 7, 'host receives only the host private hand');
     assert.equal(guestHand.length, 7, 'guest receives only the guest private hand');
     const hostCardIds = new Set(hostHand.map(card => (card as { id: string }).id));
