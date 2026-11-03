@@ -1,8 +1,8 @@
 # Royal Club — WBS v1.1 Evidence Ledger (rolling audit)
 
-- **Audit date:** 2026-11-02 (scope revision; package scoring remains pending)
+- **Audit date:** 2026-11-04 (owner-confirmed manual RTL/LTR acceptance recorded; criterion-level scoring updated)
 - **Governing baseline:** `docs/PROJECT-WBS-BASELINE.md`, WBS v1.1
-- **Live main checked for this revision:** `3a7d68354f628b43c0080b4ea5bebc6d241ea325`
+- **Live main checked for this revision:** `ee61be087ef18c7dacd56d80a0f725f261c6384a`
 - **Documentation follow-up:** PR #70 merged as `22dbff4caf81e3507da31e38bc2905cc964baf41` (WBS count correction and evidence ledger; no application code changed).
 - **Online disconnect implementation:** PR #67 merged as `69f315b2c2d38eba3c1e688ab48be77d17a2137c`.
 - **Notification/empty-bar fixes:** PR #75 merged as `227563f82c63ec5e9e4d4fa6c3e78e27cd059d26`.
@@ -35,8 +35,8 @@ The roadmap previously said 47 packages. Counting the actual leaf IDs in the app
 
 ## Status summary
 
-- In progress: 35 packages
-- Blocked: 13 packages
+- In progress: 36 packages
+- Blocked: 12 packages
 - Not started: 4 packages
 - Blocked — approval gated: 1 packages
 - Total: 53 packages / 1000 points.
@@ -55,7 +55,7 @@ The roadmap previously said 47 packages. Counting the actual leaf IDs in the app
 | 2.2 | 20 | In progress | docs/PHASE-1-3-READINESS.md §OTP; docs/SMS-AUTH-ADMIN-CONFIG.md | Real provider activation and Android registration/login/linking acceptance remain gated. |
 | 2.3 | 20 | In progress | apps/api/src/server.ts self-account/auth routes; apps/api/test/server.integration.test.ts privacy assertions | Complete manual audit of every public surface and legacy/empty profiles. |
 | 2.4 | 20 | In progress | docs/PHASE-1-LOCALIZATION-AUDIT.md; readiness localization checklist | Re-run exact-head Flutter tests and close any remaining dynamic/navigation gaps. |
-| 2.5 | 20 | Blocked | Readiness checklist — manual device acceptance open | Manual Persian RTL / English LTR acceptance on supported Android sizes. |
+| 2.5 | 20 | In progress | Owner confirmed Persian RTL and English LTR manual checks on Android on 2026-11-04; no issue reported | Complete remaining acceptance for dialogs/forms/overflow, supported screen sizes and dynamic text/directional UI; criteria 2.5-A/B passed, 2.5-C/D remain pending. |
 | 2.6 | 15 | Blocked | docs/PHASE-1-SECURITY-REVIEW.md; checkpoint production audit | Confirm owner configuration and complete deployed environment/network/security review. |
 | 2.7 | 15 | Blocked | Execution roadmap P2; readiness checklist | Same-account VPN-on/VPN-off test on a real device. |
 | 3.1 | 45 | In progress | apps/api/src/backgammon-rules.ts; backgammon engine audit CI | Complete edge-case audit and acceptance for legal sequences, dice, hits, bar, bear-off and turn transitions. |
@@ -116,7 +116,7 @@ The roadmap previously said 47 packages. Counting the actual leaf IDs in the app
 4. **Online board:** main's mobile screen obtains the match state from the authenticated `/matches/:id/state` endpoint and labels it server state. The rendering path also supports a local, explicitly unsubmitted batch-move preview. The user's reported incorrect-board symptom still requires real-device reproduction; no source change is justified from static inspection alone.
 5. **Room/invite expiry:** source creates empty rooms with a 60-second expiry and invite cards are checked against a 60-second age. The API cleanup endpoint exists and is called by room/invite polling, but there is no configured Neon scheduled trigger in the latest production audit; serverless idle cleanup is therefore not proven.
 6. **Production:** Neon reports active Function deployment 80 and 33 public tables; read-only comparison found all 33 current source table declarations present with no extra/missing table names. The exact deployed Git SHA is not exposed. No scheduled Neon trigger is configured; owner/SMS configuration and registration/login smoke acceptance remain separate gates. Latest post-merge production health workflow `41186861447` passed. No Production mutation or deployment was performed.
-7. **Manual acceptance:** two-device match behavior, RTL/LTR, theme consistency, VPN continuity and Android layout/accessibility/performance remain open.
+7. **Manual acceptance:** Persian RTL and English LTR were confirmed by the owner on Android on 2026-11-04 with no issue reported. Remaining gates include dialogs/forms/overflow across supported sizes, dynamic text/directional UI, two-device match behavior, theme consistency, VPN continuity and broader accessibility/performance acceptance.
 
 ## Evidence sources
 
@@ -242,3 +242,13 @@ This closes the exact-main automated CI evidence gap for this commit only; it do
 - Open PR #97 proposes an Infrastructure & Reliability Agent and a central signed network-control plane as a **100-point WBS extension** (proposed total 1,100 points). That proposal is not merged or adopted; the governing WBS v1.1 remains 53 packages / 1,000 points.
 - PR #144's `UNO_SERVER_URL` build-time value is temporary for an isolated integration draft and does not meet the central signed-config requirement.
 - Do not silently add 100 points or reweight the approved baseline. Before implementing the full control plane, the owner must decide whether to adopt the proposed WBS extension or include the scope within the existing 1,000-point weights through an approved WBS revision.
+
+
+## Owner-confirmed RTL/LTR acceptance — 2026-11-04
+
+- The project owner manually checked the Persian RTL interface and reported no issue.
+- The project owner then manually checked the English LTR interface and reported no issue.
+- This records the owner's device-level acceptance for matrix criteria **2.5-A** and **2.5-B** only (5 points each; 10 points total).
+- Criteria **2.5-C** (dialogs/forms/overflow) and **2.5-D** (dynamic text/directional UI) remain Pending until their full supported-size acceptance is explicitly verified. Package 2.5 therefore remains In progress, not complete.
+- The scoring matrix now records 10 earned points out of 1,000 (1.0% evidence-backed); all other criteria remain pending/not earned. This is a criterion-level minimum, not a claim that all remaining work has been audited.
+- No application code, production environment, database, release, or APK was changed.
