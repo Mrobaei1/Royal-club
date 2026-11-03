@@ -275,3 +275,60 @@ test('rejects invalid rule-profile faces, safe cells and six limits', () => {
     profile: { ...base.profile, maxConsecutiveSixes: 1 },
   }), false);
 });
+
+test('seeded complete games preserve invariants for every supported player count', () => {
+  const seats = {
+    2: ['red', 'yellow'],
+    3: ['red', 'green', 'yellow'],
+    4: ['red', 'green', 'yellow', 'blue'],
+  } as const;
+
+  for (const playerCount of [2, 3, 4] as const) {
+    for (const seed of [17, 73, 211]) {
+      let state = createManchGame([...seats[playerCount]]);
+      let randomState = (seed * 104729 + playerCount * 8191) >>> 0;
+      let actions = 0;
+
+      while (state.winnerIndex === null && actions < 30000) {
+        randomState = (Math.imul(randomState, 1664525) + 1013904223) >>> 0;
+        const dice = (randomState % 6) + 1;
+        const rolled = rollManchDice(state, dice);
+        assert.ok('state' in rolled);
+        if (!('state' in rolled)) break;
+        state = rolled.state;
+        actions++;
+
+        const moves = legalManchMoves(state);
+        if (moves.length === 0) {
+          const passed = passManchTurn(state);
+          assert.ok('state' in passed);
+          if (!('state' in passed)) break;
+          state = passed.state;
+        } else {
+          const selected = moves[(randomState >>> 8) % moves.length];
+          const moved = applyManchMove(state, selected.tokenIndex);
+          assert.ok('state' in moved);
+          if (!('state' in moved)) break;
+          state = moved.state;
+        }
+
+        assert.equal(
+          isValidManchState(state),
+          true,
+          `Invalid state after action ${actions}: players=${playerCount}, seed=${seed}`,
+        );
+      }
+
+      assert.notEqual(
+        state.winnerIndex,
+        null,
+        `Game did not finish: players=${playerCount}, seed=${seed}, actions=${actions}`,
+      );
+      assert.equal(
+        state.players[state.winnerIndex!].tokens.every((token) => token === 57),
+        true,
+      );
+    }
+  }
+});
+
