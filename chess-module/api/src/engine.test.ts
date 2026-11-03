@@ -34,6 +34,18 @@ test("detects checkmate", () => {
   assert.equal(game.snapshot().gameOver, true);
 });
 
+test("checkmate takes precedence over automatic and claimable move-count draws", () => {
+  const mateAtSeventyFiveMoveThreshold = new ChessGame("7k/6Q1/6K1/8/8/8/8/8 b - - 150 1").snapshot();
+  assert.equal(mateAtSeventyFiveMoveThreshold.checkmate, true);
+  assert.equal(mateAtSeventyFiveMoveThreshold.draw, false);
+  assert.equal(mateAtSeventyFiveMoveThreshold.drawClaimable, false);
+  assert.equal(mateAtSeventyFiveMoveThreshold.gameOver, true);
+
+  const mateAtFiftyMoveThreshold = new ChessGame("7k/6Q1/6K1/8/8/8/8/8 b - - 100 1").snapshot();
+  assert.equal(mateAtFiftyMoveThreshold.checkmate, true);
+  assert.equal(mateAtFiftyMoveThreshold.drawClaimable, false);
+});
+
 test("detects stalemate and insufficient material", () => {
   const stalemate = new ChessGame("7k/5K2/6Q1/8/8/8/8/8 b - - 0 1").snapshot();
   assert.equal(stalemate.check, false);
