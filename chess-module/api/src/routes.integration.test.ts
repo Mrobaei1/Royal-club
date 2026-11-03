@@ -255,6 +255,11 @@ test("authenticated chess routes support private game, draw, chat, profiles and 
       "UPDATE chess_games SET initial_fen=$2,current_fen=$2,pgn='' WHERE id=$1",
       [prospectiveGameId, prospectiveFen],
     );
+    const invalidProspectiveClaim = await request(claimWhite, "POST", `/chess/games/${prospectiveGameId}/claim-draw`, {
+      move: {from:"a1",to:"a1"},
+    });
+    assert.equal(invalidProspectiveClaim.statusCode, 400);
+    assert.equal(invalidProspectiveClaim.json().error, "invalid_claim_move");
     const prospectiveClaim = await request(claimWhite, "POST", `/chess/games/${prospectiveGameId}/claim-draw`, {
       move: {from:"a1",to:"a2"},
     });
@@ -267,6 +272,31 @@ test("authenticated chess routes support private game, draw, chat, profiles and 
     assert.equal(prospectiveStored.rows[0].current_fen, prospectiveFen);
     assert.equal(prospectiveStored.rows[0].status, "draw");
     assert.equal(prospectiveStored.rows[0].moves, 0);
+
+    const repetitionRoom = await request(claimWhite, "POST", "/chess/rooms", {
+      timeControlId: "rapid", minOpponentLevel: 1, chatEnabled: true,
+    });
+    assert.equal(repetitionRoom.statusCode, 201, repetitionRoom.body);
+    const repetitionJoin = await request(claimBlack, "POST", `/chess/rooms/${repetitionRoom.json().roomCode}/join`);
+    assert.equal(repetitionJoin.statusCode, 201, repetitionJoin.body);
+    const repetitionGameId = repetitionJoin.json().gameId as string;
+    for (let cycle = 0; cycle < 2; cycle++) {
+      for (const [player, from, to] of [
+        [claimWhite, "g1", "f3"],
+        [claimBlack, "g8", "f6"],
+        [claimWhite, "f3", "g1"],
+        [claimBlack, "f6", "g8"],
+      ] as const) {
+        const moved = await request(player, "POST", `/chess/games/${repetitionGameId}/moves`, {from,to});
+        assert.equal(moved.statusCode, 200, moved.body);
+      }
+    }
+    const repetitionSnapshot = await request(claimWhite, "GET", `/chess/games/${repetitionGameId}`);
+    assert.equal(repetitionSnapshot.json().drawClaimable, true);
+    assert.equal(repetitionSnapshot.json().drawClaimReason, "threefold_repetition");
+    const repetitionClaim = await request(claimWhite, "POST", `/chess/games/${repetitionGameId}/claim-draw`);
+    assert.equal(repetitionClaim.statusCode, 200, repetitionClaim.body);
+    assert.deepEqual(repetitionClaim.json(), {status:"draw",reason:"threefold_repetition"});
 
     const malformedChat = await request(white, "POST", `/chess/games/${gameId}/chat`, { message: { text: "not a string" } });
     assert.equal(malformedChat.statusCode, 400);
