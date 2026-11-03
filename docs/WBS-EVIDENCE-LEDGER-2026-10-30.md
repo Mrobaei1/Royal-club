@@ -179,3 +179,31 @@ The repository search showed active, unmerged work including PRs #86 (isolated c
 - No APK build or preparation is authorized by this audit.
 - No Production deployment, migration, schema mutation, secret change, paid activation, SMS activation, agent activation, grant creation or scheduled agent action was performed or authorized by this documentation update.
 - Live audio/video calling, WebRTC calling and TURN remain out of scope. Recorded voice messages remain future-optional and OFF by default.
+
+
+## Evidence refresh — 2026-11-03
+
+### Current repository state
+
+- Live `main` is `ee61be087ef18c7dacd56d80a0f725f261c6384a` (verified branch ref during this refresh).
+- PR #122 merged the standalone UNO module into `main` at `ee61be0`. This is repository integration only; UNO's own status file records 100/100 for its defined standalone single-instance engineering scope, while two-device/six-player physical acceptance, root-app integration approval, production hosting and multi-instance scale remain outside that score.
+- PR #144 proposes root home-screen integration of UNO. Its exact-head runs on `acf883ce9489b9849c62fbca738d5c8296d43603` passed: UNO Standalone CI (41700757759), Web Preview (41700757202), Backgammon engine audit (41700757729), Royal Club validation (41700757411), and Validate Royal Club (41700757351). It remains open/draft. The separate UNO service URL is a build-time input and is not deployed/configured here.
+- PR #143 proposes a backgammon oversized bear-off correction. All four exact-head workflows passed on `3255d5613f43ea0c6096df949829015fc8c28be1`: Backgammon engine audit (41676339555), Royal Club validation (41676339656), Validate Royal Club (41676339651), and Web Preview (41676339818). It remains open; no merge is performed by this audit.
+- PR #137 (Hokm mobile/service integration) has four successful exact-head workflows on `b2557316f55e6f3ca23081eeeeb24ae5d9a3fc63`: engine audit (41696786943), Royal Club validation (41696786955), Validate Royal Club (41696786940), and Web Preview (41696786908). It remains draft/unmerged and still needs code review plus the production/service integration decision.
+- PR #133 also contains Hokm API/service integration and has four successful workflows on `045d4fe923060bfa33546f5a00fe7724afb457ca`. It overlaps materially with #137; do not integrate both competing implementations. Compare and consolidate one canonical path before any owner-approved merge.
+- PR #86 chess remains isolated from the root app. Root validation, Web Preview, engine audit and Royal Club validation passed on its current head; its dedicated chess-module workflow was still running during this refresh. No chess routes/menu integration or production migration is authorized.
+- PR #110 Manch is still in progress; its Validate Royal Club workflow was running at the time checked. Treat it as isolated future-game work until independently reviewed and accepted.
+- PR #140 targets `research/hokm-standalone`, not `main`; it is not a candidate for direct integration into the production API without a deliberate consolidation/rebase review.
+- The current main commit's combined-status lookup returned no status checks, and the commit-specific workflow lookup surfaced no PR-triggered runs. Therefore this refresh does not claim fresh exact-head main CI success.
+
+### Scoring and WBS treatment
+
+- These PR/CI facts update evidence inventory only. They do not automatically earn project-wide WBS points; each leaf package still requires criterion-level scoring and all required acceptance evidence.
+- The official Royal Club-wide score remains **pending** until all 53 leaf packages are decomposed into measurable sub-criteria/sub-weights and the evidence is scored. Do not use the UNO-only 100/100 score as a project-wide score.
+- Do not award points for open PRs, unmerged code, green CI without required manual acceptance, or production health checks that do not attest the latest source deployment.
+
+### Approval and safety boundaries reconfirmed
+
+- No PR was merged by this refresh.
+- No Production deployment, database migration/schema mutation, secret update, SMS activation, payment activation, agent execution/grant/schedule, or APK build was performed.
+- Live voice/video calls and WebRTC/TURN remain out of scope; future recorded voice messages remain disabled by default.
