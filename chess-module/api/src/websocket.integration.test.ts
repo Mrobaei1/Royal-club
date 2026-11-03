@@ -342,6 +342,21 @@ test("WebSocket presence remains online until the player's last device disconnec
     assert.equal(malformedResult.code, 1008);
     assert.equal(malformedResult.reason, "invalid_json");
 
+    const nullSocket = await connect(wsUrl, white);
+    sockets.push(nullSocket);
+    await waitForMessage(nullSocket, m => m.type === "chess:connected");
+    const nullClose = new Promise<{ code: number; reason: string }>((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error("null WebSocket payload was not rejected")), 4_000);
+      nullSocket.once("close", (code, reason) => {
+        clearTimeout(timer);
+        resolve({ code, reason: reason.toString() });
+      });
+    });
+    nullSocket.send("null");
+    const nullResult = await nullClose;
+    assert.equal(nullResult.code, 1008);
+    assert.equal(nullResult.reason, "invalid_json");
+
     const unsupportedSocket = await connect(wsUrl, white);
     sockets.push(unsupportedSocket);
     await waitForMessage(unsupportedSocket, m => m.type === "chess:connected");
