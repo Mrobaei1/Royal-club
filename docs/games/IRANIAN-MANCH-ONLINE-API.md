@@ -23,6 +23,11 @@ All endpoints require a Bearer access token.
 | POST | `/api/v1/manch/matches/:id/join` | Join the next available seat |
 | GET | `/api/v1/manch/matches/:id` | Read match state and public usernames |
 | POST | `/api/v1/manch/matches/:id/presence` | Refresh authenticated player's 30-second online lease |
+| POST | `/api/v1/manch/matches/:id/invites` | Host invites an accepted friend to a waiting room |
+| GET | `/api/v1/manch/invites` | List the authenticated player's incoming invitations |
+| POST | `/api/v1/manch/invites/:id/accept` | Accept a friend invitation and claim a seat |
+| POST | `/api/v1/manch/invites/:id/decline` | Decline an incoming friend invitation |
+| GET/PATCH | `/api/v1/admin/game-disconnect-policies` | Owner-only audited disconnect/temporary-AI policy
 | POST | `/api/v1/manch/matches/:id/roll` | Server-generated dice roll; requires `expectedStateVersion` |
 | POST | `/api/v1/manch/matches/:id/move` | Apply a token move; requires `tokenIndex` and `expectedStateVersion` |
 | POST | `/api/v1/manch/matches/:id/forfeit` | Two-player participant forfeits an active match; opponent wins |
@@ -45,15 +50,22 @@ All endpoints require a Bearer access token.
 ## Persistence
 `manch_matches` stores the versioned JSON game state, status, current user turn, room code, player count, expiry, state version, winner user and finish reason. `manch_match_players` stores the user-to-seat mapping. The JSON game state schema matches the Flutter `ManchGameState.toJson/fromJson` contract.
 
-## Not implemented yet
-- Friend-specific invitation records and invitation notifications.
-- WebSocket push; the first client uses bounded 2-second state polling.
-- Owner-only audited policy `GET/PATCH /api/v1/admin/game-disconnect-policies` includes Manch. Default: enabled temporary AI after 30 seconds; the grace period is owner-configurable from 5 to 120 seconds. When the active seat's lease expires, the server performs one legal AI action under the match row lock; repeated actions are throttled to one per two seconds. A returning player's heartbeat processes one overdue action before restoring human presence and clearing the AI indicator.
-- The current-match lookup restores the latest waiting/active room after app restart; it does not yet implement disconnect grace timers or temporary AI takeover.
-- Match history, ranked results, rating/progression, spectator access and league integration.
-- Disconnect leases, grace periods, temporary AI takeover and push notifications.
+## Friend invitations and disconnect takeover
+- Only the room host can invite a user who is already an accepted Royal Club friend.
+- Invitation expiry never exceeds the waiting room's own expiry. The inbox is account-scoped; only the invited user can accept or decline.
+- Acceptance rechecks friendship, invitation expiry, room status and seat capacity inside a transaction with row locks.
+- The Manch lobby loads the accepted-friends list for the host's invite picker and displays incoming invitations with accept/decline actions.
+- Each active client sends an authenticated presence heartbeat every 10 seconds. A 30-second lease determines online/offline status.
+- The server performs legal temporary-AI actions only after the owner-configured grace period (default 30 seconds, bounded 5–120). Match-row locking serializes actions and a two-second throttle prevents rapid repeated actions. On return, the player's heartbeat processes any overdue AI action before restoring human control.
+- The owner-only policy is exposed in the admin panel; each policy change is audited.
 
-Do not advertise these deferred capabilities as available until their API, UI and integration tests are complete.
+## Not implemented yet
+- WebSocket/push delivery; the client currently uses bounded 2-second state polling.
+- Ranked records, rating/progression, spectator access and league integration.
+- Production-like multi-client/two-device acceptance and real-network interruption testing.
+- Final owner acceptance of the board visuals and rule profile.
+
+These remaining capabilities are not release-ready until their end-to-end tests and owner acceptance are complete.
 
 
 ## Concurrency contract
