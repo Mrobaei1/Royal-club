@@ -72,14 +72,19 @@ export async function registerChessWebSocket(app: FastifyInstance, options: Opti
       if (!handlers) {
         handlers = new Set();
         subscriptions.set(channel, handlers);
+      }
+      // Register the callback before LISTEN completes so the first notification
+      // after PostgreSQL acknowledges the subscription cannot fall into a gap.
+      handlers.add(handler);
+      if (handlers.size === 1) {
         try {
           await listener.query("LISTEN " + channel);
         } catch (error) {
-          subscriptions.delete(channel);
+          handlers.delete(handler);
+          if (handlers.size === 0) subscriptions.delete(channel);
           throw error;
         }
       }
-      handlers.add(handler);
     });
   const unsubscribe = async (channel: string, handler: (payload: string) => void): Promise<void> =>
     withChannelLock(channel, async () => {
