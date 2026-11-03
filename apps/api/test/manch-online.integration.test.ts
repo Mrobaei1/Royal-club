@@ -513,3 +513,56 @@ test('Manch online rejects forfeit attempts by users outside a two-player match'
   });
   assert.equal(outsiderForfeit.statusCode, 403);
 });
+
+
+test('Manch concurrent joins allocate unique seats and activate a four-player room exactly once', async () => {
+  const host = await register('Manch Concurrent Host');
+  const guests = await Promise.all([
+    register('Manch Concurrent Guest One'),
+    register('Manch Concurrent Guest Two'),
+    register('Manch Concurrent Guest Three'),
+  ]);
+
+  const created = await app.inject({
+    method: 'POST',
+    url: '/api/v1/manch/matches',
+    headers: auth(host.accessToken),
+    payload: { playerCount: 4 },
+  });
+  assert.equal(created.statusCode, 201, created.body);
+  const matchId = created.json().match.id;
+
+  const joins = await Promise.all(guests.map((guest) => app.inject({
+    method: 'POST',
+    url: `/api/v1/manch/matches/${matchId}/join`,
+    headers: auth(guest.accessToken),
+    payload: {},
+  })));
+
+  for (const joined of joins) {
+    assert.equal(joined.statusCode, 200, joined.body);
+  }
+
+  const detail = await app.inject({
+    method: 'GET',
+    url: `/api/v1/manch/matches/${matchId}`,
+    headers: auth(host.accessToken),
+  });
+  assert.equal(detail.statusCode, 200, detail.body);
+  const match = detail.json().match;
+  assert.equal(match.status, 'active');
+  assert.equal(match.players.length, 4);
+  assert.deepEqual(
+    match.players.map((player: { seatIndex: number }) => player.seatIndex),
+    [0, 1, 2, 3],
+  );
+  assert.deepEqual(
+    match.players.map((player: { seatColour: string }) => player.seatColour),
+    ['red', 'green', 'yellow', 'blue'],
+  );
+  assert.equal(
+    new Set(match.players.map((player: { userId: string }) => player.userId)).size,
+    4,
+    'Every concurrent participant must occupy exactly one unique seat.',
+  );
+});
