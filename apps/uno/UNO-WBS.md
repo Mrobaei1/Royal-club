@@ -1,0 +1,39 @@
+# UNO standalone engineering WBS
+
+Baseline: standalone UNO service and Flutter module on `feature/uno-standalone-clean`  
+Scoring model: weighted engineering completion, 100 points total. This is a UNO-only baseline and must not be confused with the Royal Club-wide 53-package / 1,000-point WBS.
+
+## Scope boundary
+
+This baseline covers the currently implemented, deliberately single-instance standalone product: game engine, 2–6 player rooms, match flow, text chat, Flutter client, Royal Club token authentication, PostgreSQL snapshot persistence/recovery, automated quality gates, and operational documentation.
+
+The following are explicit release or future-scale gates, not hidden engineering work in this baseline:
+- Physical acceptance on at least two Android devices, including complete 2-player and 6-player matches.
+- Owner approval to integrate UNO into the root app.
+- Owner approval for production hosting, production secrets, and database migration.
+- Separate explicit owner approval before APK generation.
+- Multi-instance/horizontal scaling. The current advisory lock intentionally enforces a safe single-instance deployment. The separate `DISTRIBUTED-ROOM-ARCHITECTURE.md` is a future design, not a claim that distributed execution is implemented.
+
+## Weighted work packages
+
+| ID | Work package | Weight | Engineering acceptance evidence | Status |
+|---|---|---:|---|---:|
+| UNO-01 | Rules engine, deck, turn flow, penalties, Wild Draw Four challenge, UNO call/catch, scoring | 20 | Engine unit suite and backend build pass | 100% |
+| UNO-02 | Rooms, seats (2–6), readiness, host controls, match targets, reconnect, lifecycle | 18 | Room-manager and six-client Socket.IO integration coverage | 100% |
+| UNO-03 | Authentication, authorization, identity derivation, private hands, token revocation | 12 | PostgreSQL integration checks for invalid signature, spoofing, host authorization, private hands and token version | 100% |
+| UNO-04 | PostgreSQL snapshots, serialized writes, graceful shutdown, restart recovery | 12 | PostgreSQL integration checks for persistence, shutdown and restore | 100% |
+| UNO-05 | Flutter lobby/table, Persian/English UI, action feedback, room-session recovery | 14 | Flutter format, analyze and test CI; stale async restore response guard | 100% |
+| UNO-06 | Authorized, bounded text chat and localized UI | 5 | Backend authorization/rate/length rules and Flutter tests | 100% |
+| UNO-07 | Automated quality gates and regression validation | 12 | UNO backend/build, PostgreSQL integration, Flutter, root validation and backgammon regression CI | 100% |
+| UNO-08 | Standalone packaging, setup instructions, integration checklist and operations boundaries | 7 | README, env example, integration checklist, phase status and distributed architecture decision record | 100% |
+| **Total** |  | **100** |  | **100%** |
+
+## Calculation
+
+Weighted completion = sum(package weight × package completion) / 100.
+
+Current engineering implementation score on this defined baseline: **100/100** after the latest code change is accepted by the required CI. Until that new commit's CI completes successfully, the previous verified head is green but the new head is pending; the score must be treated as **provisional**.
+
+## Release readiness is tracked separately
+
+Engineering WBS completion is not equivalent to release approval. Release remains **not accepted** until the two-device physical test is recorded and the owner separately authorizes any root-app integration, production deployment/migration, and APK build. No such actions are implied by this WBS.
