@@ -49,7 +49,8 @@ export function createRound({ deck = shuffleDeck(createDeck()), hakemSeat = 0 } 
     trickWinners: [],
     scores: [0, 0],
     deckCursor: cursor,
-    seenCards: new Set(hands.flat().map(cardId)),
+    // Arrays survive PostgreSQL JSONB snapshots; Set serializes to an empty object.
+    seenCards: hands.flat().map(cardId),
     // Hidden undealt cards stay server-side; clients never submit the remaining deck.
     undealtDeck: deck.slice(20).map(copyCard)
   };
@@ -63,7 +64,10 @@ export function chooseTrump(state, seat, suit) {
   if (!Array.isArray(remainingDeck) || remainingDeck.length !== 32) {
     throw new Error("Server-side undealt deck is missing or invalid");
   }
-  const seen = new Set(state.seenCards);
+  const persistedSeenCards = Array.isArray(state.seenCards)
+    ? state.seenCards
+    : state.hands.flat().map(cardId);
+  const seen = new Set(persistedSeenCards);
   for (const card of remainingDeck) {
     const id = cardId(card);
     if (seen.has(id)) throw new Error("Remaining deck contains an already dealt card");
@@ -78,7 +82,7 @@ export function chooseTrump(state, seat, suit) {
     completedTricks: (state.completedTricks ?? []).map((trick) => trick.map((play) => ({ seat: play.seat, card: copyCard(play.card) }))),
     trickWinners: [...state.trickWinners],
     scores: [...state.scores],
-    seenCards: seen,
+    seenCards: [...seen],
     undealtDeck: [],
     trumpSuit: suit,
     phase: "playing",
