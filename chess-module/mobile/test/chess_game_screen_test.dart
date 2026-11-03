@@ -146,6 +146,18 @@ void main() {
     expect(tester.widget<ChessBoard>(find.byType(ChessBoard)).interactive, isFalse);
   });
 
+  testWidgets('finished game disables chat composer and rejects submitted text', (tester) async {
+    final sent = <String>[];
+    await tester.pumpWidget(_screen(gameStatus: 'white_win', onSendMessage: sent.add));
+    final field = tester.widget<TextField>(find.byType(TextField));
+    expect(field.enabled, isFalse);
+    expect(field.decoration?.hintText, 'Chat is closed after the game ends');
+    final sendButton = tester.widget<IconButton>(find.byTooltip('Send message'));
+    expect(sendButton.onPressed, isNull);
+    field.onSubmitted?.call('late message');
+    expect(sent, isEmpty);
+  });
+
   testWidgets('chat sends trimmed non-empty text and ignores whitespace', (tester) async {
     final sent = <String>[];
     await tester.pumpWidget(_screen(onSendMessage: sent.add));
