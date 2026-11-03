@@ -168,7 +168,7 @@ test('PostgreSQL-backed UNO service authenticates and restores live rooms', {
         reject(new Error(`Timed out waiting for private hands (host=${hostHand.length}, guest=${guestHand.length})`));
       }, 5000);
       const check = () => {
-        if (hostHand.length === 7 && guestHand.length === 7) {
+        if (hostHand.length >= 7 && guestHand.length >= 7) {
           clearTimeout(timeout);
           host.off('uno:game:hand', check);
           guest.off('uno:game:hand', check);
@@ -179,8 +179,8 @@ test('PostgreSQL-backed UNO service authenticates and restores live rooms', {
       guest.on('uno:game:hand', check);
       check();
     });
-    assert.equal(hostHand.length, 7, 'host receives only the host private hand');
-    assert.equal(guestHand.length, 7, 'guest receives only the guest private hand');
+    assert.ok(hostHand.length >= 7, 'host receives a private hand with the initial seven cards or more if an opening effect applies');
+    assert.ok(guestHand.length >= 7, 'guest receives a private hand with the initial seven cards or more if an opening effect applies');
     const hostCardIds = new Set(hostHand.map(card => (card as { id: string }).id));
     assert.equal(guestHand.some(card => hostCardIds.has((card as { id: string }).id)), false,
       'private hands must not be broadcast to another player');
