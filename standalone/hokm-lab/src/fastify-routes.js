@@ -81,6 +81,9 @@ export async function registerHokmRoutes(fastify, { service, authenticate }) {
   route(fastify, authenticate, "POST", "/hokm/rooms/:roomId/appeals", request =>
     service.submitAppeal(request.auth, request.params.roomId, request.body?.reason, request.body?.expectedVersion));
 
+  route(fastify, authenticate, "GET", "/hokm/rooms/:roomId/manager", request =>
+    service.managerView(request.auth, request.params.roomId));
+
   route(fastify, authenticate, "POST", "/hokm/rooms/:roomId/manager/reports/:reportId/review", request =>
     service.reviewCheating(request.auth, request.params.roomId, request.params.reportId,
       request.body?.notes ?? "", request.body?.expectedVersion));
