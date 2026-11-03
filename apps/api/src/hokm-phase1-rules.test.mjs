@@ -10,7 +10,7 @@ import { xpRequiredForNextLevel, totalXpForLevel, levelForXp, applyXpChange, awa
 import { InMemoryRoomRepository, HokmRoomService } from './hokm/service.js';
 import { HokmDeadlineScheduler } from './hokm/deadline-scheduler.js';
 import {
-  createRoom, joinRoom, setPlayerReady, startRoom, voteToCancelMatch,
+  createRoom, joinRoom, setPlayerReady, startRoom, voteToCancelMatch, cancelForUnrecoverableTechnicalFailure,
   processAllDisconnectedTimeout, processTurnTimeout, disconnectPlayer, reconnectPlayer, handleDisconnectTimeout, roomViewForUser, startNextRound, TURN_DEADLINE_MS,
   END_OF_HAND_REVEAL_MS, ALL_PLAYERS_DISCONNECTED_MS
 } from './hokm/room.js';
@@ -382,4 +382,29 @@ test('all-four-disconnected lease also applies while the completed-hand reveal i
   });
   assert.equal(cancelled.status, 'cancelled');
   assert.equal(cancelled.cancelReason, 'all_players_disconnected');
+});
+
+
+test('terminal cancelled and completed views hide round and remaining-card reveal state', () => {
+  const players = fourPlayers();
+  let room = createRoom({ roomId: 'terminal-view', hostUserId: players[0], now: 1000 });
+  for (const id of players.slice(1)) room = joinRoom(room, id, 1001);
+  for (const id of players) room = setPlayerReady(room, id, true);
+  room = startRoom(room, players[0], { now: 1002, rng: () => 0 });
+  room = {
+    ...room,
+    handRevealUntil: 9000,
+    revealedHands: [0, 1, 2, 3].map(() => [{ suit: 'hearts', rank: 'A' }])
+  };
+  const cancelled = cancelForUnrecoverableTechnicalFailure(room);
+  const cancelledView = roomViewForUser(cancelled, players[0], { now: 3000 });
+  assert.equal(cancelledView.game, null);
+  assert.equal(cancelledView.revealedHands, null);
+  assert.equal(cancelledView.handRevealUntil, null);
+
+  const completed = { ...room, status: 'completed' };
+  const completedView = roomViewForUser(completed, players[0], { now: 3000 });
+  assert.equal(completedView.game, null);
+  assert.equal(completedView.revealedHands, null);
+  assert.equal(completedView.handRevealUntil, null);
 });
