@@ -153,6 +153,8 @@ class _ChessGameSessionViewState extends State<ChessGameSessionView> {
                     onSendMessage: (message) => unawaited(_guard(session.sendChat(message), messenger)),
                     onOfferDraw: () => unawaited(_guard(session.offerDraw(), messenger)),
                     onResign: () => unawaited(_guard(session.resign(), messenger)),
+                    drawClaimable: session.drawClaimable,
+                    onClaimDraw: () => unawaited(_guard(session.claimDraw(), messenger)),
                     pendingDrawOfferId: session.pendingDrawOfferId,
                     drawOfferedByOpponent: session.drawOfferedByOpponent,
                     onRespondToDraw: (accept) => unawaited(_guard(session.respondToDraw(accept), messenger)),
