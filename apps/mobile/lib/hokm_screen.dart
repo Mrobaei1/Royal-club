@@ -87,7 +87,7 @@ class _HokmScreenState extends State<HokmScreen> with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     _pollTimer?.cancel();
     _roomCode.dispose();
-    if (_roomId.isNotEmpty && _status == 'playing' && !_background) {
+    if (_roomId.isNotEmpty && ['playing', 'round_completed'].contains(_status) && !_background) {
       unawaited(_api.disconnect(_roomId, _version).catchError((_) => <String, dynamic>{}));
     }
     super.dispose();
@@ -95,7 +95,7 @@ class _HokmScreenState extends State<HokmScreen> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (_roomId.isEmpty || _status != 'playing') return;
+    if (_roomId.isEmpty || !['playing', 'round_completed'].contains(_status)) return;
     if (state == AppLifecycleState.inactive || state == AppLifecycleState.paused) {
       _background = true;
       unawaited(_disconnectInBackground());
@@ -192,7 +192,7 @@ class _HokmScreenState extends State<HokmScreen> with WidgetsBindingObserver {
     if (_roomId.isEmpty) return;
     if (_status == 'waiting') {
       await _run(() => _api.leaveRoom(_roomId, _version));
-    } else if (_status == 'playing') {
+    } else if (['playing', 'round_completed'].contains(_status)) {
       try { _accept(await _api.disconnect(_roomId, _version)); } catch (_) {}
     }
     if (!mounted) return;
