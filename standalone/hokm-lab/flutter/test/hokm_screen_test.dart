@@ -131,6 +131,10 @@ class FakeHokmApi implements HokmApi {
   @override
   Future<Map<String, dynamic>> submitAppeal(String roomId, String reason, int expectedVersion) async =>
       Map<String, dynamic>.from(room);
+
+  @override
+  Future<Map<String, dynamic>> sendChatMessage(String roomId, String recipientUserId, String text, String messageId, int expectedVersion) async =>
+      Map<String, dynamic>.from(room);
 }
 
 void main() {
