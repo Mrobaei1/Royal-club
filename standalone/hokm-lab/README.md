@@ -51,7 +51,9 @@ The full owner decision and acceptance specification is maintained in [OWNER-DEC
 - [x] Authenticated Fastify routes for room leave, unanimous cancellation votes, participant cheating reports, appeals, and manager review. Report/appeal player responses and management review projections omit private hands and raw round state.
 - [x] Live ephemeral PostgreSQL migration/application and two-instance CAS/restart recovery acceptance in CI.
 - [ ] Production Royal Club database migration/deployment, production auth middleware/session binding, event transport and multi-instance soak testing.
-- [ ] Opponent-team private text chat integration and Flutter game/manager UI, localization, and four-device end-to-end acceptance.
+- [x] Server-side private one-to-one text chat for opposing-team participants: authenticated sender identity, opponent-only recipient validation, 1,000-character bound, message idempotency key, participant-scoped delivery and final-result privacy.
+- [x] Standalone Flutter UI package with four-seat lobby/game screen, Persian/English text helper, injected authentication/API contract, bearer-token HTTP adapter, private opponent-chat panel, manager report/appeal review screen, and widget/API adapter tests. Standalone Flutter CI passed (analyze + 9 widget/API tests); four-device and live network acceptance remain open.
+- [ ] Image attachments, full emoji picker, manager Flutter review UI, live event transport and four-device end-to-end acceptance.
 
 ## Communication policy (owner-confirmed, 2026-11-03)
 
