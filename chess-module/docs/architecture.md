@@ -3,6 +3,9 @@
 ## Authority boundaries
 The API is authoritative for move legality, side-to-move, clocks, game termination, rating/progression, room admission and manager settings. The mobile client renders state and sends intents; it never declares a result or submits XP deltas.
 
+## Draw adjudication
+The engine distinguishes claimable draws from automatic termination. Threefold repetition and the 50-move rule can be claimed by the side to move; fivefold repetition and the 75-move rule end the game automatically. Checkmate takes precedence over move-count draw thresholds. The authenticated `POST /chess/games/:gameId/claim-draw` endpoint supports a claim in the current position or a claim based on a supplied legal intended move. It locks the game row, verifies participant identity, side to move and clock state, persists the draw and progression exactly once, cancels pending draw offers and broadcasts the terminal state. The mobile UI exposes current-position claims when the server marks them claimable.
+
 ## Clock model
 The selected time-control row is copied into a game snapshot at game creation. The game stores both remaining clocks, active side, server timestamp and increment. Only the active side loses time. A reconnect obtains the same server snapshot. Admin edits apply to future games only. Client countdowns are display interpolation, not authority.
 
