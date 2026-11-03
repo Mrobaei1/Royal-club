@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -14,11 +15,17 @@ class ChessApiClient {
   ChessApiClient({
     required this.baseUri,
     required this.accessToken,
+    this.requestTimeout = const Duration(seconds: 15),
     HttpClient? httpClient,
-  }) : _http = httpClient ?? HttpClient();
+  }) : _http = httpClient ?? HttpClient() {
+    if (requestTimeout <= Duration.zero) {
+      throw ArgumentError.value(requestTimeout, 'requestTimeout', 'must be positive');
+    }
+  }
 
   final Uri baseUri;
   final String accessToken;
+  final Duration requestTimeout;
   final HttpClient _http;
   bool _disposed = false;
 
@@ -41,8 +48,20 @@ class ChessApiClient {
       request.headers.contentType = ContentType.json;
       request.write(jsonEncode(body));
     }
-    final response = await request.close();
-    final text = await response.transform(utf8.decoder).join();
+    final response = await request.close().timeout(
+      requestTimeout,
+      onTimeout: () {
+        request.abort(TimeoutException('chess_api_request_timeout', requestTimeout));
+        throw TimeoutException('chess_api_request_timeout', requestTimeout);
+      },
+    );
+    final text = await response.transform(utf8.decoder).join().timeout(
+      requestTimeout,
+      onTimeout: () {
+        request.abort(TimeoutException('chess_api_response_timeout', requestTimeout));
+        throw TimeoutException('chess_api_response_timeout', requestTimeout);
+      },
+    );
     final decoded = text.isEmpty ? <String, dynamic>{} : jsonDecode(text);
     if (response.statusCode < 200 || response.statusCode >= 300) {
       final error = decoded is Map ? (decoded['error'] ?? 'request_failed') : 'request_failed';
