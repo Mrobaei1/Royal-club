@@ -3,6 +3,10 @@
 ## Authority boundaries
 The API is authoritative for move legality, side-to-move, clocks, game termination, rating/progression, room admission and manager settings. The mobile client renders state and sends intents; it never declares a result or submits XP deltas.
 
+## WebSocket connection scaling
+
+Each API instance owns one dedicated PostgreSQL notification listener connection. It multiplexes the per-game notification channels to all authenticated WebSocket sessions in that process; a socket does not hold its own PostgreSQL listener connection. Channel subscriptions are reference-counted and removed when the last local subscriber disconnects. Presence writes use short-lived pooled transactions. This keeps the persistent database-connection cost approximately constant per API instance rather than growing one-for-one with connected clients. The integration test constrains the pool to four connections while several sockets remain open.
+
 ## Draw adjudication
 The engine distinguishes claimable draws from automatic termination. Threefold repetition and the 50-move rule can be claimed by the side to move; fivefold repetition and the 75-move rule end the game automatically. Checkmate takes precedence over move-count draw thresholds. The authenticated `POST /chess/games/:gameId/claim-draw` endpoint supports a claim in the current position or a claim based on a supplied legal intended move. It locks the game row, verifies participant identity, side to move and clock state, persists the draw and progression exactly once, cancels pending draw offers and broadcasts the terminal state. The mobile UI exposes current-position claims when the server marks them claimable.
 
