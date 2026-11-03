@@ -561,6 +561,19 @@ test('Manch room invitations are limited to accepted friends and expire safely',
   });
   assert.equal(listedA.statusCode, 200, listedA.body);
   assert.ok(listedA.json().invites.some((invite: any) => String(invite.id) === String(inviteA.json().invite.id)));
+  const inviteNotification = await testPool.query(
+    `SELECT id FROM notifications
+      WHERE user_id = $1 AND type = 'system'
+        AND data->>'kind' = 'manch_invite'
+        AND data->>'inviteId' = $2`,
+    [friendA.user.id, String(inviteA.json().invite.id)],
+  );
+  assert.equal(inviteNotification.rowCount, 1, 'The invited friend receives a linked notification.');
+  const crossAccountAccept = await app.inject({
+    method: 'POST', url: `/api/v1/manch/invites/${inviteA.json().invite.id}/accept`,
+    headers: auth(outsider.accessToken), payload: {},
+  });
+  assert.equal(crossAccountAccept.statusCode, 404, 'Only the addressed friend may accept an invitation.');
   const outsiderList = await app.inject({
     method: 'GET', url: '/api/v1/manch/invites',
     headers: auth(outsider.accessToken),
