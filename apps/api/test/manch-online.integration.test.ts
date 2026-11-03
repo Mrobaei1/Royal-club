@@ -283,6 +283,8 @@ test('Manch online rooms join, roll and persist server-authoritative moves', asy
   assert.equal(forfeited.json().status, 'finished');
   assert.equal(forfeited.json().finishReason, 'forfeit');
   assert.equal(forfeited.json().winnerUserId, host.user.id);
+  assert.equal(forfeited.json().stateVersion, expectedRaceVersion + 2,
+    'Forfeit must return the next monotonic state version after the successful concurrent roll.');
 
   const afterForfeit = await app.inject({
     method: 'GET',
@@ -292,6 +294,8 @@ test('Manch online rooms join, roll and persist server-authoritative moves', asy
   assert.equal(afterForfeit.statusCode, 200);
   assert.equal(afterForfeit.json().match.winnerUserId, host.user.id);
   assert.equal(afterForfeit.json().match.finishReason, 'forfeit');
+  assert.equal(afterForfeit.json().match.stateVersion, forfeited.json().stateVersion,
+    'The persisted match snapshot must expose the same version returned by forfeit.');
 
   const rematch = await app.inject({
     method: 'POST',
