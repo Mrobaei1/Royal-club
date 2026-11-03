@@ -54,8 +54,12 @@ class _UnoOnlineScreenState extends State<UnoOnlineScreen> {
       'WILD4_RESPONSE_REQUIRED' => 'ابتدا باید +۴ را قبول یا به آن اعتراض کنید.',
       'CHALLENGE_NOT_AVAILABLE' => 'در حال حاضر امکان اعتراض وجود ندارد.',
       'CHAT_DISABLED' => 'چت میز توسط میزبان غیرفعال شده است.',
-      'RATE_LIMITED' => 'برای ارسال پیام کمی صبر کنید.',
-      'TEXT_TOO_LONG' => 'پیام بیش از حد طولانی است.',
+      'CHAT_RATE_LIMIT' || 'RATE_LIMITED' => 'برای ارسال پیام کمی صبر کنید.',
+      'INVALID_MESSAGE' || 'TEXT_TOO_LONG' => 'پیام باید بین ۱ تا ۵۰۰ نویسه باشد.',
+      'INVALID_CODE' => 'کد میز را به‌درستی وارد کنید.',
+      'PLAYER_DISCONNECTED' => 'ابتدا اتصال خود را دوباره برقرار کنید.',
+      'DRAW_PILE_EMPTY' => 'کارت قابل برداشتن در دسته وجود ندارد.',
+      'ALREADY_DREW' => 'در این نوبت قبلاً کارت برداشته‌اید.',
       _ => message ?? 'عملیات انجام نشد.',
     };
   }
