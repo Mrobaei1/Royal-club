@@ -143,14 +143,23 @@ async function processTemporaryManchAiTurn(pool: Pool, matchId: string): Promise
       await client.query('ROLLBACK');
       return false;
     }
+    const policyResult = await client.query(
+      `SELECT enabled, grace_seconds, takeover_mode
+         FROM game_disconnect_policies WHERE game_type = 'manch' FOR SHARE`,
+    );
+    const policy = policyResult.rows[0];
+    if (!policy?.enabled || policy.takeover_mode !== 'temporary_ai') {
+      await client.query('ROLLBACK');
+      return false;
+    }
     const presenceResult = await client.query(
       `SELECT last_seen_at, last_ai_action_at,
-              last_seen_at <= NOW() - INTERVAL '30 seconds' AS overdue,
+              last_seen_at <= NOW() - make_interval(secs => $3::int) AS overdue,
               last_ai_action_at > NOW() - INTERVAL '2 seconds' AS recently_acted
          FROM manch_match_presence
         WHERE match_id = $1 AND user_id = $2
         FOR UPDATE`,
-      [matchId, match.current_turn_user_id],
+      [matchId, match.current_turn_user_id, policy.grace_seconds],
     );
     const presence = presenceResult.rows[0];
     if (!presence || !presence.overdue || presence.recently_acted) {

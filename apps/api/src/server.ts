@@ -597,17 +597,23 @@ await pool.query(`
   CREATE INDEX IF NOT EXISTS backgammon_match_presence_heartbeat_idx
     ON backgammon_match_presence (last_heartbeat_at, match_id);
   CREATE TABLE IF NOT EXISTS game_disconnect_policies (
-    game_type TEXT PRIMARY KEY CHECK (game_type IN ('backgammon', 'cards', 'chess')),
+    game_type TEXT PRIMARY KEY CHECK (game_type IN ('backgammon', 'cards', 'chess', 'manch')),
     enabled BOOLEAN NOT NULL DEFAULT TRUE,
     grace_seconds INTEGER NOT NULL DEFAULT 18 CHECK (grace_seconds BETWEEN 5 AND 120),
     takeover_mode TEXT NOT NULL DEFAULT 'temporary_ai'
       CHECK (takeover_mode IN ('temporary_ai', 'wait_until_game_end', 'disabled')),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   );
+  ALTER TABLE game_disconnect_policies
+    DROP CONSTRAINT IF EXISTS game_disconnect_policies_game_type_check;
+  ALTER TABLE game_disconnect_policies
+    ADD CONSTRAINT game_disconnect_policies_game_type_check
+    CHECK (game_type IN ('backgammon', 'cards', 'chess', 'manch'));
   INSERT INTO game_disconnect_policies (game_type, enabled, grace_seconds, takeover_mode)
   VALUES ('backgammon', TRUE, 18, 'temporary_ai'),
          ('cards', TRUE, 18, 'temporary_ai'),
-         ('chess', TRUE, 18, 'wait_until_game_end')
+         ('chess', TRUE, 18, 'wait_until_game_end'),
+         ('manch', TRUE, 30, 'temporary_ai')
   ON CONFLICT (game_type) DO NOTHING;
   CREATE TABLE IF NOT EXISTS game_disconnect_policy_audit (
     id BIGSERIAL PRIMARY KEY,
@@ -1512,7 +1518,7 @@ app.get('/api/v1/admin/game-disconnect-policies', { onRequest: [requireOwnerAuth
 app.patch<{ Params: { gameType: string }; Body: { enabled?: boolean; graceSeconds?: number; takeoverMode?: string } }>('/api/v1/admin/game-disconnect-policies/:gameType', { onRequest: [requireOwnerAuth] }, async (request, reply) => {
   const { gameType } = request.params;
   const { enabled, graceSeconds, takeoverMode } = request.body ?? {};
-  if (!['backgammon', 'cards', 'chess'].includes(gameType) ||
+  if (!['backgammon', 'cards', 'chess', 'manch'].includes(gameType) ||
       (enabled !== undefined && typeof enabled !== 'boolean') ||
       (graceSeconds !== undefined && (!Number.isInteger(graceSeconds) || graceSeconds < 5 || graceSeconds > 120)) ||
       (takeoverMode !== undefined && !['temporary_ai', 'wait_until_game_end', 'disabled'].includes(takeoverMode))) {

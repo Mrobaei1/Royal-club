@@ -263,6 +263,32 @@ test('disconnect policies are owner-only, bounded and audited', async () => {
     .find(policy => policy.gameType === 'backgammon');
   assert.equal(backgammon?.graceSeconds, 18);
   assert.equal(backgammon?.takeoverMode, 'temporary_ai');
+  const manch = (listed.json().policies as Array<Record<string, unknown>>)
+    .find(policy => policy.gameType === 'manch');
+  assert.equal(manch?.graceSeconds, 30);
+  assert.equal(manch?.takeoverMode, 'temporary_ai');
+
+  const invalidManch = await app.inject({
+    method: 'PATCH', url: '/api/v1/admin/game-disconnect-policies/manch',
+    headers: auth(owner.accessToken), payload: { graceSeconds: 121 },
+  });
+  assert.equal(invalidManch.statusCode, 400);
+  const updatedManch = await app.inject({
+    method: 'PATCH', url: '/api/v1/admin/game-disconnect-policies/manch',
+    headers: auth(owner.accessToken), payload: { graceSeconds: 24 },
+  });
+  assert.equal(updatedManch.statusCode, 200, updatedManch.body);
+  assert.equal(updatedManch.json().policy.graceSeconds, 24);
+  const manchAudit = await testPool.query(
+    'SELECT COUNT(*)::int AS count FROM game_disconnect_policy_audit WHERE actor_user_id = $1 AND game_type = $2',
+    [owner.user.id, 'manch'],
+  );
+  assert.equal(manchAudit.rows[0].count, 1);
+  const restoreManch = await app.inject({
+    method: 'PATCH', url: '/api/v1/admin/game-disconnect-policies/manch',
+    headers: auth(owner.accessToken), payload: { graceSeconds: 30 },
+  });
+  assert.equal(restoreManch.statusCode, 200, restoreManch.body);
 
   const invalid = await app.inject({
     method: 'PATCH', url: '/api/v1/admin/game-disconnect-policies/backgammon',
