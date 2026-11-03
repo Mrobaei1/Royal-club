@@ -1,6 +1,6 @@
 import websocket from "@fastify/websocket";
 import type { FastifyInstance, FastifyRequest, preHandlerHookHandler } from "fastify";
-import type { Pool, PoolClient } from "pg";
+import type { Pool } from "pg";
 import type { WebSocket } from "ws";
 import { randomUUID } from "node:crypto";
 import { isPositivePostgresBigintId } from "./identifiers.js";
@@ -32,6 +32,66 @@ export function createPingRateLimiter(limit = 30, windowMs = 10_000, now: () => 
 
 export async function registerChessWebSocket(app: FastifyInstance, options: Options): Promise<void> {
   await app.register(websocket, { options: { maxPayload: 16 * 1024 } });
+
+  // One dedicated PostgreSQL LISTEN connection is shared by every chess socket
+  // on this API instance. Per-socket LISTEN clients would exhaust a small pool
+  // long before the intended concurrent-player capacity.
+  const listener = await options.pool.connect();
+  const subscriptions = new Map<string, Set<(payload: string) => void>>();
+  const channelLocks = new Map<string, Promise<void>>();
+  listener.on("notification", (notification) => {
+    if (!notification.payload || !notification.channel) return;
+    for (const handler of subscriptions.get(notification.channel) ?? []) {
+      handler(notification.payload);
+    }
+  });
+  listener.on("error", (error) => {
+    app.log.error({ err: error }, "chess shared notification listener failed");
+  });
+  app.addHook("onClose", async () => {
+    subscriptions.clear();
+    listener.release();
+  });
+
+  const withChannelLock = async <T>(channel: string, action: () => Promise<T>): Promise<T> => {
+    const previous = channelLocks.get(channel) ?? Promise.resolve();
+    let release!: () => void;
+    const current = new Promise<void>((resolve) => { release = resolve; });
+    channelLocks.set(channel, current);
+    await previous;
+    try {
+      return await action();
+    } finally {
+      release();
+      if (channelLocks.get(channel) === current) channelLocks.delete(channel);
+    }
+  };
+  const subscribe = async (channel: string, handler: (payload: string) => void): Promise<void> =>
+    withChannelLock(channel, async () => {
+      let handlers = subscriptions.get(channel);
+      if (!handlers) {
+        handlers = new Set();
+        subscriptions.set(channel, handlers);
+        try {
+          await listener.query("LISTEN " + channel);
+        } catch (error) {
+          subscriptions.delete(channel);
+          throw error;
+        }
+      }
+      handlers.add(handler);
+    });
+  const unsubscribe = async (channel: string, handler: (payload: string) => void): Promise<void> =>
+    withChannelLock(channel, async () => {
+      const handlers = subscriptions.get(channel);
+      if (!handlers) return;
+      handlers.delete(handler);
+      if (handlers.size === 0) {
+        subscriptions.delete(channel);
+        await listener.query("UNLISTEN " + channel);
+      }
+    });
+
   app.get<{ Querystring: { gameId: string } }>("/chess/ws", {
     websocket: true,
     preHandler: options.authenticate
@@ -47,7 +107,6 @@ export async function registerChessWebSocket(app: FastifyInstance, options: Opti
     let connectionClosed = false;
     let presenceRegistered = false;
     let sessionId: string | undefined;
-    let listenerToRelease: PoolClient | undefined;
     let cleanupConnection: (() => Promise<void>) | undefined;
     socket.on("close", () => {
       connectionClosed = true;
@@ -73,13 +132,6 @@ export async function registerChessWebSocket(app: FastifyInstance, options: Opti
       if (connectionClosed) return;
       sessionId = randomUUID();
       const channel = "chess_game_" + gameId;
-      const listener = await options.pool.connect();
-      listenerToRelease = listener;
-      if (connectionClosed) {
-        listener.release();
-        listenerToRelease = undefined;
-        return;
-      }
       let closed = false;
       let cleaned = false;
       const send = (value: unknown) => {
@@ -113,12 +165,11 @@ export async function registerChessWebSocket(app: FastifyInstance, options: Opti
         socket.close(1008, "unsupported_command");
       });
       const publish = async (event: object) => {
-        await listener.query("SELECT pg_notify($1,$2)", [channel, JSON.stringify(event)]);
+        await options.pool.query("SELECT pg_notify($1,$2)", [channel, JSON.stringify(event)]);
       };
-      listener.on("notification", (notification) => {
-        if (!notification.payload) return;
+      const onNotification = (payload: string) => {
         let event: {type?:string; id?:string; connected?:boolean; fromUserId?:string; signalType?:string; payload?:unknown; offerId?:string; offeredBy?:string; status?:string};
-        try { event = JSON.parse(notification.payload) as {type?:string;id?:string;connected?:boolean;offerId?:string;offeredBy?:string;status?:string}; }
+        try { event = JSON.parse(payload) as {type?:string;id?:string;connected?:boolean;offerId?:string;offeredBy?:string;status?:string}; }
         catch { return; }
         void (async () => {
           if (event.type === "state") {
@@ -149,8 +200,8 @@ export async function registerChessWebSocket(app: FastifyInstance, options: Opti
             send({type:"chess:opponent:presence",username:user.rows[0]?.username??"",connected:event.connected});
           }
         })().catch(() => send({type:"chess:error",code:"event_delivery_failed"}));
-      });
-      await listener.query("LISTEN " + channel);
+      };
+      await subscribe(channel, onNotification);
       // Serialize presence transitions per game/player across devices and API instances.
       const presenceClient = await options.pool.connect();
       let wasOffline = false;
@@ -217,9 +268,8 @@ export async function registerChessWebSocket(app: FastifyInstance, options: Opti
         if (lastConnection) {
           try { await publish({type:"presence",id:userId,connected:false}); } catch {}
         }
-        try { await listener.query("UNLISTEN " + channel); } catch {}
-        listener.release();
-        listenerToRelease = undefined;
+        try { await unsubscribe(channel, onNotification); }
+        catch (error) { app.log.warn({ err: error, channel }, "chess notification subscription cleanup failed"); }
       };
       cleanupConnection = cleanup;
       if (connectionClosed) {
@@ -257,16 +307,14 @@ export async function registerChessWebSocket(app: FastifyInstance, options: Opti
           } finally {
             cleanupClient.release();
           }
-          if (presenceRegistered && shouldPublishOffline && listenerToRelease) {
+          if (presenceRegistered && shouldPublishOffline) {
             try {
-              await listenerToRelease.query("SELECT pg_notify($1,$2)",[
+              await options.pool.query("SELECT pg_notify($1,$2)",[
                 "chess_game_" + gameId,
                 JSON.stringify({type:"presence",id:userId,connected:false})
               ]);
             } catch {}
           }
-          listenerToRelease?.release();
-          listenerToRelease = undefined;
         }
       } catch { /* cleanup must not mask subscription failure */ }
       socket.close(1011, "subscription_failed");
