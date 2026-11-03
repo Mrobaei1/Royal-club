@@ -50,6 +50,18 @@ class _ChessBoardState extends State<ChessBoard> {
 
   String _square(int row, int col) => '${'abcdefgh'[col]}${8 - row}';
 
+  String _pieceLabel(String piece, bool fa) {
+    if (piece.isEmpty) return fa ? 'خانه خالی' : 'empty square';
+    final white = piece == piece.toUpperCase();
+    final type = piece.toLowerCase();
+    if (fa) {
+      const names = {'k':'شاه','q':'وزیر','r':'رخ','b':'فیل','n':'اسب','p':'پیاده'};
+      return '${names[type]} ${white ? 'سفید' : 'سیاه'}';
+    }
+    const names = {'k':'king','q':'queen','r':'rook','b':'bishop','n':'knight','p':'pawn'};
+    return '${white ? 'White' : 'Black'} ${names[type]}';
+  }
+
   @override
   void didUpdateWidget(covariant ChessBoard oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -137,9 +149,23 @@ class _ChessBoardState extends State<ChessBoard> {
           final dark = (row + col).isOdd;
           final selected = square == _selected;
           final target = targets.contains(square);
+          final canSelect = widget.legalMoves.any((move) => move.startsWith(square));
+          final fa = Localizations.localeOf(context).languageCode == 'fa';
+          final hint = !widget.interactive
+              ? null
+              : selected
+                  ? (fa ? 'مهره انتخاب شده؛ مقصد مجاز را انتخاب کنید' : 'Selected piece; choose a legal destination')
+                  : target
+                      ? (fa ? 'مقصد حرکت مجاز' : 'Legal move destination')
+                      : canSelect
+                          ? (fa ? 'برای انتخاب مهره لمس کنید' : 'Tap to select this piece')
+                          : null;
           return Semantics(
-            label: '$square ${piece.isEmpty ? 'empty' : _pieces[piece]}',
+            label: '$square ${_pieceLabel(piece, fa)}',
             button: widget.interactive,
+            enabled: widget.interactive,
+            selected: selected,
+            hint: hint,
             child: GestureDetector(
               onTap: () => _tap(row, col),
               child: DecoratedBox(
