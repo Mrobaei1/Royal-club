@@ -271,7 +271,7 @@ test("service lets a connected participant start the next hand after host discon
     version: persisted.version + 1,
   };
   assert.equal(await repository.compareAndSwap(room.roomId, persisted.version, disconnectedHost), true);
-  const next = await service.startNextRound(user("u1"), room.roomId, disconnectedHost.version);
+  const next = await service.nextRound(user("u1"), room.roomId, disconnectedHost.version);
   assert.equal(next.status, "playing");
   assert.equal(next.hostUserId, "u1");
 });
