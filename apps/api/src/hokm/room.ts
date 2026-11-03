@@ -165,11 +165,8 @@ export function startRoom(room, requesterUserId, { now, rng = Math.random } = {}
   if (room.status !== "waiting") throw new Error("Room has already started or closed");
   if (room.players.length !== MAX_PLAYERS) throw new Error("Exactly four players are required");
   if (!room.players.every(player => player.ready)) throw new Error("All players must be ready");
-  const sample = rng();
-  if (!(sample >= 0 && sample < 1)) throw new RangeError("RNG must return a number in [0, 1)");
-  const hakemSeat = Math.floor(sample * MAX_PLAYERS);
   const deck = shuffleDeck(createDeck(), rng);
-  const round = createRound({ deck, hakemSeat });
+  const round = createRound({ deck, hakemSeat: 0 });
   return { ...room, status: "playing", round, turnStartedAt: now,
     turnDeadlineAt: now + TURN_DEADLINE_MS, version: room.version + 1 };
 }
@@ -179,12 +176,7 @@ export function startNextRound(room, requesterUserId, { rng = Math.random, now =
   if (requesterUserId !== room.hostUserId) throw new Error("Only the host may start the next round");
   if (room.status !== "round_completed") throw new Error("The previous round is not completed");
   if (Number.isFinite(room.handRevealUntil) && now < room.handRevealUntil) throw new Error("The 3-second end-of-hand reveal is still active");
-  const previousHakem = room.round.hakemSeat;
-  const winningTeam = room.round.scores[0] > room.round.scores[1] ? 0 : 1;
-  const previousHakemTeam = previousHakem % 2;
-  const nextHakem = winningTeam === previousHakemTeam
-    ? previousHakem
-    : (previousHakem + 2) % MAX_PLAYERS;
+  const nextHakem = (room.round.hakemSeat + 1) % 4;
   const round = createRound({ deck: shuffleDeck(createDeck(), rng), hakemSeat: nextHakem });
   return { ...room, status: "playing", round, turnStartedAt: now,
     turnDeadlineAt: now + TURN_DEADLINE_MS, handRevealUntil: null, revealedHands: null,
