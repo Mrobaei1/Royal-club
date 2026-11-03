@@ -188,7 +188,6 @@ void main() {
     await tester.pump(const Duration(milliseconds: 20));
     expect(api.commandCalls, 1);
   });
-}
 
   testWidgets('temporary exit disconnects exactly once', (tester) async {
     final api = FakeHokmApi();
@@ -215,3 +214,4 @@ void main() {
     await tester.pump();
     expect(api.disconnectCalls, 1);
   });
+}
