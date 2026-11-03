@@ -189,6 +189,39 @@ test("authenticated chess routes support private game, draw, chat, profiles and 
     assert.equal(declined.statusCode, 200, declined.body);
     assert.equal(declined.json().status, "declined");
 
+    const claimRoom = await request(white, "POST", "/chess/rooms", {
+      timeControlId: "rapid", minOpponentLevel: 1, chatEnabled: true,
+    });
+    assert.equal(claimRoom.statusCode, 201, claimRoom.body);
+    const claimJoin = await request(black, "POST", `/chess/rooms/${claimRoom.json().roomCode}/join`);
+    assert.equal(claimJoin.statusCode, 201, claimJoin.body);
+    const claimGameId = claimJoin.json().gameId as string;
+    const claimableFen = "4k3/8/8/8/8/8/8/R3K3 w - - 100 1";
+    await pool.query(
+      "UPDATE chess_games SET initial_fen=$2,current_fen=$2,pgn='' WHERE id=$1",
+      [claimGameId, claimableFen],
+    );
+    const claimSnapshot = await request(white, "GET", `/chess/games/${claimGameId}`);
+    assert.equal(claimSnapshot.json().drawClaimable, true);
+    assert.equal(claimSnapshot.json().drawClaimReason, "fifty_move_rule");
+    const wrongTurnClaim = await request(black, "POST", `/chess/games/${claimGameId}/claim-draw`);
+    assert.equal(wrongTurnClaim.statusCode, 403);
+    assert.equal(wrongTurnClaim.json().error, "not_your_turn");
+    const nonPlayerClaim = await request(queueOne, "POST", `/chess/games/${claimGameId}/claim-draw`);
+    assert.equal(nonPlayerClaim.statusCode, 403);
+    assert.equal(nonPlayerClaim.json().error, "not_a_player");
+    const claimedDraw = await request(white, "POST", `/chess/games/${claimGameId}/claim-draw`);
+    assert.equal(claimedDraw.statusCode, 200, claimedDraw.body);
+    assert.deepEqual(claimedDraw.json(), {status:"draw",reason:"fifty_move_rule"});
+    const claimedGame = await pool.query(
+      "SELECT status,clock_snapshot->>'finished' AS finished FROM chess_games WHERE id=$1",
+      [claimGameId],
+    );
+    assert.equal(claimedGame.rows[0].status, "draw");
+    assert.equal(claimedGame.rows[0].finished, "true");
+    const repeatedClaim = await request(white, "POST", `/chess/games/${claimGameId}/claim-draw`);
+    assert.equal(repeatedClaim.statusCode, 404);
+
     const malformedChat = await request(white, "POST", `/chess/games/${gameId}/chat`, { message: { text: "not a string" } });
     assert.equal(malformedChat.statusCode, 400);
     assert.equal(malformedChat.json().error, "invalid_message");
