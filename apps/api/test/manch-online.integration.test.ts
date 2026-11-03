@@ -328,6 +328,14 @@ test('Manch online rooms join, roll and persist server-authoritative moves', asy
   assert.equal(historyItem.winnerUserId, host.user.id);
   assert.equal(historyItem.finishReason, 'forfeit');
   assert.equal(historyItem.players.length, 2);
+  const outsiderHistory = await app.inject({
+    method: 'GET',
+    url: '/api/v1/manch/matches/history',
+    headers: auth(third.accessToken),
+  });
+  assert.equal(outsiderHistory.statusCode, 200);
+  assert.equal(outsiderHistory.json().matches.length, 0,
+    'A non-player must not receive another users match history.');
 
   const rematch = await app.inject({
     method: 'POST',
