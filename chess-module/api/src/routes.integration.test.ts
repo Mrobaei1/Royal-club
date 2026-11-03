@@ -443,6 +443,9 @@ test("authenticated chess routes support private game, draw, chat, profiles and 
     const resigned = await request(white, "POST", `/chess/games/${gameId}/resign`);
     assert.equal(resigned.statusCode, 200, resigned.body);
     assert.equal(resigned.json().status, "black_win");
+    const terminalChat = await request(white, "POST", `/chess/games/${gameId}/chat`, { message: "late message" });
+    assert.equal(terminalChat.statusCode, 403);
+    assert.equal(terminalChat.json().error, "chat_not_allowed");
     const whiteFinishedProfile = await request(black, "GET", "/chess/players/username/route_white/profile");
     assert.equal(whiteFinishedProfile.json().games, 1);
     assert.equal(whiteFinishedProfile.json().losses, 1);
