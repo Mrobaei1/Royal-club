@@ -10,6 +10,7 @@ class _FakeChessApiClient extends ChessApiClient {
   int profileFetches = 0;
   bool canClaimDraw = false;
   int drawClaimCalls = 0;
+  String? claimError;
 
   @override
   Future<Map<String, dynamic>> game(String gameId) async => {
@@ -48,6 +49,11 @@ class _FakeChessApiClient extends ChessApiClient {
   @override
   Future<Map<String, dynamic>> claimDraw(String gameId) async {
     drawClaimCalls += 1;
+    if (claimError != null) {
+      status = 'black_win';
+      canClaimDraw = false;
+      throw ChessApiException(409, claimError!);
+    }
     status = 'draw';
     canClaimDraw = false;
     return {'status': 'draw', 'reason': 'fifty_move_rule'};
@@ -102,6 +108,18 @@ void main() {
     await session.claimDraw();
     expect(api.drawClaimCalls, 1);
     expect(session.status, 'draw');
+    expect(session.drawClaimable, isFalse);
+    session.dispose();
+  });
+
+  test('game session refreshes after a draw claim loses a clock race', () async {
+    final api = _FakeChessApiClient()
+      ..canClaimDraw = true
+      ..claimError = 'clock_expired';
+    final session = ChessGameSession(api: api, gameId: '99');
+    await session.refresh();
+    await expectLater(session.claimDraw(), throwsA(isA<ChessApiException>()));
+    expect(session.status, 'black_win');
     expect(session.drawClaimable, isFalse);
     session.dispose();
   });
