@@ -52,7 +52,7 @@ The full owner decision and acceptance specification is maintained in [OWNER-DEC
 - [x] Live ephemeral PostgreSQL migration/application and two-instance CAS/restart recovery acceptance in CI.
 - [ ] Production Royal Club database migration/deployment, production auth middleware/session binding, event transport and multi-instance soak testing.
 - [x] Server-side private one-to-one text chat for opposing-team participants: authenticated sender identity, opponent-only recipient validation, 1,000-character bound, message idempotency key, participant-scoped delivery and final-result privacy.
-- [x] Standalone Flutter UI package with four-seat lobby/game screen, Persian/English text helper, injected authentication/API contract, bearer-token HTTP adapter, private opponent-chat panel, manager report/appeal review screen, and widget/API adapter tests. Standalone Flutter CI passed (analyze + 13 widget/API tests); four-device and live network acceptance remain open.
+- [x] Standalone Flutter UI package with four-seat lobby/game screen, Persian/English text helper, injected authentication/API contract, bearer-token HTTP adapter, private opponent-chat panel, manager report/appeal review screen, and widget/API adapter tests. Standalone Flutter CI must revalidate after manager-review navigation and private-chat assertion updates (13 widget/API tests expected); four-device and live network acceptance remain open.
 - [ ] Image attachments, full emoji picker, manager Flutter review UI, live event transport and four-device end-to-end acceptance.
 
 ## Communication policy (owner-confirmed, 2026-11-03)
