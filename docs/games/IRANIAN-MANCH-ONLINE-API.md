@@ -59,3 +59,9 @@ Do not advertise these deferred capabilities as available until their API, UI an
 - Roll, move, and forfeit requests must include the exact `expectedStateVersion` from the latest server snapshot.
 - The API locks the match row and rejects stale commands with HTTP 409 and the current version before mutating the match.
 - Clients must reload the authoritative snapshot after a 409; they must never infer or fabricate a new version.
+
+
+## Completed-match history
+- `GET /api/v1/manch/matches/history` returns up to 50 finished matches for the authenticated player only.
+- Each record includes winner, finish reason, monotonic state version, timestamps and the seated player usernames.
+- The online lobby displays wins/losses and finish reason; history loading is supplementary and does not block room discovery when unavailable.
