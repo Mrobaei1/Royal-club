@@ -169,6 +169,7 @@ test("WebSocket presence remains online until the player's last device disconnec
       authenticate: async (_request: FastifyRequest) => {},
       getUserId: (request: FastifyRequest) => String(request.headers["x-user-id"] ?? ""),
       canManageSettings: async (userId: string) => userId === white,
+      enableClockScheduler: false,
     });
     const websocketOptions = {
       authenticate: async (_request: FastifyRequest) => {},
@@ -311,6 +312,28 @@ test("WebSocket presence remains online until the player's last device disconnec
       m.type === "chess:state" && m.revision === 1 && typeof m.fen === "string" && m.fen.includes(" b "),
     );
     assert.equal(restoredState.status, "active");
+
+    // A clock-expiry adjudication triggered by a draw claim must reach both devices.
+    const timeoutFen = "4k3/8/8/8/8/8/8/R3K3 b - - 100 1";
+    await pool.query(
+      "UPDATE chess_games SET initial_fen=$2,current_fen=$2,pgn='',clock_snapshot=jsonb_set(jsonb_set(jsonb_set(clock_snapshot,'{active}','\\"black\\"'::jsonb),'{blackMs}','1'::jsonb),'{lastStartedAt}',to_jsonb($3::bigint)) WHERE id=$1",
+      [gameId, timeoutFen, Date.now() - 5000],
+    );
+    const whiteTerminal = waitForMessage(reconnectedWhite, m =>
+      m.type === "chess:state" && m.revision === 2 && m.status === "white_win",
+    );
+    const blackTerminal = waitForMessage(blackSocket, m =>
+      m.type === "chess:state" && m.revision === 2 && m.status === "white_win",
+    );
+    const expiredClaim = await app.inject({
+      method: "POST",
+      url: `/chess/games/${gameId}/claim-draw`,
+      headers: { "x-user-id": black },
+    });
+    assert.equal(expiredClaim.statusCode, 409, expiredClaim.body);
+    assert.equal(expiredClaim.json().error, "clock_expired");
+    await Promise.all([whiteTerminal, blackTerminal]);
+
     // WebSocket frames above the documented 16 KiB cap must be rejected.
     const oversizedSocket = await connect(wsUrl, white);
     sockets.push(oversizedSocket);
