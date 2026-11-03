@@ -22,6 +22,7 @@ All endpoints require a Bearer access token.
 | POST | `/api/v1/manch/matches` | Create a 2-, 3- or 4-player room |
 | POST | `/api/v1/manch/matches/:id/join` | Join the next available seat |
 | GET | `/api/v1/manch/matches/:id` | Read match state and public usernames |
+| POST | `/api/v1/manch/matches/:id/presence` | Refresh authenticated player's 30-second online lease |
 | POST | `/api/v1/manch/matches/:id/roll` | Server-generated dice roll; requires `expectedStateVersion` |
 | POST | `/api/v1/manch/matches/:id/move` | Apply a token move; requires `tokenIndex` and `expectedStateVersion` |
 | POST | `/api/v1/manch/matches/:id/forfeit` | Two-player participant forfeits an active match; opponent wins |
@@ -47,7 +48,7 @@ All endpoints require a Bearer access token.
 ## Not implemented yet
 - Friend-specific invitation records and invitation notifications.
 - WebSocket push; the first client uses bounded 2-second state polling.
-- Reconnect leases, disconnect grace periods and temporary AI takeover.
+- A 30-second authenticated presence lease exposes online/offline player status. Disconnect grace, temporary AI takeover and automated return-to-human handoff are not implemented yet.
 - The current-match lookup restores the latest waiting/active room after app restart; it does not yet implement disconnect grace timers or temporary AI takeover.
 - Match history, ranked results, rating/progression, spectator access and league integration.
 - Disconnect leases, grace periods, temporary AI takeover and push notifications.

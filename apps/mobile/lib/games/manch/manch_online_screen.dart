@@ -26,6 +26,7 @@ class _ManchOnlineLobbyScreenState extends State<ManchOnlineLobbyScreen> {
   bool _openingGame = false;
   bool _refreshing = false;
   Timer? _poller;
+  Timer? _presenceTimer;
 
   bool get _isPersian =>
       Localizations.localeOf(context).languageCode.toLowerCase() == 'fa';
@@ -450,6 +451,11 @@ class _ManchOnlineGameScreenState extends State<ManchOnlineGameScreen> {
   void initState() {
     super.initState();
     _load();
+    _sendPresence();
+    _presenceTimer = Timer.periodic(
+      const Duration(seconds: 10),
+      (_) => _sendPresence(),
+    );
     _poller = Timer.periodic(
       const Duration(seconds: 2),
       (_) => _load(silent: true),
@@ -459,7 +465,17 @@ class _ManchOnlineGameScreenState extends State<ManchOnlineGameScreen> {
   @override
   void dispose() {
     _poller?.cancel();
+    _presenceTimer?.cancel();
     super.dispose();
+  }
+
+  Future<void> _sendPresence() async {
+    if (!mounted || _matchStatus != 'active') return;
+    try {
+      await ManchOnlineService.heartbeat(widget.matchId);
+    } catch (_) {
+      // Snapshot polling owns connection error reporting and retry UI.
+    }
   }
 
   Future<void> _load({bool silent = false}) async {
@@ -779,7 +795,9 @@ class _ManchOnlineGameScreenState extends State<ManchOnlineGameScreen> {
                             ),
                           ),
                         ),
-                        label: Text('@${player['username']?.toString() ?? 'player'}'),
+                        label: Text(
+                          '@${player['username']?.toString() ?? 'player'} · ${player['isOnline'] == true ? _text('آنلاین', 'online') : _text('آفلاین', 'offline')}',
+                        ),
                       ),
                   ],
                 ),

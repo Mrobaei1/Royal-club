@@ -175,6 +175,13 @@ class ManchOnlineService {
     };
   }
 
+  static Future<void> heartbeat(String id) async {
+    final payload = await _request('POST', '/${_requireId(id)}/presence');
+    if (payload['acknowledged'] != true) {
+      throw Exception('پاسخ ثبت حضور در بازی منچ نامعتبر است.');
+    }
+  }
+
   static Future<Map<String, dynamic>> get(String id) async {
     final cleanId = _requireId(id);
     final payload = await _request('GET', '/$cleanId');

@@ -391,6 +391,56 @@ test('Manch online rooms join, roll and persist server-authoritative moves', asy
 });
 
 
+test('Manch online presence is player-scoped and expires to offline after 30 seconds', async () => {
+  const host = await register('Manch Presence Host');
+  const guest = await register('Manch Presence Guest');
+  const outsider = await register('Manch Presence Outsider');
+  const created = await app.inject({
+    method: 'POST', url: '/api/v1/manch/matches',
+    headers: auth(host.accessToken), payload: { playerCount: 2 },
+  });
+  assert.equal(created.statusCode, 201, created.body);
+  const matchId = created.json().match.id;
+  const joined = await app.inject({
+    method: 'POST', url: `/api/v1/manch/matches/${matchId}/join`,
+    headers: auth(guest.accessToken), payload: {},
+  });
+  assert.equal(joined.statusCode, 200, joined.body);
+
+  for (const player of [host, guest]) {
+    const heartbeat = await app.inject({
+      method: 'POST', url: `/api/v1/manch/matches/${matchId}/presence`,
+      headers: auth(player.accessToken), payload: {},
+    });
+    assert.equal(heartbeat.statusCode, 200, heartbeat.body);
+    assert.equal(heartbeat.json().acknowledged, true);
+  }
+  const outsiderHeartbeat = await app.inject({
+    method: 'POST', url: `/api/v1/manch/matches/${matchId}/presence`,
+    headers: auth(outsider.accessToken), payload: {},
+  });
+  assert.equal(outsiderHeartbeat.statusCode, 403);
+
+  const online = await app.inject({
+    method: 'GET', url: `/api/v1/manch/matches/${matchId}`,
+    headers: auth(host.accessToken),
+  });
+  assert.equal(online.statusCode, 200, online.body);
+  assert.deepEqual(online.json().match.players.map((player: any) => player.isOnline), [true, true]);
+
+  await testPool.query(
+    `UPDATE manch_match_presence SET last_seen_at = NOW() - INTERVAL '31 seconds'
+      WHERE match_id = $1 AND user_id = $2`,
+    [matchId, guest.user.id],
+  );
+  const stale = await app.inject({
+    method: 'GET', url: `/api/v1/manch/matches/${matchId}`,
+    headers: auth(host.accessToken),
+  });
+  assert.equal(stale.statusCode, 200, stale.body);
+  assert.deepEqual(stale.json().match.players.map((player: any) => player.isOnline), [true, false]);
+});
+
 test('Manch online supports complete 3- and 4-player seat allocation and rejects unsupported forfeits', async () => {
   const host = await register('Manch Multi Host');
   const guests = [

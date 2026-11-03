@@ -57,6 +57,14 @@ export async function ensureManchSchema(pool: Pool): Promise<void> {
     );
     CREATE INDEX IF NOT EXISTS manch_match_players_user_idx
       ON manch_match_players (user_id, joined_at DESC);
+    CREATE TABLE IF NOT EXISTS manch_match_presence (
+      match_id BIGINT NOT NULL REFERENCES manch_matches(id) ON DELETE CASCADE,
+      user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      last_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (match_id, user_id)
+    );
+    CREATE INDEX IF NOT EXISTS manch_match_presence_seen_idx
+      ON manch_match_presence (match_id, last_seen_at DESC);
   `);
 }
 
@@ -93,10 +101,14 @@ async function lockMatch(client: PoolClient, id: string) {
 
 async function matchPlayers(client: any, matchId: string) {
   const result = await client.query(
-    `SELECT p.user_id AS "userId", p.seat_index AS "seatIndex",
-            p.seat_colour AS "seatColour", u.username
+`SELECT p.user_id AS "userId", p.seat_index AS "seatIndex",
+            p.seat_colour AS "seatColour", u.username,
+            presence.last_seen_at AS "lastSeenAt",
+            COALESCE(presence.last_seen_at >= NOW() - INTERVAL '30 seconds', FALSE) AS "isOnline"
        FROM manch_match_players p
        JOIN users u ON u.id = p.user_id
+       LEFT JOIN manch_match_presence presence
+         ON presence.match_id = p.match_id AND presence.user_id = p.user_id
       WHERE p.match_id = $1 ORDER BY p.seat_index`,
     [matchId],
   );
@@ -307,6 +319,33 @@ export function registerManchRoutes(app: any, pool: Pool, requireMatchAuth: any)
       [userId],
     );
     return { stats: result.rows[0] ?? { played: 0, wins: 0, losses: 0 } };
+  });
+
+  app.post('/api/v1/manch/matches/:id/presence', { onRequest: [requireMatchAuth] }, async (request: any, reply: any) => {
+    const userId = String(request.user?.sub ?? '');
+    const id = String(request.params?.id ?? '');
+    if (!/^\\d+$/.test(id) || !userId) return sendError(reply, 400, 'Invalid match identifier.');
+    const result = await pool.query(
+      `INSERT INTO manch_match_presence (match_id, user_id, last_seen_at)
+       SELECT m.id, p.user_id, NOW()
+         FROM manch_matches m
+         JOIN manch_match_players p ON p.match_id = m.id
+        WHERE m.id = $1 AND m.status = 'active' AND p.user_id = $2
+       ON CONFLICT (match_id, user_id)
+       DO UPDATE SET last_seen_at = EXCLUDED.last_seen_at
+       RETURNING last_seen_at AS "lastSeenAt"`,
+      [id, userId],
+    );
+    if (!result.rowCount) {
+      const membership = await pool.query(
+        'SELECT 1 FROM manch_match_players WHERE match_id = $1 AND user_id = $2',
+        [id, userId],
+      );
+      return membership.rowCount
+        ? sendError(reply, 409, 'Presence is only available for active Manch matches.')
+        : sendError(reply, 403, 'You are not a player in this Manch match.');
+    }
+    return { acknowledged: true, lastSeenAt: result.rows[0].lastSeenAt };
   });
 
   app.get('/api/v1/manch/matches/:id', { onRequest: [requireMatchAuth] }, async (request: any, reply: any) => {
