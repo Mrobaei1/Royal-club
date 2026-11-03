@@ -80,8 +80,9 @@ test("WebSocket ping limiter prevents bursts across fixed-window boundaries", ()
   let now = 10_000;
   const allow = createPingRateLimiter(2, 1_000, () => now);
   assert.equal(allow(), true);
+  now += 1;
   assert.equal(allow(), true);
-  now += 999;
+  now += 998;
   assert.equal(allow(), false, "the allowance must not reset just before the first ping expires");
   now += 1;
   assert.equal(allow(), true, "the first ping expires at the exact window boundary");
