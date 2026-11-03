@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'chess_admin_settings_screen.dart';
 
 typedef ChessCreateRoom = Future<void> Function(
-  String timeControlId, int minOpponentLevel, bool chatEnabled, bool voiceEnabled,
+  String timeControlId, int minOpponentLevel, bool chatEnabled,
 );
 typedef ChessJoinRoom = Future<void> Function(String roomCode);
 typedef ChessMatchmakingAction = Future<void> Function(String timeControlId, int minOpponentLevel);
@@ -36,7 +36,6 @@ class _ChessLobbyScreenState extends State<ChessLobbyScreen> {
   final _level = TextEditingController(text: '1');
   String? _timeControlId;
   bool _chatEnabled = true;
-  bool _voiceEnabled = false;
   bool _busy = false;
 
   bool _fa(BuildContext context) => Localizations.localeOf(context).languageCode == 'fa';
@@ -109,16 +108,9 @@ class _ChessLobbyScreenState extends State<ChessLobbyScreen> {
             value: _chatEnabled,
             onChanged: _busy ? null : (value) => setState(() => _chatEnabled = value),
           ),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: Text(fa ? 'میکروفون در بازی' : 'In-game voice'),
-            subtitle: Text(fa ? 'میزبان می‌تواند بعداً آن را خاموش کند' : 'The host can disable it during the game'),
-            value: _voiceEnabled,
-            onChanged: _busy ? null : (value) => setState(() => _voiceEnabled = value),
-          ),
           FilledButton.icon(
             onPressed: !valid || _busy ? null : () => _run(() =>
-              widget.onCreateRoom(selected, _minimumLevel!, _chatEnabled, _voiceEnabled)),
+              widget.onCreateRoom(selected, _minimumLevel!, _chatEnabled)),
             icon: const Icon(Icons.add_circle_outline),
             label: Text(fa ? 'ساخت اتاق خصوصی' : 'Create private room'),
           ),
