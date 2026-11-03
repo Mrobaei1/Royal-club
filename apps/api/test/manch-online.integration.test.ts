@@ -622,6 +622,60 @@ test('Manch room invitations are limited to accepted friends and expire safely',
   assert.equal(expiredAccept.statusCode, 410);
 });
 
+test('concurrent Manch invite acceptance cannot overfill a room', async () => {
+  const host = await register('Manch Invite Race Host');
+  const friends = [
+    await register('Manch Invite Race A'),
+    await register('Manch Invite Race B'),
+  ];
+  for (const friend of friends) {
+    const requested = await app.inject({
+      method: 'POST', url: `/api/v1/friends/${friend.user.id}/request`,
+      headers: auth(host.accessToken), payload: {},
+    });
+    assert.equal(requested.statusCode, 201, requested.body);
+    const accepted = await app.inject({
+      method: 'POST', url: `/api/v1/friends/${host.user.id}/accept`,
+      headers: auth(friend.accessToken), payload: {},
+    });
+    assert.equal(accepted.statusCode, 200, accepted.body);
+  }
+  const created = await app.inject({
+    method: 'POST', url: '/api/v1/manch/matches',
+    headers: auth(host.accessToken), payload: { playerCount: 2 },
+  });
+  assert.equal(created.statusCode, 201, created.body);
+  const matchId = created.json().match.id;
+  const invitations = await Promise.all(friends.map((friend) => app.inject({
+    method: 'POST', url: `/api/v1/manch/matches/${matchId}/invites`,
+    headers: auth(host.accessToken), payload: { friendUserId: friend.user.id },
+  })));
+  for (const invite of invitations) assert.equal(invite.statusCode, 201, invite.body);
+
+  const responses = await Promise.all(invitations.map((invite, index) => app.inject({
+    method: 'POST',
+    url: `/api/v1/manch/invites/${invite.json().invite.id}/accept`,
+    headers: auth(friends[index].accessToken),
+    payload: {},
+  })));
+  assert.deepEqual(
+    responses.map((response) => response.statusCode).sort(),
+    [200, 410],
+    'Exactly one friend can claim the final available seat.',
+  );
+  const detail = await app.inject({
+    method: 'GET', url: `/api/v1/manch/matches/${matchId}`,
+    headers: auth(host.accessToken),
+  });
+  assert.equal(detail.statusCode, 200, detail.body);
+  assert.equal(detail.json().match.status, 'active');
+  assert.equal(detail.json().match.players.length, 2);
+  assert.equal(
+    new Set(detail.json().match.players.map((player: any) => String(player.userId))).size,
+    2,
+  );
+});
+
 test('owner disconnect policy gates Manch temporary AI takeover', async () => {
   const host = await register('Manch Policy Host');
   const guest = await register('Manch Policy Guest');
