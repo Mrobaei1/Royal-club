@@ -54,7 +54,8 @@ class ChessGameScreen extends StatefulWidget {
 }
 
 class ChessChatMessage {
-  const ChessChatMessage({required this.username, required this.text, required this.timestamp});
+  const ChessChatMessage({this.id, required this.username, required this.text, required this.timestamp});
+  final String? id;
   final String username;
   final String text;
   final DateTime timestamp;
