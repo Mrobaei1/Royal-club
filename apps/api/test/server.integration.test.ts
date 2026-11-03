@@ -3275,13 +3275,22 @@ test('Hokm production API uses verified JWT identity, hides private hands, and g
       payload: { command: { type: 'choose_trump', suit: 'hearts' }, expectedVersion: version },
     });
     assert.equal(forbiddenTrump.statusCode, 400);
-    const selectedTrump = await app.inject({
-      method: 'POST',
-      url: `/api/v1/hokm/rooms/${roomId}/command`,
-      headers: auth(hakemPlayer.token),
-      payload: { command: { type: 'choose_trump', suit: 'spades' }, expectedVersion: version },
-    });
+    const [selectedTrump, staleTrump] = await Promise.all([
+      app.inject({
+        method: 'POST',
+        url: `/api/v1/hokm/rooms/${roomId}/command`,
+        headers: auth(hakemPlayer.token),
+        payload: { command: { type: 'choose_trump', suit: 'spades' }, expectedVersion: version },
+      }),
+      app.inject({
+        method: 'POST',
+        url: `/api/v1/hokm/rooms/${roomId}/command`,
+        headers: auth(hakemPlayer.token),
+        payload: { command: { type: 'choose_trump', suit: 'hearts' }, expectedVersion: version },
+      }),
+    ]);
     assert.equal(selectedTrump.statusCode, 200, selectedTrump.body);
+    assert.equal(staleTrump.statusCode, 409, staleTrump.body);
     version = selectedTrump.json().version;
     for (const player of [host, playerOne, playerTwo, playerThree]) {
       const view = await app.inject({
