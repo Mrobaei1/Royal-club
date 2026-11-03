@@ -75,6 +75,7 @@ test("authenticated chess routes support private game, draw, chat, profiles and 
       authenticate: async (_request: FastifyRequest) => {},
       getUserId: (request: FastifyRequest) => String(request.headers["x-user-id"] ?? ""),
       canManageSettings: async (userId: string) => userId === white,
+      enableClockScheduler: false,
     });
     await appTwo.ready();
 
