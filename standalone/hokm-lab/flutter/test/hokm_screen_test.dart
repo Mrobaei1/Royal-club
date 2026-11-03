@@ -247,7 +247,7 @@ void main() {
       home: HokmScreen(api: api, identityLoader: () async => 'u2'),
     ));
     await tester.pump();
-    await tester.tap(find.text('ساخت اتاق حکم'));
+    await tester.tap(find.text('Create Hokm room'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 20));
     expect(find.text('Start next hand'), findsOneWidget);
