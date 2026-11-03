@@ -75,7 +75,7 @@ export function leaveRoom(room, userId) {
 /** Temporary network loss; authenticated user identity must be supplied by the server. */
 export function disconnectPlayer(room, userId, { now, expectedVersion } = {}) {
   requireUserId(userId); requireNow(now); requireExpectedVersion(room, expectedVersion);
-  if (room.status !== "playing") throw new Error("Only an active match can record a disconnect");
+  if (!["playing", "round_completed"].includes(room.status)) throw new Error("Only an unfinished match can record a disconnect");
   const player = room.players.find(candidate => candidate.userId === userId);
   if (!player) throw new Error("User is not a member of this room");
   if (player.forfeited) throw new Error("A forfeited player cannot disconnect again");
@@ -92,7 +92,7 @@ export function disconnectPlayer(room, userId, { now, expectedVersion } = {}) {
 /** Reclaim a temporary disconnect; already committed bot moves are never rolled back. */
 export function reconnectPlayer(room, userId, { now, expectedVersion } = {}) {
   requireUserId(userId); requireNow(now); requireExpectedVersion(room, expectedVersion);
-  if (room.status !== "playing") throw new Error("Only an active match can reconnect");
+  if (!["playing", "round_completed"].includes(room.status)) throw new Error("Only an unfinished match can reconnect");
   const player = room.players.find(candidate => candidate.userId === userId);
   if (!player) throw new Error("User is not a member of this room");
   if (player.forfeited) throw new Error("A forfeited player cannot reclaim their seat");
@@ -163,8 +163,11 @@ export function startRoom(room, requesterUserId, { now, rng = Math.random } = {}
   if (room.status !== "waiting") throw new Error("Room has already started or closed");
   if (room.players.length !== MAX_PLAYERS) throw new Error("Exactly four players are required");
   if (!room.players.every(player => player.ready)) throw new Error("All players must be ready");
+  const hakemSample = rng();
+  if (!(hakemSample >= 0 && hakemSample < 1)) throw new RangeError("RNG must return a number in [0, 1)");
+  const hakemSeat = Math.floor(hakemSample * MAX_PLAYERS);
   const deck = shuffleDeck(createDeck(), rng);
-  const round = createRound({ deck, hakemSeat: 0 });
+  const round = createRound({ deck, hakemSeat });
   return { ...room, status: "playing", round, turnStartedAt: now,
     turnDeadlineAt: now + TURN_DEADLINE_MS, version: room.version + 1 };
 }
