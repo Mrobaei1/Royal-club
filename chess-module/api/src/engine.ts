@@ -10,6 +10,7 @@ export type EngineSnapshot = {
   check: boolean;
   checkmate: boolean;
   draw: boolean;
+  drawClaimable: boolean;
   gameOver: boolean;
   legalMoves: string[];
 };
@@ -45,13 +46,26 @@ export class ChessGame {
     if (pgn?.trim()) this.game.loadPgn(pgn);
   }
 
+  private isFivefoldRepetition(): boolean {
+    const history = this.game.history({ verbose: true });
+    const positions = history.length
+      ? [history[0]!.before, ...history.map(move => move.after)]
+      : [this.game.fen()];
+    const key = (fen: string) => fen.trim().split(/\\s+/).slice(0, 4).join(" ");
+    const current = key(this.game.fen());
+    return positions.filter(position => key(position) === current).length >= 5;
+  }
+
+  private isAutomaticDraw(): boolean {
+    const halfMoveClock = Number(this.game.fen().split(/\\s+/)[4] ?? 0);
+    return this.game.isStalemate() ||
+      this.game.isInsufficientMaterial() ||
+      halfMoveClock >= 150 ||
+      this.isFivefoldRepetition();
+  }
+
   private isTerminalPosition(): boolean {
-    // Threefold repetition and the 50-move rule are claimable draws, not
-    // automatic game termination. Keep allowing moves until a terminal
-    // position is reached; chess.js isGameOver() also treats claims as over.
-    return this.game.isCheckmate() ||
-      this.game.isStalemate() ||
-      this.game.isInsufficientMaterial();
+    return this.game.isCheckmate() || this.isAutomaticDraw();
   }
 
   play(command: MoveCommand): EngineSnapshot {
@@ -78,15 +92,23 @@ export class ChessGame {
   }
 
   snapshot(lastSan: string | null = null): EngineSnapshot {
+    const fen = this.game.fen();
+    const halfMoveClock = Number(fen.split(/\\s+/)[4] ?? 0);
+    const draw = this.isAutomaticDraw();
+    const drawClaimable = !draw && (
+      this.game.isThreefoldRepetition() || halfMoveClock >= 100
+    );
+    const checkmate = this.game.isCheckmate();
     return {
-      fen: this.game.fen(),
+      fen,
       pgn: this.game.pgn(),
       turn: this.game.turn(),
       san: lastSan,
       check: this.game.isCheck(),
-      checkmate: this.game.isCheckmate(),
-      draw: this.game.isDraw(),
-      gameOver: this.game.isGameOver(),
+      checkmate,
+      draw,
+      drawClaimable,
+      gameOver: checkmate || draw,
       legalMoves: this.game.moves({ verbose: true }).map(move => `${move.from}${move.to}${move.promotion ?? ""}`)
     };
   }
