@@ -14,7 +14,7 @@ A recognizable Iranian four-colour Manch board, not a reskinned generic foreign 
 - Stable seat mapping is independent of Persian RTL text direction.
 
 ## Route geometry contract
-The route is defined by the ordered 52-cell `trackCells` sequence in `iranian_manch_board.dart`. Its four entry offsets are 0 (red), 13 (green), 26 (yellow), and 39 (blue). The engine and painter must use the same colour starts:
+The route is defined by `ManchBoardGeometry.trackCells` and `ManchBoardGeometry.startOffsets` in `manch_board_geometry.dart`. Its four entry offsets are 0 (red), 13 (green), 26 (yellow), and 39 (blue). Both engine and painter must use this shared source of truth:
 - Red: 0
 - Green: 13
 - Yellow: 26
@@ -26,7 +26,7 @@ The home lanes are:
 - Yellow: row 7, columns 13–9 (toward the centre)
 - Blue: column 7, rows 13–9 (toward the centre)
 
-Keep the route-cell sequence in one source of truth or add a consistency test before changing its order. The painter currently mirrors the same start offsets as the engine; divergence is a release-blocking defect.
+The shared geometry module is now the single source of truth; widget and engine tests assert its 52 unique cells and fixed colour offsets. Any change to route order must update this module and retain those consistency tests.
 
 ## Royal Club treatment
 - Outer frame: deep navy `#111B31`.
