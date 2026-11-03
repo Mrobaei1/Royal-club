@@ -68,6 +68,23 @@ export async function ensureManchSchema(pool: Pool): Promise<void> {
       ADD COLUMN IF NOT EXISTS last_ai_action_at TIMESTAMPTZ;
     CREATE INDEX IF NOT EXISTS manch_match_presence_seen_idx
       ON manch_match_presence (match_id, last_seen_at DESC);
+    CREATE TABLE IF NOT EXISTS manch_match_invites (
+      id BIGSERIAL PRIMARY KEY,
+      match_id BIGINT NOT NULL REFERENCES manch_matches(id) ON DELETE CASCADE,
+      inviter_user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      invitee_user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      status TEXT NOT NULL DEFAULT 'pending'
+        CHECK (status IN ('pending', 'accepted', 'declined', 'expired', 'cancelled')),
+      expires_at TIMESTAMPTZ NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      responded_at TIMESTAMPTZ,
+      CHECK (inviter_user_id <> invitee_user_id)
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS manch_match_invites_pending_pair_idx
+      ON manch_match_invites (match_id, invitee_user_id)
+      WHERE status = 'pending';
+    CREATE INDEX IF NOT EXISTS manch_match_invites_inbox_idx
+      ON manch_match_invites (invitee_user_id, status, expires_at DESC);
   `);
 }
 
@@ -453,6 +470,227 @@ export function registerManchRoutes(app: any, pool: Pool, requireMatchAuth: any)
       [userId],
     );
     return { stats: result.rows[0] ?? { played: 0, wins: 0, losses: 0 } };
+  });
+
+  app.post('/api/v1/manch/matches/:id/invites', { onRequest: [requireMatchAuth] }, async (request: any, reply: any) => {
+    const inviterId = String(request.user?.sub ?? '');
+    const matchId = String(request.params?.id ?? '');
+    const inviteeId = String(request.body?.friendUserId ?? '');
+    if (!/^\\d+$/.test(matchId) || !/^\\d+$/.test(inviteeId) || !inviterId || inviteeId === inviterId) {
+      return sendError(reply, 400, 'A valid friend user id is required.');
+    }
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const matchResult = await client.query(
+        `SELECT id, host_user_id, status, expires_at
+           FROM manch_matches WHERE id = $1 FOR UPDATE`,
+        [matchId],
+      );
+      const match = matchResult.rows[0];
+      if (!match) {
+        await client.query('ROLLBACK');
+        return sendError(reply, 404, 'Manch room not found.');
+      }
+      if (String(match.host_user_id) !== inviterId) {
+        await client.query('ROLLBACK');
+        return sendError(reply, 403, 'Only the room host can invite friends.');
+      }
+      if (match.status !== 'waiting' || !match.expires_at || new Date(match.expires_at).getTime() <= Date.now()) {
+        await client.query('ROLLBACK');
+        return sendError(reply, 409, 'Only an open waiting room can receive invitations.');
+      }
+      const friendship = await client.query(
+        `SELECT 1 FROM friendships
+          WHERE status = 'accepted'
+            AND ((requester_id = $1 AND addressee_id = $2)
+              OR (requester_id = $2 AND addressee_id = $1))`,
+        [inviterId, inviteeId],
+      );
+      if (!friendship.rowCount) {
+        await client.query('ROLLBACK');
+        return sendError(reply, 403, 'Manch invitations can only be sent to accepted friends.');
+      }
+      const target = await client.query('SELECT username FROM users WHERE id = $1', [inviteeId]);
+      if (!target.rowCount) {
+        await client.query('ROLLBACK');
+        return sendError(reply, 404, 'Friend not found.');
+      }
+      const invite = await client.query(
+        `INSERT INTO manch_match_invites
+           (match_id, inviter_user_id, invitee_user_id, expires_at)
+         VALUES ($1, $2, $3, LEAST(NOW() + INTERVAL '2 minutes', $4::timestamptz))
+         ON CONFLICT (match_id, invitee_user_id) WHERE status = 'pending'
+         DO UPDATE SET inviter_user_id = EXCLUDED.inviter_user_id,
+                       expires_at = EXCLUDED.expires_at,
+                       created_at = NOW()
+         RETURNING id, match_id AS "matchId", invitee_user_id AS "inviteeUserId",
+                   status, expires_at AS "expiresAt"`,
+        [matchId, inviterId, inviteeId, match.expires_at],
+      );
+      await client.query(
+        `INSERT INTO notifications (user_id, actor_user_id, type, title, body, data)
+         VALUES ($1, $2, 'system', 'دعوت بازی منچ', 'دوست شما را به یک اتاق منچ دعوت کرده است.',
+                 jsonb_build_object('kind', 'manch_invite', 'inviteId', $3::bigint, 'matchId', $4::bigint))
+        `,
+        [inviteeId, inviterId, invite.rows[0].id, matchId],
+      );
+      await client.query('COMMIT');
+      return reply.code(201).send({ invite: invite.rows[0], friendUsername: target.rows[0].username });
+    } catch (error: any) {
+      await client.query('ROLLBACK').catch(() => undefined);
+      request.log.error({ err: error }, 'Could not create Manch friend invitation');
+      return sendError(reply, 500, 'Could not send Manch invitation.');
+    } finally {
+      client.release();
+    }
+  });
+
+  app.get('/api/v1/manch/invites', { onRequest: [requireMatchAuth] }, async (request: any) => {
+    const userId = String(request.user?.sub ?? '');
+    await pool.query(
+      `UPDATE manch_match_invites SET status = 'expired', responded_at = NOW()
+        WHERE invitee_user_id = $1 AND status = 'pending' AND expires_at <= NOW()`,
+      [userId],
+    );
+    const result = await pool.query(
+      `SELECT i.id, i.match_id AS "matchId", i.status,
+              i.expires_at AS "expiresAt", i.created_at AS "createdAt",
+              m.room_code AS "roomCode", m.player_count AS "playerCount",
+              u.username AS "inviterUsername"
+         FROM manch_match_invites i
+         JOIN manch_matches m ON m.id = i.match_id
+         JOIN users u ON u.id = i.inviter_user_id
+        WHERE i.invitee_user_id = $1 AND i.status = 'pending'
+          AND i.expires_at > NOW() AND m.status = 'waiting'
+        ORDER BY i.created_at DESC LIMIT 50`,
+      [userId],
+    );
+    return { invites: result.rows };
+  });
+
+  app.post('/api/v1/manch/invites/:id/accept', { onRequest: [requireMatchAuth] }, async (request: any, reply: any) => {
+    const userId = String(request.user?.sub ?? '');
+    const inviteId = String(request.params?.id ?? '');
+    if (!/^\\d+$/.test(inviteId) || !userId) return sendError(reply, 400, 'Invalid invitation id.');
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const inviteResult = await client.query(
+        `SELECT id, match_id, inviter_user_id, status, expires_at
+           FROM manch_match_invites WHERE id = $1 AND invitee_user_id = $2 FOR UPDATE`,
+        [inviteId, userId],
+      );
+      const invite = inviteResult.rows[0];
+      if (!invite) {
+        await client.query('ROLLBACK');
+        return sendError(reply, 404, 'Invitation not found.');
+      }
+      if (invite.status !== 'pending' || new Date(invite.expires_at).getTime() <= Date.now()) {
+        if (invite.status === 'pending') {
+          await client.query(
+            `UPDATE manch_match_invites SET status = 'expired', responded_at = NOW() WHERE id = $1`,
+            [inviteId],
+          );
+        }
+        await client.query('COMMIT');
+        return sendError(reply, 410, 'Manch invitation has expired or was already answered.');
+      }
+      const matchResult = await client.query(
+        `SELECT id, player_count, status, expires_at FROM manch_matches WHERE id = $1 FOR UPDATE`,
+        [invite.match_id],
+      );
+      const match = matchResult.rows[0];
+      if (!match || match.status !== 'waiting' || !match.expires_at ||
+          new Date(match.expires_at).getTime() <= Date.now()) {
+        await client.query(
+          `UPDATE manch_match_invites SET status = 'expired', responded_at = NOW() WHERE id = $1`,
+          [inviteId],
+        );
+        await client.query('COMMIT');
+        return sendError(reply, 410, 'The invited Manch room is no longer available.');
+      }
+      const friendship = await client.query(
+        `SELECT 1 FROM friendships
+          WHERE status = 'accepted'
+            AND ((requester_id = $1 AND addressee_id = $2)
+              OR (requester_id = $2 AND addressee_id = $1))`,
+        [invite.inviter_user_id, userId],
+      );
+      if (!friendship.rowCount) {
+        await client.query('ROLLBACK');
+        return sendError(reply, 403, 'You are no longer friends with the inviter.');
+      }
+      const players = await matchPlayers(client, String(match.id));
+      if (players.some((player) => player.userId === userId)) {
+        await client.query('ROLLBACK');
+        return sendError(reply, 409, 'You have already joined this room.');
+      }
+      if (players.length >= Number(match.player_count)) {
+        await client.query(
+          `UPDATE manch_match_invites SET status = 'expired', responded_at = NOW() WHERE id = $1`,
+          [inviteId],
+        );
+        await client.query('COMMIT');
+        return sendError(reply, 409, 'The Manch room is full.');
+      }
+      const seatIndex = players.length;
+      const colour = seatColours(Number(match.player_count))[seatIndex];
+      await client.query(
+        `INSERT INTO manch_match_players (match_id, user_id, seat_index, seat_colour)
+         VALUES ($1, $2, $3, $4)`,
+        [match.id, userId, seatIndex, colour],
+      );
+      const nextPlayers = await matchPlayers(client, String(match.id));
+      const active = nextPlayers.length === Number(match.player_count);
+      const updated = await client.query(
+        `UPDATE manch_matches
+            SET status = $1,
+                current_turn_user_id = CASE WHEN $1 = 'active' THEN host_user_id ELSE NULL END,
+                expires_at = CASE WHEN $1 = 'active' THEN NULL ELSE expires_at END,
+                state_version = state_version + 1, updated_at = NOW()
+          WHERE id = $2
+          RETURNING id, room_code AS "roomCode", player_count AS "playerCount",
+                    status, game_state AS "gameState",
+                    current_turn_user_id AS "currentTurnUserId",
+                    state_version AS "stateVersion"`,
+        [active ? 'active' : 'waiting', match.id],
+      );
+      if (active) {
+        await client.query(
+          `INSERT INTO manch_match_presence (match_id, user_id, last_seen_at)
+           SELECT $1, user_id, NOW() FROM manch_match_players WHERE match_id = $1
+           ON CONFLICT (match_id, user_id) DO NOTHING`,
+          [match.id],
+        );
+      }
+      await client.query(
+        `UPDATE manch_match_invites SET status = 'accepted', responded_at = NOW() WHERE id = $1`,
+        [inviteId],
+      );
+      await client.query('COMMIT');
+      return { match: { ...updated.rows[0], players: nextPlayers } };
+    } catch (error) {
+      await client.query('ROLLBACK').catch(() => undefined);
+      request.log.error({ err: error }, 'Could not accept Manch invitation');
+      return sendError(reply, 500, 'Could not accept Manch invitation.');
+    } finally {
+      client.release();
+    }
+  });
+
+  app.post('/api/v1/manch/invites/:id/decline', { onRequest: [requireMatchAuth] }, async (request: any, reply: any) => {
+    const userId = String(request.user?.sub ?? '');
+    const inviteId = String(request.params?.id ?? '');
+    if (!/^\\d+$/.test(inviteId) || !userId) return sendError(reply, 400, 'Invalid invitation id.');
+    const result = await pool.query(
+      `UPDATE manch_match_invites SET status = 'declined', responded_at = NOW()
+        WHERE id = $1 AND invitee_user_id = $2 AND status = 'pending' AND expires_at > NOW()
+        RETURNING id`,
+      [inviteId, userId],
+    );
+    if (!result.rowCount) return sendError(reply, 404, 'Pending Manch invitation not found.');
+    return { declined: true };
   });
 
   app.post('/api/v1/manch/matches/:id/presence', { onRequest: [requireMatchAuth] }, async (request: any, reply: any) => {
