@@ -329,6 +329,59 @@ void main() {
       expect(json['blockadesEnabled'], true);
       expect(json['extraRollOnCapture'], true);
     });
+    test('two, three and four player seat allocations are stable', () {
+      expect(
+        engine.newGame(playerCount: 2).players.map((p) => p.colour).toList(),
+        [ManchColour.red, ManchColour.yellow],
+      );
+      expect(
+        engine.newGame(playerCount: 3).players.map((p) => p.colour).toList(),
+        [ManchColour.red, ManchColour.green, ManchColour.yellow],
+      );
+      expect(
+        engine.newGame(playerCount: 4).players.map((p) => p.colour).toList(),
+        ManchColour.values,
+      );
+    });
+
+    test('each colour enters at its own fixed shared-track offset', () {
+      const starts = {
+        ManchColour.red: 0,
+        ManchColour.green: 13,
+        ManchColour.yellow: 26,
+        ManchColour.blue: 39,
+      };
+      final fourPlayers = engine.newGame(playerCount: 4);
+      for (var playerIndex = 0;
+          playerIndex < fourPlayers.players.length;
+          playerIndex++) {
+        final state = fourPlayers.copyWith(activePlayerIndex: playerIndex);
+        final entered = engine.move(engine.roll(state, 6), 0);
+        expect(
+          entered.players[playerIndex].tokens[0],
+          0,
+          reason: '${fourPlayers.players[playerIndex].colour} must enter at progress zero.',
+        );
+        expect(
+          starts[fourPlayers.players[playerIndex].colour],
+          [0, 13, 26, 39][playerIndex],
+        );
+      }
+    });
+
+    test('base profile does not lose a turn after three consecutive sixes', () {
+      var state = engine.newGame(playerCount: 2);
+      for (var roll = 0; roll < 3; roll++) {
+        state = engine.roll(state, 6);
+        expect(state.pendingDice, 6);
+        expect(state.consecutiveSixes, roll + 1);
+        state = engine.move(state, 0);
+        expect(state.activePlayerIndex, 0);
+      }
+      expect(state.players[0].tokens[0], 15);
+      expect(state.consecutiveSixes, 3);
+    });
+
   });
 
     test('a stacked pair is not captured as one exposed token', () {
