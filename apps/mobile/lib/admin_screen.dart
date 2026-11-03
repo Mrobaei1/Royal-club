@@ -56,6 +56,9 @@ class _AdminScreenState extends State<AdminScreen> {
   Map<String, dynamic> _smsSettings = {};
   Map<String, dynamic> _voiceSettings = {};
   bool _voiceRequestedEnabled = false;
+  final _manchGraceSeconds = TextEditingController(text: '30');
+  bool _manchDisconnectEnabled = true;
+  String _manchTakeoverMode = 'temporary_ai';
   String _voiceStorageMode = 'disabled';
   final _voiceEndpoint = TextEditingController();
   final _voiceBucket = TextEditingController();
@@ -99,6 +102,7 @@ class _AdminScreenState extends State<AdminScreen> {
     _notificationBody.dispose();
     _smsSender.dispose(); _smsTemplate.dispose(); _smsApiKey.dispose(); _smsTestPhone.dispose(); _smsTtl.dispose(); _smsCooldown.dispose(); _smsAttempts.dispose(); _smsDailyLimit.dispose();
     _voiceEndpoint.dispose(); _voiceBucket.dispose(); _voiceRegion.dispose(); _voiceAccessKey.dispose(); _voiceSecretKey.dispose();
+    _manchGraceSeconds.dispose();
     super.dispose();
   }
 
@@ -144,12 +148,61 @@ class _AdminScreenState extends State<AdminScreen> {
         if (mounted) setState(() => _customizationPricingAvailable = false);
       }
       await _loadAgentTaskProposals();
+      await _loadManchDisconnectPolicy();
     } catch (e) {
       if (mounted) setState(() { _loading = false; _error = appError(context, e); });
     }
   }
 
 
+
+  Future<void> _loadManchDisconnectPolicy() async {
+    try {
+      final policies = await AdminService.gameDisconnectPolicies();
+      final policy = policies.whereType<Map>().cast<Map>().firstWhere(
+        (item) => item['gameType'] == 'manch',
+        orElse: () => <String, dynamic>{},
+      );
+      if (!mounted || policy.isEmpty) return;
+      setState(() {
+        _manchDisconnectEnabled = policy['enabled'] == true;
+        _manchGraceSeconds.text = (policy['graceSeconds'] ?? 30).toString();
+        final mode = policy['takeoverMode']?.toString() ?? 'temporary_ai';
+        _manchTakeoverMode = ['temporary_ai', 'wait_until_game_end', 'disabled'].contains(mode)
+            ? mode : 'temporary_ai';
+      });
+    } catch (_) {
+      // The owner panel remains usable when this optional policy endpoint is unavailable.
+    }
+  }
+
+  Future<void> _saveManchDisconnectPolicy() async {
+    final grace = int.tryParse(_manchGraceSeconds.text.trim());
+    if (grace == null || grace < 5 || grace > 120) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(appText(context, 'مهلت قطع ارتباط باید بین ۵ تا ۱۲۰ ثانیه باشد.', 'Disconnect grace must be between 5 and 120 seconds.')),
+      ));
+      return;
+    }
+    setState(() => _busy = true);
+    try {
+      await AdminService.updateGameDisconnectPolicy(
+        'manch',
+        enabled: _manchDisconnectEnabled,
+        graceSeconds: grace,
+        takeoverMode: _manchTakeoverMode,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(appText(context, 'تنظیمات قطع ارتباط منچ ذخیره و ممیزی شد.', 'Manch disconnect policy saved and audited.')),
+        ));
+      }
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appError(context, error))));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
 
   Future<void> _saveVoiceMessageSettings() async {
     final duration = int.tryParse(_voiceSettings['maxDurationSeconds']?.toString() ?? '60') ?? 60;
@@ -1459,6 +1512,55 @@ class _AdminScreenState extends State<AdminScreen> {
                     style: const TextStyle(fontSize: 12, color: Colors.orange)),
                 ],
               ))),
+              const SizedBox(height: 22),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(appText(context, 'تنظیمات قطع ارتباط بازی منچ', 'Manch disconnect settings'),
+                        style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 6),
+                      Text(appText(context,
+                        'پس از پایان مهلت حضور بازیکن، سرور می‌تواند موقتاً یک حرکت قانونی را با AI انجام دهد. بازگشت بازیکن کنترل انسانی را بازیابی می‌کند.',
+                        'After a player presence lease expires, the server may perform legal turns temporarily with AI. The returning player regains human control.'),
+                        style: const TextStyle(fontSize: 12)),
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: Text(appText(context, 'فعال بودن سیاست قطع ارتباط', 'Enable disconnect policy')),
+                        value: _manchDisconnectEnabled,
+                        onChanged: _busy ? null : (value) => setState(() => _manchDisconnectEnabled = value),
+                      ),
+                      TextField(
+                        controller: _manchGraceSeconds,
+                        keyboardType: TextInputType.number,
+                        decoration: InputDecoration(
+                          labelText: appText(context, 'مهلت قطع ارتباط (۵ تا ۱۲۰ ثانیه)', 'Disconnect grace (5–120 seconds)'),
+                          border: const OutlineInputBorder(),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      DropdownButtonFormField<String>(
+                        initialValue: _manchTakeoverMode,
+                        decoration: InputDecoration(labelText: appText(context, 'رفتار هنگام قطع ارتباط', 'Disconnect behavior')),
+                        items: [
+                          DropdownMenuItem(value: 'temporary_ai', child: Text(appText(context, 'کنترل موقت AI', 'Temporary AI control'))),
+                          DropdownMenuItem(value: 'wait_until_game_end', child: Text(appText(context, 'انتظار تا پایان بازی', 'Wait until game ends'))),
+                          DropdownMenuItem(value: 'disabled', child: Text(appText(context, 'غیرفعال', 'Disabled'))),
+                        ],
+                        onChanged: _busy ? null : (value) => setState(() => _manchTakeoverMode = value ?? 'temporary_ai'),
+                      ),
+                      const SizedBox(height: 10),
+                      FilledButton.icon(
+                        onPressed: _busy ? null : _saveManchDisconnectPolicy,
+                        icon: const Icon(Icons.save_outlined),
+                        label: Text(appText(context, 'ذخیره سیاست منچ', 'Save Manch policy')),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
               const SizedBox(height: 22),
               Text(appText(context, 'مدیریت لیگ‌ها', 'League management'), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
               const SizedBox(height: 6),

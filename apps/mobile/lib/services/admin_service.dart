@@ -30,6 +30,17 @@ class AdminService {
     return decoded;
   }
 
+  static Future<List<dynamic>> gameDisconnectPolicies() async =>
+      (await _request('GET', '/api/v1/admin/game-disconnect-policies'))['policies'] as List<dynamic>? ?? [];
+
+  static Future<Map<String, dynamic>> updateGameDisconnectPolicy(
+    String gameType, {required bool enabled, required int graceSeconds, required String takeoverMode}
+  ) async => (await _request('PATCH', '/api/v1/admin/game-disconnect-policies/$gameType', body: {
+        'enabled': enabled,
+        'graceSeconds': graceSeconds,
+        'takeoverMode': takeoverMode,
+      }))['policy'] as Map<String, dynamic>;
+
   static Future<Map<String, dynamic>> voiceMessageSettings() async =>
       (await _request('GET', '/api/v1/admin/social/voice-messages'))['settings'] as Map<String, dynamic>;
 
