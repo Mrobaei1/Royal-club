@@ -31,6 +31,28 @@ This is a phase-level engineering acceptance record. It does not invent work-pac
 - Root validation run **41638382298**: **success**.
 - The room-manager suite now explicitly checks finished-match retention expiry, removal from room lookup, and release of the player's room membership.
 
+## Phase 5–7 follow-up work — 2026-11-03
+
+The following changes were added after the earlier phase evidence above. They are committed on the standalone feature branch; the corresponding CI runs are pending and these changes are not marked accepted until those runs pass.
+
+### Phase 5 — Flutter UI
+- The room/table remains visible while an acknowledged server action is in progress; a thin progress indicator and input lock replace the previous full-screen spinner.
+- The client remembers only the last room code locally and attempts authenticated room recovery after process restart or socket reconnection.
+- Saved room recovery is scoped to the public player ID; switching accounts clears the stale room reference. No access token, hand, or private game state is persisted locally.
+- Added unit tests for normalized room-code storage, account isolation and clearing.
+
+### Phase 6 — Security and authentication
+- Expanded PostgreSQL-backed integration coverage to reject a tampered HS256 signature.
+- Added a client identity-spoofing check: room creation ignores supplied username/user ID and uses the authenticated database profile.
+- Added a host-authorization check and explicit verification that one player's private hand is not delivered to the other player's socket.
+
+### Phase 7 — Storage and recovery
+- Added account-scoped local room reference persistence so a client can request server-side reconnect after app process restart.
+- Added SIGTERM/SIGINT graceful shutdown: disconnect clients, close Fastify, await queued snapshot writes, then release the PostgreSQL advisory lock and pool.
+- Integration coverage now asserts graceful shutdown before restarting the service and restoring the persisted room.
+
+Acceptance remains conditional on the latest UNO Standalone CI run. Physical two-device acceptance and owner approval for root-app integration remain release gates. These client/storage changes do not implement multi-instance persistence; the phase 2 advisory lock remains in place.
+
 ## Runtime hardening added 2026-11-03
 
 - `server.ts` acquires a PostgreSQL session advisory lock before reading room snapshots and holds it for the process lifetime; a competing instance fails fast. JWT secret length is validated before acquiring the lock.
