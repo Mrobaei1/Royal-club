@@ -19,6 +19,8 @@ class ChessGameScreen extends StatefulWidget {
     required this.onSendMessage,
     this.onOfferDraw,
     this.onResign,
+    this.onClaimDraw,
+    this.drawClaimable = false,
     this.pendingDrawOfferId,
     this.drawOfferedByOpponent = false,
     this.onRespondToDraw,
@@ -40,6 +42,8 @@ class ChessGameScreen extends StatefulWidget {
   final ValueChanged<String> onSendMessage;
   final VoidCallback? onOfferDraw;
   final VoidCallback? onResign;
+  final VoidCallback? onClaimDraw;
+  final bool drawClaimable;
   final String? pendingDrawOfferId;
   final bool drawOfferedByOpponent;
   final ValueChanged<bool>? onRespondToDraw;
@@ -233,10 +237,16 @@ class _ChessGameScreenState extends State<ChessGameScreen> {
               ),
             ),
           ),
-        if (widget.gameStatus == 'active' && (widget.onOfferDraw != null || widget.onResign != null))
+        if (widget.gameStatus == 'active' && (widget.onOfferDraw != null || widget.onResign != null || (widget.drawClaimable && widget.onClaimDraw != null)))
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
+              if (widget.drawClaimable && widget.onClaimDraw != null)
+                TextButton.icon(
+                  onPressed: widget.onClaimDraw,
+                  icon: const Icon(Icons.gavel_outlined),
+                  label: Text(fa ? 'اعلام مساوی' : 'Claim draw'),
+                ),
               if (widget.onOfferDraw != null)
                 TextButton.icon(
                   onPressed: widget.onOfferDraw,
