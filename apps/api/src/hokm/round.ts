@@ -21,9 +21,10 @@ function nextSeat(seat) {
  * Server-side round state machine. Keep this state on the authoritative server.
  * It deliberately returns sanitized views rather than exposing all hands.
  *
- * Assumptions: hakem receives the first five cards and chooses trump; after
- * declaration the remaining eight cards are dealt; hakem leads the first trick.
- * Regional dealing/early-finish rules should be confirmed before production.
+ * Approved Royal Club dealing rules: hakem receives the first five cards and
+ * chooses trump; after declaration the remaining eight cards are dealt; hakem
+ * leads the first trick. A hand ends when a team reaches seven tricks, or after
+ * all thirteen tricks if neither team has reached seven earlier.
  */
 export function createRound({ deck = shuffleDeck(createDeck()), hakemSeat = 0 } = {}) {
   assertSeat(hakemSeat);
