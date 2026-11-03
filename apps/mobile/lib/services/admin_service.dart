@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
@@ -5,6 +6,7 @@ import 'api_transport.dart';
 
 class AdminService {
   static const FlutterSecureStorage _storage = FlutterSecureStorage();
+  static const Duration _requestTimeout = Duration(seconds: 15);
 
   static Future<Map<String, String>> _headers() async {
     final token = await _storage.read(key: 'royal_club_token');
@@ -15,14 +17,23 @@ class AdminService {
   static Future<Map<String, dynamic>> _request(String method, String path, {Map<String, dynamic>? body}) async {
     final headers = await _headers();
     final uri = ApiTransport.uri(path);
-    final response = switch (method) {
-      'GET' => await http.get(uri, headers: headers),
-      'POST' => await http.post(uri, headers: headers, body: jsonEncode(body ?? {})),
-      'PATCH' => await http.patch(uri, headers: headers, body: jsonEncode(body ?? {})),
-      'DELETE' => await http.delete(uri, headers: headers),
-      _ => throw ArgumentError('Unsupported request method'),
-    };
-    final decoded = jsonDecode(response.body);
+    late final http.Response response;
+    try {
+      response = await (switch (method) {
+        'GET' => http.get(uri, headers: headers),
+        'POST' => http.post(uri, headers: headers, body: jsonEncode(body ?? {})),
+        'PATCH' => http.patch(uri, headers: headers, body: jsonEncode(body ?? {})),
+        'DELETE' => http.delete(uri, headers: headers),
+        _ => throw ArgumentError('Unsupported request method'),
+      }).timeout(_requestTimeout);
+    } on TimeoutException {
+      throw Exception('پاسخ سرور مدیریت بیش از حد طول کشید.');
+    } on http.ClientException {
+      throw Exception('اتصال به سرور مدیریت برقرار نشد.');
+    }
+    dynamic decoded;
+    try { decoded = jsonDecode(response.body); }
+    on FormatException { throw Exception('پاسخ سرور مدیریت قابل‌خواندن نیست.'); }
     if (decoded is! Map<String, dynamic>) throw Exception('پاسخ سرور نامعتبر است.');
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw Exception(decoded['error']?.toString() ?? 'درخواست ناموفق بود.');
