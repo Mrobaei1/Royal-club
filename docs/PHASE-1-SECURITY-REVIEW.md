@@ -51,3 +51,25 @@ This is a source/configuration review of the repository branch, not a penetratio
 - Production deployment, schema mutation, SMS activation, real SMS delivery, and privileged grant creation remain untouched and approval-gated.
 
 **Current decision remains Open.** The source-level controls and CI can be completed independently, but production security acceptance and manual device checks must remain explicit sign-off gates.
+
+## Follow-up evidence — 2026-11-04
+
+The following checks were completed after the earlier review. They supersede older observations only where explicitly stated.
+
+- **API request-log hardening is now merged to `main`.** PR #151 merged as `f39a718ead43b88b08c4ffbc683e11acab12be1b`. The change expands redaction to auth, cookie, API-key and proxy-authorization headers; excludes query strings and client IP addresses from request serialization; uses server-generated correlation IDs; validates `LOG_LEVEL`; and adds regression tests. The logging architecture document records these source-level boundaries. This does not prove that external host/provider logs are configured or redacted.
+- **Exact-head CI passed before merge:** API build/unit tests, API integration tests, Flutter analyze/tests, backgammon engine audit, and Web Preview all completed successfully for PR #151 head `6e48e1268a9313fb34d3939108dd911c247057b6`.
+- **Post-merge main verification passed** on `f39a718ead43b88b08c4ffbc683e11acab12be1b`: Royal Club validation, Validate Royal Club, and Web Preview completed successfully. The Production API Health workflow also passed both deployed `/api/v1/health` and `/api/v1/health/db` checks in run [41733596963](https://github.com/Mrobaei1/Royal-club/actions/runs/41733596963).
+- **Current read-only Neon metadata check:** project `Royal-Club-API`, production branch `br-misty-flower-bavs47dm`, active Neon Function deployment 81 (status `completed`). Its declared environment-variable names include `CORS_ORIGINS`, `DATABASE_URL`, `JWT_SECRET`, `NODE_ENV`, and `OWNER_USER_ID`. No secret values were read. This confirms the owner-ID variable is present in the active deployment, superseding the earlier missing-variable observation. It does not prove the owner ID's correctness or reveal/validate the configured CORS origin values.
+- **Network exposure:** the Neon project's allowed-IP list remains empty. Public connections are not blocked. No IP restrictions were changed. Whether an IP allowlist is compatible with the serverless hosting architecture still needs an explicit architecture review before any change.
+- **Database reachability:** the production API health workflow confirms database connectivity. The readiness record reports that all 33 live public table names matched the 33 CREATE TABLE declarations in the current API source; this is schema-name parity evidence, not proof of migration provenance or rollback readiness.
+- **Deployment provenance remains incomplete:** Neon metadata does not expose the bundled source commit SHA for deployment 81. The production health workflow proves endpoint/database responsiveness, not that deployment 81 contains the latest `main` source.
+
+## Remaining closure gates
+
+1. Review actual production `CORS_ORIGINS` and host secret/configuration settings through an authorized read-only workflow that never emits secret values; confirm the allowlist matches the intended web origins.
+2. Review host/provider access controls, runtime logs and retention/redaction outside the API process.
+3. Decide whether Neon IP allowlisting is feasible and beneficial for this serverless deployment; do not change network policy without owner approval and a rollback plan.
+4. Establish deployment provenance linking the active Neon Function deployment to a reviewed source commit.
+5. Complete owner-approved production security acceptance. No production secret/configuration, network, deployment, schema, SMS or paid-service changes were made as part of this follow-up.
+
+**Decision: still Open.** Source-level logging hardening and automated/post-merge API/database health checks are now evidenced, but the external host/network review, CORS value verification, deployment provenance and final owner acceptance remain outstanding. This is not a penetration test or a production security clearance.
