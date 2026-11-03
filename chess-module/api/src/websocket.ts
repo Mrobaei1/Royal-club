@@ -11,16 +11,17 @@ type Options = {
 };
 
 export function createPingRateLimiter(limit = 30, windowMs = 10_000, now: () => number = Date.now): () => boolean {
-  let windowStartedAt = now();
-  let count = 0;
+  if (!Number.isSafeInteger(limit) || limit < 1 || !Number.isFinite(windowMs) || windowMs <= 0) {
+    throw new RangeError("Ping rate-limit settings must be positive and finite.");
+  }
+  const timestamps: number[] = [];
   return () => {
     const current = now();
-    if (current - windowStartedAt >= windowMs) {
-      windowStartedAt = current;
-      count = 0;
-    }
-    count += 1;
-    return count <= limit;
+    // A sliding window prevents clients from doubling the allowance at a fixed-window boundary.
+    while (timestamps.length > 0 && timestamps[0] <= current - windowMs) timestamps.shift();
+    if (timestamps.length >= limit) return false;
+    timestamps.push(current);
+    return true;
   };
 }
 
