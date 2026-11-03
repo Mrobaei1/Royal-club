@@ -136,16 +136,36 @@ test('PostgreSQL-backed UNO service authenticates and restores live rooms', {
     });
     assert.equal(removedMediaEndpoint.status, 404);
 
+    const invalidTokenParts = hostToken.split('.');
+    invalidTokenParts[2] = `${invalidTokenParts[2]!.startsWith('A') ? 'B' : 'A'}${invalidTokenParts[2]!.slice(1)}`;
+    await assert.rejects(connectSocket(invalidTokenParts.join('.')), /UNAUTHORIZED|websocket error|xhr poll error/i);
+
     const host = await connectSocket(hostToken);
     const guest = await connectSocket(guestToken);
     sockets.push(host, guest);
-    const created = await emitAck(host, 'uno:room:create', {});
+    let hostHand: unknown[] = [];
+    let guestHand: unknown[] = [];
+    host.on('uno:game:hand', hand => { hostHand = hand as unknown[]; });
+    guest.on('uno:game:hand', hand => { guestHand = hand as unknown[]; });
+    const created = await emitAck(host, 'uno:room:create', { username: 'spoofed_name', userId: '999999' });
     assert.equal(created.ok, true);
+    const createdRoom = (created.data as Record<string, unknown>).room as { players: Array<{ id: string; username: string }> };
+    assert.deepEqual(createdRoom.players.map(player => ({ id: player.id, username: player.username })), [
+      { id: hostId, username: 'integration_host' },
+    ]);
     const code = String((created.data as Record<string, unknown>).code);
     assert.equal((await emitAck(guest, 'uno:room:join', { code })).ok, true);
+    const forbiddenHostChange = await emitAck(guest, 'uno:room:match-to-win', { code, rounds: 5 });
+    assert.equal(forbiddenHostChange.ok, false);
+    assert.equal((forbiddenHostChange.error as Record<string, unknown>).code, 'HOST_ONLY');
     assert.equal((await emitAck(host, 'uno:room:ready', { code, ready: true })).ok, true);
     assert.equal((await emitAck(guest, 'uno:room:ready', { code, ready: true })).ok, true);
     assert.equal((await emitAck(host, 'uno:room:start', { code })).ok, true);
+    assert.equal(hostHand.length, 7, 'host receives only the host private hand');
+    assert.equal(guestHand.length, 7, 'guest receives only the guest private hand');
+    const hostCardIds = new Set(hostHand.map(card => (card as { id: string }).id));
+    assert.equal(guestHand.some(card => hostCardIds.has((card as { id: string }).id)), false,
+      'private hands must not be broadcast to another player');
 
     host.disconnect();
     guest.disconnect();
