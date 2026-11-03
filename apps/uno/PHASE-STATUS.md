@@ -1,4 +1,4 @@
-# UNO phase status — 2026-11-02
+# UNO phase status — 2026-11-03
 
 This is a phase-level engineering acceptance record. It does not invent work-package IDs or weights: no audited UNO-specific package-weight table exists in the repository. The Royal Club-wide 53-package / 1,000-point WBS is not a UNO-only WBS.
 
@@ -16,12 +16,18 @@ This is a phase-level engineering acceptance record. It does not invent work-pac
 
 ## Verified CI evidence
 
-- UNO Standalone CI on the PR head: backend build/tests **success**, Flutter analyze/tests **success**, PostgreSQL/server integration **success**.
+- UNO Standalone CI run **175** on commit `825fe1422584a8704aa335605fbe52cc24796c25`: backend tests/build **success**, Flutter format/analyze/tests **success**, PostgreSQL/server integration **success**. The integration suite now verifies a second service process is rejected by the PostgreSQL advisory lock.
 - Backend suite: **65 tests, 64 passed, 0 failed, 1 skipped**.
 - PostgreSQL/server integration suite: **1 passed, 0 failed**.
 - Root API build/tests and API integration checks: **success**.
 - Root Flutter analyze/tests: **success**.
 - Existing backgammon regression workflow: **success**.
+
+## Runtime hardening added 2026-11-03
+
+- `server.ts` acquires a PostgreSQL session advisory lock before reading room snapshots and holds it for the process lifetime; a competing instance fails fast. JWT secret length is validated before acquiring the lock.
+- The integration test launches a competing process on a separate port and asserts it exits with the expected single-instance error.
+- This is a safe single-instance guard, not distributed room coordination or horizontal scaling. Per-room transactions and a shared Socket.IO adapter remain future work.
 
 ## Release gates not included in engineering percentages
 
