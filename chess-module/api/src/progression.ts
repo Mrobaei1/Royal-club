@@ -7,15 +7,17 @@ export type ChessResult = {
 export type Progression = { level: number; xp: number };
 
 export function levelUpCost(level: number): number {
-  if (!Number.isInteger(level) || level < 1) throw new RangeError("level must be a positive integer");
+  if (!Number.isSafeInteger(level) || level < 1) throw new RangeError("level must be a positive integer");
   return Math.round(300 + 5 * (level - 1) + 0.08 * (level - 1) ** 2);
 }
 
 export function nextProgression(current: Progression, delta: number): Progression {
-  if (!Number.isInteger(current.level) || current.level < 1 || !Number.isInteger(current.xp) || current.xp < 0 || !Number.isInteger(delta)) {
+  if (!Number.isSafeInteger(current.level) || current.level < 1 || !Number.isSafeInteger(current.xp) || current.xp < 0 || !Number.isSafeInteger(delta)) {
     throw new RangeError("invalid progression values");
   }
-  const xp = Math.max(0, current.xp + delta);
+  const nextXp = current.xp + delta;
+  if (!Number.isSafeInteger(nextXp)) throw new RangeError("progression XP exceeds the safe integer range");
+  const xp = Math.max(0, nextXp);
   let level = 1;
   let cumulativeThreshold = 0;
   while (xp >= cumulativeThreshold + levelUpCost(level)) {
