@@ -49,6 +49,7 @@ test("distinguishes claimable 50-move and threefold draws from automatic draws",
   const fifty = new ChessGame("4k3/8/8/8/8/8/8/R3K3 w - - 100 1").snapshot();
   assert.equal(fifty.draw, false);
   assert.equal(fifty.drawClaimable, true);
+  assert.equal(fifty.drawClaimReason, "fifty_move_rule");
   assert.equal(fifty.gameOver, false);
 
   const seventyFive = new ChessGame("4k3/8/8/8/8/8/8/R3K3 w - - 150 1").snapshot();
@@ -65,6 +66,7 @@ test("distinguishes claimable 50-move and threefold draws from automatic draws",
   }
   assert.equal(repetition.snapshot().draw, false);
   assert.equal(repetition.snapshot().drawClaimable, true);
+  assert.equal(repetition.snapshot().drawClaimReason, "threefold_repetition");
   assert.equal(repetition.snapshot().gameOver, false);
   assert.doesNotThrow(() => repetition.play({from:"g1",to:"f3"}));
 });
@@ -168,7 +170,7 @@ test("supports all promotion choices and preserves promoted piece in FEN", () =>
   }
 });
 
-test("handles repeated position cycles and restores full move history from PGN", () => {
+test("fivefold repetition is automatic and restores full move history from PGN", () => {
   const game = new ChessGame();
   for (let cycle = 0; cycle < 4; cycle++) {
     game.play({from: "g1", to: "f3"});
@@ -177,13 +179,15 @@ test("handles repeated position cycles and restores full move history from PGN",
     game.play({from: "f6", to: "g8"});
   }
   const snapshot = game.snapshot();
-  assert.equal(snapshot.draw, false);
-  assert.equal(snapshot.drawClaimable, true);
-  assert.equal(snapshot.gameOver, false);
+  assert.equal(snapshot.draw, true);
+  assert.equal(snapshot.drawClaimable, false);
+  assert.equal(snapshot.drawClaimReason, null);
+  assert.equal(snapshot.gameOver, true);
   const restored = new ChessGame(undefined, snapshot.pgn).snapshot();
   assert.equal(restored.fen, snapshot.fen);
-  assert.equal(restored.draw, false);
-  assert.equal(restored.drawClaimable, true);
+  assert.equal(restored.draw, true);
+  assert.equal(restored.drawClaimable, false);
+  assert.equal(restored.gameOver, true);
 });
 
 test("validates malformed FEN at construction and reports no legal moves after terminal position", () => {
