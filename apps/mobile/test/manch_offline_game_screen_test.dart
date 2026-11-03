@@ -24,7 +24,7 @@ void main() {
     expect(find.text('Roll die'), findsOneWidget);
     expect(
       tester.getSemantics(find.text('Roll the die to start your turn.'))
-          .hasFlag(SemanticsFlag.isLiveRegion),
+          .flagsCollection.isLiveRegion,
       isTrue,
     );
     expect(find.text('Save'), findsOneWidget);
