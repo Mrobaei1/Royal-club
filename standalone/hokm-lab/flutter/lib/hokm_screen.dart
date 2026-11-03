@@ -33,6 +33,12 @@ class _HokmScreenState extends State<HokmScreen> with WidgetsBindingObserver {
   int get _version => (_room?['version'] as num?)?.toInt() ?? 0;
   String get _status => (_room?['status'] ?? 'waiting').toString();
   bool get _host => _userId != null && _room?['hostUserId']?.toString() == _userId;
+  bool get _hostUnavailable {
+    final hostId = _room?['hostUserId']?.toString();
+    if (hostId == null) return false;
+    final hosts = _players.where((player) => player['userId']?.toString() == hostId).toList();
+    return hosts.isEmpty || hosts.first['connected'] != true || hosts.first['forfeited'] == true;
+  }
   List<Map<String, dynamic>> get _players {
     final list = _room?['players'];
     if (list is! List) return [];
@@ -537,7 +543,7 @@ class _HokmScreenState extends State<HokmScreen> with WidgetsBindingObserver {
           ]),
         ])),
       ],
-      if (_status == 'round_completed' && _host && _room?['handRevealUntil'] == null) ...[
+      if (_status == 'round_completed' && (_host || _hostUnavailable) && _room?['handRevealUntil'] == null) ...[
         const SizedBox(height: 10),
         FilledButton.icon(onPressed: _busy ? null : _nextRound,
           icon: const Icon(Icons.skip_next), label: Text(t('شروع دست بعدی', 'Start next hand'))),
