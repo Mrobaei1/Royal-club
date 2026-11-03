@@ -4,7 +4,7 @@ import {
   roomViewForUser, disconnectPlayer, reconnectPlayer, handleDisconnectTimeout,
   processTurnTimeout, processAllDisconnectedTimeout, voteToCancelMatch,
   cancelForUnrecoverableTechnicalFailure, submitMatchAppeal, reviewMatchAppeal,
-  submitCheatingReport, reviewCheatingReport
+  submitCheatingReport, reviewCheatingReport, sendOpponentChatMessage
 } from "./room.js";
 
 function authenticatedUser(principal) {
@@ -161,6 +161,14 @@ export class HokmRoomService {
     const userId = authenticatedUser(principal);
     return this.#transition(roomId, expectedVersion,
       room => voteToCancelMatch(room, userId, approve, expectedVersion), userId);
+  }
+
+  async sendChatMessage(principal, roomId, recipientUserId, text, messageId, expectedVersion) {
+    const senderUserId = authenticatedUser(principal);
+    return this.#transition(roomId, expectedVersion,
+      room => sendOpponentChatMessage(room, senderUserId, recipientUserId, {
+        messageId, text, now: this.now()
+      }), senderUserId);
   }
 
   async reportCheating(principal, roomId, reportedUserId, reason, expectedVersion) {
