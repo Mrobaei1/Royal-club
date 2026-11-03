@@ -40,6 +40,23 @@ test("isolated chess migrations apply cleanly against a bigint users schema", { 
       await db.query(sql);
     }
 
+    // A second complete pass proves the isolated migration set is safely repeatable.
+    for (const file of [
+      "001_chess_core.sql",
+      "002_realtime_notifications.sql",
+      "003_draws_and_ratings.sql",
+      "004_matchmaking_queue.sql",
+      "005_room_lifecycle.sql",
+      "006_admin_audit.sql",
+      "007_chat_rate_limit_index.sql",
+      "008_cancel_draws_on_terminal.sql",
+      "009_draw_offer_expiry.sql",
+      "010_presence_sessions.sql",
+    ]) {
+      const sql = await readFile(new URL(`../../database/migrations/${file}`, import.meta.url), "utf8");
+      await db.query(sql);
+    }
+
     const users = await db.query(
       "INSERT INTO users(username) VALUES ('white_test'),('black_test') RETURNING id"
     );
