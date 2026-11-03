@@ -95,7 +95,7 @@ class _UnoOnlineScreenState extends State<UnoOnlineScreen> {
       final room = Map<String, dynamic>.from(data as Map);
       setState(() => _room = room);
       _pendingRoomCode = room['code']?.toString();
-      if (_pendingRoomCode != null) await _sessionStore.saveRoomCode(_pendingRoomCode!);
+      if (_pendingRoomCode != null) await _sessionStore.saveRoomCode(_pendingRoomCode!, playerId: widget.playerId);
     });
     socket.on('uno:game:state', (data) {
       if (!mounted) return;
@@ -119,7 +119,7 @@ class _UnoOnlineScreenState extends State<UnoOnlineScreen> {
 
   Future<void> _loadSavedRoom() async {
     try {
-      final code = await _sessionStore.readRoomCode();
+      final code = await _sessionStore.readRoomCode(widget.playerId);
       if (!mounted || code == null) return;
       _pendingRoomCode = code;
       if (_socket?.connected == true) await _restoreRoom(code);
@@ -132,7 +132,7 @@ class _UnoOnlineScreenState extends State<UnoOnlineScreen> {
     try {
       final result = await _emit('uno:room:reconnect', {'code': code});
       if (result['ok'] != true || !mounted) {
-        if (result['error'] is Map && (result['error'] as Map)['code'] == 'ROOM_NOT_FOUND') {
+        if (result['error'] is Map && ['ROOM_NOT_FOUND', 'NOT_A_PLAYER'].contains((result['error'] as Map)['code'])) {
           await _sessionStore.clearRoomCode();
           _pendingRoomCode = null;
         }
