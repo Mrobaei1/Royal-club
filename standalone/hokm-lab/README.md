@@ -86,3 +86,5 @@ Do not describe this module as complete until the remaining acceptance criteria 
 
 
 Latest validation trigger: terminal-state privacy regression (completed/cancelled round and reveal suppression), manager-review navigation, private-chat UI assertions, and live PostgreSQL chat/report persistence.
+
+Validation note: the host-handoff regression test now calls the public `nextRound` API method.
