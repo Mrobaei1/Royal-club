@@ -28,6 +28,10 @@ async function rollback(client:PoolClient){try{await client.query("ROLLBACK");}c
 async function publishGameEvent(pool:Pool,gameId:string|number,event:object):Promise<void>{
   await pool.query("SELECT pg_notify($1,$2)",["chess_game_"+String(gameId),JSON.stringify(event)]);
 }
+async function publishCommittedGameState(pool:Pool,gameId:string|number,request:FastifyRequest,reason:string):Promise<void>{
+  try{await publishGameEvent(pool,gameId,{type:"state"});}
+  catch(error){request.log.warn({err:error},reason);}
+}
 
 export async function registerChessRoutes(app:FastifyInstance,options:RouteOptions):Promise<void>{
   const {pool}=options;
@@ -215,6 +219,7 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
         await client.query("UPDATE chess_rooms SET status='finished' WHERE id=$1",[row.room_id]);
                 await awardChessResult(client,String(row.id),"final_result",white,black,{outcome:"win",winnerId:winner,loserId:winner===white?black:white});
         await client.query("COMMIT");
+        await publishCommittedGameState(pool,row.id,request,"chess move timeout state notification failed");
         return fail(reply,409,"clock_expired");
       }
       const played=game.play(request.body);
@@ -315,6 +320,7 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
         await client.query("UPDATE chess_rooms SET status='finished' WHERE id=$1",[row.room_id]);
                 await awardChessResult(client,String(row.id),"final_result",white,black,{outcome:"win",winnerId:timeoutWinner,loserId:timeoutWinner===white?black:white});
         await client.query("COMMIT");
+        await publishCommittedGameState(pool,row.id,request,"chess resignation timeout state notification failed");
         return fail(reply,409,"clock_expired");
       }
       const winner=playerId===white?black:white;
@@ -324,6 +330,7 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
       await client.query("UPDATE chess_rooms SET status='finished' WHERE id=$1",[row.room_id]);
             await awardChessResult(client,String(row.id),"final_result",white,black,{outcome:"resignation",winnerId:winner,loserId:playerId});
       await client.query("COMMIT");
+      await publishCommittedGameState(pool,row.id,request,"chess resignation state notification failed");
       return {status,winnerId:winner};
     }catch(error){await rollback(client);request.log.error(error);return fail(reply,500,"chess_resign_failed");}
     finally{client.release();}
@@ -363,6 +370,7 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
         await client.query("UPDATE chess_rooms SET status='finished' WHERE id=$1",[row.room_id]);
         await awardChessResult(client,String(row.id),"final_result",white,black,{outcome:"win",winnerId:winner,loserId:winner===white?black:white});
         await client.query("COMMIT");
+        await publishCommittedGameState(pool,row.id,request,"chess draw-claim timeout state notification failed");
         return fail(reply,409,"clock_expired");
       }
       const cancelledOffers=await client.query(
@@ -557,6 +565,7 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
         await client.query("UPDATE chess_rooms SET status='finished' WHERE id=$1",[row.room_id]);
                 await awardChessResult(client,String(row.id),"final_result",white,black,{outcome:"win",winnerId:winner,loserId:winner===white?black:white});
         await client.query("COMMIT");
+        await publishCommittedGameState(pool,row.id,request,"chess draw-offer timeout state notification failed");
         return fail(reply,409,"clock_expired");
       }
       // Expired offers must not block a fresh offer if the background expiry sweep
@@ -600,6 +609,7 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
         await client.query("UPDATE chess_rooms SET status='finished' WHERE id=$1",[row.room_id]);
                 await awardChessResult(client,String(row.id),"final_result",white,black,{outcome:"win",winnerId:winner,loserId:winner===white?black:white});
         await client.query("COMMIT");
+        await publishCommittedGameState(pool,row.id,request,"chess draw-response timeout state notification failed");
         return fail(reply,409,"clock_expired");
       }
       const offer=await client.query("SELECT * FROM chess_draw_offers WHERE id=$1 AND game_id=$2 AND status='pending' AND expires_at>NOW() FOR UPDATE",[request.params.offerId,row.id]);
@@ -611,6 +621,7 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
         await client.query("UPDATE chess_rooms SET status='finished' WHERE id=$1",[row.room_id]);
                 await awardChessResult(client,String(row.id),"final_result",white,black,{outcome:"draw",winnerId:null,loserId:null});
         await client.query("COMMIT");
+        await publishCommittedGameState(pool,row.id,request,"chess accepted-draw state notification failed");
         try{
           await publishGameEvent(pool,row.id,{type:"draw_response",offerId:String(offer.rows[0].id),status:"accepted"});
         }catch(error){request.log.warn({err:error},"chess draw acceptance notification failed");}
@@ -659,6 +670,7 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
       await client.query("UPDATE chess_rooms SET status='finished' WHERE id=$1",[row.room_id]);
             await awardChessResult(client,String(row.id),"final_result",white,black,{outcome:"win",winnerId:winner,loserId:winner===white?black:white});
       await client.query("COMMIT");
+      await publishCommittedGameState(pool,row.id,request,"chess manual timeout state notification failed");
       return {adjudicated:true,status:terminal,winnerId:winner,clock:frozen};
     }catch(error){
       await rollback(client);
