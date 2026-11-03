@@ -347,7 +347,7 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
       let claimState=currentState;
       if(request.body?.move!==undefined){
         try{claimState=game.play(request.body.move);}
-        catch(error){
+        catch{
           await client.query("ROLLBACK");
           const message=error instanceof Error?error.message:"";
           return fail(reply,400,"invalid_claim_move");
