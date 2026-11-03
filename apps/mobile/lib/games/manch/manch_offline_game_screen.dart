@@ -47,11 +47,12 @@ class _ManchOfflineGameScreenState extends State<ManchOfflineGameScreen> {
   late ManchGameState _state;
   int? _lastDice;
   bool _matchStarted = false;
-  String _message = _text('برای شروع نوبت، تاس را بینداز.', 'Roll the die to start your turn.');
+  String _message = 'برای شروع نوبت، تاس را بینداز.';
 
   @override
   void initState() {
     super.initState();
+    _message = _text('برای شروع نوبت، تاس را بینداز.', 'Roll the die to start your turn.');
     _state = _engine.newGame(
       playerCount: widget.playerCount,
       profile: widget.profile,
@@ -160,7 +161,7 @@ class _ManchOfflineGameScreenState extends State<ManchOfflineGameScreen> {
       await _saveStore.save(_state);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text(_text('بازی ذخیره شد.', 'Game saved.'))),
+        SnackBar(content: Text(_text('بازی ذخیره شد.', 'Game saved.'))),
       );
     } catch (error) {
       if (!mounted) return;
