@@ -14,6 +14,7 @@ test("independent Stockfish perft agrees with adapter and reference legal moves 
   const positions = [
     "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
     "r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1",
+    "r3k2r/p1ppqpb1/bn2pnp1/2pP4/1p2P3/2N2N2/PPQBBPPP/R3K2R w KQkq - 0 1",
     "rnbqkbnr/1pp1pppp/p7/3pP3/8/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 3",
     "7k/P7/8/8/8/8/8/7K w - - 0 1",
     "k3r3/8/8/8/8/8/4R3/4K3 w - - 0 1",
@@ -38,6 +39,8 @@ test("independent Stockfish perft agrees with adapter and reference legal moves 
     ...positions.flatMap((fen) => [`position fen ${fen}`, "go perft 2"]),
     "position startpos",
     "go perft 3",
+    "position fen r3k2r/p1ppqpb1/bn2pnp1/2pP4/1p2P3/2N2N2/PPQBBPPP/R3K2R w KQkq - 0 1",
+    "go perft 3",
     "quit",
   ].join("\n") + "\n";
   const result = spawnSync(stockfishPath!, [], {
@@ -49,7 +52,7 @@ test("independent Stockfish perft agrees with adapter and reference legal moves 
   assert.equal(result.error, undefined, result.error?.message);
   assert.equal(result.status, 0, result.stderr);
   const sections = result.stdout.split(/Nodes searched:\s*\d+/i);
-  assert.equal(sections.length - 1, positions.length + 1, result.stdout);
+  assert.equal(sections.length - 1, positions.length + 2, result.stdout);
 
   positions.forEach((fen, index) => {
     const expectedLegal = new ChessGame(fen).snapshot().legalMoves.sort();
@@ -81,6 +84,8 @@ test("independent Stockfish perft agrees with adapter and reference legal moves 
   });
 
   const totals = [...result.stdout.matchAll(/Nodes searched:\s*(\d+)/g)];
-  const initialPositionPerft3 = Number(totals.at(-1)?.[1]);
+  const initialPositionPerft3 = Number(totals.at(-2)?.[1]);
+  const kiwipetePerft3 = Number(totals.at(-1)?.[1]);
   assert.equal(initialPositionPerft3, 8902, "standard initial-position perft-3 must equal 8,902");
+  assert.equal(kiwipetePerft3, 97862, "standard Kiwipete perft-3 must equal 97,862");
 });
