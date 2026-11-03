@@ -2,7 +2,7 @@
 
 | Area | Automated coverage | Remaining acceptance |
 |---|---|---|
-| Legal chess | Engine unit tests for ordinary/illegal moves, castling, en passant, all promotion choices, checkmate, stalemate, repetition, 50/75-move and insufficient material; malformed/impossible FEN rejection; deterministic differential fuzzing across 48 seeds and up to 250 plies per seed | Remaining rare FEN edge cases and external engine cross-validation |
+| Legal chess | Engine unit tests for ordinary/illegal moves, castling, en passant, all promotion choices, checkmate, stalemate, repetition, 50/75-move and insufficient material; malformed/impossible FEN rejection; deterministic differential fuzzing across 48 seeds (40 seeds up to 250 plies; 8 seeds up to 100 plies) | Remaining rare FEN edge cases and external engine cross-validation |
 | Time controls | Defaults, active-player decrement/increment, automatic scheduler with concurrent PostgreSQL sweeps, timeout adjudication and duplicate-run idempotency, row-lock adjudication, concurrent move-vs-timeout integration race test and reconnect snapshot API | Physical-device reconnect acceptance and broader multi-instance stress testing |
 | Progression | Cost curve, cumulative thresholds, permanent levels, zero floor, win/draw/resignation deltas, PostgreSQL XP/Elo awards and duplicate-result idempotency | Broader progression and rating acceptance |
 | Room level gate | Unit and PostgreSQL route tests cover minimum-level rejection, host cancellation and self-join rejection | Multi-account adversarial and concurrent admission acceptance |
