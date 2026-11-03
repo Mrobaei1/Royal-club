@@ -98,6 +98,22 @@ const roomCleanupTimer = setInterval(() => {
 roomCleanupTimer.unref();
 const port = Number(process.env.PORT ?? 4100);
 const host = process.env.HOST ?? '0.0.0.0';
+let shutdownStarted = false;
+const gracefulShutdown = async (signal: string) => {
+  if (shutdownStarted) return;
+  shutdownStarted = true;
+  app.log.info(`Received ${signal}; closing UNO service gracefully`);
+  io.disconnectSockets(true);
+  try {
+    await app.close();
+  } catch (error) {
+    app.log.error(error, 'Graceful UNO shutdown failed');
+    process.exitCode = 1;
+  }
+};
+process.once('SIGTERM', () => { void gracefulShutdown('SIGTERM'); });
+process.once('SIGINT', () => { void gracefulShutdown('SIGINT'); });
+
 app.addHook('onClose', async () => {
   clearInterval(roomCleanupTimer);
   await roomWriteQueue.catch(error => app.log.error(error));
