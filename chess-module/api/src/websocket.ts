@@ -89,8 +89,14 @@ export async function registerChessWebSocket(app: FastifyInstance, options: Opti
       const allowPing = createPingRateLimiter();
       socket.on("message", (raw) => {
         let message: {type?:string; clientTime?:number};
-        try { message = JSON.parse(raw.toString()) as {type?:string;clientTime?:number}; }
+        let parsed: unknown;
+        try { parsed = JSON.parse(raw.toString()) as unknown; }
         catch { socket.close(1008, "invalid_json"); return; }
+        if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
+          socket.close(1008, "invalid_json");
+          return;
+        }
+        message = parsed as {type?:string;clientTime?:number};
         if (message.type === "ping") {
           if (!allowPing()) {
             socket.close(1008, "rate_limited");
