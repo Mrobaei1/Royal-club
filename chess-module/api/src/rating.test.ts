@@ -35,3 +35,10 @@ test("Elo rejects invalid ratings and K factors", () => {
   assert.throws(() => calculateEloPair({white:1200,black:1200}, "draw", 0));
   assert.throws(() => calculateEloPair({white:Number.NaN,black:1200}, "draw"));
 });
+
+test("ratings remain inside the PostgreSQL integer range",()=>{
+  const maximum = 2_147_483_647;
+  assert.equal(calculateEloPair({white:maximum,black:1200},"white_win").white,maximum);
+  assert.throws(() => calculateEloPair({white:maximum+1,black:1200},"draw"));
+  assert.throws(() => calculateEloPair({white:Number.MAX_SAFE_INTEGER+1,black:1200},"draw"));
+});
