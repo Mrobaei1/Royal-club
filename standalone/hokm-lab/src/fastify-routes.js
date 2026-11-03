@@ -70,6 +70,10 @@ export async function registerHokmRoutes(fastify, { service, authenticate }) {
   route(fastify, authenticate, "POST", "/hokm/rooms/:roomId/cancel-vote", request =>
     service.voteCancel(request.auth, request.params.roomId, request.body?.approve, request.body?.expectedVersion));
 
+  route(fastify, authenticate, "POST", "/hokm/rooms/:roomId/chat", request =>
+    service.sendChatMessage(request.auth, request.params.roomId, request.body?.recipientUserId,
+      request.body?.text, request.body?.messageId, request.body?.expectedVersion));
+
   route(fastify, authenticate, "POST", "/hokm/rooms/:roomId/reports", request =>
     service.reportCheating(request.auth, request.params.roomId, request.body?.reportedUserId,
       request.body?.reason, request.body?.expectedVersion));
