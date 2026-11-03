@@ -94,8 +94,6 @@ class _UnoOnlineScreenState extends State<UnoOnlineScreen> {
       if (!mounted) return;
       final room = Map<String, dynamic>.from(data as Map);
       setState(() => _room = room);
-      _pendingRoomCode = room['code']?.toString();
-      if (_pendingRoomCode != null) await _sessionStore.saveRoomCode(_pendingRoomCode!, playerId: widget.playerId);
     });
     socket.on('uno:game:state', (data) {
       if (!mounted) return;
@@ -141,6 +139,10 @@ class _UnoOnlineScreenState extends State<UnoOnlineScreen> {
       final data = Map<String, dynamic>.from(result['data'] as Map);
       final room = Map<String, dynamic>.from(data['room'] as Map);
       setState(() => _room = room);
+      _pendingRoomCode = room['code']?.toString();
+      if (_pendingRoomCode != null) {
+        await _sessionStore.saveRoomCode(_pendingRoomCode!, playerId: widget.playerId);
+      }
       if (data['game'] is Map) {
         setState(() => _game = Map<String, dynamic>.from(data['game'] as Map));
         if (data['hand'] is List) setState(() => _hand = List<dynamic>.from(data['hand'] as List));
