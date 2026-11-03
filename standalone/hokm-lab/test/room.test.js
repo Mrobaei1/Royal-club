@@ -345,4 +345,7 @@ test("opposing-team text chat is private, bounded, idempotent and excludes teamm
   assert.deepEqual(roomViewForUser(room, "u0").chatMessages.map(message => message.messageId), ["chat-1"]);
   assert.deepEqual(roomViewForUser(room, "u1").chatMessages.map(message => message.messageId), ["chat-1"]);
   assert.deepEqual(roomViewForUser(room, "u2").chatMessages, []);
+  const completed = { ...room, status: "completed" };
+  assert.deepEqual(roomViewForUser(completed, "u0").chatMessages, [],
+    "completed-match views should expose the final result, not chat history");
 });
