@@ -120,9 +120,7 @@ void main() {
         await request.response.flush();
         await Future<void>.delayed(const Duration(seconds: 2));
         try {
-          request.response
-            ..statusCode = HttpStatus.ok
-            ..write(jsonEncode({'status': 'too_late'}));
+          request.response.write(jsonEncode({'status': 'too_late'}));
           await request.response.close();
         } on HttpException {
           // The client has already aborted the timed-out response.
