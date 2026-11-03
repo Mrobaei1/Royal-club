@@ -25,6 +25,8 @@ void main() {
       ),
     ));
 
+    expect(find.text('In-game voice'), findsNothing);
+    expect(find.text('میکروفون در بازی'), findsNothing);
     await tester.tap(find.text('Create private room'));
     await tester.pumpAndSettle();
     expect(created, isTrue);
