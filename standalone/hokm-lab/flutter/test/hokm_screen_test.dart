@@ -197,6 +197,22 @@ void main() {
   });
 
 
+  testWidgets('manager can confirm or dismiss a result appeal', (tester) async {
+    final api = FakeHokmApi();
+    await tester.pumpWidget(MaterialApp(
+      locale: const Locale('en'),
+      supportedLocales: const [Locale('fa'), Locale('en')],
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
+      home: HokmManagerReviewScreen(api: api, roomId: 'room-1'),
+    ));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 20));
+    await tester.tap(find.text('Confirm'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 20));
+    expect(api.appealReviewCalls, 1);
+  });
+
   testWidgets('player can create a room and share its code', (tester) async {
     tester.view.physicalSize = const Size(1200, 1800);
     tester.view.devicePixelRatio = 1;
