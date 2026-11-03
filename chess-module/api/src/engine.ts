@@ -50,7 +50,7 @@ export class ChessGame {
   }
 
   private positionKey(fen: string): string {
-    return fen.trim().split(/\\s+/).slice(0, 4).join(" ");
+    return fen.trim().split(/\s+/).slice(0, 4).join(" ");
   }
 
   private incrementCurrentPosition(): void {
