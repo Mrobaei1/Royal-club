@@ -381,7 +381,8 @@ class _ManchOnlineGameScreenState extends State<ManchOnlineGameScreen> {
       final rawState = match['gameState'];
       if (rawState is! Map) throw Exception('وضعیت بازی از سرور ناقص است.');
       final state = ManchGameState.fromJson(Map<String, Object?>.from(rawState));
-      if (!mounted) return;
+      final incomingVersion = (match['stateVersion'] as num?)?.toInt() ?? 0;
+      if (!mounted || incomingVersion < _stateVersion) return;
       setState(() {
         _state = state;
         _players = (match['players'] as List? ?? const [])
@@ -389,7 +390,7 @@ class _ManchOnlineGameScreenState extends State<ManchOnlineGameScreen> {
             .map((player) => Map<String, dynamic>.from(player))
             .toList();
         _currentTurnUserId = match['currentTurnUserId']?.toString();
-        _stateVersion = (match['stateVersion'] as num?)?.toInt() ?? 0;
+        _stateVersion = incomingVersion;
         _matchStatus = match['status']?.toString() ?? 'active';
         _winnerUserId = match['winnerUserId']?.toString();
         _finishReason = match['finishReason']?.toString();
