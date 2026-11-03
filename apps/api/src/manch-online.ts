@@ -576,6 +576,22 @@ export function registerManchRoutes(app: any, pool: Pool, requireMatchAuth: any)
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
+      // Lock order is always match first, then invitation. Invitation creation
+      // already locks the match; this prevents an invite/accept deadlock.
+      const lookup = await client.query(
+        'SELECT match_id FROM manch_match_invites WHERE id = $1 AND invitee_user_id = $2',
+        [inviteId, userId],
+      );
+      if (!lookup.rowCount) {
+        await client.query('ROLLBACK');
+        return sendError(reply, 404, 'Invitation not found.');
+      }
+      const matchResult = await client.query(
+        `SELECT id, player_count, status, expires_at
+           FROM manch_matches WHERE id = $1 FOR UPDATE`,
+        [lookup.rows[0].match_id],
+      );
+      const match = matchResult.rows[0];
       const inviteResult = await client.query(
         `SELECT id, match_id, inviter_user_id, status, expires_at
            FROM manch_match_invites WHERE id = $1 AND invitee_user_id = $2 FOR UPDATE`,
@@ -596,11 +612,6 @@ export function registerManchRoutes(app: any, pool: Pool, requireMatchAuth: any)
         await client.query('COMMIT');
         return sendError(reply, 410, 'Manch invitation has expired or was already answered.');
       }
-      const matchResult = await client.query(
-        `SELECT id, player_count, status, expires_at FROM manch_matches WHERE id = $1 FOR UPDATE`,
-        [invite.match_id],
-      );
-      const match = matchResult.rows[0];
       if (!match || match.status !== 'waiting' || !match.expires_at ||
           new Date(match.expires_at).getTime() <= Date.now()) {
         await client.query(
@@ -662,6 +673,11 @@ export function registerManchRoutes(app: any, pool: Pool, requireMatchAuth: any)
            SELECT $1, user_id, NOW() FROM manch_match_players WHERE match_id = $1
            ON CONFLICT (match_id, user_id) DO NOTHING`,
           [match.id],
+        );
+        await client.query(
+          `UPDATE manch_match_invites SET status = 'cancelled', responded_at = NOW()
+            WHERE match_id = $1 AND status = 'pending' AND id <> $2`,
+          [match.id, inviteId],
         );
       }
       await client.query(
