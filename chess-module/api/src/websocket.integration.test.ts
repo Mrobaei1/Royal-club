@@ -109,6 +109,7 @@ test("WebSocket presence remains online until the player's last device disconnec
   const poolOptions = {
     connectionString: databaseUrl,
     options: `-c search_path=${schema},public`,
+    max: 4,
     connectionTimeoutMillis: 3_000,
     query_timeout: 5_000,
     statement_timeout: 5_000,
