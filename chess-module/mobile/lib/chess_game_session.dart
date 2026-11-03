@@ -80,16 +80,18 @@ class ChessGameSession extends ChangeNotifier {
   Future<void> refresh() async {
     if (_disposed) return;
     final generation = ++_refreshGeneration;
+    final previousStatus = game?['status'] as String?;
     final gameResult = await api.game(gameId);
+    final becameTerminal = previousStatus == 'active' && gameResult['status'] != 'active';
     final players = gameResult['players'] as Map<String, dynamic>;
     final whiteName = players['white']?['username'] as String? ?? '';
     final blackName = players['black']?['username'] as String? ?? '';
     final results = await Future.wait<dynamic>([
       api.chatHistory(gameId),
       api.pendingDrawOffer(gameId),
-      if (whiteName.isNotEmpty && (whiteProfile == null || _whiteProfileUsername != whiteName))
+      if (whiteName.isNotEmpty && (whiteProfile == null || _whiteProfileUsername != whiteName || becameTerminal))
         api.playerProfileByUsername(whiteName) else Future.value(null),
-      if (blackName.isNotEmpty && (blackProfile == null || _blackProfileUsername != blackName))
+      if (blackName.isNotEmpty && (blackProfile == null || _blackProfileUsername != blackName || becameTerminal))
         api.playerProfileByUsername(blackName) else Future.value(null),
     ]);
     if (_disposed || generation != _refreshGeneration) return;
