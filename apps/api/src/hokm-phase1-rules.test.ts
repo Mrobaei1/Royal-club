@@ -5,9 +5,10 @@ import {
   resolveTrick, scoreTricks, teamForSeat
 } from './hokm/engine.js';
 import { createRound, chooseTrump, playCard, roundViewForSeat } from './hokm/round.js';
+import { chooseHardBotAction } from './hokm/bot.js';
 import {
   createRoom, joinRoom, setPlayerReady, startRoom, voteToCancelMatch,
-  processAllDisconnectedTimeout, disconnectPlayer, TURN_DEADLINE_MS,
+  processAllDisconnectedTimeout, processTurnTimeout, disconnectPlayer, TURN_DEADLINE_MS,
   END_OF_HAND_REVEAL_MS, ALL_PLAYERS_DISCONNECTED_MS
 } from './hokm/room.js';
 
@@ -153,4 +154,55 @@ test('phase-one timing constants match the approved 7s, 3s and 20s rules', () =>
   assert.equal(TURN_DEADLINE_MS, 7_000);
   assert.equal(END_OF_HAND_REVEAL_MS, 3_000);
   assert.equal(ALL_PLAYERS_DISCONNECTED_MS, 20_000);
+});
+
+
+test('automatic trump selection uses the approved suit-count plus high-rank heuristic', () => {
+  const state = {
+    phase: 'choose_trump', hakemSeat: 0,
+    hands: [[
+      { suit: 'clubs', rank: 'A' }, { suit: 'clubs', rank: 'K' },
+      { suit: 'clubs', rank: '2' }, { suit: 'hearts', rank: 'A' },
+      { suit: 'spades', rank: 'Q' }
+    ], [], [], []],
+    currentTrick: [], trickWinners: []
+  };
+  const action = chooseHardBotAction(state, 0);
+  assert.equal(action.type, 'choose_trump');
+  assert.equal(action.suit, 'clubs');
+  assert.equal(action.difficulty, 'hard');
+  assert.throws(() => chooseHardBotAction(state, 1), /hakem bot/);
+});
+
+test('seven-second trump timeout applies the fixed Hard trump-selection rule', () => {
+  const players = fourPlayers();
+  let room = createRoom({ roomId: 'rules-trump-timeout', hostUserId: players[0], now: 10 });
+  for (const id of players.slice(1)) room = joinRoom(room, id, 11);
+  for (const id of players) room = setPlayerReady(room, id, true);
+  room = startRoom(room, players[0], { now: 12, rng: () => 0.1 });
+  const timedOut = processTurnTimeout(room, {
+    now: room.turnDeadlineAt, expectedVersion: room.version, rng: () => 0
+  });
+  assert.equal(timedOut.round.phase, 'playing');
+  assert.ok(SUITS.includes(timedOut.round.trumpSuit));
+  assert.equal(timedOut.round.hands.every(hand => hand.length === 13), true);
+  assert.equal(timedOut.turnDeadlineAt, room.turnDeadlineAt + TURN_DEADLINE_MS);
+});
+
+test('seven-second card timeout chooses only from the active seat legal cards', () => {
+  const players = fourPlayers();
+  let room = createRoom({ roomId: 'rules-card-timeout', hostUserId: players[0], now: 20 });
+  for (const id of players.slice(1)) room = joinRoom(room, id, 21);
+  for (const id of players) room = setPlayerReady(room, id, true);
+  room = startRoom(room, players[0], { now: 22, rng: () => 0.1 });
+  room = { ...room, round: chooseTrump(room.round, 0, 'hearts') };
+  const beforeHand = room.round.hands[0];
+  const legal = legalCards(beforeHand, []);
+  const timedOut = processTurnTimeout(room, {
+    now: room.turnDeadlineAt, expectedVersion: room.version, rng: () => 0
+  });
+  assert.equal(timedOut.round.currentTrick.length, 1);
+  assert.ok(legal.some(card => card.rank === timedOut.round.currentTrick[0].card.rank &&
+    card.suit === timedOut.round.currentTrick[0].card.suit));
+  assert.equal(timedOut.round.hands[0].length, 12);
 });
