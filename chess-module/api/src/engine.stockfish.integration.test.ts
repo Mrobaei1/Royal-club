@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { existsSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { Chess } from "chess.js";
+import { ChessGame } from "./engine.js";
 
 const stockfishPath = process.env.STOCKFISH_PATH;
 
@@ -49,10 +50,7 @@ test("independent Stockfish perft agrees with adapter legal moves across edge an
   assert.equal(sections.length - 1, positions.length, result.stdout);
 
   positions.forEach((fen, index) => {
-    const adapter = new Chess(fen);
-    const expected = adapter.moves({ verbose: true })
-      .map((move) => `${move.from}${move.to}${move.promotion ?? ""}`)
-      .sort();
+    const expected = new ChessGame(fen).snapshot().legalMoves.sort();
     const actual = [...(sections[index]!.match(
       /^[a-h][1-8][a-h][1-8][qrbn]?:\s+\d+$/gm,
     ) ?? [])]
