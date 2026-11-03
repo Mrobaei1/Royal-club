@@ -147,6 +147,31 @@ void main() {
     );
   });
 
+  testWidgets('bot difficulty locks after the first roll and move', (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: ManchOfflineGameScreen(
+          botPlayers: {ManchColour.yellow},
+          diceRoller: _six,
+        ),
+      ),
+    );
+
+    final selector = find.byType(DropdownButton<ManchBotDifficulty>);
+    expect(tester.widget<DropdownButton<ManchBotDifficulty>>(selector).onChanged,
+        isNotNull);
+
+    await tester.ensureVisible(find.text('انداختن تاس'));
+    await tester.tap(find.text('انداختن تاس'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.textContaining('مهره 1:'));
+    await tester.tap(find.textContaining('مهره 1:'));
+    await tester.pumpAndSettle();
+
+    expect(tester.widget<DropdownButton<ManchBotDifficulty>>(selector).onChanged,
+        isNull);
+  });
+
   testWidgets('configured bot plays its turn and returns control to human',
       (tester) async {
     var rollCount = 0;
