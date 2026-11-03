@@ -32,8 +32,17 @@ The following are explicit release or future-scale gates, not hidden engineering
 
 Weighted completion = sum(package weight × package completion) / 100.
 
-Current engineering implementation score on this defined baseline: **100/100** after the latest code change is accepted by the required CI. Until that new commit's CI completes successfully, the previous verified head is green but the new head is pending; the score must be treated as **provisional**.
+Current engineering implementation score on this defined baseline: **100/100**. The latest head `ad8866b30e534f471731701904040b2dc8ddd36f` passed UNO Standalone CI (backend, Flutter and PostgreSQL integration), root Flutter/API validation, API integration, backgammon regression and web-preview build. The preview deployment job was skipped; production was not deployed.
 
 ## Release readiness is tracked separately
 
 Engineering WBS completion is not equivalent to release approval. Release remains **not accepted** until the two-device physical test is recorded and the owner separately authorizes any root-app integration, production deployment/migration, and APK build. No such actions are implied by this WBS.
+
+
+## Explicit non-scored gates and limitations
+
+These are not silently counted as completed:
+- Two-device Android physical acceptance: pending tester execution and evidence.
+- Six-player physical end-to-end acceptance: pending tester execution and evidence.
+- Multi-instance operation: not implemented. A PostgreSQL advisory lock deliberately enforces one active service instance; see `DISTRIBUTED-ROOM-ARCHITECTURE.md`.
+- Root-app integration, production deployment/migration/secrets and APK generation: not authorized and not performed.
