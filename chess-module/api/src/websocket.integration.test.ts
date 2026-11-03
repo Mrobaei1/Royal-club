@@ -303,6 +303,21 @@ test("WebSocket presence remains online until the player's last device disconnec
       m.type === "chess:state" && m.revision === 1 && typeof m.fen === "string" && m.fen.includes(" b "),
     );
     assert.equal(restoredState.status, "active");
+    // WebSocket frames above the documented 16 KiB cap must be rejected.
+    const oversizedSocket = await connect(wsUrl, white);
+    sockets.push(oversizedSocket);
+    await waitForMessage(oversizedSocket, m => m.type === "chess:connected");
+    const oversizedClose = new Promise<{ code: number; reason: string }>((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error("oversized WebSocket payload was not rejected")), 4_000);
+      oversizedSocket.once("close", (code, reason) => {
+        clearTimeout(timer);
+        resolve({ code, reason: reason.toString() });
+      });
+    });
+    oversizedSocket.send(JSON.stringify({ type: "ping", padding: "x".repeat(17 * 1024) }));
+    const oversizedResult = await oversizedClose;
+    assert.equal(oversizedResult.code, 1009, "payloads over 16 KiB must close with message-too-big");
+
     // A successful ping/pong proves the inbound message handler is attached.
     const readyPong = waitForMessage(reconnectedWhite, m => m.type === "chess:pong" && m.clientTime === 0);
     reconnectedWhite.send(JSON.stringify({ type: "ping", clientTime: 0 }));
