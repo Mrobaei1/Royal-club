@@ -129,7 +129,7 @@ class _HokmScreenState extends State<HokmScreen> with WidgetsBindingObserver {
 
   void _showError(Object error) {
     if (!mounted) return;
-    setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
+    setState(() => _error = appError(context, error));
   }
 
   Future<void> _refresh() async {
@@ -174,6 +174,19 @@ class _HokmScreenState extends State<HokmScreen> with WidgetsBindingObserver {
       _run(() => _api.sendCommand(_roomId, {'type': 'play_card', 'card': card}, _version));
   Future<void> _trump(String suit) =>
       _run(() => _api.sendCommand(_roomId, {'type': 'choose_trump', 'suit': suit}, _version));
+
+  Future<void> _exitTemporarily() async {
+    if (_roomId.isEmpty || _busy) return;
+    _background = true;
+    try {
+      final room = await _api.disconnect(_roomId, _version);
+      _accept(room);
+      if (mounted) await Navigator.maybePop(context);
+    } catch (error) {
+      _background = false;
+      _showError(error);
+    }
+  }
 
   Future<void> _leave() async {
     if (_roomId.isEmpty) return;
@@ -464,10 +477,8 @@ class _HokmScreenState extends State<HokmScreen> with WidgetsBindingObserver {
       const SizedBox(height: 10),
       OutlinedButton.icon(onPressed: _busy ? null : _cancelVote,
         icon: const Icon(Icons.cancel_outlined), label: Text(t('درخواست لغو مسابقه', 'Request cancellation'))),
-      OutlinedButton(onPressed: _busy ? null : () async {
-        try { _accept(await _api.disconnect(_roomId, _version)); } catch (error) { _showError(error); }
-        if (mounted) Navigator.maybePop(context);
-      }, child: Text(t('خروج موقت از بازی', 'Leave temporarily'))),
+      OutlinedButton(onPressed: _busy ? null : _exitTemporarily,
+        child: Text(t('خروج موقت از بازی', 'Leave temporarily'))),
     ]);
   }
 }
