@@ -218,6 +218,7 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
       const row=result.rows[0];
       if(!row||row.status!=="active"){await client.query("ROLLBACK");return fail(reply,404,"active_game_not_found");}
       const white=String(row.white_user_id),black=String(row.black_user_id);
+      if(playerId!==white&&playerId!==black){await client.query("ROLLBACK");return fail(reply,403,"not_a_player");}
       const game=new ChessGame(row.initial_fen, row.pgn);
       const before=game.snapshot();
       const expected=before.turn==="w"?white:black;
