@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { legalCards } from "../src/engine.js";
-import { createRoom, joinRoom, leaveRoom, setPlayerReady, startRoom, expireRoom, roomViewForUser, applyRoomCommand, startNextRound, recordMatchForfeit, disconnectPlayer, reconnectPlayer, handleDisconnectTimeout, processAllDisconnectedTimeout, ALL_PLAYERS_DISCONNECTED_MS } from "../src/room.js";
+import { createRoom, joinRoom, leaveRoom, setPlayerReady, startRoom, expireRoom, roomViewForUser, applyRoomCommand, startNextRound, recordMatchForfeit, disconnectPlayer, reconnectPlayer, handleDisconnectTimeout, processAllDisconnectedTimeout, ALL_PLAYERS_DISCONNECTED_MS, sendOpponentChatMessage } from "../src/room.js";
 
 function fullReadyRoom(now = 1000, matchTarget = 7) {
   let room = createRoom({ roomId: "test-room", hostUserId: "u0", now, matchTarget });
@@ -319,4 +319,30 @@ test("all-four-disconnected cancellation also runs during the hand reveal", () =
   });
   assert.equal(cancelled.status, "cancelled");
   assert.equal(cancelled.cancelReason, "all_players_disconnected");
+});
+
+
+test("opposing-team text chat is private, bounded, idempotent and excludes teammates", () => {
+  let room = startRoom(fullReadyRoom(), "u0", { now: 2000, rng: () => 0 });
+  room = sendOpponentChatMessage(room, "u0", "u1", {
+    messageId: "chat-1", text: "  سلام 👋  ", now: 2100
+  });
+  assert.equal(room.chatMessages.length, 1);
+  assert.equal(room.chatMessages[0].text, "سلام 👋");
+  assert.equal(room.version, 3);
+  assert.equal(sendOpponentChatMessage(room, "u0", "u1", {
+    messageId: "chat-1", text: "سلام 👋", now: 2200
+  }), room, "same message ID and content must be idempotent");
+  assert.throws(() => sendOpponentChatMessage(room, "u0", "u1", {
+    messageId: "chat-1", text: "different", now: 2200
+  }), /already used/);
+  assert.throws(() => sendOpponentChatMessage(room, "u0", "u2", {
+    messageId: "chat-2", text: "teammate", now: 2200
+  }), /opposing-team/);
+  assert.throws(() => sendOpponentChatMessage(room, "u0", "outsider", {
+    messageId: "chat-3", text: "outsider", now: 2200
+  }), /belong to this match/);
+  assert.deepEqual(roomViewForUser(room, "u0").chatMessages.map(message => message.messageId), ["chat-1"]);
+  assert.deepEqual(roomViewForUser(room, "u1").chatMessages.map(message => message.messageId), ["chat-1"]);
+  assert.deepEqual(roomViewForUser(room, "u2").chatMessages, []);
 });
