@@ -183,7 +183,7 @@ class _UnoOnlineScreenState extends State<UnoOnlineScreen> {
           _drawnCardId = null;
           _messages.clear();
         });
-        if (_pendingRoomCode != null) await _sessionStore.saveRoomCode(_pendingRoomCode!);
+        if (_pendingRoomCode != null) await _sessionStore.saveRoomCode(_pendingRoomCode!, playerId: widget.playerId);
       }
       if (event == 'uno:room:leave') {
         setState(() {
