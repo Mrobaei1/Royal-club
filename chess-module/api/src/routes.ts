@@ -38,7 +38,7 @@ async function publishCommittedGameState(pool:Pool,gameId:string|number,request:
 export async function registerChessRoutes(app:FastifyInstance,options:RouteOptions):Promise<void>{
   const {pool}=options;
   const isPositivePgBigint = (value: unknown): value is string =>
-    typeof value === "string" && /^[1-9]\\d{0,18}$/.test(value) && BigInt(value) <= 9_223_372_036_854_775_807n;
+    typeof value === "string" && /^[1-9]\d{0,18}$/.test(value) && BigInt(value) <= 9_223_372_036_854_775_807n;
   const gameRouteOptions = () => ({
     preHandler: [
       options.authenticate,
