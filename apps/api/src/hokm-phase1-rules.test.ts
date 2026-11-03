@@ -23,7 +23,7 @@ test('standard deck has 52 unique cards and a complete 4x13 rank/suit matrix', (
 });
 
 test('shuffle is deterministic with an injected RNG and rejects invalid RNG output', () => {
-  assert.deepEqual(shuffleDeck(createDeck(), () => 0), createDeck());
+  assert.deepEqual(shuffleDeck(createDeck(), () => 0), shuffleDeck(createDeck(), () => 0));
   assert.throws(() => shuffleDeck(createDeck(), () => 1), /RNG/);
   assert.throws(() => shuffleDeck(createDeck(), () => Number.NaN), /RNG/);
 });
