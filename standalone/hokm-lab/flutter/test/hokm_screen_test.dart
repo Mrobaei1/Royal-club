@@ -265,6 +265,33 @@ void main() {
     expect(api.nextRoundCalls, 1);
   });
 
+  testWidgets('host-provided manager access opens the review screen from the game app', (tester) async {
+    tester.view.physicalSize = const Size(1200, 1800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final api = FakeHokmApi();
+    await tester.pumpWidget(MaterialApp(
+      locale: const Locale('en'),
+      supportedLocales: const [Locale('fa'), Locale('en')],
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
+      home: HokmScreen(
+        api: api,
+        identityLoader: () async => 'u1',
+        managerAccess: true,
+      ),
+    ));
+    await tester.pump();
+    await tester.tap(find.text('Create Hokm room'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 20));
+    await tester.tap(find.byTooltip('Manager review'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 20));
+    expect(api.managerCalls, 1);
+    expect(find.text('Cheating reports (1)'), findsOneWidget);
+  });
+
   testWidgets('player can create a room and share its code', (tester) async {
     tester.view.physicalSize = const Size(1200, 1800);
     tester.view.devicePixelRatio = 1;
