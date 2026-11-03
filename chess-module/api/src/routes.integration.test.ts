@@ -95,6 +95,21 @@ test("authenticated chess routes support private game, draw, chat, profiles and 
     assert.equal(malformedIdentity.statusCode, 401);
     assert.equal(malformedIdentity.json().error, "unauthorized");
 
+    const invalidGameId = await app.inject({
+      method: "GET",
+      url: "/chess/games/not-a-number",
+      headers: { "x-user-id": white },
+    });
+    assert.equal(invalidGameId.statusCode, 400);
+    assert.equal(invalidGameId.json().error, "invalid_game_id");
+    const overflowingGameId = await app.inject({
+      method: "GET",
+      url: "/chess/games/9223372036854775808",
+      headers: { "x-user-id": white },
+    });
+    assert.equal(overflowingGameId.statusCode, 400);
+    assert.equal(overflowingGameId.json().error, "invalid_game_id");
+
     type TestResponse = { statusCode: number; body: string; json: () => any };
     const request = async (
       userId: string,
