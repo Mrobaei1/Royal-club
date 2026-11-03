@@ -7,6 +7,8 @@ import {
 import { createRound, chooseTrump, playCard, roundViewForSeat } from './hokm/round.js';
 import { chooseHardBotAction } from './hokm/bot.js';
 import { xpRequiredForNextLevel, totalXpForLevel, levelForXp, applyXpChange, awardCompletedMatch, penalizeMatchLeaver } from './hokm/progression.js';
+import { InMemoryRoomRepository, HokmRoomService } from './hokm/service.js';
+import { HokmDeadlineScheduler } from './hokm/deadline-scheduler.js';
 import {
   createRoom, joinRoom, setPlayerReady, startRoom, voteToCancelMatch,
   processAllDisconnectedTimeout, processTurnTimeout, disconnectPlayer, reconnectPlayer, handleDisconnectTimeout, roomViewForUser, startNextRound, TURN_DEADLINE_MS,
@@ -339,4 +341,28 @@ test('disconnect and reconnect remain available during the end-of-hand reveal wi
   room = reconnectPlayer(room, players[0], { now: 11500, expectedVersion: room.version });
   assert.equal(room.players[0].connected, true);
   assert.equal(room.allDisconnectedDeadline, null);
+});
+
+
+test('deadline scheduler discovers a due room and advances its timed-out trump selection', async () => {
+  let now = 20000;
+  let nextId = 0;
+  const repository = new InMemoryRoomRepository();
+  const service = new HokmRoomService({ repository, now: () => now, id: () => `scheduler-room-${++nextId}` });
+  const players = fourPlayers().map(userId => ({ authenticated: true, userId, role: 'player' }));
+  let room = await service.create(players[0], { matchTarget: 3 });
+  const roomId = room.roomId;
+  for (const player of players.slice(1)) room = await service.join(player, roomId, room.version);
+  for (const player of players) room = await service.ready(player, roomId, true, room.version);
+  room = await service.start(players[0], roomId, room.version);
+  now = room.turnDeadlineAt;
+  const scheduler = new HokmDeadlineScheduler({ service, repository, now: () => now, intervalMs: 250 });
+  const poll = await scheduler.pollOnce();
+  assert.equal(poll.discovered, 1);
+  assert.equal(poll.processed, 1);
+  assert.equal(poll.failed, 0);
+  const persisted = await repository.get(roomId);
+  assert.equal(persisted.round.phase, 'playing');
+  assert.ok(SUITS.includes(persisted.round.trumpSuit));
+  assert.ok(persisted.turnDeadlineAt > now);
 });
