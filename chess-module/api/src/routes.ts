@@ -623,9 +623,10 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
         [playerId]
       );
       if(waitingRoom.rowCount){await client.query("ROLLBACK");return fail(reply,409,"waiting_room_already_exists");}
-      const ownLevelResult=await client.query("SELECT level FROM chess_player_progression WHERE user_id=$1",[playerId]);
-      const ownLevel=Number(ownLevelResult.rows[0]?.level??1);
-      if(ownLevel<minOpponentLevel){await client.query("ROLLBACK");return fail(reply,403,"minimum_chess_level_required");}
+      // minOpponentLevel constrains the opponent, not the requesting player's own level.
+      // The reciprocal check below admits this player only when their level meets
+      // the queued opponent's minimum, while the query requires the opponent to
+      // meet this player's requested minimum.
       const controlResult=await client.query("SELECT id,display_name,base_ms,increment_ms,enabled FROM chess_time_controls WHERE id=$1 AND enabled=true",[timeControlId]);
       const controlRow=controlResult.rows[0];
       if(!controlRow){await client.query("ROLLBACK");return fail(reply,400,"time_control_unavailable");}
