@@ -47,7 +47,7 @@ test("authenticated chess routes support private game, draw, chat, profiles and 
     }
 
     const users = await pool.query(
-      "INSERT INTO users(username) VALUES ('route_white'),('route_black'),('queue_one'),('queue_two'),('queue_cancel'),('concurrent_room_host'),('race_room_host'),('race_guest_one'),('race_guest_two'),('claim_white'),('claim_black') RETURNING id,username"
+      "INSERT INTO users(username) VALUES ('route_white'),('route_black'),('queue_one'),('queue_two'),('queue_cancel'),('concurrent_room_host'),('race_room_host'),('race_guest_one'),('race_guest_two'),('claim_white'),('claim_black'),('claim_timeout_white'),('claim_timeout_black') RETURNING id,username"
     );
     const ids = users.rows.map(row => String(row.id));
     const white = ids[0]!;
@@ -58,6 +58,8 @@ test("authenticated chess routes support private game, draw, chat, profiles and 
     const concurrentRoomHost = ids[5]!;
     const claimWhite = ids[9]!;
     const claimBlack = ids[10]!;
+    const claimTimeoutWhite = ids[11]!;
+    const claimTimeoutBlack = ids[12]!;
 
     await registerChessRoutes(app, {
       pool,
@@ -297,6 +299,34 @@ test("authenticated chess routes support private game, draw, chat, profiles and 
     const repetitionClaim = await request(claimWhite, "POST", `/chess/games/${repetitionGameId}/claim-draw`);
     assert.equal(repetitionClaim.statusCode, 200, repetitionClaim.body);
     assert.deepEqual(repetitionClaim.json(), {status:"draw",reason:"threefold_repetition"});
+
+    const claimTimeoutRoom = await request(claimTimeoutWhite, "POST", "/chess/rooms", {
+      timeControlId: "rapid", minOpponentLevel: 1, chatEnabled: true,
+    });
+    assert.equal(claimTimeoutRoom.statusCode, 201, claimTimeoutRoom.body);
+    const claimTimeoutJoin = await request(claimTimeoutBlack, "POST", `/chess/rooms/${claimTimeoutRoom.json().roomCode}/join`);
+    assert.equal(claimTimeoutJoin.statusCode, 201, claimTimeoutJoin.body);
+    const claimTimeoutGameId = claimTimeoutJoin.json().gameId as string;
+    const claimTimeoutFen = "4k3/8/8/8/8/8/8/R3K3 w - - 100 1";
+    const claimTimeoutNow = Date.now();
+    await pool.query(
+      "UPDATE chess_games SET initial_fen=$2,current_fen=$2,pgn='',clock_snapshot=jsonb_set(jsonb_set(clock_snapshot,'{whiteMs}','1'::jsonb),'{lastStartedAt}',to_jsonb($3::bigint)) WHERE id=$1",
+      [claimTimeoutGameId, claimTimeoutFen, claimTimeoutNow - 5000],
+    );
+    const expiredClockClaim = await request(claimTimeoutWhite, "POST", `/chess/games/${claimTimeoutGameId}/claim-draw`);
+    assert.equal(expiredClockClaim.statusCode, 409);
+    assert.equal(expiredClockClaim.json().error, "clock_expired");
+    const claimTimeoutResult = await pool.query(
+      "SELECT status,clock_snapshot->>'finished' AS finished FROM chess_games WHERE id=$1",
+      [claimTimeoutGameId],
+    );
+    assert.equal(claimTimeoutResult.rows[0].status, "black_win");
+    assert.equal(claimTimeoutResult.rows[0].finished, "true");
+    const claimTimeoutAwards = await pool.query(
+      "SELECT xp_delta FROM chess_progression_events WHERE game_id=$1 AND event_key='final_result' ORDER BY user_id",
+      [claimTimeoutGameId],
+    );
+    assert.deepEqual(claimTimeoutAwards.rows.map(row => Number(row.xp_delta)), [5, 20]);
 
     const malformedChat = await request(white, "POST", `/chess/games/${gameId}/chat`, { message: { text: "not a string" } });
     assert.equal(malformedChat.statusCode, 400);
