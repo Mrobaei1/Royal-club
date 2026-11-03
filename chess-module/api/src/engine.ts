@@ -19,12 +19,14 @@ export class ChessGame {
   constructor(fen?: string, pgn?: string) {
     // chess.js 1.4 validates FEN in its constructor; it does not expose
     // Chess.validateFen as a static API.
+    let parsedGame: Chess;
     try {
-      this.game = fen === undefined ? new Chess() : new Chess(fen);
+      parsedGame = fen === undefined ? new Chess() : new Chess(fen);
     } catch (error) {
       const detail = error instanceof Error ? error.message : "invalid position";
       throw new Error(`invalid_fen:${detail}`);
     }
+    this.game = parsedGame;
     // Replaying the stored PGN restores repetition history; FEN alone cannot.
     if (pgn?.trim()) this.game.loadPgn(pgn);
   }
