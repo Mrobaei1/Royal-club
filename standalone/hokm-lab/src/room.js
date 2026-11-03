@@ -322,8 +322,11 @@ export function roomViewForUser(room, userId, { now = Date.now() } = {}) {
   requireNow(now);
   const player = room.players.find(candidate => candidate.userId === userId);
   if (!player) throw new Error("User is not a member of this room");
-  const revealActive = Number.isFinite(room.handRevealUntil) && now < room.handRevealUntil && Array.isArray(room.revealedHands);
-  const game = room.round && room.status !== "completed" ? roundViewForSeat(room.round, player.seat) : null;
+  const matchStillActive = !["completed", "cancelled", "expired"].includes(room.status);
+  const revealActive = matchStillActive &&
+    ["playing", "round_completed"].includes(room.status) &&
+    Number.isFinite(room.handRevealUntil) && now < room.handRevealUntil && Array.isArray(room.revealedHands);
+  const game = room.round && matchStillActive ? roundViewForSeat(room.round, player.seat) : null;
   return Object.freeze({
     roomId: room.roomId, privateRoom: room.privateRoom, status: room.status,
     matchTarget: room.matchTarget, matchScore: [...room.matchScore], version: room.version,
