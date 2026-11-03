@@ -286,3 +286,26 @@ test('disconnected seat is taken over by Hard bot after grace and can later reco
   assert.equal(room.players[0].botControlled, false);
   assert.equal(room.players[0].temporaryBot, false);
 });
+
+
+test('initial hakem is selected across all four seats', () => {
+  const players = fourPlayers();
+  let room = createRoom({ roomId: 'random-hakem', hostUserId: players[0], now: 8000 });
+  for (const id of players.slice(1)) room = joinRoom(room, id, 8001);
+  for (const id of players) room = setPlayerReady(room, id, true);
+  room = startRoom(room, players[0], { now: 8002, rng: () => 0.75 });
+  assert.equal(room.round.hakemSeat, 3);
+  assert.equal(room.round.currentSeat, 3);
+});
+
+test('next hand advances the hakem seat clockwise', () => {
+  const players = fourPlayers();
+  let room = createRoom({ roomId: 'next-hakem', hostUserId: players[0], now: 9000 });
+  for (const id of players.slice(1)) room = joinRoom(room, id, 9001);
+  for (const id of players) room = setPlayerReady(room, id, true);
+  room = startRoom(room, players[0], { now: 9002, rng: () => 0.75 });
+  room = { ...room, status: 'round_completed', round: { ...room.round, phase: 'completed' }, handRevealUntil: 0 };
+  room = startNextRound(room, players[0], { now: 9003, rng: () => 0 });
+  assert.equal(room.round.hakemSeat, 0);
+  assert.equal(room.round.currentSeat, 0);
+});
