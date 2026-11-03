@@ -14,7 +14,7 @@ test("independent Stockfish perft agrees with adapter and reference legal moves 
   const positions = [
     "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
     "r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1",
-    "r3k2r/p1ppqpb1/bn2pnp1/2pP4/1p2P3/2N2N2/PPQBBPPP/R3K2R w KQkq - 0 1",
+    "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1",
     "rnbqkbnr/1pp1pppp/p7/3pP3/8/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 3",
     "7k/P7/8/8/8/8/8/7K w - - 0 1",
     "k3r3/8/8/8/8/8/4R3/4K3 w - - 0 1",
@@ -39,7 +39,7 @@ test("independent Stockfish perft agrees with adapter and reference legal moves 
     ...positions.flatMap((fen) => [`position fen ${fen}`, "go perft 2"]),
     "position startpos",
     "go perft 3",
-    "position fen r3k2r/p1ppqpb1/bn2pnp1/2pP4/1p2P3/2N2N2/PPQBBPPP/R3K2R w KQkq - 0 1",
+    "position fen r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1",
     "go perft 3",
     "quit",
   ].join("\n") + "\n";
