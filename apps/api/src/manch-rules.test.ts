@@ -175,6 +175,31 @@ test('rejects malformed state and illegal moves without mutating the source', ()
   assert.deepEqual(legalManchMoves(malformed), []);
 });
 
+test('requires completed-token and winner/active-seat invariants to agree', () => {
+  const base = createManchGame(['red', 'green']);
+  const completedPlayer: ManchPlayerState = {
+    colour: 'red',
+    tokens: [57, 57, 57, 57],
+  };
+  const completedWithoutWinner: ManchGameState = {
+    ...base,
+    players: [completedPlayer, base.players[1]],
+  };
+  assert.equal(isValidManchState(completedWithoutWinner), false);
+
+  const validWinner: ManchGameState = {
+    ...completedWithoutWinner,
+    winnerIndex: 0,
+    activePlayerIndex: 0,
+  };
+  assert.equal(isValidManchState(validWinner), true);
+
+  assert.equal(
+    isValidManchState({ ...validWinner, activePlayerIndex: 1 }),
+    false,
+  );
+});
+
 test('round-trips the full versioned state through JSON', () => {
   const state = createManchGame(['red', 'yellow']);
   const restored = JSON.parse(JSON.stringify(state)) as ManchGameState;
