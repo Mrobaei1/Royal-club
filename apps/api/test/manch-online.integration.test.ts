@@ -469,6 +469,17 @@ test('Manch temporary AI takes one overdue turn and reconnect restores human con
       last_ai_action_at = NULL WHERE match_id = $1 AND user_id = $2`,
     [matchId, host.user.id],
   );
+  const outsider = await register('Manch AI Outsider');
+  const unauthorizedHeartbeat = await app.inject({
+    method: 'POST', url: `/api/v1/manch/matches/${matchId}/presence`,
+    headers: auth(outsider.accessToken), payload: {},
+  });
+  assert.equal(unauthorizedHeartbeat.statusCode, 403);
+  const versionAfterUnauthorized = await testPool.query(
+    'SELECT state_version FROM manch_matches WHERE id = $1', [matchId],
+  );
+  assert.equal(Number(versionAfterUnauthorized.rows[0].state_version), initialVersion,
+    'A non-player must not trigger an AI action.');
 
   const aiAdvanced = await app.inject({
     method: 'GET', url: `/api/v1/manch/matches/${matchId}`,

@@ -450,6 +450,13 @@ export function registerManchRoutes(app: any, pool: Pool, requireMatchAuth: any)
     const userId = String(request.user?.sub ?? '');
     const id = String(request.params?.id ?? '');
     if (!/^\d+$/.test(id) || !userId) return sendError(reply, 400, 'Invalid match identifier.');
+    const membership = await pool.query(
+      'SELECT 1 FROM manch_match_players WHERE match_id = $1 AND user_id = $2',
+      [id, userId],
+    );
+    if (!membership.rowCount) {
+      return sendError(reply, 403, 'You are not a player in this Manch match.');
+    }
     await processTemporaryManchAiTurn(pool, id);
     const result = await pool.query(
       `INSERT INTO manch_match_presence (match_id, user_id, last_seen_at, last_ai_action_at)
