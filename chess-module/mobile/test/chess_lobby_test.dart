@@ -13,11 +13,10 @@ void main() {
     await tester.pumpWidget(MaterialApp(
       home: ChessLobbyScreen(
         timeControls: controls,
-        onCreateRoom: (id, level, chat, voice) async {
+        onCreateRoom: (id, level, chat) async {
           expect(id, 'rapid');
           expect(level, 1);
           expect(chat, isTrue);
-          expect(voice, isFalse);
           created = true;
         },
         onJoinRoom: (_) async {},
