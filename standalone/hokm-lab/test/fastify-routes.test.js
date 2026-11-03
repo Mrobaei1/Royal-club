@@ -22,10 +22,10 @@ test("Fastify adapter registers authenticated room endpoints", async () => {
     view: async () => ({}), join: async () => ({}), ready: async () => ({}),
     start: async () => ({}), command: async () => ({}), disconnect: async () => ({}), reconnect: async () => ({}),
     leave: async () => ({}), voteCancel: async () => ({}), sendChatMessage: async () => ({}), reportCheating: async () => ({}),
-    submitAppeal: async () => ({}), reviewCheating: async () => ({}), reviewAppeal: async () => ({})
+    submitAppeal: async () => ({}), managerView: async () => ({}), reviewCheating: async () => ({}), reviewAppeal: async () => ({})
   };
   await registerHokmRoutes(fastify, { service, authenticate });
-  assert.equal(fastify.routes.length, 16);
+  assert.equal(fastify.routes.length, 17);
   assert.ok(fastify.routes.every(route => route.preHandler === authenticate));
   assert.ok(fastify.routes.some(route => route.url === "/hokm/rooms/:roomId/command"));
 });
@@ -109,4 +109,25 @@ test("private chat endpoint forwards verified identity, recipient, message ID an
   }, reply);
   assert.deepEqual(received, ["verified-sender", "room-1", "opponent", "سلام", "m-1", 7]);
   assert.equal(reply.status, 200);
+});
+
+
+test("manager review endpoint is authenticated and delegates to the manager-only projection", async () => {
+  const fastify = fakeFastify();
+  let principal;
+  const service = {
+    managerView: async (auth, roomId) => { principal = auth; return { roomId }; }
+  };
+  const authenticate = async () => {};
+  await registerHokmRoutes(fastify, { service, authenticate });
+  const route = fastify.routes.find(item => item.method === "GET" && item.url.endsWith("/manager"));
+  assert.ok(route);
+  assert.equal(route.preHandler, authenticate);
+  const reply = replyRecorder();
+  await route.handler({
+    auth: { authenticated: true, userId: "manager-1", role: "manager" },
+    params: { roomId: "r1" }
+  }, reply);
+  assert.equal(principal.userId, "manager-1");
+  assert.deepEqual(reply.payload, { roomId: "r1" });
 });
