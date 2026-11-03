@@ -13,6 +13,9 @@ All WebSocket connections are authenticated by the account JWT and scoped to a g
 
 ## WebSocket client → server
 - `ping: {type:"ping"}`; server replies with `chess:pong`.
+- Ping is limited to 30 messages per connection in any rolling 10-second window.
+- Maximum inbound WebSocket payload is 16 KiB.
+- Malformed JSON and all commands other than `ping` close the connection with policy code 1008; oversized payloads are rejected by the transport.
 - No media, microphone, WebRTC, signaling, TURN or STUN commands are supported.
 
 ## WebSocket server → client
