@@ -8,12 +8,16 @@ class _FakeChessApiClient extends ChessApiClient {
   String status = 'active';
   int rating = 1320;
   int profileFetches = 0;
+  bool canClaimDraw = false;
+  int drawClaimCalls = 0;
 
   @override
   Future<Map<String, dynamic>> game(String gameId) async => {
         'gameId': gameId,
         'fen': 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
         'status': status,
+        'drawClaimable': canClaimDraw,
+        'drawClaimReason': canClaimDraw ? 'fifty_move_rule' : null,
         'legalMoves': ['e2e4', 'g1f3'],
         'isHost': true,
         'clock': {
@@ -40,6 +44,14 @@ class _FakeChessApiClient extends ChessApiClient {
         'message': message,
         'createdAt': '2026-11-03T10:00:00.000Z',
       };
+
+  @override
+  Future<Map<String, dynamic>> claimDraw(String gameId) async {
+    drawClaimCalls += 1;
+    status = 'draw';
+    canClaimDraw = false;
+    return {'status': 'draw', 'reason': 'fifty_move_rule'};
+  }
 
   @override
   Future<Map<String, dynamic>> pendingDrawOffer(String gameId) async => {
@@ -79,6 +91,18 @@ void main() {
     expect(api.profileFetches, 4);
     expect(session.whiteProfile?.rating, 1400);
     expect(session.blackProfile?.rating, 1400);
+    session.dispose();
+  });
+
+  test('game session exposes and submits an authoritative draw claim', () async {
+    final api = _FakeChessApiClient()..canClaimDraw = true;
+    final session = ChessGameSession(api: api, gameId: '99');
+    await session.refresh();
+    expect(session.drawClaimable, isTrue);
+    await session.claimDraw();
+    expect(api.drawClaimCalls, 1);
+    expect(session.status, 'draw');
+    expect(session.drawClaimable, isFalse);
     session.dispose();
   });
 
