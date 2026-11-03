@@ -15,6 +15,8 @@ class HokmScreen extends StatefulWidget {
 class _HokmScreenState extends State<HokmScreen> with WidgetsBindingObserver {
   late final HokmApi _api = widget.api;
   final _roomCode = TextEditingController();
+  final _chatController = TextEditingController();
+  String? _chatRecipientUserId;
   Timer? _pollTimer;
   Map<String, dynamic>? _room;
   String? _userId;
@@ -79,6 +81,7 @@ class _HokmScreenState extends State<HokmScreen> with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     _pollTimer?.cancel();
     _roomCode.dispose();
+    _chatController.dispose();
     if (_roomId.isNotEmpty && ['playing', 'round_completed'].contains(_status) && !_background) {
       unawaited(_api.disconnect(_roomId, _version).catchError((_) => <String, dynamic>{}));
     }
@@ -166,6 +169,28 @@ class _HokmScreenState extends State<HokmScreen> with WidgetsBindingObserver {
       _run(() => _api.sendCommand(_roomId, {'type': 'play_card', 'card': card}, _version));
   Future<void> _trump(String suit) =>
       _run(() => _api.sendCommand(_roomId, {'type': 'choose_trump', 'suit': suit}, _version));
+
+  Future<void> _sendChatMessage() async {
+    final recipient = _chatRecipientUserId ?? _opponents.firstOrNull?['userId']?.toString();
+    final message = _chatController.text.trim();
+    if (recipient == null || message.isEmpty || _busy) return;
+    await _run(() => _api.sendChatMessage(
+      _roomId, recipient, message,
+      'hokm-chat-${DateTime.now().microsecondsSinceEpoch}', _version,
+    ));
+    if (mounted) _chatController.clear();
+  }
+
+  List<Map<String, dynamic>> get _opponents {
+    final seat = _mySeat;
+    if (seat == null) return [];
+    return _players.where((player) {
+      final otherSeat = (player['seat'] as num?)?.toInt();
+      return player['userId']?.toString() != _userId &&
+          otherSeat != null && otherSeat % 2 != seat % 2 &&
+          player['forfeited'] != true;
+    }).toList();
+  }
 
   Future<void> _exitTemporarily() async {
     if (_roomId.isEmpty || _busy) return;
@@ -461,6 +486,56 @@ class _HokmScreenState extends State<HokmScreen> with WidgetsBindingObserver {
         ),
         if (!canPlay && !canChoose) Text(t('منتظر نوبت خود باشید.', 'Wait for your turn.'), style: const TextStyle(fontSize: 12)),
       ])),
+      if (_opponents.isNotEmpty) ...[
+        const SizedBox(height: 10),
+        _panel(Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Text(t('گفتگوی خصوصی با تیم مقابل', 'Private chat with opponents'),
+            style: const TextStyle(fontWeight: FontWeight.w900)),
+          DropdownButton<String>(
+            isExpanded: true,
+            value: _opponents.any((player) => player['userId']?.toString() == _chatRecipientUserId)
+                ? _chatRecipientUserId
+                : _opponents.first['userId']?.toString(),
+            items: _opponents.map((player) {
+              final id = player['userId'].toString();
+              return DropdownMenuItem<String>(value: id, child: Text(id));
+            }).toList(),
+            onChanged: _busy ? null : (value) => setState(() => _chatRecipientUserId = value),
+          ),
+          SizedBox(
+            height: 110,
+            child: ListView(
+              children: ((_room?['chatMessages'] as List?) ?? const [])
+                  .whereType<Map>()
+                  .map((message) => Align(
+                    alignment: message['senderUserId']?.toString() == _userId
+                        ? AlignmentDirectional.centerEnd : AlignmentDirectional.centerStart,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 3),
+                      child: Text(message['text']?.toString() ?? ''),
+                    ),
+                  )).toList(),
+            ),
+          ),
+          Row(children: [
+            Expanded(child: TextField(
+              controller: _chatController,
+              maxLength: 1000,
+              minLines: 1,
+              maxLines: 3,
+              decoration: InputDecoration(
+                hintText: t('پیام خصوصی...', 'Private message...'),
+                counterText: '',
+              ),
+            )),
+            IconButton(
+              tooltip: t('ارسال پیام', 'Send message'),
+              onPressed: _busy ? null : _sendChatMessage,
+              icon: const Icon(Icons.send),
+            ),
+          ]),
+        ])),
+      ],
       if (_status == 'round_completed' && _host && _room?['handRevealUntil'] == null) ...[
         const SizedBox(height: 10),
         FilledButton.icon(onPressed: _busy ? null : _nextRound,
