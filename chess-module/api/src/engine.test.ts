@@ -45,12 +45,16 @@ test("detects stalemate and insufficient material", () => {
   assert.equal(insufficient.gameOver, true);
 });
 
-test("detects 50-move, 75-move and threefold repetition draws", () => {
+test("distinguishes claimable 50-move and threefold draws from automatic draws", () => {
   const fifty = new ChessGame("4k3/8/8/8/8/8/8/R3K3 w - - 100 1").snapshot();
-  assert.equal(fifty.draw, true);
+  assert.equal(fifty.draw, false);
+  assert.equal(fifty.drawClaimable, true);
+  assert.equal(fifty.gameOver, false);
 
   const seventyFive = new ChessGame("4k3/8/8/8/8/8/8/R3K3 w - - 150 1").snapshot();
   assert.equal(seventyFive.draw, true);
+  assert.equal(seventyFive.drawClaimable, false);
+  assert.equal(seventyFive.gameOver, true);
 
   const repetition = new ChessGame();
   for (let cycle = 0; cycle < 2; cycle++) {
@@ -59,8 +63,27 @@ test("detects 50-move, 75-move and threefold repetition draws", () => {
     repetition.play({from:"f3",to:"g1"});
     repetition.play({from:"f6",to:"g8"});
   }
-  assert.equal(repetition.snapshot().draw, true);
-  assert.equal(repetition.snapshot().gameOver, true);
+  assert.equal(repetition.snapshot().draw, false);
+  assert.equal(repetition.snapshot().drawClaimable, true);
+  assert.equal(repetition.snapshot().gameOver, false);
+  assert.doesNotThrow(() => repetition.play({from:"g1",to:"f3"}));
+});
+
+test("fivefold repetition is an automatic draw and is restored from PGN history", () => {
+  const repetition = new ChessGame();
+  for (let cycle = 0; cycle < 4; cycle++) {
+    repetition.play({from:"g1",to:"f3"});
+    repetition.play({from:"g8",to:"f6"});
+    repetition.play({from:"f3",to:"g1"});
+    repetition.play({from:"f6",to:"g8"});
+  }
+  const snapshot = repetition.snapshot();
+  assert.equal(snapshot.draw, true);
+  assert.equal(snapshot.drawClaimable, false);
+  assert.equal(snapshot.gameOver, true);
+  const restored = new ChessGame(undefined, snapshot.pgn).snapshot();
+  assert.equal(restored.draw, true);
+  assert.equal(restored.gameOver, true);
 });
 
 test("rejects malformed promotion values before reaching the chess engine", () => {
@@ -99,11 +122,13 @@ test("restores repetition history when a game is reconstructed from persisted PG
     original.play({from:"f6",to:"g8"});
   }
   const saved = original.snapshot();
-  assert.equal(saved.draw, true);
+  assert.equal(saved.draw, false);
+  assert.equal(saved.drawClaimable, true);
   const restored = new ChessGame(undefined, saved.pgn).snapshot();
   assert.equal(restored.fen, saved.fen);
-  assert.equal(restored.draw, true);
-  assert.equal(restored.gameOver, true);
+  assert.equal(restored.draw, false);
+  assert.equal(restored.drawClaimable, true);
+  assert.equal(restored.gameOver, false);
 });
 
 
@@ -152,11 +177,13 @@ test("handles repeated position cycles and restores full move history from PGN",
     game.play({from: "f6", to: "g8"});
   }
   const snapshot = game.snapshot();
-  assert.equal(snapshot.draw, true);
-  assert.equal(snapshot.gameOver, true);
+  assert.equal(snapshot.draw, false);
+  assert.equal(snapshot.drawClaimable, true);
+  assert.equal(snapshot.gameOver, false);
   const restored = new ChessGame(undefined, snapshot.pgn).snapshot();
   assert.equal(restored.fen, snapshot.fen);
-  assert.equal(restored.draw, true);
+  assert.equal(restored.draw, false);
+  assert.equal(restored.drawClaimable, true);
 });
 
 test("validates malformed FEN at construction and reports no legal moves after terminal position", () => {
