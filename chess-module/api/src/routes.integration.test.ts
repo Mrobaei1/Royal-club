@@ -109,6 +109,14 @@ test("authenticated chess routes support private game, draw, chat, profiles and 
     });
     assert.equal(overflowingGameId.statusCode, 400);
     assert.equal(overflowingGameId.json().error, "invalid_game_id");
+    const invalidOfferId = await app.inject({
+      method: "POST",
+      url: "/chess/games/1/draw-offers/not-a-number/respond",
+      headers: { "x-user-id": white },
+      payload: { accept: true },
+    });
+    assert.equal(invalidOfferId.statusCode, 400);
+    assert.equal(invalidOfferId.json().error, "invalid_offer_id");
 
     type TestResponse = { statusCode: number; body: string; json: () => any };
     const request = async (
