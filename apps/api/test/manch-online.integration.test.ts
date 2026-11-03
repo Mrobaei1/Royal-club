@@ -273,6 +273,15 @@ test('Manch online rooms join, roll and persist server-authoritative moves', asy
     'Row locking and state versions must prevent two concurrent rolls from consuming the same turn.',
   );
 
+  const missingVersionForfeit = await app.inject({
+    method: 'POST',
+    url: `/api/v1/manch/matches/${raceId}/forfeit`,
+    headers: auth(guest.accessToken),
+    payload: {},
+  });
+  assert.equal(missingVersionForfeit.statusCode, 400,
+    'Forfeit commands without an expected state version must be rejected.');
+
   const staleForfeit = await app.inject({
     method: 'POST',
     url: `/api/v1/manch/matches/${raceId}/forfeit`,
