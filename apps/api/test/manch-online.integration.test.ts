@@ -273,11 +273,20 @@ test('Manch online rooms join, roll and persist server-authoritative moves', asy
     'Row locking and state versions must prevent two concurrent rolls from consuming the same turn.',
   );
 
+  const staleForfeit = await app.inject({
+    method: 'POST',
+    url: `/api/v1/manch/matches/${raceId}/forfeit`,
+    headers: auth(guest.accessToken),
+    payload: { expectedStateVersion: expectedRaceVersion },
+  });
+  assert.equal(staleForfeit.statusCode, 409,
+    'A forfeit submitted against an outdated snapshot must not end the newer match.');
+
   const forfeited = await app.inject({
     method: 'POST',
     url: `/api/v1/manch/matches/${raceId}/forfeit`,
     headers: auth(guest.accessToken),
-    payload: {},
+    payload: { expectedStateVersion: expectedRaceVersion + 1 },
   });
   assert.equal(forfeited.statusCode, 200, forfeited.body);
   assert.equal(forfeited.json().status, 'finished');
