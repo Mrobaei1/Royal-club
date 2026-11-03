@@ -1,4 +1,4 @@
-# UNO phase status — 2026-11-03 (updated after CI run 41672553956)
+# UNO phase status — 2026-11-03 (latest verified head: ad8866b)
 
 This phase record is paired with the UNO-only weighted baseline in [UNO-WBS.md](./UNO-WBS.md). The weights total 100 and are independent of the Royal Club-wide 53-package / 1,000-point WBS.
 
@@ -14,7 +14,7 @@ This phase record is paired with the UNO-only weighted baseline in [UNO-WBS.md](
 | 6 | Security and authentication | 100% | Royal Club HS256 token verification, expiry/token-version checks, server-derived player identity, username-only public profile, private hands; automated auth/privacy tests pass |
 | 7 | Storage and recovery | 100% of implemented scope | PostgreSQL room snapshots, serialized writes, restart restore, reconnect and token-revocation integration coverage pass |
 
-## Verified CI evidence
+## Verified CI evidence — latest head `ad8866b30e534f471731701904040b2dc8ddd36f`\n\n- UNO Standalone CI run **41673494543**: backend tests/build, Flutter format/analyze/tests, and PostgreSQL server integration — all **success**.\n- Royal Club validation run **41673494242**: Flutter analyze/tests and API build/tests — all **success**.\n- Backgammon engine audit run **41673494331** — **success**.\n- Validate Royal Club run **41673494938**: Flutter analyze/tests, API build/tests and API integration — all **success**.\n- Royal Club Web Preview run **41673494570**: build, Flutter/API checks and preview artifact upload — **success**; deployment job **skipped** (no production deploy).\n- Netlify Deploy Preview for PR #122 is ready: https://deploy-preview-122--royal-club-6ob5.netlify.app\n\n## Earlier CI evidence
 
 - UNO Standalone CI run **175** on commit `825fe1422584a8704aa335605fbe52cc24796c25`: backend tests/build **success**, Flutter format/analyze/tests **success**, PostgreSQL/server integration **success**. The integration suite now verifies a second service process is rejected by the PostgreSQL advisory lock.
 - UNO Standalone CI run **41641140833** on `9c1185db647f7a3ee6ea462e9e894e34a1be0b4a**: backend, PostgreSQL/server integration and Flutter module jobs **success**.
@@ -51,7 +51,7 @@ The following changes were added after the earlier phase evidence above. They ar
 - Added SIGTERM/SIGINT graceful shutdown: disconnect clients, close Fastify, await queued snapshot writes, then release the PostgreSQL advisory lock and pool.
 - Integration coverage now asserts graceful shutdown before restarting the service and restoring the persisted room.
 
-Automated acceptance for commit `e1693fea24acbb59a5af96b221496d253c992483` is green. A subsequent reconnect-race hardening commit is being validated separately; do not transfer the green status to a newer SHA until its own CI passes. Physical two-device acceptance and owner approval for root-app integration remain release gates. These client/storage changes do not implement multi-instance persistence; the phase 2 advisory lock remains in place.
+Automated acceptance for the latest head `ad8866b30e534f471731701904040b2dc8ddd36f` is green. The reconnect-race hardening and WBS/documentation changes are included in this head. Physical two-device acceptance and owner approval for root-app integration remain release gates. These client/storage changes do not implement multi-instance persistence; the phase 2 advisory lock remains in place.
 
 ## Runtime hardening added 2026-11-03
 
@@ -75,3 +75,12 @@ UNO remains isolated and this PR remains draft. No production deployment, databa
 - Reconnect responses are accepted only while the captured player, token, server URL and generation remain current. The guard is rechecked after asynchronous storage clear/save operations as well as after the socket acknowledgement.
 - This prevents late acknowledgements from an old account or server endpoint from repopulating room/game/hand state after `didUpdateWidget` has reset the session.
 - Commit: `55be0e8f0dacc29a5672289d89b71ac2aae6ce17`. CI for this new commit is pending at the time of this update.
+
+
+## Physical acceptance execution record
+
+Status: **not executed in this development environment**. Automated CI cannot substitute for real Android devices. The remaining manual checklist is recorded in [INTEGRATION_CHECKLIST.md](./INTEGRATION_CHECKLIST.md); a tester must record device model/Android version, build identifier, tester, date, and pass/fail evidence for both two-player and six-player complete matches, reconnect/account-switch, Persian/English layouts, chat and private-hand visibility.
+
+## Final engineering baseline result
+
+The UNO-only WBS in `UNO-WBS.md` is **100/100 engineering completion** for the explicitly scoped standalone single-instance package, backed by green CI on `ad8866b`. This does not certify multi-instance support, physical-device acceptance, root-app integration, production deployment, or release approval. PR #122 remains Draft and unmerged.
