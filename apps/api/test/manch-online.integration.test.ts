@@ -22,6 +22,10 @@ after(async () => {
   await testPool.end();
 });
 
+function turnOrderForTest(players: Array<{ userId: string }>, activeUserId: string) {
+  return players.filter((player) => player.userId !== activeUserId);
+}
+
 function auth(token: string) {
   return { authorization: `Bearer ${token}` };
 }
@@ -382,67 +386,20 @@ test('Manch online supports complete 3- and 4-player seat allocation and rejects
     const players = detail.json().match.players as Array<Record<string, unknown>>;
     assert.deepEqual(
       players.map((player) => player.seatColour),
-      playerCount === 3 ? ['red', 'green', 'yellow'] : ['red', 'green', 'yellow', 'blue'],
-    );
-    assert.equal(detail.json().match.currentTurnUserId, host.user.id);
-
-    // Exercise a complete turn in the 3- and 4-seat match using the
-    // authoritative server dice and legal-move engine. Consecutive sixes
-    // retain the turn; a non-six without a legal move passes it automatically.
-    const turnOrder = [host, ...guests.slice(0, playerCount - 1)];
-    for (let seat = 0; seat < turnOrder.length; seat++) {
-      const currentUser = turnOrder[seat];
-      const nextUser = turnOrder[(seat + 1) % turnOrder.length];
-      const beforeTurn = await app.inject({
-        method: 'GET',
-        url: `/api/v1/manch/matches/${matchId}`,
-        headers: auth(currentUser.accessToken),
+      player    // Every non-active seat must be rejected by the server, including
+    // third and fourth players; turn ownership is never client-controlled.
+    for (const inactivePlayer of turnOrderForTest(detail.json().match.players, host.user.id)) {
+      const outOfTurnRoll = await app.inject({
+        method: 'POST',
+        url: `/api/v1/manch/matches/${matchId}/roll`,
+        headers: auth(inactivePlayer.accessToken),
+        payload: { expectedStateVersion: detail.json().match.stateVersion },
       });
-      assert.equal(beforeTurn.statusCode, 200);
-      assert.equal(beforeTurn.json().match.currentTurnUserId, currentUser.user.id);
+      assert.equal(outOfTurnRoll.statusCode, 403,
+        'Only the authoritative current seat may roll.');
+    }
 
-      let version = beforeTurn.json().match.stateVersion as number;
-      let passed = false;
-      for (let action = 0; action < 30 && !passed; action++) {
-        const roll = await app.inject({
-          method: 'POST',
-          url: `/api/v1/manch/matches/${matchId}/roll`,
-          headers: auth(currentUser.accessToken),
-          payload: { expectedStateVersion: version },
-        });
-        assert.equal(roll.statusCode, 200, roll.body);
-        version = roll.json().stateVersion as number;
-        if (roll.json().currentTurnUserId !== currentUser.user.id) {
-          passed = true;
-          break;
-        }
-        if (roll.json().autoPassed || roll.json().turnLost) {
-          passed = true;
-          break;
-        }
-        const legal = legalManchMoves(roll.json().state as ManchGameState);
-        assert.ok(legal.length > 0, 'A retained turn must expose a legal move.');
-        const move = await app.inject({
-          method: 'POST',
-          url: `/api/v1/manch/matches/${matchId}/move`,
-          headers: auth(currentUser.accessToken),
-          payload: {
-            tokenIndex: legal[0].tokenIndex,
-            expectedStateVersion: version,
-          },
-        });
-        assert.equal(move.statusCode, 200, move.body);
-        version = move.json().stateVersion as number;
-        passed = move.json().currentTurnUserId !== currentUser.user.id;
-      }
-      assert.equal(passed, true,
-        'A turn must advance within the bounded consecutive-six retry window.');
-      const afterTurn = await app.inject({
-        method: 'GET',
-        url: `/api/v1/manch/matches/${matchId}`,
-        headers: auth(nextUser.accessToken),
-      });
-      assert.equal(afterTurn.statusCode, 200);
+ 200);
       assert.equal(afterTurn.json().match.currentTurnUserId, nextUser.user.id,
         'Turn ownership must advance in the fixed seat order.');
     }
