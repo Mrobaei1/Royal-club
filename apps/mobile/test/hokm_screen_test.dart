@@ -206,6 +206,11 @@ void main() {
     await tester.tap(find.text('شروع مسابقه'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 20));
+    await tester.scrollUntilVisible(
+      find.text('خروج موقت از بازی'),
+      250,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.tap(find.text('خروج موقت از بازی'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 20));
