@@ -291,6 +291,24 @@ export function registerManchRoutes(app: any, pool: Pool, requireMatchAuth: any)
     return { matches };
   });
 
+  app.get('/api/v1/manch/matches/stats', { onRequest: [requireMatchAuth] }, async (request: any, reply: any) => {
+    const userId = String(request.user?.sub ?? '');
+    if (!userId) return sendError(reply, 401, 'Authentication required.');
+    const result = await pool.query(
+      `SELECT COUNT(m.id)::int AS played,
+              COUNT(m.id) FILTER (WHERE m.winner_user_id = $1)::int AS wins,
+              COUNT(m.id) FILTER (
+                WHERE m.winner_user_id IS NOT NULL AND m.winner_user_id <> $1
+              )::int AS losses
+         FROM manch_match_players p
+         LEFT JOIN manch_matches m
+           ON m.id = p.match_id AND m.status = 'finished'
+        WHERE p.user_id = $1`,
+      [userId],
+    );
+    return { stats: result.rows[0] ?? { played: 0, wins: 0, losses: 0 } };
+  });
+
   app.get('/api/v1/manch/matches/:id', { onRequest: [requireMatchAuth] }, async (request: any, reply: any) => {
     await cleanupExpiredManchRooms(pool);
     const userId = String(request.user?.sub ?? '');
