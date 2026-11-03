@@ -366,3 +366,20 @@ test('deadline scheduler discovers a due room and advances its timed-out trump s
   assert.ok(SUITS.includes(persisted.round.trumpSuit));
   assert.ok(persisted.turnDeadlineAt > now);
 });
+
+
+test('all-four-disconnected lease also applies while the completed-hand reveal is active', () => {
+  const players = fourPlayers();
+  let room = createRoom({ roomId: 'reveal-all-offline', hostUserId: players[0], now: 12000 });
+  for (const id of players.slice(1)) room = joinRoom(room, id, 12001);
+  for (const id of players) room = setPlayerReady(room, id, true);
+  room = startRoom(room, players[0], { now: 12002, rng: () => 0 });
+  room = { ...room, status: 'round_completed', handRevealUntil: 15000 };
+  for (const id of players) room = disconnectPlayer(room, id, { now: 13000, expectedVersion: room.version });
+  assert.equal(room.allDisconnectedDeadline, 33000);
+  const cancelled = processAllDisconnectedTimeout(room, {
+    now: 33000, expectedVersion: room.version
+  });
+  assert.equal(cancelled.status, 'cancelled');
+  assert.equal(cancelled.cancelReason, 'all_players_disconnected');
+});
