@@ -87,4 +87,48 @@ void main() {
     expect(find.byType(IranianManchBoard), findsOneWidget);
   });
 
+  test('the shared route contains 52 unique cells and fixed colour entries', () {
+    expect(iranianManchTrackCells, hasLength(52));
+    expect(iranianManchTrackCells.toSet(), hasLength(52));
+    expect(iranianManchTrackCells[0], (6, 0));
+    expect(iranianManchTrackCells[13], (0, 8));
+    expect(iranianManchTrackCells[26], (8, 14));
+    expect(iranianManchTrackCells[39], (14, 6));
+  });
+
+  for (final direction in TextDirection.values) {
+    testWidgets('fixed board seat geometry is unchanged in $direction',
+        (tester) async {
+      final tapped = <ManchSeat>[];
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Directionality(
+            textDirection: direction,
+            child: Scaffold(
+              body: Center(
+                child: SizedBox(
+                  width: 300,
+                  child: IranianManchBoard(
+                    onHomeTap: tapped.add,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      final origin = tester.getTopLeft(find.byType(IranianManchBoard));
+      await tester.tapAt(origin + const Offset(35, 35));
+      await tester.tapAt(origin + const Offset(265, 35));
+      await tester.tapAt(origin + const Offset(265, 265));
+      await tester.tapAt(origin + const Offset(35, 265));
+      expect(tapped, [
+        ManchSeat.red,
+        ManchSeat.green,
+        ManchSeat.yellow,
+        ManchSeat.blue,
+      ]);
+    });
+  }
+
 }
