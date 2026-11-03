@@ -54,8 +54,10 @@ class HokmHttpApi implements HokmApi {
     switch (method) {
       case 'GET':
         response = await _client.get(uri, headers: headers);
+        break;
       case 'POST':
         response = await _client.post(uri, headers: headers, body: body == null ? null : jsonEncode(body));
+        break;
       default:
         throw ArgumentError.value(method, 'method', 'Unsupported HTTP method');
     }
