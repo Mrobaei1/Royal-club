@@ -10,6 +10,20 @@ type Options = {
   getUserId: (request: FastifyRequest) => string;
 };
 
+export function createPingRateLimiter(limit = 30, windowMs = 10_000, now: () => number = Date.now): () => boolean {
+  let windowStartedAt = now();
+  let count = 0;
+  return () => {
+    const current = now();
+    if (current - windowStartedAt >= windowMs) {
+      windowStartedAt = current;
+      count = 0;
+    }
+    count += 1;
+    return count <= limit;
+  };
+}
+
 export async function registerChessWebSocket(app: FastifyInstance, options: Options): Promise<void> {
   await app.register(websocket, { options: { maxPayload: 16 * 1024 } });
   app.get<{ Querystring: { gameId: string } }>("/chess/ws", {
@@ -150,20 +164,13 @@ export async function registerChessWebSocket(app: FastifyInstance, options: Opti
       }
       // Bound cheap client-originated commands per connection so authenticated
       // sockets cannot turn ping/pong into an unbounded CPU and bandwidth amplifier.
-      let pingWindowStartedAt = Date.now();
-      let pingCount = 0;
+      const allowPing = createPingRateLimiter();
       socket.on("message", (raw) => {
         let message: {type?:string; clientTime?:number};
         try { message = JSON.parse(raw.toString()) as {type?:string;clientTime?:number}; }
         catch { send({type:"chess:error",code:"invalid_json"}); return; }
         if (message.type === "ping") {
-          const now = Date.now();
-          if (now - pingWindowStartedAt >= 10_000) {
-            pingWindowStartedAt = now;
-            pingCount = 0;
-          }
-          pingCount += 1;
-          if (pingCount > 30) {
+          if (!allowPing()) {
             socket.close(1008, "rate_limited");
             return;
           }
