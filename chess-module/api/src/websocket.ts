@@ -108,6 +108,7 @@ export async function registerChessWebSocket(app: FastifyInstance, options: Opti
     let presenceRegistered = false;
     let sessionId: string | undefined;
     let cleanupConnection: (() => Promise<void>) | undefined;
+    let unsubscribeSubscription: (() => Promise<void>) | undefined;
     socket.on("close", () => {
       connectionClosed = true;
       if (cleanupConnection) void cleanupConnection();
@@ -202,6 +203,7 @@ export async function registerChessWebSocket(app: FastifyInstance, options: Opti
         })().catch(() => send({type:"chess:error",code:"event_delivery_failed"}));
       };
       await subscribe(channel, onNotification);
+      unsubscribeSubscription = () => unsubscribe(channel, onNotification);
       // Serialize presence transitions per game/player across devices and API instances.
       const presenceClient = await options.pool.connect();
       let wasOffline = false;
@@ -268,8 +270,11 @@ export async function registerChessWebSocket(app: FastifyInstance, options: Opti
         if (lastConnection) {
           try { await publish({type:"presence",id:userId,connected:false}); } catch {}
         }
-        try { await unsubscribe(channel, onNotification); }
-        catch (error) { app.log.warn({ err: error, channel }, "chess notification subscription cleanup failed"); }
+        if (unsubscribeSubscription) {
+          try { await unsubscribeSubscription(); }
+          catch (error) { app.log.warn({ err: error, channel }, "chess notification subscription cleanup failed"); }
+          unsubscribeSubscription = undefined;
+        }
       };
       cleanupConnection = cleanup;
       if (connectionClosed) {
@@ -315,6 +320,10 @@ export async function registerChessWebSocket(app: FastifyInstance, options: Opti
               ]);
             } catch {}
           }
+        }
+        if (unsubscribeSubscription) {
+          try { await unsubscribeSubscription(); } catch {}
+          unsubscribeSubscription = undefined;
         }
       } catch { /* cleanup must not mask subscription failure */ }
       socket.close(1011, "subscription_failed");
