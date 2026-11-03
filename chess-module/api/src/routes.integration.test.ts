@@ -353,6 +353,16 @@ test("authenticated chess routes support private game, draw, chat, profiles and 
     const resigned = await request(white, "POST", `/chess/games/${gameId}/resign`);
     assert.equal(resigned.statusCode, 200, resigned.body);
     assert.equal(resigned.json().status, "black_win");
+    const whiteFinishedProfile = await request(black, "GET", "/chess/players/username/route_white/profile");
+    assert.equal(whiteFinishedProfile.json().games, 1);
+    assert.equal(whiteFinishedProfile.json().losses, 1);
+    assert.equal(whiteFinishedProfile.json().winRate, 0);
+    assert.deepEqual(whiteFinishedProfile.json().byMode.map((row: {mode:string}) => row.mode), ["rapid"]);
+    const blackFinishedProfile = await request(white, "GET", "/chess/players/username/route_black/profile");
+    assert.equal(blackFinishedProfile.json().games, 1);
+    assert.equal(blackFinishedProfile.json().wins, 1);
+    assert.equal(blackFinishedProfile.json().winRate, 100);
+    assert.deepEqual(blackFinishedProfile.json().byMode.map((row: {mode:string}) => row.mode), ["rapid"]);
 
     const progressionBefore = await pool.query(
       "SELECT user_id,xp FROM chess_player_progression WHERE user_id=ANY($1::bigint[]) ORDER BY user_id",
