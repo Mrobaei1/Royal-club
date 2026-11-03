@@ -83,3 +83,6 @@ The room/service layer exposes version-checked seven-second turn deadline proces
 Requires Node.js 20+: `npm test`
 
 Do not describe this module as complete until the remaining acceptance criteria are implemented and verified.
+
+
+Latest validation trigger: terminal-state privacy regression (completed/cancelled round and reveal suppression), manager-review navigation, private-chat UI assertions, and live PostgreSQL chat/report persistence.
