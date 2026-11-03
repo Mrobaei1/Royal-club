@@ -107,7 +107,7 @@ test("private chat endpoint forwards verified identity, recipient, message ID an
     params: { roomId: "room-1" },
     body: { recipientUserId: "opponent", text: "سلام", messageId: "m-1", expectedVersion: 7 }
   }, reply);
-  assert.deepEqual(received, ["verified-sender", "room-1", "opponent", "سلام", "m-1", 7]);
+  assert.deepEqual(received, [{ authenticated: true, userId: "verified-sender" }, "room-1", "opponent", "سلام", "m-1", 7]);
   assert.equal(reply.status, 200);
 });
 
