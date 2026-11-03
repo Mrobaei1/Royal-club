@@ -170,14 +170,26 @@ void main() {
       expect(moves.single.die, 3);
     });
 
-    test('player -1 must use the farther checker before oversized bear-off', () {
+    test('player -1 cannot skip a checker closer to the bear-off exit', () {
       clearPosition(player: -1, rolledDice: [6]);
       game.points[0] = -1;
       game.points[3] = -1;
 
       final moves = game.legalMoves();
-      expect(moves.any((move) => move.from == 0 && move.to == -1), isFalse);
-      expect(moves.any((move) => move.from == 3 && move.to == -1), isTrue);
+      expect(moves.any((move) => move.from == 0 && move.to == -1), isTrue);
+      expect(moves.any((move) => move.from == 3 && move.to == -1), isFalse);
+    });
+
+    test('die 5 bears off from the nearest occupied lower point when point 5 is empty', () {
+      clearPosition(player: 1, rolledDice: [5]);
+      game.points[19] = 1; // Point 5 is empty; nearest occupied point below it is point 4.
+      final positiveMoves = game.legalMoves();
+      expect(positiveMoves.any((move) => move.from == 19 && move.to == -1 && move.die == 5), isTrue);
+
+      clearPosition(player: -1, rolledDice: [5]);
+      game.points[4] = -1; // Mirrored side: nearest occupied lower point is point 4.
+      final negativeMoves = game.legalMoves();
+      expect(negativeMoves.any((move) => move.from == 4 && move.to == -1 && move.die == 5), isTrue);
     });
 
     test('player -1 enters from the bar only onto an open point', () {
