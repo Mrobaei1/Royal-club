@@ -325,3 +325,18 @@ test('Hokm progression awards winner and loser XP, clamps leaver penalties, and 
   assert.equal(xpRequiredForNextLevel(1), 300);
   assert.throws(() => xpRequiredForNextLevel(0), /positive integer/);
 });
+
+
+test('disconnect and reconnect remain available during the end-of-hand reveal window', () => {
+  const players = fourPlayers();
+  let room = createRoom({ roomId: 'reveal-reconnect', hostUserId: players[0], now: 10000 });
+  for (const id of players.slice(1)) room = joinRoom(room, id, 10001);
+  for (const id of players) room = setPlayerReady(room, id, true);
+  room = startRoom(room, players[0], { now: 10002, rng: () => 0 });
+  room = { ...room, status: 'round_completed', handRevealUntil: 14000 };
+  room = disconnectPlayer(room, players[0], { now: 11000, expectedVersion: room.version });
+  assert.equal(room.players[0].connected, false);
+  room = reconnectPlayer(room, players[0], { now: 11500, expectedVersion: room.version });
+  assert.equal(room.players[0].connected, true);
+  assert.equal(room.allDisconnectedDeadline, null);
+});
