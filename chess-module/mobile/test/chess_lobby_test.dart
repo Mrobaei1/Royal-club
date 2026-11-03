@@ -32,6 +32,22 @@ void main() {
     expect(created, isTrue);
   });
 
+  testWidgets('manager voice-message placeholder remains locked and disabled', (tester) async {
+    await tester.pumpWidget(const MaterialApp(
+      home: ChessAdminSettingsScreen(
+        controls: controls,
+        canManage: true,
+        onSave: _ignoreSave,
+        onDelete: _ignoreDelete,
+      ),
+    ));
+
+    expect(find.text('Voice messages (future feature)'), findsOneWidget);
+    final toggle = tester.widget<Switch>(find.byType(Switch));
+    expect(toggle.value, isFalse);
+    expect(toggle.onChanged, isNull);
+  });
+
   testWidgets('non-admin cannot see chess time-control editing actions', (tester) async {
     await tester.pumpWidget(const MaterialApp(
       home: ChessAdminSettingsScreen(
