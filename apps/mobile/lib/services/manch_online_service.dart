@@ -142,6 +142,18 @@ class ManchOnlineService {
     return match;
   }
 
+  static Future<List<Map<String, dynamic>>> history() async {
+    final payload = await _request('GET', '/history');
+    final raw = payload['matches'];
+    if (raw is! List) {
+      throw Exception('سوابق بازی منچ از سرور نامعتبر است.');
+    }
+    return raw
+        .whereType<Map>()
+        .map((item) => Map<String, dynamic>.from(item))
+        .toList();
+  }
+
   static Future<Map<String, dynamic>> get(String id) async {
     final cleanId = _requireId(id);
     final payload = await _request('GET', '/$cleanId');
