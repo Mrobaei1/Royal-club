@@ -233,3 +233,21 @@ test("service sends idempotent private text messages only between opposing teams
     /opposing-team/
   );
 });
+
+
+test("manager review projection is role-gated and contains no private game state", async () => {
+  const { service } = serviceFixture();
+  let room = await service.create(user("u0"));
+  for (const id of ["u1", "u2", "u3"]) room = await service.join(user(id), room.roomId, room.version);
+  for (const id of ["u0", "u1", "u2", "u3"]) room = await service.ready(user(id), room.roomId, true, room.version);
+  room = await service.start(user("u0"), room.roomId, room.version);
+  room = await service.reportCheating(user("u0"), room.roomId, "u1",
+    "The player disclosed a hidden card to an opponent.", room.version);
+  await assert.rejects(service.managerView(user("u0"), room.roomId), /authorized manager/);
+  const review = await service.managerView({ authenticated: true, userId: "manager", role: "manager" }, room.roomId);
+  assert.equal(review.reports.length, 1);
+  assert.equal(review.reports[0].status, "pending");
+  assert.equal("round" in review, false);
+  assert.equal("game" in review, false);
+  assert.equal("chatMessages" in review, false);
+});
