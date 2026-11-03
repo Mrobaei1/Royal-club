@@ -17,7 +17,9 @@ This is a phase-level engineering acceptance record. It does not invent work-pac
 ## Verified CI evidence
 
 - UNO Standalone CI run **175** on commit `825fe1422584a8704aa335605fbe52cc24796c25`: backend tests/build **success**, Flutter format/analyze/tests **success**, PostgreSQL/server integration **success**. The integration suite now verifies a second service process is rejected by the PostgreSQL advisory lock.
-- Backend suite: **65 tests, 64 passed, 0 failed, 1 skipped**.
+- Latest-head UNO Standalone CI run **41630603684** on `6dbbf0b714cb77359f0ea291d4ad94f0ea94465e`: backend, PostgreSQL/server integration and Flutter module jobs **success**.
+- Latest-head root validation run **41630603726** on the same commit: API integration, API build/tests and Flutter analyze/tests **success**; Backgammon engine audit run **41630603829** **success**. Web preview run was still running when this record was checked.
+- Backend suite: **65 tests, 64 passed, 0 failed, 1 skipped**. The skipped case is the optional database-backed test in `test/server.integration.test.ts`; it is skipped when `DATABASE_URL` is absent in a local test run. The dedicated CI server-integration job provisions PostgreSQL and runs the database-backed checks.
 - PostgreSQL/server integration suite: **1 passed, 0 failed**.
 - Root API build/tests and API integration checks: **success**.
 - Root Flutter analyze/tests: **success**.
@@ -27,7 +29,7 @@ This is a phase-level engineering acceptance record. It does not invent work-pac
 
 - `server.ts` acquires a PostgreSQL session advisory lock before reading room snapshots and holds it for the process lifetime; a competing instance fails fast. JWT secret length is validated before acquiring the lock.
 - The integration test launches a competing process on a separate port and asserts it exits with the expected single-instance error.
-- This is a safe single-instance guard, not distributed room coordination or horizontal scaling. Per-room transactions and a shared Socket.IO adapter remain future work.
+- This is a safe single-instance guard, not distributed room coordination or horizontal scaling. Per-room transactions and a shared Socket.IO adapter remain future work. The implementation sequence, invariants, idempotency requirements and rollout acceptance tests are documented in `DISTRIBUTED-ROOM-ARCHITECTURE.md`.
 
 ## Release gates not included in engineering percentages
 
