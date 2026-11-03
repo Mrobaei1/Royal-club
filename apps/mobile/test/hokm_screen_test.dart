@@ -8,6 +8,7 @@ class FakeHokmApi implements HokmApi {
   int joinCalls = 0;
   int viewCalls = 0;
   int commandCalls = 0;
+  int disconnectCalls = 0;
   Map<String, dynamic> room = {};
 
   Map<String, dynamic> _waiting() => {
@@ -113,8 +114,10 @@ class FakeHokmApi implements HokmApi {
       Map<String, dynamic>.from(room);
 
   @override
-  Future<Map<String, dynamic>> disconnect(String roomId, int expectedVersion) async =>
-      Map<String, dynamic>.from(room);
+  Future<Map<String, dynamic>> disconnect(String roomId, int expectedVersion) async {
+    disconnectCalls++;
+    return Map<String, dynamic>.from(room);
+  }
 
   @override
   Future<Map<String, dynamic>> reconnect(String roomId, int expectedVersion) async =>
@@ -186,3 +189,29 @@ void main() {
     expect(api.commandCalls, 1);
   });
 }
+
+  testWidgets('temporary exit disconnects exactly once', (tester) async {
+    final api = FakeHokmApi();
+    await tester.pumpWidget(MaterialApp(
+      locale: const Locale('fa'),
+      supportedLocales: const [Locale('fa'), Locale('en')],
+      home: HokmScreen(api: api, identityLoader: () async => 'u1'),
+    ));
+    await tester.pump();
+    await tester.tap(find.text('ساخت اتاق حکم'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 20));
+    await tester.tap(find.text('آماده‌ام'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 20));
+    await tester.tap(find.text('شروع مسابقه'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 20));
+    await tester.tap(find.text('خروج موقت از بازی'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 20));
+    expect(api.disconnectCalls, 1);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+    expect(api.disconnectCalls, 1);
+  });
