@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:royal_club/games/manch/manch_engine.dart';
 import 'package:royal_club/games/manch/manch_board_geometry.dart';
@@ -382,6 +384,36 @@ void main() {
       }
       expect(state.players[0].tokens[0], 12);
       expect(state.consecutiveSixes, 3);
+    });
+
+    test('deterministic simulations preserve engine and serialization invariants', () {
+      final random = Random(20261103);
+      for (final playerCount in [2, 3, 4]) {
+        for (var game = 0; game < 20; game++) {
+          var state = engine.newGame(playerCount: playerCount);
+          for (var turn = 0; turn < 250 && !state.isFinished; turn++) {
+            state = engine.roll(state, random.nextInt(6) + 1);
+            final legalMoves = engine.legalMoves(state);
+            if (legalMoves.isEmpty) {
+              state = engine.passTurn(state);
+            } else {
+              final selected = legalMoves[random.nextInt(legalMoves.length)];
+              state = engine.move(state, selected.tokenIndex);
+            }
+
+            final restored = ManchGameState.fromJson(state.toJson());
+            expect(restored.players.length, playerCount);
+            expect(restored.activePlayerIndex, inInclusiveRange(0, playerCount - 1));
+            expect(restored.players.every(
+              (player) => player.tokens.length == 4 &&
+                  player.tokens.every((position) => position >= -1 && position <= 57),
+            ), isTrue);
+            expect(restored.isFinished, state.isFinished);
+            expect(restored.winnerIndex, state.winnerIndex);
+            state = restored;
+          }
+        }
+      }
     });
 
   });
