@@ -7,7 +7,7 @@ This is a phase-level engineering acceptance record. It does not invent work-pac
 | Phase | Scope | Engineering status | Evidence |
 |---|---|---:|---|
 | 1 | UNO engine and rules | 100% | Deck/discard flow, number/action/wild cards, reverse/skip/draw penalties, Wild Draw Four challenge, UNO call/catch, round scoring, opening-card handling; automated engine tests pass |
-| 2 | Rooms, table and match cycle | 100% | 2–6 seats, seventh-player rejection, explicit readiness, host-only start, 1/3/5 match target, no late join, round readiness reset, reconnect/host transfer; six-client Socket.IO integration test passes |
+| 2 | Rooms, table and match cycle | Core single-instance functionality implemented; distributed hardening open | 2–6 seats, seventh-player rejection, explicit readiness, host-only start, 1/3/5 match target, no late join, round readiness reset, reconnect/host transfer, host succession and cleanup; six-client Socket.IO integration test passes. Multi-instance transactions, command idempotency and cross-instance Socket.IO coordination are not implemented; a PostgreSQL advisory lock intentionally rejects a second server instance. |
 | 3 | Text chat | 100% | Seated-player authorization, host enable/disable, bounded message length/rate, Persian/English chat UI tests pass |
 | 4 | Future audio scope | 100% of approved scope | Voice/video calls, microphone capture, WebRTC, TURN and live-media signalling are excluded. Optional recorded voice messages remain disabled and deferred; no paid audio provider or runtime media service |
 | 5 | Flutter UI | 100% of implemented scope | Persian/English lobby, table, action labels, chat and server errors; live opponent card counts and current-turn highlight; Flutter analyze/tests pass |
@@ -17,8 +17,8 @@ This is a phase-level engineering acceptance record. It does not invent work-pac
 ## Verified CI evidence
 
 - UNO Standalone CI run **175** on commit `825fe1422584a8704aa335605fbe52cc24796c25`: backend tests/build **success**, Flutter format/analyze/tests **success**, PostgreSQL/server integration **success**. The integration suite now verifies a second service process is rejected by the PostgreSQL advisory lock.
-- Latest-head UNO Standalone CI run **41638382800** on `e155724ecfcde9468945d602f4f15eb5b660dac0`: backend, PostgreSQL/server integration and Flutter module jobs **success**.
-- Latest-head root validation run **41638382298** on `e155724ecfcde9468945d602f4f15eb5b660dac0`: completed **success**.
+- UNO Standalone CI run **41641140833** on `9c1185db647f7a3ee6ea462e9e894e34a1be0b4a**: backend, PostgreSQL/server integration and Flutter module jobs **success**.
+- Latest-head root validation run **41638382298** on `e155724ecfcde9468945d602f4f15eb5b660dac0`: completed **success**. The newest room-retention test change is covered by UNO Standalone CI run **41641140833**.
 - Backend suite: **65 tests, 64 passed, 0 failed, 1 skipped**. The skipped case is the optional database-backed test in `test/server.integration.test.ts`; it is skipped when `DATABASE_URL` is absent in a local test run. The dedicated CI server-integration job provisions PostgreSQL and runs the database-backed checks.
 - PostgreSQL/server integration suite: **1 passed, 0 failed**.
 - Root API build/tests and API integration checks: **success**.
@@ -27,9 +27,9 @@ This is a phase-level engineering acceptance record. It does not invent work-pac
 
 ## Latest verified run (2026-11-03)
 
-- UNO Standalone CI run **41638382800**: backend **success**, PostgreSQL/server integration **success**, Flutter module **success**.
+- UNO Standalone CI run **41641140833** on commit `9c1185db647f7a3ee6ea462e9e894e34a1be0b4a`: backend **success**, PostgreSQL/server integration **success**, Flutter module **success**.
 - Root validation run **41638382298**: **success**.
-- The room-manager suite now also explicitly checks finished-match retention expiry, removal from room lookup, and release of the player's room membership.
+- The room-manager suite now explicitly checks finished-match retention expiry, removal from room lookup, and release of the player's room membership.
 
 ## Runtime hardening added 2026-11-03
 
