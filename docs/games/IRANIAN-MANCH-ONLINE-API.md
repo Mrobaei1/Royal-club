@@ -27,7 +27,7 @@ All endpoints require a Bearer access token.
 | GET | `/api/v1/manch/invites` | List the authenticated player's incoming invitations |
 | POST | `/api/v1/manch/invites/:id/accept` | Accept a friend invitation and claim a seat |
 | POST | `/api/v1/manch/invites/:id/decline` | Decline an incoming friend invitation |
-| GET/PATCH | `/api/v1/admin/game-disconnect-policies` | Owner-only audited disconnect/temporary-AI policy
+| GET/PATCH | `/api/v1/admin/game-disconnect-policies` | Owner-only audited disconnect/temporary-AI policy |
 | POST | `/api/v1/manch/matches/:id/roll` | Server-generated dice roll; requires `expectedStateVersion` |
 | POST | `/api/v1/manch/matches/:id/move` | Apply a token move; requires `tokenIndex` and `expectedStateVersion` |
 | POST | `/api/v1/manch/matches/:id/forfeit` | Two-player participant forfeits an active match; opponent wins |
@@ -48,7 +48,7 @@ All endpoints require a Bearer access token.
 - Public match payloads expose usernames and seat colours, never email or full name.
 
 ## Persistence
-`manch_matches` stores the versioned JSON game state, status, current user turn, room code, player count, expiry, state version, winner user and finish reason. `manch_match_players` stores the user-to-seat mapping. The JSON game state schema matches the Flutter `ManchGameState.toJson/fromJson` contract.
+`manch_matches` stores the versioned JSON game state, status, current user turn, room code, player count, expiry, state version, winner user and finish reason. `manch_match_players` stores the user-to-seat mapping. The JSON game state schema matches the Flutter `ManchGameState.toJson/fromJson` contract. `manch_match_presence` stores each player's heartbeat lease and recent AI action marker. `manch_match_invites` stores friend-only room invitations, expiry and response status.
 
 ## Friend invitations and disconnect takeover
 - Only the room host can invite a user who is already an accepted Royal Club friend.
