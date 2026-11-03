@@ -7,58 +7,8 @@ import 'package:royal_club_chess/chess_api_client.dart';
 
 Future<HttpServer> _serve(Future<void> Function(HttpRequest) handler) async {
   final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
-  server.listen((request) {
-    unawaited(handler(request));
-  });
+  server.listen((request) => unawaited(handler(request)));
   return server;
-  test('API client aborts a request that exceeds its configured timeout', () async {
-    final server = await _serve((request) async {});
-    final client = ChessApiClient(
-      baseUri: Uri.parse('http://127.0.0.1:${server.port}'),
-      accessToken: 'test-token',
-      requestTimeout: const Duration(milliseconds: 100),
-    );
-
-    try {
-      await expectLater(client.game('123'), throwsA(isA<TimeoutException>()));
-    } finally {
-      client.dispose();
-      await server.close(force: true);
-    }
-  });
-
-  test('API client rejects malformed JSON success bodies', () async {
-    final server = await _serve((request) async {
-      request.response
-        ..statusCode = HttpStatus.ok
-        ..headers.contentType = ContentType.json
-        ..write('{broken');
-      await request.response.close();
-    });
-    final client = ChessApiClient(
-      baseUri: Uri.parse('http://127.0.0.1:${server.port}'),
-      accessToken: 'test-token',
-    );
-
-    try {
-      await expectLater(client.game('123'), throwsA(isA<FormatException>()));
-    } finally {
-      client.dispose();
-      await server.close(force: true);
-    }
-  });
-
-  test('API client rejects a non-positive request timeout', () {
-    expect(
-      () => ChessApiClient(
-        baseUri: Uri.parse('http://127.0.0.1'),
-        accessToken: 'test-token',
-        requestTimeout: Duration.zero,
-      ),
-      throwsArgumentError,
-    );
-  });
-
 }
 
 Future<void> _json(HttpRequest request, int status, Object body) async {
@@ -141,39 +91,43 @@ void main() {
     }
   });
 
-  test('disposed API client rejects subsequent requests', () async {
+  test('API client rejects malformed JSON success bodies', () async {
     final server = await _serve((request) async {
-      await _json(request, HttpStatus.ok, {'status': 'active'});
+      request.response
+        ..statusCode = HttpStatus.ok
+        ..headers.contentType = ContentType.json
+        ..write('{broken');
+      await request.response.close();
     });
     final client = ChessApiClient(
       baseUri: Uri.parse('http://127.0.0.1:${server.port}'),
       accessToken: 'test-token',
     );
-    client.dispose();
 
     try {
-      await expectLater(client.game('123'), throwsA(isA<StateError>()));
+      await expectLater(client.game('123'), throwsA(isA<FormatException>()));
     } finally {
+      client.dispose();
       await server.close(force: true);
     }
   });
-}
-
 
   test('API client enforces one deadline across a stalled response body', () async {
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
-    server.listen((request) async {
-      request.response.headers.contentType = ContentType.json;
-      await request.response.flush();
-      await Future<void>.delayed(const Duration(seconds: 2));
-      try {
-        request.response
-          ..statusCode = HttpStatus.ok
-          ..write(jsonEncode({'status': 'too_late'}));
-        await request.response.close();
-      } on HttpException {
-        // The client has already aborted the timed-out response.
-      }
+    server.listen((request) {
+      unawaited(() async {
+        request.response.headers.contentType = ContentType.json;
+        await request.response.flush();
+        await Future<void>.delayed(const Duration(seconds: 2));
+        try {
+          request.response
+            ..statusCode = HttpStatus.ok
+            ..write(jsonEncode({'status': 'too_late'}));
+          await request.response.close();
+        } on HttpException {
+          // The client has already aborted the timed-out response.
+        }
+      }());
     });
     final client = ChessApiClient(
       baseUri: Uri.parse('http://127.0.0.1:${server.port}'),
@@ -199,3 +153,21 @@ void main() {
       throwsArgumentError,
     );
   });
+
+  test('disposed API client rejects subsequent requests', () async {
+    final server = await _serve((request) async {
+      await _json(request, HttpStatus.ok, {'status': 'active'});
+    });
+    final client = ChessApiClient(
+      baseUri: Uri.parse('http://127.0.0.1:${server.port}'),
+      accessToken: 'test-token',
+    );
+    client.dispose();
+
+    try {
+      await expectLater(client.game('123'), throwsA(isA<StateError>()));
+    } finally {
+      await server.close(force: true);
+    }
+  });
+}
