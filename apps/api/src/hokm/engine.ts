@@ -4,7 +4,7 @@
  * Independent Hokm rules primitives for Royal Club.
  * No network, UI, database, or framework dependencies.
  *
- * This is a first milestone, not yet a complete round/match controller.
+ * Round and match orchestration lives in round.ts and room.ts.
  */
 
 export const SUITS = Object.freeze(["clubs", "diamonds", "hearts", "spades"]);
