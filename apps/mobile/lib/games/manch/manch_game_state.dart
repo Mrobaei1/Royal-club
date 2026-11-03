@@ -69,6 +69,19 @@ class ManchGameState {
         !players[winnerIndex!].tokens.every((position) => position == 57)) {
       throw ArgumentError('Winner must have finished all four tokens.');
     }
+    if (winnerIndex != null && winnerIndex != activePlayerIndex) {
+      throw ArgumentError('The finished game must retain the winner as the active player.');
+    }
+    if (winnerIndex == null &&
+        players.any((player) => player.tokens.every((position) => position == 57))) {
+      throw ArgumentError('A player with four finished tokens must be declared the winner.');
+    }
+    if (pendingDice == 6 && consecutiveSixes < 1) {
+      throw ArgumentError('A pending six must be reflected in the consecutive-six counter.');
+    }
+    if (pendingDice != null && pendingDice != 6 && consecutiveSixes != 0) {
+      throw ArgumentError('A non-six pending die cannot retain a consecutive-six counter.');
+    }
   }
 
   final List<ManchPlayerState> players;
