@@ -10,6 +10,7 @@ class FakeHokmApi implements HokmApi {
   int viewCalls = 0;
   int commandCalls = 0;
   int disconnectCalls = 0;
+  int chatCalls = 0;
   Map<String, dynamic> room = {};
 
   Map<String, dynamic> _waiting() => {
@@ -133,8 +134,10 @@ class FakeHokmApi implements HokmApi {
       Map<String, dynamic>.from(room);
 
   @override
-  Future<Map<String, dynamic>> sendChatMessage(String roomId, String recipientUserId, String text, String messageId, int expectedVersion) async =>
-      Map<String, dynamic>.from(room);
+  Future<Map<String, dynamic>> sendChatMessage(String roomId, String recipientUserId, String text, String messageId, int expectedVersion) async {
+    chatCalls++;
+    return Map<String, dynamic>.from(room);
+  }
 }
 
 void main() {
@@ -207,6 +210,35 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 20));
     expect(api.commandCalls, 1);
+  });
+
+  testWidgets('player can send a private text message to an opponent', (tester) async {
+    tester.view.physicalSize = const Size(1200, 1800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final api = FakeHokmApi();
+    await tester.pumpWidget(MaterialApp(
+      locale: const Locale('fa'),
+      supportedLocales: const [Locale('fa'), Locale('en')],
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
+      home: HokmScreen(api: api, identityLoader: () async => 'u1'),
+    ));
+    await tester.pump();
+    await tester.tap(find.text('ساخت اتاق حکم'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 20));
+    await tester.tap(find.text('آماده‌ام'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 20));
+    await tester.tap(find.text('شروع مسابقه'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 20));
+    await tester.enterText(find.byType(TextField), 'سلام 👋');
+    await tester.tap(find.byIcon(Icons.send));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 20));
+    expect(api.chatCalls, 1);
   });
 
   testWidgets('temporary exit disconnects exactly once', (tester) async {
