@@ -267,6 +267,30 @@ export function registerManchRoutes(app: any, pool: Pool, requireMatchAuth: any)
     return { match: { ...match, players } };
   });
 
+  app.get('/api/v1/manch/matches/history', { onRequest: [requireMatchAuth] }, async (request: any, reply: any) => {
+    const userId = String(request.user?.sub ?? '');
+    if (!userId) return sendError(reply, 401, 'Authentication required.');
+    const result = await pool.query(
+      `SELECT m.id, m.room_code AS "roomCode",
+              m.player_count AS "playerCount", m.status,
+              m.winner_user_id AS "winnerUserId",
+              m.finish_reason AS "finishReason",
+              m.state_version AS "stateVersion",
+              m.created_at AS "createdAt", m.updated_at AS "updatedAt"
+         FROM manch_matches m
+         JOIN manch_match_players p ON p.match_id = m.id
+        WHERE p.user_id = $1 AND m.status = 'finished'
+        ORDER BY m.updated_at DESC
+        LIMIT 50`,
+      [userId],
+    );
+    const matches = await Promise.all(result.rows.map(async (match) => ({
+      ...match,
+      players: await matchPlayers(pool as unknown as PoolClient, String(match.id)),
+    })));
+    return { matches };
+  });
+
   app.get('/api/v1/manch/matches/:id', { onRequest: [requireMatchAuth] }, async (request: any, reply: any) => {
     await cleanupExpiredManchRooms(pool);
     const userId = String(request.user?.sub ?? '');
