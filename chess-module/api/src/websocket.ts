@@ -148,11 +148,25 @@ export async function registerChessWebSocket(app: FastifyInstance, options: Opti
       if (opponentPresence.rowCount) {
         send({type:"chess:opponent:presence",username:opponentPresence.rows[0].username,connected:Boolean(opponentPresence.rows[0].connected)});
       }
+      // Bound cheap client-originated commands per connection so authenticated
+      // sockets cannot turn ping/pong into an unbounded CPU and bandwidth amplifier.
+      let pingWindowStartedAt = Date.now();
+      let pingCount = 0;
       socket.on("message", (raw) => {
         let message: {type?:string; clientTime?:number};
         try { message = JSON.parse(raw.toString()) as {type?:string;clientTime?:number}; }
         catch { send({type:"chess:error",code:"invalid_json"}); return; }
         if (message.type === "ping") {
+          const now = Date.now();
+          if (now - pingWindowStartedAt >= 10_000) {
+            pingWindowStartedAt = now;
+            pingCount = 0;
+          }
+          pingCount += 1;
+          if (pingCount > 30) {
+            socket.close(1008, "rate_limited");
+            return;
+          }
           send({
             type:"chess:pong",
             serverTime:Date.now(),
