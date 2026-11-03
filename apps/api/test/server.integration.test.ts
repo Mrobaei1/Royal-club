@@ -3186,3 +3186,182 @@ test('owner-managed profile customization pricing charges atomically and keeps t
     else process.env.OWNER_USER_ID = previousOwnerId;
   }
 });
+
+
+test('Hokm production API uses verified JWT identity, hides private hands, and gates owner review', async () => {
+  const previousOwnerId = process.env.OWNER_USER_ID;
+  const players = await Promise.all([
+    register('Hokm Host'),
+    register('Hokm Player One'),
+    register('Hokm Player Two'),
+    register('Hokm Player Three'),
+    register('Hokm Outsider'),
+  ]);
+  const [host, playerOne, playerTwo, playerThree, outsider] = players;
+  process.env.OWNER_USER_ID = host.user.id;
+  let roomId = '';
+  try {
+    const created = await app.inject({
+      method: 'POST',
+      url: '/api/v1/hokm/rooms',
+      headers: auth(host.token),
+      payload: { userId: outsider.user.id, privateRoom: true, matchTarget: 3 },
+    });
+    assert.equal(created.statusCode, 200, created.body);
+    let room = created.json();
+    roomId = room.roomId;
+    assert.equal(room.hostUserId, host.user.id, 'The body-supplied user ID must never replace verified JWT identity.');
+
+    let version = room.version;
+    for (const player of [playerOne, playerTwo, playerThree]) {
+      const joined = await app.inject({
+        method: 'POST',
+        url: `/api/v1/hokm/rooms/${roomId}/join`,
+        headers: auth(player.token),
+        payload: {},
+      });
+      assert.equal(joined.statusCode, 200, joined.body);
+      version = joined.json().version;
+    }
+
+    for (const player of [host, playerOne, playerTwo, playerThree]) {
+      const ready = await app.inject({
+        method: 'POST',
+        url: `/api/v1/hokm/rooms/${roomId}/ready`,
+        headers: auth(player.token),
+        payload: { ready: true, expectedVersion: version },
+      });
+      assert.equal(ready.statusCode, 200, ready.body);
+      version = ready.json().version;
+    }
+
+    const started = await app.inject({
+      method: 'POST',
+      url: `/api/v1/hokm/rooms/${roomId}/start`,
+      headers: auth(host.token),
+      payload: { expectedVersion: version },
+    });
+    assert.equal(started.statusCode, 200, started.body);
+    version = started.json().version;
+
+    for (const player of [host, playerOne, playerTwo, playerThree]) {
+      const view = await app.inject({
+        method: 'GET',
+        url: `/api/v1/hokm/rooms/${roomId}`,
+        headers: auth(player.token),
+      });
+      assert.equal(view.statusCode, 200, view.body);
+      assert.equal(view.json().game.ownHand.length, 5);
+      assert.equal(Object.hasOwn(view.json().game, 'hands'), false);
+      assert.equal(Object.hasOwn(view.json().game, 'undealtDeck'), false);
+    }
+
+    const outsiderView = await app.inject({
+      method: 'GET',
+      url: `/api/v1/hokm/rooms/${roomId}`,
+      headers: auth(outsider.token),
+    });
+    assert.equal(outsiderView.statusCode, 403);
+
+    const currentHostView = await app.inject({
+      method: 'GET',
+      url: `/api/v1/hokm/rooms/${roomId}`,
+      headers: auth(host.token),
+    });
+    assert.equal(currentHostView.statusCode, 200, currentHostView.body);
+    const hakemSeat = currentHostView.json().game.hakemSeat;
+    const hakemUserId = currentHostView.json().players.find(player => player.seat === hakemSeat)?.userId;
+    const hakemPlayer = [host, playerOne, playerTwo, playerThree]
+      .find(player => player.user.id === hakemUserId);
+    assert.ok(hakemPlayer, 'The server-selected hakem must map to one authenticated player.');
+    const nonHakemPlayer = [host, playerOne, playerTwo, playerThree]
+      .find(player => player.user.id !== hakemPlayer.user.id);
+    const forbiddenTrump = await app.inject({
+      method: 'POST',
+      url: `/api/v1/hokm/rooms/${roomId}/command`,
+      headers: auth(nonHakemPlayer.token),
+      payload: { command: { type: 'choose_trump', suit: 'hearts' }, expectedVersion: version },
+    });
+    assert.equal(forbiddenTrump.statusCode, 400);
+    const [selectedTrump, staleTrump] = await Promise.all([
+      app.inject({
+        method: 'POST',
+        url: `/api/v1/hokm/rooms/${roomId}/command`,
+        headers: auth(hakemPlayer.token),
+        payload: { command: { type: 'choose_trump', suit: 'spades' }, expectedVersion: version },
+      }),
+      app.inject({
+        method: 'POST',
+        url: `/api/v1/hokm/rooms/${roomId}/command`,
+        headers: auth(hakemPlayer.token),
+        payload: { command: { type: 'choose_trump', suit: 'hearts' }, expectedVersion: version },
+      }),
+    ]);
+    assert.equal(selectedTrump.statusCode, 200, selectedTrump.body);
+    assert.equal(staleTrump.statusCode, 409, staleTrump.body);
+    version = selectedTrump.json().version;
+    for (const player of [host, playerOne, playerTwo, playerThree]) {
+      const view = await app.inject({
+        method: 'GET',
+        url: `/api/v1/hokm/rooms/${roomId}`,
+        headers: auth(player.token),
+      });
+      assert.equal(view.statusCode, 200, view.body);
+      assert.equal(view.json().game.ownHand.length, 13);
+      assert.equal(view.json().game.trumpSuit, 'spades');
+      assert.equal(Object.hasOwn(view.json().game, 'hands'), false);
+    }
+
+    const report = await app.inject({
+      method: 'POST',
+      url: `/api/v1/hokm/rooms/${roomId}/reports`,
+      headers: auth(host.token),
+      payload: {
+        reportedUserId: playerOne.user.id,
+        reason: 'Suspected disclosure of hidden cards during this match.',
+        expectedVersion: version,
+      },
+    });
+    assert.equal(report.statusCode, 200, report.body);
+    assert.ok(report.json().submittedReportId);
+    assert.equal(Object.hasOwn(report.json(), 'round'), false);
+    assert.equal(Object.hasOwn(report.json().game, 'hands'), false);
+    version = report.json().version;
+
+    const playerManagerReview = await app.inject({
+      method: 'POST',
+      url: `/api/v1/hokm/rooms/${roomId}/manager/reports/${report.json().submittedReportId}/review`,
+      headers: auth(playerOne.token),
+      payload: { notes: 'A regular player must not review reports.', expectedVersion: version },
+    });
+    assert.equal(playerManagerReview.statusCode, 403);
+
+    const ownerReview = await app.inject({
+      method: 'POST',
+      url: `/api/v1/hokm/rooms/${roomId}/manager/reports/${report.json().submittedReportId}/review`,
+      headers: auth(host.token),
+      payload: { notes: 'Owner reviewed the report evidence.', expectedVersion: version },
+    });
+    assert.equal(ownerReview.statusCode, 200, ownerReview.body);
+    assert.equal(ownerReview.json().reports[0].status, 'reviewed');
+    assert.equal(Object.hasOwn(ownerReview.json(), 'round'), false);
+    assert.equal(Object.hasOwn(ownerReview.json(), 'game'), false);
+    version = ownerReview.json().version;
+
+    for (const player of [host, playerOne, playerTwo, playerThree]) {
+      const vote = await app.inject({
+        method: 'POST',
+        url: `/api/v1/hokm/rooms/${roomId}/cancel-vote`,
+        headers: auth(player.token),
+        payload: { approve: true, expectedVersion: version },
+      });
+      assert.equal(vote.statusCode, 200, vote.body);
+      version = vote.json().version;
+    }
+    assert.equal((await testPool.query('SELECT room_data->>\'status\' AS status FROM hokm_rooms WHERE room_id = $1', [roomId])).rows[0].status, 'cancelled');
+  } finally {
+    if (roomId) await testPool.query('DELETE FROM hokm_rooms WHERE room_id = $1', [roomId]);
+    if (previousOwnerId === undefined) delete process.env.OWNER_USER_ID;
+    else process.env.OWNER_USER_ID = previousOwnerId;
+  }
+});

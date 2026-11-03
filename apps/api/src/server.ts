@@ -20,6 +20,9 @@ import { hasRoyalPermission, isRoyalPermission } from './permissions.js';
 import { isValidNeonTriggerInvocation } from './neon-trigger-auth.js';
 import { promisify } from 'node:util';
 import { createRoyalLoggerOptions } from './logging-config.js';
+import { PostgresRoomRepository } from './hokm/postgres-repository.js';
+import { HokmRoomService } from './hokm/service.js';
+import { registerHokmRoutes } from './hokm/fastify-routes.js';
 
 const scrypt = promisify(scryptCallback);
 
@@ -640,6 +643,25 @@ await pool.query(`
     ON backgammon_progression_events (user_id, created_at DESC);
   CREATE INDEX IF NOT EXISTS backgammon_player_stats_leaderboard_idx
     ON backgammon_player_stats (rating DESC, wins DESC, games_played ASC);
+`);
+
+// Hokm authoritative room state and progression aggregates.
+await pool.query(`
+  CREATE TABLE IF NOT EXISTS hokm_rooms (
+    room_id TEXT PRIMARY KEY,
+    version INTEGER NOT NULL CHECK (version >= 1),
+    room_data JSONB NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+  CREATE INDEX IF NOT EXISTS hokm_rooms_status_updated_idx
+    ON hokm_rooms ((room_data->>'status'), updated_at);
+  CREATE TABLE IF NOT EXISTS hokm_player_progress (
+    user_id BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    xp DOUBLE PRECISION NOT NULL DEFAULT 0 CHECK (xp >= 0),
+    level INTEGER NOT NULL DEFAULT 1 CHECK (level >= 1),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
 `);
 
 const walletTypeConstraint = await pool.query(
@@ -1480,6 +1502,32 @@ const requireOwnerAuth = async (request: any, reply: any) => {
     return reply.code(403).send({ error: 'Owner access is not configured or is not permitted.' });
   }
 };
+
+// Hokm player identity comes only from the verified Royal Club JWT session.
+// Until a delegated Hokm manager permission is explicitly approved and wired,
+// manager review endpoints are fail-closed to the configured platform owner.
+const requireHokmAuth = async (request: any, reply: any) => {
+  await requireMatchAuth(request, reply);
+  if (reply.sent) return;
+  const claims = request.user as { sub?: string };
+  if (!claims.sub || !isNumericId(claims.sub)) {
+    return reply.code(401).send({ error: 'A valid authenticated Royal Club user is required.' });
+  }
+  const ownerUserId = process.env.OWNER_USER_ID?.trim();
+  request.auth = {
+    authenticated: true,
+    userId: claims.sub,
+    role: ownerUserId && isNumericId(ownerUserId) && claims.sub === ownerUserId ? 'owner' : 'player'
+  };
+};
+
+const hokmRepository = new PostgresRoomRepository(pool);
+const hokmService = new HokmRoomService({ repository: hokmRepository });
+await registerHokmRoutes(app, {
+  service: hokmService,
+  authenticate: requireHokmAuth,
+  prefix: '/api/v1'
+});
 
 app.get('/api/v1/admin/game-disconnect-policies', { onRequest: [requireOwnerAuth] }, async () => {
   const result = await pool.query('SELECT game_type AS "gameType", enabled, grace_seconds AS "graceSeconds", takeover_mode AS "takeoverMode", updated_at AS "updatedAt" FROM game_disconnect_policies ORDER BY game_type');

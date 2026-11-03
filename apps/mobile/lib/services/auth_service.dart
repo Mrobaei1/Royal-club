@@ -247,4 +247,38 @@ class AuthService {
       _storage.write(key: 'royal_club_language', value: languageCode);
 
   static Future<void> logout() => _storage.delete(key: 'royal_club_token');
+
+  /// Sends an authenticated GET request to a versioned Royal Club API path.
+  static Future<Map<String, dynamic>> authenticatedGet(String path) async {
+    if (!path.startsWith('/api/v1/')) {
+      throw ArgumentError('Authenticated API path must be versioned.');
+    }
+    final token = await _storage.read(key: 'royal_club_token');
+    if (token == null || token.isEmpty) throw Exception('ابتدا وارد حساب شوید.');
+    final base = baseUrl.trim().replaceFirst(RegExp(r'/+$'), '');
+    return _decode(await _send(() => http.get(
+      Uri.parse('$base$path'),
+      headers: {'Authorization': 'Bearer $token'},
+    )));
+  }
+
+  /// Sends an authenticated JSON POST request to a versioned API path.
+  static Future<Map<String, dynamic>> authenticatedPost(
+    String path, Map<String, dynamic> body,
+  ) async {
+    if (!path.startsWith('/api/v1/')) {
+      throw ArgumentError('Authenticated API path must be versioned.');
+    }
+    final token = await _storage.read(key: 'royal_club_token');
+    if (token == null || token.isEmpty) throw Exception('ابتدا وارد حساب شوید.');
+    final base = baseUrl.trim().replaceFirst(RegExp(r'/+$'), '');
+    return _decode(await _send(() => http.post(
+      Uri.parse('$base$path'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode(body),
+    )));
+  }
 }
