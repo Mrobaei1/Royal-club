@@ -57,7 +57,7 @@ export async function registerChessWebSocket(app: FastifyInstance, options: Opti
       connectionClosed = true;
       if (cleanupConnection) void cleanupConnection();
     });
-    if (!/^\d+$/.test(gameId) || !/^\d+$/.test(userId)) {
+    if (!isPositivePostgresBigintId(gameId) || !isPositivePostgresBigintId(userId)) {
       socket.close(1008, "invalid_identity");
       return;
     }
