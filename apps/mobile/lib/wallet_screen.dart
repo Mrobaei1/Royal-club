@@ -2,6 +2,22 @@ import 'package:flutter/material.dart';
 import 'l10n/app_text.dart';
 import 'services/wallet_service.dart';
 
+
+/// Localizes known subscription plans by stable plan code instead of
+/// displaying the server's Persian-only seed name in every app locale.
+String localizedSubscriptionPlanName({
+  required String languageCode,
+  required String planCode,
+  required String fallbackName,
+}) {
+  if (planCode == 'vip_monthly') {
+    return languageCode == 'en'
+        ? 'One-Month Premium Subscription'
+        : (fallbackName.isNotEmpty ? fallbackName : 'اشتراک ویژه یک‌ماهه');
+  }
+  return fallbackName;
+}
+
 class WalletScreen extends StatefulWidget {
   const WalletScreen({super.key});
 
@@ -115,7 +131,14 @@ class _WalletScreenState extends State<WalletScreen> {
               if (_subscription != null)
                 Card(color: Theme.of(context).colorScheme.surface, child: ListTile(
                   leading: Icon(Icons.workspace_premium, color: colors.primary),
-                  title: Text(_subscription!['planName']?.toString() ?? appText(context, 'اشتراک فعال', 'Active subscription'), style: TextStyle(color: colors.onSurface)),
+                  title: Text(
+                    localizedSubscriptionPlanName(
+                      languageCode: Localizations.localeOf(context).languageCode,
+                      planCode: _subscription!['planCode']?.toString() ?? '',
+                      fallbackName: _subscription!['planName']?.toString() ?? appText(context, 'اشتراک فعال', 'Active subscription'),
+                    ),
+                    style: TextStyle(color: colors.onSurface),
+                  ),
                   subtitle: Text(appText(context, 'پایان: ${_subscription!['endsAt'] ?? '—'}', 'Ends: ${_subscription!['endsAt'] ?? '—'}'), style: TextStyle(color: colors.onSurface.withValues(alpha: 0.7))),
                 )),
               if (_plans.isEmpty)
@@ -125,7 +148,14 @@ class _WalletScreenState extends State<WalletScreen> {
                   color: Theme.of(context).colorScheme.surface,
                   child: ListTile(
                     leading: Icon(Icons.stars_rounded, color: colors.primary),
-                    title: Text(item['name']?.toString() ?? appText(context, 'اشتراک', 'Subscription'), style: TextStyle(color: colors.onSurface, fontWeight: FontWeight.bold)),
+                    title: Text(
+                      localizedSubscriptionPlanName(
+                        languageCode: Localizations.localeOf(context).languageCode,
+                        planCode: item['code']?.toString() ?? '',
+                        fallbackName: item['name']?.toString() ?? appText(context, 'اشتراک', 'Subscription'),
+                      ),
+                      style: TextStyle(color: colors.onSurface, fontWeight: FontWeight.bold),
+                    ),
                     subtitle: Text(appText(context, '${item['durationDays'] ?? 30} روز • ${item['priceCredits'] ?? 0} اعتبار', '${item['durationDays'] ?? 30} days • ${item['priceCredits'] ?? 0} credits'), style: TextStyle(color: colors.onSurface.withValues(alpha: 0.7))),
                     trailing: FilledButton(
                       onPressed: _busy ? null : () => _activate(item['code'].toString()),
