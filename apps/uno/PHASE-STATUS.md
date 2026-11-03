@@ -37,5 +37,6 @@ The defined standalone single-instance engineering baseline is **100/100** on th
 
 - Physical Android acceptance on at least two devices, including complete 2-player and 6-player matches, Persian/English layouts, chat, reconnect/account switching and private-hand visibility: **not executed here**. Automated CI cannot substitute for physical devices. Record evidence in [INTEGRATION_CHECKLIST.md](./INTEGRATION_CHECKLIST.md).
 - Multi-instance/horizontal scaling: **not implemented**. The current single-instance advisory lock is an intentional safety boundary. See [DISTRIBUTED-ROOM-ARCHITECTURE.md](./DISTRIBUTED-ROOM-ARCHITECTURE.md).
-- Root-app integration, production hosting/migration/secrets and APK generation: not authorized and not performed.
-- PR #122 remains Draft and unmerged. No production deployment or live database migration has occurred.
+- PR #122 was merged into `main` on 2026-11-03 as merge commit `ee61be087ef18c7dacd56d80a0f725f261c6384a`; this brings the standalone UNO module and its WBS/status/integration documentation into the repository. It does not deploy the service or integrate the root-app home screen.
+- Root-app home-screen integration is separately proposed in open PR #144 (`feature/uno-home-menu-integration`). Its exact-head root validation, web preview, engine audit and UNO Standalone CI all passed on `acf883ce9489b9849c62fbca738d5c8296d43603`, but the service URL is still an explicit build-time input and no service deployment/production secrets are configured by this merge.
+- Root-app integration approval, production hosting/migration/secrets and APK generation remain unauthorized and unperformed. No production deployment or live database migration has occurred.
