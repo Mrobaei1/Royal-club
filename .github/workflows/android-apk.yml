@@ -54,7 +54,7 @@ jobs:
           MANIFEST="android/app/src/main/AndroidManifest.xml"
           test -f "$MANIFEST"
           if ! grep -q 'android.permission.INTERNET' "$MANIFEST"; then
-            sed -i '/<manifest[^>]*>/a\\    <uses-permission android:name="android.permission.INTERNET"/>' "$MANIFEST"
+            sed -i '/<manifest[^>]*>/a\    <uses-permission android:name="android.permission.INTERNET"/>' "$MANIFEST"
           fi
           grep -q 'android.permission.INTERNET' "$MANIFEST"
           echo "Verified Android INTERNET permission in the main release manifest."
