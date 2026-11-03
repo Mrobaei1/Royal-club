@@ -9,7 +9,7 @@ import { createRound, chooseTrump, playCard, roundViewForSeat } from './hokm/rou
 import { chooseHardBotAction } from './hokm/bot.js';
 import {
   createRoom, joinRoom, setPlayerReady, startRoom, voteToCancelMatch,
-  processAllDisconnectedTimeout, processTurnTimeout, disconnectPlayer, roomViewForUser, TURN_DEADLINE_MS,
+  processAllDisconnectedTimeout, processTurnTimeout, disconnectPlayer, roomViewForUser, startNextRound, TURN_DEADLINE_MS,
   END_OF_HAND_REVEAL_MS, ALL_PLAYERS_DISCONNECTED_MS
 } from './hokm/room.js';
 
@@ -122,7 +122,7 @@ test('approved cancellation requires all four distinct player votes; a rejection
   let room = createRoom({ roomId: 'rules-cancel', hostUserId: players[0], now: 1000 });
   for (const id of players.slice(1)) room = joinRoom(room, id, 1001);
   for (const id of players) room = setPlayerReady(room, id, true);
-  room = startRoom(room, players[0], { now: 1002, rng: () => 0.25 });
+  room = startRoom(room, players[0], { now: 1002, rng: () => 0 });
   for (const id of players.slice(0, 3)) {
     room = voteToCancelMatch(room, id, true, room.version);
     assert.equal(room.status, 'playing');
@@ -138,7 +138,7 @@ test('all-four-disconnected cancellation waits the full 20 seconds', () => {
   let room = createRoom({ roomId: 'rules-offline', hostUserId: players[0], now: 2000 });
   for (const id of players.slice(1)) room = joinRoom(room, id, 2001);
   for (const id of players) room = setPlayerReady(room, id, true);
-  room = startRoom(room, players[0], { now: 2002, rng: () => 0.5 });
+  room = startRoom(room, players[0], { now: 2002, rng: () => 0 });
   for (const id of players) room = disconnectPlayer(room, id, { now: 3000, expectedVersion: room.version });
   assert.equal(room.allDisconnectedDeadline, 3000 + ALL_PLAYERS_DISCONNECTED_MS);
   assert.throws(() => processAllDisconnectedTimeout(room, {
@@ -180,7 +180,7 @@ test('seven-second trump timeout applies the fixed Hard trump-selection rule', (
   let room = createRoom({ roomId: 'rules-trump-timeout', hostUserId: players[0], now: 10 });
   for (const id of players.slice(1)) room = joinRoom(room, id, 11);
   for (const id of players) room = setPlayerReady(room, id, true);
-  room = startRoom(room, players[0], { now: 12, rng: () => 0.1 });
+  room = startRoom(room, players[0], { now: 12, rng: () => 0 });
   const timedOut = processTurnTimeout(room, {
     now: room.turnDeadlineAt, expectedVersion: room.version, rng: () => 0
   });
@@ -195,7 +195,7 @@ test('seven-second card timeout chooses only from the active seat legal cards', 
   let room = createRoom({ roomId: 'rules-card-timeout', hostUserId: players[0], now: 20 });
   for (const id of players.slice(1)) room = joinRoom(room, id, 21);
   for (const id of players) room = setPlayerReady(room, id, true);
-  room = startRoom(room, players[0], { now: 22, rng: () => 0.1 });
+  room = startRoom(room, players[0], { now: 22, rng: () => 0 });
   room = { ...room, round: chooseTrump(room.round, 0, 'hearts') };
   const beforeHand = room.round.hands[0];
   const legal = legalCards(beforeHand, []);
@@ -228,4 +228,37 @@ test('all four players can see revealed remaining hands for three seconds only',
     assert.equal(expired.revealedHands, null);
     assert.equal(expired.handRevealUntil, null);
   }
+});
+
+
+test('first hakem is selected randomly from all four seats', () => {
+  const players = fourPlayers();
+  let room = createRoom({ roomId: 'random-hakem', hostUserId: players[0], now: 100 });
+  for (const id of players.slice(1)) room = joinRoom(room, id, 101);
+  for (const id of players) room = setPlayerReady(room, id, true);
+  room = startRoom(room, players[0], { now: 102, rng: () => 0.75 });
+  assert.equal(room.round.hakemSeat, 3);
+  assert.equal(room.round.currentSeat, 3);
+});
+
+test('next hakem stays with previous hakem when their team wins the hand', () => {
+  const players = fourPlayers();
+  let room = createRoom({ roomId: 'hakem-stays', hostUserId: players[0], now: 200 });
+  for (const id of players.slice(1)) room = joinRoom(room, id, 201);
+  for (const id of players) room = setPlayerReady(room, id, true);
+  room = startRoom(room, players[0], { now: 202, rng: () => 0.75 });
+  room = { ...room, status: 'round_completed', round: { ...room.round, phase: 'completed', scores: [0, 7] }, handRevealUntil: 0 };
+  room = startNextRound(room, players[0], { now: 203, rng: () => 0 });
+  assert.equal(room.round.hakemSeat, 3);
+});
+
+test('next hakem transfers to the previous hakem partner when their team loses the hand', () => {
+  const players = fourPlayers();
+  let room = createRoom({ roomId: 'hakem-partner', hostUserId: players[0], now: 300 });
+  for (const id of players.slice(1)) room = joinRoom(room, id, 301);
+  for (const id of players) room = setPlayerReady(room, id, true);
+  room = startRoom(room, players[0], { now: 302, rng: () => 0.75 });
+  room = { ...room, status: 'round_completed', round: { ...room.round, phase: 'completed', scores: [7, 0] }, handRevealUntil: 0 };
+  room = startNextRound(room, players[0], { now: 303, rng: () => 0 });
+  assert.equal(room.round.hakemSeat, 1);
 });
