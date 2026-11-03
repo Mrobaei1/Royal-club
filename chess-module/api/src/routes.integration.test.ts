@@ -47,7 +47,7 @@ test("authenticated chess routes support private game, draw, chat, profiles and 
     }
 
     const users = await pool.query(
-      "INSERT INTO users(username) VALUES ('route_white'),('route_black'),('queue_one'),('queue_two'),('queue_cancel'),('concurrent_room_host'),('race_room_host'),('race_guest_one'),('race_guest_two'),('claim_white'),('claim_black'),('claim_timeout_white'),('claim_timeout_black') RETURNING id,username"
+      "INSERT INTO users(username) VALUES ('route_white'),('route_black'),('queue_one'),('queue_two'),('queue_cancel'),('concurrent_room_host'),('race_room_host'),('race_guest_one'),('race_guest_two'),('claim_white'),('claim_black'),('claim_timeout_white'),('claim_timeout_black'),('matchmaking_low'),('matchmaking_mid'),('matchmaking_high') RETURNING id,username"
     );
     const ids = users.rows.map(row => String(row.id));
     const white = ids[0]!;
@@ -60,6 +60,9 @@ test("authenticated chess routes support private game, draw, chat, profiles and 
     const claimBlack = ids[10]!;
     const claimTimeoutWhite = ids[11]!;
     const claimTimeoutBlack = ids[12]!;
+    const matchmakingLow = ids[13]!;
+    const matchmakingMid = ids[14]!;
+    const matchmakingHigh = ids[15]!;
 
     await registerChessRoutes(app, {
       pool,
@@ -614,6 +617,37 @@ test("authenticated chess routes support private game, draw, chat, profiles and 
     assert.equal(cancelled.json().cancelled, true);
     const idle = await request(queueCancel, "GET", "/chess/matchmaking/status");
     assert.equal(idle.json().status, "idle");
+
+    // Matchmaking must enforce both players' minimum-opponent-level preferences.
+    await pool.query(
+      "INSERT INTO chess_player_progression(user_id,level,xp) VALUES($1,2,0),($2,4,0),($3,5,0)",
+      [matchmakingLow, matchmakingMid, matchmakingHigh],
+    );
+    const lowQueued = await request(matchmakingLow, "POST", "/chess/matchmaking/join", {
+      timeControlId: "rapid", minOpponentLevel: 5,
+    });
+    assert.equal(lowQueued.statusCode, 202, lowQueued.body);
+    const midQueued = await request(matchmakingMid, "POST", "/chess/matchmaking/join", {
+      timeControlId: "rapid", minOpponentLevel: 2,
+    });
+    assert.equal(midQueued.statusCode, 202, midQueued.body);
+    const highMatched = await request(matchmakingHigh, "POST", "/chess/matchmaking/join", {
+      timeControlId: "rapid", minOpponentLevel: 2,
+    });
+    assert.equal(highMatched.statusCode, 201, highMatched.body);
+    const levelMatchedGame = await pool.query(
+      "SELECT white_user_id,black_user_id,settings_snapshot FROM chess_games WHERE id=$1",
+      [highMatched.json().gameId],
+    );
+    assert.deepEqual(
+      [String(levelMatchedGame.rows[0].white_user_id), String(levelMatchedGame.rows[0].black_user_id)].sort(),
+      [matchmakingLow, matchmakingHigh].sort(),
+    );
+    assert.equal(levelMatchedGame.rows[0].settings_snapshot.minOpponentLevel, 5);
+    const midStillWaiting = await request(matchmakingMid, "GET", "/chess/matchmaking/status");
+    assert.equal(midStillWaiting.json().status, "waiting");
+    const cancelMid = await request(matchmakingMid, "DELETE", "/chess/matchmaking/queue");
+    assert.equal(cancelMid.json().cancelled, true);
   } finally {
     await app.close();
     await appTwo.close();
