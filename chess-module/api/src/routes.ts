@@ -20,9 +20,11 @@ type MoveBody = { from: string; to: string; promotion?: "q"|"r"|"b"|"n" };
 type ChatBody = { message: string };
 
 const initialFen="rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+const isPositivePgBigint = (value: unknown): value is string =>
+  typeof value === "string" && /^[1-9]\d{0,18}$/.test(value) && BigInt(value) <= 9_223_372_036_854_775_807n;
 const userId=(request:FastifyRequest,options:RouteOptions):string=>{
   const id=options.getUserId(request);
-  if(!id||!/^\d+$/.test(id)) throw new Error("unauthorized");
+  if(!isPositivePgBigint(id)) throw new Error("unauthorized");
   return id;
 };
 const fail=(reply:{code:(status:number)=>{send:(body:unknown)=>unknown}},status:number,error:string)=>reply.code(status).send({error});
@@ -37,8 +39,6 @@ async function publishCommittedGameState(pool:Pool,gameId:string|number,request:
 
 export async function registerChessRoutes(app:FastifyInstance,options:RouteOptions):Promise<void>{
   const {pool}=options;
-  const isPositivePgBigint = (value: unknown): value is string =>
-    typeof value === "string" && /^[1-9]\d{0,18}$/.test(value) && BigInt(value) <= 9_223_372_036_854_775_807n;
   const gameRouteOptions = () => ({
     preHandler: [
       options.authenticate,
