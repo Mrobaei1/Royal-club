@@ -157,6 +157,17 @@ void main() {
     expect(sent, ['hello chess']);
   });
 
+  testWidgets('English game screen fits a phone viewport in LTR and landscape', (tester) async {
+    tester.view.physicalSize = const Size(2400, 1080);
+    tester.view.devicePixelRatio = 3;
+    await tester.pumpWidget(_screen(locale: const Locale('en'), activeSide: 'white'));
+    expect(Directionality.of(tester.element(find.byType(ChessGameScreen))), TextDirection.ltr);
+    expect(find.byType(ChessBoard), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    tester.view.resetPhysicalSize();
+    tester.view.resetDevicePixelRatio();
+  });
+
   testWidgets('Persian game screen uses RTL and renders Persian controls on a phone viewport', (tester) async {
     tester.view.physicalSize = const Size(1080, 2400);
     tester.view.devicePixelRatio = 3;
