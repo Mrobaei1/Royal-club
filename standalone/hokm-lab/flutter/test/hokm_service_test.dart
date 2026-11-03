@@ -67,8 +67,6 @@ void main() {
     await expectLater(rejected.viewRoom('r1'), throwsException);
     rejected.close();
   });
-}
-
 
   test('HTTP adapter exposes authenticated manager review and appeal actions', () async {
     final requests = <http.Request>[];
@@ -98,3 +96,4 @@ void main() {
     expect(requests.every((request) => request.headers['authorization'] == 'Bearer manager-token'), true);
     api.close();
   });
+}
