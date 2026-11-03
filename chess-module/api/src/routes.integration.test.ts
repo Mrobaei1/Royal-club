@@ -313,9 +313,21 @@ test("authenticated chess routes support private game, draw, chat, profiles and 
       "UPDATE chess_games SET initial_fen=$2,current_fen=$2,pgn='',clock_snapshot=jsonb_set(jsonb_set(clock_snapshot,'{whiteMs}','1'::jsonb),'{lastStartedAt}',to_jsonb($3::bigint)) WHERE id=$1",
       [claimTimeoutGameId, claimTimeoutFen, claimTimeoutNow - 5000],
     );
+    const timeoutListener = await pool.connect();
+    const timeoutChannel = "chess_game_" + claimTimeoutGameId;
+    let timeoutNotification: string | null = null;
+    await timeoutListener.query("LISTEN " + timeoutChannel);
+    timeoutListener.on("notification", notification => {
+      if (notification.channel === timeoutChannel) timeoutNotification = notification.payload ?? null;
+    });
     const expiredClockClaim = await request(claimTimeoutWhite, "POST", `/chess/games/${claimTimeoutGameId}/claim-draw`);
     assert.equal(expiredClockClaim.statusCode, 409);
     assert.equal(expiredClockClaim.json().error, "clock_expired");
+    await new Promise(resolve => setTimeout(resolve, 30));
+    assert.ok(timeoutNotification, "clock expiry must publish a terminal state event");
+    assert.equal(JSON.parse(timeoutNotification!).type, "state");
+    await timeoutListener.query("UNLISTEN " + timeoutChannel);
+    timeoutListener.release();
     const claimTimeoutResult = await pool.query(
       "SELECT status,clock_snapshot->>'finished' AS finished FROM chess_games WHERE id=$1",
       [claimTimeoutGameId],
