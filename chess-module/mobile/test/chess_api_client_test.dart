@@ -141,6 +141,23 @@ void main() {
     }
   });
 
+  test('WebSocket handshake is cancelled when it exceeds the client deadline', () async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    server.listen((request) {});
+    final client = ChessApiClient(
+      baseUri: Uri.parse('http://127.0.0.1:${server.port}'),
+      accessToken: 'test-token',
+      requestTimeout: const Duration(milliseconds: 300),
+    );
+
+    try {
+      await expectLater(client.connectGameSocket('123'), throwsA(isA<TimeoutException>()));
+    } finally {
+      client.dispose();
+      await server.close(force: true);
+    }
+  });
+
   test('API client rejects a non-positive request timeout', () {
     expect(
       () => ChessApiClient(
