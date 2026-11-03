@@ -1,4 +1,4 @@
-# UNO phase status — 2026-11-03 (latest verified head: ad8866b)
+# UNO phase status — 2026-11-03 (latest verified head: b6d0259)
 
 This phase record is paired with the UNO-only weighted baseline in [UNO-WBS.md](./UNO-WBS.md). The weights total 100 and are independent of the Royal Club-wide 53-package / 1,000-point WBS.
 
@@ -14,7 +14,16 @@ This phase record is paired with the UNO-only weighted baseline in [UNO-WBS.md](
 | 6 | Security and authentication | 100% | Royal Club HS256 token verification, expiry/token-version checks, server-derived player identity, username-only public profile, private hands; automated auth/privacy tests pass |
 | 7 | Storage and recovery | 100% of implemented scope | PostgreSQL room snapshots, serialized writes, restart restore, reconnect and token-revocation integration coverage pass |
 
-## Verified CI evidence — latest head `ad8866b30e534f471731701904040b2dc8ddd36f`\n\n- UNO Standalone CI run **41673494543**: backend tests/build, Flutter format/analyze/tests, and PostgreSQL server integration — all **success**.\n- Royal Club validation run **41673494242**: Flutter analyze/tests and API build/tests — all **success**.\n- Backgammon engine audit run **41673494331** — **success**.\n- Validate Royal Club run **41673494938**: Flutter analyze/tests, API build/tests and API integration — all **success**.\n- Royal Club Web Preview run **41673494570**: build, Flutter/API checks and preview artifact upload — **success**; deployment job **skipped** (no production deploy).\n- Netlify Deploy Preview for PR #122 is ready: https://deploy-preview-122--royal-club-6ob5.netlify.app\n\n## Earlier CI evidence
+## Verified CI evidence — latest head `ad8866b30e534f471731701904040b2dc8ddd36f`
+
+- UNO Standalone CI run **41673494543**: backend tests/build, Flutter format/analyze/tests, and PostgreSQL server integration — all **success**.
+- Royal Club validation run **41673494242**: Flutter analyze/tests and API build/tests — all **success**.
+- Backgammon engine audit run **41673494331** — **success**.
+- Validate Royal Club run **41673494938**: Flutter analyze/tests, API build/tests and API integration — all **success**.
+- Royal Club Web Preview run **41673494570**: build, Flutter/API checks and preview artifact upload — **success**; deployment job **skipped** (no production deploy).
+- Netlify Deploy Preview for PR #122 is ready: https://deploy-preview-122--royal-club-6ob5.netlify.app
+
+## Earlier CI evidence
 
 - UNO Standalone CI run **175** on commit `825fe1422584a8704aa335605fbe52cc24796c25`: backend tests/build **success**, Flutter format/analyze/tests **success**, PostgreSQL/server integration **success**. The integration suite now verifies a second service process is rejected by the PostgreSQL advisory lock.
 - UNO Standalone CI run **41641140833** on `9c1185db647f7a3ee6ea462e9e894e34a1be0b4a**: backend, PostgreSQL/server integration and Flutter module jobs **success**.
@@ -31,9 +40,9 @@ This phase record is paired with the UNO-only weighted baseline in [UNO-WBS.md](
 - Root validation run **41638382298**: **success**.
 - The room-manager suite now explicitly checks finished-match retention expiry, removal from room lookup, and release of the player's room membership.
 
-## Phase 5–7 follow-up work — 2026-11-03
+## Phase 5–7 follow-up work — verified on latest head
 
-The following changes were added after the earlier phase evidence above. They are committed on the standalone feature branch; the corresponding CI runs are pending and these changes are not marked accepted until those runs pass.
+The changes below are included in the verified latest head; UNO Standalone CI and root validation have passed.
 
 ### Phase 5 — Flutter UI
 - The room/table remains visible while an acknowledged server action is in progress; a thin progress indicator and input lock replace the previous full-screen spinner.
@@ -74,7 +83,7 @@ UNO remains isolated and this PR remains draft. No production deployment, databa
 - Saved-room loading now captures the player, token, server URL and restore generation before awaiting local storage; a result from an obsolete widget identity/server is ignored.
 - Reconnect responses are accepted only while the captured player, token, server URL and generation remain current. The guard is rechecked after asynchronous storage clear/save operations as well as after the socket acknowledgement.
 - This prevents late acknowledgements from an old account or server endpoint from repopulating room/game/hand state after `didUpdateWidget` has reset the session.
-- Commit: `55be0e8f0dacc29a5672289d89b71ac2aae6ce17`. CI for this new commit is pending at the time of this update.
+- Commit: `55be0e8f0dacc29a5672289d89b71ac2aae6ce17`. CI for the implementation and final documentation commits has passed on latest head `b6d02594bca4beb19ba32825d228da988197d7ed`.
 
 
 ## Physical acceptance execution record
@@ -84,3 +93,12 @@ Status: **not executed in this development environment**. Automated CI cannot su
 ## Final engineering baseline result
 
 The UNO-only WBS in `UNO-WBS.md` is **100/100 engineering completion** for the explicitly scoped standalone single-instance package, backed by green CI on `ad8866b`. This does not certify multi-instance support, physical-device acceptance, root-app integration, production deployment, or release approval. PR #122 remains Draft and unmerged.
+
+
+## Physical acceptance execution record
+
+Status: **not executed in this development environment**. Automated CI cannot substitute for real Android devices. A tester must record device model/Android version, build identifier, tester, date, and pass/fail evidence for both two-player and six-player complete matches, reconnect/account-switch, Persian/English layouts, chat and private-hand visibility.
+
+## Final engineering baseline result
+
+The UNO-only WBS in `UNO-WBS.md` is **100/100 engineering completion** for the explicitly scoped standalone single-instance package, backed by green CI on `b6d0259`. This does not certify multi-instance support, physical-device acceptance, root-app integration, production deployment, or release approval. PR #122 remains Draft and unmerged.
