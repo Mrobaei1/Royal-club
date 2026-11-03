@@ -44,18 +44,37 @@ export class ChessGame {
       throw new Error(`invalid_fen:${detail}`);
     }
     this.game = parsedGame;
-    // Replaying the stored PGN restores repetition history; FEN alone cannot.
+    // Replaying stored PGN restores repetition history; FEN alone cannot.
     if (pgn?.trim()) this.game.loadPgn(pgn);
+    this.rebuildRepetitionCounts();
   }
 
-  private isFivefoldRepetition(): boolean {
+  private positionKey(fen: string): string {
+    return fen.trim().split(/\\s+/).slice(0, 4).join(" ");
+  }
+
+  private incrementCurrentPosition(): void {
+    const key = this.positionKey(this.game.fen());
+    this.repetitionCounts.set(key, (this.repetitionCounts.get(key) ?? 0) + 1);
+  }
+
+  private rebuildRepetitionCounts(): void {
     const history = this.game.history({ verbose: true });
     const positions = history.length
       ? [history[0]!.before, ...history.map(move => move.after)]
       : [this.game.fen()];
-    const key = (fen: string) => fen.trim().split(/\s+/).slice(0, 4).join(" ");
-    const current = key(this.game.fen());
-    return positions.filter(position => key(position) === current).length >= 5;
+    for (const position of positions) {
+      const key = this.positionKey(position);
+      this.repetitionCounts.set(key, (this.repetitionCounts.get(key) ?? 0) + 1);
+    }
+  }
+
+  private currentPositionRepetitions(): number {
+    return this.repetitionCounts.get(this.positionKey(this.game.fen())) ?? 0;
+  }
+
+  private isFivefoldRepetition(): boolean {
+    return this.currentPositionRepetitions() >= 5;
   }
 
   private isAutomaticDraw(): boolean {
