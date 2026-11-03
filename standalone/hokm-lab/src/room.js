@@ -177,7 +177,7 @@ export function startNextRound(room, requesterUserId, { rng = Math.random, now =
   if (requesterUserId !== room.hostUserId) {
     const requester = room.players.find(player => player.userId === requesterUserId);
     if (!hostUnavailable || !requester || requester.connected === false || requester.forfeited === true) {
-      throw new Error("Only the host, or a connected player when the host is unavailable, may start the next round");
+      throw new Error("Only the host may start the next round unless unavailable; then a connected player may take over");
     }
   }
   if (Number.isFinite(room.handRevealUntil) && now < room.handRevealUntil) throw new Error("The 3-second end-of-hand reveal is still active");
