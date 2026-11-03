@@ -40,19 +40,19 @@ Deliver a Persian/Iranian classic four-colour Manch game that fits the existing 
 
 ## Current measured progress
 
-Measured conservatively from committed implementation and available test evidence (latest report: 2026-11-01). Percentages below are completion within each work package, not the weighted contribution.
+Measured conservatively from committed implementation and available test evidence (latest report: 2026-11-03). Percentages below are completion within each work package, not the weighted contribution.
 
 | ID | Work package | Weight | Current progress | Evidence / remaining gate |
 |---|---|---:|---:|---|
 | 1 | Requirements and Iranian rule profile | 10% | 90% | Owner approved the common classic four-token baseline on 2026-11-02; configurable implemented variants are documented. Remaining: implement and test currently unsupported options and complete edge-case matrix. |
 | 2 | Open-source research and license review | 15% | 90% | Three pinned reference snapshots and exact LICENSE texts reviewed; MIT notice obligations and Apache-2.0 redistribution/NOTICE/patent provisions recorded. No source/assets/dependencies copied; full Royal Club dependency-tree inventory remains. |
 | 3 | Iranian board visual design | 15% | 55% | 52-cell board painter, four yards, four home lanes, entry markers and widget tests exist; final visual review and geometry acceptance remain. |
-| 4 | Pure Dart rules engine | 15% | 55% | Deterministic core, serializable state, defensive immutable rule snapshots, blockade variants and scenario tests are implemented; broader edge-case coverage and broader edge-case coverage remains. |
+| 4 | Pure Dart rules engine | 15% | 55% | Deterministic core, serializable state, defensive immutable rule snapshots, blockade variants and scenario tests are implemented; broader edge-case coverage remains. |
 | 5 | Offline game mode | 10% | 35% | Local 2–4 player pass-and-play, optional AI opponent, deterministic bot policy, secure save/resume and widget tests are implemented; broader bot strategy, difficulty settings and full play acceptance remain. |
 | 6 | Online game service | 15% | 75% | Authenticated room lifecycle, 2–4 player seats, expiry/cancel, server-generated dice, server-side rule validation, transactional row locking, state versions, persistence, concurrent-roll protection, current-match recovery, two-player forfeit/winner metadata and rematch rooms are implemented; disconnect grace/AI takeover, push delivery and multi-client UI acceptance remain. |
 | 7 | Royal Club integration | 10% | 20% | Home-screen mode picker routes to offline AI/local modes and online lobby; authenticated identity and latest-match recovery are wired into the client. Friends/invite integration, profile/history, ranked records and settings remain. |
 | 8 | UX polish | 5% | 10% | Initial Persian/English screen labels, status messaging and responsive scrolling are present; animation, sound, accessibility review and full localization/visual polish remain. |
-| 9 | End-to-end validation and stabilization | 5% | 20% | CI is green for API build/unit tests, API integration tests, Flutter analyze/widget tests and backgammon engine/AI regression; 101 Flutter tests passed. Full multi-device acceptance, live reconnect and release sign-off remain. |
+| 9 | End-to-end validation and stabilization | 5% | 20% | CI is green on the earlier validated commit for API build/unit tests, API integration tests, Flutter analyze/widget tests and backgammon engine/AI regression; 101 Flutter tests passed. The latest head `e247f077828452c6ce4b7613fd14813a1f5040d7` includes a test-import correction but has no completed CI run yet. Full multi-device acceptance, live reconnect and release sign-off remain. |
 
 Weighted overall progress: **57.25%** (10%×90% + 15%×90% + 15%×55% + 15%×55% + 10%×35% + 15%×75% + 10%×20% + 5%×10% + 5%×20%). This is a conservative implementation estimate, not a release-readiness claim. Offline play has an initial AI/local mode and secure save/resume. Online play now has an initial server-authoritative API and client lobby/game flow, but reconnect, friend invitations, active-match recovery, concurrency stress and end-to-end acceptance remain outstanding.
 
