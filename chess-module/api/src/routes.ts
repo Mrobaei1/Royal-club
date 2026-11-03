@@ -12,6 +12,8 @@ type RouteOptions = {
   authenticate: preHandlerHookHandler;
   getUserId: (request: FastifyRequest) => string;
   canManageSettings: (userId: string) => Promise<boolean>;
+  /** Disable only in tests that invoke scheduler sweeps deterministically. */
+  enableClockScheduler?: boolean;
 };
 type CreateRoomBody = { minOpponentLevel?: number; timeControlId?: string; chatEnabled?: boolean };
 type MoveBody = { from: string; to: string; promotion?: "q"|"r"|"b"|"n" };
@@ -35,7 +37,7 @@ async function publishCommittedGameState(pool:Pool,gameId:string|number,request:
 
 export async function registerChessRoutes(app:FastifyInstance,options:RouteOptions):Promise<void>{
   const {pool}=options;
-  startChessClockScheduler(app,pool);
+  if(options.enableClockScheduler!==false)startChessClockScheduler(app,pool);
   app.get("/chess/time-controls",{preHandler:options.authenticate},async()=>{
     const result=await pool.query("SELECT id,display_name AS name,base_ms,increment_ms,enabled FROM chess_time_controls ORDER BY base_ms");
     return {timeControls:result.rows};
