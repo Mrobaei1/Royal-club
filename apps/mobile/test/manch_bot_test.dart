@@ -54,6 +54,51 @@ void main() {
     expect(move.isCapture, isTrue);
   });
 
+  test('bot avoids an exposed square when another safe move is available', () {
+    final state = ManchGameState(
+      players: [
+        ManchPlayerState(
+          colour: ManchColour.red,
+          tokens: [0, 10, -1, -1],
+        ),
+        ManchPlayerState(
+          colour: ManchColour.green,
+          tokens: [39, -1, -1, -1],
+        ),
+      ],
+      activePlayerIndex: 0,
+      profile: const ManchRuleProfile(),
+    );
+
+    final move = bot.chooseMove(engine.roll(state, 1));
+
+    expect(move, isNotNull);
+    expect(move!.tokenIndex, 1);
+    expect(move.toProgress, 11);
+  });
+
+  test('bot does not penalize an opponent threat on a safe cell', () {
+    final state = ManchGameState(
+      players: [
+        ManchPlayerState(
+          colour: ManchColour.red,
+          tokens: [0, 10, -1, -1],
+        ),
+        ManchPlayerState(
+          colour: ManchColour.green,
+          tokens: [39, -1, -1, -1],
+        ),
+      ],
+      activePlayerIndex: 0,
+      profile: const ManchRuleProfile(safeTrackIndices: {1}),
+    );
+
+    final move = bot.chooseMove(engine.roll(state, 1));
+
+    expect(move, isNotNull);
+    expect(move!.tokenIndex, 0);
+  });
+
   test('bot returns null when there is no pending legal move', () {
     final state = engine.newGame(playerCount: 2);
     expect(bot.chooseMove(state), isNull);
