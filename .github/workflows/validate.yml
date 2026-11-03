@@ -7,6 +7,7 @@ on:
     branches:
       - main
       - feature/password-min-6
+      - feature/iranian-manch-foundation
   pull_request:
   workflow_dispatch:
 
