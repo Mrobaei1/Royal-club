@@ -53,3 +53,9 @@ All endpoints require a Bearer access token.
 - Disconnect leases, grace periods, temporary AI takeover and push notifications.
 
 Do not advertise these deferred capabilities as available until their API, UI and integration tests are complete.
+
+
+## Concurrency contract
+- Roll, move, and forfeit requests must include the exact `expectedStateVersion` from the latest server snapshot.
+- The API locks the match row and rejects stale commands with HTTP 409 and the current version before mutating the match.
+- Clients must reload the authoritative snapshot after a 409; they must never infer or fabricate a new version.
