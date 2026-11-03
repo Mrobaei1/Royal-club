@@ -143,9 +143,20 @@ class _UnoOnlineScreenState extends State<UnoOnlineScreen> {
   }
 
   Future<void> _loadSavedRoom() async {
+    final playerId = widget.playerId;
+    final accessToken = widget.accessToken;
+    final serverUrl = widget.serverUrl;
+    final generation = _restoreGeneration;
     try {
-      final code = await _sessionStore.readRoomCode(widget.playerId);
-      if (!mounted || code == null) return;
+      final code = await _sessionStore.readRoomCode(playerId);
+      if (!mounted ||
+          generation != _restoreGeneration ||
+          playerId != widget.playerId ||
+          accessToken != widget.accessToken ||
+          serverUrl != widget.serverUrl ||
+          code == null) {
+        return;
+      }
       _pendingRoomCode = code;
       if (_socket?.connected == true) await _restoreRoom(code);
     } catch (_) {
@@ -161,12 +172,22 @@ class _UnoOnlineScreenState extends State<UnoOnlineScreen> {
     final generation = ++_restoreGeneration;
     final playerId = widget.playerId;
     final accessToken = widget.accessToken;
+    final serverUrl = widget.serverUrl;
+    bool isCurrentRequest() =>
+        mounted &&
+        _restoreGeneration == generation &&
+        playerId == widget.playerId &&
+        accessToken == widget.accessToken &&
+        serverUrl == widget.serverUrl;
     try {
       final result = await _emit('uno:room:reconnect', {'code': normalizedCode});
-      if (!mounted || playerId != widget.playerId || accessToken != widget.accessToken) return;
+      if (!isCurrentRequest()) return;
       if (result['ok'] != true) {
-        if (result['error'] is Map && ['ROOM_NOT_FOUND', 'NOT_A_PLAYER'].contains((result['error'] as Map)['code'])) {
+        if (result['error'] is Map &&
+            ['ROOM_NOT_FOUND', 'NOT_A_PLAYER']
+                .contains((result['error'] as Map)['code'])) {
           await _sessionStore.clearRoomCode();
+          if (!isCurrentRequest()) return;
           _pendingRoomCode = null;
         }
         return;
@@ -177,14 +198,19 @@ class _UnoOnlineScreenState extends State<UnoOnlineScreen> {
       _pendingRoomCode = room['code']?.toString();
       if (_pendingRoomCode != null) {
         await _sessionStore.saveRoomCode(_pendingRoomCode!, playerId: playerId);
+        if (!isCurrentRequest()) return;
       }
       if (data['game'] is Map) {
         setState(() => _game = Map<String, dynamic>.from(data['game'] as Map));
-        if (data['hand'] is List) setState(() => _hand = List<dynamic>.from(data['hand'] as List));
+        if (data['hand'] is List) {
+          setState(() => _hand = List<dynamic>.from(data['hand'] as List));
+        }
       }
-    } catch (_) { /* Reconnect is best-effort; the next room action reports errors. */ }
-    finally {
-      if (_restoreGeneration == generation && _restoringRoomCode == normalizedCode) {
+    } catch (_) {
+      // Reconnect is best-effort; the next room action reports errors.
+    } finally {
+      if (_restoreGeneration == generation &&
+          _restoringRoomCode == normalizedCode) {
         _restoreInFlight = false;
         _restoringRoomCode = null;
       }
