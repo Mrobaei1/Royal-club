@@ -285,8 +285,13 @@ class ChessGameSession extends ChangeNotifier {
   }
 
   Future<void> claimDraw() async {
-    await api.claimDraw(gameId);
-    await refresh();
+    try {
+      await api.claimDraw(gameId);
+    } finally {
+      // The server may adjudicate an expired clock and return 409; always
+      // refresh so the client does not keep showing a stale active position.
+      await refresh();
+    }
   }
 
   Future<void> resign() async {
