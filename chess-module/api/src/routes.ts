@@ -156,6 +156,7 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
     const engineState=engine.snapshot();
     return {gameId:String(row.id),fen:row.current_fen,pgn:row.pgn,status:row.status,revision:Number(row.revision),
       turn:engineState.turn,legalMoves:engineState.legalMoves,
+      drawClaimable:engineState.drawClaimable,drawClaimReason:engineState.drawClaimReason,
       clock:row.clock_snapshot,settings:row.settings_snapshot,isHost:String(row.host_user_id)===playerId,
       players:{white:{username:row.white_username},black:{username:row.black_username}}};
   });
@@ -325,6 +326,53 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
       await client.query("COMMIT");
       return {status,winnerId:winner};
     }catch(error){await rollback(client);request.log.error(error);return fail(reply,500,"chess_resign_failed");}
+    finally{client.release();}
+  });
+
+  app.post<{Params:{gameId:string}}>("/chess/games/:gameId/claim-draw",{preHandler:options.authenticate},async(request,reply)=>{
+    let playerId:string;
+    try{playerId=userId(request,options);}catch{return fail(reply,401,"unauthorized");}
+    const client=await pool.connect();
+    try{
+      await client.query("BEGIN");
+      const result=await client.query("SELECT * FROM chess_games WHERE id=$1 FOR UPDATE",[request.params.gameId]);
+      const row=result.rows[0];
+      if(!row||row.status!=="active"){await client.query("ROLLBACK");return fail(reply,404,"active_game_not_found");}
+      const white=String(row.white_user_id),black=String(row.black_user_id);
+      if(playerId!==white&&playerId!==black){await client.query("ROLLBACK");return fail(reply,403,"not_a_player");}
+      const game=new ChessGame(row.initial_fen,row.pgn);
+      const state=game.snapshot();
+      const expected=state.turn==="w"?white:black;
+      if(playerId!==expected){await client.query("ROLLBACK");return fail(reply,403,"not_your_turn");}
+      if(!state.drawClaimable){await client.query("ROLLBACK");return fail(reply,409,"draw_not_claimable");}
+      const control=(row.settings_snapshot as {timeControl:TimeControl}).timeControl;
+      const clockNow=row.clock_snapshot as ClockSnapshot;
+      const elapsed=settleClock(clockNow,control,Date.now(),false);
+      if(elapsed.finished){
+        const winner=clockNow.active==="white"?black:white;
+        const terminal=winner===white?"white_win":"black_win";
+        await client.query("UPDATE chess_games SET status=$2,clock_snapshot=$3::jsonb,finished_at=NOW(),revision=revision+1 WHERE id=$1",[row.id,terminal,JSON.stringify({...elapsed,active:null,lastStartedAt:null,finished:true})]);
+        await client.query("UPDATE chess_rooms SET status='finished' WHERE id=$1",[row.room_id]);
+        await awardChessResult(client,String(row.id),"final_result",white,black,{outcome:"win",winnerId:winner,loserId:winner===white?black:white});
+        await client.query("COMMIT");
+        return fail(reply,409,"clock_expired");
+      }
+      const cancelledOffers=await client.query(
+        "UPDATE chess_draw_offers SET status='cancelled',responded_by=$2,responded_at=NOW() WHERE game_id=$1 AND status='pending' RETURNING id",
+        [row.id,playerId]
+      );
+      const clock={...elapsed,active:null,lastStartedAt:null,finished:true};
+      await client.query("UPDATE chess_games SET status='draw',clock_snapshot=$2::jsonb,finished_at=NOW(),revision=revision+1 WHERE id=$1",[row.id,JSON.stringify(clock)]);
+      await client.query("UPDATE chess_rooms SET status='finished' WHERE id=$1",[row.room_id]);
+      await awardChessResult(client,String(row.id),"final_result",white,black,{outcome:"draw",winnerId:null,loserId:null});
+      await client.query("COMMIT");
+      try{await publishGameEvent(pool,row.id,{type:"state"});}catch(error){request.log.warn({err:error},"chess claimed-draw state notification failed");}
+      for(const offer of cancelledOffers.rows){
+        try{await publishGameEvent(pool,row.id,{type:"draw_response",offerId:String(offer.id),status:"cancelled"});}
+        catch(error){request.log.warn({err:error},"chess draw-claim offer cancellation notification failed");}
+      }
+      return {status:"draw",reason:state.drawClaimReason};
+    }catch(error){await rollback(client);request.log.error(error);return fail(reply,500,"draw_claim_failed");}
     finally{client.release();}
   });
 
