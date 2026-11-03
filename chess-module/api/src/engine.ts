@@ -11,6 +11,7 @@ export type EngineSnapshot = {
   checkmate: boolean;
   draw: boolean;
   drawClaimable: boolean;
+  drawClaimReason: "threefold_repetition" | "fifty_move_rule" | null;
   gameOver: boolean;
   legalMoves: string[];
 };
@@ -95,9 +96,12 @@ export class ChessGame {
     const fen = this.game.fen();
     const halfMoveClock = Number(fen.split(/\s+/)[4] ?? 0);
     const draw = this.isAutomaticDraw();
-    const drawClaimable = !draw && (
-      this.game.isThreefoldRepetition() || halfMoveClock >= 100
-    );
+    const drawClaimReason = !draw
+      ? this.game.isThreefoldRepetition()
+        ? "threefold_repetition"
+        : halfMoveClock >= 100 ? "fifty_move_rule" : null
+      : null;
+    const drawClaimable = drawClaimReason !== null;
     const checkmate = this.game.isCheckmate();
     return {
       fen,
@@ -108,6 +112,7 @@ export class ChessGame {
       checkmate,
       draw,
       drawClaimable,
+      drawClaimReason,
       gameOver: checkmate || draw,
       legalMoves: this.game.moves({ verbose: true }).map(move => `${move.from}${move.to}${move.promotion ?? ""}`)
     };
