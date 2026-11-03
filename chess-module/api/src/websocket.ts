@@ -18,7 +18,11 @@ export function createPingRateLimiter(limit = 30, windowMs = 10_000, now: () => 
   return () => {
     const current = now();
     // A sliding window prevents clients from doubling the allowance at a fixed-window boundary.
-    while (timestamps.length > 0 && timestamps[0] <= current - windowMs) timestamps.shift();
+    while (timestamps.length > 0) {
+      const oldest = timestamps[0];
+      if (oldest === undefined || oldest > current - windowMs) break;
+      timestamps.shift();
+    }
     if (timestamps.length >= limit) return false;
     timestamps.push(current);
     return true;
