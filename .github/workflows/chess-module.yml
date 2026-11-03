@@ -45,7 +45,8 @@ jobs:
       - run: npm install --no-audit --no-fund
       - run: sudo apt-get update && sudo apt-get install -y stockfish
       - run: |
-          stockfish_path="$(command -v stockfish)"
+          stockfish_path="$(command -v stockfish || true)"
+          if [ -z "$stockfish_path" ] && [ -x /usr/games/stockfish ]; then stockfish_path=/usr/games/stockfish; fi
           test -n "$stockfish_path"
           echo "STOCKFISH_PATH=$stockfish_path" >> "$GITHUB_ENV"
       - run: npm test
