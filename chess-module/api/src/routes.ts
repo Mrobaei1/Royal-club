@@ -329,7 +329,7 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
     finally{client.release();}
   });
 
-  app.post<{Params:{gameId:string}}>("/chess/games/:gameId/claim-draw",{preHandler:options.authenticate},async(request,reply)=>{
+  app.post<{Params:{gameId:string};Body:{move?:MoveBody}}>("/chess/games/:gameId/claim-draw",{preHandler:options.authenticate},async(request,reply)=>{
     let playerId:string;
     try{playerId=userId(request,options);}catch{return fail(reply,401,"unauthorized");}
     const client=await pool.connect();
@@ -341,10 +341,19 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
       const white=String(row.white_user_id),black=String(row.black_user_id);
       if(playerId!==white&&playerId!==black){await client.query("ROLLBACK");return fail(reply,403,"not_a_player");}
       const game=new ChessGame(row.initial_fen,row.pgn);
-      const state=game.snapshot();
-      const expected=state.turn==="w"?white:black;
+      const currentState=game.snapshot();
+      const expected=currentState.turn==="w"?white:black;
       if(playerId!==expected){await client.query("ROLLBACK");return fail(reply,403,"not_your_turn");}
-      if(!state.drawClaimable){await client.query("ROLLBACK");return fail(reply,409,"draw_not_claimable");}
+      let claimState=currentState;
+      if(request.body?.move!==undefined){
+        try{claimState=game.play(request.body.move);}
+        catch(error){
+          await client.query("ROLLBACK");
+          const message=error instanceof Error?error.message:"";
+          return fail(reply,message==="illegal_move"?400:400,message==="illegal_move"?"illegal_claim_move":message);
+        }
+      }
+      if(!claimState.drawClaimable){await client.query("ROLLBACK");return fail(reply,409,"draw_not_claimable");}
       const control=(row.settings_snapshot as {timeControl:TimeControl}).timeControl;
       const clockNow=row.clock_snapshot as ClockSnapshot;
       const elapsed=settleClock(clockNow,control,Date.now(),false);
@@ -371,7 +380,7 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
         try{await publishGameEvent(pool,row.id,{type:"draw_response",offerId:String(offer.id),status:"cancelled"});}
         catch(error){request.log.warn({err:error},"chess draw-claim offer cancellation notification failed");}
       }
-      return {status:"draw",reason:state.drawClaimReason};
+      return {status:"draw",reason:claimState.drawClaimReason};
     }catch(error){await rollback(client);request.log.error(error);return fail(reply,500,"draw_claim_failed");}
     finally{client.release();}
   });
