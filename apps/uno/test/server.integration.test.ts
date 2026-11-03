@@ -38,7 +38,7 @@ async function waitForHealth(child: ChildProcess, getLogs: () => string): Promis
   throw new Error(`UNO service did not become healthy: ${getLogs()}`);
 }
 
-function startService(database: string): { child: ChildProcess; logs: () => string } {
+function startService(database: string, servicePort = port): { child: ChildProcess; logs: () => string } {
   let output = '';
   const child = spawn(process.execPath, ['dist/src/server.js'], {
     cwd: process.cwd(),
@@ -46,7 +46,7 @@ function startService(database: string): { child: ChildProcess; logs: () => stri
       ...process.env,
       NODE_ENV: 'test',
       HOST: '127.0.0.1',
-      PORT: String(port),
+      PORT: String(servicePort),
       JWT_SECRET: jwtSecret,
       DATABASE_URL: database,
       CORS_ORIGINS: 'http://localhost:3000',
@@ -123,6 +123,13 @@ test('PostgreSQL-backed UNO service authenticates and restores live rooms', {
     service = running.child;
     getServiceLogs = running.logs;
     await waitForHealth(service, running.logs);
+
+    // A second replica must fail before loading or writing the shared snapshot.
+    const competing = startService(databaseUrl!, port + 1);
+    await delay(1000);
+    assert.notEqual(competing.child.exitCode, null, 'a second UNO instance must be rejected');
+    assert.match(competing.logs(), /already running|Multiple replicas/i);
+    await stopService(competing.child);
 
     const removedMediaEndpoint = await fetch(`${baseUrl}/ice-config`, {
       headers: { Authorization: `Bearer ${hostToken}` },
