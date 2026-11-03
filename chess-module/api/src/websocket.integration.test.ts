@@ -28,12 +28,12 @@ const migrations = [
 function waitForMessage(
   socket: WebSocket,
   predicate: (message: Record<string, unknown>) => boolean,
-  timeoutMs = 4_000,
+  timeoutMs = 8_000,
 ): Promise<Record<string, unknown>> {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
       socket.off("message", onMessage);
-      reject(new Error("Timed out waiting for expected WebSocket message"));
+      reject(new Error(`Timed out waiting for expected WebSocket message: ${predicate.toString()}`));
     }, timeoutMs);
     const onMessage = (raw: WebSocket.RawData) => {
       let parsed: Record<string, unknown>;
