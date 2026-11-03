@@ -12,6 +12,9 @@ on:
       - ".github/workflows/chess-module.yml"
 permissions:
   contents: read
+concurrency:
+  group: chess-module-validation-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   chess-api:
     runs-on: ubuntu-latest
