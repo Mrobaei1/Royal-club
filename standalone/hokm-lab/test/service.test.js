@@ -251,3 +251,27 @@ test("manager review projection is role-gated and contains no private game state
   assert.equal("game" in review, false);
   assert.equal("chatMessages" in review, false);
 });
+
+
+test("service lets a connected participant start the next hand after host disconnect and transfers host", async () => {
+  const { service, repository } = serviceFixture();
+  let room = await service.create(user("u0"));
+  for (const id of ["u1", "u2", "u3"]) room = await service.join(user(id), room.roomId, room.version);
+  for (const id of ["u0", "u1", "u2", "u3"]) room = await service.ready(user(id), room.roomId, true, room.version);
+  room = await service.start(user("u0"), room.roomId, room.version);
+  const persisted = await repository.get(room.roomId);
+  const disconnectedHost = {
+    ...persisted,
+    status: "round_completed",
+    handRevealUntil: 0,
+    round: { ...persisted.round, phase: "completed" },
+    players: persisted.players.map(player =>
+      player.userId === "u0" ? { ...player, connected: false } : player
+    ),
+    version: persisted.version + 1,
+  };
+  assert.equal(await repository.compareAndSwap(room.roomId, persisted.version, disconnectedHost), true);
+  const next = await service.startNextRound(user("u1"), room.roomId, disconnectedHost.version);
+  assert.equal(next.status, "playing");
+  assert.equal(next.hostUserId, "u1");
+});
