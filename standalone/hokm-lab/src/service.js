@@ -139,6 +139,11 @@ export class HokmRoomService {
       room => startNextRound(room, userId, { now: this.now() }), userId);
   }
 
+  // Backward-compatible descriptive alias for callers that name the hand transition explicitly.
+  async startNextRound(principal, roomId, expectedVersion) {
+    return this.nextRound(principal, roomId, expectedVersion);
+  }
+
   async command(principal, roomId, command, expectedVersion) {
     const userId = authenticatedUser(principal);
     return this.#transition(roomId, expectedVersion,
