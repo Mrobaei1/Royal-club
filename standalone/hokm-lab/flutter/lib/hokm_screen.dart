@@ -3,11 +3,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'l10n/app_text.dart';
 import 'services/hokm_service.dart';
+import 'hokm_manager_review_screen.dart';
 
 class HokmScreen extends StatefulWidget {
   final HokmApi api;
   final Future<String?> Function() identityLoader;
-  const HokmScreen({super.key, required this.api, required this.identityLoader});
+  final bool managerAccess;
+  const HokmScreen({super.key, required this.api, required this.identityLoader, this.managerAccess = false});
   @override
   State<HokmScreen> createState() => _HokmScreenState();
 }
@@ -304,6 +306,13 @@ class _HokmScreenState extends State<HokmScreen> with WidgetsBindingObserver {
       appBar: AppBar(
         title: Text(t('بازی حکم', 'Hokm')),
         actions: [
+          if (widget.managerAccess && _roomId.isNotEmpty) IconButton(
+            tooltip: t('بررسی مدیریت', 'Manager review'),
+            onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(
+              builder: (_) => HokmManagerReviewScreen(api: _api, roomId: _roomId),
+            )),
+            icon: const Icon(Icons.admin_panel_settings_outlined),
+          ),
           if (_roomId.isNotEmpty) IconButton(
             tooltip: t('کپی کد اتاق', 'Copy room code'),
             onPressed: () => Clipboard.setData(ClipboardData(text: _roomId)),
