@@ -18,6 +18,7 @@ export type EngineSnapshot = {
 
 export class ChessGame {
   private readonly game: Chess;
+  private readonly repetitionCounts = new Map<string, number>();
   constructor(fen?: string, pgn?: string) {
     // chess.js 1.4 validates FEN in its constructor; it does not expose
     // Chess.validateFen as a static API.
@@ -91,6 +92,7 @@ export class ChessGame {
     } catch {
       throw new Error("illegal_move");
     }
+    this.incrementCurrentPosition();
     return this.snapshot(move.san);
   }
 
@@ -99,7 +101,7 @@ export class ChessGame {
     const halfMoveClock = Number(fen.split(/\s+/)[4] ?? 0);
     const draw = this.isAutomaticDraw();
     const drawClaimReason = !draw && !this.game.isCheckmate()
-      ? this.game.isThreefoldRepetition()
+      ? this.currentPositionRepetitions() >= 3
         ? "threefold_repetition"
         : halfMoveClock >= 100 ? "fifty_move_rule" : null
       : null;
