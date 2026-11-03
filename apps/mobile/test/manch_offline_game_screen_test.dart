@@ -7,6 +7,23 @@ import 'package:royal_club/games/manch/manch_save_store.dart';
 import 'package:royal_club/games/manch/manch_rule_profile.dart';
 
 void main() {
+  testWidgets('offline game localizes primary controls in English',
+      (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        locale: Locale('en'),
+        supportedLocales: [Locale('fa'), Locale('en')],
+        home: ManchOfflineGameScreen(diceRoller: _six),
+      ),
+    );
+
+    expect(find.text('Iranian Manch — Offline'), findsOneWidget);
+    expect(find.text('Red\'s turn'), findsOneWidget);
+    expect(find.text('Roll die'), findsOneWidget);
+    expect(find.text('Save'), findsOneWidget);
+    expect(find.text('Restore'), findsOneWidget);
+  });
+
   testWidgets('offline game enters a token on six and grants the extra roll',
       (tester) async {
     await tester.pumpWidget(
