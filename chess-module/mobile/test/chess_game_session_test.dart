@@ -5,11 +5,15 @@ import 'package:royal_club_chess/chess_game_session.dart';
 class _FakeChessApiClient extends ChessApiClient {
   _FakeChessApiClient() : super(baseUri: Uri.parse('http://localhost'), accessToken: 'test');
 
+  String status = 'active';
+  int rating = 1320;
+  int profileFetches = 0;
+
   @override
   Future<Map<String, dynamic>> game(String gameId) async => {
         'gameId': gameId,
         'fen': 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
-        'status': 'active',
+        'status': status,
         'legalMoves': ['e2e4', 'g1f3'],
         'isHost': true,
         'clock': {
@@ -36,20 +40,40 @@ class _FakeChessApiClient extends ChessApiClient {
       };
 
   @override
-  Future<Map<String, dynamic>> playerProfileByUsername(String username) async => {
+  Future<Map<String, dynamic>> playerProfileByUsername(String username) async {
+    profileFetches += 1;
+    return {
         'username': username,
         'level': 4,
         'xp': 950,
-        'rating': 1320,
+        'rating': rating,
         'games': 10,
         'wins': 6,
         'losses': 3,
         'draws': 1,
         'winRate': 60.0,
       };
+  }
 }
 
 void main() {
+  test('game session refreshes both public profiles when the game becomes terminal', () async {
+    final api = _FakeChessApiClient();
+    final session = ChessGameSession(api: api, gameId: '99');
+    await session.refresh();
+    expect(api.profileFetches, 2);
+    expect(session.whiteProfile?.rating, 1320);
+
+    api.status = 'white_win';
+    api.rating = 1400;
+    await session.refresh();
+
+    expect(api.profileFetches, 4);
+    expect(session.whiteProfile?.rating, 1400);
+    expect(session.blackProfile?.rating, 1400);
+    session.dispose();
+  });
+
   test('game session refresh hydrates game, profiles, chat, and clocks', () async {
     final session = ChessGameSession(api: _FakeChessApiClient(), gameId: '99');
     await session.refresh();
