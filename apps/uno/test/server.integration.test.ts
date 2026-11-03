@@ -178,6 +178,7 @@ test('PostgreSQL-backed UNO service authenticates and restores live rooms', {
       await delay(100);
     }
     await stopService(service);
+    assert.match(getServiceLogs(), /closing UNO service gracefully/);
     service = null;
 
     await delay(150);
