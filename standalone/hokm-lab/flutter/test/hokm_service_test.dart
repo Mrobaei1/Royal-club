@@ -22,7 +22,7 @@ void main() {
     final result = await api.sendChatMessage('r 1', 'opponent', 'سلام 👋', 'msg-1', 7);
     expect(result['version'], 8);
     expect(received.method, 'POST');
-    expect(received.url.path, '/api/v1/hokm/rooms/r%201/chat');
+    expect(received.url.toString(), 'https://example.test/api/v1/hokm/rooms/r%201/chat');
     expect(received.headers['authorization'], 'Bearer secure-token');
     expect(jsonDecode(received.body), {
       'recipientUserId': 'opponent',
