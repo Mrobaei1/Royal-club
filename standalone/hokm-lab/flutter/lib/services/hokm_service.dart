@@ -17,6 +17,9 @@ abstract class HokmApi {
   Future<Map<String, dynamic>> reportPlayer(String roomId, String reportedUserId, String reason, int expectedVersion);
   Future<Map<String, dynamic>> submitAppeal(String roomId, String reason, int expectedVersion);
   Future<Map<String, dynamic>> sendChatMessage(String roomId, String recipientUserId, String text, String messageId, int expectedVersion);
+  Future<Map<String, dynamic>> managerView(String roomId);
+  Future<Map<String, dynamic>> reviewReport(String roomId, String reportId, String notes, int expectedVersion);
+  Future<Map<String, dynamic>> reviewAppeal(String roomId, String appealId, String decision, String notes, int expectedVersion);
 }
 
 /// Standalone HTTP adapter. The host supplies the API base URI and a secure
@@ -134,6 +137,22 @@ class HokmHttpApi implements HokmApi {
   Future<Map<String, dynamic>> sendChatMessage(String roomId, String recipientUserId, String text, String messageId, int expectedVersion) =>
       _request('POST', '${_roomPath(roomId)}/chat', {
         'recipientUserId': recipientUserId, 'text': text, 'messageId': messageId, 'expectedVersion': expectedVersion,
+      });
+
+  @override
+  Future<Map<String, dynamic>> managerView(String roomId) =>
+      _request('GET', '${_roomPath(roomId)}/manager');
+
+  @override
+  Future<Map<String, dynamic>> reviewReport(String roomId, String reportId, String notes, int expectedVersion) =>
+      _request('POST', '${_roomPath(roomId)}/manager/reports/${Uri.encodeComponent(reportId)}/review', {
+        'notes': notes, 'expectedVersion': expectedVersion,
+      });
+
+  @override
+  Future<Map<String, dynamic>> reviewAppeal(String roomId, String appealId, String decision, String notes, int expectedVersion) =>
+      _request('POST', '${_roomPath(roomId)}/manager/appeals/${Uri.encodeComponent(appealId)}/review', {
+        'decision': decision, 'notes': notes, 'expectedVersion': expectedVersion,
       });
 
   void close() => _client.close();
