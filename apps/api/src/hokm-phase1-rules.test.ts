@@ -8,7 +8,7 @@ import { createRound, chooseTrump, playCard, roundViewForSeat } from './hokm/rou
 import { chooseHardBotAction } from './hokm/bot.js';
 import {
   createRoom, joinRoom, setPlayerReady, startRoom, voteToCancelMatch,
-  processAllDisconnectedTimeout, processTurnTimeout, disconnectPlayer, TURN_DEADLINE_MS,
+  processAllDisconnectedTimeout, processTurnTimeout, disconnectPlayer, roomViewForUser, TURN_DEADLINE_MS,
   END_OF_HAND_REVEAL_MS, ALL_PLAYERS_DISCONNECTED_MS
 } from './hokm/room.js';
 
@@ -205,4 +205,26 @@ test('seven-second card timeout chooses only from the active seat legal cards', 
   assert.ok(legal.some(card => card.rank === timedOut.round.currentTrick[0].card.rank &&
     card.suit === timedOut.round.currentTrick[0].card.suit));
   assert.equal(timedOut.round.hands[0].length, 12);
+});
+
+
+test('all four players can see revealed remaining hands for three seconds only', () => {
+  const players = fourPlayers().map((userId, seat) => ({
+    userId, seat, ready: true, connected: true, botControlled: false
+  }));
+  const revealedHands = [0, 1, 2, 3].map(() => [{ suit: 'hearts', rank: 'A' }]);
+  const room = {
+    roomId: 'rules-reveal', privateRoom: false, status: 'round_completed',
+    matchTarget: 3, matchScore: [1, 0], version: 9, hostUserId: 'p0',
+    players, playerProgress: {}, turnDeadlineAt: null,
+    handRevealUntil: 50_000 + END_OF_HAND_REVEAL_MS, revealedHands, round: null
+  };
+  for (const userId of fourPlayers()) {
+    const visible = roomViewForUser(room, userId, { now: 52_999 });
+    assert.deepEqual(visible.revealedHands, revealedHands);
+    assert.equal(visible.handRevealUntil, 53_000);
+    const expired = roomViewForUser(room, userId, { now: 53_000 });
+    assert.equal(expired.revealedHands, null);
+    assert.equal(expired.handRevealUntil, null);
+  }
 });
