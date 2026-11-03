@@ -315,19 +315,24 @@ test("authenticated chess routes support private game, draw, chat, profiles and 
     );
     const timeoutListener = await pool.connect();
     const timeoutChannel = "chess_game_" + claimTimeoutGameId;
-    let timeoutNotification: string | null = null;
     await timeoutListener.query("LISTEN " + timeoutChannel);
-    timeoutListener.on("notification", notification => {
-      if (notification.channel === timeoutChannel) timeoutNotification = notification.payload ?? null;
+    const timeoutNotification = new Promise<string | null>(resolve => {
+      timeoutListener.once("notification", notification => resolve(notification.payload ?? null));
     });
-    const expiredClockClaim = await request(claimTimeoutWhite, "POST", `/chess/games/${claimTimeoutGameId}/claim-draw`);
-    assert.equal(expiredClockClaim.statusCode, 409);
-    assert.equal(expiredClockClaim.json().error, "clock_expired");
-    await new Promise(resolve => setTimeout(resolve, 30));
-    assert.ok(timeoutNotification, "clock expiry must publish a terminal state event");
-    assert.equal(JSON.parse(timeoutNotification!).type, "state");
-    await timeoutListener.query("UNLISTEN " + timeoutChannel);
-    timeoutListener.release();
+    try {
+      const expiredClockClaim = await request(claimTimeoutWhite, "POST", `/chess/games/${claimTimeoutGameId}/claim-draw`);
+      assert.equal(expiredClockClaim.statusCode, 409);
+      assert.equal(expiredClockClaim.json().error, "clock_expired");
+      const terminalEvent = await Promise.race([
+        timeoutNotification,
+        new Promise<null>(resolve => setTimeout(() => resolve(null), 1000)),
+      ]);
+      assert.ok(terminalEvent, "clock expiry must publish a terminal state event");
+      assert.equal(JSON.parse(terminalEvent).type, "state");
+    } finally {
+      try { await timeoutListener.query("UNLISTEN " + timeoutChannel); } catch {}
+      timeoutListener.release();
+    }
     const claimTimeoutResult = await pool.query(
       "SELECT status,clock_snapshot->>'finished' AS finished FROM chess_games WHERE id=$1",
       [claimTimeoutGameId],
