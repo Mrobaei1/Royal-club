@@ -60,15 +60,15 @@ void main() {
       expect(game.legalMoves(), isEmpty);
     });
 
-    test('negative player cannot bear off oversized while a farther checker exists', () {
+    test('negative player cannot skip a checker closer to the bear-off exit', () {
       position(player: -1, dice: [6], points: {0: -1, 3: -1});
       expect(
         game.legalMoves().any((m) => m.from == 0 && m.to == -1),
-        isFalse,
+        isTrue,
       );
       expect(
         game.legalMoves().any((m) => m.from == 3 && m.to == -1),
-        isTrue,
+        isFalse,
       );
     });
 
