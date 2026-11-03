@@ -42,7 +42,12 @@ class ChessApiClient {
     Object? body,
   }) async {
     if (_disposed) throw StateError('chess_api_client_disposed');
-    final request = await _http.openUrl(method, _uri(path, query)).timeout(requestTimeout);
+    final elapsed = Stopwatch()..start();
+    Duration remainingTimeout() {
+      final remaining = requestTimeout - elapsed.elapsed;
+      return remaining > Duration.zero ? remaining : Duration.zero;
+    }
+    final request = await _http.openUrl(method, _uri(path, query)).timeout(remainingTimeout());
     request.headers.set(HttpHeaders.authorizationHeader, 'Bearer $accessToken');
     request.headers.set(HttpHeaders.acceptHeader, 'application/json');
     if (body != null) {
@@ -50,14 +55,14 @@ class ChessApiClient {
       request.write(jsonEncode(body));
     }
     final response = await request.close().timeout(
-      requestTimeout,
+      remainingTimeout(),
       onTimeout: () {
         request.abort(TimeoutException('chess_api_request_timeout', requestTimeout));
         throw TimeoutException('chess_api_request_timeout', requestTimeout);
       },
     );
     final text = await response.transform(utf8.decoder).join().timeout(
-      requestTimeout,
+      remainingTimeout(),
       onTimeout: () {
         request.abort(TimeoutException('chess_api_response_timeout', requestTimeout));
         throw TimeoutException('chess_api_response_timeout', requestTimeout);
