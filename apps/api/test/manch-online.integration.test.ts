@@ -22,10 +22,6 @@ after(async () => {
   await testPool.end();
 });
 
-function turnOrderForTest(players: Array<{ userId: string }>, activeUserId: string) {
-  return players.filter((player) => player.userId !== activeUserId);
-}
-
 function auth(token: string) {
   return { authorization: `Bearer ${token}` };
 }
@@ -388,7 +384,7 @@ test('Manch online supports complete 3- and 4-player seat allocation and rejects
       players.map((player) => player.seatColour),
       player    // Every non-active seat must be rejected by the server, including
     // third and fourth players; turn ownership is never client-controlled.
-    for (const inactivePlayer of turnOrderForTest(detail.json().match.players, host.user.id)) {
+    for (const inactivePlayer of guests.slice(0, playerCount - 1)) {
       const outOfTurnRoll = await app.inject({
         method: 'POST',
         url: `/api/v1/manch/matches/${matchId}/roll`,
