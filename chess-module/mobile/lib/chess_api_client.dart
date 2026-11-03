@@ -113,6 +113,9 @@ class ChessApiClient {
     return (response['messages'] as List).cast<Map<String, dynamic>>();
   }
 
+  Future<Map<String, dynamic>> claimDraw(String gameId) =>
+      _request('POST', '/chess/games/${Uri.encodeComponent(gameId)}/claim-draw');
+
   Future<Map<String, dynamic>> resign(String gameId) =>
       _request('POST', '/chess/games/${Uri.encodeComponent(gameId)}/resign');
 
