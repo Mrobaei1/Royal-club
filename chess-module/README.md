@@ -19,7 +19,7 @@ A future asynchronous voice-message feature may use a microphone button to recor
 ## Structure
 - `api/`: Fastify routes, chess engine, clocks, scheduler, matchmaking, progression, rating, WebSocket text chat and tests.
 - `mobile/`: Flutter UI and authenticated API client.
-- `database/migrations/`: isolated migrations `001` through `010`; never included in the production migration runner.
+- `database/migrations/`: isolated migrations `001` through `011`; never included in the production migration runner.
 - `contracts/`: WebSocket event contract.
 - `docs/`: architecture, security boundaries and acceptance matrix.
 
