@@ -493,11 +493,24 @@ export function registerManchRoutes(app: any, pool: Pool, requireMatchAuth: any)
 
   app.get('/api/v1/manch/matches/:id', { onRequest: [requireMatchAuth] }, async (request: any, reply: any) => {
     await cleanupExpiredManchRooms(pool);
-    const matchId = String(request.params?.id ?? '');
-    if (/^\d+$/.test(matchId)) await processTemporaryManchAiTurn(pool, matchId);
-    const userId = String(request.user?.sub ?? '');
     const id = String(request.params?.id ?? '');
-    if (!/^\d+$/.test(id) || !userId) return sendError(reply, 400, 'Invalid match identifier.');
+    const userId = String(request.user?.sub ?? '');
+    if (!/^\\d+$/.test(id) || !userId) return sendError(reply, 400, 'Invalid match identifier.');
+
+    // Authorize membership before lazy AI processing: an outsider must never
+    // be able to advance another match by polling a guessed match identifier.
+    const membership = await pool.query(
+      'SELECT 1 FROM manch_match_players WHERE match_id = $1 AND user_id = $2',
+      [id, userId],
+    );
+    if (!membership.rowCount) {
+      const exists = await pool.query('SELECT 1 FROM manch_matches WHERE id = $1', [id]);
+      return exists.rowCount
+        ? sendError(reply, 403, 'You are not a player in this Manch match.')
+        : sendError(reply, 404, 'Manch match not found.');
+    }
+
+    await processTemporaryManchAiTurn(pool, id);
     const result = await pool.query(
       `SELECT id, room_code AS "roomCode", player_count AS "playerCount",
               status, game_state AS "gameState",
@@ -509,10 +522,7 @@ export function registerManchRoutes(app: any, pool: Pool, requireMatchAuth: any)
     );
     const match = result.rows[0];
     if (!match) return sendError(reply, 404, 'Manch match not found.');
-    const players = await matchPlayers(pool as unknown as PoolClient, id).catch(() => []);
-    if (!players.some((player) => player.userId === userId)) {
-      return sendError(reply, 403, 'You are not a player in this Manch match.');
-    }
+    const players = await matchPlayers(pool as unknown as PoolClient, id);
     return { match: { ...match, players } };
   });
 

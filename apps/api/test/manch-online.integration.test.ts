@@ -481,6 +481,17 @@ test('Manch temporary AI takes one overdue turn and reconnect restores human con
   assert.equal(Number(versionAfterUnauthorized.rows[0].state_version), initialVersion,
     'A non-player must not trigger an AI action.');
 
+  const unauthorizedRead = await app.inject({
+    method: 'GET', url: `/api/v1/manch/matches/${matchId}`,
+    headers: auth(outsider.accessToken),
+  });
+  assert.equal(unauthorizedRead.statusCode, 403);
+  const versionAfterUnauthorizedRead = await testPool.query(
+    'SELECT state_version FROM manch_matches WHERE id = $1', [matchId],
+  );
+  assert.equal(Number(versionAfterUnauthorizedRead.rows[0].state_version), initialVersion,
+    'An outsider polling a match must not trigger a temporary AI action.');
+
   const aiAdvanced = await app.inject({
     method: 'GET', url: `/api/v1/manch/matches/${matchId}`,
     headers: auth(guest.accessToken),
