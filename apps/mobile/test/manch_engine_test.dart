@@ -256,6 +256,57 @@ void main() {
       );
     });
 
+    test('rejects state snapshots that violate turn and winner invariants', () {
+      final players = [
+        ManchPlayerState(colour: ManchColour.red),
+        ManchPlayerState(colour: ManchColour.green),
+      ];
+
+      expect(
+        () => ManchGameState(
+          players: players,
+          activePlayerIndex: 0,
+          profile: const ManchRuleProfile(),
+          pendingDice: 6,
+          consecutiveSixes: 0,
+        ),
+        throwsArgumentError,
+      );
+      expect(
+        () => ManchGameState(
+          players: players,
+          activePlayerIndex: 0,
+          profile: const ManchRuleProfile(),
+          pendingDice: 3,
+          consecutiveSixes: 1,
+        ),
+        throwsArgumentError,
+      );
+      expect(
+        () => ManchGameState(
+          players: players,
+          activePlayerIndex: 1,
+          profile: const ManchRuleProfile(),
+          winnerIndex: 0,
+        ),
+        throwsArgumentError,
+      );
+      expect(
+        () => ManchGameState(
+          players: [
+            ManchPlayerState(
+              colour: ManchColour.red,
+              tokens: [57, 57, 57, 57],
+            ),
+            players[1],
+          ],
+          activePlayerIndex: 0,
+          profile: const ManchRuleProfile(),
+        ),
+        throwsArgumentError,
+      );
+    });
+
     test('rejects unsupported or incomplete save data', () {
       expect(
         () => ManchGameState.fromJson({'version': 99}),
