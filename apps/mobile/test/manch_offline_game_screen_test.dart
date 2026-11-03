@@ -22,6 +22,11 @@ void main() {
     expect(find.text('Iranian Manch — Offline'), findsOneWidget);
     expect(find.text('Red\'s turn'), findsOneWidget);
     expect(find.text('Roll die'), findsOneWidget);
+    expect(
+      tester.getSemantics(find.text('Roll the die to start your turn.'))
+          .hasFlag(SemanticsFlag.isLiveRegion),
+      isTrue,
+    );
     expect(find.text('Save'), findsOneWidget);
     expect(find.text('Restore'), findsOneWidget);
   });
