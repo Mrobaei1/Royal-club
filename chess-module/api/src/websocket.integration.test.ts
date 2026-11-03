@@ -150,10 +150,11 @@ test("WebSocket presence remains online until the player's last device disconnec
       await pool.query(sql);
     }
     const users = await pool.query(
-      "INSERT INTO users(username) VALUES ('ws_white'),('ws_black') RETURNING id,username",
+      "INSERT INTO users(username) VALUES ('ws_white'),('ws_black'),('ws_outsider') RETURNING id,username",
     );
     const white = String(users.rows[0].id);
     const black = String(users.rows[1].id);
+    const outsider = String(users.rows[2].id);
 
     await registerChessRoutes(app, {
       pool,
@@ -195,6 +196,26 @@ test("WebSocket presence remains online until the player's last device disconnec
     const gameId = String(joined.json().gameId);
     activeGameId = gameId;
     const wsUrl = `${address}?gameId=${gameId}`;
+
+    // A valid account that is not a participant must never subscribe to game events.
+    const outsiderSocket = new WebSocket(`${address2}?gameId=${gameId}`, {
+      headers: { "x-user-id": outsider },
+    });
+    sockets.push(outsiderSocket);
+    const outsiderClose = new Promise<{ code: number; reason: string }>((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error("non-participant WebSocket was not rejected")), 4_000);
+      outsiderSocket.once("close", (code, reason) => {
+        clearTimeout(timer);
+        resolve({ code, reason: reason.toString() });
+      });
+      outsiderSocket.once("error", (error) => {
+        clearTimeout(timer);
+        reject(error);
+      });
+    });
+    const outsiderResult = await outsiderClose;
+    assert.equal(outsiderResult.code, 1008);
+    assert.equal(outsiderResult.reason, "not_a_game_participant");
 
     const blackSocket = await connect(`${address2}?gameId=${gameId}`, black);
     sockets.push(blackSocket);
