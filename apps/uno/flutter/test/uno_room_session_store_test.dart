@@ -9,19 +9,26 @@ void main() {
     SharedPreferences.setMockInitialValues({});
   });
 
-  test('stores a normalized room code for process-restart recovery', () async {
+  test('stores a normalized room code for the owning account', () async {
     final store = UnoRoomSessionStore();
-    await store.saveRoomCode('  ab12cd  ');
-    expect(await store.readRoomCode(), 'AB12CD');
+    await store.saveRoomCode('  ab12cd  ', playerId: 'player-1');
+    expect(await store.readRoomCode('player-1'), 'AB12CD');
+  });
+
+  test('does not restore another account room and clears stale session data', () async {
+    final store = UnoRoomSessionStore();
+    await store.saveRoomCode('AB12CD', playerId: 'player-1');
+    expect(await store.readRoomCode('player-2'), isNull);
+    expect(await store.readRoomCode('player-1'), isNull);
   });
 
   test('clears the saved room code after leaving or receiving an empty code', () async {
     final store = UnoRoomSessionStore();
-    await store.saveRoomCode('AB12CD');
+    await store.saveRoomCode('AB12CD', playerId: 'player-1');
     await store.clearRoomCode();
-    expect(await store.readRoomCode(), isNull);
-    await store.saveRoomCode('AB12CD');
-    await store.saveRoomCode(' ');
-    expect(await store.readRoomCode(), isNull);
+    expect(await store.readRoomCode('player-1'), isNull);
+    await store.saveRoomCode('AB12CD', playerId: 'player-1');
+    await store.saveRoomCode(' ', playerId: 'player-1');
+    expect(await store.readRoomCode('player-1'), isNull);
   });
 }
