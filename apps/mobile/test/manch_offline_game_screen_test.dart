@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:royal_club/games/manch/manch_bot.dart';
 import 'package:royal_club/games/manch/manch_game_state.dart';
 import 'package:royal_club/games/manch/manch_offline_game_screen.dart';
 import 'package:royal_club/games/manch/manch_save_store.dart';
@@ -116,6 +117,34 @@ void main() {
     expect(find.text('نوبت بازیکن زرد'), findsOneWidget);
     expect(find.text('سه شش متوالی؛ نوبت خود را از دست دادی.'), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('offline bot difficulty can be selected before the match starts',
+      (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: ManchOfflineGameScreen(
+          botPlayers: {ManchColour.yellow},
+        ),
+      ),
+    );
+
+    final selector = find.byType(DropdownButton<ManchBotDifficulty>);
+    expect(selector, findsOneWidget);
+    expect(
+      tester.widget<DropdownButton<ManchBotDifficulty>>(selector).value,
+      ManchBotDifficulty.normal,
+    );
+
+    await tester.tap(selector);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('سخت').last);
+    await tester.pumpAndSettle();
+
+    expect(
+      tester.widget<DropdownButton<ManchBotDifficulty>>(selector).value,
+      ManchBotDifficulty.hard,
+    );
   });
 
   testWidgets('configured bot plays its turn and returns control to human',
