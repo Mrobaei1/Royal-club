@@ -325,7 +325,7 @@ class _ManchOfflineGameScreenState extends State<ManchOfflineGameScreen> {
                                   }
                                 }
                               : null,
-                          items: const [
+                          items: [
                             DropdownMenuItem(
                               value: ManchBotDifficulty.easy,
                               child: Text(_text('آسان', 'Easy')),
