@@ -187,8 +187,15 @@ class ManchOnlineService {
     return match;
   }
 
-  static Future<Map<String, dynamic>> forfeit(String id) async =>
-      _request('POST', '/${_requireId(id)}/forfeit');
+  static Future<Map<String, dynamic>> forfeit(
+    String id, {
+    required int expectedStateVersion,
+  }) async =>
+      _request(
+        'POST',
+        '/${_requireId(id)}/forfeit',
+        body: {'expectedStateVersion': expectedStateVersion},
+      );
 
   static Future<void> cancel(String id) async {
     await _request('DELETE', '/${_requireId(id)}');
