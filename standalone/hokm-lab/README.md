@@ -83,3 +83,11 @@ The room/service layer exposes version-checked seven-second turn deadline proces
 Requires Node.js 20+: `npm test`
 
 Do not describe this module as complete until the remaining acceptance criteria are implemented and verified.
+
+
+## Latest verified checkpoint (2026-11-04)
+
+- Node 20 + PostgreSQL 16: **127/127 tests passed**, including live migration, multi-instance compare-and-swap, private-chat isolation, manager-review persistence and terminal-state privacy.
+- Standalone Flutter: **analysis clean; 13/13 widget/API tests passed**, including private opponent chat and host-granted manager-review navigation.
+- Royal Club root CI for the production-port draft: API build/tests, PostgreSQL integration and Flutter analyze/tests passed. This is code validation only; the PR remains a draft and the production parity blockers below are still open.
+- No production deployment, merge to `main`, or APK build was performed.
