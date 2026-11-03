@@ -267,6 +267,21 @@ test("WebSocket presence remains online until the player's last device disconnec
       m.type === "chess:state" && m.revision === 1 && typeof m.fen === "string" && m.fen.includes(" b "),
     );
     assert.equal(restoredState.status, "active");
+
+    // Exercise the real authenticated socket handler, not only the extracted limiter.
+    const rateLimitedClose = new Promise<{ code: number; reason: string }>((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error("ping flood did not close the WebSocket")), 4_000);
+      reconnectedWhite.once("close", (code, reason) => {
+        clearTimeout(timer);
+        resolve({ code, reason: reason.toString() });
+      });
+    });
+    for (let i = 0; i < 31; i += 1) {
+      reconnectedWhite.send(JSON.stringify({ type: "ping", clientTime: i }));
+    }
+    const closeResult = await rateLimitedClose;
+    assert.equal(closeResult.code, 1008, "the 31st ping must close the socket with policy violation");
+    assert.equal(closeResult.reason, "rate_limited");
   } finally {
     // Wait for client close events before closing Fastify; server-side presence cleanup is asynchronous.
     await Promise.all(sockets.map(closeSocket));
