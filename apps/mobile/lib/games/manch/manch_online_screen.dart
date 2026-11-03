@@ -370,8 +370,8 @@ class _ManchOnlineLobbyScreenState extends State<ManchOnlineLobbyScreen> {
                     ),
                     title: Text(
                       _text(
-                        'اتاق ' + (item['roomCode']?.toString() ?? '—'),
-                        'Room ' + (item['roomCode']?.toString() ?? '—'),
+                        'اتاق ${item['roomCode']?.toString() ?? '—'}',
+                        'Room ${item['roomCode']?.toString() ?? '—'}',
                       ),
                     ),
                     subtitle: Text(
