@@ -24,7 +24,7 @@ test("runtime wires authenticated Fastify routes to PostgreSQL service and sched
   const runtime = await createHokmRuntime({
     fastify, pool: fakePool(), authenticate, schedulerIntervalMs: 500
   });
-  assert.equal(fastify.routes.length, 15);
+  assert.equal(fastify.routes.length, 17);
   assert.ok(fastify.routes.every(route => route.preHandler === authenticate));
   assert.equal(runtime.scheduler.isRunning, false);
   assert.equal(runtime.start(), true);
