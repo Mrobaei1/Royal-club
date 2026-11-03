@@ -3,6 +3,7 @@ import type { FastifyInstance, FastifyRequest, preHandlerHookHandler } from "fas
 import type { Pool, PoolClient } from "pg";
 import type { WebSocket } from "ws";
 import { randomUUID } from "node:crypto";
+import { isPositivePostgresBigintId } from "./identifiers.js";
 
 type Options = {
   pool: Pool;
