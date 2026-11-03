@@ -307,7 +307,7 @@ class _HokmScreenState extends State<HokmScreen> with WidgetsBindingObserver {
       Text(t('ساخت مسابقه جدید', 'Create a match'), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
       const SizedBox(height: 12),
       DropdownButtonFormField<int>(
-        value: _target,
+        initialValue: _target,
         decoration: InputDecoration(labelText: t('تعداد دست‌های لازم برای برد', 'Hands required to win')),
         items: [3, 5, 7].map((value) => DropdownMenuItem(value: value, child: Text('$value'))).toList(),
         onChanged: _busy ? null : (value) { if (value != null) setState(() => _target = value); },
@@ -427,7 +427,7 @@ class _HokmScreenState extends State<HokmScreen> with WidgetsBindingObserver {
           )).toList(),
         ),
         if (phase == 'choose_trump' || phase == 'playing')
-          Text(t('زمان باقی‌مانده: ${turnLeft} ثانیه', 'Time remaining: ${turnLeft}s'),
+          Text(t('زمان باقی‌مانده: $turnLeft ثانیه', 'Time remaining: $turnLefts'),
             style: TextStyle(fontWeight: FontWeight.w800,
               color: turnLeft <= 2 ? Colors.redAccent : Theme.of(context).colorScheme.primary)),
         if (game['trumpSuit'] != null)
