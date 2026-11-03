@@ -6,6 +6,7 @@ import {
 } from './hokm/engine.js';
 import { createRound, chooseTrump, playCard, roundViewForSeat } from './hokm/round.js';
 import { chooseHardBotAction } from './hokm/bot.js';
+import { xpRequiredForNextLevel, totalXpForLevel, levelForXp, applyXpChange, awardCompletedMatch, penalizeMatchLeaver } from './hokm/progression.js';
 import {
   createRoom, joinRoom, setPlayerReady, startRoom, voteToCancelMatch,
   processAllDisconnectedTimeout, processTurnTimeout, disconnectPlayer, reconnectPlayer, handleDisconnectTimeout, roomViewForUser, startNextRound, TURN_DEADLINE_MS,
@@ -308,4 +309,19 @@ test('next hand advances the hakem seat clockwise', () => {
   room = startNextRound(room, players[0], { now: 9003, rng: () => 0 });
   assert.equal(room.round.hakemSeat, 0);
   assert.equal(room.round.currentSeat, 0);
+});
+
+
+test('Hokm progression awards winner and loser XP, clamps leaver penalties, and never lowers level', () => {
+  const players = fourPlayers().map((userId, seat) => ({ userId, seat }));
+  const awarded = awardCompletedMatch(players, 0, {});
+  assert.deepEqual(players.map(player => awarded[player.userId].xp), [20, 5, 20, 5]);
+  assert.deepEqual(players.map(player => awarded[player.userId].level), [1, 1, 1, 1]);
+  const leveled = applyXpChange({ xp: totalXpForLevel(2), level: 2 }, -5);
+  assert.equal(leveled.level, 2);
+  assert.equal(leveled.xp, totalXpForLevel(2) - 5);
+  assert.deepEqual(penalizeMatchLeaver({ p0: { xp: 2, level: 1 } }, 'p0').p0, { xp: 0, level: 1 });
+  assert.equal(levelForXp(totalXpForLevel(10)), 10);
+  assert.equal(xpRequiredForNextLevel(1), 300);
+  assert.throws(() => xpRequiredForNextLevel(0), /positive integer/);
 });
