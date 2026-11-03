@@ -459,7 +459,11 @@ export function registerManchRoutes(app: any, pool: Pool, requireMatchAuth: any)
   app.post('/api/v1/manch/matches/:id/forfeit', { onRequest: [requireMatchAuth] }, async (request: any, reply: any) => {
     const userId = String(request.user?.sub ?? '');
     const id = String(request.params?.id ?? '');
-    if (!/^\d+$/.test(id) || !userId) return sendError(reply, 400, 'Invalid match identifier.');
+    const expectedVersion = request.body?.expectedStateVersion;
+    if (!/^\d+$/.test(id) || !userId ||
+        !Number.isInteger(expectedVersion) || expectedVersion < 0) {
+      return sendError(reply, 400, 'A valid match id and state version are required.');
+    }
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
@@ -467,6 +471,13 @@ export function registerManchRoutes(app: any, pool: Pool, requireMatchAuth: any)
       if (!match || match.status !== 'active') {
         await client.query('ROLLBACK');
         return sendError(reply, 404, 'Active Manch match not found.');
+      }
+      if (Number(match.state_version) !== expectedVersion) {
+        await client.query('ROLLBACK');
+        return reply.code(409).send({
+          error: 'Manch state changed; refresh before forfeiting.',
+          currentStateVersion: Number(match.state_version),
+        });
       }
       if (match.player_count !== 2) {
         await client.query('ROLLBACK');
