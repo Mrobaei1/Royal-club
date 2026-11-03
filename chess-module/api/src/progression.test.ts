@@ -8,6 +8,12 @@ test("level cost curve matches approved thresholds", () => {
 test("XP is cumulative and level advances without spending XP", () => {
   assert.deepEqual(nextProgression({level:1,xp:295}, 20), {level:2,xp:315});
 });
+test("progression rejects unsafe integer values instead of silently losing XP precision", () => {
+  assert.throws(() => nextProgression({ level: 1, xp: Number.MAX_SAFE_INTEGER + 1 }, 5), RangeError);
+  assert.throws(() => nextProgression({ level: 1, xp: Number.MAX_SAFE_INTEGER }, 1), RangeError);
+  assert.throws(() => nextProgression({ level: Number.MAX_SAFE_INTEGER + 1, xp: 0 }, 5), RangeError);
+});
+
 test("XP uses cumulative thresholds without spending lifetime XP", () => {
   assert.deepEqual(nextProgression({level:1,xp:0}, 605), {level:3,xp:605});
   assert.deepEqual(nextProgression({level:4,xp:600}, 0), {level:4,xp:600});
