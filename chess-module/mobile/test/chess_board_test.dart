@@ -25,6 +25,30 @@ void main() {
     semantics.dispose();
   });
 
+  testWidgets('square semantics describe pieces and announce selection and legal destinations', (tester) async {
+    final semantics = tester.ensureSemantics();
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: ChessBoard(
+          fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+          legalMoves: const ['e2e4'],
+          onMove: (_) {},
+        ),
+      ),
+    ));
+    Finder square(String prefix) => find.byWidgetPredicate((widget) =>
+      widget is Semantics && (widget.properties.label ?? '').startsWith(prefix));
+    final pawn = tester.widget<Semantics>(square('e2 White pawn'));
+    expect(pawn.properties.button, isTrue);
+    expect(pawn.properties.selected, isFalse);
+    expect(pawn.properties.hint, contains('select'));
+    await tester.tap(square('e2 White pawn'));
+    await tester.pump();
+    expect(tester.widget<Semantics>(square('e2 White pawn')).properties.selected, isTrue);
+    expect(tester.widget<Semantics>(square('e4 empty square')).properties.hint, 'Legal move destination');
+    semantics.dispose();
+  });
+
   testWidgets('promotion dialog submits the selected legal promotion piece', (tester) async {
     final semantics = tester.ensureSemantics();
     String? submitted;
