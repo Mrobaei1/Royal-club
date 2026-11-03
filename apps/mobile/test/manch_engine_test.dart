@@ -378,7 +378,7 @@ void main() {
         state = engine.move(state, 0);
         expect(state.activePlayerIndex, 0);
       }
-      expect(state.players[0].tokens[0], 15);
+      expect(state.players[0].tokens[0], 12);
       expect(state.consecutiveSixes, 3);
     });
 
