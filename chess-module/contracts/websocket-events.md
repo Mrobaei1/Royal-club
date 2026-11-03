@@ -7,7 +7,7 @@ All WebSocket connections are authenticated by the account JWT and scoped to a g
 - Matchmaking join, queue cancellation and status polling.
 - Move submission, game snapshot and paginated move history.
 - Persisted text chat send/history.
-- Draw offer/respond and resignation.
+- Draw offer/respond, current-position or prospective-move draw claim, and resignation.
 - Clock timeout claim (automatic server scheduler remains authoritative).
 - Player profile and manager time-control CRUD.
 
@@ -27,7 +27,7 @@ All WebSocket connections are authenticated by the account JWT and scoped to a g
 - `chess:opponent:presence`: username and connected state; internal user IDs are not exposed.
 - `chess:pong` and `chess:error`.
 
-Move and chat events are emitted by PostgreSQL triggers so updates committed by any API instance reach subscribed clients. Draw-offer lifecycle events are emitted by the API after the transaction commits.
+Move/chat database changes and draw-offer lifecycle changes are delivered through PostgreSQL notifications. Every committed terminal transition (checkmate, automatic/claimed draw, accepted draw offer, resignation, or timeout adjudication) also publishes `chess:state` after commit. Clients refresh the authenticated HTTP snapshot after a state event; that snapshot includes `drawClaimable` and `drawClaimReason`, which are not trusted from client input.
 
 ## Voice-message policy
 Voice calls, video calls, push-to-talk, live microphone streaming, WebRTC and media relay are out of scope. A future asynchronous voice-message attachment may be considered separately. Until that work is explicitly approved and implemented, recording, microphone permission, upload, storage and playback remain disabled. The manager UI may display a locked, disabled placeholder only; it is not a working feature flag.
