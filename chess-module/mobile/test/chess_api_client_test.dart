@@ -27,6 +27,38 @@ Future<HttpServer> _serve(Future<void> Function(HttpRequest) handler) async {
     }
   });
 
+  test('API client rejects malformed JSON success bodies', () async {
+    final server = await _serve((request) async {
+      request.response
+        ..statusCode = HttpStatus.ok
+        ..headers.contentType = ContentType.json
+        ..write('{broken');
+      await request.response.close();
+    });
+    final client = ChessApiClient(
+      baseUri: Uri.parse('http://127.0.0.1:${server.port}'),
+      accessToken: 'test-token',
+    );
+
+    try {
+      await expectLater(client.game('123'), throwsA(isA<FormatException>()));
+    } finally {
+      client.dispose();
+      await server.close(force: true);
+    }
+  });
+
+  test('API client rejects a non-positive request timeout', () {
+    expect(
+      () => ChessApiClient(
+        baseUri: Uri.parse('http://127.0.0.1'),
+        accessToken: 'test-token',
+        requestTimeout: Duration.zero,
+      ),
+      throwsArgumentError,
+    );
+  });
+
 }
 
 Future<void> _json(HttpRequest request, int status, Object body) async {
