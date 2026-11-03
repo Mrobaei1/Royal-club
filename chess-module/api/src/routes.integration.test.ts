@@ -232,6 +232,7 @@ test("authenticated chess routes support private game, draw, chat, profiles and 
     assert.equal(outsiderChatRead.statusCode, 404);
     const outsiderMove = await request(routeOutsider, "POST", `/chess/games/${gameId}/moves`, { from: "e2", to: "e4" });
     assert.equal(outsiderMove.statusCode, 403);
+    assert.equal(outsiderMove.json().error, "not_a_player");
 
     const offer = await request(white, "POST", `/chess/games/${gameId}/draw-offers`);
     assert.equal(offer.statusCode, 201, offer.body);
