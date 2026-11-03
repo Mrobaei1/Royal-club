@@ -427,7 +427,7 @@ class _HokmScreenState extends State<HokmScreen> with WidgetsBindingObserver {
           )).toList(),
         ),
         if (phase == 'choose_trump' || phase == 'playing')
-          Text(t('زمان باقی‌مانده: $turnLeft ثانیه', 'Time remaining: $turnLefts'),
+          Text(t('زمان باقی‌مانده: $turnLeft ثانیه', 'Time remaining: $turnLeft s'),
             style: TextStyle(fontWeight: FontWeight.w800,
               color: turnLeft <= 2 ? Colors.redAccent : Theme.of(context).colorScheme.primary)),
         if (game['trumpSuit'] != null)
