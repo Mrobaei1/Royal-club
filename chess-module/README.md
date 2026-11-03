@@ -32,7 +32,7 @@ npm test
 npm run build
 ```
 
-PostgreSQL migration integration tests run when `CHESS_TEST_DATABASE_URL` is set. The isolated GitHub Actions workflow provisions PostgreSQL 16 and runs the migration smoke test automatically.
+PostgreSQL migration integration tests run when `CHESS_TEST_DATABASE_URL` is set. The isolated GitHub Actions workflow provisions PostgreSQL 16 and runs the migration smoke test automatically. The API suite also compares adapter legal-move sets with the independent Stockfish engine in CI; local runs enable this test by setting `STOCKFISH_PATH` to the Stockfish executable.
 
 Flutter, from `chess-module/mobile`:
 ```sh
