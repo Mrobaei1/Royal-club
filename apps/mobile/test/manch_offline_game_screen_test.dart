@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:royal_club/games/manch/manch_bot.dart';
 import 'package:royal_club/games/manch/manch_game_state.dart';
@@ -13,6 +14,7 @@ void main() {
       const MaterialApp(
         locale: Locale('en'),
         supportedLocales: [Locale('fa'), Locale('en')],
+        localizationsDelegates: GlobalMaterialLocalizations.delegates,
         home: ManchOfflineGameScreen(diceRoller: _six),
       ),
     );
@@ -31,6 +33,7 @@ void main() {
       const MaterialApp(
         locale: Locale('en'),
         supportedLocales: [Locale('fa'), Locale('en')],
+        localizationsDelegates: GlobalMaterialLocalizations.delegates,
         home: ManchOfflineGameScreen(
           botPlayers: {ManchColour.yellow},
         ),
@@ -51,6 +54,7 @@ void main() {
       const MaterialApp(
         locale: Locale('fa'),
         supportedLocales: [Locale('fa'), Locale('en')],
+        localizationsDelegates: GlobalMaterialLocalizations.delegates,
         home: ManchOfflineGameScreen(diceRoller: _six),
       ),
     );
@@ -81,6 +85,7 @@ void main() {
       const MaterialApp(
         locale: Locale('fa'),
         supportedLocales: [Locale('fa'), Locale('en')],
+        localizationsDelegates: GlobalMaterialLocalizations.delegates,
         home: ManchOfflineGameScreen(diceRoller: _one),
       ),
     );
@@ -102,6 +107,7 @@ void main() {
       MaterialApp(
         locale: const Locale('fa'),
         supportedLocales: const [Locale('fa'), Locale('en')],
+        localizationsDelegates: GlobalMaterialLocalizations.delegates,
         home: ManchOfflineGameScreen(
           diceRoller: _six,
           saveStore: store,
@@ -138,6 +144,7 @@ void main() {
       const MaterialApp(
         locale: Locale('fa'),
         supportedLocales: [Locale('fa'), Locale('en')],
+        localizationsDelegates: GlobalMaterialLocalizations.delegates,
         home: ManchOfflineGameScreen(
           diceRoller: _six,
           profile: ManchRuleProfile(
@@ -171,6 +178,7 @@ void main() {
       const MaterialApp(
         locale: Locale('fa'),
         supportedLocales: [Locale('fa'), Locale('en')],
+        localizationsDelegates: GlobalMaterialLocalizations.delegates,
         home: ManchOfflineGameScreen(
           botPlayers: {ManchColour.yellow},
         ),
@@ -200,6 +208,7 @@ void main() {
       const MaterialApp(
         locale: Locale('fa'),
         supportedLocales: [Locale('fa'), Locale('en')],
+        localizationsDelegates: GlobalMaterialLocalizations.delegates,
         home: ManchOfflineGameScreen(
           botPlayers: {ManchColour.yellow},
           diceRoller: _six,
@@ -232,6 +241,7 @@ void main() {
       MaterialApp(
         locale: const Locale('fa'),
         supportedLocales: const [Locale('fa'), Locale('en')],
+        localizationsDelegates: GlobalMaterialLocalizations.delegates,
         home: ManchOfflineGameScreen(
           botPlayers: const {ManchColour.red},
           diceRoller: diceRoller,
