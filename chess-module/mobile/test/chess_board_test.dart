@@ -25,6 +25,31 @@ void main() {
     semantics.dispose();
   });
 
+  testWidgets('promotion dialog submits the selected legal promotion piece', (tester) async {
+    final semantics = tester.ensureSemantics();
+    String? submitted;
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: ChessBoard(
+          fen: '7k/P7/8/8/8/8/8/7K w - - 0 1',
+          legalMoves: const ['a7a8q', 'a7a8r', 'a7a8b', 'a7a8n'],
+          onMove: (move) => submitted = move,
+        ),
+      ),
+    ));
+    await tester.tap(find.byWidgetPredicate((widget) =>
+      widget is Semantics && (widget.properties.label ?? '').startsWith('a7 ')));
+    await tester.pump();
+    await tester.tap(find.byWidgetPredicate((widget) =>
+      widget is Semantics && (widget.properties.label ?? '').startsWith('a8 ')));
+    await tester.pumpAndSettle();
+    expect(find.text('Choose promotion'), findsOneWidget);
+    await tester.tap(find.text('Knight'));
+    await tester.pumpAndSettle();
+    expect(submitted, 'a7a8n');
+    semantics.dispose();
+  });
+
   testWidgets('server position updates clear stale selected squares', (tester) async {
     final semantics = tester.ensureSemantics();
     Widget board(String fen, List<String> moves) => MaterialApp(
