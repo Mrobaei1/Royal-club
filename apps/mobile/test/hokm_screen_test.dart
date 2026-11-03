@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:royal_club/hokm_screen.dart';
 import 'package:royal_club/services/hokm_service.dart';
@@ -138,6 +139,7 @@ void main() {
     await tester.pumpWidget(MaterialApp(
       locale: const Locale('fa'),
       supportedLocales: const [Locale('fa'), Locale('en')],
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
       home: HokmScreen(api: api, identityLoader: () async => 'u1'),
     ));
     await tester.pump();
@@ -154,6 +156,7 @@ void main() {
     await tester.pumpWidget(MaterialApp(
       locale: const Locale('fa'),
       supportedLocales: const [Locale('fa'), Locale('en')],
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
       home: HokmScreen(api: api, identityLoader: () async => 'u1'),
     ));
     await tester.pump();
@@ -170,6 +173,7 @@ void main() {
     await tester.pumpWidget(MaterialApp(
       locale: const Locale('fa'),
       supportedLocales: const [Locale('fa'), Locale('en')],
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
       home: HokmScreen(api: api, identityLoader: () async => 'u1'),
     ));
     await tester.pump();
@@ -194,6 +198,7 @@ void main() {
     await tester.pumpWidget(MaterialApp(
       locale: const Locale('fa'),
       supportedLocales: const [Locale('fa'), Locale('en')],
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
       home: HokmScreen(api: api, identityLoader: () async => 'u1'),
     ));
     await tester.pump();
