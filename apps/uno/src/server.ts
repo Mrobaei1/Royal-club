@@ -11,6 +11,8 @@ import { UnoRoomManager, type AuthenticatedPlayer } from './room-manager.js';
 
 const databaseUrl = process.env.DATABASE_URL ?? '';
 if (!databaseUrl) throw new Error('DATABASE_URL is required to resolve the authenticated public username.');
+const jwtSecret = process.env.JWT_SECRET ?? '';
+if (jwtSecret.length < 32) throw new Error('JWT_SECRET must contain at least 32 characters.');
 function normalizeDatabaseUrl(value: string): string {
   try {
     const url = new URL(value);
@@ -40,8 +42,6 @@ try {
   await pool.end();
   throw error;
 }
-const jwtSecret = process.env.JWT_SECRET ?? '';
-if (jwtSecret.length < 32) throw new Error('JWT_SECRET must contain at least 32 characters.');
 
 const roomManager = new UnoRoomManager();
 await pool.query(`
