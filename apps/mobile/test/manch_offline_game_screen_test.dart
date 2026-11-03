@@ -24,6 +24,27 @@ void main() {
     expect(find.text('Restore'), findsOneWidget);
   });
 
+
+  testWidgets('offline game localizes AI difficulty and restart controls in English',
+      (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        locale: Locale('en'),
+        supportedLocales: [Locale('fa'), Locale('en')],
+        home: ManchOfflineGameScreen(
+          botPlayers: {ManchColour.yellow},
+        ),
+      ),
+    );
+
+    expect(find.text('AI difficulty'), findsOneWidget);
+    expect(find.byTooltip('Restart'), findsOneWidget);
+    await tester.tap(find.byType(DropdownButton<ManchBotDifficulty>));
+    await tester.pumpAndSettle();
+    expect(find.text('Easy'), findsOneWidget);
+    expect(find.text('Hard'), findsOneWidget);
+  });
+
   testWidgets('offline game enters a token on six and grants the extra roll',
       (tester) async {
     await tester.pumpWidget(
