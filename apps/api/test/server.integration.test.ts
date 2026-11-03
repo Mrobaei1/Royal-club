@@ -3264,7 +3264,7 @@ test('Hokm production API uses verified JWT identity, hides private hands, and g
     assert.equal(outsiderView.statusCode, 403);
 
     const hakemPlayer = [host, playerOne, playerTwo, playerThree]
-      .find(player => room.players.find(seat => seat.userId === player.user.id)?.seat === room.game.hakemSeat);
+      .find(player => room.players.find(seat => seat.userId === player.user.id)?.seat === started.json().game.hakemSeat);
     assert.ok(hakemPlayer, 'The server-selected hakem must map to one authenticated player.');
     const nonHakemPlayer = [host, playerOne, playerTwo, playerThree]
       .find(player => player.user.id !== hakemPlayer.user.id);
