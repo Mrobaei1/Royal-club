@@ -126,14 +126,16 @@ void main() {
       }
     });
 
-    test('positive-player oversized bear-off checks higher points, mirrored from negative player', () {
+    test('positive player cannot skip a checker closer to point 24', () {
       position(player: 1, dice: [6], points: {20: 1, 23: 1});
       expect(game.legalMoves().any((m) => m.from == 20 && m.to == -1), isFalse);
       expect(game.legalMoves().any((m) => m.from == 23 && m.to == -1), isTrue);
+    });
 
+    test('negative player cannot skip a checker closer to point -1', () {
       position(player: -1, dice: [6], points: {0: -1, 3: -1});
-      expect(game.legalMoves().any((m) => m.from == 0 && m.to == -1), isFalse);
-      expect(game.legalMoves().any((m) => m.from == 3 && m.to == -1), isTrue);
+      expect(game.legalMoves().any((m) => m.from == 0 && m.to == -1), isTrue);
+      expect(game.legalMoves().any((m) => m.from == 3 && m.to == -1), isFalse);
     });
 
   });
