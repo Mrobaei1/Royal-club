@@ -17,13 +17,19 @@ This is a phase-level engineering acceptance record. It does not invent work-pac
 ## Verified CI evidence
 
 - UNO Standalone CI run **175** on commit `825fe1422584a8704aa335605fbe52cc24796c25`: backend tests/build **success**, Flutter format/analyze/tests **success**, PostgreSQL/server integration **success**. The integration suite now verifies a second service process is rejected by the PostgreSQL advisory lock.
-- Latest-head UNO Standalone CI run **41630603684** on `6dbbf0b714cb77359f0ea291d4ad94f0ea94465e`: backend, PostgreSQL/server integration and Flutter module jobs **success**.
-- Latest-head root validation run **41630603726** on the same commit: API integration, API build/tests and Flutter analyze/tests **success**; Backgammon engine audit run **41630603829** **success**. Web preview run was still running when this record was checked.
+- Latest-head UNO Standalone CI run **41638382800** on `e155724ecfcde9468945d602f4f15eb5b660dac0`: backend, PostgreSQL/server integration and Flutter module jobs **success**.
+- Latest-head root validation run **41638382298** on `e155724ecfcde9468945d602f4f15eb5b660dac0`: completed **success**.
 - Backend suite: **65 tests, 64 passed, 0 failed, 1 skipped**. The skipped case is the optional database-backed test in `test/server.integration.test.ts`; it is skipped when `DATABASE_URL` is absent in a local test run. The dedicated CI server-integration job provisions PostgreSQL and runs the database-backed checks.
 - PostgreSQL/server integration suite: **1 passed, 0 failed**.
 - Root API build/tests and API integration checks: **success**.
 - Root Flutter analyze/tests: **success**.
 - Existing backgammon regression workflow: **success**.
+
+## Latest verified run (2026-11-03)
+
+- UNO Standalone CI run **41638382800**: backend **success**, PostgreSQL/server integration **success**, Flutter module **success**.
+- Root validation run **41638382298**: **success**.
+- The room-manager suite now also explicitly checks finished-match retention expiry, removal from room lookup, and release of the player's room membership.
 
 ## Runtime hardening added 2026-11-03
 
