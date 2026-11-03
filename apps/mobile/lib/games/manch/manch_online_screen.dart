@@ -18,6 +18,7 @@ class ManchOnlineLobbyScreen extends StatefulWidget {
 class _ManchOnlineLobbyScreenState extends State<ManchOnlineLobbyScreen> {
   List<Map<String, dynamic>> _matches = [];
   List<Map<String, dynamic>> _history = [];
+  Map<String, int>? _stats;
   Map<String, dynamic>? _myMatch;
   String? _userId;
   String? _error;
@@ -83,15 +84,22 @@ class _ManchOnlineLobbyScreenState extends State<ManchOnlineLobbyScreen> {
       }
       final matches = await ManchOnlineService.listOpen();
       var history = _history;
+      var stats = _stats;
       try {
         history = await ManchOnlineService.history();
       } catch (_) {
         // History is supplementary; a history outage must not block the lobby.
       }
+      try {
+        stats = await ManchOnlineService.stats();
+      } catch (_) {
+        // Statistics are supplementary; an outage must not block the lobby.
+      }
       if (!mounted) return;
       setState(() {
         _matches = matches;
         _history = history;
+        _stats = stats;
         _loading = false;
         _error = null;
       });
@@ -192,6 +200,14 @@ class _ManchOnlineLobbyScreenState extends State<ManchOnlineLobbyScreen> {
     await _refresh();
   }
 
+  Widget _statValue(String label, int value) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(value.toString(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+          Text(label),
+        ],
+      );
+
   @override
   Widget build(BuildContext context) {
     final myMatch = _myMatch;
@@ -277,6 +293,27 @@ class _ManchOnlineLobbyScreenState extends State<ManchOnlineLobbyScreen> {
                 ),
               ),
             ],
+            if (_stats != null)
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(_text('آمار منچ شما', 'Your Manch statistics'), style: Theme.of(context).textTheme.titleMedium),
+                      const SizedBox(height: 10),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          _statValue(_text('بازی', 'Played'), _stats?['played'] ?? 0),
+                          _statValue(_text('برد', 'Wins'), _stats?['wins'] ?? 0),
+                          _statValue(_text('باخت', 'Losses'), _stats?['losses'] ?? 0),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             const SizedBox(height: 20),
             Text(
               _text('اتاق‌های قابل پیوستن', 'Open rooms'),
