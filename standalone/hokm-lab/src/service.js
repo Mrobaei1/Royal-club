@@ -181,6 +181,16 @@ export class HokmRoomService {
     return Object.freeze({ ...room, submittedReportId: reportId });
   }
 
+  async managerView(principal, roomId) {
+    authenticatedUser(principal);
+    if (principal.role !== "manager" && principal.role !== "owner") {
+      throw new Error("Only an authorized manager may view match review records");
+    }
+    const room = await this.#repository.get(roomId);
+    if (!room) throw new Error("Room not found");
+    return managerRoomView(room);
+  }
+
   async reviewCheating(principal, roomId, reportId, notes, expectedVersion) {
     const reviewerId = authenticatedUser(principal);
     if (principal.role !== "manager" && principal.role !== "owner") {
