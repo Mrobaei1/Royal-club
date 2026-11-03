@@ -7,7 +7,7 @@ import { ChessGame } from "./engine.js";
 
 const stockfishPath = process.env.STOCKFISH_PATH;
 
-test("independent Stockfish perft agrees with adapter legal moves across edge and generated positions", {
+test("independent Stockfish perft agrees with adapter and reference legal moves across edge and generated positions", {
   skip: !stockfishPath || !existsSync(stockfishPath),
   timeout: 30_000,
 }, () => {
@@ -35,7 +35,9 @@ test("independent Stockfish perft agrees with adapter legal moves across edge an
   const input = [
     "uci",
     "isready",
-    ...positions.flatMap((fen) => [`position fen ${fen}`, "go perft 1"]),
+    ...positions.flatMap((fen) => [`position fen ${fen}`, "go perft 2"]),
+    "position startpos",
+    "go perft 3",
     "quit",
   ].join("\n") + "\n";
   const result = spawnSync(stockfishPath!, [], {
@@ -47,15 +49,40 @@ test("independent Stockfish perft agrees with adapter legal moves across edge an
   assert.equal(result.error, undefined, result.error?.message);
   assert.equal(result.status, 0, result.stderr);
   const sections = result.stdout.split(/Nodes searched:\s*\d+/i);
-  assert.equal(sections.length - 1, positions.length, result.stdout);
+  assert.equal(sections.length - 1, positions.length + 1, result.stdout);
 
   positions.forEach((fen, index) => {
-    const expected = new ChessGame(fen).snapshot().legalMoves.sort();
-    const actual = [...(sections[index]!.match(
+    const expectedLegal = new ChessGame(fen).snapshot().legalMoves.sort();
+    const section = sections[index]!;
+    const actualMoves = [...(section.match(
       /^[a-h][1-8][a-h][1-8][qrbn]?:\s+\d+$/gm,
-    ) ?? [])]
-      .map((line) => line.split(":")[0]!)
-      .sort();
-    assert.deepEqual(actual, expected, `Stockfish legal moves differ for FEN: ${fen}`);
+    ) ?? [])].map((line) => line.split(":")[0]!).sort();
+    assert.deepEqual(actualMoves, expectedLegal, `Stockfish legal moves differ for FEN: ${fen}`);
+
+    const referenceCounts = new Map<string, number>();
+    const reference = new Chess(fen);
+    for (const move of reference.moves({ verbose: true })) {
+      const branch = new Chess(fen);
+      branch.move({
+        from: move.from,
+        to: move.to,
+        ...(move.promotion ? { promotion: move.promotion } : {}),
+      });
+      referenceCounts.set(`${move.from}${move.to}${move.promotion ?? ""}`, branch.moves().length);
+    }
+    const actualCounts = new Map(
+      [...(section.matchAll(/^([a-h][1-8][a-h][1-8][qrbn]?):\s+(\d+)$/gm))]
+        .map((match) => [match[1]!, Number(match[2])]),
+    );
+    assert.deepEqual(
+      [...actualCounts.entries()].sort(([a], [b]) => a.localeCompare(b)),
+      [...referenceCounts.entries()].sort(([a], [b]) => a.localeCompare(b)),
+      `Stockfish perft-2 branch counts differ for FEN: ${fen}`,
+    );
   });
+
+  const initialPositionPerft3 = Number(
+    result.stdout.match(/Nodes searched:\s*(\d+)\s*$/m)?.[1],
+  );
+  assert.equal(initialPositionPerft3, 8902, "standard initial-position perft-3 must equal 8,902");
 });
