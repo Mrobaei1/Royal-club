@@ -26,7 +26,6 @@ class _ManchOnlineLobbyScreenState extends State<ManchOnlineLobbyScreen> {
   bool _openingGame = false;
   bool _refreshing = false;
   Timer? _poller;
-  Timer? _presenceTimer;
 
   bool get _isPersian =>
       Localizations.localeOf(context).languageCode.toLowerCase() == 'fa';
@@ -424,6 +423,7 @@ class ManchOnlineGameScreen extends StatefulWidget {
 
 class _ManchOnlineGameScreenState extends State<ManchOnlineGameScreen> {
   final _engine = const ManchEngine();
+  Timer? _presenceTimer;
   ManchGameState? _state;
   List<Map<String, dynamic>> _players = [];
   String? _currentTurnUserId;

@@ -324,7 +324,7 @@ export function registerManchRoutes(app: any, pool: Pool, requireMatchAuth: any)
   app.post('/api/v1/manch/matches/:id/presence', { onRequest: [requireMatchAuth] }, async (request: any, reply: any) => {
     const userId = String(request.user?.sub ?? '');
     const id = String(request.params?.id ?? '');
-    if (!/^\\d+$/.test(id) || !userId) return sendError(reply, 400, 'Invalid match identifier.');
+    if (!/^\d+$/.test(id) || !userId) return sendError(reply, 400, 'Invalid match identifier.');
     const result = await pool.query(
       `INSERT INTO manch_match_presence (match_id, user_id, last_seen_at)
        SELECT m.id, p.user_id, NOW()
