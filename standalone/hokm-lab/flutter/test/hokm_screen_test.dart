@@ -14,6 +14,10 @@ class FakeHokmApi implements HokmApi {
   int commandCalls = 0;
   int disconnectCalls = 0;
   int chatCalls = 0;
+  String? lastChatRecipient;
+  String? lastChatText;
+  String? lastChatMessageId;
+  int? lastChatExpectedVersion;
   int managerCalls = 0;
   int reportReviewCalls = 0;
   int appealReviewCalls = 0;
@@ -155,6 +159,10 @@ class FakeHokmApi implements HokmApi {
   @override
   Future<Map<String, dynamic>> sendChatMessage(String roomId, String recipientUserId, String text, String messageId, int expectedVersion) async {
     chatCalls++;
+    lastChatRecipient = recipientUserId;
+    lastChatText = text;
+    lastChatMessageId = messageId;
+    lastChatExpectedVersion = expectedVersion;
     return Map<String, dynamic>.from(room);
   }
 
@@ -355,6 +363,10 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 20));
     expect(api.chatCalls, 1);
+    expect(api.lastChatRecipient, 'u2');
+    expect(api.lastChatText, 'سلام 👋');
+    expect(api.lastChatMessageId, startsWith('hokm-chat-'));
+    expect(api.lastChatExpectedVersion, 3);
   });
 
   testWidgets('temporary exit disconnects exactly once', (tester) async {
