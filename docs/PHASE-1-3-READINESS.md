@@ -51,7 +51,7 @@ Phase 4 home-screen implementation has started on `main`. This checklist tracks 
 - [x] API regression tests cover username-only public payloads and no full-name/email exposure in friend search/list, match history, leaderboard, and spectator views.
 - [ ] Finish a manual username-only audit across every screen/API, including empty or legacy profiles.
 - [ ] Verify theme and language behavior on every screen, not only the screens covered by widget tests.
-- [ ] Run a real VPN-on/VPN-off test using the same account.
+- [ ] **Manual 2.7 device acceptance still required:** on one Android installation, sign in once, record the username, toggle VPN OFF → ON → OFF without logging out or clearing app data, and after each switch reopen/refresh profile, friends, lobby and an active match. Confirm the same account ID/session remains signed in, data reloads, a live match reconnects and returns control correctly, and no duplicate move/invite is created. Record Android model/version, VPN state, time, API result and any error text. Automated evidence already in `main`: `AuthService` stores/reuses the JWT in `FlutterSecureStorage`; `ApiTransport` keeps one HTTPS API origin independent of IP; `MatchService` retries failed GETs up to three times; the API integration test reuses the exact same JWT with a changed `x-forwarded-for` and verifies the same account remains authenticated. These do not replace the physical-device test.
 - [ ] Complete accessibility, layout, and performance checks on Android devices of different screen sizes.
 
 ### Final release gate
