@@ -619,7 +619,7 @@ test('Manch room invitations are limited to accepted friends and expire safely',
     method: 'POST', url: `/api/v1/manch/invites/${expiredInvite.json().invite.id}/accept`,
     headers: auth(friendA.accessToken), payload: {},
   });
-  assert.equal(expiredAccept.statusCode, 404);
+  assert.equal(expiredAccept.statusCode, 410);
 });
 
 test('Manch online supports complete 3- and 4-player seat allocation and rejects unsupported forfeits', async () => {
