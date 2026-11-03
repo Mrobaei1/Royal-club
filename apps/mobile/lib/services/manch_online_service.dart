@@ -174,13 +174,10 @@ class ManchOnlineService {
     };
   }
 
-  static Future<Map<String, dynamic>> inviteFriend(
-    String matchId, String friendUserId,
-  ) async => _request(
-        'POST',
-        '/${_requireId(matchId)}/invites',
-        body: {'friendUserId': _requireId(friendUserId)},
-      );
+  static Future<Map<String, dynamic>> inviteFriend(String matchId, String friendUserId) async =>
+      _request('POST', '/${_requireId(matchId)}/invites', body: {
+        'friendUserId': _requireId(friendUserId),
+      });
 
   static Future<List<Map<String, dynamic>>> pendingInvites() async {
     final payload = await _request('GET', '/../invites');
@@ -189,14 +186,9 @@ class ManchOnlineService {
     return raw.whereType<Map>().map((item) => Map<String, dynamic>.from(item)).toList();
   }
 
-  static Future<Map<String, dynamic>> respondToInvite(
-    String inviteId, {required bool accept}
-  ) async {
+  static Future<Map<String, dynamic>> respondToInvite(String inviteId, {required bool accept}) async {
     final id = _requireId(inviteId);
-    final payload = await _request(
-      'POST',
-      '/../invites/$id/${accept ? 'accept' : 'decline'}',
-    );
+    final payload = await _request('POST', '/../invites/$id/${accept ? 'accept' : 'decline'}');
     if (accept && payload['match'] is Map) {
       final match = Map<String, dynamic>.from(payload['match'] as Map);
       match['id'] = _requireId(match['id']);
