@@ -36,6 +36,7 @@ class _UnoOnlineScreenState extends State<UnoOnlineScreen> {
   String? _error;
   String? _restoringRoomCode;
   bool _restoreInFlight = false;
+  int _restoreGeneration = 0;
 
   bool get _isPersian => Localizations.localeOf(context).languageCode == 'fa';
   String _t(String fa, String en) => _isPersian ? fa : en;
@@ -87,6 +88,7 @@ class _UnoOnlineScreenState extends State<UnoOnlineScreen> {
     _socket?.disconnect();
     _socket?.dispose();
     _socket = null;
+    _restoreGeneration++;
     _restoringRoomCode = null;
     _restoreInFlight = false;
     _pendingRoomCode = null;
@@ -156,6 +158,7 @@ class _UnoOnlineScreenState extends State<UnoOnlineScreen> {
     if (_restoreInFlight && _restoringRoomCode == normalizedCode) return;
     _restoreInFlight = true;
     _restoringRoomCode = normalizedCode;
+    final generation = ++_restoreGeneration;
     final playerId = widget.playerId;
     final accessToken = widget.accessToken;
     try {
@@ -181,7 +184,7 @@ class _UnoOnlineScreenState extends State<UnoOnlineScreen> {
       }
     } catch (_) { /* Reconnect is best-effort; the next room action reports errors. */ }
     finally {
-      if (_restoringRoomCode == normalizedCode) {
+      if (_restoreGeneration == generation && _restoringRoomCode == normalizedCode) {
         _restoreInFlight = false;
         _restoringRoomCode = null;
       }
