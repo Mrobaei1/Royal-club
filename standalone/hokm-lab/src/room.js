@@ -172,7 +172,6 @@ export function startRoom(room, requesterUserId, { now, rng = Math.random } = {}
 export function startNextRound(room, requesterUserId, { rng = Math.random, now = Date.now() } = {}) {
   requireNow(now);
   if (room.status !== "round_completed") throw new Error("The previous round is not completed");
-  if (Number.isFinite(room.handRevealUntil) && now < room.handRevealUntil) throw new Error("The 3-second end-of-hand reveal is still active");
   const host = room.players.find(player => player.userId === room.hostUserId);
   const hostUnavailable = !host || host.connected === false || host.forfeited === true;
   if (requesterUserId !== room.hostUserId) {
@@ -181,6 +180,7 @@ export function startNextRound(room, requesterUserId, { rng = Math.random, now =
       throw new Error("Only the host, or a connected player when the host is unavailable, may start the next round");
     }
   }
+  if (Number.isFinite(room.handRevealUntil) && now < room.handRevealUntil) throw new Error("The 3-second end-of-hand reveal is still active");
   const nextHakem = (room.round.hakemSeat + 1) % 4;
   const round = createRound({ deck: shuffleDeck(createDeck(), rng), hakemSeat: nextHakem });
   return { ...room, hostUserId: hostUnavailable && requesterUserId !== room.hostUserId ? requesterUserId : room.hostUserId,
