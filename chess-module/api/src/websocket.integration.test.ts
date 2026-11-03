@@ -303,6 +303,10 @@ test("WebSocket presence remains online until the player's last device disconnec
       m.type === "chess:state" && m.revision === 1 && typeof m.fen === "string" && m.fen.includes(" b "),
     );
     assert.equal(restoredState.status, "active");
+    // The server sends this snapshot only after registering its inbound message handler.
+    await waitForMessage(reconnectedWhite, m =>
+      m.type === "chess:opponent:presence" && typeof m.connected === "boolean",
+    );
 
     // Exercise the real authenticated socket handler, not only the extracted limiter.
     const rateLimitedClose = new Promise<{ code: number; reason: string }>((resolve, reject) => {
