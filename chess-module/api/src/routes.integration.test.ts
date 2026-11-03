@@ -482,6 +482,8 @@ test("authenticated chess routes support private game, draw, chat, profiles and 
       id: "forbidden", displayName: "Forbidden", baseMs: 180000, incrementMs: 0, enabled: true,
     });
     assert.equal(deniedAdmin.statusCode, 403);
+    const deniedAuditRead = await request(black, "GET", "/chess/admin/audit");
+    assert.equal(deniedAuditRead.statusCode, 403);
     const savedControl = await request(white, "PUT", "/chess/admin/time-controls", {
       id: "blitz_test",
       displayName: "Test Blitz",
