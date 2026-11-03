@@ -51,13 +51,13 @@ export class ChessGame {
     const positions = history.length
       ? [history[0]!.before, ...history.map(move => move.after)]
       : [this.game.fen()];
-    const key = (fen: string) => fen.trim().split(/\\s+/).slice(0, 4).join(" ");
+    const key = (fen: string) => fen.trim().split(/\s+/).slice(0, 4).join(" ");
     const current = key(this.game.fen());
     return positions.filter(position => key(position) === current).length >= 5;
   }
 
   private isAutomaticDraw(): boolean {
-    const halfMoveClock = Number(this.game.fen().split(/\\s+/)[4] ?? 0);
+    const halfMoveClock = Number(this.game.fen().split(/\s+/)[4] ?? 0);
     return this.game.isStalemate() ||
       this.game.isInsufficientMaterial() ||
       halfMoveClock >= 150 ||
@@ -93,7 +93,7 @@ export class ChessGame {
 
   snapshot(lastSan: string | null = null): EngineSnapshot {
     const fen = this.game.fen();
-    const halfMoveClock = Number(fen.split(/\\s+/)[4] ?? 0);
+    const halfMoveClock = Number(fen.split(/\s+/)[4] ?? 0);
     const draw = this.isAutomaticDraw();
     const drawClaimable = !draw && (
       this.game.isThreefoldRepetition() || halfMoveClock >= 100
