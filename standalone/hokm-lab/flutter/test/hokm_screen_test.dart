@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import '../lib/hokm_screen.dart';
+import '../lib/hokm_manager_review_screen.dart';
 import '../lib/services/hokm_service.dart';
 
 class FakeHokmApi implements HokmApi {
@@ -11,6 +12,9 @@ class FakeHokmApi implements HokmApi {
   int commandCalls = 0;
   int disconnectCalls = 0;
   int chatCalls = 0;
+  int managerCalls = 0;
+  int reportReviewCalls = 0;
+  int appealReviewCalls = 0;
   Map<String, dynamic> room = {};
 
   Map<String, dynamic> _waiting() => {
@@ -138,9 +142,61 @@ class FakeHokmApi implements HokmApi {
     chatCalls++;
     return Map<String, dynamic>.from(room);
   }
+
+  @override
+  Future<Map<String, dynamic>> managerView(String roomId) async {
+    managerCalls++;
+    return {
+      'roomId': roomId,
+      'version': 4,
+      'reports': [{'reportId': 'report-1', 'status': 'pending', 'reportedUserId': 'u2', 'reason': 'Suspected card disclosure'}],
+      'appeals': [{'appealId': 'appeal-1', 'status': 'pending', 'reason': 'The final score was disputed'}],
+    };
+  }
+
+  @override
+  Future<Map<String, dynamic>> reviewReport(String roomId, String reportId, String notes, int expectedVersion) async {
+    reportReviewCalls++;
+    return {
+      'roomId': roomId, 'version': expectedVersion + 1,
+      'reports': [{'reportId': reportId, 'status': 'reviewed', 'reportedUserId': 'u2', 'reason': 'Suspected card disclosure'}],
+      'appeals': [],
+    };
+  }
+
+  @override
+  Future<Map<String, dynamic>> reviewAppeal(String roomId, String appealId, String decision, String notes, int expectedVersion) async {
+    appealReviewCalls++;
+    return {
+      'roomId': roomId, 'version': expectedVersion + 1,
+      'reports': [],
+      'appeals': [{'appealId': appealId, 'status': 'reviewed', 'decision': decision, 'reason': 'The final score was disputed'}],
+    };
+  }
 }
 
 void main() {
+  testWidgets('manager can review cheating reports and result appeals', (tester) async {
+    final api = FakeHokmApi();
+    await tester.pumpWidget(MaterialApp(
+      locale: const Locale('en'),
+      supportedLocales: const [Locale('fa'), Locale('en')],
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
+      home: HokmManagerReviewScreen(api: api, roomId: 'room-1'),
+    ));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 20));
+    expect(api.managerCalls, 1);
+    expect(find.text('Cheating reports (1)'), findsOneWidget);
+    expect(find.text('Result appeals (1)'), findsOneWidget);
+    await tester.tap(find.byTooltip('Mark reviewed'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 20));
+    expect(api.reportReviewCalls, 1);
+    expect(find.textContaining('reviewed'), findsOneWidget);
+  });
+
+
   testWidgets('player can create a room and share its code', (tester) async {
     tester.view.physicalSize = const Size(1200, 1800);
     tester.view.devicePixelRatio = 1;
