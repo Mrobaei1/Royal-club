@@ -15,6 +15,10 @@ test("independent Stockfish perft agrees with adapter and reference legal moves 
     "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
     "r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1",
     "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1",
+    "8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - 0 1",
+    "r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq - 0 1",
+    "rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8",
+    "r4rk1/1pp1qppp/p1np1n2/2b1p1B1/2B1P1b1/P1NP1N2/1PP1QPPP/R4RK1 w - - 0 10",
     "rnbqkbnr/1pp1pppp/p7/3pP3/8/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 3",
     "7k/P7/8/8/8/8/8/7K w - - 0 1",
     "k3r3/8/8/8/8/8/4R3/4K3 w - - 0 1",
@@ -44,6 +48,18 @@ test("independent Stockfish perft agrees with adapter and reference legal moves 
     "position startpos",
     "go perft 4",
     "position fen r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1",
+    "go perft 3",
+    "position fen 8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - 0 1",
+    "go perft 3",
+    "position fen r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq - 0 1",
+    "go perft 3",
+    "position fen rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8",
+    "go perft 3",
+    "position fen r4rk1/1pp1qppp/p1np1n2/2b1p1B1/2B1P1b1/P1NP1N2/1PP1QPPP/R4RK1 w - - 0 10",
+    "go perft 3",
+    "position startpos",
+    "go perft 4",
+    "position fen r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1",
     "go perft 4",
     "quit",
   ].join("\n") + "\n";
@@ -56,7 +72,7 @@ test("independent Stockfish perft agrees with adapter and reference legal moves 
   assert.equal(result.error, undefined, result.error?.message);
   assert.equal(result.status, 0, result.stderr);
   const sections = result.stdout.split(/Nodes searched:\s*\d+/i);
-  assert.equal(sections.length - 1, positions.length + 4, result.stdout);
+  assert.equal(sections.length - 1, positions.length + 8, result.stdout);
 
   positions.forEach((fen, index) => {
     const expectedLegal = new ChessGame(fen).snapshot().legalMoves.sort();
@@ -88,12 +104,20 @@ test("independent Stockfish perft agrees with adapter and reference legal moves 
   });
 
   const totals = [...result.stdout.matchAll(/Nodes searched:\s*(\d+)/g)];
-  const initialPositionPerft3 = Number(totals.at(-4)?.[1]);
-  const kiwipetePerft3 = Number(totals.at(-3)?.[1]);
+  const initialPositionPerft3 = Number(totals.at(-8)?.[1]);
+  const kiwipetePerft3 = Number(totals.at(-7)?.[1]);
+  const endgamePerft3 = Number(totals.at(-6)?.[1]);
+  const promotionPerft3 = Number(totals.at(-5)?.[1]);
+  const tacticalPerft3 = Number(totals.at(-4)?.[1]);
+  const middlegamePerft3 = Number(totals.at(-3)?.[1]);
   const initialPositionPerft4 = Number(totals.at(-2)?.[1]);
   const kiwipetePerft4 = Number(totals.at(-1)?.[1]);
   assert.equal(initialPositionPerft3, 8902, "standard initial-position perft-3 must equal 8,902");
   assert.equal(kiwipetePerft3, 97862, "standard Kiwipete perft-3 must equal 97,862");
+  assert.equal(endgamePerft3, 2812, "standard endgame perft-3 must equal 2,812");
+  assert.equal(promotionPerft3, 9467, "standard promotion/castling perft-3 must equal 9,467");
+  assert.equal(tacticalPerft3, 62379, "standard tactical perft-3 must equal 62,379");
+  assert.equal(middlegamePerft3, 89890, "standard middlegame perft-3 must equal 89,890");
   assert.equal(initialPositionPerft4, 197281, "standard initial-position perft-4 must equal 197,281");
   assert.equal(kiwipetePerft4, 4085603, "standard Kiwipete perft-4 must equal 4,085,603");
 });
