@@ -436,7 +436,12 @@ test('Manch online supports complete 3- and 4-player seat allocation and rejects
     const players = detail.json().match.players as Array<Record<string, unknown>>;
     assert.deepEqual(
       players.map((player) => player.seatColour),
-      player    // Every non-active seat must be rejected by the server, including
+      playerCount === 3
+        ? ['red', 'green', 'yellow']
+        : ['red', 'green', 'yellow', 'blue'],
+    );
+
+    // Every non-active seat must be rejected by the server, including
     // third and fourth players; turn ownership is never client-controlled.
     for (const inactivePlayer of guests.slice(0, playerCount - 1)) {
       const outOfTurnRoll = await app.inject({
@@ -449,10 +454,24 @@ test('Manch online supports complete 3- and 4-player seat allocation and rejects
         'Only the authoritative current seat may roll.');
     }
 
- 200);
-      assert.equal(afterTurn.json().match.currentTurnUserId, nextUser.user.id,
-        'Turn ownership must advance in the fixed seat order.');
-    }
+    const hostRoll = await app.inject({
+      method: 'POST',
+      url: `/api/v1/manch/matches/${matchId}/roll`,
+      headers: auth(host.accessToken),
+      payload: { expectedStateVersion: detail.json().match.stateVersion },
+    });
+    assert.equal(hostRoll.statusCode, 200, hostRoll.body);
+    const afterTurn = await app.inject({
+      method: 'GET',
+      url: `/api/v1/manch/matches/${matchId}`,
+      headers: auth(host.accessToken),
+    });
+    assert.equal(afterTurn.statusCode, 200, afterTurn.body);
+    assert.equal(
+      afterTurn.json().match.currentTurnUserId,
+      players[1].userId,
+      'Turn ownership must advance in the fixed seat order.',
+    );
 
     const unsupportedForfeit = await app.inject({
       method: 'POST',
