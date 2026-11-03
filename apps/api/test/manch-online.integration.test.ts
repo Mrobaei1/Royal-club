@@ -622,6 +622,66 @@ test('Manch room invitations are limited to accepted friends and expire safely',
   assert.equal(expiredAccept.statusCode, 410);
 });
 
+test('owner disconnect policy gates Manch temporary AI takeover', async () => {
+  const host = await register('Manch Policy Host');
+  const guest = await register('Manch Policy Guest');
+  const created = await app.inject({
+    method: 'POST', url: '/api/v1/manch/matches',
+    headers: auth(host.accessToken), payload: { playerCount: 2 },
+  });
+  assert.equal(created.statusCode, 201, created.body);
+  const matchId = created.json().match.id;
+  const joined = await app.inject({
+    method: 'POST', url: `/api/v1/manch/matches/${matchId}/join`,
+    headers: auth(guest.accessToken), payload: {},
+  });
+  assert.equal(joined.statusCode, 200, joined.body);
+  const initialVersion = Number(joined.json().match.stateVersion);
+  for (const player of [host, guest]) {
+    const heartbeat = await app.inject({
+      method: 'POST', url: `/api/v1/manch/matches/${matchId}/presence`,
+      headers: auth(player.accessToken), payload: {},
+    });
+    assert.equal(heartbeat.statusCode, 200, heartbeat.body);
+  }
+
+  const previousOwner = process.env.OWNER_USER_ID;
+  process.env.OWNER_USER_ID = host.user.id;
+  const disabled = await app.inject({
+    method: 'PATCH', url: '/api/v1/admin/game-disconnect-policies/manch',
+    headers: auth(host.accessToken),
+    payload: { enabled: false, graceSeconds: 30, takeoverMode: 'temporary_ai' },
+  });
+  assert.equal(disabled.statusCode, 200, disabled.body);
+  await testPool.query(
+    `UPDATE manch_match_presence SET last_seen_at = NOW() - INTERVAL '31 seconds',
+      last_ai_action_at = NULL WHERE match_id = $1 AND user_id = $2`,
+    [matchId, host.user.id],
+  );
+  const noTakeover = await app.inject({
+    method: 'GET', url: `/api/v1/manch/matches/${matchId}`,
+    headers: auth(guest.accessToken),
+  });
+  assert.equal(noTakeover.statusCode, 200, noTakeover.body);
+  assert.equal(Number(noTakeover.json().match.stateVersion), initialVersion,
+    'Disabled owner policy must prevent temporary AI from changing the match.');
+
+  const enabled = await app.inject({
+    method: 'PATCH', url: '/api/v1/admin/game-disconnect-policies/manch',
+    headers: auth(host.accessToken),
+    payload: { enabled: true, graceSeconds: 30, takeoverMode: 'temporary_ai' },
+  });
+  assert.equal(enabled.statusCode, 200, enabled.body);
+  const takeover = await app.inject({
+    method: 'GET', url: `/api/v1/manch/matches/${matchId}`,
+    headers: auth(guest.accessToken),
+  });
+  assert.equal(takeover.statusCode, 200, takeover.body);
+  assert.equal(Number(takeover.json().match.stateVersion), initialVersion + 1);
+  if (previousOwner === undefined) delete process.env.OWNER_USER_ID;
+  else process.env.OWNER_USER_ID = previousOwner;
+});
+
 test('Manch online supports complete 3- and 4-player seat allocation and rejects unsupported forfeits', async () => {
   const host = await register('Manch Multi Host');
   const guests = [
