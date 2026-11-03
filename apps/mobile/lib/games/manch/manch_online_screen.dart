@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'iranian_manch_board.dart';
 import 'manch_engine.dart';
 import 'manch_game_state.dart';
+import 'manch_online_version_guard.dart';
 import '../../services/manch_online_service.dart';
 
 class ManchOnlineLobbyScreen extends StatefulWidget {
@@ -382,7 +383,10 @@ class _ManchOnlineGameScreenState extends State<ManchOnlineGameScreen> {
       if (rawState is! Map) throw Exception('وضعیت بازی از سرور ناقص است.');
       final state = ManchGameState.fromJson(Map<String, Object?>.from(rawState));
       final incomingVersion = (match['stateVersion'] as num?)?.toInt() ?? 0;
-      if (!mounted || incomingVersion < _stateVersion) return;
+      if (!mounted || !shouldAcceptManchOnlineVersion(
+        incomingVersion: incomingVersion,
+        currentVersion: _stateVersion,
+      )) return;
       setState(() {
         _state = state;
         _players = (match['players'] as List? ?? const [])
