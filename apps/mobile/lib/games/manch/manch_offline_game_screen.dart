@@ -150,8 +150,8 @@ class _ManchOfflineGameScreenState extends State<ManchOfflineGameScreen> {
       _message = won
           ? 'بازیکن $winnerName برنده شد!'
           : next.activePlayerIndex == move.playerIndex
-              ? 'حرکت انجام شد؛ نوبت اضافه داری.'
-              : 'حرکت انجام شد؛ نوبت بازیکن بعدی است.';
+              ? _text('حرکت انجام شد؛ نوبت اضافه داری.', 'Move completed; you get another turn.')
+              : _text('حرکت انجام شد؛ نوبت بازیکن بعدی است.', 'Move completed; next player\'s turn.');
     });
     if (mounted && !next.isFinished && _isBotTurn) _scheduleBotTurn();
   }
@@ -166,7 +166,7 @@ class _ManchOfflineGameScreenState extends State<ManchOfflineGameScreen> {
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('ذخیره بازی انجام نشد: $error')),
+        SnackBar(content: Text(_text('ذخیره بازی انجام نشد: $error', 'Could not save game: $error'))),
       );
     }
   }
@@ -177,7 +177,7 @@ class _ManchOfflineGameScreenState extends State<ManchOfflineGameScreen> {
       if (!mounted) return;
       if (restored == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('بازی ذخیره‌شده‌ای پیدا نشد.')),
+          SnackBar(content: Text(_text('بازی ذخیره‌شده‌ای پیدا نشد.', 'No saved game was found.'))),
         );
         return;
       }
@@ -243,10 +243,10 @@ class _ManchOfflineGameScreenState extends State<ManchOfflineGameScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text(_text('منچ ایرانی — بازی آفلاین', 'Iranian Manch — Offline')),
+        title: Text(_text('منچ ایرانی — بازی آفلاین', 'Iranian Manch — Offline')),
         actions: [
           IconButton(
-            tooltip: 'شروع دوباره',
+            tooltip: _text('شروع دوباره', 'Restart'),
             onPressed: _restart,
             icon: const Icon(Icons.restart_alt_rounded),
           ),
@@ -315,7 +315,7 @@ class _ManchOfflineGameScreenState extends State<ManchOfflineGameScreen> {
                     ),
                     child: Row(
                       children: [
-                        const Expanded(child: Text(_text('سطح هوش مصنوعی', 'AI difficulty'))),
+                        Expanded(child: Text(_text('سطح هوش مصنوعی', 'AI difficulty'))),
                         DropdownButton<ManchBotDifficulty>(
                           value: _botDifficulty,
                           onChanged: !_matchStarted && _state.pendingDice == null
@@ -349,13 +349,13 @@ class _ManchOfflineGameScreenState extends State<ManchOfflineGameScreen> {
                 FilledButton.icon(
                   onPressed: null,
                   icon: const Icon(Icons.smart_toy_outlined),
-                  label: const Text(_text('هوش مصنوعی در حال بازی است...', 'AI is thinking...')),
+                  label: Text(_text('هوش مصنوعی در حال بازی است...', 'AI is thinking...')),
                 )
               else if (!_state.isFinished && _state.pendingDice == null)
                 FilledButton.icon(
                   onPressed: _rollDice,
                   icon: const Icon(Icons.casino_outlined),
-                  label: const Text(_text('انداختن تاس', 'Roll die')),
+                  label: Text(_text('انداختن تاس', 'Roll die')),
                 ),
               const SizedBox(height: 8),
               Wrap(
@@ -366,12 +366,12 @@ class _ManchOfflineGameScreenState extends State<ManchOfflineGameScreen> {
                   OutlinedButton.icon(
                     onPressed: _saveGame,
                     icon: const Icon(Icons.save_outlined),
-                    label: const Text(_text('ذخیره', 'Save')),
+                    label: Text(_text('ذخیره', 'Save')),
                   ),
                   OutlinedButton.icon(
                     onPressed: _restoreGame,
                     icon: const Icon(Icons.restore_rounded),
-                    label: const Text(_text('بازیابی', 'Restore')),
+                    label: Text(_text('بازیابی', 'Restore')),
                   ),
                 ],
               ),
@@ -391,7 +391,7 @@ class _ManchOfflineGameScreenState extends State<ManchOfflineGameScreen> {
                 FilledButton.icon(
                   onPressed: _restart,
                   icon: const Icon(Icons.refresh),
-                  label: const Text(_text('بازی جدید', 'New game')),
+                  label: Text(_text('بازی جدید', 'New game')),
                 )
               else if (_state.pendingDice != null) ...[
                 Text(
@@ -405,7 +405,7 @@ class _ManchOfflineGameScreenState extends State<ManchOfflineGameScreen> {
                     child: OutlinedButton(
                       onPressed: () => _moveToken(move),
                       child: Text(
-                        'مهره ${move.tokenIndex + 1}: ${_positionLabel(move.fromProgress)} ← ${_positionLabel(move.toProgress)}',
+                        _text('مهره ${move.tokenIndex + 1}: ${_positionLabel(move.fromProgress)} ← ${_positionLabel(move.toProgress)}', 'Token ${move.tokenIndex + 1}: ${_positionLabel(move.fromProgress)} ← ${_positionLabel(move.toProgress)}'),
                       ),
                     ),
                   ),
@@ -439,7 +439,7 @@ class _ManchOfflineGameScreenState extends State<ManchOfflineGameScreen> {
                             ),
                             const Spacer(),
                             if (p == _state.activePlayerIndex)
-                              const Text(_text('نوبت فعلی', 'Current turn')),
+                              Text(_text('نوبت فعلی', 'Current turn')),
                           ],
                         ),
                         const SizedBox(height: 8),
