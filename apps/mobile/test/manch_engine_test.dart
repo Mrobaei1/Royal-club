@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:royal_club/games/manch/manch_engine.dart';
+import 'package:royal_club/games/manch/manch_board_geometry.dart';
 import 'package:royal_club/games/manch/manch_game_state.dart';
 import 'package:royal_club/games/manch/manch_rule_profile.dart';
 
@@ -345,12 +346,12 @@ void main() {
     });
 
     test('each colour enters at its own fixed shared-track offset', () {
-      const starts = {
+      expect(ManchBoardGeometry.startOffsets, {
         ManchColour.red: 0,
         ManchColour.green: 13,
         ManchColour.yellow: 26,
         ManchColour.blue: 39,
-      };
+      });
       final fourPlayers = engine.newGame(playerCount: 4);
       for (var playerIndex = 0;
           playerIndex < fourPlayers.players.length;
@@ -363,7 +364,8 @@ void main() {
           reason: '${fourPlayers.players[playerIndex].colour} must enter at progress zero.',
         );
         expect(
-          starts[fourPlayers.players[playerIndex].colour],
+          ManchBoardGeometry.globalTrackIndex(
+            fourPlayers.players[playerIndex].colour, 0),
           [0, 13, 26, 39][playerIndex],
         );
       }
