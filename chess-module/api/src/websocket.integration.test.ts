@@ -316,7 +316,7 @@ test("WebSocket presence remains online until the player's last device disconnec
     // A clock-expiry adjudication triggered by a draw claim must reach both devices.
     const timeoutFen = "4k3/8/8/8/8/8/8/R3K3 b - - 100 1";
     await pool.query(
-      "UPDATE chess_games SET initial_fen=$2,current_fen=$2,pgn='',clock_snapshot=jsonb_set(jsonb_set(jsonb_set(clock_snapshot,'{active}','\\"black\\"'::jsonb),'{blackMs}','1'::jsonb),'{lastStartedAt}',to_jsonb($3::bigint)) WHERE id=$1",
+      "UPDATE chess_games SET initial_fen=$2,current_fen=$2,pgn='',clock_snapshot=jsonb_set(jsonb_set(jsonb_set(clock_snapshot,'{active}',to_jsonb('black'::text)),'{blackMs}','1'::jsonb),'{lastStartedAt}',to_jsonb($3::bigint)) WHERE id=$1",
       [gameId, timeoutFen, Date.now() - 5000],
     );
     const whiteTerminal = waitForMessage(reconnectedWhite, m =>
