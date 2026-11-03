@@ -398,6 +398,7 @@ class _ManchOnlineGameScreenState extends State<ManchOnlineGameScreen> {
   int? _lastDice;
   bool _busy = false;
   bool _loadingState = false;
+  bool _connectionLost = false;
   Timer? _poller;
 
   bool get _isPersian =>
@@ -436,13 +437,16 @@ class _ManchOnlineGameScreenState extends State<ManchOnlineGameScreen> {
       if (incomingVersion == null) {
         throw const FormatException('Invalid Manch state version in server snapshot.');
       }
-      if (!mounted || !shouldAcceptManchOnlineVersion(
+      if (!mounted) return;
+      if (!shouldAcceptManchOnlineVersion(
         incomingVersion: incomingVersion,
         currentVersion: _stateVersion,
       )) {
+        if (_connectionLost) setState(() => _connectionLost = false);
         return;
       }
       setState(() {
+        _connectionLost = false;
         _state = state;
         _players = (match['players'] as List? ?? const [])
             .whereType<Map>()
@@ -466,8 +470,11 @@ class _ManchOnlineGameScreenState extends State<ManchOnlineGameScreen> {
         _error = null;
       });
     } catch (error) {
-      if (!mounted || silent) return;
-      setState(() => _error = error.toString());
+      if (!mounted) return;
+      setState(() {
+        _connectionLost = true;
+        if (!silent) _error = error.toString();
+      });
     } finally {
       _loadingState = false;
     }
@@ -672,6 +679,20 @@ class _ManchOnlineGameScreenState extends State<ManchOnlineGameScreen> {
           : ListView(
               padding: const EdgeInsets.all(12),
               children: [
+                if (_connectionLost)
+                  Card(
+                    color: Theme.of(context).colorScheme.errorContainer,
+                    child: ListTile(
+                      leading: const Icon(Icons.cloud_off_outlined),
+                      title: Text(_text('ارتباط با سرور قطع شده است', 'Connection to the server was lost')),
+                      subtitle: Text(_text('وضعیت بازی حفظ شده؛ برای اتصال مجدد تلاش کنید.', 'Your game state is preserved. Retry to reconnect.')),
+                      trailing: IconButton(
+                        tooltip: _text('تلاش مجدد', 'Retry'),
+                        onPressed: _busy ? null : _load,
+                        icon: const Icon(Icons.refresh),
+                      ),
+                    ),
+                  ),
                 Card(
                   child: Padding(
                     padding: const EdgeInsets.all(12),
