@@ -152,7 +152,8 @@ void main() {
     final field = tester.widget<TextField>(find.byType(TextField));
     expect(field.enabled, isFalse);
     expect(field.decoration?.hintText, 'Chat is closed after the game ends');
-    final sendButton = tester.widget<IconButton>(find.byTooltip('Send message'));
+    final sendButtonFinder = find.byWidgetPredicate((widget) => widget is IconButton && widget.tooltip == 'Send message');
+    final sendButton = tester.widget<IconButton>(sendButtonFinder);
     expect(sendButton.onPressed, isNull);
     field.onSubmitted?.call('late message');
     expect(sent, isEmpty);
