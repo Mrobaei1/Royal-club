@@ -71,6 +71,16 @@ test("distinguishes claimable 50-move and threefold draws from automatic draws",
   assert.doesNotThrow(() => repetition.play({from:"g1",to:"f3"}));
 });
 
+test("a prospective legal move can create a claimable 50-move draw", () => {
+  const game = new ChessGame("4k3/8/8/8/8/8/8/R3K3 w - - 99 1");
+  const before = game.snapshot();
+  assert.equal(before.drawClaimable, false);
+  const after = game.play({from:"a1",to:"a2"});
+  assert.equal(after.draw, false);
+  assert.equal(after.drawClaimable, true);
+  assert.equal(after.drawClaimReason, "fifty_move_rule");
+});
+
 test("fivefold repetition is an automatic draw and is restored from PGN history", () => {
   const repetition = new ChessGame();
   for (let cycle = 0; cycle < 4; cycle++) {
