@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
@@ -5,6 +6,17 @@ import 'api_transport.dart';
 
 class NotificationsService {
   static const _storage = FlutterSecureStorage();
+  static const Duration _requestTimeout = Duration(seconds: 15);
+
+  static Future<http.Response> _perform(Future<http.Response> Function() request) async {
+    try {
+      return await request().timeout(_requestTimeout);
+    } on TimeoutException {
+      throw Exception('پاسخ سرور اعلان‌ها بیش از حد طول کشید.');
+    } on http.ClientException {
+      throw Exception('اتصال به سرور اعلان‌ها برقرار نشد.');
+    }
+  }
 
   static Future<Map<String, String>> _headers() async {
     final token = await _storage.read(key: 'royal_club_token');
@@ -18,11 +30,12 @@ class NotificationsService {
   }
 
   static Future<Map<String, dynamic>> _send(String path) async {
-    final response = await http.post(
+    final headers = await _headers();
+    final response = await _perform(() => http.post(
       ApiTransport.uri(path),
-      headers: await _headers(),
+      headers: headers,
       body: jsonEncode(<String, dynamic>{}),
-    );
+    ));
     return _decode(response);
   }
 
@@ -43,10 +56,11 @@ class NotificationsService {
   }
 
   static Future<List<Map<String, dynamic>>> list() async {
-    final response = await http.get(
+    final headers = await _headers();
+    final response = await _perform(() => http.get(
       ApiTransport.uri('/api/v1/notifications'),
-      headers: await _headers(),
-    );
+      headers: headers,
+    ));
     final result = await _decode(response);
     return (result['notifications'] as List? ?? const [])
         .whereType<Map>()
@@ -64,10 +78,11 @@ class NotificationsService {
   }
 
   static Future<void> deleteAll() async {
-    final response = await http.delete(
+    final headers = await _headers();
+    final response = await _perform(() => http.delete(
       ApiTransport.uri('/api/v1/notifications'),
-      headers: await _headers(),
-    );
+      headers: headers,
+    ));
     await _decode(response);
   }
 }
