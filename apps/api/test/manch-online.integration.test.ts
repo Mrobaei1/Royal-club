@@ -315,6 +315,20 @@ test('Manch online rooms join, roll and persist server-authoritative moves', asy
   assert.equal(afterForfeit.json().match.stateVersion, forfeited.json().stateVersion,
     'The persisted match snapshot must expose the same version returned by forfeit.');
 
+  const history = await app.inject({
+    method: 'GET',
+    url: '/api/v1/manch/matches/history',
+    headers: auth(host.accessToken),
+  });
+  assert.equal(history.statusCode, 200, history.body);
+  const historyItem = history.json().matches.find(
+    (item: any) => String(item.id) === String(raceId),
+  );
+  assert.ok(historyItem, 'Finished matches must appear in the authenticated player history.');
+  assert.equal(historyItem.winnerUserId, host.user.id);
+  assert.equal(historyItem.finishReason, 'forfeit');
+  assert.equal(historyItem.players.length, 2);
+
   const rematch = await app.inject({
     method: 'POST',
     url: `/api/v1/manch/matches/${raceId}/rematch`,
