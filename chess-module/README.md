@@ -52,3 +52,4 @@ Do not merge into `main`, register routes, expose a home-screen entry, deploy, m
 - [`docs/acceptance-matrix.md`](docs/acceptance-matrix.md): automated coverage and remaining gates.
 - [`docs/device-acceptance-checklist.md`](docs/device-acceptance-checklist.md): two-device, reconnect, accessibility and staging load procedure.
 - [`docs/security-resilience-checklist.md`](docs/security-resilience-checklist.md): authorization, input validation, concurrency and operational security review.
+- [`docs/host-integration-plan.md`](docs/host-integration-plan.md): prepared host API/auth/database/UI integration sequence; no host wiring is performed before owner approval.
