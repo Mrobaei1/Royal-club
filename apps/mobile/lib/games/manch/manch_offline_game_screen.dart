@@ -44,6 +44,7 @@ class _ManchOfflineGameScreenState extends State<ManchOfflineGameScreen> {
   late ManchBotDifficulty _botDifficulty = widget.botDifficulty;
   late ManchGameState _state;
   int? _lastDice;
+  bool _matchStarted = false;
   String _message = 'برای شروع نوبت، تاس را بینداز.';
 
   @override
@@ -69,6 +70,7 @@ class _ManchOfflineGameScreenState extends State<ManchOfflineGameScreen> {
       return;
     }
     final dice = widget.diceRoller?.call() ?? _random.nextInt(6) + 1;
+    _matchStarted = true;
     if (dice < 1 || dice > 6) {
       throw StateError('Dice roller must return a value from 1 to 6.');
     }
@@ -110,6 +112,7 @@ class _ManchOfflineGameScreenState extends State<ManchOfflineGameScreen> {
   void _rollDice() {
     if (_state.isFinished || _state.pendingDice != null || _isBotTurn) return;
     final dice = widget.diceRoller?.call() ?? _random.nextInt(6) + 1;
+    _matchStarted = true;
     if (dice < 1 || dice > 6) {
       throw StateError('Dice roller must return a value from 1 to 6.');
     }
@@ -177,6 +180,9 @@ class _ManchOfflineGameScreenState extends State<ManchOfflineGameScreen> {
       }
       setState(() {
         _state = restored;
+        _matchStarted = restored.turnNumber > 1 ||
+            restored.pendingDice != null ||
+            restored.players.any((player) => player.tokens.any((position) => position != -1));
         _lastDice = restored.pendingDice;
         _message = 'بازی ذخیره‌شده بازیابی شد.';
       });
@@ -195,6 +201,7 @@ class _ManchOfflineGameScreenState extends State<ManchOfflineGameScreen> {
         playerCount: widget.playerCount,
         profile: widget.profile,
       );
+      _matchStarted = false;
       _lastDice = null;
       _message = 'بازی تازه شروع شد؛ تاس را بینداز.';
     });
@@ -306,8 +313,7 @@ class _ManchOfflineGameScreenState extends State<ManchOfflineGameScreen> {
                         const Expanded(child: Text('سطح هوش مصنوعی')),
                         DropdownButton<ManchBotDifficulty>(
                           value: _botDifficulty,
-                          onChanged: _state.turnNumber == 1 &&
-                                  _state.pendingDice == null
+                          onChanged: !_matchStarted && _state.pendingDice == null
                               ? (value) {
                                   if (value != null) {
                                     setState(() => _botDifficulty = value);
