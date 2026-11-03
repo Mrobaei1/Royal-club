@@ -198,6 +198,9 @@ test("authenticated chess routes support private game, draw, chat, profiles and 
     const claimJoin = await request(claimBlack, "POST", `/chess/rooms/${claimRoom.json().roomCode}/join`);
     assert.equal(claimJoin.statusCode, 201, claimJoin.body);
     const claimGameId = claimJoin.json().gameId as string;
+    const prematureClaim = await request(claimWhite, "POST", `/chess/games/${claimGameId}/claim-draw`);
+    assert.equal(prematureClaim.statusCode, 409);
+    assert.equal(prematureClaim.json().error, "draw_not_claimable");
     const claimableFen = "4k3/8/8/8/8/8/8/R3K3 w - - 100 1";
     await pool.query(
       "UPDATE chess_games SET initial_fen=$2,current_fen=$2,pgn='' WHERE id=$1",
@@ -212,9 +215,25 @@ test("authenticated chess routes support private game, draw, chat, profiles and 
     const nonPlayerClaim = await request(queueOne, "POST", `/chess/games/${claimGameId}/claim-draw`);
     assert.equal(nonPlayerClaim.statusCode, 403);
     assert.equal(nonPlayerClaim.json().error, "not_a_player");
-    const claimedDraw = await request(claimWhite, "POST", `/chess/games/${claimGameId}/claim-draw`);
-    assert.equal(claimedDraw.statusCode, 200, claimedDraw.body);
+    const pendingClaimOffer = await request(claimBlack, "POST", `/chess/games/${claimGameId}/draw-offers`);
+    assert.equal(pendingClaimOffer.statusCode, 201, pendingClaimOffer.body);
+    const competingClaims = await Promise.all([
+      request(claimWhite, "POST", `/chess/games/${claimGameId}/claim-draw`, undefined, app),
+      request(claimWhite, "POST", `/chess/games/${claimGameId}/claim-draw`, undefined, appTwo),
+    ]);
+    assert.deepEqual(competingClaims.map(response => response.statusCode).sort(), [200, 404]);
+    const claimedDraw = competingClaims.find(response => response.statusCode === 200)!;
     assert.deepEqual(claimedDraw.json(), {status:"draw",reason:"fifty_move_rule"});
+    const cancelledClaimOffer = await pool.query(
+      "SELECT status FROM chess_draw_offers WHERE id=$1",
+      [pendingClaimOffer.json().offerId],
+    );
+    assert.equal(cancelledClaimOffer.rows[0].status, "cancelled");
+    const claimAwards = await pool.query(
+      "SELECT user_id,xp_delta FROM chess_progression_events WHERE game_id=$1 AND event_key='final_result' ORDER BY user_id",
+      [claimGameId],
+    );
+    assert.deepEqual(claimAwards.rows.map(row => Number(row.xp_delta)), [5, 5]);
     const claimedGame = await pool.query(
       "SELECT status,clock_snapshot->>'finished' AS finished FROM chess_games WHERE id=$1",
       [claimGameId],
