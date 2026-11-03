@@ -303,10 +303,10 @@ test("WebSocket presence remains online until the player's last device disconnec
       m.type === "chess:state" && m.revision === 1 && typeof m.fen === "string" && m.fen.includes(" b "),
     );
     assert.equal(restoredState.status, "active");
-    // The server sends this snapshot only after registering its inbound message handler.
-    await waitForMessage(reconnectedWhite, m =>
-      m.type === "chess:opponent:presence" && typeof m.connected === "boolean",
-    );
+    // A successful ping/pong proves the inbound message handler is attached.
+    const readyPong = waitForMessage(reconnectedWhite, m => m.type === "chess:pong" && m.clientTime === 0);
+    reconnectedWhite.send(JSON.stringify({ type: "ping", clientTime: 0 }));
+    await readyPong;
 
     // Exercise the real authenticated socket handler, not only the extracted limiter.
     const rateLimitedClose = new Promise<{ code: number; reason: string }>((resolve, reject) => {
@@ -316,7 +316,7 @@ test("WebSocket presence remains online until the player's last device disconnec
         resolve({ code, reason: reason.toString() });
       });
     });
-    for (let i = 0; i < 31; i += 1) {
+    for (let i = 1; i < 31; i += 1) {
       reconnectedWhite.send(JSON.stringify({ type: "ping", clientTime: i }));
     }
     const closeResult = await rateLimitedClose;
