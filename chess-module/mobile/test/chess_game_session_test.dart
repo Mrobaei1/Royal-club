@@ -34,6 +34,14 @@ class _FakeChessApiClient extends ChessApiClient {
       ];
 
   @override
+  Future<Map<String, dynamic>> sendChat(String gameId, String message) async => {
+        'id': '777',
+        'username': 'white_player',
+        'message': message,
+        'createdAt': '2026-11-03T10:00:00.000Z',
+      };
+
+  @override
   Future<Map<String, dynamic>> pendingDrawOffer(String gameId) async => {
         'pending': false,
         'offeredByMe': false,
@@ -71,6 +79,18 @@ void main() {
     expect(api.profileFetches, 4);
     expect(session.whiteProfile?.rating, 1400);
     expect(session.blackProfile?.rating, 1400);
+    session.dispose();
+  });
+
+  test('game session deduplicates repeated chat delivery by server message ID', () async {
+    final session = ChessGameSession(api: _FakeChessApiClient(), gameId: '99');
+    await session.refresh();
+    await session.sendChat('same message');
+    await session.sendChat('same message');
+
+    expect(session.messages.length, 2);
+    expect(session.messages.last.id, '777');
+    expect(session.messages.last.text, 'same message');
     session.dispose();
   });
 
