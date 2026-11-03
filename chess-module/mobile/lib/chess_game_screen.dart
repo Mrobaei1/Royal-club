@@ -174,6 +174,7 @@ class _ChessGameScreenState extends State<ChessGameScreen> {
   }
 
   void _send() {
+    if (widget.gameStatus != 'active') return;
     final text = _messageController.text.trim();
     if (text.isEmpty) return;
     widget.onSendMessage(text);
@@ -298,17 +299,20 @@ class _ChessGameScreenState extends State<ChessGameScreen> {
             Expanded(
               child: TextField(
                 controller: _messageController,
+                enabled: widget.gameStatus == 'active',
                 textInputAction: TextInputAction.send,
                 onSubmitted: (_) => _send(),
                 decoration: InputDecoration(
-                  hintText: fa ? 'پیام متنی...' : 'Text message...',
+                  hintText: widget.gameStatus != 'active'
+                      ? (fa ? 'گفتگو پس از پایان بازی بسته است' : 'Chat is closed after the game ends')
+                      : (fa ? 'پیام متنی...' : 'Text message...'),
                   isDense: true,
                 ),
               ),
             ),
             IconButton(
               tooltip: fa ? 'ارسال پیام' : 'Send message',
-              onPressed: _send,
+              onPressed: widget.gameStatus == 'active' ? _send : null,
               icon: const Icon(Icons.send),
             ),
           ],
