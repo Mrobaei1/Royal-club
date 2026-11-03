@@ -47,7 +47,7 @@ test("authenticated chess routes support private game, draw, chat, profiles and 
     }
 
     const users = await pool.query(
-      "INSERT INTO users(username) VALUES ('route_white'),('route_black'),('queue_one'),('queue_two'),('queue_cancel'),('concurrent_room_host'),('race_room_host'),('race_guest_one'),('race_guest_two'),('claim_white'),('claim_black'),('claim_timeout_white'),('claim_timeout_black'),('matchmaking_low'),('matchmaking_mid'),('matchmaking_high') RETURNING id,username"
+      "INSERT INTO users(username) VALUES ('route_white'),('route_black'),('queue_one'),('queue_two'),('queue_cancel'),('concurrent_room_host'),('race_room_host'),('race_guest_one'),('race_guest_two'),('claim_white'),('claim_black'),('claim_timeout_white'),('claim_timeout_black'),('matchmaking_low'),('matchmaking_mid'),('matchmaking_high'),('route_outsider') RETURNING id,username"
     );
     const ids = users.rows.map(row => String(row.id));
     const white = ids[0]!;
@@ -219,12 +219,19 @@ test("authenticated chess routes support private game, draw, chat, profiles and 
     const configuredTimeControl = await pool.query("SELECT display_name FROM chess_time_controls WHERE id='rapid'");
     assert.equal(joined.json().settings.timeControl.name, configuredTimeControl.rows[0].display_name);
     const gameId = joined.json().gameId as string;
+    const routeOutsider = ids[16]!;
 
     const whiteGame = await request(white, "GET", `/chess/games/${gameId}`);
     assert.equal(whiteGame.statusCode, 200, whiteGame.body);
     assert.equal(whiteGame.json().isHost, true);
     assert.ok(whiteGame.json().legalMoves.includes("e2e4"));
     assert.equal(whiteGame.json().players.white.username, "route_white");
+    const outsiderGameRead = await request(routeOutsider, "GET", `/chess/games/${gameId}`);
+    assert.equal(outsiderGameRead.statusCode, 404);
+    const outsiderChatRead = await request(routeOutsider, "GET", `/chess/games/${gameId}/chat`);
+    assert.equal(outsiderChatRead.statusCode, 404);
+    const outsiderMove = await request(routeOutsider, "POST", `/chess/games/${gameId}/moves`, { from: "e2", to: "e4" });
+    assert.equal(outsiderMove.statusCode, 403);
 
     const offer = await request(white, "POST", `/chess/games/${gameId}/draw-offers`);
     assert.equal(offer.statusCode, 201, offer.body);
