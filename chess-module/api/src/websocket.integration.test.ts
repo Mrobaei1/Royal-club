@@ -22,6 +22,7 @@ const migrations = [
   "008_cancel_draws_on_terminal.sql",
   "009_draw_offer_expiry.sql",
   "010_presence_sessions.sql",
+  "011_immutable_admin_audit.sql",
 ];
 
 function waitForMessage(
