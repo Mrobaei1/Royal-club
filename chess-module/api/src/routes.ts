@@ -37,6 +37,20 @@ async function publishCommittedGameState(pool:Pool,gameId:string|number,request:
 
 export async function registerChessRoutes(app:FastifyInstance,options:RouteOptions):Promise<void>{
   const {pool}=options;
+  const isPositivePgBigint = (value: unknown): value is string =>
+    typeof value === "string" && /^[1-9]\\d{0,18}$/.test(value) && BigInt(value) <= 9_223_372_036_854_775_807n;
+  const gameRouteOptions = () => ({
+    preHandler: [
+      options.authenticate,
+      async (request: FastifyRequest, reply: { code: (status: number) => { send: (body: unknown) => unknown } }) => {
+        const params = request.params as { gameId?: unknown; offerId?: unknown };
+        if (!isPositivePgBigint(params.gameId)) return fail(reply, 400, "invalid_game_id");
+        if (params.offerId !== undefined && !isPositivePgBigint(params.offerId)) {
+          return fail(reply, 400, "invalid_offer_id");
+        }
+      },
+    ],
+  });
   if(options.enableClockScheduler!==false)startChessClockScheduler(app,pool);
   app.get("/chess/time-controls",{preHandler:options.authenticate},async()=>{
     const result=await pool.query("SELECT id,display_name AS name,base_ms,increment_ms,enabled FROM chess_time_controls ORDER BY base_ms");
@@ -146,7 +160,7 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
     finally{client.release();}
   });
 
-  app.get<{Params:{gameId:string}}>("/chess/games/:gameId",{preHandler:options.authenticate},async(request,reply)=>{
+  app.get<{Params:{gameId:string}}>("/chess/games/:gameId",gameRouteOptions(),async(request,reply)=>{
     let playerId:string;
     try{playerId=userId(request,options);}catch{return fail(reply,401,"unauthorized");}
     const result=await pool.query(
@@ -167,7 +181,7 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
       players:{white:{username:row.white_username},black:{username:row.black_username}}};
   });
 
-  app.get<{Params:{gameId:string};Querystring:{afterPly?:string}}>("/chess/games/:gameId/history",{preHandler:options.authenticate},async(request,reply)=>{
+  app.get<{Params:{gameId:string};Querystring:{afterPly?:string}}>("/chess/games/:gameId/history",gameRouteOptions(),async(request,reply)=>{
     let playerId:string;
     try{playerId=userId(request,options);}catch{return fail(reply,401,"unauthorized");}
     const afterPly=request.query.afterPly===undefined?0:Number(request.query.afterPly);
@@ -188,7 +202,7 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
     };
   });
 
-  app.post<{Params:{gameId:string};Body:MoveBody}>("/chess/games/:gameId/moves",{preHandler:options.authenticate},async(request,reply)=>{
+  app.post<{Params:{gameId:string};Body:MoveBody}>("/chess/games/:gameId/moves",gameRouteOptions(),async(request,reply)=>{
     let playerId:string;
     try{playerId=userId(request,options);}catch{return fail(reply,401,"unauthorized");}
     const body=request.body;
@@ -266,7 +280,7 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
     }finally{client.release();}
   });
 
-  app.post<{Params:{gameId:string};Body:ChatBody}>("/chess/games/:gameId/chat",{preHandler:options.authenticate},async(request,reply)=>{
+  app.post<{Params:{gameId:string};Body:ChatBody}>("/chess/games/:gameId/chat",gameRouteOptions(),async(request,reply)=>{
     let playerId:string;
     try{playerId=userId(request,options);}catch{return fail(reply,401,"unauthorized");}
     const rawMessage=request.body?.message;
@@ -301,7 +315,7 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
     finally{client.release();}
   });
 
-  app.post<{Params:{gameId:string}}>("/chess/games/:gameId/resign",{preHandler:options.authenticate},async(request,reply)=>{
+  app.post<{Params:{gameId:string}}>("/chess/games/:gameId/resign",gameRouteOptions(),async(request,reply)=>{
     let playerId:string;
     try{playerId=userId(request,options);}catch{return fail(reply,401,"unauthorized");}
     const client=await pool.connect();
@@ -338,7 +352,7 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
     finally{client.release();}
   });
 
-  app.post<{Params:{gameId:string};Body:{move?:MoveBody}}>("/chess/games/:gameId/claim-draw",{preHandler:options.authenticate},async(request,reply)=>{
+  app.post<{Params:{gameId:string};Body:{move?:MoveBody}}>("/chess/games/:gameId/claim-draw",gameRouteOptions(),async(request,reply)=>{
     let playerId:string;
     try{playerId=userId(request,options);}catch{return fail(reply,401,"unauthorized");}
     const client=await pool.connect();
@@ -513,7 +527,7 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
     finally{client.release();}
   });
 
-  app.get<{Params:{gameId:string};Querystring:{afterId?:string}}>("/chess/games/:gameId/chat",{preHandler:options.authenticate},async(request,reply)=>{
+  app.get<{Params:{gameId:string};Querystring:{afterId?:string}}>("/chess/games/:gameId/chat",gameRouteOptions(),async(request,reply)=>{
     let playerId:string;
     try{playerId=userId(request,options);}catch{return fail(reply,401,"unauthorized");}
     const afterId=request.query.afterId??"0";
@@ -530,7 +544,7 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
     return {messages:result.rows.map(row=>({id:String(row.id),username:row.username,message:row.message,createdAt:row.created_at}))};
   });
 
-  app.get<{Params:{gameId:string}}>("/chess/games/:gameId/draw-offers",{preHandler:options.authenticate},async(request,reply)=>{
+  app.get<{Params:{gameId:string}}>("/chess/games/:gameId/draw-offers",gameRouteOptions(),async(request,reply)=>{
     let playerId:string;
     try{playerId=userId(request,options);}catch{return fail(reply,401,"unauthorized");}
     const game=await pool.query(
@@ -546,7 +560,7 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
     return {pending:true,offerId:String(pending.rows[0].id),offeredByMe:String(pending.rows[0].offered_by)===playerId,createdAt:pending.rows[0].created_at};
   });
 
-  app.post<{Params:{gameId:string}}>("/chess/games/:gameId/draw-offers",{preHandler:options.authenticate},async(request,reply)=>{
+  app.post<{Params:{gameId:string}}>("/chess/games/:gameId/draw-offers",gameRouteOptions(),async(request,reply)=>{
     let playerId:string;
     try{playerId=userId(request,options);}catch{return fail(reply,401,"unauthorized");}
     const client=await pool.connect();
@@ -589,7 +603,7 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
     finally{client.release();}
   });
 
-  app.post<{Params:{gameId:string;offerId:string};Body:{accept:boolean}}>("/chess/games/:gameId/draw-offers/:offerId/respond",{preHandler:options.authenticate},async(request,reply)=>{
+  app.post<{Params:{gameId:string;offerId:string};Body:{accept:boolean}}>("/chess/games/:gameId/draw-offers/:offerId/respond",gameRouteOptions(),async(request,reply)=>{
     let playerId:string;
     try{playerId=userId(request,options);}catch{return fail(reply,401,"unauthorized");}
     if(typeof request.body?.accept!=="boolean")return fail(reply,400,"invalid_draw_response");
@@ -639,7 +653,7 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
 
   // Any authenticated participant may ask the server to adjudicate an expired clock.
   // The row lock makes simultaneous claims idempotent across API instances.
-  app.post<{Params:{gameId:string}}>("/chess/games/:gameId/clock/claim-timeout",{preHandler:options.authenticate},async(request,reply)=>{
+  app.post<{Params:{gameId:string}}>("/chess/games/:gameId/clock/claim-timeout",gameRouteOptions(),async(request,reply)=>{
     let claimant:string;
     try{claimant=userId(request,options);}catch{return fail(reply,401,"unauthorized");}
     const client=await pool.connect();
