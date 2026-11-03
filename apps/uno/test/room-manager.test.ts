@@ -421,3 +421,22 @@ test('first returning player inherits host controls when no host successor was o
   assert.equal(restored.hostId, guestTwo.id);
   assert.equal(restored.players.find(player => player.id === guestTwo.id)!.connected, true);
 });
+
+test('cleanup expires finished matches after the configured retention period', () => {
+  const manager = new UnoRoomManager();
+  const room = manager.createRoom(host);
+  const snapshot = manager.exportSnapshot();
+  snapshot.rooms[0]!.status = 'finished';
+  snapshot.rooms[0]!.matchWinnerId = host.id;
+  snapshot.rooms[0]!.lastActivityAt = 1_000;
+  manager.restoreSnapshot(snapshot);
+
+  assert.equal(manager.cleanupExpiredRooms(1_000 + 30 * 60 * 1000 - 1), 0);
+  assert.equal(manager.getRoom(room.code).status, 'finished');
+  assert.equal(manager.cleanupExpiredRooms(1_000 + 30 * 60 * 1000), 1);
+  assert.throws(
+    () => manager.getRoom(room.code),
+    (error: unknown) => error instanceof UnoError && error.code === 'ROOM_NOT_FOUND',
+  );
+  assert.equal(manager.getRoomForUser(host.id), null);
+});
