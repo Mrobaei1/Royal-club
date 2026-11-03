@@ -476,7 +476,7 @@ export function registerManchRoutes(app: any, pool: Pool, requireMatchAuth: any)
     const inviterId = String(request.user?.sub ?? '');
     const matchId = String(request.params?.id ?? '');
     const inviteeId = String(request.body?.friendUserId ?? '');
-    if (!/^\\d+$/.test(matchId) || !/^\\d+$/.test(inviteeId) || !inviterId || inviteeId === inviterId) {
+    if (!/^\d+$/.test(matchId) || !/^\d+$/.test(inviteeId) || !inviterId || inviteeId === inviterId) {
       return sendError(reply, 400, 'A valid friend user id is required.');
     }
     const client = await pool.connect();
@@ -572,7 +572,7 @@ export function registerManchRoutes(app: any, pool: Pool, requireMatchAuth: any)
   app.post('/api/v1/manch/invites/:id/accept', { onRequest: [requireMatchAuth] }, async (request: any, reply: any) => {
     const userId = String(request.user?.sub ?? '');
     const inviteId = String(request.params?.id ?? '');
-    if (!/^\\d+$/.test(inviteId) || !userId) return sendError(reply, 400, 'Invalid invitation id.');
+    if (!/^\d+$/.test(inviteId) || !userId) return sendError(reply, 400, 'Invalid invitation id.');
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
@@ -698,7 +698,7 @@ export function registerManchRoutes(app: any, pool: Pool, requireMatchAuth: any)
   app.post('/api/v1/manch/invites/:id/decline', { onRequest: [requireMatchAuth] }, async (request: any, reply: any) => {
     const userId = String(request.user?.sub ?? '');
     const inviteId = String(request.params?.id ?? '');
-    if (!/^\\d+$/.test(inviteId) || !userId) return sendError(reply, 400, 'Invalid invitation id.');
+    if (!/^\d+$/.test(inviteId) || !userId) return sendError(reply, 400, 'Invalid invitation id.');
     const result = await pool.query(
       `UPDATE manch_match_invites SET status = 'declined', responded_at = NOW()
         WHERE id = $1 AND invitee_user_id = $2 AND status = 'pending' AND expires_at > NOW()
@@ -749,7 +749,7 @@ export function registerManchRoutes(app: any, pool: Pool, requireMatchAuth: any)
     await cleanupExpiredManchRooms(pool);
     const id = String(request.params?.id ?? '');
     const userId = String(request.user?.sub ?? '');
-    if (!/^\\d+$/.test(id) || !userId) return sendError(reply, 400, 'Invalid match identifier.');
+    if (!/^\d+$/.test(id) || !userId) return sendError(reply, 400, 'Invalid match identifier.');
 
     // Authorize membership before lazy AI processing: an outsider must never
     // be able to advance another match by polling a guessed match identifier.

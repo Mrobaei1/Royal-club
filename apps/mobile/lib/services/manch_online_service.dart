@@ -192,7 +192,8 @@ class ManchOnlineService {
 
   static Future<Map<String, dynamic>> respondToInvite(String inviteId, {required bool accept}) async {
     final id = _requireId(inviteId);
-    final payload = await _request('POST', '/../invites/' + id + '/' + (accept ? 'accept' : 'decline'));
+    final action = accept ? 'accept' : 'decline';
+    final payload = await _request('POST', '/../invites/$id/$action');
     if (accept && payload['match'] is Map) {
       final match = Map<String, dynamic>.from(payload['match'] as Map);
       match['id'] = _requireId(match['id']);
