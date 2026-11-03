@@ -350,7 +350,7 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
         catch(error){
           await client.query("ROLLBACK");
           const message=error instanceof Error?error.message:"";
-          return fail(reply,message==="illegal_move"?400:400,message==="illegal_move"?"illegal_claim_move":message);
+          return fail(reply,400,"invalid_claim_move");
         }
       }
       if(!claimState.drawClaimable){await client.query("ROLLBACK");return fail(reply,409,"draw_not_claimable");}
