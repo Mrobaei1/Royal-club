@@ -32,7 +32,7 @@ The following are explicit release or future-scale gates, not hidden engineering
 
 Weighted completion = sum(package weight × package completion) / 100.
 
-Current engineering implementation score on this defined baseline: **100/100**. The latest head `ad8866b30e534f471731701904040b2dc8ddd36f` passed UNO Standalone CI (backend, Flutter and PostgreSQL integration), root Flutter/API validation, API integration, backgammon regression and web-preview build. The preview deployment job was skipped; production was not deployed.
+Current engineering implementation score on this defined baseline: **100/100** for the explicitly scoped standalone single-instance package. The latest fully validated implementation head `ad8866b30e534f471731701904040b2dc8ddd36f` passed UNO Standalone CI (backend, Flutter and PostgreSQL integration), root Flutter/API validation, API integration, backgammon regression and web-preview build. The subsequent documentation-only WBS/status commits are tracked separately. The preview deployment job was skipped; production was not deployed.
 
 ## Release readiness is tracked separately
 
