@@ -46,7 +46,7 @@ export class ChessGame {
           throw new Error("FEN exceeds legal per-side piece or pawn counts");
         }
         const board = parsedGame.board();
-        const castlingRights = fen.trim().split(/\\s+/)[2] ?? "-";
+        const castlingRights = fen.trim().split(/\s+/)[2] ?? "-";
         const hasPiece = (row: number, col: number, type: string, color: "w" | "b") => {
           const piece = board[row]?.[col];
           return piece?.type === type && piece.color === color;
