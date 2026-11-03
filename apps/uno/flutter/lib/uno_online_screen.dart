@@ -255,7 +255,19 @@ class _UnoOnlineScreenState extends State<UnoOnlineScreen> {
     final room = _room;
     return Scaffold(
       appBar: AppBar(title: Text(_t('UNO آنلاین', 'Online UNO'))),
-      body: _busy ? const Center(child: CircularProgressIndicator()) : room == null ? _buildLobby() : _buildRoom(room),
+      body: Stack(
+        children: [
+          AbsorbPointer(
+            absorbing: _busy,
+            child: room == null ? _buildLobby() : _buildRoom(room),
+          ),
+          if (_busy)
+            const Align(
+              alignment: Alignment.topCenter,
+              child: LinearProgressIndicator(minHeight: 3),
+            ),
+        ],
+      ),
     );
   }
 
