@@ -1,4 +1,5 @@
 import 'manch_game_state.dart';
+import 'manch_board_geometry.dart';
 import 'manch_rule_profile.dart';
 
 class ManchMove {
@@ -24,12 +25,6 @@ class ManchEngine {
   const ManchEngine();
   static const int trackLength = 52;
   static const int finish = 57;
-  static const Map<ManchColour, int> _starts = {
-    ManchColour.red: 0,
-    ManchColour.green: 13,
-    ManchColour.yellow: 26,
-    ManchColour.blue: 39,
-  };
 
   ManchGameState newGame({
     required int playerCount,
@@ -232,7 +227,7 @@ class ManchEngine {
           _global(colour, p) == cell).length;
 
   int _global(ManchColour colour, int progress) =>
-      (_starts[colour]! + progress) % trackLength;
+      ManchBoardGeometry.globalTrackIndex(colour, progress);
 
   ManchGameState _advance(ManchGameState state) => state.copyWith(
     activePlayerIndex: (state.activePlayerIndex + 1) % state.players.length,
