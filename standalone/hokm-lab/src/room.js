@@ -326,9 +326,11 @@ export function roomViewForUser(room, userId, { now = Date.now() } = {}) {
     turnDeadlineAt: room.turnDeadlineAt ?? null,
     handRevealUntil: revealActive ? room.handRevealUntil : null,
     revealedHands: revealActive ? copyHands(room.revealedHands) : null,
-    chatMessages: (room.chatMessages ?? []).filter(message =>
-      message.senderUserId === userId || message.recipientUserId === userId
-    ).map(message => ({ ...message })),
+    chatMessages: ["playing", "round_completed"].includes(room.status)
+      ? (room.chatMessages ?? []).filter(message =>
+          message.senderUserId === userId || message.recipientUserId === userId
+        ).map(message => ({ ...message }))
+      : [],
     game
   });
 }
