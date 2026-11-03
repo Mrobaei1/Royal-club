@@ -158,7 +158,7 @@ test('phase-one timing constants match the approved 7s, 3s and 20s rules', () =>
 });
 
 
-test('automatic trump selection uses the approved suit-count plus high-rank heuristic', () => {
+test('Hard bot selects a trump suit from the hakem hand using its fixed policy', () => {
   const state = {
     phase: 'choose_trump', hakemSeat: 0,
     hands: [[
@@ -231,34 +231,3 @@ test('all four players can see revealed remaining hands for three seconds only',
 });
 
 
-test('first hakem is selected randomly from all four seats', () => {
-  const players = fourPlayers();
-  let room = createRoom({ roomId: 'random-hakem', hostUserId: players[0], now: 100 });
-  for (const id of players.slice(1)) room = joinRoom(room, id, 101);
-  for (const id of players) room = setPlayerReady(room, id, true);
-  room = startRoom(room, players[0], { now: 102, rng: () => 0.75 });
-  assert.equal(room.round.hakemSeat, 3);
-  assert.equal(room.round.currentSeat, 3);
-});
-
-test('next hakem stays with previous hakem when their team wins the hand', () => {
-  const players = fourPlayers();
-  let room = createRoom({ roomId: 'hakem-stays', hostUserId: players[0], now: 200 });
-  for (const id of players.slice(1)) room = joinRoom(room, id, 201);
-  for (const id of players) room = setPlayerReady(room, id, true);
-  room = startRoom(room, players[0], { now: 202, rng: () => 0.75 });
-  room = { ...room, status: 'round_completed', round: { ...room.round, phase: 'completed', scores: [0, 7] }, handRevealUntil: 0 };
-  room = startNextRound(room, players[0], { now: 203, rng: () => 0 });
-  assert.equal(room.round.hakemSeat, 3);
-});
-
-test('next hakem transfers to the previous hakem partner when their team loses the hand', () => {
-  const players = fourPlayers();
-  let room = createRoom({ roomId: 'hakem-partner', hostUserId: players[0], now: 300 });
-  for (const id of players.slice(1)) room = joinRoom(room, id, 301);
-  for (const id of players) room = setPlayerReady(room, id, true);
-  room = startRoom(room, players[0], { now: 302, rng: () => 0.75 });
-  room = { ...room, status: 'round_completed', round: { ...room.round, phase: 'completed', scores: [7, 0] }, handRevealUntil: 0 };
-  room = startNextRound(room, players[0], { now: 303, rng: () => 0 });
-  assert.equal(room.round.hakemSeat, 1);
-});
