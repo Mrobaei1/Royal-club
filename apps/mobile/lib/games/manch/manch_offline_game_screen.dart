@@ -18,6 +18,7 @@ class ManchOfflineGameScreen extends StatefulWidget {
     this.profile = const ManchRuleProfile(),
     this.diceRoller,
     this.botPlayers = const {},
+    this.botDifficulty = ManchBotDifficulty.normal,
     this.saveStore,
   }) : assert(playerCount >= 2 && playerCount <= 4);
 
@@ -25,6 +26,7 @@ class ManchOfflineGameScreen extends StatefulWidget {
   final ManchRuleProfile profile;
   final int Function()? diceRoller;
   final Set<ManchColour> botPlayers;
+  final ManchBotDifficulty botDifficulty;
   final ManchSaveStore? saveStore;
 
   @override
@@ -39,6 +41,7 @@ class _ManchOfflineGameScreenState extends State<ManchOfflineGameScreen> {
       widget.saveStore ?? const SecureManchSaveStore();
   late final Set<ManchColour> _botPlayers =
       Set<ManchColour>.unmodifiable(widget.botPlayers);
+  late ManchBotDifficulty _botDifficulty = widget.botDifficulty;
   late ManchGameState _state;
   int? _lastDice;
   String _message = 'برای شروع نوبت، تاس را بینداز.';
@@ -88,7 +91,10 @@ class _ManchOfflineGameScreenState extends State<ManchOfflineGameScreen> {
             : 'هوش مصنوعی حرکت قانونی نداشت.';
       });
     } else {
-      final chosen = _bot.chooseMove(next)!;
+      final chosen = _bot.chooseMove(
+        next,
+        difficulty: _botDifficulty,
+      )!;
       next = _engine.move(next, chosen.tokenIndex);
       setState(() {
         _state = next;
@@ -288,6 +294,45 @@ class _ManchOfflineGameScreenState extends State<ManchOfflineGameScreen> {
                   ),
                 ),
               ),
+              if (_botPlayers.isNotEmpty)
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 4,
+                    ),
+                    child: Row(
+                      children: [
+                        const Expanded(child: Text('سطح هوش مصنوعی')),
+                        DropdownButton<ManchBotDifficulty>(
+                          value: _botDifficulty,
+                          onChanged: _state.turnNumber == 1 &&
+                                  _state.pendingDice == null
+                              ? (value) {
+                                  if (value != null) {
+                                    setState(() => _botDifficulty = value);
+                                  }
+                                }
+                              : null,
+                          items: const [
+                            DropdownMenuItem(
+                              value: ManchBotDifficulty.easy,
+                              child: Text('آسان'),
+                            ),
+                            DropdownMenuItem(
+                              value: ManchBotDifficulty.normal,
+                              child: Text('معمولی'),
+                            ),
+                            DropdownMenuItem(
+                              value: ManchBotDifficulty.hard,
+                              child: Text('سخت'),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               const SizedBox(height: 12),
               if (!_state.isFinished && _isBotTurn)
                 FilledButton.icon(
