@@ -261,7 +261,7 @@ class _UnoOnlineScreenState extends State<UnoOnlineScreen> {
           _drawnCardId = null;
           _messages.clear();
         });
-        await _sessionStore.clearRoomCode();
+        await _sessionStore.clearRoomCode(playerId: playerId);
       }
       if (event == 'uno:room:start') {
         final map = Map<String, dynamic>.from(data as Map);
