@@ -651,7 +651,7 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
              WHERE active.status='active'
                AND (active.white_user_id=q.user_id OR active.black_user_id=q.user_id)
            )
-         ORDER BY q.created_at,q.user_id FOR UPDATE OF q SKIP LOCKED LIMIT 1`,
+         ORDER BY q.created_at,q.user_id LIMIT 1 FOR UPDATE OF q SKIP LOCKED`,
         [timeControlId,playerId,minOpponentLevel,ownLevel]
       );
       if(!opponentResult.rowCount){
