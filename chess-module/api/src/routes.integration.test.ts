@@ -308,14 +308,14 @@ test("authenticated chess routes support private game, draw, chat, profiles and 
     assert.equal(claimTimeoutJoin.statusCode, 201, claimTimeoutJoin.body);
     const claimTimeoutGameId = claimTimeoutJoin.json().gameId as string;
     const claimTimeoutFen = "4k3/8/8/8/8/8/8/R3K3 w - - 100 1";
-    const claimTimeoutNow = Date.now();
-    await pool.query(
-      "UPDATE chess_games SET initial_fen=$2,current_fen=$2,pgn='',clock_snapshot=jsonb_set(jsonb_set(clock_snapshot,'{whiteMs}','1'::jsonb),'{lastStartedAt}',to_jsonb($3::bigint)) WHERE id=$1",
-      [claimTimeoutGameId, claimTimeoutFen, claimTimeoutNow - 5000],
-    );
     const timeoutListener = await pool.connect();
     const timeoutChannel = "chess_game_" + claimTimeoutGameId;
     await timeoutListener.query("LISTEN " + timeoutChannel);
+    const claimTimeoutNow = Date.now();
+    await pool.query(
+      "UPDATE chess_games SET initial_fen=$2,current_fen=$2,pgn='',clock_snapshot=jsonb_set(jsonb_set(clock_snapshot,'{whiteMs}','1'::jsonb),'{lastStartedAt}',to_jsonb($3::bigint)) WHERE id=$1",
+      [claimTimeoutGameId, claimTimeoutFen, claimTimeoutNow - 2],
+    );
     const timeoutNotification = new Promise<string | null>(resolve => {
       timeoutListener.once("notification", notification => resolve(notification.payload ?? null));
     });
