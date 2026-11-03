@@ -46,6 +46,23 @@ export class ChessGame {
           throw new Error("FEN exceeds legal per-side piece or pawn counts");
         }
         const board = parsedGame.board();
+        const castlingRights = fen.trim().split(/\\s+/)[2] ?? "-";
+        const hasPiece = (row: number, col: number, type: string, color: "w" | "b") => {
+          const piece = board[row]?.[col];
+          return piece?.type === type && piece.color === color;
+        };
+        const castlingRequirements: Array<[string, number, number, number, number, "w" | "b"]> = [
+          ["K", 7, 4, 7, 7, "w"],
+          ["Q", 7, 4, 7, 0, "w"],
+          ["k", 0, 4, 0, 7, "b"],
+          ["q", 0, 4, 0, 0, "b"],
+        ];
+        for (const [right, kingRow, kingCol, rookRow, rookCol, color] of castlingRequirements) {
+          if (castlingRights.includes(right) &&
+              (!hasPiece(kingRow, kingCol, "k", color) || !hasPiece(rookRow, rookCol, "r", color))) {
+            throw new Error(`FEN castling right ${right} requires the original king and rook squares`);
+          }
+        }
         for (const file of board[0]!) {
           if (file?.type === "p") throw new Error("FEN cannot place a pawn on the first or eighth rank");
         }
