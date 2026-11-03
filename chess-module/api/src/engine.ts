@@ -38,6 +38,31 @@ export class ChessGame {
         if (whiteKings !== 1 || blackKings !== 1) {
           throw new Error("FEN must contain exactly one king for each side");
         }
+        const whitePieces = pieces.filter(piece => piece.color === "w");
+        const blackPieces = pieces.filter(piece => piece.color === "b");
+        if (whitePieces.length > 16 || blackPieces.length > 16 ||
+            whitePieces.filter(piece => piece.type === "p").length > 8 ||
+            blackPieces.filter(piece => piece.type === "p").length > 8) {
+          throw new Error("FEN exceeds legal per-side piece or pawn counts");
+        }
+        const board = parsedGame.board();
+        for (const file of board[0]!) {
+          if (file?.type === "p") throw new Error("FEN cannot place a pawn on the first or eighth rank");
+        }
+        for (const file of board[7]!) {
+          if (file?.type === "p") throw new Error("FEN cannot place a pawn on the first or eighth rank");
+        }
+        const whiteKing = board.flatMap((rank, row) =>
+          rank.map((piece, col) => piece?.type === "k" && piece.color === "w" ? {row,col} : null)
+        ).find(Boolean);
+        const blackKing = board.flatMap((rank, row) =>
+          rank.map((piece, col) => piece?.type === "k" && piece.color === "b" ? {row,col} : null)
+        ).find(Boolean);
+        if (whiteKing && blackKing &&
+            Math.abs(whiteKing.row - blackKing.row) <= 1 &&
+            Math.abs(whiteKing.col - blackKing.col) <= 1) {
+          throw new Error("FEN kings cannot occupy adjacent squares");
+        }
       }
     } catch (error) {
       const detail = error instanceof Error ? error.message : "invalid position";
