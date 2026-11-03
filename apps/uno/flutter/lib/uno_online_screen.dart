@@ -25,7 +25,6 @@ class _UnoOnlineScreenState extends State<UnoOnlineScreen> {
   io.Socket? _socket;
   final UnoRoomSessionStore _sessionStore = UnoRoomSessionStore();
   String? _pendingRoomCode;
-  bool _restoreAttempted = false;
   Map<String, dynamic>? _room;
   Map<String, dynamic>? _game;
   List<dynamic> _hand = [];
@@ -88,10 +87,7 @@ class _UnoOnlineScreenState extends State<UnoOnlineScreen> {
     socket.onConnect((_) {
       if (mounted) setState(() => _error = null);
       final code = _room?['code']?.toString() ?? _pendingRoomCode;
-      if (code != null && !_restoreAttempted) {
-        _restoreAttempted = true;
-        _restoreRoom(code);
-      }
+      if (code != null) _restoreRoom(code);
     });
     socket.onConnectError((error) { if (mounted) setState(() => _error = _t('اتصال به سرور برقرار نشد: $error', 'Could not connect to server: $error')); });
     socket.on('uno:room:state', (data) {
@@ -126,10 +122,7 @@ class _UnoOnlineScreenState extends State<UnoOnlineScreen> {
       final code = await _sessionStore.readRoomCode();
       if (!mounted || code == null) return;
       _pendingRoomCode = code;
-      if (_socket?.connected == true && !_restoreAttempted) {
-        _restoreAttempted = true;
-        await _restoreRoom(code);
-      }
+      if (_socket?.connected == true) await _restoreRoom(code);
     } catch (_) {
       // Local session storage is best-effort; normal lobby access remains available.
     }
