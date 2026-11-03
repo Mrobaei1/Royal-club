@@ -154,6 +154,27 @@ class ManchOnlineService {
         .toList();
   }
 
+  static Future<Map<String, int>> stats() async {
+    final payload = await _request('GET', '/stats');
+    final raw = payload['stats'];
+    if (raw is! Map) {
+      throw Exception('آمار بازی منچ از سرور نامعتبر است.');
+    }
+    int readCount(String key) {
+      final value = raw[key];
+      if (value is int && value >= 0) return value;
+      if (value is num && value.isFinite && value >= 0 && value == value.roundToDouble()) {
+        return value.toInt();
+      }
+      throw FormatException('Invalid Manch statistics field: $key');
+    }
+    return {
+      'played': readCount('played'),
+      'wins': readCount('wins'),
+      'losses': readCount('losses'),
+    };
+  }
+
   static Future<Map<String, dynamic>> get(String id) async {
     final cleanId = _requireId(id);
     final payload = await _request('GET', '/$cleanId');
