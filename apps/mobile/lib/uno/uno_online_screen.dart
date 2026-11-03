@@ -186,7 +186,7 @@ class _UnoOnlineScreenState extends State<UnoOnlineScreen> {
         if (result['error'] is Map &&
             ['ROOM_NOT_FOUND', 'NOT_A_PLAYER']
                 .contains((result['error'] as Map)['code'])) {
-          await _sessionStore.clearRoomCode();
+          await _sessionStore.clearRoomCode(playerId: playerId);
           if (!isCurrentRequest()) return;
           _pendingRoomCode = null;
         }
@@ -250,7 +250,7 @@ class _UnoOnlineScreenState extends State<UnoOnlineScreen> {
           _drawnCardId = null;
           _messages.clear();
         });
-        if (_pendingRoomCode != null) await _sessionStore.saveRoomCode(_pendingRoomCode!, playerId: widget.playerId);
+        if (_pendingRoomCode != null) await _sessionStore.saveRoomCode(_pendingRoomCode!, playerId: playerId);
       }
       if (event == 'uno:room:leave') {
         setState(() {
