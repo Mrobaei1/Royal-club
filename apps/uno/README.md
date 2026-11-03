@@ -30,7 +30,7 @@ The service exposes `GET /health`. Socket.IO authenticates with the existing Roy
 The isolated Flutter package provides the lobby, readiness, host start, card actions, private hand and text chat. It requests no microphone permission and contains no audio/video or live-media dependency.
 
 ## Operational boundaries
-- PostgreSQL snapshots restore rooms after restart, but only a single service instance is supported until room mutations use distributed per-room transactions and Socket.IO uses a shared adapter.
+- PostgreSQL snapshots restore rooms after restart. Because room mutations are currently process-local, the service acquires a PostgreSQL session advisory lock before loading snapshots and refuses to start if another instance owns it. This prevents concurrent replicas from corrupting snapshots; it does not provide horizontal scaling. Distributed per-room transactions and a shared Socket.IO adapter are still required before multi-instance operation.
 - No production secrets or database credentials belong in this repository.
 - No APK is built by this package.
 
