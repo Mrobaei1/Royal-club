@@ -503,7 +503,16 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
         await client.query("COMMIT");
         return fail(reply,409,"clock_expired");
       }
-      const pending=await client.query("SELECT id FROM chess_draw_offers WHERE game_id=$1 AND status='pending'",[row.id]);
+      // Expired offers must not block a fresh offer if the background expiry sweep
+      // is delayed or temporarily unavailable.
+      await client.query(
+        "UPDATE chess_draw_offers SET status='cancelled',responded_at=NOW() WHERE game_id=$1 AND status='pending' AND expires_at<=NOW()",
+        [row.id]
+      );
+      const pending=await client.query(
+        "SELECT id FROM chess_draw_offers WHERE game_id=$1 AND status='pending' AND expires_at>NOW()",
+        [row.id]
+      );
       if(pending.rowCount){await client.query("ROLLBACK");return fail(reply,409,"draw_offer_pending");}
       const offer=await client.query("INSERT INTO chess_draw_offers(game_id,offered_by) VALUES($1,$2) RETURNING id,created_at,expires_at",[row.id,playerId]);
       await client.query("COMMIT");
