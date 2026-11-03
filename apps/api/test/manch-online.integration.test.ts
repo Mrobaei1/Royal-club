@@ -390,7 +390,7 @@ test('Manch online supports complete 3- and 4-player seat allocation and rejects
       method: 'POST',
       url: `/api/v1/manch/matches/${matchId}/forfeit`,
       headers: auth(host.accessToken),
-      payload: {},
+      payload: { expectedStateVersion: detail.json().match.stateVersion },
     });
     assert.equal(unsupportedForfeit.statusCode, 409);
   }
@@ -419,7 +419,7 @@ test('Manch online rejects forfeit attempts by users outside a two-player match'
     method: 'POST',
     url: `/api/v1/manch/matches/${created.json().match.id}/forfeit`,
     headers: auth(outsider.accessToken),
-    payload: {},
+    payload: { expectedStateVersion: joined.json().match.stateVersion },
   });
   assert.equal(outsiderForfeit.statusCode, 403);
 });
