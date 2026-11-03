@@ -65,3 +65,22 @@ Do not advertise these deferred capabilities as available until their API, UI an
 - `GET /api/v1/manch/matches/history` returns up to 50 finished matches for the authenticated player only.
 - Each record includes winner, finish reason, monotonic state version, timestamps and the seated player usernames.
 - The online lobby displays wins/losses and finish reason; history loading is supplementary and does not block room discovery when unavailable.
+
+
+## Player statistics
+
+`GET /api/v1/manch/matches/stats`
+
+Requires authentication. Returns only the authenticated player's aggregate results from finished matches in which they participated.
+
+```json
+{
+  "stats": {
+    "played": 12,
+    "wins": 7,
+    "losses": 5
+  }
+}
+```
+
+Waiting, active, and cancelled rooms are excluded. A multiplayer finished match counts as one win for its winner and one loss for each other participant. Accounts with no finished matches receive zero values.
