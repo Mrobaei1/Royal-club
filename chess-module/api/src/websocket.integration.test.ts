@@ -76,6 +76,21 @@ test("WebSocket ping limiter uses a rolling window boundary without early reset"
   assert.equal(allow(), true);
 });
 
+test("WebSocket ping limiter prevents bursts across fixed-window boundaries", () => {
+  let now = 10_000;
+  const allow = createPingRateLimiter(2, 1_000, () => now);
+  assert.equal(allow(), true);
+  assert.equal(allow(), true);
+  now += 999;
+  assert.equal(allow(), false, "the allowance must not reset just before the first ping expires");
+  now += 1;
+  assert.equal(allow(), true, "the first ping expires at the exact window boundary");
+  now += 998;
+  assert.equal(allow(), false, "the second ping must still count inside its own window");
+  now += 1;
+  assert.equal(allow(), true, "the second ping expires at its exact window boundary");
+});
+
 test("WebSocket presence remains online until the player's last device disconnects", {
   skip: !databaseUrl,
   timeout: 45_000,
