@@ -231,3 +231,22 @@ test('all four players can see revealed remaining hands for three seconds only',
 });
 
 
+
+
+test('a complete hand ends on the seventh trick won or no later than trick thirteen', () => {
+  let state = chooseTrump(createRound({ deck: orderedDeck(), hakemSeat: 0 }), 0, 'spades');
+  let safety = 0;
+  while (state.phase === 'playing' && safety < 52) {
+    const seat = state.currentSeat;
+    const legal = legalCards(state.hands[seat], state.currentTrick);
+    assert.ok(legal.length > 0);
+    state = playCard(state, seat, legal[0]);
+    safety += 1;
+  }
+  assert.equal(state.phase, 'completed');
+  assert.ok(state.trickWinners.length >= 7);
+  assert.ok(state.trickWinners.length <= 13);
+  assert.equal(state.scores[0] + state.scores[1], state.trickWinners.length);
+  assert.ok(Math.max(...state.scores) >= 7);
+  assert.ok(state.hands.every(hand => hand.length === 13 - state.trickWinners.length));
+});
