@@ -141,6 +141,33 @@ void main() {
     }
   });
 
+  test('successful WebSocket connection remains usable after HTTP client cleanup', () async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    server.listen((request) async {
+      final socket = await WebSocketTransformer.upgrade(request);
+      socket.listen((message) => socket.add(message));
+    });
+    final client = ChessApiClient(
+      baseUri: Uri.parse('http://127.0.0.1:${server.port}'),
+      accessToken: 'test-token',
+    );
+    WebSocket? socket;
+
+    try {
+      socket = await client.connectGameSocket('123');
+      final received = Completer<String>();
+      socket.listen((message) {
+        if (!received.isCompleted) received.complete(message as String);
+      });
+      socket.add('ping');
+      await expectLater(received.future, completion('ping'));
+    } finally {
+      await socket?.close();
+      client.dispose();
+      await server.close(force: true);
+    }
+  });
+
   test('WebSocket handshake is cancelled when it exceeds the client deadline', () async {
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     server.listen((request) {});
