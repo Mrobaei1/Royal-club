@@ -382,7 +382,10 @@ class _ManchOnlineGameScreenState extends State<ManchOnlineGameScreen> {
       final rawState = match['gameState'];
       if (rawState is! Map) throw Exception('وضعیت بازی از سرور ناقص است.');
       final state = ManchGameState.fromJson(Map<String, Object?>.from(rawState));
-      final incomingVersion = (match['stateVersion'] as num?)?.toInt() ?? 0;
+      final incomingVersion = parseManchOnlineStateVersion(match['stateVersion']);
+      if (incomingVersion == null) {
+        throw const FormatException('Invalid Manch state version in server snapshot.');
+      }
       if (!mounted || !shouldAcceptManchOnlineVersion(
         incomingVersion: incomingVersion,
         currentVersion: _stateVersion,
@@ -429,8 +432,10 @@ class _ManchOnlineGameScreenState extends State<ManchOnlineGameScreen> {
       final raw = result['state'];
       if (raw is! Map) throw Exception('پاسخ تاس از سرور ناقص است.');
       final state = ManchGameState.fromJson(Map<String, Object?>.from(raw));
-      final incomingVersion =
-          (result['stateVersion'] as num?)?.toInt() ?? _stateVersion + 1;
+      final incomingVersion = parseManchOnlineStateVersion(result['stateVersion']);
+      if (incomingVersion == null) {
+        throw const FormatException('Missing or invalid Manch state version in action response.');
+      }
       if (!mounted || !shouldAcceptManchOnlineVersion(
         incomingVersion: incomingVersion,
         currentVersion: _stateVersion,
@@ -468,8 +473,10 @@ class _ManchOnlineGameScreenState extends State<ManchOnlineGameScreen> {
       final raw = result['state'];
       if (raw is! Map) throw Exception('پاسخ حرکت از سرور ناقص است.');
       final state = ManchGameState.fromJson(Map<String, Object?>.from(raw));
-      final incomingVersion =
-          (result['stateVersion'] as num?)?.toInt() ?? _stateVersion + 1;
+      final incomingVersion = parseManchOnlineStateVersion(result['stateVersion']);
+      if (incomingVersion == null) {
+        throw const FormatException('Missing or invalid Manch state version in action response.');
+      }
       if (!mounted || !shouldAcceptManchOnlineVersion(
         incomingVersion: incomingVersion,
         currentVersion: _stateVersion,
@@ -533,8 +540,10 @@ class _ManchOnlineGameScreenState extends State<ManchOnlineGameScreen> {
     setState(() => _busy = true);
     try {
       final result = await ManchOnlineService.forfeit(widget.matchId);
-      final incomingVersion =
-          (result['stateVersion'] as num?)?.toInt() ?? _stateVersion + 1;
+      final incomingVersion = parseManchOnlineStateVersion(result['stateVersion']);
+      if (incomingVersion == null) {
+        throw const FormatException('Missing or invalid Manch state version in action response.');
+      }
       if (!mounted || !shouldAcceptManchOnlineVersion(
         incomingVersion: incomingVersion,
         currentVersion: _stateVersion,
