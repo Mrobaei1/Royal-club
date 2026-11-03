@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -7,7 +8,7 @@ import 'package:royal_club_chess/chess_api_client.dart';
 Future<HttpServer> _serve(Future<void> Function(HttpRequest) handler) async {
   final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
   server.listen((request) {
-    handler(request);
+    unawaited(handler(request));
   });
   return server;
   test('API client aborts a request that exceeds its configured timeout', () async {
