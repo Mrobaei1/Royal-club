@@ -865,7 +865,7 @@ export function registerManchRoutes(app: any, pool: Pool, requireMatchAuth: any)
 
     await processTemporaryManchAiTurn(pool, id);
     const result = await pool.query(
-      `SELECT id, room_code AS "roomCode", player_count AS "playerCount",
+      `SELECT id, host_user_id AS "hostUserId", room_code AS "roomCode", player_count AS "playerCount",
               status, game_state AS "gameState",
               current_turn_user_id AS "currentTurnUserId",
               winner_user_id AS "winnerUserId", finish_reason AS "finishReason",

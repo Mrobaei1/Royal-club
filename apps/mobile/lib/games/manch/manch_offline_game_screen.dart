@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../l10n/app_text.dart';
 
@@ -125,6 +126,7 @@ class _ManchOfflineGameScreenState extends State<ManchOfflineGameScreen> {
   }
 
   void _rollDice() {
+    HapticFeedback.selectionClick();
     if (_state.isFinished || _state.pendingDice != null || _isBotTurn) return;
     final dice = widget.diceRoller?.call() ?? _random.nextInt(6) + 1;
     if (dice < 1 || dice > 6) {
@@ -151,6 +153,7 @@ class _ManchOfflineGameScreenState extends State<ManchOfflineGameScreen> {
   }
 
   void _moveToken(ManchMove move) {
+    HapticFeedback.lightImpact();
     if (_state.pendingDice == null || _state.isFinished || _isBotTurn) return;
     final next = _engine.move(_state, move.tokenIndex);
     final won = next.isFinished;
@@ -394,10 +397,23 @@ class _ManchOfflineGameScreenState extends State<ManchOfflineGameScreen> {
               Center(
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 520),
-                  child: IranianManchBoard(
-                    activeSeat: _seat(activePlayer.colour),
-                    gameState: _state,
-                    showSampleTokens: false,
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 240),
+                    switchInCurve: Curves.easeOutCubic,
+                    switchOutCurve: Curves.easeInCubic,
+                    transitionBuilder: (child, animation) => FadeTransition(
+                      opacity: animation,
+                      child: ScaleTransition(
+                        scale: Tween<double>(begin: .985, end: 1).animate(animation),
+                        child: child,
+                      ),
+                    ),
+                    child: IranianManchBoard(
+                      key: ValueKey(_state.toJson().toString()),
+                      activeSeat: _seat(activePlayer.colour),
+                      gameState: _state,
+                      showSampleTokens: false,
+                    ),
                   ),
                 ),
               ),

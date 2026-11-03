@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'iranian_manch_board.dart';
 import 'manch_engine.dart';
@@ -374,7 +375,8 @@ class _ManchOnlineLobbyScreenState extends State<ManchOnlineLobbyScreen> {
                                 'Waiting for players; the room expires after 30 seconds.',
                               ),
                       ),
-                      if (myMatch['status'] == 'waiting')
+                      if (myMatch['status'] == 'waiting' &&
+                          myMatch['hostUserId']?.toString() == _userId)
                         Wrap(
                           alignment: WrapAlignment.end,
                           spacing: 8,
@@ -702,6 +704,7 @@ class _ManchOnlineGameScreenState extends State<ManchOnlineGameScreen> {
   }
 
   Future<void> _roll() async {
+    HapticFeedback.selectionClick();
     if (!_myTurn || _state == null || _state!.pendingDice != null || _busy) return;
     setState(() => _busy = true);
     try {
@@ -746,6 +749,7 @@ class _ManchOnlineGameScreenState extends State<ManchOnlineGameScreen> {
   }
 
   Future<void> _move(ManchMove move) async {
+    HapticFeedback.lightImpact();
     if (!_myTurn || _busy) return;
     setState(() => _busy = true);
     try {
@@ -1002,10 +1006,23 @@ class _ManchOnlineGameScreenState extends State<ManchOnlineGameScreen> {
                 Center(
                   child: ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 520),
-                    child: IranianManchBoard(
-                      activeSeat: activeSeat,
-                      gameState: state,
-                      showSampleTokens: false,
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 240),
+                      switchInCurve: Curves.easeOutCubic,
+                      switchOutCurve: Curves.easeInCubic,
+                      transitionBuilder: (child, animation) => FadeTransition(
+                        opacity: animation,
+                        child: ScaleTransition(
+                          scale: Tween<double>(begin: .985, end: 1).animate(animation),
+                          child: child,
+                        ),
+                      ),
+                      child: IranianManchBoard(
+                        key: ValueKey(state.toJson().toString()),
+                        activeSeat: activeSeat,
+                        gameState: state,
+                        showSampleTokens: false,
+                      ),
                     ),
                   ),
                 ),

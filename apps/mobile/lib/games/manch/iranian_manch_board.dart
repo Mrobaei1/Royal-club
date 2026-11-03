@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import 'manch_game_state.dart';
+import 'manch_engine.dart';
 import 'manch_board_geometry.dart';
 
 /// Fixed seat positions for the classic Iranian four-colour Manch board.
@@ -35,7 +36,7 @@ class IranianManchBoard extends StatelessWidget {
         builder: (context, constraints) {
           final side = math.min(constraints.maxWidth, constraints.maxHeight);
           return Semantics(
-            label: 'Iranian four-colour Manch board',
+            label: _semanticsLabel(context),
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
               onTapUp: onHomeTap == null
@@ -57,6 +58,35 @@ class IranianManchBoard extends StatelessWidget {
         },
       ),
     );
+  }
+
+  String _semanticsLabel(BuildContext context) {
+    final state = gameState;
+    if (state == null) return 'Iranian four-colour Manch board';
+    final isPersian = Localizations.localeOf(context).languageCode.toLowerCase() == 'fa';
+    String colourName(ManchColour colour) => isPersian
+        ? switch (colour) {
+            ManchColour.red => 'قرمز',
+            ManchColour.green => 'سبز',
+            ManchColour.yellow => 'زرد',
+            ManchColour.blue => 'آبی',
+          }
+        : colour.name[0].toUpperCase() + colour.name.substring(1);
+    final players = state.players.map((player) {
+      final yard = player.tokens.where((position) => position == -1).length;
+      final track = player.tokens.where((position) => position >= 0 && position < ManchEngine.trackLength).length;
+      final home = player.tokens.where((position) => position >= ManchEngine.trackLength && position < ManchEngine.finish).length;
+      final finished = player.tokens.where((position) => position == ManchEngine.finish).length;
+      final name = colourName(player.colour);
+      return isPersian
+          ? '$name: $yard در حیاط، $track در مسیر، $home در خانه و $finished تمام‌شده'
+          : '$name: $yard in yard, $track on track, $home in home, $finished finished';
+    }).join(isPersian ? '؛ ' : '; ');
+    final active = colourName(state.players[state.activePlayerIndex].colour);
+    final dice = state.pendingDice?.toString() ?? (isPersian ? 'انداخته نشده' : 'not rolled');
+    return isPersian
+        ? 'صفحه منچ چهاررنگ. نوبت $active. $players. تاس: $dice.'
+        : 'Iranian four-colour Manch board. $active to move. $players. Dice: $dice.';
   }
 
   ManchSeat? _seatFor(Offset point, double side) {

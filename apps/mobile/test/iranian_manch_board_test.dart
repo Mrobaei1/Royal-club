@@ -40,6 +40,31 @@ void main() {
     semantics.dispose();
   });
 
+  testWidgets('board semantics describe turn and token distribution', (tester) async {
+    final semantics = tester.ensureSemantics();
+    const engine = ManchEngine();
+    final state = engine.newGame(playerCount: 2, profile: const ManchRuleProfile());
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: SizedBox(
+              width: 320,
+              child: IranianManchBoard(gameState: state, showSampleTokens: false),
+            ),
+          ),
+        ),
+      ),
+    );
+    expect(
+      find.bySemanticsLabel(
+        'Iranian four-colour Manch board. Red to move. Red: 4 in yard, 0 on track, 0 in home, 0 finished; Yellow: 4 in yard, 0 on track, 0 in home, 0 finished. Dice: not rolled.',
+      ),
+      findsOneWidget,
+    );
+    semantics.dispose();
+  });
+
   testWidgets('board home tap reports the fixed red seat in upper-left',
       (tester) async {
     ManchSeat? tapped;

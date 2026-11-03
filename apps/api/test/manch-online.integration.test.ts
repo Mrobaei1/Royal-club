@@ -2,7 +2,7 @@ import test, { after, before } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { Pool } from 'pg';
-import { legalManchMoves, type ManchGameState } from '../src/manch-rules.js';
+import { createManchGame, legalManchMoves, type ManchGameState } from '../src/manch-rules.js';
 
 process.env.JWT_SECRET ??= 'royal-club-manch-integration-secret-32-characters';
 process.env.DATABASE_URL ??= 'postgres://postgres:postgres@127.0.0.1:5432/royalclub_test';
@@ -119,6 +119,7 @@ test('Manch online rooms join, roll and persist server-authoritative moves', asy
     headers: auth(host.accessToken),
   });
   assert.equal(detail.statusCode, 200, detail.body);
+  assert.equal(detail.json().match.hostUserId, host.user.id);
   const nonMemberRead = await app.inject({
     method: 'GET',
     url: `/api/v1/manch/matches/${waitingMatch.id}`,
@@ -401,6 +402,52 @@ test('Manch online rooms join, roll and persist server-authoritative moves', asy
   assert.equal(rematchJoin.json().match.status, 'active');
 });
 
+
+test('Manch completed online games award +20 XP to the winner and +5 to losers', async () => {
+  const host = await register('Manch XP Winner');
+  const guest = await register('Manch XP Loser');
+  const created = await app.inject({
+    method: 'POST', url: '/api/v1/manch/matches',
+    headers: auth(host.accessToken), payload: { playerCount: 2 },
+  });
+  assert.equal(created.statusCode, 201, created.body);
+  const matchId = created.json().match.id;
+  const joined = await app.inject({
+    method: 'POST', url: `/api/v1/manch/matches/${matchId}/join`,
+    headers: auth(guest.accessToken), payload: {},
+  });
+  assert.equal(joined.statusCode, 200, joined.body);
+
+  const winningState = createManchGame(['red', 'yellow']);
+  winningState.players[0].tokens = [57, 57, 57, 56];
+  winningState.pendingDice = 1;
+  winningState.turnNumber = 10;
+  const expectedVersion = Number(joined.json().match.stateVersion) + 1;
+  await testPool.query(
+    `UPDATE manch_matches
+        SET game_state = $1::jsonb, current_turn_user_id = $2,
+            state_version = $3, updated_at = NOW()
+      WHERE id = $4`,
+    [JSON.stringify(winningState), host.user.id, expectedVersion, matchId],
+  );
+  const finished = await app.inject({
+    method: 'POST', url: `/api/v1/manch/matches/${matchId}/move`,
+    headers: auth(host.accessToken),
+    payload: { tokenIndex: 3, expectedStateVersion: expectedVersion },
+  });
+  assert.equal(finished.statusCode, 200, finished.body);
+  assert.equal(finished.json().status, 'finished');
+  assert.equal(finished.json().winnerUserId, host.user.id);
+
+  const [winnerStats, loserStats] = await Promise.all([
+    app.inject({ method: 'GET', url: '/api/v1/manch/matches/stats', headers: auth(host.accessToken) }),
+    app.inject({ method: 'GET', url: '/api/v1/manch/matches/stats', headers: auth(guest.accessToken) }),
+  ]);
+  assert.equal(winnerStats.json().stats.xpPoints, 20);
+  assert.equal(winnerStats.json().stats.wins, 1);
+  assert.equal(loserStats.json().stats.xpPoints, 5);
+  assert.equal(loserStats.json().stats.losses, 1);
+});
 
 test('Manch online presence is player-scoped and expires to offline after 30 seconds', async () => {
   const host = await register('Manch Presence Host');
