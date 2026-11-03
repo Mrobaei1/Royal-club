@@ -5,7 +5,7 @@ Do not merge or wire this standalone module into the production app until the ow
 ## Backend
 - Deploy as a separate Node.js 22 service only after approval.
 - Configure DATABASE_URL, JWT_SECRET and exact CORS_ORIGINS through approved secret stores.
-- Keep one service instance until distributed per-room transactions and a shared Socket.IO adapter are implemented.
+- Keep one service instance until distributed per-room transactions and a shared Socket.IO adapter are implemented. The service now acquires a PostgreSQL session advisory lock before loading room snapshots and exits if another instance owns the lock; the integration test verifies a competing instance is rejected.
 - Verify health, authenticated Socket.IO login, room restore, reconnect and private-hand isolation.
 
 ## Flutter
