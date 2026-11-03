@@ -70,10 +70,10 @@ class _ManchOfflineGameScreenState extends State<ManchOfflineGameScreen> {
       return;
     }
     final dice = widget.diceRoller?.call() ?? _random.nextInt(6) + 1;
-    _matchStarted = true;
     if (dice < 1 || dice > 6) {
       throw StateError('Dice roller must return a value from 1 to 6.');
     }
+    _matchStarted = true;
     var next = _engine.roll(_state, dice);
     final moves = _engine.legalMoves(next);
     if (next.pendingDice == null) {
@@ -112,10 +112,10 @@ class _ManchOfflineGameScreenState extends State<ManchOfflineGameScreen> {
   void _rollDice() {
     if (_state.isFinished || _state.pendingDice != null || _isBotTurn) return;
     final dice = widget.diceRoller?.call() ?? _random.nextInt(6) + 1;
-    _matchStarted = true;
     if (dice < 1 || dice > 6) {
       throw StateError('Dice roller must return a value from 1 to 6.');
     }
+    _matchStarted = true;
     var next = _engine.roll(_state, dice);
     var message = 'عدد تاس: $dice';
     if (next.pendingDice == null) {
