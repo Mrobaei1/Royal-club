@@ -47,7 +47,7 @@ test("authenticated chess routes support private game, draw, chat, profiles and 
     }
 
     const users = await pool.query(
-      "INSERT INTO users(username) VALUES ('route_white'),('route_black'),('queue_one'),('queue_two'),('queue_cancel'),('concurrent_room_host'),('race_room_host'),('race_guest_one'),('race_guest_two') RETURNING id,username"
+      "INSERT INTO users(username) VALUES ('route_white'),('route_black'),('queue_one'),('queue_two'),('queue_cancel'),('concurrent_room_host'),('race_room_host'),('race_guest_one'),('race_guest_two'),('claim_white'),('claim_black') RETURNING id,username"
     );
     const ids = users.rows.map(row => String(row.id));
     const white = ids[0]!;
@@ -56,6 +56,8 @@ test("authenticated chess routes support private game, draw, chat, profiles and 
     const queueTwo = ids[3]!;
     const queueCancel = ids[4]!;
     const concurrentRoomHost = ids[5]!;
+    const claimWhite = ids[9]!;
+    const claimBlack = ids[10]!;
 
     await registerChessRoutes(app, {
       pool,
@@ -189,11 +191,11 @@ test("authenticated chess routes support private game, draw, chat, profiles and 
     assert.equal(declined.statusCode, 200, declined.body);
     assert.equal(declined.json().status, "declined");
 
-    const claimRoom = await request(white, "POST", "/chess/rooms", {
+    const claimRoom = await request(claimWhite, "POST", "/chess/rooms", {
       timeControlId: "rapid", minOpponentLevel: 1, chatEnabled: true,
     });
     assert.equal(claimRoom.statusCode, 201, claimRoom.body);
-    const claimJoin = await request(black, "POST", `/chess/rooms/${claimRoom.json().roomCode}/join`);
+    const claimJoin = await request(claimBlack, "POST", `/chess/rooms/${claimRoom.json().roomCode}/join`);
     assert.equal(claimJoin.statusCode, 201, claimJoin.body);
     const claimGameId = claimJoin.json().gameId as string;
     const claimableFen = "4k3/8/8/8/8/8/8/R3K3 w - - 100 1";
@@ -201,16 +203,16 @@ test("authenticated chess routes support private game, draw, chat, profiles and 
       "UPDATE chess_games SET initial_fen=$2,current_fen=$2,pgn='' WHERE id=$1",
       [claimGameId, claimableFen],
     );
-    const claimSnapshot = await request(white, "GET", `/chess/games/${claimGameId}`);
+    const claimSnapshot = await request(claimWhite, "GET", `/chess/games/${claimGameId}`);
     assert.equal(claimSnapshot.json().drawClaimable, true);
     assert.equal(claimSnapshot.json().drawClaimReason, "fifty_move_rule");
-    const wrongTurnClaim = await request(black, "POST", `/chess/games/${claimGameId}/claim-draw`);
+    const wrongTurnClaim = await request(claimBlack, "POST", `/chess/games/${claimGameId}/claim-draw`);
     assert.equal(wrongTurnClaim.statusCode, 403);
     assert.equal(wrongTurnClaim.json().error, "not_your_turn");
     const nonPlayerClaim = await request(queueOne, "POST", `/chess/games/${claimGameId}/claim-draw`);
     assert.equal(nonPlayerClaim.statusCode, 403);
     assert.equal(nonPlayerClaim.json().error, "not_a_player");
-    const claimedDraw = await request(white, "POST", `/chess/games/${claimGameId}/claim-draw`);
+    const claimedDraw = await request(claimWhite, "POST", `/chess/games/${claimGameId}/claim-draw`);
     assert.equal(claimedDraw.statusCode, 200, claimedDraw.body);
     assert.deepEqual(claimedDraw.json(), {status:"draw",reason:"fifty_move_rule"});
     const claimedGame = await pool.query(
@@ -219,8 +221,33 @@ test("authenticated chess routes support private game, draw, chat, profiles and 
     );
     assert.equal(claimedGame.rows[0].status, "draw");
     assert.equal(claimedGame.rows[0].finished, "true");
-    const repeatedClaim = await request(white, "POST", `/chess/games/${claimGameId}/claim-draw`);
+    const repeatedClaim = await request(claimWhite, "POST", `/chess/games/${claimGameId}/claim-draw`);
     assert.equal(repeatedClaim.statusCode, 404);
+
+    const prospectiveRoom = await request(claimWhite, "POST", "/chess/rooms", {
+      timeControlId: "rapid", minOpponentLevel: 1, chatEnabled: true,
+    });
+    assert.equal(prospectiveRoom.statusCode, 201, prospectiveRoom.body);
+    const prospectiveJoin = await request(claimBlack, "POST", `/chess/rooms/${prospectiveRoom.json().roomCode}/join`);
+    assert.equal(prospectiveJoin.statusCode, 201, prospectiveJoin.body);
+    const prospectiveGameId = prospectiveJoin.json().gameId as string;
+    const prospectiveFen = "4k3/8/8/8/8/8/8/R3K3 w - - 99 1";
+    await pool.query(
+      "UPDATE chess_games SET initial_fen=$2,current_fen=$2,pgn='' WHERE id=$1",
+      [prospectiveGameId, prospectiveFen],
+    );
+    const prospectiveClaim = await request(claimWhite, "POST", `/chess/games/${prospectiveGameId}/claim-draw`, {
+      move: {from:"a1",to:"a2"},
+    });
+    assert.equal(prospectiveClaim.statusCode, 200, prospectiveClaim.body);
+    assert.deepEqual(prospectiveClaim.json(), {status:"draw",reason:"fifty_move_rule"});
+    const prospectiveStored = await pool.query(
+      "SELECT current_fen,status,(SELECT COUNT(*)::int FROM chess_moves WHERE game_id=$1) AS moves FROM chess_games WHERE id=$1",
+      [prospectiveGameId],
+    );
+    assert.equal(prospectiveStored.rows[0].current_fen, prospectiveFen);
+    assert.equal(prospectiveStored.rows[0].status, "draw");
+    assert.equal(prospectiveStored.rows[0].moves, 0);
 
     const malformedChat = await request(white, "POST", `/chess/games/${gameId}/chat`, { message: { text: "not a string" } });
     assert.equal(malformedChat.statusCode, 400);
