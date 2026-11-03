@@ -294,7 +294,10 @@ class _ManchOfflineGameScreenState extends State<ManchOfflineGameScreen> {
                               _text('نوبت بازیکن ${_playerName(activePlayer.colour)}', "${_playerName(activePlayer.colour)}'s turn"),
                               style: Theme.of(context).textTheme.titleMedium,
                             ),
-                            Text(_message),
+                            Semantics(
+                              liveRegion: true,
+                              child: Text(_message),
+                            ),
                           ],
                         ),
                       ),
