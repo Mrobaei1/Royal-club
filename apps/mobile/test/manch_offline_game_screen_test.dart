@@ -49,6 +49,8 @@ void main() {
       (tester) async {
     await tester.pumpWidget(
       const MaterialApp(
+        locale: Locale('fa'),
+        supportedLocales: [Locale('fa'), Locale('en')],
         home: ManchOfflineGameScreen(diceRoller: _six),
       ),
     );
@@ -77,6 +79,8 @@ void main() {
       (tester) async {
     await tester.pumpWidget(
       const MaterialApp(
+        locale: Locale('fa'),
+        supportedLocales: [Locale('fa'), Locale('en')],
         home: ManchOfflineGameScreen(diceRoller: _one),
       ),
     );
@@ -96,6 +100,8 @@ void main() {
     final store = _MemoryManchSaveStore();
     await tester.pumpWidget(
       MaterialApp(
+        locale: const Locale('fa'),
+        supportedLocales: const [Locale('fa'), Locale('en')],
         home: ManchOfflineGameScreen(
           diceRoller: _six,
           saveStore: store,
@@ -130,6 +136,8 @@ void main() {
       (tester) async {
     await tester.pumpWidget(
       const MaterialApp(
+        locale: Locale('fa'),
+        supportedLocales: [Locale('fa'), Locale('en')],
         home: ManchOfflineGameScreen(
           diceRoller: _six,
           profile: ManchRuleProfile(
@@ -161,6 +169,8 @@ void main() {
       (tester) async {
     await tester.pumpWidget(
       const MaterialApp(
+        locale: Locale('fa'),
+        supportedLocales: [Locale('fa'), Locale('en')],
         home: ManchOfflineGameScreen(
           botPlayers: {ManchColour.yellow},
         ),
@@ -188,6 +198,8 @@ void main() {
   testWidgets('bot difficulty locks after the first roll and move', (tester) async {
     await tester.pumpWidget(
       const MaterialApp(
+        locale: Locale('fa'),
+        supportedLocales: [Locale('fa'), Locale('en')],
         home: ManchOfflineGameScreen(
           botPlayers: {ManchColour.yellow},
           diceRoller: _six,
@@ -218,6 +230,8 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
+        locale: const Locale('fa'),
+        supportedLocales: const [Locale('fa'), Locale('en')],
         home: ManchOfflineGameScreen(
           botPlayers: const {ManchColour.red},
           diceRoller: diceRoller,
