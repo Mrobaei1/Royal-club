@@ -366,8 +366,19 @@ test('Manch online rooms join, roll and persist server-authoritative moves', asy
     headers: auth(third.accessToken),
   });
   assert.equal(outsiderStats.statusCode, 200, outsiderStats.body);
-  assert.deepEqual(outsiderStats.json().stats, { played: 0, wins: 0, losses: 0 },
-    'A user must only receive their own Manch statistics.');
+  assert.deepEqual(outsiderStats.json().stats, {
+    played: 0, wins: 0, losses: 0, quits: 0, xpPoints: 0, level: 1,
+  }, 'A user must only receive their own Manch statistics.');
+  assert.equal(hostStats.json().stats.xpPoints, 20);
+  assert.equal(hostStats.json().stats.level, 1);
+  assert.equal(guestStats.json().stats.xpPoints, 0,
+    'A forfeit applies the -5 quit delta without allowing XP below zero.');
+  assert.equal(guestStats.json().stats.quits, 1);
+  const leaderboard = await app.inject({
+    method: 'GET', url: '/api/v1/manch/leaderboard', headers: auth(host.accessToken),
+  });
+  assert.equal(leaderboard.statusCode, 200, leaderboard.body);
+  assert.ok(leaderboard.json().leaderboard.some((item: any) => item.userId === host.user.id));
 
   const rematch = await app.inject({
     method: 'POST',

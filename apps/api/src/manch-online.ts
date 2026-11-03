@@ -1,5 +1,6 @@
 import { randomBytes, randomInt } from 'node:crypto';
 import type { Pool, PoolClient } from 'pg';
+import { nextProgressionState } from './player-progression.js';
 import {
   createManchGame,
   defaultManchRuleProfile,
@@ -85,6 +86,30 @@ export async function ensureManchSchema(pool: Pool): Promise<void> {
       WHERE status = 'pending';
     CREATE INDEX IF NOT EXISTS manch_match_invites_inbox_idx
       ON manch_match_invites (invitee_user_id, status, expires_at DESC);
+    CREATE TABLE IF NOT EXISTS manch_player_stats (
+      user_id BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+      games_played INTEGER NOT NULL DEFAULT 0 CHECK (games_played >= 0),
+      wins INTEGER NOT NULL DEFAULT 0 CHECK (wins >= 0),
+      losses INTEGER NOT NULL DEFAULT 0 CHECK (losses >= 0),
+      quits INTEGER NOT NULL DEFAULT 0 CHECK (quits >= 0),
+      xp_points INTEGER NOT NULL DEFAULT 0 CHECK (xp_points >= 0),
+      level INTEGER NOT NULL DEFAULT 1 CHECK (level BETWEEN 1 AND 100),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE TABLE IF NOT EXISTS manch_progression_events (
+      id BIGSERIAL PRIMARY KEY,
+      match_id BIGINT NOT NULL REFERENCES manch_matches(id) ON DELETE CASCADE,
+      event_key TEXT NOT NULL,
+      user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      outcome TEXT NOT NULL CHECK (outcome IN ('win', 'loss', 'quit')),
+      points_delta INTEGER NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE (match_id, event_key, user_id)
+    );
+    CREATE INDEX IF NOT EXISTS manch_player_stats_leaderboard_idx
+      ON manch_player_stats (xp_points DESC, level DESC, wins DESC);
+    CREATE INDEX IF NOT EXISTS manch_progression_user_idx
+      ON manch_progression_events (user_id, created_at DESC);
   `);
 }
 
@@ -139,6 +164,62 @@ async function matchPlayers(client: any, matchId: string) {
     seatColour: ManchColour;
     username: string | null;
   }>;
+}
+
+/** Record one competitive result per participant, with permanent levels and idempotent XP events. */
+async function recordManchProgression(
+  client: PoolClient,
+  matchId: string,
+  winnerUserId: string,
+  quittingUserId: string | null = null,
+): Promise<void> {
+  const participants = await client.query(
+    'SELECT user_id FROM manch_match_players WHERE match_id = $1 ORDER BY user_id',
+    [matchId],
+  );
+  const userIds = participants.rows.map((row) => String(row.user_id));
+  if (userIds.length < 2 || !userIds.includes(winnerUserId) ||
+      (quittingUserId !== null && (!userIds.includes(quittingUserId) || quittingUserId === winnerUserId))) {
+    throw new Error('Invalid Manch progression participants.');
+  }
+  await client.query(
+    'INSERT INTO manch_player_stats (user_id) SELECT unnest($1::bigint[]) ON CONFLICT (user_id) DO NOTHING',
+    [userIds],
+  );
+  const locked = await client.query(
+    `SELECT user_id, xp_points, level FROM manch_player_stats
+      WHERE user_id = ANY($1::bigint[]) ORDER BY user_id FOR UPDATE`,
+    [userIds],
+  );
+  const stats = new Map(locked.rows.map((row) => [String(row.user_id), row]));
+  for (const userId of userIds) {
+    const outcome = userId === winnerUserId ? 'win' : userId === quittingUserId ? 'quit' : 'loss';
+    const pointsDelta = outcome === 'win' ? 20 : outcome === 'loss' ? 5 : -5;
+    const inserted = await client.query(
+      `INSERT INTO manch_progression_events
+        (match_id, event_key, user_id, outcome, points_delta)
+       VALUES ($1, 'final', $2, $3, $4)
+       ON CONFLICT (match_id, event_key, user_id) DO NOTHING
+       RETURNING user_id`,
+      [matchId, userId, outcome, pointsDelta],
+    );
+    if (!inserted.rowCount) continue;
+    const current = stats.get(userId);
+    if (!current) throw new Error('Could not lock Manch progression stats.');
+    const next = nextProgressionState(Number(current.xp_points), Number(current.level), outcome);
+    await client.query(
+      `UPDATE manch_player_stats
+          SET games_played = games_played + 1,
+              wins = wins + CASE WHEN $1 = 'win' THEN 1 ELSE 0 END,
+              losses = losses + CASE WHEN $1 IN ('loss', 'quit') THEN 1 ELSE 0 END,
+              quits = quits + CASE WHEN $1 = 'quit' THEN 1 ELSE 0 END,
+              xp_points = $2, level = $3, updated_at = NOW()
+        WHERE user_id = $4`,
+      [outcome, next.xp, next.level, userId],
+    );
+    current.xp_points = next.xp;
+    current.level = next.level;
+  }
 }
 
 function sendError(reply: any, statusCode: number, error: string) {
@@ -251,6 +332,9 @@ async function processTemporaryManchAiTurn(pool: Pool, matchId: string): Promise
       [JSON.stringify(nextState), finished ? 'finished' : 'active', nextUser,
        winnerUser, finished ? 'completed' : null, matchId],
     );
+    if (finished && winnerUser) {
+      await recordManchProgression(client, matchId, winnerUser);
+    }
     await client.query(
       `UPDATE manch_match_presence
           SET last_ai_action_at = NOW()
@@ -454,22 +538,37 @@ export function registerManchRoutes(app: any, pool: Pool, requireMatchAuth: any)
     return { matches };
   });
 
+  app.get('/api/v1/manch/leaderboard', { onRequest: [requireMatchAuth] }, async (request: any) => {
+    const userId = String(request.user?.sub ?? '');
+    const result = await pool.query(
+      `SELECT s.user_id AS "userId", u.username,
+              u.avatar_data_url AS "avatarDataUrl",
+              s.level, s.xp_points AS "xpPoints",
+              s.games_played AS "gamesPlayed", s.wins, s.losses, s.quits
+         FROM manch_player_stats s
+         JOIN users u ON u.id = s.user_id
+        WHERE s.games_played > 0
+        ORDER BY s.level DESC, s.xp_points DESC, s.wins DESC,
+                 s.games_played ASC, LOWER(u.username) ASC
+        LIMIT 50`,
+    );
+    return { leaderboard: result.rows, currentUserId: userId, game: 'manch' };
+  });
+
   app.get('/api/v1/manch/matches/stats', { onRequest: [requireMatchAuth] }, async (request: any, reply: any) => {
     const userId = String(request.user?.sub ?? '');
     if (!userId) return sendError(reply, 401, 'Authentication required.');
     const result = await pool.query(
-      `SELECT COUNT(m.id)::int AS played,
-              COUNT(m.id) FILTER (WHERE m.winner_user_id = $1)::int AS wins,
-              COUNT(m.id) FILTER (
-                WHERE m.winner_user_id IS NOT NULL AND m.winner_user_id <> $1
-              )::int AS losses
-         FROM manch_match_players p
-         LEFT JOIN manch_matches m
-           ON m.id = p.match_id AND m.status = 'finished'
-        WHERE p.user_id = $1`,
+      `SELECT COALESCE(games_played, 0)::int AS played,
+              COALESCE(wins, 0)::int AS wins,
+              COALESCE(losses, 0)::int AS losses,
+              COALESCE(quits, 0)::int AS quits,
+              COALESCE(xp_points, 0)::int AS "xpPoints",
+              COALESCE(level, 1)::int AS level
+         FROM manch_player_stats WHERE user_id = $1`,
       [userId],
     );
-    return { stats: result.rows[0] ?? { played: 0, wins: 0, losses: 0 } };
+    return { stats: result.rows[0] ?? { played: 0, wins: 0, losses: 0, quits: 0, xpPoints: 0, level: 1 } };
   });
 
   app.post('/api/v1/manch/matches/:id/invites', { onRequest: [requireMatchAuth] }, async (request: any, reply: any) => {
@@ -927,6 +1026,7 @@ export function registerManchRoutes(app: any, pool: Pool, requireMatchAuth: any)
         [JSON.stringify(nextState), finished ? 'finished' : 'active', nextUser,
           id, winnerUser, finished ? 'completed' : null],
       );
+      if (finished && winnerUser) await recordManchProgression(client, id, winnerUser);
       await client.query('COMMIT');
       return {
         state: nextState,
@@ -992,6 +1092,7 @@ export function registerManchRoutes(app: any, pool: Pool, requireMatchAuth: any)
           RETURNING state_version AS "stateVersion"`,
         [winner.userId, id],
       );
+      await recordManchProgression(client, id, winner.userId, userId);
       await client.query('COMMIT');
       return { status: 'finished', finishReason: 'forfeit',
         forfeitingUserId: userId, winnerUserId: winner.userId,

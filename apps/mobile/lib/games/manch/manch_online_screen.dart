@@ -21,6 +21,7 @@ class _ManchOnlineLobbyScreenState extends State<ManchOnlineLobbyScreen> {
   List<Map<String, dynamic>> _history = [];
   List<Map<String, dynamic>> _friends = [];
   List<Map<String, dynamic>> _invites = [];
+  List<Map<String, dynamic>> _leaderboard = [];
   Map<String, int>? _stats;
   Map<String, dynamic>? _myMatch;
   String? _userId;
@@ -109,6 +110,12 @@ class _ManchOnlineLobbyScreenState extends State<ManchOnlineLobbyScreen> {
       } catch (_) {
         // Friend discovery is supplementary; public room joining remains available.
       }
+      var leaderboard = _leaderboard;
+      try {
+        leaderboard = await ManchOnlineService.leaderboard();
+      } catch (_) {
+        // Ranking is supplementary; an outage must not block the lobby.
+      }
       try {
         stats = await ManchOnlineService.stats();
       } catch (_) {
@@ -121,6 +128,7 @@ class _ManchOnlineLobbyScreenState extends State<ManchOnlineLobbyScreen> {
         _stats = stats;
         _friends = friends;
         _invites = invites;
+        _leaderboard = leaderboard;
         _loading = false;
         _error = null;
       });
@@ -420,6 +428,32 @@ class _ManchOnlineLobbyScreenState extends State<ManchOnlineLobbyScreen> {
                   ),
                 ),
             ],
+            if (_leaderboard.isNotEmpty)
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(_text('برترین بازیکنان منچ', 'Manch leaderboard'),
+                        style: Theme.of(context).textTheme.titleMedium),
+                      const SizedBox(height: 8),
+                      for (var index = 0; index < _leaderboard.length && index < 5; index++)
+                        ListTile(
+                          dense: true,
+                          contentPadding: EdgeInsets.zero,
+                          leading: CircleAvatar(child: Text('${index + 1}')),
+                          title: Text('@${_leaderboard[index]['username'] ?? 'player'}'),
+                          subtitle: Text(_text(
+                            'سطح ${_leaderboard[index]['level']} · ${_leaderboard[index]['xpPoints']} امتیاز تجربه',
+                            'Level ${_leaderboard[index]['level']} · ${_leaderboard[index]['xpPoints']} XP',
+                          )),
+                          trailing: Text('${_leaderboard[index]['wins']} W'),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
             if (_stats != null)
               Card(
                 child: Padding(
@@ -429,12 +463,17 @@ class _ManchOnlineLobbyScreenState extends State<ManchOnlineLobbyScreen> {
                     children: [
                       Text(_text('آمار منچ شما', 'Your Manch statistics'), style: Theme.of(context).textTheme.titleMedium),
                       const SizedBox(height: 10),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      Wrap(
+                        alignment: WrapAlignment.spaceAround,
+                        spacing: 20,
+                        runSpacing: 12,
                         children: [
                           _statValue(_text('بازی', 'Played'), _stats?['played'] ?? 0),
                           _statValue(_text('برد', 'Wins'), _stats?['wins'] ?? 0),
                           _statValue(_text('باخت', 'Losses'), _stats?['losses'] ?? 0),
+                          _statValue(_text('خروج', 'Quits'), _stats?['quits'] ?? 0),
+                          _statValue(_text('سطح', 'Level'), _stats?['level'] ?? 1),
+                          _statValue(_text('XP', 'XP'), _stats?['xpPoints'] ?? 0),
                         ],
                       ),
                     ],

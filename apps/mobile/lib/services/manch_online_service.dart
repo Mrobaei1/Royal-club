@@ -157,6 +157,13 @@ class ManchOnlineService {
         .toList();
   }
 
+  static Future<List<Map<String, dynamic>>> leaderboard() async {
+    final payload = await _request('GET', '/../leaderboard');
+    final raw = payload['leaderboard'];
+    if (raw is! List) throw Exception('جدول رتبه‌بندی منچ نامعتبر است.');
+    return raw.whereType<Map>().map((item) => Map<String, dynamic>.from(item)).toList();
+  }
+
   static Future<Map<String, int>> stats() async {
     final payload = await _request('GET', '/stats');
     final raw = payload['stats'];
@@ -175,6 +182,9 @@ class ManchOnlineService {
       'played': readCount('played'),
       'wins': readCount('wins'),
       'losses': readCount('losses'),
+      'quits': readCount('quits'),
+      'xpPoints': readCount('xpPoints'),
+      'level': readCount('level'),
     };
   }
 
