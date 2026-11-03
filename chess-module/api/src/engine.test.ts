@@ -256,6 +256,17 @@ test("rejects structurally invalid and impossible FEN positions", () => {
   }
 });
 
+test("rejects impossible pawn and king placements in FEN", () => {
+  const invalidPositions = [
+    "4k3/8/8/8/8/8/8/P3K3 w - - 0 1", // pawn on first rank
+    "4k3/PPPPPPPP/8/P7/8/8/8/4K3 w - - 0 1", // nine pawns for one side
+    "8/8/8/8/8/8/4k3/4K3 w - - 0 1", // adjacent kings
+  ];
+  for (const fen of invalidPositions) {
+    assert.throws(() => new ChessGame(fen), /invalid_fen/);
+  }
+});
+
 test("keeps terminal edge positions immutable when a move is attempted", () => {
   const terminalFens = [
     "7k/6Q1/6K1/8/8/8/8/8 b - - 0 1", // checkmate
