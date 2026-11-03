@@ -306,6 +306,15 @@ test("authenticated chess routes support private game, draw, chat, profiles and 
     const history = await request(black, "GET", `/chess/games/${gameId}/chat`);
     assert.equal(history.json().messages[0].message, "hello chess");
     assert.equal(history.json().messages[0].username, "route_white");
+    for (let index = 0; index < 7; index++) {
+      const allowed = await request(white, "POST", `/chess/games/${gameId}/chat`, {message:`rate test ${index}`});
+      assert.equal(allowed.statusCode, 201, allowed.body);
+    }
+    const rateLimited = await request(white, "POST", `/chess/games/${gameId}/chat`, {message:"rate limit overflow"});
+    assert.equal(rateLimited.statusCode, 429);
+    assert.equal(rateLimited.json().error, "chat_rate_limited");
+    const otherPlayerUnaffected = await request(black, "POST", `/chess/games/${gameId}/chat`, {message:"independent player"});
+    assert.equal(otherPlayerUnaffected.statusCode, 201, otherPlayerUnaffected.body);
 
     const moveWhite = await request(white, "POST", `/chess/games/${gameId}/moves`, { from: "e2", to: "e4" });
     assert.equal(moveWhite.statusCode, 200, moveWhite.body);
