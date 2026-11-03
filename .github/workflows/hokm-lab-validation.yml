@@ -52,3 +52,26 @@ jobs:
         run: npm install --no-save pg@8
       - name: Run Hokm lab tests including live PostgreSQL acceptance
         run: npm test
+
+  flutter-ui:
+    name: Flutter — standalone Hokm UI
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: standalone/hokm-lab/flutter
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: '3.47.7'
+      - name: Install Flutter dependencies
+        run: flutter pub get
+      - name: Verify Dart formatting
+        run: dart format --set-exit-if-changed lib test
+      - name: Analyze Flutter UI
+        run: flutter analyze
+      - name: Run Flutter widget tests
+        run: flutter test
