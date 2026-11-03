@@ -22,12 +22,20 @@ export class ChessGame {
     let parsedGame: Chess;
     try {
       if (fen !== undefined) {
-        const fields = fen.trim().split(/\\s+/);
-        if (fields.length !== 6 || !/^(?:0|[1-9]\\d*)$/.test(fields[4]!) || !/^[1-9]\\d*$/.test(fields[5]!)) {
+        const fields = fen.trim().split(/\s+/);
+        if (fields.length !== 6 || !/^(?:0|[1-9]\d*)$/.test(fields[4]!) || !/^[1-9]\d*$/.test(fields[5]!)) {
           throw new Error("FEN must contain six fields with non-negative halfmove and positive fullmove counters");
         }
       }
       parsedGame = fen === undefined ? new Chess() : new Chess(fen);
+      if (fen !== undefined) {
+        const pieces = parsedGame.board().flat().filter((piece): piece is NonNullable<typeof piece> => piece !== null);
+        const whiteKings = pieces.filter(piece => piece.type === "k" && piece.color === "w").length;
+        const blackKings = pieces.filter(piece => piece.type === "k" && piece.color === "b").length;
+        if (whiteKings !== 1 || blackKings !== 1) {
+          throw new Error("FEN must contain exactly one king for each side");
+        }
+      }
     } catch (error) {
       const detail = error instanceof Error ? error.message : "invalid position";
       throw new Error(`invalid_fen:${detail}`);
