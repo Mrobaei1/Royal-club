@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { legalCards } from "../src/engine.js";
-import { createRoom, joinRoom, leaveRoom, setPlayerReady, startRoom, expireRoom, roomViewForUser, applyRoomCommand, startNextRound, recordMatchForfeit, disconnectPlayer, reconnectPlayer, handleDisconnectTimeout, processAllDisconnectedTimeout, ALL_PLAYERS_DISCONNECTED_MS, sendOpponentChatMessage } from "../src/room.js";
+import { createRoom, joinRoom, leaveRoom, setPlayerReady, startRoom, expireRoom, roomViewForUser, applyRoomCommand, startNextRound, recordMatchForfeit, disconnectPlayer, reconnectPlayer, handleDisconnectTimeout, processAllDisconnectedTimeout, cancelForUnrecoverableTechnicalFailure, ALL_PLAYERS_DISCONNECTED_MS, sendOpponentChatMessage } from "../src/room.js";
 
 function fullReadyRoom(now = 1000, matchTarget = 7) {
   let room = createRoom({ roomId: "test-room", hostUserId: "u0", now, matchTarget });
@@ -350,6 +350,26 @@ test("opposing-team text chat is private, bounded, idempotent and excludes teamm
     "completed-match views should expose the final result, not chat history");
 });
 
+
+test("terminal cancelled and completed views hide the round and any remaining-card reveal", () => {
+  let room = startRoom(fullReadyRoom(), "u0", { now: 2000, rng: () => 0 });
+  room = {
+    ...room,
+    handRevealUntil: 9000,
+    revealedHands: [0, 1, 2, 3].map(() => [{ suit: "hearts", rank: "A" }])
+  };
+  const cancelled = cancelForUnrecoverableTechnicalFailure(room);
+  const cancelledView = roomViewForUser(cancelled, "u0", { now: 3000 });
+  assert.equal(cancelledView.game, null);
+  assert.equal(cancelledView.revealedHands, null);
+  assert.equal(cancelledView.handRevealUntil, null);
+
+  const completed = { ...room, status: "completed" };
+  const completedView = roomViewForUser(completed, "u0", { now: 3000 });
+  assert.equal(completedView.game, null);
+  assert.equal(completedView.revealedHands, null);
+  assert.equal(completedView.handRevealUntil, null);
+});
 
 test("a connected player takes over next-hand start when the host remains disconnected", () => {
   let room = startRoom(fullReadyRoom(), "u0", { now: 2000, rng: () => 0 });
