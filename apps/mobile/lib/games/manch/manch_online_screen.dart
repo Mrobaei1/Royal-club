@@ -425,10 +425,12 @@ class _ManchOnlineGameScreenState extends State<ManchOnlineGameScreen> {
       final raw = result['state'];
       if (raw is! Map) throw Exception('پاسخ تاس از سرور ناقص است.');
       final state = ManchGameState.fromJson(Map<String, Object?>.from(raw));
-      if (!mounted) return;
+      final incomingVersion =
+          (result['stateVersion'] as num?)?.toInt() ?? _stateVersion + 1;
+      if (!mounted || incomingVersion < _stateVersion) return;
       setState(() {
         _state = state;
-        _stateVersion = (result['stateVersion'] as num?)?.toInt() ?? _stateVersion + 1;
+        _stateVersion = incomingVersion;
         _currentTurnUserId = result['currentTurnUserId']?.toString();
         _lastDice = (result['dice'] as num?)?.toInt();
         _status = result['turnLost'] == true
@@ -459,10 +461,12 @@ class _ManchOnlineGameScreenState extends State<ManchOnlineGameScreen> {
       final raw = result['state'];
       if (raw is! Map) throw Exception('پاسخ حرکت از سرور ناقص است.');
       final state = ManchGameState.fromJson(Map<String, Object?>.from(raw));
-      if (!mounted) return;
+      final incomingVersion =
+          (result['stateVersion'] as num?)?.toInt() ?? _stateVersion + 1;
+      if (!mounted || incomingVersion < _stateVersion) return;
       setState(() {
         _state = state;
-        _stateVersion = (result['stateVersion'] as num?)?.toInt() ?? _stateVersion + 1;
+        _stateVersion = incomingVersion;
         _currentTurnUserId = result['currentTurnUserId']?.toString();
         _matchStatus = result['status']?.toString() ?? _matchStatus;
         _status = state.isFinished
@@ -519,13 +523,15 @@ class _ManchOnlineGameScreenState extends State<ManchOnlineGameScreen> {
     setState(() => _busy = true);
     try {
       final result = await ManchOnlineService.forfeit(widget.matchId);
-      if (!mounted) return;
+      final incomingVersion =
+          (result['stateVersion'] as num?)?.toInt() ?? _stateVersion + 1;
+      if (!mounted || incomingVersion < _stateVersion) return;
       setState(() {
         _matchStatus = result['status']?.toString() ?? 'finished';
         _finishReason = result['finishReason']?.toString() ?? 'forfeit';
         _winnerUserId = result['winnerUserId']?.toString();
         _currentTurnUserId = null;
-        _stateVersion = (result['stateVersion'] as num?)?.toInt() ?? _stateVersion + 1;
+        _stateVersion = incomingVersion;
         _status = _winnerUserId == widget.currentUserId
             ? _text('حریف تسلیم شد؛ شما برنده شدید.', 'Opponent forfeited; you win.')
             : _text('شما تسلیم شدید؛ حریف برنده شد.', 'You forfeited; your opponent wins.');
