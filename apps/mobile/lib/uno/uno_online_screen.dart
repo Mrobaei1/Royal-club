@@ -92,6 +92,8 @@ class _UnoOnlineScreenState extends State<UnoOnlineScreen> {
     _restoringRoomCode = null;
     _restoreInFlight = false;
     _pendingRoomCode = null;
+    _busy = false;
+    _error = null;
     _room = null;
     _game = null;
     _hand = [];
@@ -231,10 +233,17 @@ class _UnoOnlineScreenState extends State<UnoOnlineScreen> {
   Future<void> _run(String event, Map<String, dynamic> payload) async {
     if (!mounted) return;
     final playerId = widget.playerId;
+    final accessToken = widget.accessToken;
+    final serverUrl = widget.serverUrl;
+    bool isCurrentSession() =>
+        mounted &&
+        playerId == widget.playerId &&
+        accessToken == widget.accessToken &&
+        serverUrl == widget.serverUrl;
     setState(() { _busy = true; _error = null; });
     try {
       final result = await _emit(event, payload);
-      if (!mounted) return;
+      if (!isCurrentSession()) return;
       if (result['ok'] != true) {
         final error = Map<String, dynamic>.from(result['error'] as Map? ?? {});
         throw StateError(_errorMessage(error));
@@ -252,6 +261,7 @@ class _UnoOnlineScreenState extends State<UnoOnlineScreen> {
           _messages.clear();
         });
         if (_pendingRoomCode != null) await _sessionStore.saveRoomCode(_pendingRoomCode!, playerId: playerId);
+        if (!isCurrentSession()) return;
       }
       if (event == 'uno:room:leave') {
         setState(() {
@@ -263,15 +273,16 @@ class _UnoOnlineScreenState extends State<UnoOnlineScreen> {
           _messages.clear();
         });
         await _sessionStore.clearRoomCode(playerId: playerId);
+        if (!isCurrentSession()) return;
       }
       if (event == 'uno:room:start') {
         final map = Map<String, dynamic>.from(data as Map);
         setState(() => _game = Map<String, dynamic>.from(map['game'] as Map));
       }
     } catch (error) {
-      if (mounted) setState(() => _error = error.toString().replaceFirst('Bad state: ', ''));
+      if (isCurrentSession()) setState(() => _error = error.toString().replaceFirst('Bad state: ', ''));
     } finally {
-      if (mounted) setState(() => _busy = false);
+      if (isCurrentSession()) setState(() => _busy = false);
     }
   }
 
