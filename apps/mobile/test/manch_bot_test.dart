@@ -105,6 +105,40 @@ void main() {
     expect(move!.tokenIndex, 0);
   });
 
+  test('easy bot prioritizes home-lane progress over a capture', () {
+    final state = ManchGameState(
+      players: [
+        ManchPlayerState(
+          colour: ManchColour.red,
+          tokens: [0, 50, -1, -1],
+        ),
+        ManchPlayerState(
+          colour: ManchColour.green,
+          tokens: [41, -1, -1, -1],
+        ),
+      ],
+      activePlayerIndex: 0,
+      profile: const ManchRuleProfile(),
+    );
+    final rolled = engine.roll(state, 2);
+
+    final easy = bot.chooseMove(
+      rolled,
+      difficulty: ManchBotDifficulty.easy,
+    );
+    final normal = bot.chooseMove(
+      rolled,
+      difficulty: ManchBotDifficulty.normal,
+    );
+
+    expect(easy, isNotNull);
+    expect(easy!.tokenIndex, 1);
+    expect(easy.toProgress, 52);
+    expect(normal, isNotNull);
+    expect(normal!.tokenIndex, 0);
+    expect(normal.isCapture, isTrue);
+  });
+
   test('hard bot avoids an exposed square while normal bot advances', () {
     final state = ManchGameState(
       players: [
