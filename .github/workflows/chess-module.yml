@@ -43,7 +43,10 @@ jobs:
         with:
           node-version: 22
       - run: npm install --no-audit --no-fund
+      - run: sudo apt-get update && sudo apt-get install -y stockfish
       - run: npm test
+        env:
+          STOCKFISH_PATH: /usr/games/stockfish
       - run: npm run build
 
   chess-mobile:
