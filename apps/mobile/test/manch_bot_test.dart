@@ -176,4 +176,37 @@ void main() {
     expect(bot.chooseMove(state), isNull);
     expect(bot.chooseMove(engine.roll(state, 1)), isNull);
   });
+  test('all difficulty policies always return an engine-legal move in seeded games', () {
+    for (final playerCount in [2, 3, 4]) {
+      for (final difficulty in ManchBotDifficulty.values) {
+        var state = engine.newGame(playerCount: playerCount);
+        for (var turn = 0; turn < 240 && !state.isFinished; turn++) {
+          final dice = ((turn * 5 + playerCount * 3) % 6) + 1;
+          state = engine.roll(state, dice);
+          if (state.pendingDice == null) continue;
+
+          final legalMoves = engine.legalMoves(state);
+          if (legalMoves.isEmpty) {
+            state = engine.passTurn(state);
+            continue;
+          }
+
+          final chosen = bot.chooseMove(state, difficulty: difficulty);
+          expect(chosen, isNotNull,
+              reason: 'playerCount=$playerCount difficulty=$difficulty turn=$turn');
+          expect(
+            legalMoves.any((move) =>
+                move.playerIndex == chosen!.playerIndex &&
+                move.tokenIndex == chosen.tokenIndex &&
+                move.fromProgress == chosen.fromProgress &&
+                move.toProgress == chosen.toProgress),
+            isTrue,
+            reason: 'Bot selected a move outside the engine legal-move set.',
+          );
+          state = engine.move(state, chosen!.tokenIndex);
+        }
+      }
+    }
+  });
+
 }
