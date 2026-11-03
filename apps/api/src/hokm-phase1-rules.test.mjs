@@ -8,7 +8,7 @@ import { createRound, chooseTrump, playCard, roundViewForSeat } from './hokm/rou
 import { chooseHardBotAction } from './hokm/bot.js';
 import {
   createRoom, joinRoom, setPlayerReady, startRoom, voteToCancelMatch,
-  processAllDisconnectedTimeout, processTurnTimeout, disconnectPlayer, roomViewForUser, startNextRound, TURN_DEADLINE_MS,
+  processAllDisconnectedTimeout, processTurnTimeout, disconnectPlayer, reconnectPlayer, handleDisconnectTimeout, roomViewForUser, startNextRound, TURN_DEADLINE_MS,
   END_OF_HAND_REVEAL_MS, ALL_PLAYERS_DISCONNECTED_MS
 } from './hokm/room.js';
 
@@ -248,4 +248,41 @@ test('a complete hand ends on the seventh trick won or no later than trick thirt
   assert.equal(state.scores[0] + state.scores[1], state.trickWinners.length);
   assert.ok(Math.max(...state.scores) >= 7);
   assert.ok(state.hands.every(hand => hand.length === 13 - state.trickWinners.length));
+});
+
+
+test('player reconnects before grace expiry and regains control without rolling back room state', () => {
+  const players = fourPlayers();
+  let room = createRoom({ roomId: 'reconnect-before-timeout', hostUserId: players[0], now: 4000 });
+  for (const id of players.slice(1)) room = joinRoom(room, id, 4001);
+  for (const id of players) room = setPlayerReady(room, id, true);
+  room = startRoom(room, players[0], { now: 4002, rng: () => 0 });
+  room = disconnectPlayer(room, players[0], { now: 5000, expectedVersion: room.version });
+  assert.equal(room.players[0].connected, false);
+  const beforeDeadline = room.players[0].reconnectDeadline - 1;
+  room = reconnectPlayer(room, players[0], { now: beforeDeadline, expectedVersion: room.version });
+  assert.equal(room.players[0].connected, true);
+  assert.equal(room.players[0].botControlled, false);
+  assert.equal(room.players[0].temporaryBot, false);
+  assert.equal(room.allDisconnectedDeadline, null);
+});
+
+test('disconnected seat is taken over by Hard bot after grace and can later reconnect', () => {
+  const players = fourPlayers();
+  let room = createRoom({ roomId: 'temporary-bot-takeover', hostUserId: players[0], now: 6000, disconnectGraceMs: 1000 });
+  for (const id of players.slice(1)) room = joinRoom(room, id, 6001);
+  for (const id of players) room = setPlayerReady(room, id, true);
+  room = startRoom(room, players[0], { now: 6002, rng: () => 0 });
+  room = disconnectPlayer(room, players[0], { now: 7000, expectedVersion: room.version });
+  const deadline = room.players[0].reconnectDeadline;
+  assert.throws(() => handleDisconnectTimeout(room, players[0], {
+    now: deadline - 1, expectedVersion: room.version
+  }), /grace period/);
+  room = handleDisconnectTimeout(room, players[0], { now: deadline, expectedVersion: room.version });
+  assert.equal(room.players[0].botControlled, true);
+  assert.equal(room.players[0].temporaryBot, true);
+  room = reconnectPlayer(room, players[0], { now: deadline + 1, expectedVersion: room.version });
+  assert.equal(room.players[0].connected, true);
+  assert.equal(room.players[0].botControlled, false);
+  assert.equal(room.players[0].temporaryBot, false);
 });
