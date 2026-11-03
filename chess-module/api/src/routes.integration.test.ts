@@ -94,6 +94,14 @@ test("authenticated chess routes support private game, draw, chat, profiles and 
     });
     assert.equal(malformedIdentity.statusCode, 401);
     assert.equal(malformedIdentity.json().error, "unauthorized");
+    const overflowingIdentity = await app.inject({
+      method: "POST",
+      url: "/chess/rooms",
+      headers: { "x-user-id": "9223372036854775808" },
+      payload: {},
+    });
+    assert.equal(overflowingIdentity.statusCode, 401);
+    assert.equal(overflowingIdentity.json().error, "unauthorized");
 
     const invalidGameId = await app.inject({
       method: "GET",
