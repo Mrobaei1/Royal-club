@@ -21,6 +21,7 @@ class ChessApiClient {
     if (requestTimeout <= Duration.zero) {
       throw ArgumentError.value(requestTimeout, 'requestTimeout', 'must be positive');
     }
+    _http.connectionTimeout = requestTimeout;
   }
 
   final Uri baseUri;
@@ -41,7 +42,7 @@ class ChessApiClient {
     Object? body,
   }) async {
     if (_disposed) throw StateError('chess_api_client_disposed');
-    final request = await _http.openUrl(method, _uri(path, query));
+    final request = await _http.openUrl(method, _uri(path, query)).timeout(requestTimeout);
     request.headers.set(HttpHeaders.authorizationHeader, 'Bearer $accessToken');
     request.headers.set(HttpHeaders.acceptHeader, 'application/json');
     if (body != null) {
