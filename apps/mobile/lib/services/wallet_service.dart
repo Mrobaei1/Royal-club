@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
@@ -5,6 +6,7 @@ import 'api_transport.dart';
 
 class WalletService {
   static const FlutterSecureStorage _storage = FlutterSecureStorage();
+  static const Duration _requestTimeout = Duration(seconds: 15);
 
   static Future<Map<String, String>> _headers() async {
     final token = await _storage.read(key: 'royal_club_token');
@@ -16,10 +18,19 @@ class WalletService {
 
   static Future<Map<String, dynamic>> _request(String path, {Map<String, dynamic>? body}) async {
     final headers = await _headers();
-    final response = body == null
-        ? await http.get(ApiTransport.uri(path), headers: headers)
-        : await http.post(ApiTransport.uri(path), headers: headers, body: jsonEncode(body));
-    final decoded = jsonDecode(response.body);
+    late final http.Response response;
+    try {
+      response = body == null
+          ? await http.get(ApiTransport.uri(path), headers: headers).timeout(_requestTimeout)
+          : await http.post(ApiTransport.uri(path), headers: headers, body: jsonEncode(body)).timeout(_requestTimeout);
+    } on TimeoutException {
+      throw Exception('پاسخ سرور کیف پول بیش از حد طول کشید.');
+    } on http.ClientException {
+      throw Exception('اتصال به سرور کیف پول برقرار نشد.');
+    }
+    dynamic decoded;
+    try { decoded = jsonDecode(response.body); }
+    on FormatException { throw Exception('پاسخ سرور کیف پول قابل‌خواندن نیست.'); }
     if (decoded is! Map<String, dynamic>) throw Exception('پاسخ سرور نامعتبر است.');
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw Exception(decoded['error']?.toString() ?? 'درخواست ناموفق بود.');
