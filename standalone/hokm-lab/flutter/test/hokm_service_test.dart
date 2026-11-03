@@ -68,3 +68,33 @@ void main() {
     rejected.close();
   });
 }
+
+
+  test('HTTP adapter exposes authenticated manager review and appeal actions', () async {
+    final requests = <http.Request>[];
+    final client = MockClient((request) async {
+      requests.add(request);
+      return http.Response(jsonEncode({'roomId': 'r1', 'version': 9}), 200,
+          headers: {'content-type': 'application/json'});
+    });
+    final api = HokmHttpApi(
+      baseUri: Uri.parse('https://example.test'),
+      accessTokenLoader: () async => 'manager-token',
+      client: client,
+    );
+    await api.managerView('r1');
+    await api.reviewReport('r1', 'report-1', 'Checked', 7);
+    await api.reviewAppeal('r1', 'appeal-1', 'dismissed', 'Evidence insufficient', 8);
+    expect(requests.map((request) => request.method).toList(), ['GET', 'POST', 'POST']);
+    expect(requests[0].url.path, '/api/v1/hokm/rooms/r1/manager');
+    expect(requests[1].url.path, '/api/v1/hokm/rooms/r1/manager/reports/report-1/review');
+    expect(jsonDecode(requests[1].body), {'notes': 'Checked', 'expectedVersion': 7});
+    expect(requests[2].url.path, '/api/v1/hokm/rooms/r1/manager/appeals/appeal-1/review');
+    expect(jsonDecode(requests[2].body), {
+      'decision': 'dismissed',
+      'notes': 'Evidence insufficient',
+      'expectedVersion': 8,
+    });
+    expect(requests.every((request) => request.headers['authorization'] == 'Bearer manager-token'), true);
+    api.close();
+  });
