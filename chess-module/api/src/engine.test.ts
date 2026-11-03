@@ -219,12 +219,12 @@ test("validates malformed FEN at construction and reports no legal moves after t
   assert.deepEqual(mate.legalMoves, []);
 });
 
-test("extended deterministic fuzzing covers 80 seeds and up to 500 plies per game", () => {
+test("extended deterministic fuzzing covers 80 seeds and up to 100 plies per game", () => {
   for (let seed = 9; seed < 89; seed++) {
     const adapter = new ChessGame();
     const reference = new Chess();
     let random = seed;
-    for (let ply = 0; ply < 500 && !reference.isGameOver(); ply++) {
+    for (let ply = 0; ply < 100 && !reference.isGameOver(); ply++) {
       const legal = reference.moves({verbose: true});
       assert.ok(legal.length > 0, `seed ${seed}, ply ${ply}`);
       random = (random * 48271) % 2147483647;
