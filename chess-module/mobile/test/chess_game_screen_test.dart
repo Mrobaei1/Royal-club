@@ -22,6 +22,8 @@ class _PersianCupertinoLocalizationsDelegate extends LocalizationsDelegate<Cuper
 Widget _screen({
   VoidCallback? onOfferDraw,
   VoidCallback? onResign,
+  VoidCallback? onClaimDraw,
+  bool drawClaimable = false,
   String? pendingDrawOfferId,
   bool drawOfferedByOpponent = false,
   ValueChanged<bool>? onRespondToDraw,
@@ -49,6 +51,8 @@ Widget _screen({
       onSendMessage: onSendMessage ?? (_) {},
       onOfferDraw: onOfferDraw,
       onResign: onResign,
+      onClaimDraw: onClaimDraw,
+      drawClaimable: drawClaimable,
       pendingDrawOfferId: pendingDrawOfferId,
       drawOfferedByOpponent: drawOfferedByOpponent,
       onRespondToDraw: onRespondToDraw,
@@ -66,6 +70,19 @@ void main() {
     await tester.pumpWidget(_screen(onOfferDraw: () => offered = true));
     await tester.tap(find.text('Offer draw'));
     expect(offered, isTrue);
+  });
+
+  testWidgets('claim draw action appears only when server marks the position claimable', (tester) async {
+    var claimed = false;
+    await tester.pumpWidget(_screen(
+      drawClaimable: true,
+      onClaimDraw: () => claimed = true,
+    ));
+    expect(find.text('Claim draw'), findsOneWidget);
+    await tester.tap(find.text('Claim draw'));
+    expect(claimed, isTrue);
+    await tester.pumpWidget(_screen(onClaimDraw: () => claimed = true));
+    expect(find.text('Claim draw'), findsNothing);
   });
 
   testWidgets('resignation requires confirmation', (tester) async {
