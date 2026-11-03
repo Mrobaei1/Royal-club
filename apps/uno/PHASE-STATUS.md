@@ -1,6 +1,6 @@
-# UNO phase status — 2026-11-03
+# UNO phase status — 2026-11-03 (updated after CI run 41672553956)
 
-This is a phase-level engineering acceptance record. It does not invent work-package IDs or weights: no audited UNO-specific package-weight table exists in the repository. The Royal Club-wide 53-package / 1,000-point WBS is not a UNO-only WBS.
+This phase record is paired with the UNO-only weighted baseline in [UNO-WBS.md](./UNO-WBS.md). The weights total 100 and are independent of the Royal Club-wide 53-package / 1,000-point WBS.
 
 ## Engineering completion
 
@@ -25,7 +25,7 @@ This is a phase-level engineering acceptance record. It does not invent work-pac
 - Root Flutter analyze/tests: **success**.
 - Existing backgammon regression workflow: **success**.
 
-## Latest verified run (2026-11-03)
+## Latest verified run before reconnect hardening (2026-11-03)
 
 - UNO Standalone CI run **41641140833** on commit `9c1185db647f7a3ee6ea462e9e894e34a1be0b4a`: backend **success**, PostgreSQL/server integration **success**, Flutter module **success**.
 - Root validation run **41638382298**: **success**.
@@ -51,7 +51,7 @@ The following changes were added after the earlier phase evidence above. They ar
 - Added SIGTERM/SIGINT graceful shutdown: disconnect clients, close Fastify, await queued snapshot writes, then release the PostgreSQL advisory lock and pool.
 - Integration coverage now asserts graceful shutdown before restarting the service and restoring the persisted room.
 
-Acceptance remains conditional on the latest UNO Standalone CI run. Physical two-device acceptance and owner approval for root-app integration remain release gates. These client/storage changes do not implement multi-instance persistence; the phase 2 advisory lock remains in place.
+Automated acceptance for commit `e1693fea24acbb59a5af96b221496d253c992483` is green. A subsequent reconnect-race hardening commit is being validated separately; do not transfer the green status to a newer SHA until its own CI passes. Physical two-device acceptance and owner approval for root-app integration remain release gates. These client/storage changes do not implement multi-instance persistence; the phase 2 advisory lock remains in place.
 
 ## Runtime hardening added 2026-11-03
 
@@ -67,3 +67,11 @@ Acceptance remains conditional on the latest UNO Standalone CI run. Physical two
 - Separate explicit owner approval before any APK build.
 
 UNO remains isolated and this PR remains draft. No production deployment, database migration, root-app integration, merge or APK build has been performed.
+
+
+## Reconnect lifecycle race hardening — 2026-11-03
+
+- Saved-room loading now captures the player, token, server URL and restore generation before awaiting local storage; a result from an obsolete widget identity/server is ignored.
+- Reconnect responses are accepted only while the captured player, token, server URL and generation remain current. The guard is rechecked after asynchronous storage clear/save operations as well as after the socket acknowledgement.
+- This prevents late acknowledgements from an old account or server endpoint from repopulating room/game/hand state after `didUpdateWidget` has reset the session.
+- Commit: `55be0e8f0dacc29a5672289d89b71ac2aae6ce17`. CI for this new commit is pending at the time of this update.
