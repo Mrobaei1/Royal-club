@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:royal_club/games/manch/iranian_manch_board.dart';
+import 'package:royal_club/games/manch/manch_board_geometry.dart';
 import 'package:royal_club/games/manch/manch_engine.dart';
 import 'package:royal_club/games/manch/manch_rule_profile.dart';
 
@@ -88,12 +89,12 @@ void main() {
   });
 
   test('the shared route contains 52 unique cells and fixed colour entries', () {
-    expect(iranianManchTrackCells, hasLength(52));
-    expect(iranianManchTrackCells.toSet(), hasLength(52));
-    expect(iranianManchTrackCells[0], (6, 0));
-    expect(iranianManchTrackCells[13], (0, 8));
-    expect(iranianManchTrackCells[26], (8, 14));
-    expect(iranianManchTrackCells[39], (14, 6));
+    expect(ManchBoardGeometry.trackCells, hasLength(52));
+    expect(ManchBoardGeometry.trackCells.toSet(), hasLength(52));
+    expect(ManchBoardGeometry.trackCells[0], (6, 0));
+    expect(ManchBoardGeometry.trackCells[13], (0, 8));
+    expect(ManchBoardGeometry.trackCells[26], (8, 14));
+    expect(ManchBoardGeometry.trackCells[39], (14, 6));
   });
 
   for (final direction in TextDirection.values) {
