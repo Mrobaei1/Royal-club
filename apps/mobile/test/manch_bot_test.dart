@@ -194,16 +194,17 @@ void main() {
           final chosen = bot.chooseMove(state, difficulty: difficulty);
           expect(chosen, isNotNull,
               reason: 'playerCount=$playerCount difficulty=$difficulty turn=$turn');
+          final selected = chosen!;
           expect(
             legalMoves.any((move) =>
-                move.playerIndex == chosen!.playerIndex &&
-                move.tokenIndex == chosen.tokenIndex &&
-                move.fromProgress == chosen.fromProgress &&
-                move.toProgress == chosen.toProgress),
+                move.playerIndex == selected.playerIndex &&
+                move.tokenIndex == selected.tokenIndex &&
+                move.fromProgress == selected.fromProgress &&
+                move.toProgress == selected.toProgress),
             isTrue,
             reason: 'Bot selected a move outside the engine legal-move set.',
           );
-          state = engine.move(state, chosen!.tokenIndex);
+          state = engine.move(state, selected.tokenIndex);
         }
       }
     }
