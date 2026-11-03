@@ -30,6 +30,7 @@ This is a verification plan for the standalone chess module. It does not authori
 ## Database and operations
 
 - [ ] Review all migrations for least privilege, indexes, foreign keys, constraints, lock duration and rollback safety.
+- [ ] Verify the database role cannot bypass the immutable administrative-audit trigger or alter/delete recorded audit events.
 - [ ] Confirm migration execution is isolated and repeatable in staging before requesting production approval.
 - [ ] Verify database connection limits, pool saturation behavior, query timeouts and cleanup after client disconnects.
 - [ ] Verify logs omit access tokens, authorization headers and unnecessary personal data.
