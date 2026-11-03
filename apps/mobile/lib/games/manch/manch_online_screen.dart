@@ -721,7 +721,10 @@ class _ManchOnlineGameScreenState extends State<ManchOnlineGameScreen> {
                     color: Theme.of(context).colorScheme.errorContainer,
                     child: ListTile(
                       leading: const Icon(Icons.cloud_off_outlined),
-                      title: Text(_text('ارتباط با سرور قطع شده است', 'Connection to the server was lost')),
+                      title: Semantics(
+                        liveRegion: true,
+                        child: Text(_text('ارتباط با سرور قطع شده است', 'Connection to the server was lost')),
+                      ),
                       subtitle: Text(_text('وضعیت بازی حفظ شده؛ برای اتصال مجدد تلاش کنید.', 'Your game state is preserved. Retry to reconnect.')),
                       trailing: IconButton(
                         tooltip: _text('تلاش مجدد', 'Retry'),
@@ -742,7 +745,13 @@ class _ManchOnlineGameScreenState extends State<ManchOnlineGameScreen> {
                           child: Text((state.activePlayerIndex + 1).toString()),
                         ),
                         const SizedBox(width: 10),
-                        Expanded(child: Text(_status)),
+                        Expanded(
+                          child: Semantics(
+                            liveRegion: true,
+                            label: _status,
+                            child: Text(_status),
+                          ),
+                        ),
                         Text(
                           (_lastDice ?? state.pendingDice)?.toString() ?? '—',
                           style: Theme.of(context).textTheme.headlineMedium,
