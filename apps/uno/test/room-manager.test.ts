@@ -219,6 +219,9 @@ test('disconnect between rounds preserves the seat for reconnection', () => {
   snapshot.rooms[0]!.game!.discardPile = [{id:'top',color:'red',face:2}];
   snapshot.rooms[0]!.game!.activeColor = 'red';
   manager.restoreSnapshot(snapshot);
+  if (manager.getRoom(room.code).game?.openingColorPendingPlayerId === host.id) {
+    manager.act(room.code, host.id, {type:'chooseColor',color:'red'});
+  }
   manager.act(room.code, host.id, {type:'play',cardId:'last'});
   assert.equal(manager.getRoom(room.code).status, 'waiting');
   const disconnected = manager.disconnect(room.code, guest.id)!;
