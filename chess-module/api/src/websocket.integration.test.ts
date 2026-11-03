@@ -8,7 +8,7 @@ import { Pool } from "pg";
 import { WebSocket } from "ws";
 import type { FastifyRequest } from "fastify";
 import { registerChessRoutes } from "./routes.js";
-import { registerChessWebSocket } from "./websocket.js";
+import { createPingRateLimiter, registerChessWebSocket } from "./websocket.js";
 
 const databaseUrl = process.env.CHESS_TEST_DATABASE_URL;
 const migrations = [
@@ -55,6 +55,26 @@ function connect(url: string, userId: string): Promise<WebSocket> {
     socket.once("error", (error) => { clearTimeout(timer); reject(error); });
   });
 }
+
+test("WebSocket ping limiter allows 30 pings, rejects the 31st, and resets after its window", () => {
+  let now = 1_000;
+  const allow = createPingRateLimiter(30, 10_000, () => now);
+  for (let i = 0; i < 30; i += 1) assert.equal(allow(), true, `ping ${i + 1} should pass`);
+  assert.equal(allow(), false, "31st ping in the same window must be rejected");
+  now += 10_000;
+  assert.equal(allow(), true, "first ping in the next window should pass");
+});
+
+test("WebSocket ping limiter uses a rolling window boundary without early reset", () => {
+  let now = 5_000;
+  const allow = createPingRateLimiter(2, 1_000, () => now);
+  assert.equal(allow(), true);
+  now += 999;
+  assert.equal(allow(), true);
+  assert.equal(allow(), false);
+  now += 1;
+  assert.equal(allow(), true);
+});
 
 test("WebSocket presence remains online until the player's last device disconnects", {
   skip: !databaseUrl,
