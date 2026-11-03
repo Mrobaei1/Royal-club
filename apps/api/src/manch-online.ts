@@ -61,8 +61,11 @@ export async function ensureManchSchema(pool: Pool): Promise<void> {
       match_id BIGINT NOT NULL REFERENCES manch_matches(id) ON DELETE CASCADE,
       user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       last_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      last_ai_action_at TIMESTAMPTZ,
       PRIMARY KEY (match_id, user_id)
     );
+    ALTER TABLE manch_match_presence
+      ADD COLUMN IF NOT EXISTS last_ai_action_at TIMESTAMPTZ;
     CREATE INDEX IF NOT EXISTS manch_match_presence_seen_idx
       ON manch_match_presence (match_id, last_seen_at DESC);
   `);
@@ -104,7 +107,8 @@ async function matchPlayers(client: any, matchId: string) {
 `SELECT p.user_id AS "userId", p.seat_index AS "seatIndex",
             p.seat_colour AS "seatColour", u.username,
             presence.last_seen_at AS "lastSeenAt",
-            COALESCE(presence.last_seen_at >= NOW() - INTERVAL '30 seconds', FALSE) AS "isOnline"
+            COALESCE(presence.last_seen_at >= NOW() - INTERVAL '30 seconds', FALSE) AS "isOnline",
+            COALESCE(presence.last_ai_action_at >= NOW() - INTERVAL '30 seconds', FALSE) AS "aiControlling"
        FROM manch_match_players p
        JOIN users u ON u.id = p.user_id
        LEFT JOIN manch_match_presence presence
@@ -122,6 +126,119 @@ async function matchPlayers(client: any, matchId: string) {
 
 function sendError(reply: any, statusCode: number, error: string) {
   return reply.code(statusCode).send({ error });
+}
+
+/** Apply one server-authoritative AI action when the active seat has missed its 30-second heartbeat lease. */
+async function processTemporaryManchAiTurn(pool: Pool, matchId: string): Promise<boolean> {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const locked = await client.query(
+      `SELECT id, status, player_count, game_state, current_turn_user_id
+         FROM manch_matches WHERE id = $1 FOR UPDATE`,
+      [matchId],
+    );
+    const match = locked.rows[0];
+    if (!match || match.status !== 'active' || !match.current_turn_user_id) {
+      await client.query('ROLLBACK');
+      return false;
+    }
+    const presenceResult = await client.query(
+      `SELECT last_seen_at, last_ai_action_at,
+              last_seen_at <= NOW() - INTERVAL '30 seconds' AS overdue,
+              last_ai_action_at > NOW() - INTERVAL '2 seconds' AS recently_acted
+         FROM manch_match_presence
+        WHERE match_id = $1 AND user_id = $2
+        FOR UPDATE`,
+      [matchId, match.current_turn_user_id],
+    );
+    const presence = presenceResult.rows[0];
+    if (!presence || !presence.overdue || presence.recently_acted) {
+      await client.query('ROLLBACK');
+      return false;
+    }
+    const state = match.game_state as ManchGameState;
+    if (!isValidManchState(state)) {
+      await client.query('ROLLBACK');
+      return false;
+    }
+
+    let nextState = state;
+    if (nextState.pendingDice === null) {
+      const rolled = rollManchDice(nextState, randomInt(1, 7));
+      if ('error' in rolled) {
+        await client.query('ROLLBACK');
+        return false;
+      }
+      nextState = rolled.state;
+    }
+
+    if (nextState.winnerIndex === null && nextState.pendingDice !== null) {
+      const moves = legalManchMoves(nextState);
+      if (moves.length === 0) {
+        const passed = passManchTurn(nextState);
+        if ('error' in passed) {
+          await client.query('ROLLBACK');
+          return false;
+        }
+        nextState = passed.state;
+      } else {
+        const selected = [...moves].sort((left, right) => {
+          const score = (move: typeof left) =>
+            (move.toProgress === 57 ? 10000 : 0) +
+            (move.capturedPlayerIndex !== null ? 1000 : 0) +
+            (move.fromProgress === -1 ? 250 : 0) +
+            move.toProgress;
+          return score(right) - score(left) || left.tokenIndex - right.tokenIndex;
+        })[0];
+        const applied = applyManchMove(nextState, selected.tokenIndex);
+        if ('error' in applied) {
+          await client.query('ROLLBACK');
+          return false;
+        }
+        nextState = applied.state;
+      }
+    }
+
+    const finished = nextState.winnerIndex !== null;
+    const players = await matchPlayers(client, matchId);
+    const nextUser = finished
+      ? null
+      : players.find((player) => player.seatIndex === nextState.activePlayerIndex)?.userId ?? null;
+    const winnerUser = finished
+      ? players.find((player) => player.seatIndex === nextState.winnerIndex)?.userId ?? null
+      : null;
+    if (!finished && !nextUser) {
+      await client.query('ROLLBACK');
+      return false;
+    }
+    if (finished && !winnerUser) {
+      await client.query('ROLLBACK');
+      return false;
+    }
+    await client.query(
+      `UPDATE manch_matches
+          SET game_state = $1::jsonb, status = $2, current_turn_user_id = $3,
+              winner_user_id = $4, finish_reason = $5,
+              state_version = state_version + 1, updated_at = NOW()
+        WHERE id = $6`,
+      [JSON.stringify(nextState), finished ? 'finished' : 'active', nextUser,
+       winnerUser, finished ? 'completed' : null, matchId],
+    );
+    await client.query(
+      `UPDATE manch_match_presence
+          SET last_ai_action_at = NOW()
+        WHERE match_id = $1 AND user_id = $2`,
+      [matchId, match.current_turn_user_id],
+    );
+    await client.query('COMMIT');
+    return true;
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 export function registerManchRoutes(app: any, pool: Pool, requireMatchAuth: any): void {
@@ -245,6 +362,14 @@ export function registerManchRoutes(app: any, pool: Pool, requireMatchAuth: any)
                     state_version AS "stateVersion"`,
         [active ? 'active' : 'waiting', match.host_user_id, id],
       );
+      if (active) {
+        await client.query(
+          `INSERT INTO manch_match_presence (match_id, user_id, last_seen_at)
+           SELECT $1, user_id, NOW() FROM manch_match_players WHERE match_id = $1
+           ON CONFLICT (match_id, user_id) DO NOTHING`,
+          [id],
+        );
+      }
       await client.query('COMMIT');
       return { match: { ...updated.rows[0], players: nextPlayers } };
     } catch (error) {
@@ -325,14 +450,16 @@ export function registerManchRoutes(app: any, pool: Pool, requireMatchAuth: any)
     const userId = String(request.user?.sub ?? '');
     const id = String(request.params?.id ?? '');
     if (!/^\d+$/.test(id) || !userId) return sendError(reply, 400, 'Invalid match identifier.');
+    await processTemporaryManchAiTurn(pool, id);
     const result = await pool.query(
-      `INSERT INTO manch_match_presence (match_id, user_id, last_seen_at)
-       SELECT m.id, p.user_id, NOW()
+      `INSERT INTO manch_match_presence (match_id, user_id, last_seen_at, last_ai_action_at)
+       SELECT m.id, p.user_id, NOW(), NULL
          FROM manch_matches m
          JOIN manch_match_players p ON p.match_id = m.id
         WHERE m.id = $1 AND m.status = 'active' AND p.user_id = $2
        ON CONFLICT (match_id, user_id)
-       DO UPDATE SET last_seen_at = EXCLUDED.last_seen_at
+       DO UPDATE SET last_seen_at = EXCLUDED.last_seen_at,
+                       last_ai_action_at = NULL
        RETURNING last_seen_at AS "lastSeenAt"`,
       [id, userId],
     );
@@ -350,6 +477,8 @@ export function registerManchRoutes(app: any, pool: Pool, requireMatchAuth: any)
 
   app.get('/api/v1/manch/matches/:id', { onRequest: [requireMatchAuth] }, async (request: any, reply: any) => {
     await cleanupExpiredManchRooms(pool);
+    const matchId = String(request.params?.id ?? '');
+    if (/^\\d+$/.test(matchId)) await processTemporaryManchAiTurn(pool, matchId);
     const userId = String(request.user?.sub ?? '');
     const id = String(request.params?.id ?? '');
     if (!/^\d+$/.test(id) || !userId) return sendError(reply, 400, 'Invalid match identifier.');

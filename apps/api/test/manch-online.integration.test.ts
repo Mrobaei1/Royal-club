@@ -441,6 +441,61 @@ test('Manch online presence is player-scoped and expires to offline after 30 sec
   assert.deepEqual(stale.json().match.players.map((player: any) => player.isOnline), [true, false]);
 });
 
+test('Manch temporary AI takes one overdue turn and reconnect restores human control', async () => {
+  const host = await register('Manch AI Host');
+  const guest = await register('Manch AI Guest');
+  const created = await app.inject({
+    method: 'POST', url: '/api/v1/manch/matches',
+    headers: auth(host.accessToken), payload: { playerCount: 2 },
+  });
+  assert.equal(created.statusCode, 201, created.body);
+  const matchId = created.json().match.id;
+  const joined = await app.inject({
+    method: 'POST', url: `/api/v1/manch/matches/${matchId}/join`,
+    headers: auth(guest.accessToken), payload: {},
+  });
+  assert.equal(joined.statusCode, 200, joined.body);
+  const initialVersion = Number(joined.json().match.stateVersion);
+
+  for (const player of [host, guest]) {
+    const heartbeat = await app.inject({
+      method: 'POST', url: `/api/v1/manch/matches/${matchId}/presence`,
+      headers: auth(player.accessToken), payload: {},
+    });
+    assert.equal(heartbeat.statusCode, 200, heartbeat.body);
+  }
+  await testPool.query(
+    `UPDATE manch_match_presence SET last_seen_at = NOW() - INTERVAL '31 seconds',
+      last_ai_action_at = NULL WHERE match_id = $1 AND user_id = $2`,
+    [matchId, host.user.id],
+  );
+
+  const aiAdvanced = await app.inject({
+    method: 'GET', url: `/api/v1/manch/matches/${matchId}`,
+    headers: auth(guest.accessToken),
+  });
+  assert.equal(aiAdvanced.statusCode, 200, aiAdvanced.body);
+  const aiVersion = Number(aiAdvanced.json().match.stateVersion);
+  assert.equal(aiVersion, initialVersion + 1,
+    'An overdue current player must receive exactly one server-authoritative AI action.');
+  assert.equal(aiAdvanced.json().match.players[0].aiControlling, true);
+
+  const reconnected = await app.inject({
+    method: 'POST', url: `/api/v1/manch/matches/${matchId}/presence`,
+    headers: auth(host.accessToken), payload: {},
+  });
+  assert.equal(reconnected.statusCode, 200, reconnected.body);
+  const afterReconnect = await app.inject({
+    method: 'GET', url: `/api/v1/manch/matches/${matchId}`,
+    headers: auth(guest.accessToken),
+  });
+  assert.equal(afterReconnect.statusCode, 200, afterReconnect.body);
+  assert.equal(Number(afterReconnect.json().match.stateVersion), aiVersion,
+    'A successful reconnect heartbeat must stop subsequent AI actions.');
+  assert.equal(afterReconnect.json().match.players[0].isOnline, true);
+  assert.equal(afterReconnect.json().match.players[0].aiControlling, false);
+});
+
 test('Manch online supports complete 3- and 4-player seat allocation and rejects unsupported forfeits', async () => {
   const host = await register('Manch Multi Host');
   const guests = [

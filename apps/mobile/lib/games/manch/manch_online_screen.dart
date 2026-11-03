@@ -796,7 +796,7 @@ class _ManchOnlineGameScreenState extends State<ManchOnlineGameScreen> {
                           ),
                         ),
                         label: Text(
-                          '@${player['username']?.toString() ?? 'player'} · ${player['isOnline'] == true ? _text('آنلاین', 'online') : _text('آفلاین', 'offline')}',
+                          '@${player['username']?.toString() ?? 'player'} · ${player['aiControlling'] == true && player['isOnline'] != true ? 'AI' : player['isOnline'] == true ? _text('آنلاین', 'online') : _text('آفلاین', 'offline')}',
                         ),
                       ),
                   ],

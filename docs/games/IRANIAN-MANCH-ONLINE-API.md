@@ -48,7 +48,7 @@ All endpoints require a Bearer access token.
 ## Not implemented yet
 - Friend-specific invitation records and invitation notifications.
 - WebSocket push; the first client uses bounded 2-second state polling.
-- A 30-second authenticated presence lease exposes online/offline player status. Disconnect grace, temporary AI takeover and automated return-to-human handoff are not implemented yet.
+- A 30-second authenticated presence lease exposes online/offline player status. When the active seat's lease expires, the server performs one legal temporary-AI action under the match row lock; repeated actions are throttled to one per two seconds. A returning player's heartbeat processes one overdue action before restoring human presence and clearing the AI indicator.
 - The current-match lookup restores the latest waiting/active room after app restart; it does not yet implement disconnect grace timers or temporary AI takeover.
 - Match history, ranked results, rating/progression, spectator access and league integration.
 - Disconnect leases, grace periods, temporary AI takeover and push notifications.
