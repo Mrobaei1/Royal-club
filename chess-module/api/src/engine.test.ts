@@ -219,12 +219,12 @@ test("validates malformed FEN at construction and reports no legal moves after t
   assert.deepEqual(mate.legalMoves, []);
 });
 
-test("extended deterministic fuzzing covers 40 seeds and up to 250 plies per game", () => {
-  for (let seed = 9; seed < 49; seed++) {
+test("extended deterministic fuzzing covers 80 seeds and up to 500 plies per game", () => {
+  for (let seed = 9; seed < 89; seed++) {
     const adapter = new ChessGame();
     const reference = new Chess();
     let random = seed;
-    for (let ply = 0; ply < 250 && !reference.isGameOver(); ply++) {
+    for (let ply = 0; ply < 500 && !reference.isGameOver(); ply++) {
       const legal = reference.moves({verbose: true});
       assert.ok(legal.length > 0, `seed ${seed}, ply ${ply}`);
       random = (random * 48271) % 2147483647;
@@ -235,8 +235,12 @@ test("extended deterministic fuzzing covers 40 seeds and up to 250 plies per gam
         ...(move.promotion ? {promotion: move.promotion as Promotion} : {}),
       });
       reference.move({from: move.from, to: move.to, ...(move.promotion ? {promotion: move.promotion} : {})});
-      assert.equal(result.fen, reference.fen(), `seed ${seed}, ply ${ply}`);
-      assert.deepEqual(result.legalMoves, reference.moves({verbose: true}).map(m => `${m.from}${m.to}${m.promotion ?? ""}`));
+      assert.equal(result.fen, reference.fen(), `seed ${seed}, ply ${ply}: FEN`);
+      assert.equal(result.san, reference.history().at(-1), `seed ${seed}, ply ${ply}: SAN`);
+      assert.equal(result.turn, reference.turn(), `seed ${seed}, ply ${ply}: active color`);
+      assert.equal(result.check, reference.isCheck(), `seed ${seed}, ply ${ply}: check state`);
+      assert.equal(result.checkmate, reference.isCheckmate(), `seed ${seed}, ply ${ply}: checkmate state`);
+      assert.deepEqual(result.legalMoves, reference.moves({verbose: true}).map(m => `${m.from}${m.to}${m.promotion ?? ""}`), `seed ${seed}, ply ${ply}: legal moves`);
     }
   }
 });
