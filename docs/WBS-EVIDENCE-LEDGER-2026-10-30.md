@@ -207,3 +207,9 @@ The repository search showed active, unmerged work including PRs #86 (isolated c
 - No PR was merged by this refresh.
 - No Production deployment, database migration/schema mutation, secret update, SMS activation, payment activation, agent execution/grant/schedule, or APK build was performed.
 - Live voice/video calls and WebRTC/TURN remain out of scope; future recorded voice messages remain disabled by default.
+
+
+### Criterion-level scoring scaffold — 2026-11-03
+
+- Added [`docs/WBS-CRITERION-SCORING-MATRIX-2026-11-03.md`](WBS-CRITERION-SCORING-MATRIX-2026-11-03.md), decomposing all 53 approved leaf packages into 200 equal 5-point acceptance criteria (1,000 points total).
+- Every criterion is deliberately marked Pending. This creates an auditable scoring structure; it does not award points. The official project-wide percentage remains pending until each criterion is individually checked against current exact evidence and manual/approval gates.
