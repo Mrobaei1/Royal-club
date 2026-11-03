@@ -70,7 +70,10 @@ void main() {
       profile: const ManchRuleProfile(),
     );
 
-    final move = bot.chooseMove(engine.roll(state, 1));
+    final move = bot.chooseMove(
+      engine.roll(state, 1),
+      difficulty: ManchBotDifficulty.hard,
+    );
 
     expect(move, isNotNull);
     expect(move!.tokenIndex, 1);
@@ -93,7 +96,10 @@ void main() {
       profile: const ManchRuleProfile(safeTrackIndices: {1}),
     );
 
-    final move = bot.chooseMove(engine.roll(state, 1));
+    final move = bot.chooseMove(
+      engine.roll(state, 1),
+      difficulty: ManchBotDifficulty.hard,
+    );
 
     expect(move, isNotNull);
     expect(move!.tokenIndex, 0);
