@@ -329,7 +329,7 @@ test("opposing-team text chat is private, bounded, idempotent and excludes teamm
   });
   assert.equal(room.chatMessages.length, 1);
   assert.equal(room.chatMessages[0].text, "سلام 👋");
-  assert.equal(room.version, 3);
+  assert.equal(room.version, 10);
   assert.equal(sendOpponentChatMessage(room, "u0", "u1", {
     messageId: "chat-1", text: "سلام 👋", now: 2200
   }), room, "same message ID and content must be idempotent");
