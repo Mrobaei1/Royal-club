@@ -225,3 +225,12 @@ The earlier refresh noted that the commit-specific lookup had not surfaced check
 - Royal Club Production API Health — run [41676965862](https://github.com/Mrobaei1/Royal-club/actions/runs/41676965862): currently deployed API/database health passed. This does not prove that the latest source commit is deployed.
 
 This closes the exact-main automated CI evidence gap for this commit only; it does not close manual acceptance, source-provenance, production deployment, or WBS criterion scoring.
+
+
+### PR #144 follow-up review — 2026-11-03
+
+- Code review found that the first root-app integration draft used one global saved-room key pair. An asynchronous account switch could therefore let an old session overwrite or clear the new account's room recovery data.
+- The PR branch now uses per-player storage keys, scopes clear operations to the captured player ID, discards stale async room actions after account/server changes, and resets transient UI state when the widget identity changes. Regression tests cover two-account isolation, account-specific clear, empty codes and invalid IDs.
+- Latest PR head: `7d30c6a34d923df1023871aa1b5a508671b15fe1`.
+- On that exact head, Backgammon engine audit (41703870932), API build/unit tests, API PostgreSQL integration tests and Flutter analyze/tests (41703871187), and Web Preview build (41703871239) passed. Web Preview deploy was skipped. UNO Standalone CI (41703870843) and a duplicate root validation run were still queued/in progress at the time of this entry.
+- PR #144 remains Draft/unmerged. No UNO backend deployment, production secret/database setup, APK build or physical two-device acceptance has occurred. The `UNO_SERVER_URL` remains a build-time input until the separately approved endpoint configuration is decided.
