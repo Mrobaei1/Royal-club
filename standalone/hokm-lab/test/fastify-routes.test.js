@@ -21,11 +21,11 @@ test("Fastify adapter registers authenticated room endpoints", async () => {
     create: async principal => ({ roomId: "r1", hostUserId: principal.userId }),
     view: async () => ({}), join: async () => ({}), ready: async () => ({}),
     start: async () => ({}), command: async () => ({}), disconnect: async () => ({}), reconnect: async () => ({}),
-    leave: async () => ({}), voteCancel: async () => ({}), reportCheating: async () => ({}),
+    leave: async () => ({}), voteCancel: async () => ({}), sendChatMessage: async () => ({}), reportCheating: async () => ({}),
     submitAppeal: async () => ({}), reviewCheating: async () => ({}), reviewAppeal: async () => ({})
   };
   await registerHokmRoutes(fastify, { service, authenticate });
-  assert.equal(fastify.routes.length, 15);
+  assert.equal(fastify.routes.length, 16);
   assert.ok(fastify.routes.every(route => route.preHandler === authenticate));
   assert.ok(fastify.routes.some(route => route.url === "/hokm/rooms/:roomId/command"));
 });
@@ -89,4 +89,24 @@ test("new participant and manager endpoints are all authenticated", async () => 
     assert.ok(urls.some(url => url.endsWith(suffix)), `missing route ${suffix}`);
   }
   assert.ok(fastify.routes.every(route => route.preHandler === authenticate));
+});
+
+
+test("private chat endpoint forwards verified identity, recipient, message ID and expected version", async () => {
+  const fastify = fakeFastify();
+  let received;
+  const service = {
+    sendChatMessage: async (...args) => { received = args; return { ok: true }; }
+  };
+  await registerHokmRoutes(fastify, { service, authenticate: async () => {} });
+  const route = fastify.routes.find(item => item.url === "/hokm/rooms/:roomId/chat");
+  assert.ok(route);
+  const reply = replyRecorder();
+  await route.handler({
+    auth: { authenticated: true, userId: "verified-sender" },
+    params: { roomId: "room-1" },
+    body: { recipientUserId: "opponent", text: "سلام", messageId: "m-1", expectedVersion: 7 }
+  }, reply);
+  assert.deepEqual(received, ["verified-sender", "room-1", "opponent", "سلام", "m-1", 7]);
+  assert.equal(reply.status, 200);
 });
