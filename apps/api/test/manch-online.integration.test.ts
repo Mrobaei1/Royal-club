@@ -337,6 +337,38 @@ test('Manch online rooms join, roll and persist server-authoritative moves', asy
   assert.equal(outsiderHistory.json().matches.length, 0,
     'A non-player must not receive another users match history.');
 
+  const hostStats = await app.inject({
+    method: 'GET',
+    url: '/api/v1/manch/matches/stats',
+    headers: auth(host.accessToken),
+  });
+  assert.equal(hostStats.statusCode, 200, hostStats.body);
+  assert.ok(hostStats.json().stats.played >= 1);
+  assert.ok(hostStats.json().stats.wins >= 1);
+  assert.equal(
+    hostStats.json().stats.played,
+    hostStats.json().stats.wins + hostStats.json().stats.losses,
+    'Every finished match must be counted exactly once as a win or loss.',
+  );
+
+  const guestStats = await app.inject({
+    method: 'GET',
+    url: '/api/v1/manch/matches/stats',
+    headers: auth(guest.accessToken),
+  });
+  assert.equal(guestStats.statusCode, 200, guestStats.body);
+  assert.ok(guestStats.json().stats.played >= 1);
+  assert.ok(guestStats.json().stats.losses >= 1);
+
+  const outsiderStats = await app.inject({
+    method: 'GET',
+    url: '/api/v1/manch/matches/stats',
+    headers: auth(third.accessToken),
+  });
+  assert.equal(outsiderStats.statusCode, 200, outsiderStats.body);
+  assert.deepEqual(outsiderStats.json().stats, { played: 0, wins: 0, losses: 0 },
+    'A user must only receive their own Manch statistics.');
+
   const rematch = await app.inject({
     method: 'POST',
     url: `/api/v1/manch/matches/${raceId}/rematch`,
