@@ -84,6 +84,27 @@ export async function registerChessWebSocket(app: FastifyInstance, options: Opti
       const send = (value: unknown) => {
         if (!closed && socket.readyState === 1) socket.send(JSON.stringify(value));
       };
+      // Bound cheap client-originated commands per connection so authenticated
+      // sockets cannot turn ping/pong into an unbounded CPU and bandwidth amplifier.
+      const allowPing = createPingRateLimiter();
+      socket.on("message", (raw) => {
+        let message: {type?:string; clientTime?:number};
+        try { message = JSON.parse(raw.toString()) as {type?:string;clientTime?:number}; }
+        catch { send({type:"chess:error",code:"invalid_json"}); return; }
+        if (message.type === "ping") {
+          if (!allowPing()) {
+            socket.close(1008, "rate_limited");
+            return;
+          }
+          send({
+            type:"chess:pong",
+            serverTime:Date.now(),
+            ...(Number.isSafeInteger(message.clientTime) ? {clientTime:message.clientTime} : {})
+          });
+          return;
+        }
+        send({type:"chess:error",code:"unsupported_command_use_authenticated_api"});
+      });
       const publish = async (event: object) => {
         await listener.query("SELECT pg_notify($1,$2)", [channel, JSON.stringify(event)]);
       };
@@ -167,27 +188,6 @@ export async function registerChessWebSocket(app: FastifyInstance, options: Opti
       if (opponentPresence.rowCount) {
         send({type:"chess:opponent:presence",username:opponentPresence.rows[0].username,connected:Boolean(opponentPresence.rows[0].connected)});
       }
-      // Bound cheap client-originated commands per connection so authenticated
-      // sockets cannot turn ping/pong into an unbounded CPU and bandwidth amplifier.
-      const allowPing = createPingRateLimiter();
-      socket.on("message", (raw) => {
-        let message: {type?:string; clientTime?:number};
-        try { message = JSON.parse(raw.toString()) as {type?:string;clientTime?:number}; }
-        catch { send({type:"chess:error",code:"invalid_json"}); return; }
-        if (message.type === "ping") {
-          if (!allowPing()) {
-            socket.close(1008, "rate_limited");
-            return;
-          }
-          send({
-            type:"chess:pong",
-            serverTime:Date.now(),
-            ...(Number.isSafeInteger(message.clientTime) ? {clientTime:message.clientTime} : {})
-          });
-          return;
-        }
-        send({type:"chess:error",code:"unsupported_command_use_authenticated_api"});
-      });
       const cleanup = async () => {
         if (cleaned) return;
         cleaned = true;
