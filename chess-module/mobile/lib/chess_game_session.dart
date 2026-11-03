@@ -49,6 +49,7 @@ class ChessGameSession extends ChangeNotifier {
       (game?['legalMoves'] as List? ?? const []).whereType<String>().toList(growable: false);
   String? get status => game?['status'] as String?;
   bool get isHost => game?['isHost'] == true;
+  bool get drawClaimable => game?['drawClaimable'] == true;
 
   Future<void> connect() {
     if (_disposed) return Future.error(StateError('chess_session_disposed'));
@@ -281,6 +282,11 @@ class ChessGameSession extends ChangeNotifier {
     drawOfferedByOpponent = false;
     if (accept) await refresh();
     if (!_disposed) notifyListeners();
+  }
+
+  Future<void> claimDraw() async {
+    await api.claimDraw(gameId);
+    await refresh();
   }
 
   Future<void> resign() async {
