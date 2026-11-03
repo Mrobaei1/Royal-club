@@ -43,7 +43,7 @@ export function createRoom({ roomId, hostUserId, now, privateRoom = true, matchT
     // No wall-clock TTL: a room remains alive while at least one player is in it.
     status: "waiting", matchTarget, disconnectGraceMs, matchScore: [0, 0],
     playerProgress: {}, penalizedLeavers: [], cancellationVotes: [],
-    appeals: [], reports: [], allDisconnectedDeadline: null, handRevealUntil: null, revealedHands: null,
+    appeals: [], reports: [], chatMessages: [], allDisconnectedDeadline: null, handRevealUntil: null, revealedHands: null,
     players: [{ userId: hostUserId, seat: 0, ready: false, connected: true, botControlled: false }],
     version: 1, round: null, turnDeadlineAt: null
   };
@@ -267,6 +267,41 @@ export function reviewMatchAppeal(room, reviewerId, appealId, { decision, notes 
   return { ...room, appeals, version: room.version + 1 };
 }
 
+/** Private one-to-one text chat is limited to opposing-team participants. */
+export function sendOpponentChatMessage(room, senderUserId, recipientUserId, {
+  messageId, text, now
+} = {}) {
+  requireUserId(senderUserId); requireUserId(recipientUserId); requireNow(now);
+  if (!["playing", "round_completed"].includes(room.status)) throw new Error("Chat is available only during an active match");
+  if (senderUserId === recipientUserId) throw new Error("A player cannot message themselves");
+  const sender = room.players.find(player => player.userId === senderUserId);
+  const recipient = room.players.find(player => player.userId === recipientUserId);
+  if (!sender || !recipient) throw new Error("Both chat participants must belong to this match");
+  if (sender.forfeited || recipient.forfeited) throw new Error("A forfeited player cannot use match chat");
+  if (sender.seat % 2 === recipient.seat % 2) throw new Error("Private match chat is limited to opposing-team players");
+  if (typeof messageId !== "string" || !messageId.trim() || messageId.length > 128) {
+    throw new TypeError("A bounded chat message ID is required");
+  }
+  if (typeof text !== "string" || !text.trim() || text.trim().length > 1000) {
+    throw new TypeError("Chat text must contain between 1 and 1000 characters");
+  }
+  const messages = room.chatMessages ?? [];
+  const duplicate = messages.find(message => message.messageId === messageId);
+  if (duplicate) {
+    if (duplicate.senderUserId !== senderUserId || duplicate.recipientUserId !== recipientUserId ||
+        duplicate.text !== text.trim()) throw new Error("Chat message ID was already used for different content");
+    return room;
+  }
+  const message = Object.freeze({
+    messageId, senderUserId, recipientUserId, text: text.trim(), createdAt: now
+  });
+  return {
+    ...room,
+    chatMessages: [...messages, message].slice(-500),
+    version: room.version + 1
+  };
+}
+
 /** A trusted server/operator may cancel only when technical failure makes continuation impossible. */
 export function cancelForUnrecoverableTechnicalFailure(room, { reason = "unrecoverable_server_failure" } = {}) {
   if (!["playing", "round_completed"].includes(room.status)) throw new Error("Only an unfinished match can be canceled for technical failure");
@@ -291,6 +326,9 @@ export function roomViewForUser(room, userId, { now = Date.now() } = {}) {
     turnDeadlineAt: room.turnDeadlineAt ?? null,
     handRevealUntil: revealActive ? room.handRevealUntil : null,
     revealedHands: revealActive ? copyHands(room.revealedHands) : null,
+    chatMessages: (room.chatMessages ?? []).filter(message =>
+      message.senderUserId === userId || message.recipientUserId === userId
+    ).map(message => ({ ...message })),
     game
   });
 }
