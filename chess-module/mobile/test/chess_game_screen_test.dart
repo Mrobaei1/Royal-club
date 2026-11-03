@@ -5,6 +5,18 @@ import 'package:royal_club_chess/chess_game_screen.dart';
 import 'package:royal_club_chess/chess_board.dart';
 
 const _fen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+class _PersianMaterialLocalizationsDelegate extends LocalizationsDelegate<MaterialLocalizations> {
+  const _PersianMaterialLocalizationsDelegate();
+  @override bool isSupported(Locale locale) => locale.languageCode == 'fa';
+  @override Future<MaterialLocalizations> load(Locale locale) => GlobalMaterialLocalizations.delegate.load(const Locale('en'));
+  @override bool shouldReload(_PersianMaterialLocalizationsDelegate old) => false;
+}
+class _PersianCupertinoLocalizationsDelegate extends LocalizationsDelegate<CupertinoLocalizations> {
+  const _PersianCupertinoLocalizationsDelegate();
+  @override bool isSupported(Locale locale) => locale.languageCode == 'fa';
+  @override Future<CupertinoLocalizations> load(Locale locale) => GlobalCupertinoLocalizations.delegate.load(const Locale('en'));
+  @override bool shouldReload(_PersianCupertinoLocalizationsDelegate old) => false;
+}
 
 Widget _screen({
   VoidCallback? onOfferDraw,
@@ -20,7 +32,7 @@ Widget _screen({
 }) => MaterialApp(
   locale: locale,
   supportedLocales: const [Locale('en'), Locale('fa')],
-  localizationsDelegates: GlobalMaterialLocalizations.delegates,
+  localizationsDelegates: [...GlobalMaterialLocalizations.delegates, const _PersianMaterialLocalizationsDelegate(), const _PersianCupertinoLocalizationsDelegate()],
   home: Directionality(
     textDirection: locale?.languageCode == 'fa' ? TextDirection.rtl : TextDirection.ltr,
     child: Scaffold(
