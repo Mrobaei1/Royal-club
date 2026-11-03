@@ -135,6 +135,10 @@ class FakeHokmApi implements HokmApi {
 
 void main() {
   testWidgets('player can create a room and share its code', (tester) async {
+    tester.view.physicalSize = const Size(1200, 1800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
     final api = FakeHokmApi();
     await tester.pumpWidget(MaterialApp(
       locale: const Locale('fa'),
@@ -152,6 +156,10 @@ void main() {
   });
 
   testWidgets('join by room code does not require a member-only room view first', (tester) async {
+    tester.view.physicalSize = const Size(1200, 1800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
     final api = FakeHokmApi();
     await tester.pumpWidget(MaterialApp(
       locale: const Locale('fa'),
@@ -169,6 +177,10 @@ void main() {
   });
 
   testWidgets('four-player match displays a private hand and submits a card command', (tester) async {
+    tester.view.physicalSize = const Size(1200, 1800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
     final api = FakeHokmApi();
     await tester.pumpWidget(MaterialApp(
       locale: const Locale('fa'),
@@ -194,6 +206,10 @@ void main() {
   });
 
   testWidgets('temporary exit disconnects exactly once', (tester) async {
+    tester.view.physicalSize = const Size(1200, 1800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
     final api = FakeHokmApi();
     await tester.pumpWidget(MaterialApp(
       locale: const Locale('fa'),
