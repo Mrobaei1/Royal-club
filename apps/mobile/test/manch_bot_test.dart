@@ -99,6 +99,38 @@ void main() {
     expect(move!.tokenIndex, 0);
   });
 
+  test('hard bot avoids an exposed square while normal bot advances', () {
+    final state = ManchGameState(
+      players: [
+        ManchPlayerState(
+          colour: ManchColour.red,
+          tokens: [0, 10, -1, -1],
+        ),
+        ManchPlayerState(
+          colour: ManchColour.green,
+          tokens: [39, -1, -1, -1],
+        ),
+      ],
+      activePlayerIndex: 0,
+      profile: const ManchRuleProfile(),
+    );
+    final rolled = engine.roll(state, 1);
+
+    final normal = bot.chooseMove(
+      rolled,
+      difficulty: ManchBotDifficulty.normal,
+    );
+    final hard = bot.chooseMove(
+      rolled,
+      difficulty: ManchBotDifficulty.hard,
+    );
+
+    expect(normal, isNotNull);
+    expect(normal!.tokenIndex, 0);
+    expect(hard, isNotNull);
+    expect(hard!.tokenIndex, 1);
+  });
+
   test('bot returns null when there is no pending legal move', () {
     final state = engine.newGame(playerCount: 2);
     expect(bot.chooseMove(state), isNull);
