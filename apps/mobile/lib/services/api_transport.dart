@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 /// The single source of truth for the public Royal Club API origin.
 ///
 /// The build-time value is a bootstrap fallback. A future signed-network-config
@@ -21,8 +23,9 @@ class ApiTransport {
     return Uri.parse('$baseUrl$normalizedPath');
   }
 
-  /// Must only be called by the future signed configuration verifier after
-  /// signature, schema, expiry and monotonic-version checks have succeeded.
+  /// Test hook only. Production runtime configuration is intentionally not
+  /// exposed until a signed-payload verifier and pinned verification key exist.
+  @visibleForTesting
   static void setVerifiedOrigin(String origin) {
     _verifiedRuntimeOrigin = _normalizeOrigin(origin);
   }
