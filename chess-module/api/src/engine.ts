@@ -59,10 +59,12 @@ export class ChessGame {
 
   private isAutomaticDraw(): boolean {
     const halfMoveClock = Number(this.game.fen().split(/\s+/)[4] ?? 0);
-    return this.game.isStalemate() ||
+    return !this.game.isCheckmate() && (
+      this.game.isStalemate() ||
       this.game.isInsufficientMaterial() ||
       halfMoveClock >= 150 ||
-      this.isFivefoldRepetition();
+      this.isFivefoldRepetition()
+    );
   }
 
   private isTerminalPosition(): boolean {
@@ -96,7 +98,7 @@ export class ChessGame {
     const fen = this.game.fen();
     const halfMoveClock = Number(fen.split(/\s+/)[4] ?? 0);
     const draw = this.isAutomaticDraw();
-    const drawClaimReason = !draw
+    const drawClaimReason = !draw && !this.game.isCheckmate()
       ? this.game.isThreefoldRepetition()
         ? "threefold_repetition"
         : halfMoveClock >= 100 ? "fifty_move_rule" : null
