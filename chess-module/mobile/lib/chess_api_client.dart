@@ -194,9 +194,22 @@ class ChessApiClient {
       scheme: baseUri.scheme == 'https' ? 'wss' : 'ws',
       queryParameters: {'gameId': gameId},
     );
-    return WebSocket.connect(uri.toString(), headers: {
-      HttpHeaders.authorizationHeader: 'Bearer $accessToken',
-    });
+    final socketClient = HttpClient()..connectionTimeout = requestTimeout;
+    try {
+      final socket = await WebSocket.connect(
+        uri.toString(),
+        headers: {HttpHeaders.authorizationHeader: 'Bearer $accessToken'},
+        customClient: socketClient,
+      ).timeout(requestTimeout);
+      socketClient.close(force: true);
+      return socket;
+    } on TimeoutException {
+      socketClient.close(force: true);
+      rethrow;
+    } catch (_) {
+      socketClient.close(force: true);
+      rethrow;
+    }
   }
 
   void dispose() {
