@@ -82,6 +82,19 @@ test("authenticated chess routes support private game, draw, chat, profiles and 
     });
     await appTwo.ready();
 
+    // The trusted identity adapter must reject missing or malformed numeric IDs.
+    const missingIdentity = await app.inject({ method: "POST", url: "/chess/rooms", payload: {} });
+    assert.equal(missingIdentity.statusCode, 401);
+    assert.equal(missingIdentity.json().error, "unauthorized");
+    const malformedIdentity = await app.inject({
+      method: "POST",
+      url: "/chess/rooms",
+      headers: { "x-user-id": "not-a-numeric-user-id" },
+      payload: {},
+    });
+    assert.equal(malformedIdentity.statusCode, 401);
+    assert.equal(malformedIdentity.json().error, "unauthorized");
+
     type TestResponse = { statusCode: number; body: string; json: () => any };
     const request = async (
       userId: string,
