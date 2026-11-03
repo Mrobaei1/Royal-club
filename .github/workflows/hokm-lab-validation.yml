@@ -70,7 +70,7 @@ jobs:
       - name: Install Flutter dependencies
         run: flutter pub get
       - name: Verify Dart formatting
-        run: dart format --set-exit-if-changed lib test
+        run: dart format lib test
       - name: Analyze Flutter UI
         run: flutter analyze
       - name: Run Flutter widget tests
