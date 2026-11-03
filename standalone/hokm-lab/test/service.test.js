@@ -211,3 +211,25 @@ test("a player can join by room code without first reading a member-only room vi
   assert.equal(joined.players.length, 2);
   assert.equal(joined.version, created.version + 1);
 });
+
+
+test("service sends idempotent private text messages only between opposing teams", async () => {
+  const { service } = serviceFixture();
+  let room = await service.create(user("u0"));
+  for (const id of ["u1", "u2", "u3"]) room = await service.join(user(id), room.roomId, room.version);
+  for (const id of ["u0", "u1", "u2", "u3"]) room = await service.ready(user(id), room.roomId, true, room.version);
+  room = await service.start(user("u0"), room.roomId, room.version);
+  const sent = await service.sendChatMessage(user("u0"), room.roomId, "u1", "سلام 👋", "message-1", room.version);
+  assert.equal(sent.chatMessages.length, 1);
+  assert.equal(sent.chatMessages[0].text, "سلام 👋");
+  const recipient = await service.view(user("u1"), room.roomId);
+  const teammate = await service.view(user("u2"), room.roomId);
+  assert.equal(recipient.chatMessages.length, 1);
+  assert.equal(teammate.chatMessages.length, 0);
+  const duplicate = await service.sendChatMessage(user("u0"), room.roomId, "u1", "سلام 👋", "message-1", sent.version);
+  assert.equal(duplicate.version, sent.version);
+  await assert.rejects(
+    service.sendChatMessage(user("u0"), room.roomId, "u2", "هم‌تیمی", "message-2", sent.version),
+    /opposing-team/
+  );
+});
