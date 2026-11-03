@@ -29,3 +29,10 @@ test("rejects invalid participant/result combinations", () => {
   assert.throws(() => chessAwardDeltas({outcome:"win",winnerId:"outsider",loserId:"b"}, "w","b"));
   assert.throws(() => levelUpCost(0));
 });
+
+test("progression inputs reject unsafe numeric values", () => {
+  assert.throws(() => nextProgression({level:1,xp:-1}, 10));
+  assert.throws(() => nextProgression({level:1,xp:0}, 1.5));
+  assert.throws(() => nextProgression({level:1.5,xp:0}, 10));
+  assert.throws(() => levelUpCost(Number.POSITIVE_INFINITY));
+});
