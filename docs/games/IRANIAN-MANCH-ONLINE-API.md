@@ -28,6 +28,7 @@ All endpoints require a Bearer access token.
 | POST | `/api/v1/manch/invites/:id/accept` | Accept a friend invitation and claim a seat |
 | POST | `/api/v1/manch/invites/:id/decline` | Decline an incoming friend invitation |
 | GET/PATCH | `/api/v1/admin/game-disconnect-policies` | Owner-only audited disconnect/temporary-AI policy |
+| GET | `/api/v1/manch/leaderboard` | Top 50 Manch players by permanent level and XP |
 | POST | `/api/v1/manch/matches/:id/roll` | Server-generated dice roll; requires `expectedStateVersion` |
 | POST | `/api/v1/manch/matches/:id/move` | Apply a token move; requires `tokenIndex` and `expectedStateVersion` |
 | POST | `/api/v1/manch/matches/:id/forfeit` | Two-player participant forfeits an active match; opponent wins |
@@ -48,7 +49,7 @@ All endpoints require a Bearer access token.
 - Public match payloads expose usernames and seat colours, never email or full name.
 
 ## Persistence
-`manch_matches` stores the versioned JSON game state, status, current user turn, room code, player count, expiry, state version, winner user and finish reason. `manch_match_players` stores the user-to-seat mapping. The JSON game state schema matches the Flutter `ManchGameState.toJson/fromJson` contract. `manch_match_presence` stores each player's heartbeat lease and recent AI action marker. `manch_match_invites` stores friend-only room invitations, expiry and response status.
+`manch_matches` stores the versioned JSON game state, status, current user turn, room code, player count, expiry, state version, winner user and finish reason. `manch_match_players` stores the user-to-seat mapping. The JSON game state schema matches the Flutter `ManchGameState.toJson/fromJson` contract. `manch_match_presence` stores each player's heartbeat lease and recent AI action marker. `manch_match_invites` stores friend-only room invitations, expiry and response status. `manch_player_stats` stores aggregate results, XP and permanent levels. `manch_progression_events` guarantees one progression award per match and participant.
 
 ## Friend invitations and disconnect takeover
 - Only the room host can invite a user who is already an accepted Royal Club friend.
@@ -61,7 +62,7 @@ All endpoints require a Bearer access token.
 
 ## Not implemented yet
 - WebSocket/push delivery; the client currently uses bounded 2-second state polling.
-- Ranked records, rating/progression, spectator access and league integration.
+- Spectator access and league integration.
 - Production-like multi-client/two-device acceptance and real-network interruption testing.
 - Final owner acceptance of the board visuals and rule profile.
 
@@ -80,20 +81,19 @@ These remaining capabilities are not release-ready until their end-to-end tests 
 - The online lobby displays wins/losses and finish reason; history loading is supplementary and does not block room discovery when unavailable.
 
 
-## Player statistics
+## Player statistics and progression
 
-`GET /api/v1/manch/matches/stats`
+`GET /api/v1/manch/matches/stats` returns the authenticated player's private aggregate:
+- `played`, `wins`, `losses`, `quits`
+- `xpPoints` and permanent `level`
 
-Requires authentication. Returns only the authenticated player's aggregate results from finished matches in which they participated.
+Online result awards use the shared Royal Club progression policy:
+- Win: +20 XP.
+- Loss: +5 XP.
+- Voluntary forfeit/quit: −5 XP, with XP clamped at zero.
+- Offline training awards no competitive XP.
+- Levels start at 1, never decrease, and advance using the shared cumulative level-cost formula, capped at level 100.
 
-```json
-{
-  "stats": {
-    "played": 12,
-    "wins": 7,
-    "losses": 5
-  }
-}
-```
+`GET /api/v1/manch/leaderboard` returns the top 50 ranked players by permanent level, XP, wins and tie-break order. Result events are unique per match and player, so retries cannot award progression twice. The lobby shows the player's level/XP and the top five.
 
-Waiting, active, and cancelled rooms are excluded. A multiplayer finished match counts as one win for its winner and one loss for each other participant. Accounts with no finished matches receive zero values.
+Waiting, active, and cancelled rooms are excluded. A multiplayer finished match counts as one win for its winner and one loss for each other participant. Accounts with no finished matches receive zero values and level 1.
