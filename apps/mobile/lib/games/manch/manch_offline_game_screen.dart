@@ -48,16 +48,28 @@ class _ManchOfflineGameScreenState extends State<ManchOfflineGameScreen> {
   int? _lastDice;
   bool _matchStarted = false;
   String _message = 'برای شروع نوبت، تاس را بینداز.';
+  bool _messageLocalized = false;
 
   @override
   void initState() {
     super.initState();
-    _message = _text('برای شروع نوبت، تاس را بینداز.', 'Roll the die to start your turn.');
     _state = _engine.newGame(
       playerCount: widget.playerCount,
       profile: widget.profile,
     );
     if (_isBotTurn) _scheduleBotTurn();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_messageLocalized) {
+      _message = _text(
+        'برای شروع نوبت، تاس را بینداز.',
+        'Roll the die to start your turn.',
+      );
+      _messageLocalized = true;
+    }
   }
 
   bool get _isBotTurn =>
