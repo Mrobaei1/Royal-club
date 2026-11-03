@@ -210,4 +210,55 @@ void main() {
     }
   });
 
+
+  test('all bot difficulty levels can complete seeded full games for 2–4 players', () {
+    for (final playerCount in [2, 3, 4]) {
+      for (final difficulty in ManchBotDifficulty.values) {
+        var state = engine.newGame(playerCount: playerCount);
+        var randomState = 0x13579BDF ^ (playerCount * 7919) ^ difficulty.index;
+        var rolls = 0;
+
+        while (!state.isFinished && rolls < 20000) {
+          randomState = (randomState * 1664525 + 1013904223) & 0x7fffffff;
+          final dice = (randomState % 6) + 1;
+          state = engine.roll(state, dice);
+          rolls++;
+
+          final legalMoves = engine.legalMoves(state);
+          if (legalMoves.isEmpty) {
+            state = engine.passTurn(state);
+            continue;
+          }
+
+          final chosen = bot.chooseMove(state, difficulty: difficulty);
+          expect(chosen, isNotNull,
+              reason: 'playerCount=$playerCount difficulty=$difficulty roll=$rolls');
+          expect(
+            legalMoves.any((move) =>
+                move.playerIndex == chosen!.playerIndex &&
+                move.tokenIndex == chosen.tokenIndex &&
+                move.fromProgress == chosen.fromProgress &&
+                move.toProgress == chosen.toProgress),
+            isTrue,
+            reason: 'Bot must only choose a currently legal move.',
+          );
+          state = engine.move(state, chosen!.tokenIndex);
+        }
+
+        expect(
+          state.isFinished,
+          isTrue,
+          reason: 'Full game did not finish: players=$playerCount difficulty=$difficulty rolls=$rolls',
+        );
+        expect(state.winnerIndex, inInclusiveRange(0, playerCount - 1));
+        expect(
+          state.players[state.winnerIndex!].tokens.every(
+            (position) => position == ManchEngine.finish,
+          ),
+          isTrue,
+        );
+      }
+    }
+  });
+
 }
