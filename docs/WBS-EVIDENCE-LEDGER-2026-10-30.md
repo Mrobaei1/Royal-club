@@ -234,3 +234,11 @@ This closes the exact-main automated CI evidence gap for this commit only; it do
 - Latest PR head: `7d30c6a34d923df1023871aa1b5a508671b15fe1`.
 - On that exact head, Backgammon engine audit (41703870932), API build/unit tests, API PostgreSQL integration tests and Flutter analyze/tests (41703871187), and Web Preview build (41703871239) passed. Web Preview deploy was skipped. UNO Standalone CI (41703870843) and a duplicate root validation run were still queued/in progress at the time of this entry.
 - PR #144 remains Draft/unmerged. No UNO backend deployment, production secret/database setup, APK build or physical two-device acceptance has occurred. The `UNO_SERVER_URL` remains a build-time input until the separately approved endpoint configuration is decided.
+
+
+### Central network-origin control — scope decision remains open
+
+- The owner has required a central server/domain control mechanism across API and game modules, with signed, versioned configuration and rollback. Current `main` `ApiTransport` still uses a build-time API origin; it explicitly does not implement remote signed configuration.
+- Open PR #97 proposes an Infrastructure & Reliability Agent and a central signed network-control plane as a **100-point WBS extension** (proposed total 1,100 points). That proposal is not merged or adopted; the governing WBS v1.1 remains 53 packages / 1,000 points.
+- PR #144's `UNO_SERVER_URL` build-time value is temporary for an isolated integration draft and does not meet the central signed-config requirement.
+- Do not silently add 100 points or reweight the approved baseline. Before implementing the full control plane, the owner must decide whether to adopt the proposed WBS extension or include the scope within the existing 1,000-point weights through an approved WBS revision.
