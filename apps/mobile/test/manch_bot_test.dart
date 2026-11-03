@@ -171,6 +171,42 @@ void main() {
     expect(hard!.tokenIndex, 1);
   });
 
+  test('hard bot avoids a capture that exposes the token to a third player', () {
+    final state = ManchGameState(
+      players: [
+        ManchPlayerState(
+          colour: ManchColour.red,
+          tokens: [0, 10, -1, -1],
+        ),
+        ManchPlayerState(
+          colour: ManchColour.green,
+          tokens: [40, -1, -1, -1],
+        ),
+        ManchPlayerState(
+          colour: ManchColour.yellow,
+          tokens: [26, -1, -1, -1],
+        ),
+      ],
+      activePlayerIndex: 0,
+      profile: const ManchRuleProfile(),
+    );
+
+    final rolled = engine.roll(state, 1);
+    final capture = engine.legalMoves(rolled).firstWhere(
+      (move) => move.tokenIndex == 0,
+    );
+    expect(capture.isCapture, isTrue);
+
+    final hard = bot.chooseMove(
+      rolled,
+      difficulty: ManchBotDifficulty.hard,
+    );
+
+    expect(hard, isNotNull);
+    expect(hard!.tokenIndex, 1);
+    expect(hard.toProgress, 11);
+  });
+
   test('bot returns null when there is no pending legal move', () {
     final state = engine.newGame(playerCount: 2);
     expect(bot.chooseMove(state), isNull);
