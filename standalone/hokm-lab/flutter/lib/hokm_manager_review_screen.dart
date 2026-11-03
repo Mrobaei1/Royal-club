@@ -60,7 +60,7 @@ class _HokmManagerReviewScreenState extends State<HokmManagerReviewScreen> {
 
   Future<void> _reviewAppeal(String id, String decision) async {
     await _mutate(() => widget.api.reviewAppeal(widget.roomId, id, decision,
-        'Reviewed by an authorized manager.', _version));
+        _notesController.text.trim(), _version));
   }
 
   Future<void> _mutate(Future<Map<String, dynamic>> Function() action) async {
