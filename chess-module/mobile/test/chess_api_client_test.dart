@@ -10,6 +10,27 @@ Future<HttpServer> _serve(Future<void> Function(HttpRequest) handler) async {
     handler(request);
   });
   return server;
+  test('API client aborts a request that exceeds its configured timeout', () async {
+    final server = await _serve((request) async {
+      await Future<void>.delayed(const Duration(seconds: 2));
+      if (!request.response.headersSent) {
+        await _json(request, HttpStatus.ok, {'status': 'late'});
+      }
+    });
+    final client = ChessApiClient(
+      baseUri: Uri.parse('http://127.0.0.1:${server.port}'),
+      accessToken: 'test-token',
+      requestTimeout: const Duration(milliseconds: 100),
+    );
+
+    try {
+      await expectLater(client.game('123'), throwsA(isA<TimeoutException>()));
+    } finally {
+      client.dispose();
+      await server.close(force: true);
+    }
+  });
+
 }
 
 Future<void> _json(HttpRequest request, int status, Object body) async {
