@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 import 'uno_chat_panel.dart';
 import 'uno_card_label.dart';
+import 'uno_room_session_store.dart';
 
 class UnoOnlineScreen extends StatefulWidget {
   const UnoOnlineScreen({
@@ -22,6 +23,9 @@ class UnoOnlineScreen extends StatefulWidget {
 
 class _UnoOnlineScreenState extends State<UnoOnlineScreen> {
   io.Socket? _socket;
+  final UnoRoomSessionStore _sessionStore = UnoRoomSessionStore();
+  String? _pendingRoomCode;
+  bool _restoreAttempted = false;
   Map<String, dynamic>? _room;
   Map<String, dynamic>? _game;
   List<dynamic> _hand = [];
@@ -68,6 +72,7 @@ class _UnoOnlineScreenState extends State<UnoOnlineScreen> {
   void initState() {
     super.initState();
     _connect();
+    _loadSavedRoom();
   }
 
   void _connect() {
@@ -82,14 +87,19 @@ class _UnoOnlineScreenState extends State<UnoOnlineScreen> {
     _socket = socket;
     socket.onConnect((_) {
       if (mounted) setState(() => _error = null);
-      final code = _room?['code']?.toString();
-      if (code != null) _restoreRoom(code);
+      final code = _room?['code']?.toString() ?? _pendingRoomCode;
+      if (code != null && !_restoreAttempted) {
+        _restoreAttempted = true;
+        _restoreRoom(code);
+      }
     });
     socket.onConnectError((error) { if (mounted) setState(() => _error = _t('اتصال به سرور برقرار نشد: $error', 'Could not connect to server: $error')); });
     socket.on('uno:room:state', (data) {
       if (!mounted) return;
       final room = Map<String, dynamic>.from(data as Map);
       setState(() => _room = room);
+      _pendingRoomCode = room['code']?.toString();
+      if (_pendingRoomCode != null) await _sessionStore.saveRoomCode(_pendingRoomCode!);
     });
     socket.on('uno:game:state', (data) {
       if (!mounted) return;
@@ -111,10 +121,30 @@ class _UnoOnlineScreenState extends State<UnoOnlineScreen> {
     socket.connect();
   }
 
+  Future<void> _loadSavedRoom() async {
+    try {
+      final code = await _sessionStore.readRoomCode();
+      if (!mounted || code == null) return;
+      _pendingRoomCode = code;
+      if (_socket?.connected == true && !_restoreAttempted) {
+        _restoreAttempted = true;
+        await _restoreRoom(code);
+      }
+    } catch (_) {
+      // Local session storage is best-effort; normal lobby access remains available.
+    }
+  }
+
   Future<void> _restoreRoom(String code) async {
     try {
       final result = await _emit('uno:room:reconnect', {'code': code});
-      if (result['ok'] != true || !mounted) return;
+      if (result['ok'] != true || !mounted) {
+        if (result['error'] is Map && (result['error'] as Map)['code'] == 'ROOM_NOT_FOUND') {
+          await _sessionStore.clearRoomCode();
+          _pendingRoomCode = null;
+        }
+        return;
+      }
       final data = Map<String, dynamic>.from(result['data'] as Map);
       final room = Map<String, dynamic>.from(data['room'] as Map);
       setState(() => _room = room);
@@ -152,20 +182,24 @@ class _UnoOnlineScreenState extends State<UnoOnlineScreen> {
         final room = Map<String, dynamic>.from(map['room'] as Map);
         setState(() {
           _room = room;
+          _pendingRoomCode = room['code']?.toString();
           _game = null;
           _hand = [];
           _drawnCardId = null;
           _messages.clear();
         });
+        if (_pendingRoomCode != null) await _sessionStore.saveRoomCode(_pendingRoomCode!);
       }
       if (event == 'uno:room:leave') {
         setState(() {
           _room = null;
+          _pendingRoomCode = null;
           _game = null;
           _hand = [];
           _drawnCardId = null;
           _messages.clear();
         });
+        await _sessionStore.clearRoomCode();
       }
       if (event == 'uno:room:start') {
         final map = Map<String, dynamic>.from(data as Map);
