@@ -81,7 +81,7 @@ export async function registerChessWebSocket(app: FastifyInstance, options: Opti
           await listener.query("LISTEN " + channel);
         } catch (error) {
           handlers.delete(handler);
-          if (handlers.size === 0) subscriptions.delete(channel);
+          if (Array.from(handlers).length === 0) subscriptions.delete(channel);
           throw error;
         }
       }
