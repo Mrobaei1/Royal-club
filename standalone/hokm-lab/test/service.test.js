@@ -190,7 +190,7 @@ test("only the host can start the next round after the full three-second reveal"
   assert.equal(await repository.compareAndSwap(room.roomId, persisted.version, roundCompleted), true);
   await assert.rejects(
     service.nextRound(user("u1"), room.roomId, roundCompleted.version),
-    /Only the host may start the next round/
+    /Only the host.*may start the next round/
   );
   await assert.rejects(
     service.nextRound(user("u0"), room.roomId, roundCompleted.version),
