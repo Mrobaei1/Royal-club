@@ -24,6 +24,22 @@ function normalizeDatabaseUrl(value: string): string {
   }
 }
 const pool = new Pool({ connectionString: normalizeDatabaseUrl(databaseUrl) });
+
+// Room state is currently process-local. Hold a PostgreSQL session lock before
+// loading snapshots so a second replica cannot overwrite newer room state.
+const instanceLockClient = await pool.connect();
+try {
+  const lock = await instanceLockClient.query<{ locked: boolean }>(
+    'SELECT pg_try_advisory_lock(1380929364, 1) AS locked',
+  );
+  if (!lock.rows[0]?.locked) {
+    throw new Error('A UNO instance is already running. Multiple replicas are disabled until distributed room transactions are implemented.');
+  }
+} catch (error) {
+  instanceLockClient.release();
+  await pool.end();
+  throw error;
+}
 const jwtSecret = process.env.JWT_SECRET ?? '';
 if (jwtSecret.length < 32) throw new Error('JWT_SECRET must contain at least 32 characters.');
 
@@ -81,7 +97,16 @@ const roomCleanupTimer = setInterval(() => {
 roomCleanupTimer.unref();
 const port = Number(process.env.PORT ?? 4100);
 const host = process.env.HOST ?? '0.0.0.0';
-app.addHook('onClose', async () => { clearInterval(roomCleanupTimer); await roomWriteQueue.catch(error => app.log.error(error)); await pool.end(); });
+app.addHook('onClose', async () => {
+  clearInterval(roomCleanupTimer);
+  await roomWriteQueue.catch(error => app.log.error(error));
+  try {
+    await instanceLockClient.query('SELECT pg_advisory_unlock(1380929364, 1)');
+  } finally {
+    instanceLockClient.release();
+    await pool.end();
+  }
+});
 try {
   await app.listen({ port, host });
   app.log.info(`UNO standalone service listening on ${host}:${port}`);
