@@ -165,8 +165,11 @@ export function startRoom(room, requesterUserId, { now, rng = Math.random } = {}
   if (room.status !== "waiting") throw new Error("Room has already started or closed");
   if (room.players.length !== MAX_PLAYERS) throw new Error("Exactly four players are required");
   if (!room.players.every(player => player.ready)) throw new Error("All players must be ready");
+  const hakemSample = rng();
+  if (!(hakemSample >= 0 && hakemSample < 1)) throw new RangeError("RNG must return a number in [0, 1)");
+  const hakemSeat = Math.floor(hakemSample * MAX_PLAYERS);
   const deck = shuffleDeck(createDeck(), rng);
-  const round = createRound({ deck, hakemSeat: 0 });
+  const round = createRound({ deck, hakemSeat });
   return { ...room, status: "playing", round, turnStartedAt: now,
     turnDeadlineAt: now + TURN_DEADLINE_MS, version: room.version + 1 };
 }
