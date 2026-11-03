@@ -46,7 +46,7 @@ class ManchBot {
     var score = move.toProgress - move.fromProgress;
     if (move.isCapture) {
       score += switch (difficulty) {
-        ManchBotDifficulty.easy => 80,
+        ManchBotDifficulty.easy => 0,
         ManchBotDifficulty.normal => 1000,
         ManchBotDifficulty.hard => 1200,
       };
