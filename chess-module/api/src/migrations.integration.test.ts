@@ -35,6 +35,7 @@ test("isolated chess migrations apply cleanly against a bigint users schema", { 
       "008_cancel_draws_on_terminal.sql",
       "009_draw_offer_expiry.sql",
       "010_presence_sessions.sql",
+  "011_immutable_admin_audit.sql",
     ]) {
       const sql = await readFile(new URL(`../../database/migrations/${file}`, import.meta.url), "utf8");
       await db.query(sql);
@@ -52,6 +53,7 @@ test("isolated chess migrations apply cleanly against a bigint users schema", { 
       "008_cancel_draws_on_terminal.sql",
       "009_draw_offer_expiry.sql",
       "010_presence_sessions.sql",
+  "011_immutable_admin_audit.sql",
     ]) {
       const sql = await readFile(new URL(`../../database/migrations/${file}`, import.meta.url), "utf8");
       await db.query(sql);
@@ -63,9 +65,17 @@ test("isolated chess migrations apply cleanly against a bigint users schema", { 
     const [white, black] = users.rows.map(row => String(row.id));
     const control = await db.query("SELECT id FROM chess_time_controls WHERE id='rapid' AND enabled=true");
     assert.equal(control.rowCount, 1);
-    await db.query(
-      "INSERT INTO chess_admin_audit_events(actor_user_id,action,entity_type,entity_id) VALUES($1,'time_control_upsert','time_control','rapid')",
+    const auditEvent = await db.query(
+      "INSERT INTO chess_admin_audit_events(actor_user_id,action,entity_type,entity_id) VALUES($1,'time_control_upsert','time_control','rapid') RETURNING id",
       [white],
+    );
+    await assert.rejects(
+      db.query("UPDATE chess_admin_audit_events SET entity_id='tampered' WHERE id=$1", [auditEvent.rows[0].id]),
+      /chess_audit_events_are_immutable/,
+    );
+    await assert.rejects(
+      db.query("DELETE FROM chess_admin_audit_events WHERE id=$1", [auditEvent.rows[0].id]),
+      /chess_audit_events_are_immutable/,
     );
 
     const room = await db.query(
@@ -135,10 +145,10 @@ test("isolated chess migrations apply cleanly against a bigint users schema", { 
     const triggers = await db.query(
       `SELECT COUNT(*)::int AS count FROM pg_trigger
        WHERE NOT tgisinternal AND tgname IN (
-         'chess_games_realtime_notify','chess_chat_realtime_notify','chess_cancel_pending_draws_terminal'
+         'chess_games_realtime_notify','chess_chat_realtime_notify','chess_cancel_pending_draws_terminal','chess_admin_audit_immutable'
        )`,
     );
-    assert.equal(triggers.rows[0].count, 3);
+    assert.equal(triggers.rows[0].count, 4);
 
     const columns = await db.query(
       `SELECT table_name,column_name FROM information_schema.columns
