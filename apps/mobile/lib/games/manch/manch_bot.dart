@@ -65,8 +65,10 @@ class ManchBot {
     final target = _global(colour, move.toProgress);
     if (state.profile.safeTrackIndices.contains(target)) {
       score += 35;
-    } else if (!move.isCapture && _isThreatened(state, move, target)) {
-      score -= 120;
+    } else if (_isThreatened(state, move, target)) {
+      // A capture can still land in another opponent's immediate threat range
+      // in 3–4 player games. Hard difficulty must account for that exposure.
+      score -= 1500;
     }
 
     if (state.profile.blockadesEnabled &&
