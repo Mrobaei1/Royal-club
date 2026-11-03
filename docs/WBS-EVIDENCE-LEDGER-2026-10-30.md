@@ -1,8 +1,8 @@
 # Royal Club — WBS v1.1 Evidence Ledger (rolling audit)
 
-- **Audit date:** 2026-11-02 (scope revision; package scoring remains pending)
+- **Audit date:** 2026-11-04 (owner-confirmed manual RTL/LTR acceptance recorded; criterion-level scoring updated)
 - **Governing baseline:** `docs/PROJECT-WBS-BASELINE.md`, WBS v1.1
-- **Live main checked for this revision:** `3a7d68354f628b43c0080b4ea5bebc6d241ea325`
+- **Live main checked for this revision:** `ee61be087ef18c7dacd56d80a0f725f261c6384a`
 - **Documentation follow-up:** PR #70 merged as `22dbff4caf81e3507da31e38bc2905cc964baf41` (WBS count correction and evidence ledger; no application code changed).
 - **Online disconnect implementation:** PR #67 merged as `69f315b2c2d38eba3c1e688ab48be77d17a2137c`.
 - **Notification/empty-bar fixes:** PR #75 merged as `227563f82c63ec5e9e4d4fa6c3e78e27cd059d26`.
@@ -35,8 +35,8 @@ The roadmap previously said 47 packages. Counting the actual leaf IDs in the app
 
 ## Status summary
 
-- In progress: 35 packages
-- Blocked: 13 packages
+- In progress: 36 packages
+- Blocked: 12 packages
 - Not started: 4 packages
 - Blocked — approval gated: 1 packages
 - Total: 53 packages / 1000 points.
@@ -55,7 +55,7 @@ The roadmap previously said 47 packages. Counting the actual leaf IDs in the app
 | 2.2 | 20 | In progress | docs/PHASE-1-3-READINESS.md §OTP; docs/SMS-AUTH-ADMIN-CONFIG.md | Real provider activation and Android registration/login/linking acceptance remain gated. |
 | 2.3 | 20 | In progress | apps/api/src/server.ts self-account/auth routes; apps/api/test/server.integration.test.ts privacy assertions | Complete manual audit of every public surface and legacy/empty profiles. |
 | 2.4 | 20 | In progress | docs/PHASE-1-LOCALIZATION-AUDIT.md; readiness localization checklist | Re-run exact-head Flutter tests and close any remaining dynamic/navigation gaps. |
-| 2.5 | 20 | Blocked | Readiness checklist — manual device acceptance open | Manual Persian RTL / English LTR acceptance on supported Android sizes. |
+| 2.5 | 20 | In progress | Owner confirmed Persian RTL and English LTR manual checks on Android on 2026-11-04; no issue reported | Complete remaining acceptance for dialogs/forms/overflow, supported screen sizes and dynamic text/directional UI; criteria 2.5-A/B passed, 2.5-C/D remain pending. |
 | 2.6 | 15 | Blocked | docs/PHASE-1-SECURITY-REVIEW.md; checkpoint production audit | Confirm owner configuration and complete deployed environment/network/security review. |
 | 2.7 | 15 | Blocked | Execution roadmap P2; readiness checklist | Same-account VPN-on/VPN-off test on a real device. |
 | 3.1 | 45 | In progress | apps/api/src/backgammon-rules.ts; backgammon engine audit CI | Complete edge-case audit and acceptance for legal sequences, dice, hits, bar, bear-off and turn transitions. |
@@ -116,7 +116,7 @@ The roadmap previously said 47 packages. Counting the actual leaf IDs in the app
 4. **Online board:** main's mobile screen obtains the match state from the authenticated `/matches/:id/state` endpoint and labels it server state. The rendering path also supports a local, explicitly unsubmitted batch-move preview. The user's reported incorrect-board symptom still requires real-device reproduction; no source change is justified from static inspection alone.
 5. **Room/invite expiry:** source creates empty rooms with a 60-second expiry and invite cards are checked against a 60-second age. The API cleanup endpoint exists and is called by room/invite polling, but there is no configured Neon scheduled trigger in the latest production audit; serverless idle cleanup is therefore not proven.
 6. **Production:** Neon reports active Function deployment 80 and 33 public tables; read-only comparison found all 33 current source table declarations present with no extra/missing table names. The exact deployed Git SHA is not exposed. No scheduled Neon trigger is configured; owner/SMS configuration and registration/login smoke acceptance remain separate gates. Latest post-merge production health workflow `41186861447` passed. No Production mutation or deployment was performed.
-7. **Manual acceptance:** two-device match behavior, RTL/LTR, theme consistency, VPN continuity and Android layout/accessibility/performance remain open.
+7. **Manual acceptance:** Persian RTL and English LTR were confirmed by the owner on Android on 2026-11-04 with no issue reported. Remaining gates include dialogs/forms/overflow across supported sizes, dynamic text/directional UI, two-device match behavior, theme consistency, VPN continuity and broader accessibility/performance acceptance.
 
 ## Evidence sources
 
@@ -179,3 +179,76 @@ The repository search showed active, unmerged work including PRs #86 (isolated c
 - No APK build or preparation is authorized by this audit.
 - No Production deployment, migration, schema mutation, secret change, paid activation, SMS activation, agent activation, grant creation or scheduled agent action was performed or authorized by this documentation update.
 - Live audio/video calling, WebRTC calling and TURN remain out of scope. Recorded voice messages remain future-optional and OFF by default.
+
+
+## Evidence refresh — 2026-11-03
+
+### Current repository state
+
+- Live `main` is `ee61be087ef18c7dacd56d80a0f725f261c6384a` (verified branch ref during this refresh).
+- PR #122 merged the standalone UNO module into `main` at `ee61be0`. This is repository integration only; UNO's own status file records 100/100 for its defined standalone single-instance engineering scope, while two-device/six-player physical acceptance, root-app integration approval, production hosting and multi-instance scale remain outside that score.
+- PR #144 proposes root home-screen integration of UNO. Its exact-head runs on `acf883ce9489b9849c62fbca738d5c8296d43603` passed: UNO Standalone CI (41700757759), Web Preview (41700757202), Backgammon engine audit (41700757729), Royal Club validation (41700757411), and Validate Royal Club (41700757351). It remains open/draft. The separate UNO service URL is a build-time input and is not deployed/configured here.
+- PR #143 proposes a backgammon oversized bear-off correction. All four exact-head workflows passed on `3255d5613f43ea0c6096df949829015fc8c28be1`: Backgammon engine audit (41676339555), Royal Club validation (41676339656), Validate Royal Club (41676339651), and Web Preview (41676339818). It remains open; no merge is performed by this audit.
+- PR #137 (Hokm mobile/service integration) has four successful exact-head workflows on `b2557316f55e6f3ca23081eeeeb24ae5d9a3fc63`: engine audit (41696786943), Royal Club validation (41696786955), Validate Royal Club (41696786940), and Web Preview (41696786908). It remains draft/unmerged and still needs code review plus the production/service integration decision.
+- PR #133 also contains Hokm API/service integration and has four successful workflows on `045d4fe923060bfa33546f5a00fe7724afb457ca`. It overlaps materially with #137; do not integrate both competing implementations. Compare and consolidate one canonical path before any owner-approved merge.
+- PR #86 chess remains isolated from the root app. Root validation, Web Preview, engine audit and Royal Club validation passed on its current head; its dedicated chess-module workflow was still running during this refresh. No chess routes/menu integration or production migration is authorized.
+- PR #110 Manch is still in progress; its Validate Royal Club workflow was running at the time checked. Treat it as isolated future-game work until independently reviewed and accepted.
+- PR #140 targets `research/hokm-standalone`, not `main`; it is not a candidate for direct integration into the production API without a deliberate consolidation/rebase review.
+- The current main commit's combined-status lookup returned no status checks, and the commit-specific workflow lookup surfaced no PR-triggered runs. Therefore this refresh does not claim fresh exact-head main CI success.
+
+### Scoring and WBS treatment
+
+- These PR/CI facts update evidence inventory only. They do not automatically earn project-wide WBS points; each leaf package still requires criterion-level scoring and all required acceptance evidence.
+- The official Royal Club-wide score remains **pending** until all 53 leaf packages are decomposed into measurable sub-criteria/sub-weights and the evidence is scored. Do not use the UNO-only 100/100 score as a project-wide score.
+- Do not award points for open PRs, unmerged code, green CI without required manual acceptance, or production health checks that do not attest the latest source deployment.
+
+### Approval and safety boundaries reconfirmed
+
+- No PR was merged by this refresh.
+- No Production deployment, database migration/schema mutation, secret update, SMS activation, payment activation, agent execution/grant/schedule, or APK build was performed.
+- Live voice/video calls and WebRTC/TURN remain out of scope; future recorded voice messages remain disabled by default.
+
+
+### Criterion-level scoring scaffold — 2026-11-03
+
+- Added [`docs/WBS-CRITERION-SCORING-MATRIX-2026-11-03.md`](WBS-CRITERION-SCORING-MATRIX-2026-11-03.md), decomposing all 53 approved leaf packages into 200 equal 5-point acceptance criteria (1,000 points total).
+- Every criterion is deliberately marked Pending. This creates an auditable scoring structure; it does not award points. The official project-wide percentage remains pending until each criterion is individually checked against current exact evidence and manual/approval gates.
+
+
+### Exact-main CI confirmation — 2026-11-03
+
+The earlier refresh noted that the commit-specific lookup had not surfaced checks. A subsequent branch-filtered Actions audit confirmed all four main workflows passed on exact main commit `ee61be087ef18c7dacd56d80a0f725f261c6384a`:
+
+- Validate Royal Club — run [41676965752](https://github.com/Mrobaei1/Royal-club/actions/runs/41676965752): Flutter analyze/tests and API build/integration tests passed.
+- Royal Club validation — run [41676965803](https://github.com/Mrobaei1/Royal-club/actions/runs/41676965803): API build/tests and Flutter analyze/tests passed.
+- Royal Club Web Preview — run [41676965794](https://github.com/Mrobaei1/Royal-club/actions/runs/41676965794): build and preview deployment passed. This is not an API Production deployment.
+- Royal Club Production API Health — run [41676965862](https://github.com/Mrobaei1/Royal-club/actions/runs/41676965862): currently deployed API/database health passed. This does not prove that the latest source commit is deployed.
+
+This closes the exact-main automated CI evidence gap for this commit only; it does not close manual acceptance, source-provenance, production deployment, or WBS criterion scoring.
+
+
+### PR #144 follow-up review — 2026-11-03
+
+- Code review found that the first root-app integration draft used one global saved-room key pair. An asynchronous account switch could therefore let an old session overwrite or clear the new account's room recovery data.
+- The PR branch now uses per-player storage keys, scopes clear operations to the captured player ID, discards stale async room actions after account/server changes, and resets transient UI state when the widget identity changes. Regression tests cover two-account isolation, account-specific clear, empty codes and invalid IDs.
+- Latest PR head: `7d30c6a34d923df1023871aa1b5a508671b15fe1`.
+- On that exact head, Backgammon engine audit (41703870932), API build/unit tests, API PostgreSQL integration tests and Flutter analyze/tests (41703871187), and Web Preview build (41703871239) passed. Web Preview deploy was skipped. UNO Standalone CI (41703870843) and a duplicate root validation run were still queued/in progress at the time of this entry.
+- PR #144 remains Draft/unmerged. No UNO backend deployment, production secret/database setup, APK build or physical two-device acceptance has occurred. The `UNO_SERVER_URL` remains a build-time input until the separately approved endpoint configuration is decided.
+
+
+### Central network-origin control — scope decision remains open
+
+- The owner has required a central server/domain control mechanism across API and game modules, with signed, versioned configuration and rollback. Current `main` `ApiTransport` still uses a build-time API origin; it explicitly does not implement remote signed configuration.
+- Open PR #97 proposes an Infrastructure & Reliability Agent and a central signed network-control plane as a **100-point WBS extension** (proposed total 1,100 points). That proposal is not merged or adopted; the governing WBS v1.1 remains 53 packages / 1,000 points.
+- PR #144's `UNO_SERVER_URL` build-time value is temporary for an isolated integration draft and does not meet the central signed-config requirement.
+- Do not silently add 100 points or reweight the approved baseline. Before implementing the full control plane, the owner must decide whether to adopt the proposed WBS extension or include the scope within the existing 1,000-point weights through an approved WBS revision.
+
+
+## Owner-confirmed RTL/LTR acceptance — 2026-11-04
+
+- The project owner manually checked the Persian RTL interface and reported no issue.
+- The project owner then manually checked the English LTR interface and reported no issue.
+- This records the owner's device-level acceptance for matrix criteria **2.5-A** and **2.5-B** only (5 points each; 10 points total).
+- Criteria **2.5-C** (dialogs/forms/overflow) and **2.5-D** (dynamic text/directional UI) remain Pending until their full supported-size acceptance is explicitly verified. Package 2.5 therefore remains In progress, not complete.
+- The scoring matrix now records 10 earned points out of 1,000 (1.0% evidence-backed); all other criteria remain pending/not earned. This is a criterion-level minimum, not a claim that all remaining work has been audited.
+- No application code, production environment, database, release, or APK was changed.

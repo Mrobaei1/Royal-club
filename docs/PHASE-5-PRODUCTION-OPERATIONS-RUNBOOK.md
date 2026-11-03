@@ -68,7 +68,7 @@ Acceptance test for an approved non-production or controlled test window:
 Target requirements:
 - Confirm provider backup/snapshot retention and recovery-point availability for the production branch.
 - Preserve the product requirement for the latest three usable recovery points.
-- The requested 23:59 Asia/Tehran owner backup/email-link process is not provided by the current Neon snapshot-schedule query; provider snapshots must not be represented as that email workflow.
+- The owner-approved requirement is daily backups with the latest three usable recovery points and restore testing before sensitive changes. The exact execution time/timezone and any email-link delivery workflow have not been specified; do not assume 23:59 Asia/Tehran or send links without approval. See `docs/DATA-LIFECYCLE-AND-RETENTION-POLICY.md`.
 - Before enabling any schedule, compare supported provider frequency/time-zone capabilities, expected cost, retention, and restore impact; obtain owner approval.
 - Keep any emailed download/share link time-limited and recipient-restricted. Never email raw database credentials or unrestricted permanent URLs.
 - Restore a selected recovery point to a **new isolated branch**, never over Production during the test. Verify schema, table counts, representative row integrity, and API compatibility; record recovery time and any data-loss window.
@@ -132,7 +132,7 @@ This verifies the SQL predicate and associated-notification deletion path on an 
 
 ## 11. Recurring snapshot capability limitation
 
-A daily Neon snapshot schedule with seven-day retention was attempted after the owner requested Phase 5 completion. Neon rejected the request with `backup schedule creation is not enabled for this project` (HTTP 404). No schedule was changed. The manual snapshot does not satisfy the requested recurring 23:59 Asia/Tehran backup with a time-limited email link and latest-three recovery-point workflow. A supported recurring backup path must be enabled by the provider/account or implemented through a separately configured secure backup service.
+A daily Neon snapshot schedule (the attempted test configuration used seven-day retention) was attempted. Neon rejected the request with `backup schedule creation is not enabled for this project` (HTTP 404). No schedule was changed. The manual snapshot does not satisfy the owner's daily-backup/latest-three-recovery-points requirement. The backup execution time/timezone and email-link workflow remain unspecified. A supported recurring backup path must be enabled by the provider/account or implemented through a separately configured secure backup service.
 
 Provider-plan cross-check: the Neon project owner is on the Free plan. Neon documents scheduled snapshots as unavailable on Free, with one manual snapshot permitted on Free; snapshot storage is billed separately. The current manual snapshot is therefore the project's one available manual recovery point. Do not create additional snapshots or change plan/billing settings without reviewing cost and retention implications. The recurring backup requirement needs either an owner-approved plan change or a separately configured backup service with the necessary secrets and retention controls.
 
@@ -145,3 +145,16 @@ PR #92 (`b74c05ff68b9cd3334d07a2d084983b0b48ad7cc`) passed exact-head CI and is 
 - Neon scheduled cleanup invocation ID must match between the trusted trigger header and JSON body, with a structured success log including invocation ID and deleted-room count.
 
 **Important:** these changes are merged in GitHub but are not yet live. Neon still reports active deployment 81, which predates PR #92. Use the manual deployment workflow and retain its successful run URL, commit SHA, and new deployment ID before accepting source provenance or live trigger-route behavior. No deployment was triggered from this chat.
+
+
+## 13. Owner-approved data lifecycle decisions — 2026-11-03
+
+The detailed requirements are recorded in [DATA-LIFECYCLE-AND-RETENTION-POLICY.md](DATA-LIFECYCLE-AND-RETENTION-POLICY.md). The approved decisions are:
+
+- Account data is retained while the account is active. After a deletion request, personal data is deleted or anonymized as required by law; financial/security audit records are retained only as legally/audit-required.
+- Daily backups are required, with the latest three usable recovery points retained. A restore test is required before sensitive changes.
+- League ZIP archives are retained on Royal Club servers, downloadable only by the GM; the GM sets each archive's retention duration, and expiry triggers automatic deletion whether or not the archive was downloaded.
+- The owner has not yet specified the daily backup time/timezone, RPO/RTO, recovery priority, or complete disaster-recovery plan. These remain owner decisions.
+- The current Neon Free plan does not support the attempted scheduled-snapshot setup. No plan/billing change or external backup service is authorized by this documentation.
+
+These are requirements, not evidence that operational backup scheduling, deletion automation or league archive lifecycle has been implemented or accepted.
