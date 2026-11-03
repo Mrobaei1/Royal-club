@@ -326,6 +326,37 @@ test("WebSocket presence remains online until the player's last device disconnec
     const oversizedResult = await oversizedClose;
     assert.equal(oversizedResult.code, 1009, "payloads over 16 KiB must close with message-too-big");
 
+    // The transport accepts only ping; malformed or unsupported commands close cleanly.
+    const malformedSocket = await connect(wsUrl, white);
+    sockets.push(malformedSocket);
+    await waitForMessage(malformedSocket, m => m.type === "chess:connected");
+    const malformedClose = new Promise<{ code: number; reason: string }>((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error("malformed WebSocket frame was not rejected")), 4_000);
+      malformedSocket.once("close", (code, reason) => {
+        clearTimeout(timer);
+        resolve({ code, reason: reason.toString() });
+      });
+    });
+    malformedSocket.send("{");
+    const malformedResult = await malformedClose;
+    assert.equal(malformedResult.code, 1008);
+    assert.equal(malformedResult.reason, "invalid_json");
+
+    const unsupportedSocket = await connect(wsUrl, white);
+    sockets.push(unsupportedSocket);
+    await waitForMessage(unsupportedSocket, m => m.type === "chess:connected");
+    const unsupportedClose = new Promise<{ code: number; reason: string }>((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error("unsupported WebSocket command was not rejected")), 4_000);
+      unsupportedSocket.once("close", (code, reason) => {
+        clearTimeout(timer);
+        resolve({ code, reason: reason.toString() });
+      });
+    });
+    unsupportedSocket.send(JSON.stringify({ type: "subscribe", gameId }));
+    const unsupportedResult = await unsupportedClose;
+    assert.equal(unsupportedResult.code, 1008);
+    assert.equal(unsupportedResult.reason, "unsupported_command");
+
     // A successful ping/pong proves the inbound message handler is attached.
     const readyPong = waitForMessage(reconnectedWhite, m => m.type === "chess:pong" && m.clientTime === 0);
     reconnectedWhite.send(JSON.stringify({ type: "ping", clientTime: 0 }));
