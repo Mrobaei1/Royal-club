@@ -15,6 +15,7 @@ class FakeHokmApi implements HokmApi {
   int managerCalls = 0;
   int reportReviewCalls = 0;
   int appealReviewCalls = 0;
+  String? lastReviewNotes;
   Map<String, dynamic> room = {};
 
   Map<String, dynamic> _waiting() => {
@@ -157,6 +158,7 @@ class FakeHokmApi implements HokmApi {
   @override
   Future<Map<String, dynamic>> reviewReport(String roomId, String reportId, String notes, int expectedVersion) async {
     reportReviewCalls++;
+    lastReviewNotes = notes;
     return {
       'roomId': roomId, 'version': expectedVersion + 1,
       'reports': [{'reportId': reportId, 'status': 'reviewed', 'reportedUserId': 'u2', 'reason': 'Suspected card disclosure'}],
@@ -167,6 +169,7 @@ class FakeHokmApi implements HokmApi {
   @override
   Future<Map<String, dynamic>> reviewAppeal(String roomId, String appealId, String decision, String notes, int expectedVersion) async {
     appealReviewCalls++;
+    lastReviewNotes = notes;
     return {
       'roomId': roomId, 'version': expectedVersion + 1,
       'reports': [],
@@ -189,10 +192,12 @@ void main() {
     expect(api.managerCalls, 1);
     expect(find.text('Cheating reports (1)'), findsOneWidget);
     expect(find.text('Result appeals (1)'), findsOneWidget);
+    await tester.enterText(find.byType(TextField), 'Evidence checked and recorded');
     await tester.tap(find.byTooltip('Mark reviewed'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 20));
     expect(api.reportReviewCalls, 1);
+    expect(api.lastReviewNotes, 'Evidence checked and recorded');
     expect(find.textContaining('reviewed'), findsOneWidget);
   });
 
@@ -207,10 +212,12 @@ void main() {
     ));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 20));
+    await tester.enterText(find.byType(TextField), 'Appeal evidence reviewed');
     await tester.tap(find.text('Confirm'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 20));
     expect(api.appealReviewCalls, 1);
+    expect(api.lastReviewNotes, 'Appeal evidence reviewed');
   });
 
   testWidgets('player can create a room and share its code', (tester) async {
