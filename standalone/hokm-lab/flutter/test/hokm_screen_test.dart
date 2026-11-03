@@ -7,6 +7,8 @@ import '../lib/services/hokm_service.dart';
 
 class FakeHokmApi implements HokmApi {
   int createCalls = 0;
+  int nextRoundCalls = 0;
+  bool createAsRoundCompleted = false;
   int joinCalls = 0;
   int viewCalls = 0;
   int commandCalls = 0;
@@ -67,10 +69,20 @@ class FakeHokmApi implements HokmApi {
     },
   };
 
+  Map<String, dynamic> _roundCompletedWithHostDisconnected() {
+    final state = _playing();
+    state['status'] = 'round_completed';
+    state['hostUserId'] = 'u1';
+    state['handRevealUntil'] = null;
+    state['players'][0]['connected'] = false;
+    state['game']['phase'] = 'completed';
+    return state;
+  }
+
   @override
   Future<Map<String, dynamic>> createRoom({required int matchTarget, required bool privateRoom}) async {
     createCalls++;
-    room = _waiting();
+    room = createAsRoundCompleted ? _roundCompletedWithHostDisconnected() : _waiting();
     room['matchTarget'] = matchTarget;
     room['privateRoom'] = privateRoom;
     return Map<String, dynamic>.from(room);
@@ -103,8 +115,10 @@ class FakeHokmApi implements HokmApi {
   }
 
   @override
-  Future<Map<String, dynamic>> startNextRound(String roomId, int expectedVersion) async =>
-      Map<String, dynamic>.from(room);
+  Future<Map<String, dynamic>> startNextRound(String roomId, int expectedVersion) async {
+    nextRoundCalls++;
+    return Map<String, dynamic>.from(room);
+  }
 
   @override
   Future<Map<String, dynamic>> sendCommand(String roomId, Map<String, dynamic> command, int expectedVersion) async {
@@ -218,6 +232,29 @@ void main() {
     await tester.pump(const Duration(milliseconds: 20));
     expect(api.appealReviewCalls, 1);
     expect(api.lastReviewNotes, 'Appeal evidence reviewed');
+  });
+
+  testWidgets('connected player can start the next hand when the host is disconnected', (tester) async {
+    tester.view.physicalSize = const Size(1200, 1800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final api = FakeHokmApi()..createAsRoundCompleted = true;
+    await tester.pumpWidget(MaterialApp(
+      locale: const Locale('en'),
+      supportedLocales: const [Locale('fa'), Locale('en')],
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
+      home: HokmScreen(api: api, identityLoader: () async => 'u2'),
+    ));
+    await tester.pump();
+    await tester.tap(find.text('ساخت اتاق حکم'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 20));
+    expect(find.text('Start next hand'), findsOneWidget);
+    await tester.tap(find.text('Start next hand'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 20));
+    expect(api.nextRoundCalls, 1);
   });
 
   testWidgets('player can create a room and share its code', (tester) async {
