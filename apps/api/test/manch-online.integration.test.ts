@@ -518,6 +518,110 @@ test('Manch temporary AI takes one overdue turn and reconnect restores human con
   assert.equal(afterReconnect.json().match.players[0].aiControlling, false);
 });
 
+test('Manch room invitations are limited to accepted friends and expire safely', async () => {
+  const host = await register('Manch Invite Host');
+  const friendA = await register('Manch Invite Friend A');
+  const friendB = await register('Manch Invite Friend B');
+  const outsider = await register('Manch Invite Outsider');
+
+  for (const friend of [friendA, friendB]) {
+    const requested = await app.inject({
+      method: 'POST', url: `/api/v1/friends/${friend.user.id}/request`,
+      headers: auth(host.accessToken), payload: {},
+    });
+    assert.equal(requested.statusCode, 201, requested.body);
+    const accepted = await app.inject({
+      method: 'POST', url: `/api/v1/friends/${host.user.id}/accept`,
+      headers: auth(friend.accessToken), payload: {},
+    });
+    assert.equal(accepted.statusCode, 200, accepted.body);
+  }
+
+  const created = await app.inject({
+    method: 'POST', url: '/api/v1/manch/matches',
+    headers: auth(host.accessToken), payload: { playerCount: 3 },
+  });
+  assert.equal(created.statusCode, 201, created.body);
+  const matchId = created.json().match.id;
+
+  const outsiderInvite = await app.inject({
+    method: 'POST', url: `/api/v1/manch/matches/${matchId}/invites`,
+    headers: auth(host.accessToken), payload: { friendUserId: outsider.user.id },
+  });
+  assert.equal(outsiderInvite.statusCode, 403);
+
+  const inviteA = await app.inject({
+    method: 'POST', url: `/api/v1/manch/matches/${matchId}/invites`,
+    headers: auth(host.accessToken), payload: { friendUserId: friendA.user.id },
+  });
+  assert.equal(inviteA.statusCode, 201, inviteA.body);
+  const listedA = await app.inject({
+    method: 'GET', url: '/api/v1/manch/invites',
+    headers: auth(friendA.accessToken),
+  });
+  assert.equal(listedA.statusCode, 200, listedA.body);
+  assert.ok(listedA.json().invites.some((invite: any) => String(invite.id) === String(inviteA.json().invite.id)));
+  const outsiderList = await app.inject({
+    method: 'GET', url: '/api/v1/manch/invites',
+    headers: auth(outsider.accessToken),
+  });
+  assert.deepEqual(outsiderList.json().invites, []);
+
+  const acceptedA = await app.inject({
+    method: 'POST', url: `/api/v1/manch/invites/${inviteA.json().invite.id}/accept`,
+    headers: auth(friendA.accessToken), payload: {},
+  });
+  assert.equal(acceptedA.statusCode, 200, acceptedA.body);
+  assert.equal(acceptedA.json().match.status, 'waiting');
+  assert.equal(acceptedA.json().match.players.length, 2);
+
+  const inviteB = await app.inject({
+    method: 'POST', url: `/api/v1/manch/matches/${matchId}/invites`,
+    headers: auth(host.accessToken), payload: { friendUserId: friendB.user.id },
+  });
+  assert.equal(inviteB.statusCode, 201, inviteB.body);
+  const acceptedB = await app.inject({
+    method: 'POST', url: `/api/v1/manch/invites/${inviteB.json().invite.id}/accept`,
+    headers: auth(friendB.accessToken), payload: {},
+  });
+  assert.equal(acceptedB.statusCode, 200, acceptedB.body);
+  assert.equal(acceptedB.json().match.status, 'active');
+  assert.equal(acceptedB.json().match.players.length, 3);
+
+  const hostInvitesRoom = await app.inject({
+    method: 'POST', url: `/api/v1/manch/matches/${matchId}/invites`,
+    headers: auth(friendA.accessToken), payload: { friendUserId: host.user.id },
+  });
+  assert.equal(hostInvitesRoom.statusCode, 403, 'Only the room host may issue room invitations.');
+
+  const expiredRoom = await app.inject({
+    method: 'POST', url: '/api/v1/manch/matches',
+    headers: auth(host.accessToken), payload: { playerCount: 2 },
+  });
+  assert.equal(expiredRoom.statusCode, 201);
+  const expiredInvite = await app.inject({
+    method: 'POST', url: `/api/v1/manch/matches/${expiredRoom.json().match.id}/invites`,
+    headers: auth(host.accessToken), payload: { friendUserId: friendA.user.id },
+  });
+  assert.equal(expiredInvite.statusCode, 201, expiredInvite.body);
+  await testPool.query(
+    `UPDATE manch_match_invites SET expires_at = NOW() - INTERVAL '1 second'
+      WHERE id = $1`,
+    [expiredInvite.json().invite.id],
+  );
+  const expiredList = await app.inject({
+    method: 'GET', url: '/api/v1/manch/invites', headers: auth(friendA.accessToken),
+  });
+  assert.equal(expiredList.statusCode, 200);
+  assert.equal(expiredList.json().invites.some((invite: any) =>
+    String(invite.id) === String(expiredInvite.json().invite.id)), false);
+  const expiredAccept = await app.inject({
+    method: 'POST', url: `/api/v1/manch/invites/${expiredInvite.json().invite.id}/accept`,
+    headers: auth(friendA.accessToken), payload: {},
+  });
+  assert.equal(expiredAccept.statusCode, 404);
+});
+
 test('Manch online supports complete 3- and 4-player seat allocation and rejects unsupported forfeits', async () => {
   const host = await register('Manch Multi Host');
   const guests = [
