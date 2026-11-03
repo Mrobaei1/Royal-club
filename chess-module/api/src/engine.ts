@@ -21,6 +21,12 @@ export class ChessGame {
     // Chess.validateFen as a static API.
     let parsedGame: Chess;
     try {
+      if (fen !== undefined) {
+        const fields = fen.trim().split(/\\s+/);
+        if (fields.length !== 6 || !/^(?:0|[1-9]\\d*)$/.test(fields[4]!) || !/^[1-9]\\d*$/.test(fields[5]!)) {
+          throw new Error("FEN must contain six fields with non-negative halfmove and positive fullmove counters");
+        }
+      }
       parsedGame = fen === undefined ? new Chess() : new Chess(fen);
     } catch (error) {
       const detail = error instanceof Error ? error.message : "invalid position";
