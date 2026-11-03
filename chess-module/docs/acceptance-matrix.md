@@ -27,10 +27,12 @@ A row is not complete merely because a contract or placeholder exists. Integrati
 
 ## Current-head verification evidence
 
-Verified against PR head `e83074337b1e01ba86c523c6ed0e27222acc2be4` on 2026-11-03:
+Verified against PR head `ecd572796bd75467c66c7ea2f9bd67eb64528a66` on 2026-11-03:
 
-- Isolated chess workflow run [`41718500352`](https://github.com/Mrobaei1/Royal-club/actions/runs/41718500352) completed successfully.
-- API job: PostgreSQL 16 integration environment provisioned; Stockfish 17 installed; independent Stockfish perft comparison passed; **59/59 API tests passed**, including the isolated migration integration test; TypeScript build passed.
-- Mobile job: Flutter analysis reported no issues; **33/33 Flutter tests passed**, including transport deadlines, draw-claim race refresh, accessibility semantics, promotion, Persian RTL and English LTR/landscape cases.
-- The workflow proves automated CI only. It does not prove physical-device acceptance, independent security review, staging load acceptance, host integration, production migration readiness or deployment readiness.
+- Isolated chess workflow run [`41733534584`](https://github.com/Mrobaei1/Royal-club/actions/runs/41733534584) completed successfully.
+- API job: PostgreSQL 16 integration environment provisioned; Stockfish installed; independent Stockfish perft-2 branch-count comparisons and standard initial-position / canonical Kiwipete perft-3 assertions passed; **60/60 API tests passed**; TypeScript build passed.
+- Mobile job: Flutter analysis reported no issues; **34/34 Flutter tests passed**, including terminal-game chat disable/rejection, transport deadlines, draw-claim race refresh, accessibility semantics, promotion, Persian RTL and English LTR/landscape cases.
+- The corrected Kiwipete reference now uses the canonical position matching the 97,862 perft-3 reference total. The terminal chat widget test locates the IconButton directly rather than casting the RawTooltip returned by a tooltip finder.
+- Repository-level validation on the same head also passed: API build/unit tests, PostgreSQL integration tests, Flutter analyze/tests and web preview build. These are separate repository workflows from the isolated chess workflow.
+- These results prove automated CI only. They do not prove physical-device acceptance, independent security review, staging load acceptance, production-schema review, host integration or deployment readiness.
 - The latest PR head remains isolated and unmerged. Production migrations, host-app wiring, deployment and APK build/distribution remain owner-controlled gates.
