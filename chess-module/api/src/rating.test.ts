@@ -17,7 +17,7 @@ test("ratings do not fall below the minimum floor",()=>{
 });
 
 test("expected scores are complementary across rating gaps", () => {
-  for (const [left, right] of [[800, 1200], [1200, 1600], [2400, 1800], [100, 2500]]) {
+  for (const [left, right] of [[800, 1200], [1200, 1600], [2400, 1800], [100, 2500]] as const) {
     assert.ok(Math.abs(expectedScore(left, right) + expectedScore(right, left) - 1) < 1e-12);
   }
 });
