@@ -158,3 +158,44 @@ void main() {
     }
   });
 }
+
+
+  test('API client enforces one deadline across a stalled response body', () async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    server.listen((request) async {
+      request.response.headers.contentType = ContentType.json;
+      await request.response.flush();
+      await Future<void>.delayed(const Duration(seconds: 2));
+      try {
+        request.response
+          ..statusCode = HttpStatus.ok
+          ..write(jsonEncode({'status': 'too_late'}));
+        await request.response.close();
+      } on HttpException {
+        // The client has already aborted the timed-out response.
+      }
+    });
+    final client = ChessApiClient(
+      baseUri: Uri.parse('http://127.0.0.1:${server.port}'),
+      accessToken: 'test-token',
+      requestTimeout: const Duration(milliseconds: 500),
+    );
+
+    try {
+      await expectLater(client.game('123'), throwsA(isA<TimeoutException>()));
+    } finally {
+      client.dispose();
+      await server.close(force: true);
+    }
+  });
+
+  test('API client rejects a non-positive request timeout', () {
+    expect(
+      () => ChessApiClient(
+        baseUri: Uri.parse('http://127.0.0.1:8080'),
+        accessToken: 'test-token',
+        requestTimeout: Duration.zero,
+      ),
+      throwsArgumentError,
+    );
+  });
