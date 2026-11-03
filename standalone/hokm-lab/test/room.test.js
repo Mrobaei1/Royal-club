@@ -349,3 +349,22 @@ test("opposing-team text chat is private, bounded, idempotent and excludes teamm
   assert.deepEqual(roomViewForUser(completed, "u0").chatMessages, [],
     "completed-match views should expose the final result, not chat history");
 });
+
+
+test("a connected player takes over next-hand start when the host remains disconnected", () => {
+  let room = startRoom(fullReadyRoom(), "u0", { now: 2000, rng: () => 0 });
+  room = { ...room, status: "round_completed", handRevealUntil: 0 };
+  room = disconnectPlayer(room, "u0", { now: 3000, expectedVersion: room.version });
+  const next = startNextRound(room, "u1", { now: 4000, rng: () => 0 });
+  assert.equal(next.status, "playing");
+  assert.equal(next.hostUserId, "u1");
+  assert.equal(next.round.hakemSeat, 1);
+});
+
+test("next-hand host handoff rejects a disconnected or forfeited requester", () => {
+  let room = startRoom(fullReadyRoom(), "u0", { now: 5000, rng: () => 0 });
+  room = { ...room, status: "round_completed", handRevealUntil: 0 };
+  room = disconnectPlayer(room, "u0", { now: 6000, expectedVersion: room.version });
+  room = disconnectPlayer(room, "u1", { now: 6001, expectedVersion: room.version });
+  assert.throws(() => startNextRound(room, "u1", { now: 7000, rng: () => 0 }), /connected player/);
+});
