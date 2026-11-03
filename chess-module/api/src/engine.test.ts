@@ -251,6 +251,8 @@ test("rejects structurally invalid and impossible FEN positions", () => {
     "8/8/8/8/8/8/8/8 w - - 0 1", // no kings
     "4k3/8/8/8/8/8/8/4K3 x - - 0 1", // invalid active color
     "4k3/8/8/8/8/8/8/4K3 w Z - 0 1", // invalid castling rights
+    "4k3/8/8/8/8/8/8/4K3 w K - 0 1", // castling right without the rook
+    "4k3/8/8/8/8/8/8/R3K3 w K - 0 1", // kingside right with rook on queenside only
     "4k3/8/8/8/8/8/8/4K3 w - - -1 1", // negative halfmove clock
     "4k3/8/8/8/8/8/8/4K3 w - - 0 0", // invalid fullmove number
     "4k3/8/8/8/8/8/8/4K3 w - - 0", // missing FEN field
