@@ -4,6 +4,7 @@ import {
   applyManchMove,
   createManchGame,
   defaultManchRuleProfile,
+  isValidManchState,
   legalManchMoves,
   passManchTurn,
   rollManchDice,
