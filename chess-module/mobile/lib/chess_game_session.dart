@@ -129,10 +129,20 @@ class ChessGameSession extends ChangeNotifier {
   }
 
   ChessChatMessage _chatMessage(Map<String, dynamic> row) => ChessChatMessage(
+        id: row['id']?.toString(),
         username: row['username'] as String? ?? '',
         text: row['message'] as String? ?? '',
         timestamp: DateTime.tryParse((row['created_at'] ?? row['createdAt'] ?? '').toString()) ?? DateTime.now(),
       );
+
+  void _appendChatMessage(ChessChatMessage message) {
+    final alreadyPresent = messages.any((item) {
+      if (message.id != null && item.id != null) return item.id == message.id;
+      return item.timestamp == message.timestamp &&
+          item.username == message.username && item.text == message.text;
+    });
+    if (!alreadyPresent) messages = [...messages, message];
+  }
 
   Future<void> _openSocket() async {
     if (_disposed || _socket != null || _openingSocket) return;
@@ -182,11 +192,9 @@ class ChessGameSession extends ChangeNotifier {
           break;
         case 'chess:chat:message':
           final message = _chatMessage(event);
-          if (!messages.any((item) => item.timestamp == message.timestamp &&
-              item.username == message.username && item.text == message.text)) {
-            messages = [...messages, message];
-            notifyListeners();
-          }
+          final previousLength = messages.length;
+          _appendChatMessage(message);
+          if (messages.length != previousLength) notifyListeners();
           break;
         case 'chess:draw:offered':
           pendingDrawOfferId = event['offerId'] as String?;
@@ -253,9 +261,9 @@ class ChessGameSession extends ChangeNotifier {
 
   Future<void> sendChat(String message) async {
     final result = await api.sendChat(gameId, message);
-    final item = _chatMessage(result);
-    messages = [...messages, item];
-    if (!_disposed) notifyListeners();
+    final previousLength = messages.length;
+    _appendChatMessage(_chatMessage(result));
+    if (!_disposed && messages.length != previousLength) notifyListeners();
   }
 
   Future<void> offerDraw() async {
