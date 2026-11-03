@@ -6,6 +6,7 @@ import { defaultTimeControls, snapshotClock, startClock, settleClock, type Clock
 import { canJoinRoom, validateRoomSettings, type ChessRoomSettings } from "./room-policy.js";
 import { awardChessResult } from "./progression-store.js";
 import { startChessClockScheduler } from "./clock-scheduler.js";
+import { isPositivePostgresBigintId } from "./identifiers.js";
 
 type RouteOptions = {
   pool: Pool;
@@ -20,11 +21,9 @@ type MoveBody = { from: string; to: string; promotion?: "q"|"r"|"b"|"n" };
 type ChatBody = { message: string };
 
 const initialFen="rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
-const isPositivePgBigint = (value: unknown): value is string =>
-  typeof value === "string" && /^[1-9]\d{0,18}$/.test(value) && BigInt(value) <= 9_223_372_036_854_775_807n;
 const userId=(request:FastifyRequest,options:RouteOptions):string=>{
   const id=options.getUserId(request);
-  if(!isPositivePgBigint(id)) throw new Error("unauthorized");
+  if(!isPositivePostgresBigintId(id)) throw new Error("unauthorized");
   return id;
 };
 const fail=(reply:{code:(status:number)=>{send:(body:unknown)=>unknown}},status:number,error:string)=>reply.code(status).send({error});
@@ -44,8 +43,8 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
       options.authenticate,
       async (request: FastifyRequest, reply: { code: (status: number) => { send: (body: unknown) => unknown } }) => {
         const params = request.params as { gameId?: unknown; offerId?: unknown };
-        if (!isPositivePgBigint(params.gameId)) return fail(reply, 400, "invalid_game_id");
-        if (params.offerId !== undefined && !isPositivePgBigint(params.offerId)) {
+        if (!isPositivePostgresBigintId(params.gameId)) return fail(reply, 400, "invalid_game_id");
+        if (params.offerId !== undefined && !isPositivePostgresBigintId(params.offerId)) {
           return fail(reply, 400, "invalid_offer_id");
         }
       },
