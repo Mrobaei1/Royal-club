@@ -17,6 +17,7 @@ class ManchOnlineLobbyScreen extends StatefulWidget {
 
 class _ManchOnlineLobbyScreenState extends State<ManchOnlineLobbyScreen> {
   List<Map<String, dynamic>> _matches = [];
+  List<Map<String, dynamic>> _history = [];
   Map<String, dynamic>? _myMatch;
   String? _userId;
   String? _error;
@@ -81,9 +82,16 @@ class _ManchOnlineLobbyScreenState extends State<ManchOnlineLobbyScreen> {
         }
       }
       final matches = await ManchOnlineService.listOpen();
+      var history = _history;
+      try {
+        history = await ManchOnlineService.history();
+      } catch (_) {
+        // History is supplementary; a history outage must not block the lobby.
+      }
       if (!mounted) return;
       setState(() {
         _matches = matches;
+        _history = history;
         _loading = false;
         _error = null;
       });
@@ -306,6 +314,48 @@ class _ManchOnlineLobbyScreenState extends State<ManchOnlineLobbyScreen> {
                     ),
                   ),
                 ),
+            if (_history.isNotEmpty) ...[
+              const SizedBox(height: 22),
+              Text(
+                _text('سوابق بازی‌های منچ', 'Manch match history'),
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: 8),
+              for (final item in _history)
+                Card(
+                  child: ListTile(
+                    leading: CircleAvatar(
+                      child: Icon(
+                        item['winnerUserId']?.toString() == _userId
+                            ? Icons.emoji_events_outlined
+                            : Icons.history,
+                      ),
+                    ),
+                    title: Text(
+                      _text(
+                        'اتاق ' + (item['roomCode']?.toString() ?? '—'),
+                        'Room ' + (item['roomCode']?.toString() ?? '—'),
+                      ),
+                    ),
+                    subtitle: Text(
+                      item['finishReason']?.toString() == 'forfeit'
+                          ? _text('پایان با تسلیم', 'Ended by forfeit')
+                          : _text('پایان بازی', 'Game completed'),
+                    ),
+                    trailing: Text(
+                      item['winnerUserId']?.toString() == _userId
+                          ? _text('برد', 'Won')
+                          : _text('باخت', 'Lost'),
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        color: item['winnerUserId']?.toString() == _userId
+                            ? Theme.of(context).colorScheme.primary
+                            : Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
             if (_error != null) ...[
               const SizedBox(height: 12),
               Text(
