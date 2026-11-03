@@ -1,6 +1,6 @@
 # UNO standalone engineering WBS
 
-Baseline: standalone UNO service and Flutter module on `feature/uno-standalone-clean`  
+Baseline: standalone UNO service and Flutter module; merged into `main` by PR #122 on 2026-11-03 (`ee61be087ef18c7dacd56d80a0f725f261c6384a`).  
 Scoring model: weighted engineering completion, 100 points total. This is a UNO-only baseline and must not be confused with the Royal Club-wide 53-package / 1,000-point WBS.
 
 ## Scope boundary
@@ -32,7 +32,7 @@ The following are explicit release or future-scale gates, not hidden engineering
 
 Weighted completion = sum(package weight × package completion) / 100.
 
-Current engineering implementation score on this defined baseline: **100/100** for the explicitly scoped standalone single-instance package. The latest fully validated implementation head `ad8866b30e534f471731701904040b2dc8ddd36f` passed UNO Standalone CI (backend, Flutter and PostgreSQL integration), root Flutter/API validation, API integration, backgammon regression and web-preview build. The subsequent documentation-only WBS/status commits are tracked separately. The preview deployment job was skipped; production was not deployed.
+Current engineering implementation score on this defined baseline: **100/100** for the explicitly scoped standalone single-instance package. The latest fully validated implementation head `ad8866b30e534f471731701904040b2dc8ddd36f` passed UNO Standalone CI (backend, Flutter and PostgreSQL integration), root Flutter/API validation, API integration, backgammon regression and web-preview build. PR #122 merged the standalone module into the repository; the latest documented fully validated implementation head remains `b6d02594bca4beb19ba32825d228da988197d7ed`. The merge commit `ee61be0` is the current repository integration point, not proof of a production deployment. The preview deployment job was skipped; production was not deployed.
 
 ## Release readiness is tracked separately
 
@@ -46,3 +46,10 @@ These are not silently counted as completed:
 - Six-player physical end-to-end acceptance: pending tester execution and evidence.
 - Multi-instance operation: not implemented. A PostgreSQL advisory lock deliberately enforces one active service instance; see `DISTRIBUTED-ROOM-ARCHITECTURE.md`.
 - Root-app integration, production deployment/migration/secrets and APK generation: not authorized and not performed.
+
+
+## Repository integration update — 2026-11-03
+
+- PR #122 is merged into `main` as `ee61be087ef18c7dacd56d80a0f725f261c6384a`.
+- The merged scope is the standalone UNO service and Flutter module. It is not yet wired into the root Royal Club home screen; that separate proposal is PR #144 and remains open pending owner approval and service URL/deployment decisions.
+- No production deployment, database migration, secret provisioning, multi-instance rollout, or APK build is implied by the merge.
