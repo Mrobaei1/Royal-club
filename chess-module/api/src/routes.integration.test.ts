@@ -280,6 +280,11 @@ test("authenticated chess routes support private game, draw, chat, profiles and 
     assert.equal(await expirePendingChessDrawOffers(pool), 1);
     const expiredOffer = await pool.query("SELECT status FROM chess_draw_offers WHERE id=$1", [expiringOffer.json().offerId]);
     assert.equal(expiredOffer.rows[0].status, "cancelled");
+    // An expired pending offer must not block a new offer even before a background sweep.
+    const freshAfterExpiry = await request(black, "POST", `/chess/games/${timeoutGameId}/draw-offers`);
+    assert.equal(freshAfterExpiry.statusCode, 201, freshAfterExpiry.body);
+    const oldOfferAfterRefresh = await pool.query("SELECT status FROM chess_draw_offers WHERE id=$1", [expiringOffer.json().offerId]);
+    assert.equal(oldOfferAfterRefresh.rows[0].status, "cancelled");
     const timeoutNow = Date.now();
     await pool.query(
       "UPDATE chess_games SET clock_snapshot=jsonb_set(jsonb_set(clock_snapshot,'{whiteMs}','1'::jsonb),'{lastStartedAt}',to_jsonb($2::bigint)) WHERE id=$1",
