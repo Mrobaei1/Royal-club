@@ -21,9 +21,16 @@ class _HokmManagerReviewScreenState extends State<HokmManagerReviewScreen> {
   Map<String, dynamic>? _review;
   bool _busy = false;
   String? _error;
+  final _notesController = TextEditingController();
 
   String t(String fa, String en) => appText(context, fa, en);
   int get _version => (_review?['version'] as num?)?.toInt() ?? 0;
+
+  @override
+  void dispose() {
+    _notesController.dispose();
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -48,7 +55,7 @@ class _HokmManagerReviewScreenState extends State<HokmManagerReviewScreen> {
 
   Future<void> _reviewReport(String id) async {
     await _mutate(() => widget.api.reviewReport(widget.roomId, id,
-        'Reviewed by an authorized manager.', _version));
+        _notesController.text.trim(), _version));
   }
 
   Future<void> _reviewAppeal(String id, String decision) async {
@@ -99,6 +106,16 @@ class _HokmManagerReviewScreenState extends State<HokmManagerReviewScreen> {
         ),
         Text('${t('گزارش‌های تقلب', 'Cheating reports')} (${reports.length})',
           style: Theme.of(context).textTheme.titleLarge),
+        TextField(
+          controller: _notesController,
+          maxLength: 1000,
+          minLines: 1,
+          maxLines: 3,
+          decoration: InputDecoration(
+            labelText: t('یادداشت بررسی مدیر', 'Manager review notes'),
+            hintText: t('مستندات و نتیجه بررسی را بنویسید', 'Record the evidence and review outcome'),
+          ),
+        ),
         if (reports.isEmpty) Text(t('گزارشی ثبت نشده است.', 'No reports submitted.')),
         ...reports.map((report) {
           final id = report['reportId']?.toString() ?? '';
