@@ -171,7 +171,8 @@ class _HokmScreenState extends State<HokmScreen> with WidgetsBindingObserver {
       _run(() => _api.sendCommand(_roomId, {'type': 'choose_trump', 'suit': suit}, _version));
 
   Future<void> _sendChatMessage() async {
-    final recipient = _chatRecipientUserId ?? _opponents.firstOrNull?['userId']?.toString();
+    final opponents = _opponents;
+    final recipient = _chatRecipientUserId ?? (opponents.isEmpty ? null : opponents.first['userId']?.toString());
     final message = _chatController.text.trim();
     if (recipient == null || message.isEmpty || _busy) return;
     await _run(() => _api.sendChatMessage(
