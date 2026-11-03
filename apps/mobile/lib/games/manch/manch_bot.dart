@@ -1,8 +1,10 @@
 import 'manch_engine.dart';
 import 'manch_game_state.dart';
 
-/// Deterministic offline opponent policy. It only chooses among engine-approved
-/// moves and never mutates game state or affects online/ranked play.
+enum ManchBotDifficulty { easy, normal, hard }
+
+/// Deterministic offline opponent policy. It only chooses engine-approved
+/// moves and never mutates state or affects online/ranked play.
 class ManchBot {
   const ManchBot();
 
@@ -13,14 +15,17 @@ class ManchBot {
     ManchColour.blue: 39,
   };
 
-  ManchMove? chooseMove(ManchGameState state) {
+  ManchMove? chooseMove(
+    ManchGameState state, {
+    ManchBotDifficulty difficulty = ManchBotDifficulty.normal,
+  }) {
     final moves = const ManchEngine().legalMoves(state);
     if (moves.isEmpty) return null;
 
     ManchMove? best;
     var bestScore = -1000000;
     for (final move in moves) {
-      final score = _score(state, move);
+      final score = _score(state, move, difficulty);
       if (score > bestScore ||
           (score == bestScore &&
               (best == null || move.tokenIndex < best.tokenIndex))) {
@@ -31,38 +36,46 @@ class ManchBot {
     return best;
   }
 
-  int _score(ManchGameState state, ManchMove move) {
+  int _score(
+    ManchGameState state,
+    ManchMove move,
+    ManchBotDifficulty difficulty,
+  ) {
     if (move.toProgress == ManchEngine.finish) return 10000;
 
     var score = move.toProgress - move.fromProgress;
-    if (move.isCapture) score += 1000;
+    if (move.isCapture) {
+      score += switch (difficulty) {
+        ManchBotDifficulty.easy => 80,
+        ManchBotDifficulty.normal => 1000,
+        ManchBotDifficulty.hard => 1200,
+      };
+    }
     if (move.isEntry) score += 100;
     if (move.toProgress >= 52) {
       score += 250 + (move.toProgress - 52) * 10;
     }
 
-    // Prefer protected entry/safe cells and avoid handing an opponent an
-    // immediate one-die capture on the next turn.
-    if (move.toProgress < ManchEngine.trackLength) {
-      final colour = state.players[move.playerIndex].colour;
-      final target = _global(colour, move.toProgress);
-      if (state.profile.safeTrackIndices.contains(target)) {
-        score += 35;
-      } else if (!move.isCapture && _isThreatened(state, move, target)) {
-        score -= 120;
-      }
+    if (difficulty != ManchBotDifficulty.hard ||
+        move.toProgress >= ManchEngine.trackLength) {
+      return score;
     }
 
-    // A stack is harder to capture when blockade rules are enabled.
+    final colour = state.players[move.playerIndex].colour;
+    final target = _global(colour, move.toProgress);
+    if (state.profile.safeTrackIndices.contains(target)) {
+      score += 35;
+    } else if (!move.isCapture && _isThreatened(state, move, target)) {
+      score -= 120;
+    }
+
     if (state.profile.blockadesEnabled &&
-        state.profile.friendlyStackingEnabled &&
-        move.toProgress < ManchEngine.trackLength) {
+        state.profile.friendlyStackingEnabled) {
       final player = state.players[move.playerIndex];
       final sameCell = player.tokens.where((position) =>
           position >= 0 &&
           position < ManchEngine.trackLength &&
-          _global(player.colour, position) ==
-              _global(player.colour, move.toProgress)).length;
+          _global(player.colour, position) == target).length;
       if (sameCell > 0) score += 20;
     }
     return score;
