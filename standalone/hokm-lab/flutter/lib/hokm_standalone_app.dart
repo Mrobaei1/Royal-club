@@ -10,12 +10,14 @@ class HokmStandaloneApp extends StatelessWidget {
   final HokmApi api;
   final Future<String?> Function() identityLoader;
   final Locale locale;
+  final bool managerAccess;
 
   const HokmStandaloneApp({
     super.key,
     required this.api,
     required this.identityLoader,
     this.locale = const Locale('fa'),
+    this.managerAccess = false,
   });
 
   @override
@@ -32,6 +34,6 @@ class HokmStandaloneApp extends StatelessWidget {
           ),
           scaffoldBackgroundColor: const Color(0xFF10182B),
         ),
-        home: HokmScreen(api: api, identityLoader: identityLoader),
+        home: HokmScreen(api: api, identityLoader: identityLoader, managerAccess: managerAccess),
       );
 }
