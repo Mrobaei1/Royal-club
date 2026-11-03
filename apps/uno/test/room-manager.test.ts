@@ -376,6 +376,9 @@ test('round winner receives official remaining-card points in cumulative match t
   snapshot.rooms[0]!.game!.discardPile = [{id:'top',color:'red',face:2}];
   snapshot.rooms[0]!.game!.activeColor = 'red';
   manager.restoreSnapshot(snapshot);
+  if (manager.getRoom(room.code).game?.openingColorPendingPlayerId === host.id) {
+    manager.act(room.code, host.id, {type:'chooseColor',color:'red'});
+  }
   const result = manager.act(room.code,host.id,{type:'play',cardId:'last'});
   assert.equal(result.game.winnerScore,79);
   assert.equal(result.room.totalPoints[host.id],79);
