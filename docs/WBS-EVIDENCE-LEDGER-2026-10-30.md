@@ -213,3 +213,15 @@ The repository search showed active, unmerged work including PRs #86 (isolated c
 
 - Added [`docs/WBS-CRITERION-SCORING-MATRIX-2026-11-03.md`](WBS-CRITERION-SCORING-MATRIX-2026-11-03.md), decomposing all 53 approved leaf packages into 200 equal 5-point acceptance criteria (1,000 points total).
 - Every criterion is deliberately marked Pending. This creates an auditable scoring structure; it does not award points. The official project-wide percentage remains pending until each criterion is individually checked against current exact evidence and manual/approval gates.
+
+
+### Exact-main CI confirmation — 2026-11-03
+
+The earlier refresh noted that the commit-specific lookup had not surfaced checks. A subsequent branch-filtered Actions audit confirmed all four main workflows passed on exact main commit `ee61be087ef18c7dacd56d80a0f725f261c6384a`:
+
+- Validate Royal Club — run [41676965752](https://github.com/Mrobaei1/Royal-club/actions/runs/41676965752): Flutter analyze/tests and API build/integration tests passed.
+- Royal Club validation — run [41676965803](https://github.com/Mrobaei1/Royal-club/actions/runs/41676965803): API build/tests and Flutter analyze/tests passed.
+- Royal Club Web Preview — run [41676965794](https://github.com/Mrobaei1/Royal-club/actions/runs/41676965794): build and preview deployment passed. This is not an API Production deployment.
+- Royal Club Production API Health — run [41676965862](https://github.com/Mrobaei1/Royal-club/actions/runs/41676965862): currently deployed API/database health passed. This does not prove that the latest source commit is deployed.
+
+This closes the exact-main automated CI evidence gap for this commit only; it does not close manual acceptance, source-provenance, production deployment, or WBS criterion scoring.
