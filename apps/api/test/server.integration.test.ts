@@ -558,7 +558,8 @@ test('registered players can join an online match and history does not expose op
   });
   assert.equal(snapshotAfterNetworkChange.statusCode, 200, snapshotAfterNetworkChange.body);
   assert.equal(snapshotAfterNetworkChange.json().state.isHost, true);
-  assert.equal(snapshotAfterNetworkChange.json().state.matchId, snapshot.json().state.matchId);
+  assert.deepEqual(snapshotAfterNetworkChange.json().state.board, snapshot.json().state.board,
+    'The same account must recover the identical authoritative board after a VPN/IP change.');
 
   const state = snapshot.json().state;
   assert.equal(state.isHost, true);
