@@ -50,6 +50,7 @@ class _ManchOfflineGameScreenState extends State<ManchOfflineGameScreen> {
   bool _matchStarted = false;
   String _message = 'برای شروع نوبت، تاس را بینداز.';
   bool _messageLocalized = false;
+  bool _isRestoring = false;
 
   @override
   void initState() {
@@ -189,6 +190,8 @@ class _ManchOfflineGameScreenState extends State<ManchOfflineGameScreen> {
   }
 
   Future<void> _restoreGame() async {
+    if (_isRestoring) return;
+    setState(() => _isRestoring = true);
     try {
       final restored = await _saveStore.load();
       if (!mounted) return;
@@ -212,6 +215,8 @@ class _ManchOfflineGameScreenState extends State<ManchOfflineGameScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(_text('بازیابی انجام نشد: $error', 'Could not restore game: $error'))),
       );
+    } finally {
+      if (mounted) setState(() => _isRestoring = false);
     }
   }
 
@@ -389,9 +394,11 @@ class _ManchOfflineGameScreenState extends State<ManchOfflineGameScreen> {
                     label: Text(_text('ذخیره', 'Save')),
                   ),
                   OutlinedButton.icon(
-                    onPressed: _restoreGame,
+                    onPressed: _isRestoring ? null : _restoreGame,
                     icon: const Icon(Icons.restore_rounded),
-                    label: Text(_text('بازیابی', 'Restore')),
+                    label: Text(_isRestoring
+                        ? _text('در حال بازیابی...', 'Restoring...')
+                        : _text('بازیابی', 'Restore')),
                   ),
                 ],
               ),
