@@ -14,7 +14,7 @@ export class HokmEventHub extends EventEmitter {
   #closed = false;
   #onError;
 
-  constructor(pool, { onError = () => {} } = {}) {
+  constructor(pool, { onError = (_error: any) => {} }: { onError?: (error: any) => void } = {}) {
     super();
     if (!pool || typeof pool.connect !== 'function') throw new TypeError('A PostgreSQL pool is required');
     if (typeof onError !== 'function') throw new TypeError('onError must be a function');
