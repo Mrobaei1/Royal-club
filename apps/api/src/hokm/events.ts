@@ -30,7 +30,7 @@ export class HokmEventHub extends EventEmitter {
     client.on('notification', message => {
       if (message.channel !== 'hokm_room_updates' || typeof message.payload !== 'string') return;
       if (!message.payload || message.payload.length > 128) return;
-      this.emit(message.payload);
+      this.emit(message.payload, message.payload);
     });
     client.on('error', error => {
       try { this.#onError(error); } catch { /* monitoring cannot break event fan-out */ }
