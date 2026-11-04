@@ -2,11 +2,13 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { legalCards } from "../src/engine.js";
 import {
-  createRoom, joinRoom, setPlayerReady, startRoom, applyRoomCommand,
+  createRoom, joinRoom, setPlayerReady, startRoom as startRoomImpl, applyRoomCommand,
   processTurnTimeout, disconnectPlayer, reconnectPlayer, processAllDisconnectedTimeout,
   voteToCancelMatch, cancelForUnrecoverableTechnicalFailure,
   roomViewForUser, startNextRound, submitMatchAppeal, reviewMatchAppeal
 } from "../src/room.js";
+
+const startRoom = (room, requester, options = {}) => startRoomImpl(room, requester, { ...options, selectHakemSeat: options.selectHakemSeat ?? (() => 0) });
 
 function readyRoom(now = 1000, matchTarget = 7) {
   let room = createRoom({ roomId: "owner-rules-room", hostUserId: "u0", now, matchTarget });
