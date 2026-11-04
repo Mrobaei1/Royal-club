@@ -181,3 +181,28 @@ WBS 7.3 remains Blocked: targeted semantic definitions have been reviewed and th
 ### Migration fail-closed validation — 2026-11-04
 
 The migration now verifies the expected data types, nullability, defaults, foreign keys and index definitions before COMMIT, and raises an exception rather than silently accepting a conflicting pre-existing object. The complete migration statement sequence, including this verification block and the case-folded username index, was re-applied in a single transaction on isolated branch `br-crimson-mouse-baq7v9aa`; all 14 statements completed successfully on the repeat run. Production remained unchanged.
+
+
+## Final source-parity and deployment-provenance findings — 2026-11-04
+
+### Source/catalog name parity
+
+The repository's `schema-parity.ts` originally compared explicit index names only. The Production snapshot had a legacy case-sensitive `users_username_unique_idx`, while the source declaration requires `LOWER(username)`. The migration adds the equivalent case-folded index as `users_username_casefold_unique_idx`. The parity checker now reads `pg_get_indexdef`, normalizes that validated case-folded index to the source index name, and ignores only the known mismatched legacy definition. New unit tests cover both the legacy-alias case and an already-correct source index.
+
+The source declaration parser and the same normalized catalog comparison were run against the isolated Neon repair branch:
+
+| Catalog | Source | Isolated branch | Difference |
+|---|---:|---:|---:|
+| Public base tables | 35 | 35 | 0 |
+| Public columns | 301 | 301 | 0 |
+| Explicit indexes (after known legacy-index normalization) | 34 | 34 | 0 |
+
+No missing or extra table, column, or explicit-index names remained. This is full **name-level** parity only; it does not replace complete source-wide semantic validation of all column definitions, defaults, nullability, FKs, checks, and index expressions.
+
+### Production Function is behind source
+
+Read-only Neon metadata still reports active Function deployment 81, created `2026-10-31T10:24:43Z`, with no bundled Git SHA in deployment metadata. GitHub history shows the source commit `b74c05ff68b9cd3334d07a2d084983b0b48ad7cc` (2026-10-31 11:24:28Z) added trigger authentication, successful cleanup logging, and deployment provenance; later API changes also followed. Thus active deployment 81 predates the provenance/trigger-hardening commit by about one hour and cannot be accepted as the current source. Function telemetry shows invocation begin/end pairs, but no application-level `Scheduled empty-room cleanup completed/failed` log records were found in the last seven days.
+
+The existing manual-only `deploy-neon-function.yml` workflow already bundles the current Function, injects `ROYAL_CLUB_GIT_SHA`, runs the schema parity gate, verifies the health endpoint SHA, and performs registration/login/profile/friend/match smoke tests. The workflow is deliberately manual-only and Production deployment must remain owner-approved. This PR now also makes `ROYAL_CLUB_OWNER_USER_ID` mandatory and rejects missing/non-numeric owner identity before deployment; this prevents a release that silently omits the owner binding. The value itself was not read or exposed.
+
+WBS 7.2 remains Blocked until the approved workflow deploys and the live health SHA matches the approved main commit. WBS 7.4 remains In progress until the same deployment proves the authenticated scheduled route and emits its outcome logs. WBS 6.2 remains Blocked until the owner confirms the numeric ID is the actual owner account. WBS 7.6 remains Blocked pending secure CORS/network/log-access acceptance.
