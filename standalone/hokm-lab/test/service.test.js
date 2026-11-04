@@ -293,3 +293,21 @@ test("cumulative player XP is hydrated for both the room host and later joiners"
   const joined = await service.join(user("u1"), nextRoom.roomId, nextRoom.version);
   assert.deepEqual(joined.ownProgress, { xp: 430, level: 1 });
 });
+
+test("service records permanent forfeit once and cancels when a second player exits", async () => {
+  const { service } = serviceFixture();
+  let room = await service.create(user("u0"));
+  for (const id of ["u1", "u2", "u3"]) room = await service.join(user(id), room.roomId, room.version);
+  for (const id of ["u0", "u1", "u2", "u3"]) room = await service.ready(user(id), room.roomId, true, room.version);
+  room = await service.start(user("u0"), room.roomId, room.version);
+  room = await service.forfeit(user("u0"), room.roomId, room.version);
+  assert.equal(room.status, "playing");
+  assert.equal(room.players.find(player => player.userId === "u0").forfeited, true);
+  const repeated = await service.forfeit(user("u0"), room.roomId, room.version);
+  assert.equal(repeated.version, room.version, "repeated forfeit must be idempotent");
+  room = await service.forfeit(user("u1"), room.roomId, room.version);
+  assert.equal(room.status, "cancelled");
+  assert.equal(room.cancelReason, "multiple_voluntary_exits");
+  assert.deepEqual(room.matchScore, [0, 0]);
+  assert.equal(room.result, null);
+});
