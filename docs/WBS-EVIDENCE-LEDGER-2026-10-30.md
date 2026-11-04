@@ -220,3 +220,11 @@ This section supersedes any earlier statements in this ledger that said the late
 - WBS 7.3 remains Blocked only on the remaining release/recovery gates: source-wide semantic catalog comparison (not merely name counts), app compatibility acceptance, backup/restore rehearsal, rollback/recovery evidence and explicit owner-approved Production migration. The isolated additive migration itself and repeat-run/fail-closed validation are complete.
 - WBS 7.2 remains Blocked on owner-approved manual deployment and exact live SHA verification. WBS 6.2 remains Blocked on secure confirmation that the configured numeric owner ID identifies the GM account. WBS 7.6 remains Blocked on secure CORS/network/log-access acceptance. WBS 7.4 remains In progress pending a deployment-backed production route/outcome check.
 - No WBS points are awarded by this evidence update. No Production migration, deployment, config/network change, secret retrieval, APK build or PR merge occurred.
+
+
+## Backup/restore evidence update — 2026-11-04
+
+- Read-only Production backup inventory found one manual snapshot dated 2026-10-31 and an empty Production snapshot schedule. The WBS 7.5 requirement for three recent recovery points and tested recurring backups is not met.
+- A branch restore from that snapshot completed and was catalog-checked: the restored snapshot contains 33 public tables / 289 columns. The original Production branch and API Function deployment 81 were preserved; the restored branch is retained separately.
+- The restore call's default finalization temporarily changed the project's default-branch pointer. This was corrected immediately by restoring the original branch name and default pointer. Follow-up checks confirmed the original branch ID `br-misty-flower-bavs47dm` is again `production` and default, with its original Function and cleanup trigger. This was a branch-control-plane change only; no SQL writes, migration, data update, or deployment occurred. Full details and the correction are in [Technical Blocker Closure Audit](TECHNICAL-BLOCKER-CLOSURE-2026-11-04.md).
+- WBS 7.5 remains Blocked: one historical snapshot restore is not three-point retention, does not establish a recurring backup schedule, and does not complete end-to-end application recovery/RPO/RTO acceptance. No WBS points are awarded by this evidence update.
