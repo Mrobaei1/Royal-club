@@ -50,10 +50,11 @@ The full owner decision and acceptance specification is maintained in [OWNER-DEC
 - [x] Durable deadline poller reads persisted turn, reconnect and all-disconnected deadlines from PostgreSQL room rows; a 250ms default poll interval, bounded batches, trusted service identity and version/CAS transitions protect execution across multiple workers. Runtime assembly wires PostgreSQL, authenticated Fastify routes and the scheduler; startup remains explicit.
 - [x] Authenticated Fastify routes for room leave, unanimous cancellation votes, participant cheating reports, appeals, and manager review. Report/appeal player responses and management review projections omit private hands and raw round state.
 - [x] Live ephemeral PostgreSQL migration/application and two-instance CAS/restart recovery acceptance in CI.
-- [ ] Production Royal Club database migration/deployment, production auth middleware/session binding, event transport and multi-instance soak testing.
-- [x] Server-side private one-to-one text chat for opposing-team participants: authenticated sender identity, opponent-only recipient validation, 1,000-character bound, message idempotency key, participant-scoped delivery and final-result privacy.
-- [x] Standalone Flutter UI package with four-seat lobby/game screen, Persian/English text helper, injected authentication/API contract, bearer-token HTTP adapter, private opponent-chat panel, manager report/appeal review screen, and widget/API adapter tests. Standalone Flutter CI passed (analyze + 13 widget/API tests); four-device and live network acceptance remain open.
-- [ ] Image attachments, full emoji picker, manager Flutter review UI, live event transport and four-device end-to-end acceptance.
+- [ ] Production Royal Club database migration/deployment, dedicated worker provisioning, push event transport and multi-instance soak testing. The production-port PR contains JWT/session integration but has not been merged or deployed.
+- [x] Server-side private one-to-one chat for opposing-team participants: authenticated sender identity, opponent-only recipient validation, 1,000-character text bound, signature-validated PNG/JPEG/WebP images up to 650 KiB, message idempotency, participant-scoped delivery, final-result privacy and 2 MiB per-room chat storage cap.
+- [x] Royal Club Flutter integration with four-seat lobby/game screen, Persian/English copy, secure bearer-token adapter, 500ms version-based room synchronization, private opponent chat, image picker, full emoji picker, owner report/appeal review screen and home-menu navigation. Root Flutter analyze is clean and 92 tests pass; physical four-device and push-event acceptance remain open.
+- [x] Image attachments, full emoji picker and owner Flutter report/appeal review UI.
+- [ ] Push event transport, physical four-device end-to-end acceptance, production worker provisioning and multi-instance soak.
 
 ## Communication policy (owner-confirmed, 2026-11-03)
 
@@ -77,7 +78,7 @@ The room/service layer exposes version-checked seven-second turn deadline proces
 - Disconnect, turn and all-disconnected deadline processing is restricted to trusted service/system principals and invoked by the durable database-polled scheduler. The scheduler reloads current room versions before transitions; PostgreSQL compare-and-swap prevents two server instances from committing the same version.
 - Fastify routes expose participant leave/cancel/report/appeal actions and manager review endpoints; private card state is stripped from participant and manager responses.
 
-**Production blockers remain:** real authentication middleware/session binding must be wired to the Fastify adapter; the SQL migration has not been applied to a live PostgreSQL instance; database integration tests, distributed concurrency control across server processes, event transport and reconnect recovery tests against a running server remain open. The durable scheduler and route/runtime adapters are now implemented in the isolated lab but are not yet wired into the production Royal Club API. The PostgreSQL adapter and durable scheduler have been exercised against a real ephemeral PostgreSQL 16 instance in CI, including two independent service instances and restart recovery. The host Royal Club API still does not import or start this isolated runtime; production deployment and sustained multi-instance soak tests remain open. Do not deploy this service or describe it as production-ready.
+**Production blockers remain:** PR #133 (`feature/hokm-production-api-v3`) now ports the latest verified Hokm modules into the Royal Club Fastify API, derives identity from the real JWT/session guard (including token-version and revocation checks), gates review to the configured owner, and provides the dedicated deadline worker. The Flutter game is also wired into the Royal Club mobile home menu and uses the existing secure token/session. These changes are still on an unmerged production-port branch; the default `main` branch is unchanged. The production migration has not been applied to the live database, the dedicated worker has not been provisioned, push event transport and physical four-device acceptance remain open, and sustained multi-instance soak testing is outstanding. Do not deploy or describe the service as production-ready.
 
 ## Run tests
 Requires Node.js 20+: `npm test`
@@ -87,7 +88,7 @@ Do not describe this module as complete until the remaining acceptance criteria 
 
 ## Latest verified checkpoint (2026-11-04)
 
-- Node 20 + PostgreSQL 16: **127/127 tests passed**, including live migration, multi-instance compare-and-swap, private-chat isolation, manager-review persistence and terminal-state privacy.
-- Standalone Flutter: **analysis clean; 13/13 widget/API tests passed**, including private opponent chat and host-granted manager-review navigation.
-- Royal Club root CI for the production-port draft: API build/tests, PostgreSQL integration and Flutter analyze/tests passed. This is code validation only; the PR remains a draft and the production parity blockers below are still open.
-- No production deployment, merge to `main`, or APK build was performed.
+- Node 20 + PostgreSQL 16: **128 tests passed, 0 failed, 1 environment-gated skip**, including live migration, multi-instance compare-and-swap, deadline restart recovery, private-chat/image validation, manager-review persistence and terminal-state privacy.
+- Royal Club API build/tests passed; mobile Flutter analyze is clean and **92 tests passed**, including Hokm UI, chat, image/emoji controls and manager review.
+- Production-port API integration and the latest exact-head combined validation are still running/queued; do not count them as passed until GitHub reports success.
+- No production deployment, merge to `main`, worker provisioning, or APK build was performed.
