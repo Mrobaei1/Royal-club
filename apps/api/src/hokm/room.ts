@@ -1,5 +1,4 @@
 // @ts-nocheck
-// Ported from the independently verified Hokm lab; strict runtime validation remains in the domain/service layer.
 import { createRound, chooseTrump, playCard, roundViewForSeat } from "./round.js";
 import { createDeck, shuffleDeck, legalCards } from "./engine.js";
 import { awardCompletedMatch, penalizeMatchLeaver } from "./progression.js";
@@ -45,7 +44,7 @@ export function createRoom({ roomId, hostUserId, now, privateRoom = true, matchT
     // No wall-clock TTL: a room remains alive while at least one player is in it.
     status: "waiting", matchTarget, disconnectGraceMs, matchScore: [0, 0],
     playerProgress: {}, penalizedLeavers: [], cancellationVotes: [],
-    appeals: [], reports: [], allDisconnectedDeadline: null, handRevealUntil: null, revealedHands: null,
+    appeals: [], reports: [], chatMessages: [], allDisconnectedDeadline: null, handRevealUntil: null, revealedHands: null,
     players: [{ userId: hostUserId, seat: 0, ready: false, connected: true, botControlled: false }],
     version: 1, round: null, turnDeadlineAt: null
   };
@@ -77,7 +76,7 @@ export function leaveRoom(room, userId) {
 /** Temporary network loss; authenticated user identity must be supplied by the server. */
 export function disconnectPlayer(room, userId, { now, expectedVersion } = {}) {
   requireUserId(userId); requireNow(now); requireExpectedVersion(room, expectedVersion);
-  if (room.status !== "playing") throw new Error("Only an active match can record a disconnect");
+  if (!["playing", "round_completed"].includes(room.status)) throw new Error("Only an unfinished match can record a disconnect");
   const player = room.players.find(candidate => candidate.userId === userId);
   if (!player) throw new Error("User is not a member of this room");
   if (player.forfeited) throw new Error("A forfeited player cannot disconnect again");
@@ -94,7 +93,7 @@ export function disconnectPlayer(room, userId, { now, expectedVersion } = {}) {
 /** Reclaim a temporary disconnect; already committed bot moves are never rolled back. */
 export function reconnectPlayer(room, userId, { now, expectedVersion } = {}) {
   requireUserId(userId); requireNow(now); requireExpectedVersion(room, expectedVersion);
-  if (room.status !== "playing") throw new Error("Only an active match can reconnect");
+  if (!["playing", "round_completed"].includes(room.status)) throw new Error("Only an unfinished match can reconnect");
   const player = room.players.find(candidate => candidate.userId === userId);
   if (!player) throw new Error("User is not a member of this room");
   if (player.forfeited) throw new Error("A forfeited player cannot reclaim their seat");
@@ -173,12 +172,20 @@ export function startRoom(room, requesterUserId, { now, rng = Math.random } = {}
 
 export function startNextRound(room, requesterUserId, { rng = Math.random, now = Date.now() } = {}) {
   requireNow(now);
-  if (requesterUserId !== room.hostUserId) throw new Error("Only the host may start the next round");
   if (room.status !== "round_completed") throw new Error("The previous round is not completed");
+  const host = room.players.find(player => player.userId === room.hostUserId);
+  const hostUnavailable = !host || host.connected === false || host.forfeited === true;
+  if (requesterUserId !== room.hostUserId) {
+    const requester = room.players.find(player => player.userId === requesterUserId);
+    if (!hostUnavailable || !requester || requester.connected === false || requester.forfeited === true) {
+      throw new Error("Only the host may start the next round unless unavailable; then a connected player may take over");
+    }
+  }
   if (Number.isFinite(room.handRevealUntil) && now < room.handRevealUntil) throw new Error("The 3-second end-of-hand reveal is still active");
   const nextHakem = (room.round.hakemSeat + 1) % 4;
   const round = createRound({ deck: shuffleDeck(createDeck(), rng), hakemSeat: nextHakem });
-  return { ...room, status: "playing", round, turnStartedAt: now,
+  return { ...room, hostUserId: hostUnavailable && requesterUserId !== room.hostUserId ? requesterUserId : room.hostUserId,
+    status: "playing", round, turnStartedAt: now,
     turnDeadlineAt: now + TURN_DEADLINE_MS, handRevealUntil: null, revealedHands: null,
     version: room.version + 1 };
 }
@@ -269,6 +276,41 @@ export function reviewMatchAppeal(room, reviewerId, appealId, { decision, notes 
   return { ...room, appeals, version: room.version + 1 };
 }
 
+/** Private one-to-one text chat is limited to opposing-team participants. */
+export function sendOpponentChatMessage(room, senderUserId, recipientUserId, {
+  messageId, text, now
+} = {}) {
+  requireUserId(senderUserId); requireUserId(recipientUserId); requireNow(now);
+  if (!["playing", "round_completed"].includes(room.status)) throw new Error("Chat is available only during an active match");
+  if (senderUserId === recipientUserId) throw new Error("A player cannot message themselves");
+  const sender = room.players.find(player => player.userId === senderUserId);
+  const recipient = room.players.find(player => player.userId === recipientUserId);
+  if (!sender || !recipient) throw new Error("Both chat participants must belong to this match");
+  if (sender.forfeited || recipient.forfeited) throw new Error("A forfeited player cannot use match chat");
+  if (sender.seat % 2 === recipient.seat % 2) throw new Error("Private match chat is limited to opposing-team players");
+  if (typeof messageId !== "string" || !messageId.trim() || messageId.length > 128) {
+    throw new TypeError("A bounded chat message ID is required");
+  }
+  if (typeof text !== "string" || !text.trim() || text.trim().length > 1000) {
+    throw new TypeError("Chat text must contain between 1 and 1000 characters");
+  }
+  const messages = room.chatMessages ?? [];
+  const duplicate = messages.find(message => message.messageId === messageId);
+  if (duplicate) {
+    if (duplicate.senderUserId !== senderUserId || duplicate.recipientUserId !== recipientUserId ||
+        duplicate.text !== text.trim()) throw new Error("Chat message ID was already used for different content");
+    return room;
+  }
+  const message = Object.freeze({
+    messageId, senderUserId, recipientUserId, text: text.trim(), createdAt: now
+  });
+  return {
+    ...room,
+    chatMessages: [...messages, message].slice(-500),
+    version: room.version + 1
+  };
+}
+
 /** A trusted server/operator may cancel only when technical failure makes continuation impossible. */
 export function cancelForUnrecoverableTechnicalFailure(room, { reason = "unrecoverable_server_failure" } = {}) {
   if (!["playing", "round_completed"].includes(room.status)) throw new Error("Only an unfinished match can be canceled for technical failure");
@@ -281,17 +323,26 @@ export function roomViewForUser(room, userId, { now = Date.now() } = {}) {
   requireNow(now);
   const player = room.players.find(candidate => candidate.userId === userId);
   if (!player) throw new Error("User is not a member of this room");
-  const revealActive = Number.isFinite(room.handRevealUntil) && now < room.handRevealUntil && Array.isArray(room.revealedHands);
-  const game = room.round && room.status !== "completed" ? roundViewForSeat(room.round, player.seat) : null;
+  const matchStillActive = !["completed", "cancelled", "expired"].includes(room.status);
+  const revealActive = matchStillActive &&
+    ["playing", "round_completed"].includes(room.status) &&
+    Number.isFinite(room.handRevealUntil) && now < room.handRevealUntil && Array.isArray(room.revealedHands);
+  const game = room.round && matchStillActive ? roundViewForSeat(room.round, player.seat) : null;
   return Object.freeze({
     roomId: room.roomId, privateRoom: room.privateRoom, status: room.status,
     matchTarget: room.matchTarget, matchScore: [...room.matchScore], version: room.version,
+    serverNow: now,
     hostUserId: room.hostUserId,
     players: room.players.map(({ userId: id, seat, ready, connected, botControlled }) => ({ userId: id, seat, ready, connected, botControlled: Boolean(botControlled) })),
     ownProgress: room.playerProgress?.[userId] ?? { xp: 0, level: 1 },
     turnDeadlineAt: room.turnDeadlineAt ?? null,
     handRevealUntil: revealActive ? room.handRevealUntil : null,
     revealedHands: revealActive ? copyHands(room.revealedHands) : null,
+    chatMessages: ["playing", "round_completed"].includes(room.status)
+      ? (room.chatMessages ?? []).filter(message =>
+          message.senderUserId === userId || message.recipientUserId === userId
+        ).map(message => ({ ...message }))
+      : [],
     game
   });
 }
