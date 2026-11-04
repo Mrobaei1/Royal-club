@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -282,6 +284,54 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('restore button prevents overlapping load and bot scheduling',
+      (tester) async {
+    final restored = ManchGameState(
+      players: [
+        ManchPlayerState(colour: ManchColour.red),
+        ManchPlayerState(colour: ManchColour.yellow, tokens: [0, -1, -1, -1]),
+      ],
+      activePlayerIndex: 1,
+      profile: const ManchRuleProfile(),
+      pendingDice: 1,
+      turnNumber: 2,
+    );
+    final store = _DelayedManchSaveStore();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale('en'),
+        supportedLocales: const [Locale('fa'), Locale('en')],
+        localizationsDelegates: GlobalMaterialLocalizations.delegates,
+        home: ManchOfflineGameScreen(
+          botPlayers: const {ManchColour.yellow},
+          diceRoller: _unexpectedDiceRoll,
+          saveStore: store,
+        ),
+      ),
+    );
+
+    await tester.ensureVisible(find.text('Restore'));
+    await tester.tap(find.text('Restore'));
+    await tester.pump();
+    expect(store.loadCalls, 1);
+    expect(find.text('Restoring...'), findsOneWidget);
+    expect(tester.widget<OutlinedButton>(
+      find.ancestor(of: find.text('Restoring...'), matching: find.byType(OutlinedButton)),
+    ).onPressed, isNull);
+
+    await tester.tap(find.text('Restoring...'), warnIfMissed: false);
+    expect(store.loadCalls, 1);
+
+    store.completer.complete(restored);
+    await tester.pumpAndSettle();
+
+    expect(store.loadCalls, 1);
+    expect(find.text('Red\'s turn'), findsOneWidget);
+    expect(find.text('Roll die'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('configured bot plays its turn and returns control to human',
       (tester) async {
     var rollCount = 0;
@@ -317,6 +367,20 @@ int _six() => 6;
 int _one() => 1;
 int _unexpectedDiceRoll() =>
     throw StateError('A restored pending die must not be rolled again.');
+
+class _DelayedManchSaveStore implements ManchSaveStore {
+  final Completer<ManchGameState?> completer = Completer<ManchGameState?>();
+  int loadCalls = 0;
+
+  @override
+  Future<void> save(ManchGameState state) async {}
+
+  @override
+  Future<ManchGameState?> load() {
+    loadCalls++;
+    return completer.future;
+  }
+}
 
 class _MemoryManchSaveStore implements ManchSaveStore {
   ManchGameState? saved;
