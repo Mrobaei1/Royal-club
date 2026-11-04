@@ -13,7 +13,7 @@ import 'services/admin_service.dart';
 import 'theme_state.dart';
 import 'online_lobby_screen.dart';
 import 'wallet_screen.dart';
-import 'admin_screen.dart';
+import 'admin_screen.dart' hide appText, FilledButton;
 import 'contact_screen.dart';
 import 'chat_screen.dart';
 import 'services/chat_service.dart';
