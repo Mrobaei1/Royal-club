@@ -29,7 +29,7 @@ function route(fastify, authenticate, method, url, operation) {
 }
 
 /** Register authenticated HTTP endpoints; identity is never read from body/query. */
-export async function registerHokmRoutes(fastify, { service, authenticate, prefix = "" }) {
+export async function registerHokmRoutes(fastify, { service, authenticate, prefix = "", eventHub = null }) {
   if (!fastify || typeof fastify.route !== "function") throw new TypeError("A Fastify instance is required");
   if (!service) throw new TypeError("HokmRoomService is required");
   if (typeof authenticate !== "function") throw new TypeError("Authentication preHandler is required");
@@ -94,4 +94,62 @@ export async function registerHokmRoutes(fastify, { service, authenticate, prefi
   route(fastify, authenticate, "POST", path("/hokm/rooms/:roomId/manager/appeals/:appealId/review"), request =>
     service.reviewAppeal(request.auth, request.params.roomId, request.params.appealId,
       request.body?.decision, request.body?.notes ?? "", request.body?.expectedVersion));
+  if (eventHub) {
+    fastify.route({
+      method: "GET", url: path("/hokm/rooms/:roomId/events"), preHandler: authenticate,
+      handler: async (request, reply) => {
+        const roomId = request.params.roomId;
+        try { await service.view(request.auth, roomId); }
+        catch (error) { return reply.code(statusFor(error)).send({ error: error.message }); }
+        reply.hijack();
+        const raw = reply.raw;
+        raw.writeHead(200, {
+          "Content-Type": "text/event-stream; charset=utf-8",
+          "Cache-Control": "no-cache, no-transform",
+          "Connection": "keep-alive",
+          "X-Accel-Buffering": "no"
+        });
+        raw.write(": connected\\n\\n");
+        let closed = false;
+        let sending = false;
+        let dirty = false;
+        let lastVersion = -1;
+        let heartbeat;
+        let unsubscribe = () => {};
+        const cleanup = () => {
+          if (closed) return;
+          closed = true;
+          if (heartbeat) clearInterval(heartbeat);
+          unsubscribe();
+        };
+        const sendCurrent = async () => {
+          if (closed) return;
+          if (sending) { dirty = true; return; }
+          sending = true;
+          dirty = false;
+          try {
+            const view = await service.view(request.auth, roomId);
+            if (!closed && view.version > lastVersion) {
+              lastVersion = view.version;
+              raw.write(`id: ${view.version}\\nevent: room\\ndata: ${JSON.stringify(view)}\\n\\n`);
+            }
+          } catch (error) {
+            if (!closed) {
+              raw.write(`event: error\\ndata: ${JSON.stringify({ error: error.message })}\\n\\n`);
+              raw.end();
+            }
+          } finally {
+            sending = false;
+            if (dirty && !closed) void sendCurrent();
+          }
+        };
+        try { unsubscribe = eventHub.subscribe(roomId, () => void sendCurrent()); }
+        catch (error) { raw.end(); cleanup(); return reply; }
+        raw.on("close", cleanup);
+        heartbeat = setInterval(() => { if (!closed) raw.write(": ping\\n\\n"); }, 15000);
+        void sendCurrent();
+        return reply;
+      }
+    });
+  }
 }
