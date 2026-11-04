@@ -112,7 +112,7 @@ export function disconnectPlayer(room, userId, { now, expectedVersion } = {}) {
   const players = room.players.map(candidate => candidate.userId === userId
     ? { ...candidate, connected: false, disconnectedAt: now, reconnectDeadline: now + room.disconnectGraceMs, temporaryBot: false }
     : candidate);
-  const allDisconnected = players.length === MAX_PLAYERS && players.every(candidate => !candidate.connected);
+  const allDisconnected = players.length === MAX_PLAYERS && players.every(candidate => !candidate.connected && !candidate.forfeited);
   return {
     ...room,
     players,
@@ -163,7 +163,7 @@ export function handleDisconnectTimeout(room, userId, { now, expectedVersion } =
 export function processAllDisconnectedTimeout(room, { now, expectedVersion } = {}) {
   requireNow(now); requireExpectedVersion(room, expectedVersion);
   if (!["playing", "round_completed"].includes(room.status)) throw new Error("Only an unfinished match can expire its all-disconnected lease");
-  if (!room.allDisconnectedDeadline || room.players.length !== MAX_PLAYERS || room.players.some(player => player.connected)) {
+  if (!room.allDisconnectedDeadline || room.players.length !== MAX_PLAYERS || room.players.some(player => player.connected || player.forfeited)) {
     throw new Error("All four players are not disconnected");
   }
   if (now < room.allDisconnectedDeadline) throw new Error("All-disconnected grace period has not elapsed");
