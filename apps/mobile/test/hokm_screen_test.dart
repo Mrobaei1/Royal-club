@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -198,6 +199,17 @@ class FakeHokmApi implements HokmApi {
       'reports': [],
       'appeals': [{'appealId': appealId, 'status': 'reviewed', 'decision': decision, 'reason': 'The final score was disputed'}],
     };
+  }
+}
+
+class FakeEventHokmApi extends FakeHokmApi implements HokmEventApi {
+  final StreamController<Map<String, dynamic>> controller = StreamController.broadcast();
+  int watchCalls = 0;
+
+  @override
+  Stream<Map<String, dynamic>> watchRoom(String roomId) {
+    watchCalls++;
+    return controller.stream;
   }
 }
 
@@ -463,6 +475,35 @@ void main() {
     await tester.tap(find.byTooltip('Emoji picker'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 1));
+  });
+
+
+  testWidgets('Hokm client consumes pushed room versions without polling', (tester) async {
+    tester.view.physicalSize = const Size(1200, 1800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final api = FakeEventHokmApi();
+    addTearDown(api.controller.close);
+    await tester.pumpWidget(MaterialApp(
+      locale: const Locale('en'),
+      supportedLocales: const [Locale('fa'), Locale('en')],
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
+      home: HokmScreen(api: api, identityLoader: () async => 'u1'),
+    ));
+    await tester.pump();
+    await tester.tap(find.text('Create Hokm room'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 20));
+    expect(api.watchCalls, 1);
+    final pushed = Map<String, dynamic>.from(api.room);
+    pushed['version'] = 2;
+    pushed['players'] = (api.room['players'] as List)
+        .map((player) => Map<String, dynamic>.from(player as Map)).toList();
+    pushed['players'][0]['ready'] = true;
+    api.controller.add(pushed);
+    await tester.pump();
+    expect(find.text('Not ready'), findsOneWidget);
   });
 
 }
