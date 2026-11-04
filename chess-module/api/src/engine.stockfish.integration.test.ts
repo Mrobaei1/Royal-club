@@ -107,12 +107,14 @@ test("independent Stockfish perft agrees with adapter and reference legal moves 
   });
 
   const totals = [...result.stdout.matchAll(/Nodes searched:\s*(\d+)/g)];
-  const initialPositionPerft3 = Number(totals.at(-8)?.[1]);
-  const kiwipetePerft3 = Number(totals.at(-7)?.[1]);
-  const endgamePerft3 = Number(totals.at(-6)?.[1]);
-  const promotionPerft3 = Number(totals.at(-5)?.[1]);
-  const tacticalPerft3 = Number(totals.at(-4)?.[1]);
-  const middlegamePerft3 = Number(totals.at(-3)?.[1]);
+  // The final twelve totals are six perft-3 reference positions followed
+  // by the same six positions at perft-4.
+  const initialPositionPerft3 = Number(totals.at(-12)?.[1]);
+  const kiwipetePerft3 = Number(totals.at(-11)?.[1]);
+  const endgamePerft3 = Number(totals.at(-10)?.[1]);
+  const promotionPerft3 = Number(totals.at(-9)?.[1]);
+  const tacticalPerft3 = Number(totals.at(-8)?.[1]);
+  const middlegamePerft3 = Number(totals.at(-7)?.[1]);
   const initialPositionPerft4 = Number(totals.at(-6)?.[1]);
   const kiwipetePerft4 = Number(totals.at(-5)?.[1]);
   const endgamePerft4 = Number(totals.at(-4)?.[1]);
