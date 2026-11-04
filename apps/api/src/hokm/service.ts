@@ -1,12 +1,11 @@
 // @ts-nocheck
-// Ported from the independently verified Hokm lab; strict runtime validation remains in the domain/service layer.
 import { randomUUID } from "node:crypto";
 import {
-  createRoom, joinRoom, leaveRoom, setPlayerReady, startRoom, applyRoomCommand,
+  createRoom, joinRoom, leaveRoom, setPlayerReady, startRoom, startNextRound, applyRoomCommand,
   roomViewForUser, disconnectPlayer, reconnectPlayer, handleDisconnectTimeout,
   processTurnTimeout, processAllDisconnectedTimeout, voteToCancelMatch,
   cancelForUnrecoverableTechnicalFailure, submitMatchAppeal, reviewMatchAppeal,
-  submitCheatingReport, reviewCheatingReport
+  submitCheatingReport, reviewCheatingReport, sendOpponentChatMessage
 } from "./room.js";
 
 function authenticatedUser(principal) {
@@ -81,8 +80,7 @@ export class HokmRoomService {
   #repository;
   #queues = new Map();
 
-  constructor(options: any = {}) {
-    const { repository = new InMemoryRoomRepository(), now = () => Date.now(), id = () => randomUUID() } = options;
+  constructor({ repository = new InMemoryRoomRepository(), now = () => Date.now(), id = () => randomUUID() } = {}) {
     if (!repository || typeof repository.get !== "function" ||
         typeof repository.insert !== "function" ||
         typeof repository.compareAndSwap !== "function" ||
@@ -114,7 +112,10 @@ export class HokmRoomService {
 
   async join(principal, roomId, expectedVersion) {
     const userId = authenticatedUser(principal);
-    return this.#transition(roomId, expectedVersion, room => joinRoom(room, userId, this.now()), userId);
+    const current = await this.#repository.get(roomId);
+    if (!current) throw new Error("Room not found");
+    const version = expectedVersion ?? current.version;
+    return this.#transition(roomId, version, room => joinRoom(room, userId, this.now()), userId);
   }
 
   async leave(principal, roomId, expectedVersion) {
@@ -131,6 +132,12 @@ export class HokmRoomService {
     const userId = authenticatedUser(principal);
     return this.#transition(roomId, expectedVersion,
       room => startRoom(room, userId, { now: this.now() }), userId);
+  }
+
+  async nextRound(principal, roomId, expectedVersion) {
+    const userId = authenticatedUser(principal);
+    return this.#transition(roomId, expectedVersion,
+      room => startNextRound(room, userId, { now: this.now() }), userId);
   }
 
   async command(principal, roomId, command, expectedVersion) {
@@ -157,6 +164,14 @@ export class HokmRoomService {
       room => voteToCancelMatch(room, userId, approve, expectedVersion), userId);
   }
 
+  async sendChatMessage(principal, roomId, recipientUserId, text, messageId, expectedVersion) {
+    const senderUserId = authenticatedUser(principal);
+    return this.#transition(roomId, expectedVersion,
+      room => sendOpponentChatMessage(room, senderUserId, recipientUserId, {
+        messageId, text, now: this.now()
+      }), senderUserId);
+  }
+
   async reportCheating(principal, roomId, reportedUserId, reason, expectedVersion) {
     const reporterId = authenticatedUser(principal);
     const reportId = this.id();
@@ -165,6 +180,16 @@ export class HokmRoomService {
         reportId, reportedUserId, reason, now: this.now()
       }), reporterId);
     return Object.freeze({ ...room, submittedReportId: reportId });
+  }
+
+  async managerView(principal, roomId) {
+    authenticatedUser(principal);
+    if (principal.role !== "manager" && principal.role !== "owner") {
+      throw new Error("Only an authorized manager may view match review records");
+    }
+    const room = await this.#repository.get(roomId);
+    if (!room) throw new Error("Room not found");
+    return managerRoomView(room);
   }
 
   async reviewCheating(principal, roomId, reportId, notes, expectedVersion) {
