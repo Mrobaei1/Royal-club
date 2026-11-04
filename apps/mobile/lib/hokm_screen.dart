@@ -23,6 +23,8 @@ class _HokmScreenState extends State<HokmScreen> with WidgetsBindingObserver {
   final _chatController = TextEditingController();
   String? _chatRecipientUserId;
   Timer? _pollTimer;
+  StreamSubscription<Map<String, dynamic>>? _eventSubscription;
+  bool _eventStreamAttempted = false;
   Map<String, dynamic>? _room;
   String? _userId;
   String? _error;
@@ -93,6 +95,7 @@ class _HokmScreenState extends State<HokmScreen> with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _pollTimer?.cancel();
+    _eventSubscription?.cancel();
     _roomCode.dispose();
     _chatController.dispose();
     if (_roomId.isNotEmpty && ['playing', 'round_completed'].contains(_status) && !_background) {
@@ -106,6 +109,12 @@ class _HokmScreenState extends State<HokmScreen> with WidgetsBindingObserver {
     if (_roomId.isEmpty || !['playing', 'round_completed'].contains(_status)) return;
     if (state == AppLifecycleState.inactive || state == AppLifecycleState.paused) {
       _background = true;
+      _eventStreamAttempted = false;
+      _pollTimer?.cancel();
+      _pollTimer = null;
+      final subscription = _eventSubscription;
+      _eventSubscription = null;
+      if (subscription != null) unawaited(subscription.cancel());
       unawaited(_disconnectInBackground());
     } else if (state == AppLifecycleState.resumed && _background) {
       _background = false;
@@ -133,8 +142,30 @@ class _HokmScreenState extends State<HokmScreen> with WidgetsBindingObserver {
     if (['completed', 'cancelled', 'expired'].contains(room['status'])) {
       _pollTimer?.cancel();
       _pollTimer = null;
-    } else if (_roomId.isNotEmpty && _pollTimer == null) {
-      _pollTimer = Timer.periodic(const Duration(milliseconds: 500), (_) => _refresh());
+      final subscription = _eventSubscription;
+      _eventSubscription = null;
+      _eventStreamAttempted = true;
+      if (subscription != null) unawaited(subscription.cancel());
+    } else if (!_background && _roomId.isNotEmpty) {
+      if (_api is HokmEventApi && !_eventStreamAttempted) {
+        _eventStreamAttempted = true;
+        _eventSubscription = (_api as HokmEventApi).watchRoom(_roomId).listen(
+          (latest) => _accept(latest),
+          onError: (Object error) {
+            _eventSubscription = null;
+            _showError(error);
+            _startFallbackPolling();
+          },
+          onDone: () {
+            _eventSubscription = null;
+            _startFallbackPolling();
+          },
+        );
+        _pollTimer?.cancel();
+        _pollTimer = null;
+      } else if (_api is! HokmEventApi || _eventSubscription == null) {
+        _startFallbackPolling();
+      }
     }
   }
 
@@ -143,8 +174,15 @@ class _HokmScreenState extends State<HokmScreen> with WidgetsBindingObserver {
     setState(() => _error = appError(context, error));
   }
 
+
+  void _startFallbackPolling() {
+    if (!mounted || _background || _roomId.isEmpty || _pollTimer != null ||
+        ['completed', 'cancelled', 'expired'].contains(_status)) return;
+    _pollTimer = Timer.periodic(const Duration(milliseconds: 500), (_) => _refresh());
+  }
+
   Future<void> _refresh() async {
-    if (_pollBusy || _busy || _roomId.isEmpty || _background) return;
+    if (_pollBusy || _busy || _roomId.isEmpty || _background || _eventSubscription != null) return;
     _pollBusy = true;
     try {
       final latest = await _api.viewRoom(_roomId);
