@@ -36,6 +36,18 @@ function managerRoomView(room) {
 
 export class InMemoryRoomRepository {
   #rooms = new Map();
+  #playerProgress = new Map();
+
+  async getPlayerProgress(userIds) {
+    return Object.fromEntries(userIds.filter(userId => this.#playerProgress.has(userId))
+      .map(userId => [userId, this.#playerProgress.get(userId)]));
+  }
+
+  #saveProgress(room) {
+    for (const [userId, progress] of Object.entries(room.playerProgress ?? {})) {
+      this.#playerProgress.set(userId, progress);
+    }
+  }
 
   async get(roomId) {
     return this.#rooms.get(roomId) ?? null;
@@ -44,6 +56,7 @@ export class InMemoryRoomRepository {
   async insert(room) {
     if (this.#rooms.has(room.roomId)) throw new Error("Room already exists");
     this.#rooms.set(room.roomId, room);
+    this.#saveProgress(room);
     return room;
   }
 
@@ -53,6 +66,7 @@ export class InMemoryRoomRepository {
       if (!["playing", "round_completed"].includes(room.status)) return false;
       if (Number.isFinite(room.turnDeadlineAt) && room.turnDeadlineAt <= now) return true;
       if (Number.isFinite(room.allDisconnectedDeadline) && room.allDisconnectedDeadline <= now) return true;
+      if (Number.isFinite(room.multipleDisconnectedDeadline) && room.multipleDisconnectedDeadline <= now) return true;
       if (Number.isFinite(room.multipleDisconnectedDeadline) && room.multipleDisconnectedDeadline <= now) return true;
       return room.players.some(player => !player.connected && !player.forfeited && !player.temporaryBot &&
         Number.isFinite(player.reconnectDeadline) && player.reconnectDeadline <= now);
@@ -66,6 +80,7 @@ export class InMemoryRoomRepository {
       throw new Error("Invalid room compare-and-swap transition");
     }
     this.#rooms.set(roomId, nextRoom);
+    this.#saveProgress(nextRoom);
     return true;
   }
 }
@@ -96,10 +111,14 @@ export class HokmRoomService {
 
   async create(principal, { privateRoom = true, matchTarget = 7, disconnectGraceMs } = {}) {
     const userId = authenticatedUser(principal);
-    const room = createRoom({
+    let room = createRoom({
       roomId: this.id(), hostUserId: userId, now: this.now(),
       privateRoom, matchTarget, ...(disconnectGraceMs === undefined ? {} : { disconnectGraceMs })
     });
+    if (typeof this.#repository.getPlayerProgress === "function") {
+      const stored = await this.#repository.getPlayerProgress([userId]);
+      if (stored?.[userId]) room = { ...room, playerProgress: { ...room.playerProgress, [userId]: stored[userId] } };
+    }
     await this.#repository.insert(room);
     return roomViewForUser(room, userId, { now: this.now() });
   }
@@ -116,7 +135,17 @@ export class HokmRoomService {
     const current = await this.#repository.get(roomId);
     if (!current) throw new Error("Room not found");
     const version = expectedVersion ?? current.version;
-    return this.#transition(roomId, version, room => joinRoom(room, userId, this.now()), userId);
+    const stored = typeof this.#repository.getPlayerProgress === "function"
+      ? await this.#repository.getPlayerProgress([userId]) : {};
+    return this.#transition(roomId, version, room => {
+      const joined = joinRoom(room, userId, this.now());
+      if (!stored?.[userId] || joined.playerProgress?.[userId]) return joined;
+      return {
+        ...joined,
+        playerProgress: { ...(joined.playerProgress ?? {}), [userId]: stored[userId] },
+        version: joined === room ? room.version + 1 : joined.version
+      };
+    }, userId);
   }
 
   async leave(principal, roomId, expectedVersion) {
