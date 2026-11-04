@@ -35,8 +35,8 @@ The roadmap previously said 47 packages. Counting the actual leaf IDs in the app
 
 ## Status summary
 
-- In progress: 35 packages
-- Blocked: 13 packages
+- In progress: 38 packages
+- Blocked: 10 packages
 - Not started: 4 packages
 - Blocked — approval gated: 1 packages
 - Total: 53 packages / 1000 points.
@@ -55,9 +55,9 @@ The roadmap previously said 47 packages. Counting the actual leaf IDs in the app
 | 2.2 | 20 | In progress | docs/PHASE-1-3-READINESS.md §OTP; docs/SMS-AUTH-ADMIN-CONFIG.md | Real provider activation and Android registration/login/linking acceptance remain gated. |
 | 2.3 | 20 | In progress | apps/api/src/server.ts self-account/auth routes; apps/api/test/server.integration.test.ts privacy assertions | Complete manual audit of every public surface and legacy/empty profiles. |
 | 2.4 | 20 | In progress | docs/PHASE-1-LOCALIZATION-AUDIT.md; readiness localization checklist | Re-run exact-head Flutter tests and close any remaining dynamic/navigation gaps. |
-| 2.5 | 20 | Blocked | Readiness checklist — manual device acceptance open | Manual Persian RTL / English LTR acceptance on supported Android sizes. |
-| 2.6 | 15 | Blocked | docs/PHASE-1-SECURITY-REVIEW.md; checkpoint production audit | Confirm owner configuration and complete deployed environment/network/security review. |
-| 2.7 | 15 | Blocked | Execution roadmap P2; readiness checklist | Same-account VPN-on/VPN-off test on a real device. |
+| 2.5 | 20 | In progress | Owner-confirmed Persian RTL and English LTR on 2026-11-04; readiness checklist | Remaining dialog/form, overflow, navigation, dynamic-text/directional UI and supported Android-size acceptance. |
+| 2.6 | 15 | In progress | PR #151 merged; docs/PHASE-1-SECURITY-REVIEW.md; read-only Neon deployment 81 and API/database health evidence | Source-level auth/CORS/rate-limit/RBAC/log-redaction tests are evidenced; exact CORS/owner values, network policy, deployed-source provenance and owner-approved production acceptance remain open. |
+| 2.7 | 15 | In progress | PR #155 merged; API integration tests; readiness checklist | Same JWT now verified across /me, /friends and active-match state after changed client IP; manual Android VPN OFF/ON/OFF acceptance remains open. |
 | 3.1 | 45 | In progress | apps/api/src/backgammon-rules.ts; backgammon engine audit CI | Complete edge-case audit and acceptance for legal sequences, dice, hits, bar, bear-off and turn transitions. |
 | 3.2 | 35 | In progress | Shared `RoyalBackgammonBoard`; PR #78 merged as `10e3921`; Flutter widget test verifies all 24 unique opening-position hit targets | Complete visual orientation, color/piece-size, responsive, theme and real-device acceptance. |
 | 3.3 | 25 | In progress | PR #77 merged as `facba046` adds expired-room invite rejection; PR #78 merged as `10e3921` proves concurrent guest joins yield exactly one 200 and one 409; 60-second room/invite expiry and cleanup endpoint remain in source | Verify expiry/cancellation/concurrency on devices and physical cleanup during serverless idle; no Neon schedule is configured. |
