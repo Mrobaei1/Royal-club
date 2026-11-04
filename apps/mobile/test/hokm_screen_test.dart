@@ -15,6 +15,7 @@ class FakeHokmApi implements HokmApi {
   int viewCalls = 0;
   int commandCalls = 0;
   int disconnectCalls = 0;
+  int forfeitCalls = 0;
   int chatCalls = 0;
   String? lastChatRecipient;
   String? lastChatText;
@@ -141,8 +142,10 @@ class FakeHokmApi implements HokmApi {
       Map<String, dynamic>.from(room);
 
   @override
-  Future<Map<String, dynamic>> forfeitMatch(String roomId, int expectedVersion) async =>
-      Map<String, dynamic>.from(room);
+  Future<Map<String, dynamic>> forfeitMatch(String roomId, int expectedVersion) async {
+    forfeitCalls++;
+    return Map<String, dynamic>.from(room);
+  }
 
   @override
   Future<Map<String, dynamic>> disconnect(String roomId, int expectedVersion) async {
@@ -508,6 +511,39 @@ void main() {
     api.controller.add(pushed);
     await tester.pump();
     expect(find.text('Not ready'), findsOneWidget);
+  });
+
+
+  testWidgets('active Hokm exit requires explicit permanent forfeit confirmation', (tester) async {
+    tester.view.physicalSize = const Size(1200, 1800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final api = FakeHokmApi();
+    await tester.pumpWidget(MaterialApp(
+      locale: const Locale('en'),
+      supportedLocales: const [Locale('fa'), Locale('en')],
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
+      home: HokmScreen(api: api, identityLoader: () async => 'u1'),
+    ));
+    await tester.pump();
+    await tester.tap(find.text('Create Hokm room'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 20));
+    await tester.tap(find.text('I am ready'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 20));
+    await tester.tap(find.text('Start match'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 20));
+    await tester.tap(find.text('Forfeit match'));
+    await tester.pump();
+    expect(find.text('Forfeit this match?'), findsOneWidget);
+    await tester.tap(find.text('Forfeit'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 20));
+    expect(api.forfeitCalls, 1);
+    expect(find.text('Create Hokm room'), findsOneWidget);
   });
 
 }
