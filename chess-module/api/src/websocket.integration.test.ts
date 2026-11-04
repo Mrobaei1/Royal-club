@@ -309,10 +309,16 @@ test("WebSocket presence remains online until the player's last device disconnec
     // Reconnecting after missed transient events must immediately restore the persisted board.
     const reconnectedWhite = await connect(wsUrl, white);
     sockets.push(reconnectedWhite);
-    await waitForMessage(reconnectedWhite, m => m.type === "chess:connected");
-    const restoredState = await waitForMessage(reconnectedWhite, m =>
+    // Register both waiters immediately after the socket opens. The server sends
+    // connected and the initial state back-to-back; awaiting the first message
+    // before subscribing to the second can miss the state under a busy CI runner.
+    const restoredStatePromise = waitForMessage(reconnectedWhite, m =>
       m.type === "chess:state" && m.revision === 1 && typeof m.fen === "string" && m.fen.includes(" b "),
+      15_000,
     );
+    const connectedPromise = waitForMessage(reconnectedWhite, m => m.type === "chess:connected", 15_000);
+    await connectedPromise;
+    const restoredState = await restoredStatePromise;
     assert.equal(restoredState.status, "active");
 
     // A clock-expiry adjudication triggered by a draw claim must reach both devices.
