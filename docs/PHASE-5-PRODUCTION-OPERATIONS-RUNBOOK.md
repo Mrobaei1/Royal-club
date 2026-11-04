@@ -67,8 +67,8 @@ Acceptance test for an approved non-production or controlled test window:
 
 Target requirements:
 - Confirm provider backup/snapshot retention and recovery-point availability for the production branch.
-- Preserve the product requirement for the latest three usable recovery points.
-- The requested 23:59 Asia/Tehran owner backup/email-link process is not provided by the current Neon snapshot-schedule query; provider snapshots must not be represented as that email workflow.
+- Preserve the owner-approved requirement for daily backups with the latest three usable recovery points and restore testing before sensitive changes.
+- The exact execution time/timezone and any email-link delivery workflow have not been specified; do not assume 23:59 Asia/Tehran or send links without approval. See `docs/DATA-LIFECYCLE-AND-RETENTION-POLICY.md`.
 - Before enabling any schedule, compare supported provider frequency/time-zone capabilities, expected cost, retention, and restore impact; obtain owner approval.
 - Keep any emailed download/share link time-limited and recipient-restricted. Never email raw database credentials or unrestricted permanent URLs.
 - Restore a selected recovery point to a **new isolated branch**, never over Production during the test. Verify schema, table counts, representative row integrity, and API compatibility; record recovery time and any data-loss window.
