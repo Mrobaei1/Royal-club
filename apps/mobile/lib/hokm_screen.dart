@@ -130,7 +130,10 @@ class _HokmScreenState extends State<HokmScreen> with WidgetsBindingObserver {
     final serverNow = (room['serverNow'] as num?)?.toInt();
     if (serverNow != null) _serverClockOffsetMs = serverNow - DateTime.now().millisecondsSinceEpoch;
     setState(() { _room = room; _error = null; });
-    if (_roomId.isNotEmpty && _pollTimer == null) {
+    if (['completed', 'cancelled', 'expired'].contains(room['status'])) {
+      _pollTimer?.cancel();
+      _pollTimer = null;
+    } else if (_roomId.isNotEmpty && _pollTimer == null) {
       _pollTimer = Timer.periodic(const Duration(milliseconds: 500), (_) => _refresh());
     }
   }
