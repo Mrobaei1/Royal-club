@@ -44,6 +44,12 @@ UPDATE users
  WHERE avatar_data_url IS NOT NULL
    AND avatar_change_count = 0;
 
+-- The existing legacy index is case-sensitive; add the source-required case-folded
+-- uniqueness guarantee without dropping or rewriting the legacy index.
+CREATE UNIQUE INDEX IF NOT EXISTS users_username_casefold_unique_idx
+  ON users (LOWER(username))
+  WHERE username IS NOT NULL;
+
 ALTER TABLE backgammon_matches
   ADD COLUMN IF NOT EXISTS turn_started_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 
