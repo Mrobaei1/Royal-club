@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import {
   createRoom, joinRoom, leaveRoom, setPlayerReady, startRoom, startNextRound, applyRoomCommand,
   roomViewForUser, disconnectPlayer, reconnectPlayer, handleDisconnectTimeout,
-  processTurnTimeout, processAllDisconnectedTimeout, processMultipleDisconnectTimeout, voteToCancelMatch,
+  processTurnTimeout, processAllDisconnectedTimeout, processMultipleDisconnectTimeout, recordMatchForfeit, voteToCancelMatch,
   cancelForUnrecoverableTechnicalFailure, submitMatchAppeal, reviewMatchAppeal,
   submitCheatingReport, reviewCheatingReport, sendOpponentChatMessage
 } from "./room.js";
@@ -151,6 +151,12 @@ export class HokmRoomService {
   async leave(principal, roomId, expectedVersion) {
     const userId = authenticatedUser(principal);
     return this.#transition(roomId, expectedVersion, room => leaveRoom(room, userId), userId);
+  }
+
+  async forfeit(principal, roomId, expectedVersion) {
+    const userId = authenticatedUser(principal);
+    return this.#transition(roomId, expectedVersion,
+      room => recordMatchForfeit(room, userId), userId);
   }
 
   async ready(principal, roomId, ready, expectedVersion) {
@@ -303,7 +309,9 @@ export class HokmRoomService {
     }
     // Preserve the exact last valid state while all four network sessions are offline.
     if (allFourOffline) return outcomes;
-    if (Number.isFinite(room.multipleDisconnectedDeadline) && this.now() >= room.multipleDisconnectedDeadline) {
+    const expiredDisconnects = room.players.filter(player => !player.connected && !player.forfeited &&
+      Number.isFinite(player.reconnectDeadline) && this.now() >= player.reconnectDeadline).length;
+    if (expiredDisconnects >= 2) {
       outcomes.push(await this.processMultipleDisconnectDeadline(principal, roomId, room.version));
       return outcomes;
     }
