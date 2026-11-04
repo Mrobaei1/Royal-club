@@ -48,15 +48,22 @@ test("all-four-disconnected expiry wins over individual reconnect and turn deadl
     fixture.setNow(3000 + i);
   }
   const persisted = await fixture.repository.get(room.roomId);
-  fixture.setNow(persisted.allDisconnectedDeadline);
   const scheduler = new HokmDeadlineScheduler({
-    service: fixture.service, repository: fixture.repository, now: () => persisted.allDisconnectedDeadline
+    service: fixture.service, repository: fixture.repository, now: fixture.now
   });
+  fixture.setNow(persisted.players[0].reconnectDeadline);
+  const gracePoll = await scheduler.pollOnce();
+  const stillPaused = await fixture.repository.get(room.roomId);
+  assert.equal(gracePoll.processed, 0);
+  assert.ok(stillPaused.players.every(player => !player.temporaryBot),
+    "no bot may advance while all four players are inside the 20-second last-state grace");
+  fixture.setNow(persisted.allDisconnectedDeadline);
   const result = await scheduler.pollOnce();
   const latest = await fixture.repository.get(room.roomId);
   assert.equal(result.processed, 1);
   assert.equal(latest.status, "cancelled");
   assert.equal(latest.cancelReason, "all_players_disconnected");
+  assert.deepEqual(latest.matchScore, [0, 0]);
   assert.equal(latest.result, null);
 });
 
@@ -155,4 +162,25 @@ test("scheduler start and stop are idempotent", async () => {
   assert.equal(scheduler.stop(), true);
   assert.equal(scheduler.isRunning, false);
   assert.equal(scheduler.stop(), false);
+test("scheduler cancels two unrecovered disconnects when the second grace expires", async () => {
+  const fixture = await startedRoom();
+  let room = fixture.room;
+  room = await fixture.service.disconnect(user("u0"), room.roomId, room.version);
+  fixture.setNow(3000);
+  room = await fixture.service.disconnect(user("u1"), room.roomId, room.version);
+  fixture.setNow(3010);
+  const persisted = await fixture.repository.get(room.roomId);
+  assert.equal(persisted.multipleDisconnectedDeadline, 23000);
+  fixture.setNow(persisted.multipleDisconnectedDeadline);
+  const scheduler = new HokmDeadlineScheduler({
+    service: fixture.service, repository: fixture.repository, now: fixture.now
+  });
+  const result = await scheduler.pollOnce();
+  const latest = await fixture.repository.get(room.roomId);
+  assert.equal(result.processed, 1);
+  assert.equal(latest.status, "cancelled");
+  assert.equal(latest.cancelReason, "multiple_unrecovered_disconnects");
+  assert.deepEqual(latest.playerProgress, {});
+});
+
 });
