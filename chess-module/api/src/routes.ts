@@ -458,7 +458,7 @@ export async function registerChessRoutes(app:FastifyInstance,options:RouteOptio
   app.get<{Params:{userId:string}}>("/chess/players/:userId/profile",{preHandler:options.authenticate},async(request,reply)=>{
     let viewer:string;
     try{viewer=userId(request,options);}catch{return fail(reply,401,"unauthorized");}
-    if(!/^\d+$/.test(request.params.userId))return fail(reply,400,"invalid_user_id");
+    if(!isPositivePostgresBigintId(request.params.userId))return fail(reply,400,"invalid_user_id");
     const profile=await pool.query(
       'SELECT u.id,u.username,COALESCE(p.level,1) AS level,COALESCE(p.xp,0) AS xp,COALESCE(r.rating,1200) AS rating FROM users u LEFT JOIN chess_player_progression p ON p.user_id=u.id LEFT JOIN chess_player_ratings r ON r.user_id=u.id WHERE u.id=$1',
       [request.params.userId]
