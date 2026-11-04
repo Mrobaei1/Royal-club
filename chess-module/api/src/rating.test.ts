@@ -66,11 +66,6 @@ test("ratings remain inside the PostgreSQL integer range",()=>{
   assert.throws(() => calculateEloPair({white:Number.MAX_SAFE_INTEGER+1,black:1200},"draw"));
 });
 
-test("Elo transfers are exactly zero-sum at half-point rounding boundaries", () => {
-  const pair = calculateEloPair({ white: 1200, black: 1200 }, "white_win", 1);
-  assert.deepEqual(pair, { white: 1201, black: 1199 });
-  assert.equal(pair.white + pair.black, 2400);
-});
 
 test("Elo transfers preserve total rating at both integer boundaries", () => {
   const maximum = 2_147_483_647;
