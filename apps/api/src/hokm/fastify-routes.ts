@@ -109,7 +109,7 @@ export async function registerHokmRoutes(fastify, { service, authenticate, prefi
           "Connection": "keep-alive",
           "X-Accel-Buffering": "no"
         });
-        raw.write(": connected\\n\\n");
+        raw.write(": connected\n\n");
         let closed = false;
         let sending = false;
         let dirty = false;
@@ -131,11 +131,11 @@ export async function registerHokmRoutes(fastify, { service, authenticate, prefi
             const view = await service.view(request.auth, roomId);
             if (!closed && view.version > lastVersion) {
               lastVersion = view.version;
-              raw.write(`id: ${view.version}\\nevent: room\\ndata: ${JSON.stringify(view)}\\n\\n`);
+              raw.write(`id: ${view.version}\nevent: room\ndata: ${JSON.stringify(view)}\n\n`);
             }
           } catch (error) {
             if (!closed) {
-              raw.write(`event: error\\ndata: ${JSON.stringify({ error: error.message })}\\n\\n`);
+              raw.write(`event: error\ndata: ${JSON.stringify({ error: error.message })}\n\n`);
               raw.end();
             }
           } finally {
@@ -149,7 +149,7 @@ export async function registerHokmRoutes(fastify, { service, authenticate, prefi
         heartbeat = setInterval(() => {
           if (closed) return;
           if (!eventHub.isRunning) { raw.end(); cleanup(); return; }
-          raw.write(": ping\\n\\n");
+          raw.write(": ping\n\n");
         }, 15000);
         void sendCurrent();
         return reply;
