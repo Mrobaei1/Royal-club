@@ -29,7 +29,7 @@ function route(fastify, authenticate, method, url, operation) {
 }
 
 /** Register authenticated HTTP endpoints; identity is never read from body/query. */
-export async function registerHokmRoutes(fastify, { service, authenticate, prefix = "", eventHub = null }) {
+export async function registerHokmRoutes(fastify, { service, authenticate, prefix = "", eventHub = null }: { service: any; authenticate: any; prefix?: string; eventHub?: any } = {}) {
   if (!fastify || typeof fastify.route !== "function") throw new TypeError("A Fastify instance is required");
   if (!service) throw new TypeError("HokmRoomService is required");
   if (typeof authenticate !== "function") throw new TypeError("Authentication preHandler is required");
