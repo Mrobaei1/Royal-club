@@ -1534,7 +1534,6 @@ await registerHokmRoutes(app, {
   prefix: '/api/v1',
   eventHub: hokmEventHub
 });
-app.addHook('onClose', async () => { await hokmEventHub.close(); });
 
 app.get('/api/v1/admin/game-disconnect-policies', { onRequest: [requireOwnerAuth] }, async () => {
   const result = await pool.query('SELECT game_type AS "gameType", enabled, grace_seconds AS "graceSeconds", takeover_mode AS "takeoverMode", updated_at AS "updatedAt" FROM game_disconnect_policies ORDER BY game_type');
@@ -4907,7 +4906,12 @@ app.post('/internal/cleanup-expired-empty-rooms', async (request, reply) => {
   }
 });
 
-app.addHook('onClose', async () => { await pool.end(); });
+app.addHook('onClose', async () => {
+  // Release the dedicated LISTEN client before ending its owning pool. Do not
+  // depend on Fastify's onClose hook ordering for this resource dependency.
+  await hokmEventHub.close();
+  await pool.end();
+});
 
 export { app };
 
