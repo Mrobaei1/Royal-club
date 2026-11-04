@@ -3373,6 +3373,32 @@ test('Hokm private chat is delivered only to its opposing-team participants and 
     assert.equal(sent.statusCode, 200, sent.body);
     version = sent.json().version;
 
+    const imageDataUrl = `data:image/png;base64,${Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]).toString('base64')}`;
+    const sentImage = await app.inject({
+      method: 'POST', url: `/api/v1/hokm/rooms/${roomId}/chat`,
+      headers: auth(host.token),
+      payload: {
+        recipientUserId: opponent.user.id,
+        text: imageDataUrl,
+        messageId: `hokm-chat-image-${randomUUID()}`,
+        expectedVersion: version,
+      },
+    });
+    assert.equal(sentImage.statusCode, 200, sentImage.body);
+    version = sentImage.json().version;
+
+    const invalidImage = await app.inject({
+      method: 'POST', url: `/api/v1/hokm/rooms/${roomId}/chat`,
+      headers: auth(host.token),
+      payload: {
+        recipientUserId: opponent.user.id,
+        text: 'data:image/png;base64,AAAA',
+        messageId: `hokm-chat-invalid-image-${randomUUID()}`,
+        expectedVersion: version,
+      },
+    });
+    assert.equal(invalidImage.statusCode, 400);
+
     const [senderView, recipientView, teammateView] = await Promise.all([
       app.inject({ method: 'GET', url: `/api/v1/hokm/rooms/${roomId}`, headers: auth(host.token) }),
       app.inject({ method: 'GET', url: `/api/v1/hokm/rooms/${roomId}`, headers: auth(opponent.token) }),
@@ -3381,11 +3407,12 @@ test('Hokm private chat is delivered only to its opposing-team participants and 
     assert.equal(senderView.statusCode, 200);
     assert.equal(recipientView.statusCode, 200);
     assert.equal(teammateView.statusCode, 200);
-    assert.equal(senderView.json().chatMessages.length, 1);
-    assert.equal(recipientView.json().chatMessages.length, 1);
+    assert.equal(senderView.json().chatMessages.length, 2);
+    assert.equal(recipientView.json().chatMessages.length, 2);
     assert.equal(teammateView.json().chatMessages.length, 0,
       'A same-team player must not receive another pair’s private chat.');
     assert.equal(recipientView.json().chatMessages[0].text, 'سلام 👋 private message');
+    assert.equal(recipientView.json().chatMessages[1].text, imageDataUrl);
 
     const sameTeamAttempt = await app.inject({
       method: 'POST', url: `/api/v1/hokm/rooms/${roomId}/chat`,
