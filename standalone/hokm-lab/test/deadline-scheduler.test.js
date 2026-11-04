@@ -10,7 +10,7 @@ async function startedRoom() {
   let sequence = 0;
   const repository = new InMemoryRoomRepository();
   const service = new HokmRoomService({
-    repository, now: () => clock, id: () => `hokm-scheduler-${++sequence}`
+    repository, now: () => clock, id: () => `hokm-scheduler-${++sequence}`, selectHakemSeat: () => 0
   });
   let room = await service.create(user("u0"));
   for (const id of ["u1", "u2", "u3"]) room = await service.join(user(id), room.roomId, room.version);
