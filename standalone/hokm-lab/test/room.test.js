@@ -135,9 +135,13 @@ test("completed hands award one match point and preserve the configured target",
   assert.equal(room.status, "round_completed");
   assert.equal(room.matchScore[0] + room.matchScore[1], 1);
   assert.equal(room.matchTarget, 3);
+  const previousHakem = room.round.hakemSeat;
+  const previousWinner = room.round.scores[0] > room.round.scores[1] ? 0 : 1;
+  const expectedHakem = previousWinner === previousHakem % 2
+    ? previousHakem : (previousHakem + 2) % 4;
   room = startNextRound(room, "u0", { rng: () => 0.61, now: room.handRevealUntil });
   assert.equal(room.status, "playing");
-  assert.equal(room.round.hakemSeat, 1);
+  assert.equal(room.round.hakemSeat, expectedHakem);
 });
 
 test("match completes exactly when a team reaches the manager target", () => {
@@ -419,7 +423,7 @@ test("a connected player takes over next-hand start when the host remains discon
   const next = startNextRound(room, "u1", { now: 4000, rng: () => 0 });
   assert.equal(next.status, "playing");
   assert.equal(next.hostUserId, "u1");
-  assert.equal(next.round.hakemSeat, 1);
+  assert.equal(next.round.hakemSeat, 2);
 });
 
 test("next-hand host handoff rejects a disconnected or forfeited requester", () => {
