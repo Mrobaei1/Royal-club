@@ -50,7 +50,7 @@ This is a source/configuration review, not a penetration test. Production was in
 
 - The later Phase 1 readiness record reports that the numeric `OWNER_USER_ID` was validated and is present in active Neon Function deployment 81. This supersedes the 2026-10-28 observation that it was absent from the then-active deployment, but does not by itself close the complete production configuration/security review.
 - The 2026-10-31 branch contained an earlier centralized logger-redaction implementation. That interim evidence is superseded by PR #151, merged to `main` on 2026-11-04, with expanded header/query/IP redaction and dedicated regression tests. External host logs and secret-store access remain outside the API-process boundary.
-- The integration suite initially checked same-session `/api/v1/me` access after a changed `x-forwarded-for` header. PR #155 (merged 2026-11-04) extended this to the same friend list and identical active-match board. This remains automated IP-independence evidence, not a substitute for physical Android VPN OFF/ON/OFF acceptance.
+- The integration suite now simulates distinct socket peer addresses using Fastify injection's `remoteAddress` option (not spoofable `x-forwarded-for` headers). PR #162 (merged 2026-11-04) verifies login, authenticated social access and recovery of the identical active-match board across those actual remote-address changes. This remains automated IP-independence evidence, not a substitute for physical Android VPN OFF/ON/OFF acceptance.
 - Production deployment, schema mutation, SMS activation, real SMS delivery, and privileged grant creation remain untouched and approval-gated.
 
 **Current decision remains Open.** The source-level controls and CI can be completed independently, but production security acceptance and manual device checks must remain explicit sign-off gates.
@@ -58,6 +58,7 @@ This is a source/configuration review, not a penetration test. Production was in
 
 ## Evidence refresh — 2026-11-04
 
+- PR #162 merged as `e0b3fc3dbf2aaf4cef51f564c63c625078b5d4a0`; session continuity tests now vary the actual injected remote socket address rather than the untrusted forwarding header, covering login, friends and active-match recovery. Exact-head API integration/build, Flutter, backgammon and Web Preview checks passed.
 - PR #157 merged as `fe36d9d85ce619a2c8f01c46aff27b4b14ea7d55`; the API integration suite now proves an allowlisted origin receives the CORS preflight header and an unlisted origin does not. The exact production allowlist remains unverified.
 - PR #151 merged as `f39a718ead43b88b08c4ffbc683e11acab12be1b`. The API logger hardening is now part of `main`; exact-head CI passed, and the post-merge main runs passed: [Validate Royal Club](https://github.com/Mrobaei1/Royal-club/actions/runs/41733596925), [Royal Club validation](https://github.com/Mrobaei1/Royal-club/actions/runs/41733597127), [Royal Club Web Preview](https://github.com/Mrobaei1/Royal-club/actions/runs/41733597102), and [Production API Health](https://github.com/Mrobaei1/Royal-club/actions/runs/41733596963).
 - The Production API Health job explicitly checked both `/api/v1/health` and `/api/v1/health/db`; both returned the expected healthy status. This proves runtime availability and database connectivity for the configured endpoint, not source provenance.
