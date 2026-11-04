@@ -1272,6 +1272,9 @@ class _AdminScreenState extends State<AdminScreen> {
   }
 
   Future<void> _createPlan() async {
+    final messenger = ScaffoldMessenger.of(context);
+    final invalidMessage = appText(context, 'اطلاعات اشتراک معتبر نیست.', 'Subscription details are invalid.');
+    final successMessage = appText(context, 'اشتراک جدید ایجاد شد.', 'Subscription plan created.');
     final code = TextEditingController();
     final name = TextEditingController();
     final days = TextEditingController(text: '30');
@@ -1280,26 +1283,24 @@ class _AdminScreenState extends State<AdminScreen> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: Text(appText(context, 'ایجاد اشتراک جدید', 'Create subscription plan')),
-        content: SingleChildScrollView(
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            TextField(controller: code, decoration: InputDecoration(labelText: appText(context, 'کد یکتا (انگلیسی)', 'Unique code (English)'))),
-            TextField(controller: name, decoration: InputDecoration(labelText: appText(context, 'نام اشتراک', 'Subscription name'))),
-            TextField(controller: days, keyboardType: TextInputType.number, inputFormatters: [FilteringTextInputFormatter.digitsOnly], decoration: InputDecoration(labelText: appText(context, 'مدت (روز)', 'Duration (days)'))),
-            TextField(controller: price, keyboardType: TextInputType.number, inputFormatters: [FilteringTextInputFormatter.digitsOnly], decoration: InputDecoration(labelText: appText(context, 'قیمت (اعتبار)', 'Price (credits)'))),
-          ]),
-        ),
+        content: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
+          TextField(controller: code, decoration: InputDecoration(labelText: appText(context, 'کد یکتا (انگلیسی)', 'Unique code (English)'))),
+          TextField(controller: name, decoration: InputDecoration(labelText: appText(context, 'نام اشتراک', 'Subscription name'))),
+          TextField(controller: days, keyboardType: TextInputType.number, inputFormatters: [FilteringTextInputFormatter.digitsOnly], decoration: InputDecoration(labelText: appText(context, 'مدت (روز)', 'Duration (days)'))),
+          TextField(controller: price, keyboardType: TextInputType.number, inputFormatters: [FilteringTextInputFormatter.digitsOnly], decoration: InputDecoration(labelText: appText(context, 'قیمت (اعتبار)', 'Price (credits)'))),
+        ])),
         actions: [
           TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: Text(appText(context, 'انصراف', 'Cancel'))),
           FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: Text(appText(context, 'ایجاد', 'Create'))),
         ],
       ),
     );
-    if (accepted != true) { code.dispose(); name.dispose(); days.dispose(); price.dispose(); return; }
+    if (!mounted || accepted != true) { code.dispose(); name.dispose(); days.dispose(); price.dispose(); return; }
     final normalizedCode = code.text.trim().toLowerCase();
     final duration = int.tryParse(days.text);
     final credits = int.tryParse(price.text);
     if (!RegExp(r'^[a-z0-9_]{2,40}$').hasMatch(normalizedCode) || name.text.trim().isEmpty || name.text.trim().length > 100 || duration == null || duration < 1 || duration > 3650 || credits == null || credits > 1000000000) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appText(context, 'اطلاعات اشتراک معتبر نیست.', 'Subscription details are invalid.'))));
+      messenger.showSnackBar(SnackBar(content: Text(invalidMessage)));
       code.dispose(); name.dispose(); days.dispose(); price.dispose();
       return;
     }
@@ -1307,9 +1308,9 @@ class _AdminScreenState extends State<AdminScreen> {
     try {
       await AdminService.createPlan(code: normalizedCode, name: name.text.trim(), durationDays: duration, priceCredits: credits);
       await _load();
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appText(context, 'اشتراک جدید ایجاد شد.', 'Subscription plan created.'))));
+      if (mounted) messenger.showSnackBar(SnackBar(content: Text(successMessage)));
     } catch (error) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appError(context, error))));
+      if (mounted) messenger.showSnackBar(SnackBar(content: Text(appError(context, error))));
     } finally {
       code.dispose(); name.dispose(); days.dispose(); price.dispose();
       if (mounted) setState(() => _busy = false);
