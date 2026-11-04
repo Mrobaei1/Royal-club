@@ -16,9 +16,12 @@ export function calculateEloPair(current: EloPair, result: EloResult, kFactor = 
     throw new RangeError("invalid_elo_input");
   }
   const whiteScore = result === "white_win" ? 1 : result === "black_win" ? 0 : 0.5;
-  const blackScore = 1 - whiteScore;
-  return {
-    white: Math.min(MAX_RATING, Math.max(MIN_RATING, current.white + Math.round(kFactor * (whiteScore - expectedScore(current.white, current.black))))),
-    black: Math.min(MAX_RATING, Math.max(MIN_RATING, current.black + Math.round(kFactor * (blackScore - expectedScore(current.black, current.white)))))
-  };
+  // Calculate one transfer and apply its exact inverse. Independently rounding
+  // both players can create or destroy one Elo point at half-point boundaries.
+  // Constrain the transfer so both ratings remain valid PostgreSQL integers.
+  const requestedDelta = Math.round(kFactor * (whiteScore - expectedScore(current.white, current.black)));
+  const minimumDelta = Math.max(MIN_RATING - current.white, current.black - MAX_RATING);
+  const maximumDelta = Math.min(MAX_RATING - current.white, current.black - MIN_RATING);
+  const delta = Math.min(maximumDelta, Math.max(minimumDelta, requestedDelta));
+  return { white: current.white + delta, black: current.black - delta };
 }
