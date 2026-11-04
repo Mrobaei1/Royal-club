@@ -83,7 +83,7 @@ The roadmap previously said 47 packages. Counting the actual leaf IDs in the app
 | 5.6 | 10 | In progress | WBS §6; free-by-default policy; readiness checklist | Test owner/manager controls while ensuring paid behavior remains disabled absent approval. |
 | 5.7 | 10 | Blocked | Execution roadmap P3 | Manual Persian/English manager UI acceptance before any activation. |
 | 6.1 | 20 | In progress | Admin UI source; readiness checklist | Complete mobile/desktop usability and non-admin negative-access acceptance. |
-| 6.2 | 20 | Blocked | Checkpoint production audit: OWNER_USER_ID absent | Obtain owner-confirmed numeric configuration through the approved secure path; never infer it. |
+| 6.2 | 20 | Blocked | Active Function metadata lists `OWNER_USER_ID`; its value was not retrieved. | Verify the numeric owner binding through the authorized secure path and obtain owner acceptance; never infer or expose the value. |
 | 6.3 | 25 | In progress | Delegated-permission source/tests; readiness checklist | Review full permission matrix/scopes/revocation and 50-assistant ceiling; do not seed grants. |
 | 6.4 | 20 | In progress | PR #55 merged; agent task proposal source/docs | Complete capabilities/approval/state/audit model while execution stays dormant. |
 | 6.5 | 20 | In progress | Permission/agent audit and kill-switch source/tests | Verify kill-switch, cancellation, revocation and secret-redaction controls end-to-end. |
@@ -91,11 +91,11 @@ The roadmap previously said 47 packages. Counting the actual leaf IDs in the app
 | 6.7 | 10 | Not started | No provider-validated deposit/payment adapter evidence identified | Only proceed after separate provider/security design and owner approval. |
 | 6.8 | 10 | Blocked | WBS approval gate; no manual owner acceptance evidence | Complete owner-facing acceptance; do not activate identities, grants, schedules or financial actions. |
 | 7.1 | 25 | In progress | Main `10e3921`: runs 41186639789, 41186639847, 41186639831 and Production health 41186639790 all passed. Current docs-only main `7c7502`: Production health 41186861447 passed; remaining workflows were pending/in progress at audit time. PR #78 head `96fa920`: runs 41186501237, 41186501241, 41186501258, 41186501259 all passed; PR #78 merged as `10e3921` | Continue requiring exact-head API build/unit/integration, Flutter analyze/tests, engine audit and Web Preview checks for every implementation PR. |
-| 7.2 | 20 | Blocked | Neon `Royal-Club-API` production branch reports active Function deployment 80 (created before PR #77); latest post-merge health/database workflow 41186861447 passed but did not deploy PR #77; Neon does not expose bundled Git SHA | Independently attest deployed source provenance and complete production registration/login smoke tests; no new deployment without approval. |
-| 7.3 | 25 | Blocked | Read-only Neon inspection: 33 public tables; 33 current `server.ts` table declarations; table names match with no missing/extra table | Complete column/index/migration-sequence reconciliation and documented rollback/recovery review; no production mutation without approval. |
-| 7.4 | 15 | Blocked | apps/api/src/server.ts cleanup endpoint; checkpoint says no scheduled Neon trigger | Configure/verify approved scheduled trigger and idle/serverless cleanup observability. |
+| 7.2 | 20 | Blocked | Active Function deployment metadata still does not expose a bundled Git SHA; health checks prove availability only. | Add immutable build/commit provenance and complete owner-approved deployment plus registration/login smoke tests. |
+| 7.3 | 25 | Blocked | Read-only source/catalog comparison: 35 source tables vs 33 Production; 2 tables, 12 columns and 1 explicit index missing. Additive migration artifact is tested on isolated Neon branch `schema-repair-validation-2026-11-04`; full semantic parity, app integration, backup/restore and rollback remain open. | Complete full catalog-definition comparison, API integration on the repaired branch, recovery rehearsal and owner-approved production migration; no Production mutation without approval. |
+| 7.4 | 15 | In progress | Neon trigger `trigger-612bdbb2-b904-4aa3-b35a-4e6f4914822d` is enabled on `* * * * *`; Function invoke begin/end logs are present once per minute. Snapshot had zero expired empty rooms, so deletion effect remains unproven. | Verify controlled expired-room deletion and related-notice cleanup in an isolated test; confirm safe production outcome observability. |
 | 7.5 | 20 | Not started | WBS §6 and execution roadmap P5; no tested backup/restore evidence identified | Complete monitoring/runbooks and owner-approved latest-three backup/restore test. |
-| 7.6 | 20 | Blocked | Checkpoint production security audit; owner/SMS secrets absent | Complete network/CORS/secrets/owner-ID/least-privilege acceptance with owner approval. |
+| 7.6 | 20 | Blocked | Read-only metadata lists `OWNER_USER_ID` and `CORS_ORIGINS`; values were not read. Neon allowed-IP list is empty; architecture compatibility is not yet assessed. SMS remains disabled. | Complete secure CORS/owner-value review, network-policy decision, external log-access review and owner-approved production security acceptance. |
 | 7.7 | 20 | Blocked | Two-device and real Android acceptance gates remain open | Complete end-to-end network, layout, accessibility, performance and regression acceptance. |
 | 7.8 | 15 | Blocked — approval gated | Owner instruction required; no APK authorization in current task | Prepare release notes/rollback readiness only; do not build or prepare APK until explicit approval. |
 
@@ -179,3 +179,14 @@ The repository search showed active, unmerged work including PRs #86 (isolated c
 - No APK build or preparation is authorized by this audit.
 - No Production deployment, migration, schema mutation, secret change, paid activation, SMS activation, agent activation, grant creation or scheduled agent action was performed or authorized by this documentation update.
 - Live audio/video calling, WebRTC calling and TURN remain out of scope. Recorded voice messages remain future-optional and OFF by default.
+
+
+## Technical blocker closure addendum — 2026-11-04
+
+See [Technical Blocker Closure Audit](TECHNICAL-BLOCKER-CLOSURE-2026-11-04.md) for exact read-only evidence and the isolated migration test.
+
+- WBS 7.4 moves from Blocked to In progress: trigger schedule and recurring Function invocations are now verified; actual deletion remains unproven because no eligible expired room existed at observation time.
+- WBS 7.3 remains Blocked: an additive migration has been authored and passed on an isolated Neon branch, including a repeat run; complete semantic parity, app integration, backup/restore and rollback are still required.
+- WBS 6.2 remains Blocked: the active Function metadata contains the owner variable name, but secure value verification and owner acceptance remain open.
+- WBS 7.2 and 7.6 remain Blocked: deployed-source provenance and secure production configuration/network acceptance remain open.
+- No WBS points are awarded by this status update. No Production mutation, migration, deployment, secret retrieval, or network-policy change was performed.
