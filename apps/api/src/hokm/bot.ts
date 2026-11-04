@@ -1,5 +1,4 @@
 // @ts-nocheck
-// Ported from the independently verified Hokm lab; strict runtime validation remains in the domain/service layer.
 import { SUITS, RANKS, legalCards } from "./engine.js";
 
 const rank = Object.freeze(Object.fromEntries(RANKS.map((value, index) => [value, index + 2])));
