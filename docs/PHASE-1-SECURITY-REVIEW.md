@@ -1,7 +1,7 @@
 # Phase 1 — API security review
 
 Date: 2026-11-04
-Reviewed source: current `main` (`f39a718ead43b88b08c4ffbc683e11acab12be1b`)
+Reviewed source: current `main` (security docs include PRs #151, #157 and #158)
 
 ## Scope and limits
 
@@ -20,7 +20,7 @@ This is a source/configuration review, not a penetration test. Production was in
 
 ## Open findings — Phase 1 is not security-cleared
 
-1. **Production configuration is only partially verified.** Current read-only Neon metadata for active Function deployment 81 lists `CORS_ORIGINS`, `DATABASE_URL`, `JWT_SECRET`, `NEON_FUNCTION_RUNTIME`, `NODE_ENV`, and `OWNER_USER_ID`. This supersedes the older observation that `OWNER_USER_ID` was absent. The metadata does not reveal values, so the numeric owner ID's value and exact CORS allowlist remain unverified. `SMS_CREDENTIALS_ENCRYPTION_KEY` is not listed; SMS remains disabled and must not be activated until separately approved and securely configured. No secret values were read or changed.
+1. **Production configuration is only partially verified.** Current read-only Neon metadata for active Function deployment 81 lists `CORS_ORIGINS`, `DATABASE_URL`, `JWT_SECRET`, `NEON_FUNCTION_RUNTIME`, `NODE_ENV`, and `OWNER_USER_ID`. This supersedes the older observation that `OWNER_USER_ID` was absent. The metadata does not reveal values, so the numeric owner ID's value and exact CORS allowlist remain unverified. PR #157's positive/negative CORS preflight tests passed on `main`, but they validate the code boundary rather than the live allowlist contents. `SMS_CREDENTIALS_ENCRYPTION_KEY` is not listed; SMS remains disabled and must not be activated until separately approved and securely configured. No secret values were read or changed.
 2. **Owner authorization is a single numeric-ID gate, not a role system.** A dormant delegated-permission API/schema now supports allowlisted grants, resource scopes, revocation, a 50-delegate ceiling, and audit records, with integration coverage for scope and revocation. The owner UI supports grant listing/revocation and currently only exposes report-reading/report-management grants. Integration coverage now includes scope enforcement, revocation, kill switch, non-owner denial, and the 50-delegate ceiling; the complete approved manager/assistant/agent permission matrix and broader operational scopes remain open. No grants are seeded; do not grant permissions or activate identities based on planning docs.
 3. **OTP is implemented behind a production activation gate.** A development-only hashed challenge lifecycle, Iranian phone normalization, per-phone cooldown/daily limits, per-IP route limits, Kavenegar adapter, owner-only connection check, cost-confirmed test-message endpoint, and matching owner UI controls exist. Purpose-bound OTP request/verify/register/login/link endpoints and gated mobile OTP/phone-linking UI are now wired and have API integration coverage for simulator registration, login, phone linking, purpose separation, verified-phone uniqueness, profile-edit protection, expiry, cooldown, attempt exhaustion, daily limits, production lock, provider failure handling, and owner-action guardrails. The settings API still blocks activation, so production SMS/authentication remain disabled; owner-approved provider activation and manual account-flow review remain open. Keep email/password authentication available.
 4. **Localization is incomplete.** ARB parity does not establish that all visible labels/errors are localized, nor does it prove RTL/LTR behavior. Complete the source audit and device review.
@@ -29,6 +29,7 @@ This is a source/configuration review, not a penetration test. Production was in
 ## Required closure evidence
 
 - [x] Read-only metadata review of active Function environment-variable names, Neon allowed-IP policy, and production health/database endpoints; no secret values were read. Evidence: deployment 81 metadata and Actions run 41733596963.
+- [x] Read-only production schema/settings inventory: `admin_permission_settings`, `admin_permission_grants`, `admin_permission_audit_log`, `sms_otp_settings`, `sms_otp_challenges`, and `sms_otp_audit_log` are present. Singleton settings show delegated permissions disabled and SMS OTP disabled (`delivery_mode=disabled`, provider empty, no encrypted API key). There are zero active delegated grants, zero permission-audit events, zero OTP challenges and zero OTP-audit events. No user records or secret values were retrieved.
 - [ ] Verify the actual numeric owner-ID value and exact production CORS allowlist through an authorized secure configuration review; determine whether an IP allowlist is compatible with Neon Function networking.
 - [x] Add integration coverage for expired/malformed JWTs, unauthenticated and non-owner administrative calls, and missing owner configuration.
 - [x] Add positive/negative CORS preflight integration coverage (PR #157, merged 2026-11-04); exact-head API integration/build, Flutter analyze/tests, Web Preview, and backgammon audit workflows passed. Production `CORS_ORIGINS` values remain undisclosed and require secure review.
@@ -62,6 +63,16 @@ This is a source/configuration review, not a penetration test. Production was in
 - The Production API Health job explicitly checked both `/api/v1/health` and `/api/v1/health/db`; both returned the expected healthy status. This proves runtime availability and database connectivity for the configured endpoint, not source provenance.
 - Active Neon Function deployment 81 exposes the environment-variable names `CORS_ORIGINS`, `DATABASE_URL`, `JWT_SECRET`, `NEON_FUNCTION_RUNTIME`, `NODE_ENV`, and `OWNER_USER_ID`. Values remain undisclosed. `SMS_CREDENTIALS_ENCRYPTION_KEY` is not present in the environment-name list; SMS remains disabled.
 - Neon project metadata reports `allowed_ips.ips=[]`. This is an observed configuration, not an automatic vulnerability finding: the hosting/network architecture must be reviewed before deciding whether an allowlist is feasible.
-- The active deployment 81 predates the logging hardening merge. Latest-source deployment and provenance remain owner-approval-gated; no production deploy, migration, secret change, or network-policy change was made.
+- The active deployment 81 predates the logging hardening merge. Latest-source deployment and provenance remain owner-approval-gated; no production deploy, migration, secret change, or network-policy change was made. The current production schema inventory confirms the listed security tables exist; full migration-history and source/schema parity are still not established.
 
 **Decision remains Open — not security-cleared.** Source-level security tests and log redaction are now evidenced on `main`; deployed-source provenance, exact CORS/owner configuration values, network policy, schema reconciliation, external log controls, and final production acceptance remain open.
+
+
+## Read-only production database refresh — 2026-11-04
+
+- The active Neon production database was queried using SELECT-only statements. The schema inventory confirms the owner-delegation settings/grants/audit tables and SMS OTP settings/challenge/audit tables are present. This supersedes any earlier statement that these tables were absent.
+- The `admin_permission_settings` singleton is disabled. `sms_otp_settings` is disabled with `delivery_mode=disabled`, empty provider and no encrypted API key. No SMS provider is activated.
+- Aggregate-only counts show 0 active delegated grants, 0 permission audit events, 0 OTP challenges and 0 OTP audit events. No account-level or secret values were selected.
+- This verifies table presence and current disabled state, not migration-history completeness, API deployment provenance, production CORS values, or a penetration test. No production writes or configuration changes were made.
+
+**Security closure remains open.**
