@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { legalCards } from "../src/engine.js";
-import { createRoom, joinRoom, leaveRoom, setPlayerReady, startRoom as startRoomImpl, expireRoom, roomViewForUser, applyRoomCommand, startNextRound, recordMatchForfeit, disconnectPlayer, reconnectPlayer, handleDisconnectTimeout, processAllDisconnectedTimeout, cancelForUnrecoverableTechnicalFailure, ALL_PLAYERS_DISCONNECTED_MS, sendOpponentChatMessage } from "../src/room.js";
+import { createRoom, joinRoom, leaveRoom, setPlayerReady, startRoom as startRoomImpl, expireRoom, roomViewForUser, applyRoomCommand, startNextRound, recordMatchForfeit, disconnectPlayer, reconnectPlayer, handleDisconnectTimeout, processAllDisconnectedTimeout, processMultipleDisconnectTimeout, cancelForUnrecoverableTechnicalFailure, ALL_PLAYERS_DISCONNECTED_MS, sendOpponentChatMessage } from "../src/room.js";
 
 const startRoom = (room, requester, options = {}) => startRoomImpl(room, requester, { ...options, selectHakemSeat: options.selectHakemSeat ?? (() => 0) });
 
@@ -91,12 +91,31 @@ test("stale room versions and non-members cannot submit commands", () => {
   assert.equal(chosen.version, started.version + 1);
 });
 
-test("next round is host-controlled and rotates hakem", () => {
-  const room = { ...fullReadyRoom(), status: "round_completed", round: { phase: "completed", hakemSeat: 1 } };
+test("initial hakem is selected from all four seats and the winner controls next-hand hakem", () => {
+  const started = startRoom(fullReadyRoom(), "u0", {
+    now: 2000, rng: () => 0.4, selectHakemSeat: () => 3
+  });
+  assert.equal(started.round.hakemSeat, 3);
+  assert.throws(() => startRoom(fullReadyRoom(), "u0", {
+    now: 2000, rng: () => 0.4, selectHakemSeat: () => 4
+  }), /randomly from seats/);
+
+  const room = {
+    ...fullReadyRoom(), status: "round_completed",
+    round: { phase: "completed", hakemSeat: 1, scores: [0, 1] }
+  };
   assert.throws(() => startNextRound(room, "u2"), /Only the host/);
-  const next = startNextRound(room, "u0", { rng: () => 0.4 });
-  assert.equal(next.status, "playing");
-  assert.equal(next.round.hakemSeat, 2);
+  const sameTeamWinner = startNextRound(room, "u0", { rng: () => 0.4 });
+  assert.equal(sameTeamWinner.status, "playing");
+  assert.equal(sameTeamWinner.round.hakemSeat, 1,
+    "the previous hakem keeps the role when their team won the hand");
+
+  const oppositeTeamWon = {
+    ...room, round: { ...room.round, scores: [1, 0] }
+  };
+  const rotated = startNextRound(oppositeTeamWon, "u0", { rng: () => 0.4 });
+  assert.equal(rotated.round.hakemSeat, 3,
+    "the opposite player on the winning team becomes hakem when the previous hakem team lost");
 });
 
 function completeOneRound(room, host = "u0") {
@@ -179,30 +198,40 @@ test("a player marked as having left cannot continue sending game commands", asy
 });
 
 
-test("an active-match leaver is replaced by the fixed hard bot and the hand continues",()=>{
-  let room=startRoom(fullReadyRoom(1000,3),"u0",{now:2000,rng:()=>0.5});
-  room={...room,playerProgress:{u0:{xp:100,level:1},u1:{xp:50,level:1}}};
-  const leaverSeat=room.players.find(p=>p.userId==="u0").seat;
-  room=(awaitRecordForfeit(room,"u0"));
-  assert.equal(room.playerProgress.u0.xp,95);
-  assert.equal(room.players[leaverSeat].botControlled,true);
-  assert.equal(room.players[leaverSeat].connected,false);
-  assert.equal(room.round.phase,"playing");
-  assert.equal(room.round.hands[leaverSeat].length,12,"bot should choose trump and play its first card when hakem");
-  assert.equal(room.round.currentTrick.length,1);
-  assert.equal(room.round.currentSeat,1);
-  assert.throws(()=>applyRoomCommand(room,"u0",{type:"play_card",card:room.round.hands[0][0]},room.version),/left the match/);
-  // Complete the hand. The server automatically plays whenever the forfeited seat becomes current.
-  let safety=0;
-  while(room.status==="playing" && safety++<60){
-    const seat=room.round.currentSeat;
-    const player=room.players.find(p=>p.seat===seat);
-    if(player.botControlled) throw new Error("Bot turn was not advanced automatically");
-    const card=legalCards(room.round.hands[seat],room.round.currentTrick)[0];
-    room=applyRoomCommand(room,player.userId,{type:"play_card",card},room.version);
+test("a voluntary leaver is replaced by Hard bot and receives one deferred XP deduction at match end", () => {
+  let room = startRoom(fullReadyRoom(1000, 3), "u0", { now: 2000, rng: () => 0.5 });
+  room = { ...room, playerProgress: { u0: { xp: 100, level: 1 }, u1: { xp: 50, level: 1 } } };
+  const leaverSeat = room.players.find(player => player.userId === "u0").seat;
+  room = disconnectPlayer(room, "u0", { now: 3000, expectedVersion: room.version });
+  room = handleDisconnectTimeout(room, "u0", { now: room.players[0].reconnectDeadline, expectedVersion: room.version });
+  room = recordMatchForfeit(room, "u0");
+
+  assert.equal(room.playerProgress.u0.xp, 100, "the -5 deduction must not be applied before match end");
+  assert.deepEqual(room.pendingXpDeductions, ["u0"]);
+  assert.equal(room.players[leaverSeat].botControlled, true);
+  assert.equal(room.players[leaverSeat].temporaryBot, false);
+  assert.equal(room.players[leaverSeat].connected, false);
+  assert.equal(room.round.phase, "playing");
+  assert.throws(() => applyRoomCommand(room, "u0", { type: "play_card", card: room.round.hands[0][0] }, room.version), /left the match/);
+
+  let clock = Date.now() + 1000;
+  let safety = 0;
+  while (room.status !== "completed" && safety++ < 240) {
+    if (room.status === "round_completed") {
+      room = startNextRound(room, "u1", { now: room.handRevealUntil, rng: () => 0 });
+      clock = Math.max(clock, room.turnStartedAt + 1);
+      continue;
+    }
+    const seat = room.round.currentSeat;
+    const player = room.players.find(candidate => candidate.seat === seat);
+    assert.equal(player.botControlled, false, "server must advance the fixed Hard bot before returning control");
+    const card = legalCards(room.round.hands[seat], room.round.currentTrick)[0];
+    room = applyRoomCommand(room, player.userId, { type: "play_card", card }, room.version, clock++);
   }
-  assert.ok(["round_completed","completed"].includes(room.status));
-  assert.equal(room.round.phase,"completed");
+  assert.equal(room.status, "completed");
+  const winningTeam = room.matchScore[0] > room.matchScore[1] ? 0 : 1;
+  assert.equal(room.playerProgress.u0.xp, 100 + (winningTeam === 0 ? 20 : 5) - 5);
+  assert.deepEqual(room.pendingXpDeductions, []);
 });
 
 function awaitRecordForfeit(room,userId){
@@ -261,23 +290,32 @@ test("expired disconnect grace transfers seat to temporary Hard bot and permits 
 });
 
 
-test("multiple temporary disconnects advance consecutive Hard bots until the match-ending hand completes", () => {
+test("two or three unrecovered disconnects cancel only after the second grace period expires", () => {
   let room = startRoom(fullReadyRoom(1000, 3), "u0", { now: 2000, rng: () => 0.5 });
-  for (const userId of ["u0", "u1", "u2", "u3"]) {
-    room = disconnectPlayer(room, userId, { now: 3000, expectedVersion: room.version });
-  }
-  for (const userId of ["u0", "u1", "u2", "u3"]) {
-    const player = room.players.find(candidate => candidate.userId === userId);
-    room = handleDisconnectTimeout(room, userId, {
-      now: player.reconnectDeadline,
-      expectedVersion: room.version
-    });
-  }
-  assert.equal(room.status, "round_completed");
-  assert.equal(room.round.phase, "completed");
-  // The configured match target is 3; a team reaching 7 tricks ends the hand early.
-  assert.equal(room.round.completedTricks.length, 7);
-  assert.ok(room.players.every(player => player.temporaryBot && player.botControlled && !player.connected));
+  room = disconnectPlayer(room, "u0", { now: 3000, expectedVersion: room.version });
+  room = disconnectPlayer(room, "u1", { now: 3010, expectedVersion: room.version });
+  assert.equal(room.multipleDisconnectedDeadline, 23010);
+  assert.throws(() => processMultipleDisconnectTimeout(room, {
+    now: 23009, expectedVersion: room.version
+  }), /Fewer than two/);
+  const cancelled = processMultipleDisconnectTimeout(room, {
+    now: 23010, expectedVersion: room.version
+  });
+  assert.equal(cancelled.status, "cancelled");
+  assert.equal(cancelled.cancelReason, "multiple_unrecovered_disconnects");
+  assert.deepEqual(cancelled.matchScore, [0, 0]);
+  assert.deepEqual(cancelled.playerProgress, {});
+  assert.equal(cancelled.result, null);
+});
+
+test("a reconnecting player prevents the multiple-disconnect cancellation", () => {
+  let room = startRoom(fullReadyRoom(), "u0", { now: 2000, rng: () => 0.5 });
+  room = disconnectPlayer(room, "u0", { now: 3000, expectedVersion: room.version });
+  room = disconnectPlayer(room, "u1", { now: 3010, expectedVersion: room.version });
+  room = handleDisconnectTimeout(room, "u0", { now: 23000, expectedVersion: room.version });
+  room = reconnectPlayer(room, "u0", { now: 23005, expectedVersion: room.version });
+  assert.equal(room.multipleDisconnectedDeadline, null);
+  assert.equal(room.status, "playing");
 });
 
 test("intentional forfeit remains permanent after a temporary disconnect", () => {
@@ -287,7 +325,8 @@ test("intentional forfeit remains permanent after a temporary disconnect", () =>
   room = recordMatchForfeit(room, "u0");
   assert.equal(room.players[0].forfeited, true);
   assert.equal(room.players[0].temporaryBot, false);
-  assert.equal(room.playerProgress.u0.xp, 0, "XP penalty floors at zero");
+  assert.equal(room.playerProgress.u0, undefined, "the deferred XP deduction is not written until match end");
+  assert.deepEqual(room.pendingXpDeductions, ["u0"]);
   assert.throws(() => reconnectPlayer(room, "u0", { now: 40000, expectedVersion: room.version }), /forfeited player/);
 });
 
