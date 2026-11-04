@@ -469,6 +469,15 @@ test("authenticated chess routes support private game, draw, chat, profiles and 
     const profile = await request(black, "GET", "/chess/players/username/route_white/profile");
     assert.equal(profile.statusCode, 200, profile.body);
     assert.equal(profile.json().username, "route_white");
+    const zeroNumericProfile = await request(black, "GET", "/chess/players/0/profile");
+    assert.equal(zeroNumericProfile.statusCode, 400);
+    assert.equal(zeroNumericProfile.json().error, "invalid_user_id");
+    const overflowingNumericProfile = await request(black, "GET", "/chess/players/9223372036854775808/profile");
+    assert.equal(overflowingNumericProfile.statusCode, 400);
+    assert.equal(overflowingNumericProfile.json().error, "invalid_user_id");
+    const oversizedNumericProfile = await request(black, "GET", "/chess/players/999999999999999999999999999999999999/profile");
+    assert.equal(oversizedNumericProfile.statusCode, 400);
+    assert.equal(oversizedNumericProfile.json().error, "invalid_user_id");
     assert.equal("fullName" in profile.json(), false);
     assert.equal("phone" in profile.json(), false);
     assert.equal("email" in profile.json(), false);
