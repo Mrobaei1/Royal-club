@@ -449,7 +449,7 @@ void main() {
     await tester.tap(find.text('Create Hokm room'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 20));
-    await tester.tap(find.text('Ready'));
+    await tester.tap(find.text('I am ready'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 20));
     await tester.tap(find.text('Start match'));
