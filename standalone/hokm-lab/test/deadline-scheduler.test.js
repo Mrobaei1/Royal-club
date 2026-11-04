@@ -92,23 +92,51 @@ test("scheduler does not overlap concurrent polling loops", async () => {
   assert.equal(second.skipped, true);
   release();
   await first;
+  assert.equal(scheduler.metrics.skippedPollCount, 1);
 });
 
 test("scheduler reports a failed room but continues processing the rest of the batch", async () => {
   const errors = [];
+  const snapshots = [];
   const repository = { async listDueRooms() {
-    return [{ roomId: "bad-room" }, { roomId: "good-room" }];
+    return [{ roomId: "bad-room", turnDeadlineAt: 900 }, { roomId: "good-room", turnDeadlineAt: 950 }];
   } };
   const service = { async processDueDeadlines(_principal, roomId) {
     if (roomId === "bad-room") throw new Error("simulated persistence fault");
     return [{}];
   } };
   const scheduler = new HokmDeadlineScheduler({
-    service, repository, onError: (error, context) => errors.push([error.message, context.roomId])
+    service, repository, now: () => 1000,
+    onError: (error, context) => errors.push([error.message, context.roomId]),
+    onPoll: snapshot => snapshots.push(snapshot)
   });
   const result = await scheduler.pollOnce();
   assert.deepEqual(result, { skipped: false, discovered: 2, processed: 1, failed: 1 });
   assert.deepEqual(errors, [["simulated persistence fault", "bad-room"]]);
+  assert.equal(scheduler.metrics.pollCount, 1);
+  assert.equal(scheduler.metrics.discoveredRooms, 2);
+  assert.equal(scheduler.metrics.processedTransitions, 1);
+  assert.equal(scheduler.metrics.failedRooms, 1);
+  assert.equal(scheduler.metrics.lastSuccessfulPollAt, null);
+  assert.equal(scheduler.metrics.oldestOverdueMs, 100);
+  assert.equal(snapshots.length, 1);
+  assert.equal(Object.isFrozen(snapshots[0]), true);
+});
+
+test("scheduler records query-level failures and reports them to monitoring", async () => {
+  const errors = [];
+  const scheduler = new HokmDeadlineScheduler({
+    service: { async processDueDeadlines() { return []; } },
+    repository: { async listDueRooms() { throw new Error("database unavailable"); } },
+    now: () => 1234,
+    onError: (error, context) => errors.push([error.message, context.scope])
+  });
+  await assert.rejects(scheduler.pollOnce(), /database unavailable/);
+  assert.equal(scheduler.metrics.pollCount, 1);
+  assert.equal(scheduler.metrics.failedPollCount, 1);
+  assert.equal(scheduler.metrics.lastErrorAt, 1234);
+  assert.equal(scheduler.metrics.lastPollCompletedAt, 1234);
+  assert.deepEqual(errors, [["database unavailable", "scheduler_poll"]]);
 });
 
 test("scheduler start and stop are idempotent", async () => {
