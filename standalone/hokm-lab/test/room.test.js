@@ -388,3 +388,19 @@ test("next-hand host handoff rejects a disconnected or forfeited requester", () 
   room = disconnectPlayer(room, "u1", { now: 6001, expectedVersion: room.version });
   assert.throws(() => startNextRound(room, "u1", { now: 7000, rng: () => 0 }), /connected player/);
 });
+
+test("opposing-team chat accepts only signature-verified bounded PNG/JPEG/WebP attachments", () => {
+  let room = startRoom(fullReadyRoom(), "u0", { now: 2000, rng: () => 0 });
+  const png = "data:image/png;base64,iVBORw0KGgo=";
+  room = sendOpponentChatMessage(room, "u0", "u1", {
+    messageId: "chat-image-1", text: png, now: 2100
+  });
+  assert.equal(room.chatMessages[0].text, png);
+  assert.equal(roomViewForUser(room, "u1").chatMessages[0].text, png);
+  assert.throws(() => sendOpponentChatMessage(room, "u0", "u1", {
+    messageId: "chat-image-bad", text: "data:image/png;base64,AAAA", now: 2200
+  }), /valid PNG, JPEG or WebP/);
+  assert.throws(() => sendOpponentChatMessage(room, "u0", "u1", {
+    messageId: "chat-image-svg", text: "data:image/svg+xml;base64,PHN2Zz4=", now: 2200
+  }), /valid PNG, JPEG or WebP/);
+});
