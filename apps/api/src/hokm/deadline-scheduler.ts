@@ -55,8 +55,8 @@ export class HokmDeadlineScheduler {
     intervalMs = 250,
     batchSize = 100,
     servicePrincipal = { authenticated: true, userId: "hokm-deadline-scheduler", role: "system" },
-    onError = () => {},
-    onPoll = () => {}
+    onError = (_error: any, _context?: any) => {},
+    onPoll = (_snapshot: any) => {}
   } = {}) {
     if (!service || typeof service.processDueDeadlines !== "function") {
       throw new TypeError("A HokmRoomService with processDueDeadlines is required");
