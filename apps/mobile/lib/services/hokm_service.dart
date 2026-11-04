@@ -11,6 +11,7 @@ abstract class HokmApi {
   Future<Map<String, dynamic>> sendCommand(String roomId, Map<String, dynamic> command, int expectedVersion);
   Future<Map<String, dynamic>> voteCancel(String roomId, bool approve, int expectedVersion);
   Future<Map<String, dynamic>> leaveRoom(String roomId, int expectedVersion);
+  Future<Map<String, dynamic>> forfeitMatch(String roomId, int expectedVersion);
   Future<Map<String, dynamic>> disconnect(String roomId, int expectedVersion);
   Future<Map<String, dynamic>> reconnect(String roomId, int expectedVersion);
   Future<Map<String, dynamic>> reportPlayer(String roomId, String reportedUserId, String reason, int expectedVersion);
@@ -77,6 +78,10 @@ class HokmService implements HokmApi, HokmEventApi {
   @override
   Future<Map<String, dynamic>> leaveRoom(String roomId, int expectedVersion) =>
       _post('${_roomPath(roomId)}/leave', {'expectedVersion': expectedVersion});
+
+  @override
+  Future<Map<String, dynamic>> forfeitMatch(String roomId, int expectedVersion) =>
+      _post('${_roomPath(roomId)}/forfeit', {'expectedVersion': expectedVersion});
 
   @override
   Future<Map<String, dynamic>> disconnect(String roomId, int expectedVersion) =>
