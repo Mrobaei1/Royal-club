@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:royal_club/services/hokm_service.dart';
 
@@ -42,4 +43,18 @@ void main() {
     await expectLater(api.viewRoom('room'), throwsA(isA<Exception>()));
     await expectLater(api.startMatch('room', 1), throwsA(isA<Exception>()));
   });
+
+  test('Hokm service decodes authenticated SSE room events', () async {
+    final api = HokmService(
+      eventStream: (path) {
+        expect(path, '/api/v1/hokm/rooms/room/events');
+        return Stream.value(jsonEncode({'roomId': 'room', 'version': 9, 'status': 'playing'}));
+      },
+    );
+    final update = await api.watchRoom('room').single;
+    expect(update['roomId'], 'room');
+    expect(update['version'], 9);
+    expect(update['status'], 'playing');
+  });
+
 }
