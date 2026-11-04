@@ -22,6 +22,7 @@ import { promisify } from 'node:util';
 import { createRoyalLoggerOptions } from './logging-config.js';
 import { PostgresRoomRepository } from './hokm/postgres-repository.js';
 import { HokmRoomService } from './hokm/service.js';
+import { HokmEventHub } from './hokm/events.js';
 import { registerHokmRoutes } from './hokm/fastify-routes.js';
 
 const scrypt = promisify(scryptCallback);
@@ -1523,11 +1524,17 @@ const requireHokmAuth = async (request: any, reply: any) => {
 
 const hokmRepository = new PostgresRoomRepository(pool);
 const hokmService = new HokmRoomService({ repository: hokmRepository });
+const hokmEventHub = new HokmEventHub(pool, {
+  onError: (error: unknown) => app.log.error({ err: error }, 'Hokm PostgreSQL event listener failed')
+});
+await hokmEventHub.start();
 await registerHokmRoutes(app, {
   service: hokmService,
   authenticate: requireHokmAuth,
-  prefix: '/api/v1'
+  prefix: '/api/v1',
+  eventHub: hokmEventHub
 });
+app.addHook('onClose', async () => { await hokmEventHub.close(); });
 
 app.get('/api/v1/admin/game-disconnect-policies', { onRequest: [requireOwnerAuth] }, async () => {
   const result = await pool.query('SELECT game_type AS "gameType", enabled, grace_seconds AS "graceSeconds", takeover_mode AS "takeoverMode", updated_at AS "updatedAt" FROM game_disconnect_policies ORDER BY game_type');
