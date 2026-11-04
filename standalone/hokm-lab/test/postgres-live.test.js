@@ -20,8 +20,8 @@ test("live PostgreSQL migration, multi-instance CAS and scheduler restart recove
   const now = () => clock;
   const repoA = new PostgresRoomRepository(pool);
   const repoB = new PostgresRoomRepository(pool);
-  const serviceA = new HokmRoomService({ repository: repoA, now, id: () => `${prefix}-room-${++sequence}` });
-  const serviceB = new HokmRoomService({ repository: repoB, now, id: () => `${prefix}-unused-${++sequence}` });
+  const serviceA = new HokmRoomService({ repository: repoA, now, id: () => `${prefix}-room-${++sequence}`, selectHakemSeat: () => 0 });
+  const serviceB = new HokmRoomService({ repository: repoB, now, id: () => `${prefix}-unused-${++sequence}`, selectHakemSeat: () => 0 });
 
   try {
     const migration = await readFile(new URL("../migrations/001_hokm_rooms.sql", import.meta.url), "utf8");
@@ -89,7 +89,7 @@ test("live PostgreSQL migration, multi-instance CAS and scheduler restart recove
     // Simulate a process restart: construct a new repository/service/scheduler
     // after all deadline state has already been committed to PostgreSQL.
     const restartedRepository = new PostgresRoomRepository(pool);
-    const restartedService = new HokmRoomService({ repository: restartedRepository, now });
+    const restartedService = new HokmRoomService({ repository: restartedRepository, now, selectHakemSeat: () => 0 });
     clock = persisted.allDisconnectedDeadline;
     const scheduler = new HokmDeadlineScheduler({
       service: restartedService, repository: restartedRepository, now
