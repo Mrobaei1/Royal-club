@@ -121,15 +121,18 @@ test("scheduler reports a failed room but continues processing the rest of the b
   assert.equal(scheduler.metrics.oldestOverdueMs, 100);
   assert.equal(snapshots.length, 1);
   assert.equal(Object.isFrozen(snapshots[0]), true);
+  assert.equal(snapshots[0].isPolling, false);
 });
 
 test("scheduler records query-level failures and reports them to monitoring", async () => {
   const errors = [];
+  const snapshots = [];
   const scheduler = new HokmDeadlineScheduler({
     service: { async processDueDeadlines() { return []; } },
     repository: { async listDueRooms() { throw new Error("database unavailable"); } },
     now: () => 1234,
-    onError: (error, context) => errors.push([error.message, context.scope])
+    onError: (error, context) => errors.push([error.message, context.scope]),
+    onPoll: snapshot => snapshots.push(snapshot)
   });
   await assert.rejects(scheduler.pollOnce(), /database unavailable/);
   assert.equal(scheduler.metrics.pollCount, 1);
@@ -137,6 +140,8 @@ test("scheduler records query-level failures and reports them to monitoring", as
   assert.equal(scheduler.metrics.lastErrorAt, 1234);
   assert.equal(scheduler.metrics.lastPollCompletedAt, 1234);
   assert.deepEqual(errors, [["database unavailable", "scheduler_poll"]]);
+  assert.equal(snapshots.length, 1);
+  assert.equal(snapshots[0].isPolling, false);
 });
 
 test("scheduler start and stop are idempotent", async () => {
