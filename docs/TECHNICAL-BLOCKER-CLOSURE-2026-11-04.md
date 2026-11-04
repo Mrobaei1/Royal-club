@@ -1,0 +1,110 @@
+# Royal Club — Technical Blocker Closure Audit
+
+Date: 2026-11-04
+Repository baseline inspected: `main` at `bdae8ef5956fdcfa256c1b77f925d6f43c0f61b3`
+Scope: read-only production verification and technical preparation. No production writes, migrations, deployment, secret reads, network-policy changes, or APK builds were performed.
+
+## Executive result
+
+This audit advances the technical investigation for WBS 6.2, 7.2, 7.3, 7.4 and 7.6. It does **not** mark any of those packages complete. Two findings are materially clearer:
+
+- WBS 7.4: the Neon schedule trigger is enabled and is invoking the API Function once per minute. The current snapshot contains no expired empty waiting rooms, so the actual deletion effect cannot yet be proven from this observation.
+- WBS 6.2: the active Function environment metadata includes the `OWNER_USER_ID` variable name. Its value was not retrieved; owner identity remains subject to secure verification and acceptance.
+
+## Read-only evidence
+
+### WBS 7.4 — expired-room cleanup
+
+Production Neon project: `Royal-Club-API` (`crimson-moon-58282245`).
+Production branch: `production` (`br-misty-flower-bavs47dm`).
+
+Trigger inventory confirms:
+
+- Trigger ID: `trigger-612bdbb2-b904-4aa3-b35a-4e6f4914822d`
+- Name: `Royal Club expired empty-room cleanup`
+- Function: `royalclubapi`
+- Path: `/internal/cleanup-expired-empty-rooms`
+- Schedule: `* * * * *`
+- Enabled: `true`
+
+Neon Function telemetry returned paired `invoke begin` / `invoke end` records for the Function at one-minute intervals, including 17:03–17:52 UTC on 2026-11-04. This confirms scheduled Function invocations, not that the cleanup endpoint deleted a row.
+
+A read-only catalog/data query at the audit time returned:
+
+- Expired empty waiting rooms: 0
+- All empty waiting rooms: 0
+
+Because there were no eligible rows, the snapshot cannot demonstrate successful deletion. Keep 7.4 in progress until a controlled, non-production test proves an expired room and its related notices are removed, and the production endpoint's safe execution outcome is observable without exposing user data.
+
+### WBS 7.3 — source / production schema drift
+
+The latest source-to-production comparison recorded in `docs/PHASE-1-SECURITY-REVIEW.md` found:
+
+| Object | Source | Production | Missing |
+|---|---:|---:|---:|
+| Tables | 35 | 33 | 2 |
+| Columns | 301 | 289 | 12 |
+| Explicit indexes | 34 | 33 | 1 |
+
+Missing tables:
+- `account_customization_pricing`
+- `auth_token_revocations`
+
+Missing columns:
+- `account_customization_pricing.id`
+- `account_customization_pricing.avatar_change_price_credits`
+- `account_customization_pricing.username_change_price_credits`
+- `account_customization_pricing.updated_by`
+- `account_customization_pricing.updated_at`
+- `auth_token_revocations.jti`
+- `auth_token_revocations.user_id`
+- `auth_token_revocations.expires_at`
+- `auth_token_revocations.created_at`
+- `backgammon_matches.turn_started_at`
+- `users.avatar_change_count`
+- `users.token_version`
+
+Missing explicit index: `auth_token_revocations_expiry_idx`.
+
+The current `apps/api/src/server.ts` executes schema DDL and data updates during application startup. Therefore a routine Function deployment is not a safe substitute for a reviewed migration.
+
+Required technical sequence before any production migration:
+1. Define immutable, versioned migration files with checksums and a migration-history table.
+2. Reconcile each missing object against the exact source declaration, including types, defaults, nullability, foreign keys, checks and index definition.
+3. Make the migration idempotent where safe and fail closed on unexpected pre-existing definitions.
+4. Test forward application, rerun behavior, rollback/recovery and application compatibility against an isolated Neon branch restored from production.
+5. Verify a restorable backup/recovery point and record the recovery procedure.
+6. Only after these steps, request explicit owner approval for the production change.
+
+No migration SQL was applied to Production in this audit. The missing objects are recorded, not silently repaired.
+
+### WBS 7.2 — deployed-source provenance
+
+Existing read-only evidence identifies active Function deployment 81, but Neon deployment metadata does not expose a bundled Git commit SHA. Production health checks establish endpoint and database availability only; they do not prove which source revision is running.
+
+Technical closure requires a deployment artifact provenance mechanism that records an immutable Git SHA/build ID in the deployed artifact and exposes it through a protected or non-sensitive diagnostic surface. The next approved deployment must then be matched against that SHA and smoke-tested. No deployment was performed.
+
+### WBS 7.6 — production security configuration
+
+Read-only project metadata reports an empty Neon allowed-IP list. This is not automatically a defect; the API/Function networking topology must first be assessed to avoid blocking legitimate serverless connections.
+
+The active Function metadata lists `OWNER_USER_ID` and `CORS_ORIGINS` as configured variable names. Their values and all secret values were deliberately not read. SMS remains disabled per the existing security review.
+
+Remaining work:
+- document the expected public origins and verify them through the authorized secure workflow;
+- review whether Neon IP restrictions are compatible with the actual Function egress model;
+- confirm owner-ID binding through a secure owner-controlled check;
+- verify external log access/retention and least privilege;
+- preserve the no-production-mutation gate until the owner approves the reviewed release.
+
+## WBS status adjustments recommended
+
+- **6.2:** retain as blocked pending secure verification of the configured numeric owner identity and owner acceptance. Presence of the variable name alone is insufficient.
+- **7.2:** retain as blocked pending immutable deployment provenance and owner-approved deployment/smoke test.
+- **7.3:** retain as blocked pending a versioned migration, isolated-branch forward/rollback tests, and recovery evidence.
+- **7.4:** change from blocked to **in progress**: the schedule and one-minute invocations are now verified; deletion-effect acceptance remains open.
+- **7.6:** retain as blocked pending secure configuration review and owner-approved production acceptance.
+
+## Safety boundary
+
+No production SQL writes, DDL, data updates, migration, deployment, environment-variable change, secret retrieval, IP-policy change, SMS activation, paid activation, delegated grant, Agent activation, or APK build was performed. This document is an evidence update and technical execution plan, not production acceptance.
