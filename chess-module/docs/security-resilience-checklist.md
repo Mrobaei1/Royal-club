@@ -50,10 +50,12 @@ Record each result with commit SHA, environment, evidence link, tester and remed
 
 ## Review execution record — 2026-11-04
 
+- Current PR-head CI evidence: [workflow 41783129523](https://github.com/Mrobaei1/Royal-club/actions/runs/41783129523), commit `cb93bcdddfc90fa084444729c9f3c6f45e1f5be9`; both isolated API and mobile jobs passed. This verifies the automated code-level controls listed below, not host/staging/physical-device controls.
+
 - Internal source-level security review performed on the standalone chess API and WebSocket implementation at PR #86.
 - Confirmed code paths reviewed: route identity extraction, participant authorization, manager-only settings/audit routes, parameterized SQL, numeric identifier validation, chat bounds/rate limiting, WebSocket participant checks, 16 KiB frame cap, command allowlist, ping rate limiting, notification channel construction, presence cleanup, progression transaction boundaries and audit immutability trigger.
 - Finding fixed: numeric profile lookup previously accepted any decimal digit string, including zero and values outside PostgreSQL BIGINT. It now uses the shared positive-BIGINT validator; regression cases cover zero, BIGINT overflow and oversized input.
-- Automated tests for this fix are being run in the isolated chess CI workflow. Do not mark the fix verified until the current-head workflow passes.
+- Verification completed: PR-head isolated workflow [41783129523](https://github.com/Mrobaei1/Royal-club/actions/runs/41783129523) passed on `cb93bcdddfc90fa084444729c9f3c6f45e1f5be9`. Both `chess-api` and `chess-mobile` jobs passed, including `npm audit --audit-level=high`, Stockfish setup, `npm test`, `npm run build`, `flutter analyze` and `flutter test`.
 - Important integration risks remain unverified: the actual host authentication adapter and token lifecycle; production database role ownership/privileges; host/global HTTP rate limiting; production TLS/proxy/origin policy; secrets/logging configuration; backup/restore and deployment controls.
 - The immutable audit trigger prevents ordinary UPDATE/DELETE statements but is not a boundary against the table owner or a superuser who can alter/disable the trigger. Production must use a restricted runtime DB role that does not own the audit table and cannot alter its schema/triggers; migration ownership must be separated.
 - This is an internal code review, not an independent third-party penetration test or certification. A qualified external reviewer must still assess the deployed host-integrated system before this gate can be called independently approved.
