@@ -1524,6 +1524,9 @@ const requireHokmAuth = async (request: any, reply: any) => {
 
 const hokmRepository = new PostgresRoomRepository(pool);
 const hokmService = new HokmRoomService({ repository: hokmRepository });
+if (typeof hokmService.forfeit !== 'function') {
+  throw new Error('HokmRoomService is missing the required forfeit operation.');
+}
 const hokmEventHub = new HokmEventHub(pool, {
   onError: (error: unknown) => app.log.error({ err: error }, 'Hokm PostgreSQL event listener failed')
 });
