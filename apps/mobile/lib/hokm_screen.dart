@@ -314,16 +314,57 @@ class _HokmScreenState extends State<HokmScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _leave() async {
-    if (_roomId.isEmpty) return;
+    if (_roomId.isEmpty || _busy) return;
+    final roomId = _roomId;
+    final version = _version;
+    var forfeited = false;
+    var matchCancelled = false;
     if (_status == 'waiting') {
-      await _run(() => _api.leaveRoom(_roomId, _version));
+      await _run(() => _api.leaveRoom(roomId, version));
     } else if (['playing', 'round_completed'].contains(_status)) {
-      try { _accept(await _api.disconnect(_roomId, _version)); } catch (_) {}
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: Text(t('خروج قطعی از مسابقه؟', 'Forfeit this match?')),
+          content: Text(t(
+            'این خروج قابل بازگشت نیست. کنترل مهره‌های شما به ربات سخت سپرده می‌شود و ۵ امتیاز تجربه در پایان مسابقه کسر خواهد شد.',
+            'Leaving is final. The Hard bot takes over your seat and 5 XP is deducted when the match ends.',
+          )),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(dialogContext, false),
+              child: Text(t('ادامه بازی', 'Keep playing'))),
+            FilledButton(onPressed: () => Navigator.pop(dialogContext, true),
+              child: Text(t('خروج قطعی', 'Forfeit'))),
+          ],
+        ),
+      );
+      if (confirmed != true || !mounted) return;
+      try {
+        final updated = await _api.forfeitMatch(roomId, version);
+        matchCancelled = updated['status'] == 'cancelled';
+        forfeited = true;
+        _accept(updated);
+      } catch (error) {
+        _showError(error);
+        return;
+      }
     }
     if (!mounted) return;
     _pollTimer?.cancel();
     _pollTimer = null;
+    final subscription = _eventSubscription;
+    _eventSubscription = null;
+    _eventStreamAttempted = false;
+    if (subscription != null) await subscription.cancel();
     setState(() { _room = null; _roomCode.clear(); });
+    if (forfeited) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(matchCancelled
+          ? t('مسابقه لغو شد؛ امتیاز تجربه‌ای تغییر نکرد.', 'The match was cancelled; no XP was changed.')
+          : t('خروج قطعی ثبت شد؛ ربات سخت ادامه می‌دهد و کسر ۵ XP در پایان اعمال می‌شود.',
+              'Forfeit recorded. The Hard bot continues; the 5 XP deduction applies at match end.')),
+      ));
+    }
   }
 
   Future<void> _report(String userId) async {
@@ -692,6 +733,8 @@ class _HokmScreenState extends State<HokmScreen> with WidgetsBindingObserver {
         icon: const Icon(Icons.cancel_outlined), label: Text(t('درخواست لغو مسابقه', 'Request cancellation'))),
       OutlinedButton(onPressed: _busy ? null : _exitTemporarily,
         child: Text(t('خروج موقت از بازی', 'Leave temporarily'))),
+      OutlinedButton(onPressed: _busy ? null : _leave,
+        child: Text(t('خروج قطعی از مسابقه', 'Forfeit match'))),
     ]);
   }
 }
