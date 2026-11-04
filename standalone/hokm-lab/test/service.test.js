@@ -13,7 +13,8 @@ function serviceFixture() {
     service: new HokmRoomService({
       repository,
       now: () => clock,
-      id: () => `service-room-${++nextId}`
+      id: () => `service-room-${++nextId}`,
+      selectHakemSeat: () => 0
     }),
     setNow(value) { clock = value; }
   };
