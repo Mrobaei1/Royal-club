@@ -81,6 +81,24 @@ CREATE INDEX IF NOT EXISTS auth_token_revocations_expiry_idx
 -- Fail closed if a pre-existing object was present with an unexpected definition.
 DO $verify$
 BEGIN
+  -- Names alone are not sufficient: an existing constraint with the expected
+  -- name but a weaker expression must abort this migration.
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+     WHERE conrelid='users'::regclass
+       AND conname='users_token_version_nonnegative_check'
+       AND contype='c'
+       AND pg_get_constraintdef(oid) = 'CHECK ((token_version >= 0))'
+  ) OR NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+     WHERE conrelid='users'::regclass
+       AND conname='users_avatar_change_count_nonnegative_check'
+       AND contype='c'
+       AND pg_get_constraintdef(oid) = 'CHECK ((avatar_change_count >= 0))'
+  ) THEN
+    RAISE EXCEPTION 'Royal Club schema reconciliation: user nonnegative CHECK definition mismatch';
+  END IF;
+
   IF NOT EXISTS (
     SELECT 1 FROM information_schema.columns
      WHERE table_schema='public' AND table_name='users' AND column_name='token_version'
