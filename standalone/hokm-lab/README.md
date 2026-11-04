@@ -88,7 +88,8 @@ Do not describe this module as complete until the remaining acceptance criteria 
 
 ## Latest verified checkpoint (2026-11-04)
 
-- Node 20 + PostgreSQL 16: **128 tests passed, 0 failed, 1 environment-gated skip**, including live migration, multi-instance compare-and-swap, deadline restart recovery, private-chat/image validation, manager-review persistence and terminal-state privacy.
-- Royal Club API build/tests passed; mobile Flutter analyze is clean and **92 tests passed**, including Hokm UI, chat, image/emoji controls and manager review.
-- Production-port API integration and the latest exact-head combined validation are still running/queued; do not count them as passed until GitHub reports success.
+- Node 20 + PostgreSQL 16: **129/129 Hokm tests passed**, including live migration, multi-instance compare-and-swap, deadline restart recovery, private-chat/image validation, manager-review persistence and terminal-state privacy.
+- Standalone Flutter: **13/13 tests passed**; Royal Club mobile Flutter analyze is clean with **92/92 tests passed**.
+- Royal Club API: **32/32 integration tests passed**, API build/tests passed, and the Web Preview build passed. The deploy step was skipped; no deployment was performed.
+- Exact-head evidence: [Hokm lab validation](https://github.com/Mrobaei1/Royal-club/actions/runs/41784780513), [Royal Club API integration](https://github.com/Mrobaei1/Royal-club/actions/runs/41784790957), [Royal Club build/mobile validation](https://github.com/Mrobaei1/Royal-club/actions/runs/41784790952), [Web Preview build](https://github.com/Mrobaei1/Royal-club/actions/runs/41784791003).
 - No production deployment, merge to `main`, worker provisioning, or APK build was performed.
