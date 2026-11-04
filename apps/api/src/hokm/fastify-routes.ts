@@ -1,5 +1,4 @@
 // @ts-nocheck
-// Ported from the independently verified Hokm lab; strict runtime validation remains in the domain/service layer.
 /**
  * Fastify route adapter for HokmRoomService.
  * Supply the application's real authentication preHandler. It must populate
@@ -35,7 +34,6 @@ export async function registerHokmRoutes(fastify, { service, authenticate, prefi
   if (!service) throw new TypeError("HokmRoomService is required");
   if (typeof authenticate !== "function") throw new TypeError("Authentication preHandler is required");
   if (typeof prefix !== "string" || (prefix && !prefix.startsWith("/"))) throw new TypeError("Route prefix must be empty or start with a slash");
-
   const path = value => `${prefix}${value}`;
 
   route(fastify, authenticate, "POST", path("/hokm/rooms"), request =>
@@ -57,6 +55,9 @@ export async function registerHokmRoutes(fastify, { service, authenticate, prefi
   route(fastify, authenticate, "POST", path("/hokm/rooms/:roomId/start"), request =>
     service.start(request.auth, request.params.roomId, request.body?.expectedVersion));
 
+  route(fastify, authenticate, "POST", path("/hokm/rooms/:roomId/next-round"), request =>
+    service.nextRound(request.auth, request.params.roomId, request.body?.expectedVersion));
+
   route(fastify, authenticate, "POST", path("/hokm/rooms/:roomId/command"), request =>
     service.command(request.auth, request.params.roomId, request.body?.command, request.body?.expectedVersion));
 
@@ -72,12 +73,19 @@ export async function registerHokmRoutes(fastify, { service, authenticate, prefi
   route(fastify, authenticate, "POST", path("/hokm/rooms/:roomId/cancel-vote"), request =>
     service.voteCancel(request.auth, request.params.roomId, request.body?.approve, request.body?.expectedVersion));
 
+  route(fastify, authenticate, "POST", path("/hokm/rooms/:roomId/chat"), request =>
+    service.sendChatMessage(request.auth, request.params.roomId, request.body?.recipientUserId,
+      request.body?.text, request.body?.messageId, request.body?.expectedVersion));
+
   route(fastify, authenticate, "POST", path("/hokm/rooms/:roomId/reports"), request =>
     service.reportCheating(request.auth, request.params.roomId, request.body?.reportedUserId,
       request.body?.reason, request.body?.expectedVersion));
 
   route(fastify, authenticate, "POST", path("/hokm/rooms/:roomId/appeals"), request =>
     service.submitAppeal(request.auth, request.params.roomId, request.body?.reason, request.body?.expectedVersion));
+
+  route(fastify, authenticate, "GET", path("/hokm/rooms/:roomId/manager"), request =>
+    service.managerView(request.auth, request.params.roomId));
 
   route(fastify, authenticate, "POST", path("/hokm/rooms/:roomId/manager/reports/:reportId/review"), request =>
     service.reviewCheating(request.auth, request.params.roomId, request.params.reportId,
