@@ -1350,6 +1350,39 @@ test('subscription purchases debit the wallet atomically and record a ledger ent
   });
   assert.equal(forbiddenPlanChange.statusCode, 403, forbiddenPlanChange.body);
 
+  const previousOwnerId = process.env.OWNER_USER_ID;
+  process.env.OWNER_USER_ID = buyer.user.id;
+  try {
+    const createWeeklyPlan = await app.inject({
+      method: 'POST',
+      url: '/api/v1/admin/subscription-plans',
+      headers: auth(buyer.token),
+      payload: { code: 'vip_weekly', name: 'اشتراک ویژه هفتگی', durationDays: 7, priceCredits: 90 },
+    });
+    assert.equal(createWeeklyPlan.statusCode, 201, createWeeklyPlan.body);
+    assert.equal(createWeeklyPlan.json().plan.code, 'vip_weekly');
+    assert.equal(createWeeklyPlan.json().plan.durationDays, 7);
+
+    const duplicatePlan = await app.inject({
+      method: 'POST',
+      url: '/api/v1/admin/subscription-plans',
+      headers: auth(buyer.token),
+      payload: { code: 'vip_weekly', name: 'Duplicate', durationDays: 14, priceCredits: 150 },
+    });
+    assert.equal(duplicatePlan.statusCode, 409, duplicatePlan.body);
+
+    const invalidPlan = await app.inject({
+      method: 'POST',
+      url: '/api/v1/admin/subscription-plans',
+      headers: auth(buyer.token),
+      payload: { code: 'bad code', name: 'Invalid', durationDays: 0, priceCredits: -1 },
+    });
+    assert.equal(invalidPlan.statusCode, 400, invalidPlan.body);
+  } finally {
+    if (previousOwnerId === undefined) delete process.env.OWNER_USER_ID;
+    else process.env.OWNER_USER_ID = previousOwnerId;
+  }
+
   const initialWallet = await app.inject({
     method: 'GET',
     url: '/api/v1/wallet',
