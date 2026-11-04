@@ -35,6 +35,8 @@ export class PostgresRoomRepository {
       "       THEN (room_data->>'turnDeadlineAt')::double precision END <= $1",
       "  OR CASE WHEN jsonb_typeof(room_data->'allDisconnectedDeadline') = 'number'",
       "          THEN (room_data->>'allDisconnectedDeadline')::double precision END <= $1",
+      "  OR CASE WHEN jsonb_typeof(room_data->'multipleDisconnectedDeadline') = 'number'",
+      "          THEN (room_data->>'multipleDisconnectedDeadline')::double precision END <= $1",
       "  OR EXISTS (",
       "    SELECT 1",
       "    FROM jsonb_array_elements(COALESCE(room_data->'players', '[]'::jsonb)) AS p(value)",
@@ -50,6 +52,18 @@ export class PostgresRoomRepository {
     ].join("\n");
     const result = await this.#pool.query(sql, [now, limit]);
     return result.rows.map(row => row.room_data);
+  }
+
+  async getPlayerProgress(userIds) {
+    if (!Array.isArray(userIds) || userIds.some(userId => typeof userId !== "string")) {
+      throw new TypeError("userIds must be an array of strings");
+    }
+    if (!userIds.length) return {};
+    const result = await this.#pool.query(
+      "SELECT user_id, xp, level FROM hokm_player_progress WHERE user_id = ANY($1::text[])",
+      [userIds]
+    );
+    return Object.fromEntries(result.rows.map(row => [row.user_id, { xp: Number(row.xp), level: Number(row.level) }]));
   }
 
   async insert(room) {
