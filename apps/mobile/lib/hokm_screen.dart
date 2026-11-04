@@ -1,6 +1,9 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
 import 'l10n/app_text.dart';
 import 'services/hokm_service.dart';
 import 'hokm_manager_review_screen.dart';
@@ -26,6 +29,8 @@ class _HokmScreenState extends State<HokmScreen> with WidgetsBindingObserver {
   int _target = 7;
   bool _busy = false;
   bool _pollBusy = false;
+  bool _showEmojiPicker = false;
+  final ImagePicker _imagePicker = ImagePicker();
   bool _background = false;
   int _serverClockOffsetMs = 0;
 
@@ -188,6 +193,51 @@ class _HokmScreenState extends State<HokmScreen> with WidgetsBindingObserver {
       'hokm-chat-${DateTime.now().microsecondsSinceEpoch}', _version,
     ));
     if (mounted) _chatController.clear();
+  }
+
+  Future<void> _sendChatImage() async {
+    if (_busy) return;
+    try {
+      final picked = await _imagePicker.pickImage(
+        source: ImageSource.gallery, imageQuality: 65, maxWidth: 1100, maxHeight: 1100,
+      );
+      if (picked == null || !mounted) return;
+      final bytes = await picked.readAsBytes();
+      if (!mounted) return;
+      final mimeType = picked.mimeType == 'image/png' ? 'image/png' : 'image/jpeg';
+      final encoded = 'data:$mimeType;base64,${base64Encode(bytes)}';
+      if (encoded.length > 680000) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(t('حجم تصویر زیاد است؛ تصویر کوچک‌تری انتخاب کنید.', 'The image is too large. Choose a smaller image.')),
+        ));
+        return;
+      }
+      final opponents = _opponents;
+      final recipient = _chatRecipientUserId ?? (opponents.isEmpty ? null : opponents.first['userId']?.toString());
+      if (recipient == null) return;
+      await _run(() => _api.sendChatMessage(
+        _roomId, recipient, encoded,
+        'hokm-chat-image-${DateTime.now().microsecondsSinceEpoch}', _version,
+      ));
+    } catch (error) {
+      _showError(error);
+    }
+  }
+
+  Widget _chatMessageContent(String value) {
+    if (!value.startsWith('data:image/') || !value.contains(';base64,')) return Text(value);
+    try {
+      final encoded = value.substring(value.indexOf(';base64,') + 8);
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(10),
+        child: Image.memory(
+          base64Decode(encoded), width: 220, fit: BoxFit.contain,
+          errorBuilder: (_, __, ___) => Text(t('نمایش تصویر ممکن نیست.', 'Unable to display image.')),
+        ),
+      );
+    } catch (_) {
+      return Text(t('تصویر نامعتبر است.', 'Invalid image.'));
+    }
   }
 
   List<Map<String, dynamic>> get _opponents {
@@ -528,12 +578,22 @@ class _HokmScreenState extends State<HokmScreen> with WidgetsBindingObserver {
                         ? AlignmentDirectional.centerEnd : AlignmentDirectional.centerStart,
                     child: Padding(
                       padding: const EdgeInsets.symmetric(vertical: 3),
-                      child: Text(message['text']?.toString() ?? ''),
+                      child: _chatMessageContent(message['text']?.toString() ?? ''),
                     ),
                   )).toList(),
             ),
           ),
           Row(children: [
+            IconButton(
+              tooltip: t('شکلک‌ها', 'Emoji picker'),
+              onPressed: _busy ? null : () => setState(() => _showEmojiPicker = !_showEmojiPicker),
+              icon: const Icon(Icons.emoji_emotions_outlined),
+            ),
+            IconButton(
+              tooltip: t('پیوست تصویر', 'Attach image'),
+              onPressed: _busy ? null : _sendChatImage,
+              icon: const Icon(Icons.image_outlined),
+            ),
             Expanded(child: TextField(
               controller: _chatController,
               maxLength: 1000,
@@ -550,6 +610,27 @@ class _HokmScreenState extends State<HokmScreen> with WidgetsBindingObserver {
               icon: const Icon(Icons.send),
             ),
           ]),
+          if (_showEmojiPicker)
+            SizedBox(
+              height: 260,
+              child: EmojiPicker(
+                onEmojiSelected: (category, emoji) {
+                  final text = _chatController.text;
+                  final selection = _chatController.selection;
+                  final start = selection.isValid ? selection.start : text.length;
+                  final end = selection.isValid ? selection.end : text.length;
+                  _chatController.value = TextEditingValue(
+                    text: text.replaceRange(start, end, emoji.emoji),
+                    selection: TextSelection.collapsed(offset: start + emoji.emoji.length),
+                  );
+                },
+                config: const Config(
+                  height: 260,
+                  checkPlatformCompatibility: true,
+                  emojiViewConfig: EmojiViewConfig(emojiSizeMax: 28),
+                ),
+              ),
+            ),
         ])),
       ],
       if (_status == 'round_completed' && (_host || _hostUnavailable) && _room?['handRevealUntil'] == null) ...[
