@@ -236,6 +236,48 @@ void main() {
         isNull);
   });
 
+  testWidgets('restored pending bot move is completed without rolling again',
+      (tester) async {
+    final store = _MemoryManchSaveStore()
+      ..saved = ManchGameState(
+        players: [
+          ManchPlayerState(colour: ManchColour.red),
+          ManchPlayerState(
+            colour: ManchColour.yellow,
+            tokens: [0, -1, -1, -1],
+          ),
+        ],
+        activePlayerIndex: 1,
+        profile: const ManchRuleProfile(),
+        pendingDice: 1,
+        turnNumber: 2,
+      );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale('fa'),
+        supportedLocales: const [Locale('fa'), Locale('en')],
+        localizationsDelegates: GlobalMaterialLocalizations.delegates,
+        home: ManchOfflineGameScreen(
+          botPlayers: const {ManchColour.yellow},
+          diceRoller: _one,
+          saveStore: store,
+        ),
+      ),
+    );
+
+    expect(find.text('نوبت بازیکن قرمز'), findsOneWidget);
+    await tester.ensureVisible(find.text('بازیابی'));
+    await tester.tap(find.text('بازیابی'));
+    await tester.pumpAndSettle();
+
+    expect(store.saved!.players[1].tokens[0], 1);
+    expect(store.saved!.activePlayerIndex, 0);
+    expect(find.text('نوبت بازیکن قرمز'), findsOneWidget);
+    expect(find.text('انداختن تاس'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('configured bot plays its turn and returns control to human',
       (tester) async {
     var rollCount = 0;
