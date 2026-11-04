@@ -18,6 +18,8 @@ import 'contact_screen.dart';
 import 'chat_screen.dart';
 import 'services/chat_service.dart';
 import 'services/friends_service.dart';
+import 'hokm_screen.dart';
+import 'services/hokm_service.dart';
 
 class RoyalLocaleState extends ChangeNotifier {
   RoyalLocaleState() { _load(); }
@@ -529,6 +531,29 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               const SizedBox(height: 12),
               GameTile(title: AppLocalizations.of(context).chess, subtitle: AppLocalizations.of(context).comingSoon, icon: Icons.grid_4x4_rounded, comingSoon: true),
+              const SizedBox(height: 12),
+              GameTile(
+                title: appText(context, 'حکم', 'Hokm'),
+                subtitle: appText(context, 'بازی کارتی چهار نفره', 'Four-player trick-taking card game'),
+                icon: Icons.style_rounded,
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(builder: (_) => FutureBuilder<bool>(
+                    future: AdminService.isOwner(),
+                    builder: (context, ownerSnapshot) {
+                      if (!ownerSnapshot.hasData) return const Scaffold(body: Center(child: CircularProgressIndicator()));
+                      return HokmScreen(
+                        api: HokmService(),
+                        identityLoader: () async {
+                          final profile = await AuthService.me();
+                          final user = profile['user'];
+                          return user is Map ? user['id']?.toString() : null;
+                        },
+                        managerAccess: ownerSnapshot.data == true,
+                      );
+                    },
+                  )),
+                ),
+              ),
               const SizedBox(height: 12),
               GameTile(title: AppLocalizations.of(context).cardGames, subtitle: royalLocaleState.locale.languageCode == 'fa' ? 'به‌زودی' : 'Coming soon', icon: Icons.style_rounded, comingSoon: true),
               const SizedBox(height: 26),
