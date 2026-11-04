@@ -85,6 +85,8 @@ export class PostgresRoomRepository {
           [userId, progress.xp, progress.level]
         );
       }
+      // NOTIFY is transactional: subscribers wake only after the CAS commit succeeds.
+      await client.query("SELECT pg_notify('hokm_room_updates', $1)", [roomId]);
       await client.query("COMMIT");
       return true;
     } catch (error) {
