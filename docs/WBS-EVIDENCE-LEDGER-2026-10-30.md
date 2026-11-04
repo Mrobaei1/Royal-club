@@ -99,7 +99,6 @@ The roadmap previously said 47 packages. Counting the actual leaf IDs in the app
 | 7.7 | 20 | Blocked | Two-device and real Android acceptance gates remain open | Complete end-to-end network, layout, accessibility, performance and regression acceptance. |
 | 7.8 | 15 | Blocked — approval gated | Owner instruction required; no APK authorization in current task | Prepare release notes/rollback readiness only; do not build or prepare APK until explicit approval. |
 
-
 ## Static source audit findings — 2026-10-30
 
 - **Public identity:** a scan of current-main `apps/api/src/server.ts` found `fullName` in registration/phone-registration responses and the authenticated `/api/v1/me/profile` response, all for the account owner. Public friend, chat, leaderboard, match-history and spectator handlers use usernames; API integration tests assert that full names/emails are absent from the relevant payloads. This is source-level evidence only; the manual screen-by-screen and legacy/empty-profile audit remains open.
@@ -192,3 +191,13 @@ See [Technical Blocker Closure Audit](TECHNICAL-BLOCKER-CLOSURE-2026-11-04.md) f
 - No WBS points are awarded by this status update. No Production mutation, migration, deployment, secret retrieval, or network-policy change was performed.
 
 - Additional 7.4 evidence: isolated Neon test branch proved the cleanup CTE deletes an expired empty room and its linked notification; no Production rows were changed.
+
+## Technical closure follow-up — 2026-11-04 (latest exact-head audit)
+
+- PR #166 remains open and unmerged on `chore/technical-blocker-closure-2026-11-04`. Latest observed commit after migration/test hardening: `107bda4c4d20bbad6448154770889684eaad886c`. Do not merge or deploy without explicit owner approval.
+- CI on the immediately preceding head `ef5325f043ce846407529242720aa2e02d1566ab` passed: API build + `npm test`, API integration (`npm run test:integration` against PostgreSQL 16), Flutter analyze/tests, backgammon engine/AI/board regression, and Web Preview. A fresh exact-head run is required after the latest username-index change.
+- WBS 7.3: targeted semantic catalog review confirmed audited new-table/column types, defaults, nullability, PK/FK/check constraints and expiry index. It found source drift in the legacy username index (case-sensitive DB index vs source-required `LOWER(username)`). The additive migration now creates `users_username_casefold_unique_idx`; isolated clone check found zero blank usernames and zero case-fold duplicate groups, and the new index was applied and verified on the isolated branch. Package remains Blocked pending full source-wide semantic parity, app compatibility, backup/restore, rollback/recovery and explicit Production approval.
+- WBS 7.4: production trigger configuration confirms the enabled one-minute schedule targets `royalclubapi` at `/internal/cleanup-expired-empty-rooms`. Current source route rejects calls without a valid trigger invocation and returns deleted-room count; integration tests assert 403 without trigger, 200 with valid trigger and actual deletion. Isolated Neon CTE test also deleted one expired room and linked notification. Package remains In progress until deployed Function provenance and production outcome observability are proven.
+- WBS 6.2 and 7.6 remain Blocked: owner identity and security configuration values were not read; secure owner acceptance, CORS/network review and log access review remain required.
+- WBS 7.2 remains Blocked: active Function deployment metadata still does not expose immutable bundled Git SHA. Health availability is not source provenance.
+- No WBS points awarded. Production remains unchanged; no secret retrieval, deployment, migration, network-policy change, APK build, or PR merge performed.
