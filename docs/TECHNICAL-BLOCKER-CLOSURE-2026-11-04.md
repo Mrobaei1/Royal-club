@@ -238,3 +238,17 @@ A restore rehearsal was initiated from that snapshot. Neon finalized the restore
 No SQL writes, schema migrations, Function deployments, or data updates were performed during this rehearsal. The default-branch pointer was temporarily changed and then restored; this operational mistake is explicitly recorded. The rehearsal demonstrates that the retained snapshot can be restored into a branch, but it does not prove a complete application recovery, acceptable RPO/RTO, three-point retention, or a production cutover/rollback plan. Do not delete either branch without explicit owner approval.
 
 WBS 7.5 remains Blocked pending a configured and owner-approved schedule with at least three recent recovery points, an end-to-end application restore validation, measured recovery time/data-point, and an approved runbook.
+
+
+## Source-wide column type/nullability comparison — 2026-11-04
+
+A read-only comparison was run between the 301 column declarations parsed from `apps/api/src/server.ts` on `main` and `information_schema.columns` on the repaired isolated Neon branch:
+- Source declarations: 301 columns.
+- Repaired isolated catalog: 301 columns.
+- Missing/extra column names: 0 / 0.
+- Data-type mismatches: 0.
+- Nullability mismatches: 1.
+
+The single discrepancy is `users.username`: source declares `username TEXT` without `NOT NULL`, while both the original Production branch and the repaired isolated branch report `is_nullable = NO`. Read-only counts on both branches show 0 NULL usernames and 0 empty usernames (3 users in each branch at audit time). The database's stronger NOT NULL constraint is preserved; it was not relaxed. This needs an explicit source/schema decision before semantic parity can be called complete. Do not infer that the other semantic dimensions are complete from this pass: defaults, generated/identity properties, all FK/check definitions and full index expressions still need independent comparison.
+
+WBS 7.3 remains Blocked. The comparison closes the type/name portion for all 301 columns and isolates one nullability discrepancy; it does not close the remaining constraints/defaults/index and recovery/release gates.
