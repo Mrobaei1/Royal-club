@@ -497,7 +497,7 @@ void main() {
         profile: const ManchRuleProfile(entryFaces: {1, 6}, safeTrackIndices: {}),
       );
       final rolled = engine.roll(state, 1);
-      final entry = engine.legalMoves(rolled).single;
+      final entry = engine.legalMoves(rolled).firstWhere((move) => move.tokenIndex == 0);
       expect(entry.isEntry, isTrue);
       expect(entry.isCapture, isTrue);
       final next = engine.move(rolled, entry.tokenIndex);
