@@ -108,3 +108,36 @@ Remaining work:
 ## Safety boundary
 
 No production SQL writes, DDL, data updates, migration, deployment, environment-variable change, secret retrieval, IP-policy change, SMS activation, paid activation, delegated grant, Agent activation, or APK build was performed. This document is an evidence update and technical execution plan, not production acceptance.
+
+
+## Isolated schema-repair migration test — 2026-11-04
+
+An isolated Neon validation branch was created from the Production branch snapshot; Production was not modified.
+
+- Test branch: `schema-repair-validation-2026-11-04`
+- Branch ID: `br-crimson-mouse-baq7v9aa`
+- Parent: Production branch `br-misty-flower-bavs47dm`
+- Migration artifact: `apps/api/migrations/20261104_001_reconcile_production_schema.sql`
+- Migration source commit: `7dbc92e6148e0f8cac6adafee0b206e2dbb35162`
+
+The migration was applied to the isolated branch using a transaction, then the same statements were run a second time to test repeatability. Results:
+
+| Check | Result |
+|---|---:|
+| Missing tables present | 2 / 2 |
+| Target missing columns present | 12 / 12 |
+| Missing explicit index present | 1 / 1 |
+| Default singleton pricing row | 1 |
+| Legacy avatar backfill candidates remaining | 0 |
+| Named non-negative user constraints | 2 validated |
+| Second application | Passed without duplicate-object errors |
+
+The test confirms the additive repair statements work against a fresh Production snapshot and are repeatable on that branch. It does **not** establish complete semantic parity for every table/column in the application, test a full application deployment against the repaired branch, prove backup restoration, or authorize production execution. The isolated Neon branch is retained as validation evidence and must not be mistaken for Production.
+
+### Next acceptance steps for WBS 7.3
+
+1. Compare full catalog definitions (types, defaults, nullability, foreign keys, checks and indexes), not just object names.
+2. Run the API build and integration suite against the repaired isolated branch.
+3. Test application rollback compatibility while retaining the additive schema.
+4. Complete a separate backup/restore rehearsal and document recovery time/data-point evidence.
+5. Request explicit owner approval before any Production migration or deployment.
