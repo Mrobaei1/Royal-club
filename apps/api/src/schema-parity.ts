@@ -9,12 +9,26 @@ export type SchemaDiff = {
   extraInDatabase: string[];
 };
 
-export type IndexCatalogRow = { indexname: string; constraint_backed: boolean };
+export type IndexCatalogRow = { indexname: string; constraint_backed: boolean; indexdef?: string };
 
 export function extractExplicitIndexNames(rows: IndexCatalogRow[]): string[] {
-  return [...new Set(rows
+  const normalized = rows
     .filter((row) => !row.constraint_backed)
-    .map((row) => row.indexname.toLowerCase()))].sort();
+    .flatMap((row) => {
+      const name = row.indexname.toLowerCase();
+      const definition = row.indexdef?.toLowerCase() ?? '';
+      // Production historically used this name for a case-sensitive index.
+      // The additive repair keeps that legacy index and creates the source-equivalent
+      // case-folded index under a new name; normalize the latter to the source name.
+      if (name === 'users_username_unique_idx' && definition && !definition.includes('lower(username)')) {
+        return [];
+      }
+      if (name === 'users_username_casefold_unique_idx' && definition.includes('lower(username)')) {
+        return ['users_username_unique_idx'];
+      }
+      return [name];
+    });
+  return [...new Set(normalized)].sort();
 }
 
 type CreateTableBlock = { table: string; body: string };
@@ -155,6 +169,7 @@ async function main() {
       ),
       client.query<IndexCatalogRow>(
         `SELECT index_class.relname AS indexname,
+                pg_get_indexdef(index_data.indexrelid) AS indexdef,
                 EXISTS (
                   SELECT 1 FROM pg_constraint constraint_row
                    WHERE constraint_row.conindid = index_data.indexrelid
@@ -180,7 +195,7 @@ async function main() {
     console.log(
       `Schema catalog audit: tables source/db=${expectedTables.length}/${actualTables.length}; ` +
       `columns source/db=${expectedColumns.length}/${actualColumns.length}; ` +
-      `explicit indexes source/db=${expectedIndexes.length}/${actualIndexes.length} total DB indexes.`,
+      `explicit indexes source/db=${expectedIndexes.length}/${actualIndexes.length} after legacy-index normalization.`,
     );
 
     let failed = false;
