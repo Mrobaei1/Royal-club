@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
 import 'package:royal_club/hokm_screen.dart';
 import 'package:royal_club/hokm_manager_review_screen.dart';
 import 'package:royal_club/services/hokm_service.dart';
@@ -431,4 +432,33 @@ void main() {
     await tester.pump();
     expect(api.disconnectCalls, 1);
   });
+
+  testWidgets('private Hokm chat exposes image attachment and full emoji picker', (tester) async {
+    tester.view.physicalSize = const Size(1200, 1800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final api = FakeHokmApi();
+    await tester.pumpWidget(MaterialApp(
+      locale: const Locale('en'),
+      supportedLocales: const [Locale('fa'), Locale('en')],
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
+      home: HokmScreen(api: api, identityLoader: () async => 'u1'),
+    ));
+    await tester.pump();
+    await tester.tap(find.text('Create Hokm room'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 20));
+    await tester.tap(find.text('Ready'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 20));
+    await tester.tap(find.text('Start match'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 20));
+    expect(find.byTooltip('Attach image'), findsOneWidget);
+    await tester.tap(find.byTooltip('Emoji picker'));
+    await tester.pump();
+    expect(find.byType(EmojiPicker), findsOneWidget);
+  });
+
 }
