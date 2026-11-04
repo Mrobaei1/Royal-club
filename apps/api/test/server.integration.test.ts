@@ -3440,3 +3440,100 @@ test('Hokm private chat is delivered only to its opposing-team participants and 
     else process.env.OWNER_USER_ID = previousOwnerId;
   }
 });
+
+
+test('Hokm SSE room stream pushes committed version changes to authenticated room members', async () => {
+  const previousOwnerId = process.env.OWNER_USER_ID;
+  const players = await Promise.all([
+    register('Hokm SSE Host'),
+    register('Hokm SSE Opponent'),
+    register('Hokm SSE Teammate'),
+    register('Hokm SSE Other Opponent'),
+  ]);
+  const [host, opponent, teammate, otherOpponent] = players;
+  process.env.OWNER_USER_ID = host.user.id;
+  let roomId = '';
+  let controller: AbortController | null = null;
+  let reader: any = null;
+  try {
+    const created = await app.inject({
+      method: 'POST', url: '/api/v1/hokm/rooms',
+      headers: auth(host.token), payload: { privateRoom: false, matchTarget: 3 },
+    });
+    assert.equal(created.statusCode, 200, created.body);
+    roomId = created.json().roomId;
+    let version = created.json().version;
+    for (const player of [opponent, teammate, otherOpponent]) {
+      const joined = await app.inject({
+        method: 'POST', url: `/api/v1/hokm/rooms/${roomId}/join`,
+        headers: auth(player.token), payload: { expectedVersion: version },
+      });
+      assert.equal(joined.statusCode, 200, joined.body);
+      version = joined.json().version;
+    }
+    for (const player of players) {
+      const ready = await app.inject({
+        method: 'POST', url: `/api/v1/hokm/rooms/${roomId}/ready`,
+        headers: auth(player.token), payload: { ready: true, expectedVersion: version },
+      });
+      assert.equal(ready.statusCode, 200, ready.body);
+      version = ready.json().version;
+    }
+    const started = await app.inject({
+      method: 'POST', url: `/api/v1/hokm/rooms/${roomId}/start`,
+      headers: auth(host.token), payload: { expectedVersion: version },
+    });
+    assert.equal(started.statusCode, 200, started.body);
+
+    const baseUrl = await app.listen({ host: '127.0.0.1', port: 0 });
+    controller = new AbortController();
+    const response = await fetch(`${baseUrl}/api/v1/hokm/rooms/${roomId}/events`, {
+      headers: auth(host.token), signal: controller.signal,
+    });
+    assert.equal(response.status, 200);
+    assert.match(response.headers.get('content-type') ?? '', /text\/event-stream/);
+    reader = response.body!.getReader();
+    let buffer = '';
+    const decoder = new TextDecoder();
+    const readRoomEvent = async () => {
+      const timeout = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('Timed out waiting for Hokm SSE room event.')), 5000);
+      });
+      while (true) {
+        const next = await Promise.race([reader.read(), timeout]);
+        assert.equal(next.done, false, 'SSE stream closed before the expected room update.');
+        buffer += decoder.decode(next.value, { stream: true });
+        const boundary = buffer.indexOf('\\n\\n');
+        if (boundary < 0) continue;
+        const frame = buffer.slice(0, boundary);
+        buffer = buffer.slice(boundary + 2);
+        if (!frame.includes('event: room')) continue;
+        const dataLine = frame.split('\\n').find(line => line.startsWith('data: '));
+        if (dataLine) return JSON.parse(dataLine.slice(6));
+      }
+    };
+
+    const initial = await readRoomEvent();
+    assert.equal(initial.roomId, roomId);
+    const chat = await app.inject({
+      method: 'POST', url: `/api/v1/hokm/rooms/${roomId}/chat`,
+      headers: auth(host.token),
+      payload: {
+        recipientUserId: opponent.user.id,
+        text: 'SSE update delivered',
+        messageId: `hokm-sse-${randomUUID()}`,
+        expectedVersion: initial.version,
+      },
+    });
+    assert.equal(chat.statusCode, 200, chat.body);
+    const update = await readRoomEvent();
+    assert.ok(update.version > initial.version);
+    assert.equal(update.chatMessages.at(-1).text, 'SSE update delivered');
+  } finally {
+    if (controller) controller.abort();
+    if (reader) { try { await reader.cancel(); } catch { /* stream already aborted */ } }
+    if (roomId) await testPool.query('DELETE FROM hokm_rooms WHERE room_id = $1', [roomId]);
+    if (previousOwnerId === undefined) delete process.env.OWNER_USER_ID;
+    else process.env.OWNER_USER_ID = previousOwnerId;
+  }
+});
