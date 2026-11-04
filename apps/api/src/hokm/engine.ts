@@ -1,5 +1,4 @@
 // @ts-nocheck
-// Ported from the independently verified Hokm lab; strict runtime validation remains in the domain/service layer.
 /**
  * Independent Hokm rules primitives for Royal Club.
  * No network, UI, database, or framework dependencies.
