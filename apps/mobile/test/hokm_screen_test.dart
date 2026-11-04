@@ -459,6 +459,10 @@ void main() {
     await tester.tap(find.byTooltip('Emoji picker'));
     await tester.pump();
     expect(find.byType(EmojiPicker), findsOneWidget);
+    await tester.pump(const Duration(milliseconds: 1));
+    await tester.tap(find.byTooltip('Emoji picker'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 1));
   });
 
 }
