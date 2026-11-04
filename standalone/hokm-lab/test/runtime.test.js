@@ -26,7 +26,7 @@ test("runtime wires authenticated Fastify routes to PostgreSQL service and sched
     fastify, pool: fakePool(), authenticate, schedulerIntervalMs: 500,
     now: () => 12345, onSchedulerPoll: snapshot => snapshots.push(snapshot)
   });
-  assert.equal(fastify.routes.length, 17);
+  assert.equal(fastify.routes.length, 18);
   assert.ok(fastify.routes.every(route => route.preHandler === authenticate));
   assert.equal(runtime.scheduler.isRunning, false);
   const poll = await runtime.scheduler.pollOnce();
