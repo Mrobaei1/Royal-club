@@ -1763,7 +1763,16 @@ class _AdminScreenState extends State<AdminScreen> {
                 ),
               ),
               const SizedBox(height: 22),
-              Text(appText(context, 'مدیریت اشتراک‌ها', 'Subscription management'), style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+              Row(
+                children: [
+                  Expanded(child: Text(appText(context, 'مدیریت اشتراک‌ها', 'Subscription management'), style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold))),
+                  FilledButton.icon(
+                    onPressed: _busy ? null : _createPlan,
+                    icon: const Icon(Icons.add),
+                    label: Text(appText(context, 'اشتراک جدید', 'New plan')),
+                  ),
+                ],
+              ),
               const SizedBox(height: 8),
               for (final plan in _plans) Card(child: ListTile(
                 leading: const Icon(Icons.workspace_premium),
