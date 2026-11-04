@@ -33,7 +33,12 @@ export class HokmEventHub extends EventEmitter {
       this.emit(message.payload, message.payload);
     });
     client.on('error', error => {
+      this.#started = false;
       try { this.#onError(error); } catch { /* monitoring cannot break event fan-out */ }
+    });
+    client.on('end', () => {
+      this.#started = false;
+      try { this.#onError(new Error('Hokm PostgreSQL LISTEN connection ended')); } catch { /* ignored */ }
     });
     await client.query('LISTEN hokm_room_updates');
     this.#started = true;
