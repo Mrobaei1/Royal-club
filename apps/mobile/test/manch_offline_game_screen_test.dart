@@ -260,7 +260,7 @@ void main() {
         localizationsDelegates: GlobalMaterialLocalizations.delegates,
         home: ManchOfflineGameScreen(
           botPlayers: const {ManchColour.yellow},
-          diceRoller: _one,
+          diceRoller: _unexpectedDiceRoll,
           saveStore: store,
         ),
       ),
@@ -315,6 +315,8 @@ void main() {
 
 int _six() => 6;
 int _one() => 1;
+int _unexpectedDiceRoll() =>
+    throw StateError('A restored pending die must not be rolled again.');
 
 class _MemoryManchSaveStore implements ManchSaveStore {
   ManchGameState? saved;
