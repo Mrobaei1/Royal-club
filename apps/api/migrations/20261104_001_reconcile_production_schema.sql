@@ -147,8 +147,33 @@ BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM pg_constraint
      WHERE conrelid='account_customization_pricing'::regclass
+       AND contype='p'
+       AND pg_get_constraintdef(oid) ILIKE '%PRIMARY KEY (id)%'
+  ) OR NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+     WHERE conrelid='account_customization_pricing'::regclass
+       AND contype='c'
+       AND pg_get_constraintdef(oid) ILIKE '%id = 1%'
+  ) OR NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+     WHERE conrelid='account_customization_pricing'::regclass
+       AND contype='c'
+       AND pg_get_constraintdef(oid) ILIKE '%avatar_change_price_credits >= 0%'
+  ) OR NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+     WHERE conrelid='account_customization_pricing'::regclass
+       AND contype='c'
+       AND pg_get_constraintdef(oid) ILIKE '%username_change_price_credits >= 0%'
+  ) OR NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+     WHERE conrelid='account_customization_pricing'::regclass
        AND contype='f'
        AND pg_get_constraintdef(oid) ILIKE '%FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE SET NULL%'
+  ) OR NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+     WHERE conrelid='auth_token_revocations'::regclass
+       AND contype='p'
+       AND pg_get_constraintdef(oid) ILIKE '%PRIMARY KEY (jti)%'
   ) OR NOT EXISTS (
     SELECT 1 FROM pg_constraint
      WHERE conrelid='auth_token_revocations'::regclass
@@ -161,6 +186,7 @@ BEGIN
   ) OR NOT EXISTS (
     SELECT 1 FROM pg_indexes
      WHERE schemaname='public' AND indexname='users_username_casefold_unique_idx'
+       AND indexdef ILIKE 'CREATE UNIQUE INDEX%'
        AND indexdef ILIKE '%lower(username)%'
        AND indexdef ILIKE '%username IS NOT NULL%'
   ) THEN
