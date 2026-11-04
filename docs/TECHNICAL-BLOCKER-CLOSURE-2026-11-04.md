@@ -180,7 +180,7 @@ WBS 7.3 remains Blocked: targeted semantic definitions have been reviewed and th
 
 ### Migration fail-closed validation — 2026-11-04
 
-The migration now verifies the expected data types, nullability, defaults, foreign keys and index definitions before COMMIT, and raises an exception rather than silently accepting a conflicting pre-existing object. The complete migration statement sequence, including this verification block and the case-folded username index, was re-applied in a single transaction on isolated branch `br-crimson-mouse-baq7v9aa`; all 14 statements completed successfully on the repeat run. Production remained unchanged.
+The migration now verifies the expected data types, nullability, defaults, foreign keys and index definitions before COMMIT, and raises an exception rather than silently accepting a conflicting pre-existing object. The complete migration statement sequence, including this verification block and the case-folded username index, was re-applied in a single transaction on isolated branch `br-crimson-mouse-baq7v9aa`; all 13 statements completed successfully on the repeat run. Production remained unchanged.
 
 
 ## Final source-parity and deployment-provenance findings — 2026-11-04
