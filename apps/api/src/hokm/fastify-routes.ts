@@ -133,11 +133,9 @@ export async function registerHokmRoutes(fastify, { service, authenticate, prefi
               lastVersion = view.version;
               raw.write(`id: ${view.version}\nevent: room\ndata: ${JSON.stringify(view)}\n\n`);
             }
-          } catch (error) {
-            if (!closed) {
-              raw.write(`event: error\ndata: ${JSON.stringify({ error: error.message })}\n\n`);
-              raw.end();
-            }
+          } catch {
+            if (!closed) raw.end();
+            cleanup();
           } finally {
             sending = false;
             if (dirty && !closed) void sendCurrent();
