@@ -250,7 +250,7 @@ class _HokmScreenState extends State<HokmScreen> with WidgetsBindingObserver {
       final mimeType = picked.mimeType == 'image/png' ? 'image/png' : 'image/jpeg';
       final encoded = 'data:$mimeType;base64,${base64Encode(bytes)}';
       if (encoded.length > 680000) {
-        messenger.showSnackBar(SnackBar(
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text(t('حجم تصویر زیاد است؛ تصویر کوچک‌تری انتخاب کنید.', 'The image is too large. Choose a smaller image.')),
         ));
         return;
@@ -365,7 +365,7 @@ class _HokmScreenState extends State<HokmScreen> with WidgetsBindingObserver {
     if (subscription != null) await subscription.cancel();
     setState(() { _room = null; _roomCode.clear(); });
     if (forfeited) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      messenger.showSnackBar(SnackBar(
         content: Text(matchCancelled
           ? t('مسابقه لغو شد؛ امتیاز تجربه‌ای تغییر نکرد.', 'The match was cancelled; no XP was changed.')
           : t('خروج قطعی ثبت شد؛ ربات سخت ادامه می‌دهد و کسر ۵ XP در پایان اعمال می‌شود.',
