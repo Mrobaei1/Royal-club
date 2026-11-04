@@ -477,4 +477,92 @@ void main() {
       expect(won.players[0].tokens, everyElement(57));
     });
 
+
+    test('rejects invalid dice, a second roll with pending dice, and an illegal pass', () {
+      final initial = engine.newGame(playerCount: 2);
+      expect(() => engine.roll(initial, 0), throwsArgumentError);
+      expect(() => engine.roll(initial, 7), throwsArgumentError);
+      final pending = engine.roll(initial, 6);
+      expect(() => engine.roll(pending, 1), throwsStateError);
+      expect(() => engine.passTurn(pending), throwsStateError);
+    });
+
+    test('configured entry faces can capture an exposed token on entry', () {
+      final state = ManchGameState(
+        players: [
+          ManchPlayerState(colour: ManchColour.red),
+          ManchPlayerState(colour: ManchColour.green, tokens: [39, -1, -1, -1]),
+        ],
+        activePlayerIndex: 0,
+        profile: const ManchRuleProfile(entryFaces: {1, 6}, safeTrackIndices: {}),
+      );
+      final rolled = engine.roll(state, 1);
+      final entry = engine.legalMoves(rolled).single;
+      expect(entry.isEntry, isTrue);
+      expect(entry.isCapture, isTrue);
+      final next = engine.move(rolled, entry.tokenIndex);
+      expect(next.players[0].tokens[0], 0);
+      expect(next.players[1].tokens[0], -1);
+      expect(next.activePlayerIndex, 1,
+          reason: 'Capture does not grant an extra roll in the base profile.');
+    });
+
+    test('all four globally configured safe cells protect single tokens', () {
+      for (final safeCell in const [0, 13, 26, 39]) {
+        final source = (safeCell + 51) % 52;
+        final enemyProgress = (safeCell - 13 + 52) % 52;
+        final state = ManchGameState(
+          players: [
+            ManchPlayerState(colour: ManchColour.red, tokens: [source, -1, -1, -1]),
+            ManchPlayerState(colour: ManchColour.green, tokens: [enemyProgress, -1, -1, -1]),
+          ],
+          activePlayerIndex: 0,
+          profile: const ManchRuleProfile(),
+        );
+        final rolled = engine.roll(state, 1);
+        expect(engine.legalMoves(rolled).single.isCapture, isFalse,
+            reason: 'Global safe cell $safeCell must not capture.');
+        final next = engine.move(rolled, 0);
+        expect(next.players[1].tokens[0], enemyProgress);
+      }
+    });
+
+    test('finish bonus is controlled independently from the six bonus', () {
+      final players = [
+        ManchPlayerState(colour: ManchColour.red, tokens: [56, 56, 57, 57]),
+        ManchPlayerState(colour: ManchColour.green),
+      ];
+      final bonus = ManchGameState(
+        players: players,
+        activePlayerIndex: 0,
+        profile: const ManchRuleProfile(extraRollOnFinish: true),
+      );
+      final bonusResult = engine.move(engine.roll(bonus, 1), 0);
+      expect(bonusResult.players[0].tokens[0], 57);
+      expect(bonusResult.activePlayerIndex, 0);
+
+      final noBonus = ManchGameState(
+        players: players,
+        activePlayerIndex: 0,
+        profile: const ManchRuleProfile(extraRollOnFinish: false),
+      );
+      final normalResult = engine.move(engine.roll(noBonus, 1), 0);
+      expect(normalResult.activePlayerIndex, 1);
+    });
+
+    test('a finished game rejects all subsequent turn actions', () {
+      final almostWon = ManchGameState(
+        players: [
+          ManchPlayerState(colour: ManchColour.red, tokens: [56, 57, 57, 57]),
+          ManchPlayerState(colour: ManchColour.green),
+        ],
+        activePlayerIndex: 0,
+        profile: const ManchRuleProfile(),
+      );
+      final won = engine.move(engine.roll(almostWon, 1), 0);
+      expect(won.isFinished, isTrue);
+      expect(() => engine.roll(won, 6), throwsStateError);
+      expect(() => engine.passTurn(won), throwsStateError);
+    });
+
 }
