@@ -144,8 +144,15 @@ export function recordMatchForfeit(room, userId) {
   const players = room.players.map(candidate => candidate.userId === userId
     ? { ...candidate, connected: false, forfeited: true, botControlled: true, temporaryBot: false, disconnectedAt: null, reconnectDeadline: null }
     : candidate);
-  const updated = { ...room, players, playerProgress,
-    penalizedLeavers: [...(room.penalizedLeavers ?? []), userId], version: room.version + 1 };
+  const penalizedLeavers = [...(room.penalizedLeavers ?? []), userId];
+  const updated = { ...room, players, playerProgress, penalizedLeavers, version: room.version + 1 };
+  // Two voluntary exits make the match non-competitive; cancel without
+  // assigning a winner or mutating the match score.
+  if (penalizedLeavers.length >= 2) {
+    return { ...updated, status: "cancelled", cancelReason: "multiple_voluntary_exits",
+      result: null, turnDeadlineAt: null, allDisconnectedDeadline: null,
+      handRevealUntil: null, revealedHands: null };
+  }
   return advanceHardBotTurn(updated);
 }
 
