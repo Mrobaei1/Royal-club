@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'auth_service.dart';
 
 abstract class HokmApi {
@@ -22,16 +23,23 @@ abstract class HokmApi {
 
 typedef HokmGet = Future<Map<String, dynamic>> Function(String path);
 typedef HokmPost = Future<Map<String, dynamic>> Function(String path, Map<String, dynamic> body);
+typedef HokmEventSource = Stream<String> Function(String path);
+
+abstract class HokmEventApi {
+  Stream<Map<String, dynamic>> watchRoom(String roomId);
+}
 
 /// Authenticated adapter for the existing Royal Club API session.
 /// The injectable functions keep the client testable without exposing tokens.
-class HokmService implements HokmApi {
+class HokmService implements HokmApi, HokmEventApi {
   final HokmGet _get;
   final HokmPost _post;
+  final HokmEventSource _eventSource;
 
-  HokmService({HokmGet? get, HokmPost? post})
+  HokmService({HokmGet? get, HokmPost? post, HokmEventSource? eventSource})
       : _get = get ?? AuthService.authenticatedGet,
-        _post = post ?? AuthService.authenticatedPost;
+        _post = post ?? AuthService.authenticatedPost,
+        _eventSource = eventSource ?? AuthService.authenticatedEventStream;
 
   String _roomPath(String roomId) => '/api/v1/hokm/rooms/${Uri.encodeComponent(roomId)}';
 
@@ -108,4 +116,12 @@ class HokmService implements HokmApi {
       _post('${_roomPath(roomId)}/manager/appeals/${Uri.encodeComponent(appealId)}/review', {
         'decision': decision, 'notes': notes, 'expectedVersion': expectedVersion,
       });
+  @override
+  Stream<Map<String, dynamic>> watchRoom(String roomId) =>
+      _eventSource('${_roomPath(roomId)}/events').map((payload) {
+        final decoded = jsonDecode(payload);
+        if (decoded is! Map) throw const FormatException('Invalid Hokm room event.');
+        return Map<String, dynamic>.from(decoded);
+      });
+
 }
