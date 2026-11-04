@@ -27,15 +27,14 @@ A row is not complete merely because a contract or placeholder exists. Integrati
 
 ## Current-head verification evidence
 
-Verified against PR head `7b6bf4f24e11eb4a754a6bfb8c9098719a97191b` on 2026-11-03:
+Verified against PR head `8fc74fc5f1278afa996dfc7c6bce42c9698efb61` on 2026-11-04. The code head `e69b6f3debe151aca19a8365eae6f60f725c316d` passed the isolated chess workflow; the current PR head adds only this acceptance-evidence documentation update, and all current-head workflow jobs completed successfully.
 
-- Isolated chess workflow run [`41738780921`](https://github.com/Mrobaei1/Royal-club/actions/runs/41738780921) completed successfully.
-- API job: PostgreSQL 16 integration environment provisioned; Stockfish installed; **63/63 API tests passed** and TypeScript build passed.
-- Independent Stockfish validation compares legal moves and every perft-2 branch count across curated edge positions and generated games. Published perft-3 totals pass for the standard initial position (8,902), Kiwipete (97,862), endgame position 3 (2,812), promotion/castling position 4 (9,467), tactical position 5 (62,379) and middlegame position 6 (89,890). Perft-4 totals pass for initial position (197,281) and Kiwipete (4,085,603).
-- Mobile job: Flutter analysis reported no issues; **34/34 Flutter tests passed**, including terminal-game chat disable/rejection, transport deadlines, draw-claim race refresh, accessibility semantics, promotion, Persian RTL and English LTR/landscape cases.
-- Database acceptance reapplies all eleven isolated migrations in a second pass and verifies repeatability; migration 011 prevents audit-event updates/deletes. PostgreSQL integration verifies the audit route is manager-only.
-- Security regressions reject missing, malformed and out-of-range trusted user IDs; malformed/overflowing game and draw-offer IDs before database access; and nonparticipant game/chat reads and moves.
-- WebSocket transport multiplexes all active game channels through one dedicated PostgreSQL listener per API instance. The integration test constrains the pool to four connections while several authenticated sockets remain open and verifies multi-device presence, reconnect snapshots, notifications, payload limits and ping flood rejection.
-- Repository-level validation on the same head passed: API build/unit tests, API integration checks, Flutter analysis/tests, backgammon engine audit and web preview build.
-- These results prove automated CI only. They do not prove physical-device acceptance, independent security review, staging load acceptance, production-schema review or host integration.
-- The latest PR head remains isolated and unmerged. Production migrations, host-app wiring, deployment and APK build/distribution remain owner-controlled gates.
+- Isolated chess workflow run [`41780470447`](https://github.com/Mrobaei1/Royal-club/actions/runs/41780470447): API **66/66 tests passed**, Stockfish installed, independent perft/legal-move validation passed, TypeScript build passed, and `npm audit --audit-level=high` reported zero vulnerabilities.
+- Flutter: analysis clean and **34/34 tests passed**.
+- Repository-level validation on the current head passed: API unit/build (**103/103**), PostgreSQL integration (**30/30**), Flutter analysis/tests, backgammon engine audit (**80 tests passed**) and web preview build. Web preview deployment was skipped intentionally.
+- The isolated PostgreSQL 16 migration suite reapplies all eleven chess migrations and exercises real database route flows, concurrency races, audit immutability and manager-only audit access.
+- Automated checks validate identity boundaries, participant authorization, malformed/overflowing IDs, chat permissions/rate limits, reconnect snapshots, WebSocket payload and ping limits, multi-device presence and bounded PostgreSQL listener usage.
+- These results establish automated CI acceptance only. They do not prove physical-device/two-device acceptance, accessibility on real devices, staging load/connection-flood behavior, backup restoration, or independent security review.
+- Host-app authentication/manager-role wiring remains unperformed by design. Production migrations, deployment, APK build/distribution and merge remain separate owner-controlled gates.
+
+A phase must not be marked 100% while any required external acceptance gate for that phase remains unchecked. Record external results with commit SHA, environment, evidence link, tester and remediation/retest status.
