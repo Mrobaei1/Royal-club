@@ -1277,34 +1277,170 @@ class _AdminScreenState extends State<AdminScreen> {
     final days = TextEditingController(text: '30');
     final price = TextEditingController(text: '300');
     final formKey = GlobalKey<FormState>();
-    final accepted = await showDialog<bool>(context: context, builder: (context) => AlertDialog(
-      title: Text(appText(context, 'ایجاد اشتراک ویژه', 'Create premium plan')),
-      content: Form(key: formKey, child: Column(mainAxisSize: MainAxisSize.min, children: [
-        TextFormField(controller: code, decoration: InputDecoration(labelText: appText(context, 'شناسه یکتا (انگلیسی)', 'Unique code (English)'), hintText: 'vip_weekly'), validator: (v) => v == null || !RegExp(r'^[a-zA-Z0-9_]{2,40}    final name = TextEditingController(text: plan['name']?.toString() ?? '');
+    final accepted = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(appText(context, 'ایجاد اشتراک ویژه', 'Create premium plan')),
+        content: Form(
+          key: formKey,
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            TextFormField(
+              controller: code,
+              decoration: InputDecoration(
+                labelText: appText(context, 'شناسه یکتا (انگلیسی)', 'Unique code (English)'),
+                hintText: 'vip_weekly',
+              ),
+              validator: (value) => value == null || !RegExp(r'^[a-zA-Z0-9_]{2,40}$').hasMatch(value.trim())
+                  ? appText(context, 'شناسه باید ۲ تا ۴۰ نویسه انگلیسی، عدد یا زیرخط باشد.', 'Use 2–40 English letters, digits or underscores.')
+                  : null,
+            ),
+            TextFormField(
+              controller: name,
+              decoration: InputDecoration(labelText: appText(context, 'نام اشتراک', 'Subscription name')),
+              validator: (value) => value == null || value.trim().isEmpty || value.trim().length > 100
+                  ? appText(context, 'نام معتبر وارد کنید.', 'Enter a valid name.')
+                  : null,
+            ),
+            TextFormField(
+              controller: days,
+              keyboardType: TextInputType.number,
+              decoration: InputDecoration(labelText: appText(context, 'مدت (روز)', 'Duration (days)')),
+              validator: (value) => int.tryParse(value ?? '') == null || int.parse(value!) < 1 || int.parse(value) > 3650
+                  ? appText(context, 'مدت باید بین ۱ تا ۳۶۵۰ روز باشد.', 'Duration must be 1–3650 days.')
+                  : null,
+            ),
+            TextFormField(
+              controller: price,
+              keyboardType: TextInputType.number,
+              decoration: InputDecoration(labelText: appText(context, 'قیمت (اعتبار)', 'Price (credits)')),
+              validator: (value) => int.tryParse(value ?? '') == null || int.parse(value!) < 0 || int.parse(value) > 1000000000
+                  ? appText(context, 'قیمت نامعتبر است.', 'Enter a valid price.')
+                  : null,
+            ),
+          ]),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: Text(appText(context, 'انصراف', 'Cancel'))),
+          FilledButton(
+            onPressed: () {
+              if (formKey.currentState!.validate()) Navigator.pop(dialogContext, true);
+            },
+            child: Text(appText(context, 'ایجاد', 'Create')),
+          ),
+        ],
+      ),
+    );
+    if (accepted != true) {
+      code.dispose();
+      name.dispose();
+      days.dispose();
+      price.dispose();
+      return;
+    }
+    setState(() => _busy = true);
+    try {
+      await AdminService.createPlan(
+        code: code.text.trim(),
+        name: name.text.trim(),
+        durationDays: int.parse(days.text),
+        priceCredits: int.parse(price.text),
+      );
+      await _load();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(appText(context, 'اشتراک جدید ایجاد شد.', 'Subscription plan created.'))),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appError(context, e))));
+      }
+    } finally {
+      code.dispose();
+      name.dispose();
+      days.dispose();
+      price.dispose();
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _editPlan(dynamic plan) async {
+    final name = TextEditingController(text: plan['name']?.toString() ?? '');
     final days = TextEditingController(text: plan['durationDays']?.toString() ?? '30');
     final price = TextEditingController(text: plan['priceCredits']?.toString() ?? '0');
     final formKey = GlobalKey<FormState>();
-    final accepted = await showDialog<bool>(context: context, builder: (context) => AlertDialog(
-      title: Text(appText(context, 'ویرایش اشتراک', 'Edit subscription')),
-      content: Form(key: formKey, child: Column(mainAxisSize: MainAxisSize.min, children: [
-        TextFormField(controller: name, decoration: InputDecoration(labelText: appText(context, 'نام اشتراک', 'Subscription name')), validator: (v) => v == null || v.trim().isEmpty ? appText(context, 'نام الزامی است', 'Name is required') : null),
-        TextFormField(controller: days, keyboardType: TextInputType.number, decoration: InputDecoration(labelText: appText(context, 'مدت (روز)', 'Duration (days)')), validator: (v) => int.tryParse(v ?? '') == null || int.parse(v!) < 1 ? appText(context, 'مدت نامعتبر است', 'Invalid duration') : null),
-        TextFormField(controller: price, keyboardType: TextInputType.number, decoration: InputDecoration(labelText: appText(context, 'قیمت (اعتبار)', 'Price (credits)')), validator: (v) => int.tryParse(v ?? '') == null || int.parse(v!) < 0 ? appText(context, 'قیمت نامعتبر است', 'Invalid price') : null),
-      ])),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(context, false), child: Text(appText(context, 'انصراف', 'Cancel'))),
-        FilledButton(onPressed: () { if (formKey.currentState!.validate()) Navigator.pop(context, true); }, child: Text(appText(context, 'ذخیره', 'Save'))),
-      ],
-    ));
-    if (accepted != true) { name.dispose(); days.dispose(); price.dispose(); return; }
+    final accepted = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(appText(context, 'ویرایش اشتراک', 'Edit subscription')),
+        content: Form(
+          key: formKey,
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            TextFormField(
+              controller: name,
+              decoration: InputDecoration(labelText: appText(context, 'نام اشتراک', 'Subscription name')),
+              validator: (value) => value == null || value.trim().isEmpty || value.trim().length > 100
+                  ? appText(context, 'نام معتبر وارد کنید.', 'Enter a valid name.')
+                  : null,
+            ),
+            TextFormField(
+              controller: days,
+              keyboardType: TextInputType.number,
+              decoration: InputDecoration(labelText: appText(context, 'مدت (روز)', 'Duration (days)')),
+              validator: (value) => int.tryParse(value ?? '') == null || int.parse(value!) < 1 || int.parse(value) > 3650
+                  ? appText(context, 'مدت باید بین ۱ تا ۳۶۵۰ روز باشد.', 'Duration must be 1–3650 days.')
+                  : null,
+            ),
+            TextFormField(
+              controller: price,
+              keyboardType: TextInputType.number,
+              decoration: InputDecoration(labelText: appText(context, 'قیمت (اعتبار)', 'Price (credits)')),
+              validator: (value) => int.tryParse(value ?? '') == null || int.parse(value!) < 0 || int.parse(value) > 1000000000
+                  ? appText(context, 'قیمت نامعتبر است.', 'Enter a valid price.')
+                  : null,
+            ),
+          ]),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: Text(appText(context, 'انصراف', 'Cancel'))),
+          FilledButton(
+            onPressed: () {
+              if (formKey.currentState!.validate()) Navigator.pop(dialogContext, true);
+            },
+            child: Text(appText(context, 'ذخیره', 'Save')),
+          ),
+        ],
+      ),
+    );
+    if (accepted != true) {
+      name.dispose();
+      days.dispose();
+      price.dispose();
+      return;
+    }
+    setState(() => _busy = true);
     try {
-      await AdminService.updatePlan(plan['code'].toString(), name: name.text.trim(), durationDays: int.parse(days.text), priceCredits: int.parse(price.text));
+      await AdminService.updatePlan(
+        plan['code'].toString(),
+        name: name.text.trim(),
+        durationDays: int.parse(days.text),
+        priceCredits: int.parse(price.text),
+      );
       await _load();
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appText(context, 'اشتراک به‌روزرسانی شد.', 'Subscription updated.'))));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(appText(context, 'اشتراک به‌روزرسانی شد.', 'Subscription updated.'))),
+        );
+      }
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appError(context, e))));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appError(context, e))));
+      }
     } finally {
-      name.dispose(); days.dispose(); price.dispose();
+      name.dispose();
+      days.dispose();
+      price.dispose();
+      if (mounted) setState(() => _busy = false);
     }
   }
 
