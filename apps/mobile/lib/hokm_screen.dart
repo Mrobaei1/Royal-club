@@ -250,7 +250,7 @@ class _HokmScreenState extends State<HokmScreen> with WidgetsBindingObserver {
       final mimeType = picked.mimeType == 'image/png' ? 'image/png' : 'image/jpeg';
       final encoded = 'data:$mimeType;base64,${base64Encode(bytes)}';
       if (encoded.length > 680000) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        messenger.showSnackBar(SnackBar(
           content: Text(t('حجم تصویر زیاد است؛ تصویر کوچک‌تری انتخاب کنید.', 'The image is too large. Choose a smaller image.')),
         ));
         return;
@@ -317,6 +317,7 @@ class _HokmScreenState extends State<HokmScreen> with WidgetsBindingObserver {
     if (_roomId.isEmpty || _busy) return;
     final roomId = _roomId;
     final version = _version;
+    final messenger = ScaffoldMessenger.of(context);
     var forfeited = false;
     var matchCancelled = false;
     if (_status == 'waiting') {
