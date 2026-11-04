@@ -3490,3 +3490,70 @@ test('Hokm room commits publish cross-connection PostgreSQL notifications for SS
     if (roomId) await testPool.query('DELETE FROM hokm_rooms WHERE room_id = $1', [roomId]);
   }
 });
+
+
+test('authenticated Hokm forfeit is permanent, idempotent and cancels on a second voluntary exit', async () => {
+  const players = await Promise.all([
+    register('Hokm Forfeit Host'),
+    register('Hokm Forfeit One'),
+    register('Hokm Forfeit Two'),
+    register('Hokm Forfeit Three'),
+  ]);
+  const [host, first, second, third] = players;
+  const created = await app.inject({
+    method: 'POST', url: '/api/v1/hokm/rooms',
+    headers: auth(host.token), payload: { privateRoom: false, matchTarget: 3 },
+  });
+  assert.equal(created.statusCode, 200, created.body);
+  const roomId = created.json().roomId;
+  let version = created.json().version;
+  for (const player of [first, second, third]) {
+    const joined = await app.inject({
+      method: 'POST', url: `/api/v1/hokm/rooms/${roomId}/join`,
+      headers: auth(player.token), payload: { expectedVersion: version },
+    });
+    assert.equal(joined.statusCode, 200, joined.body);
+    version = joined.json().version;
+  }
+  for (const player of players) {
+    const ready = await app.inject({
+      method: 'POST', url: `/api/v1/hokm/rooms/${roomId}/ready`,
+      headers: auth(player.token), payload: { ready: true, expectedVersion: version },
+    });
+    assert.equal(ready.statusCode, 200, ready.body);
+    version = ready.json().version;
+  }
+  const started = await app.inject({
+    method: 'POST', url: `/api/v1/hokm/rooms/${roomId}/start`,
+    headers: auth(host.token), payload: { expectedVersion: version },
+  });
+  assert.equal(started.statusCode, 200, started.body);
+  version = started.json().version;
+
+  const forfeit = await app.inject({
+    method: 'POST', url: `/api/v1/hokm/rooms/${roomId}/forfeit`,
+    headers: auth(host.token), payload: { expectedVersion: version },
+  });
+  assert.equal(forfeit.statusCode, 200, forfeit.body);
+  assert.equal(forfeit.json().status, 'playing');
+  assert.equal(forfeit.json().players.find(player => player.userId === host.user.id).forfeited, true);
+  version = forfeit.json().version;
+
+  const duplicate = await app.inject({
+    method: 'POST', url: `/api/v1/hokm/rooms/${roomId}/forfeit`,
+    headers: auth(host.token), payload: { expectedVersion: version },
+  });
+  assert.equal(duplicate.statusCode, 200, duplicate.body);
+  assert.equal(duplicate.json().version, version);
+
+  const secondForfeit = await app.inject({
+    method: 'POST', url: `/api/v1/hokm/rooms/${roomId}/forfeit`,
+    headers: auth(first.token), payload: { expectedVersion: version },
+  });
+  assert.equal(secondForfeit.statusCode, 200, secondForfeit.body);
+  assert.equal(secondForfeit.json().status, 'cancelled');
+  assert.equal(secondForfeit.json().cancelReason, 'multiple_voluntary_exits');
+  assert.deepEqual(secondForfeit.json().matchScore, [0, 0]);
+  assert.equal(secondForfeit.json().result, null);
+  await testPool.query('DELETE FROM hokm_rooms WHERE room_id = $1', [roomId]);
+});
