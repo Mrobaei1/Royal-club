@@ -141,6 +141,10 @@ class FakeHokmApi implements HokmApi {
       Map<String, dynamic>.from(room);
 
   @override
+  Future<Map<String, dynamic>> forfeitMatch(String roomId, int expectedVersion) async =>
+      Map<String, dynamic>.from(room);
+
+  @override
   Future<Map<String, dynamic>> disconnect(String roomId, int expectedVersion) async {
     disconnectCalls++;
     return Map<String, dynamic>.from(room);
