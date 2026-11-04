@@ -9,6 +9,8 @@ import { registerHokmRoutes } from "./fastify-routes.js";
  *
  * The caller owns Fastify and Pool lifecycle. Start the scheduler only after
  * the database migration has been applied and the server is ready to serve.
+ * onSchedulerPoll receives an immutable, vendor-neutral heartbeat/metrics
+ * snapshot after each completed poll; the host forwards it to monitoring.
  */
 export async function createHokmRuntime({
   fastify,
@@ -18,6 +20,7 @@ export async function createHokmRuntime({
   schedulerIntervalMs = 250,
   schedulerBatchSize = 100,
   onSchedulerError = () => {},
+  onSchedulerPoll = () => {},
   servicePrincipal = { authenticated: true, userId: "hokm-deadline-scheduler", role: "system" }
 } = {}) {
   if (!pool || typeof pool.connect !== "function" || typeof pool.query !== "function") {
@@ -27,7 +30,8 @@ export async function createHokmRuntime({
   const service = new HokmRoomService({ repository, now });
   const scheduler = new HokmDeadlineScheduler({
     service, repository, now, intervalMs: schedulerIntervalMs,
-    batchSize: schedulerBatchSize, onError: onSchedulerError, servicePrincipal
+    batchSize: schedulerBatchSize, onError: onSchedulerError,
+    onPoll: onSchedulerPoll, servicePrincipal
   });
   await registerHokmRoutes(fastify, { service, authenticate });
   return Object.freeze({
