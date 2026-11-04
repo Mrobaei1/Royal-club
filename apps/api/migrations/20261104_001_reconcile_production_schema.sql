@@ -78,4 +78,95 @@ CREATE TABLE IF NOT EXISTS auth_token_revocations (
 CREATE INDEX IF NOT EXISTS auth_token_revocations_expiry_idx
   ON auth_token_revocations (expires_at);
 
+-- Fail closed if a pre-existing object was present with an unexpected definition.
+DO $verify$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+     WHERE table_schema='public' AND table_name='users' AND column_name='token_version'
+       AND data_type='integer' AND is_nullable='NO' AND column_default='0'
+  ) OR NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+     WHERE table_schema='public' AND table_name='users' AND column_name='avatar_change_count'
+       AND data_type='integer' AND is_nullable='NO' AND column_default='0'
+  ) OR NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+     WHERE table_schema='public' AND table_name='backgammon_matches' AND column_name='turn_started_at'
+       AND data_type='timestamp with time zone' AND is_nullable='NO'
+       AND column_default IN ('now()', 'CURRENT_TIMESTAMP')
+  ) THEN
+    RAISE EXCEPTION 'Royal Club schema reconciliation: existing user/match column definition mismatch';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+     WHERE table_schema='public' AND table_name='account_customization_pricing' AND column_name='id'
+       AND data_type='integer' AND is_nullable='NO'
+  ) OR NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+     WHERE table_schema='public' AND table_name='account_customization_pricing' AND column_name='avatar_change_price_credits'
+       AND data_type='bigint' AND is_nullable='NO' AND column_default='0'
+  ) OR NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+     WHERE table_schema='public' AND table_name='account_customization_pricing' AND column_name='username_change_price_credits'
+       AND data_type='bigint' AND is_nullable='NO' AND column_default='0'
+  ) OR NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+     WHERE table_schema='public' AND table_name='account_customization_pricing' AND column_name='updated_by'
+       AND data_type='bigint' AND is_nullable='YES'
+  ) OR NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+     WHERE table_schema='public' AND table_name='account_customization_pricing' AND column_name='updated_at'
+       AND data_type='timestamp with time zone' AND is_nullable='NO'
+       AND column_default IN ('now()', 'CURRENT_TIMESTAMP')
+  ) THEN
+    RAISE EXCEPTION 'Royal Club schema reconciliation: account_customization_pricing definition mismatch';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+     WHERE table_schema='public' AND table_name='auth_token_revocations' AND column_name='jti'
+       AND data_type='text' AND is_nullable='NO'
+  ) OR NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+     WHERE table_schema='public' AND table_name='auth_token_revocations' AND column_name='user_id'
+       AND data_type='bigint' AND is_nullable='NO'
+  ) OR NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+     WHERE table_schema='public' AND table_name='auth_token_revocations' AND column_name='expires_at'
+       AND data_type='timestamp with time zone' AND is_nullable='NO'
+  ) OR NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+     WHERE table_schema='public' AND table_name='auth_token_revocations' AND column_name='created_at'
+       AND data_type='timestamp with time zone' AND is_nullable='NO'
+       AND column_default IN ('now()', 'CURRENT_TIMESTAMP')
+  ) THEN
+    RAISE EXCEPTION 'Royal Club schema reconciliation: auth_token_revocations definition mismatch';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+     WHERE conrelid='account_customization_pricing'::regclass
+       AND contype='f'
+       AND pg_get_constraintdef(oid) ILIKE '%FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE SET NULL%'
+  ) OR NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+     WHERE conrelid='auth_token_revocations'::regclass
+       AND contype='f'
+       AND pg_get_constraintdef(oid) ILIKE '%FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE%'
+  ) OR NOT EXISTS (
+    SELECT 1 FROM pg_indexes
+     WHERE schemaname='public' AND indexname='auth_token_revocations_expiry_idx'
+       AND indexdef ILIKE '%(expires_at)%'
+  ) OR NOT EXISTS (
+    SELECT 1 FROM pg_indexes
+     WHERE schemaname='public' AND indexname='users_username_casefold_unique_idx'
+       AND indexdef ILIKE '%lower(username)%'
+       AND indexdef ILIKE '%username IS NOT NULL%'
+  ) THEN
+    RAISE EXCEPTION 'Royal Club schema reconciliation: expected constraint or index missing';
+  END IF;
+END
+$verify$;
+
 COMMIT;
