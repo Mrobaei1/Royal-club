@@ -14,6 +14,7 @@ function overdueBy(room, now) {
   const deadlines = [
     room.turnDeadlineAt,
     room.allDisconnectedDeadline,
+    room.multipleDisconnectedDeadline,
     ...(room.players ?? []).map(player => player.reconnectDeadline)
   ].filter(value => Number.isFinite(value) && value <= now);
   if (!deadlines.length) return 0;
