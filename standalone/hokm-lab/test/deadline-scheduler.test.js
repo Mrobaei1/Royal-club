@@ -162,6 +162,8 @@ test("scheduler start and stop are idempotent", async () => {
   assert.equal(scheduler.stop(), true);
   assert.equal(scheduler.isRunning, false);
   assert.equal(scheduler.stop(), false);
+});
+
 test("scheduler cancels two unrecovered disconnects when the second grace expires", async () => {
   const fixture = await startedRoom();
   let room = fixture.room;
@@ -181,6 +183,4 @@ test("scheduler cancels two unrecovered disconnects when the second grace expire
   assert.equal(latest.status, "cancelled");
   assert.equal(latest.cancelReason, "multiple_unrecovered_disconnects");
   assert.deepEqual(latest.playerProgress, {});
-});
-
 });
