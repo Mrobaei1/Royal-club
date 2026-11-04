@@ -320,7 +320,13 @@ class _HokmScreenState extends State<HokmScreen> with WidgetsBindingObserver {
     var forfeited = false;
     var matchCancelled = false;
     if (_status == 'waiting') {
-      await _run(() => _api.leaveRoom(roomId, version));
+      try {
+        final updated = await _api.leaveRoom(roomId, version);
+        _accept(updated);
+      } catch (error) {
+        _showError(error);
+        return;
+      }
     } else if (['playing', 'round_completed'].contains(_status)) {
       final confirmed = await showDialog<bool>(
         context: context,
