@@ -470,6 +470,7 @@ function applyCommandForSeat(room, seat, command, expectedVersion, now = Date.no
     }
   }
   return { ...room, round, matchScore, playerProgress, status,
+    pendingXpDeductions: status === "completed" ? [] : (room.pendingXpDeductions ?? []),
     turnStartedAt: status === "playing" ? now : null,
     turnDeadlineAt: status === "playing" ? now + TURN_DEADLINE_MS : null,
     handRevealUntil, revealedHands,
