@@ -3481,8 +3481,11 @@ test('Hokm room commits publish cross-connection PostgreSQL notifications for SS
     assert.equal(joined.statusCode, 200, joined.body);
     assert.equal(await notified, roomId,
       'A room commit from the API pool must reach a separate PostgreSQL LISTEN connection.');
-    assert.ok(app.printRoutes().includes('/api/v1/hokm/rooms/:roomId/events'),
-      'The authenticated SSE route must be registered on the Royal Club API.');
+    assert.equal(
+      app.hasRoute({ method: 'GET', url: '/api/v1/hokm/rooms/:roomId/events' }),
+      true,
+      'The authenticated SSE route must be registered on the Royal Club API.',
+    );
   } finally {
     if (timeoutHandle) clearTimeout(timeoutHandle);
     unsubscribe();
