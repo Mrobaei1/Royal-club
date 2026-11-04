@@ -27,7 +27,7 @@ The module must not own login, signup, wallet, subscriptions, user identity crea
 
 ## Database migration gate
 
-- Review migrations 001–010 against the exact production schema and current migration ledger.
+- Review migrations 001–011 against the exact production schema and current migration ledger.
 - Test forward application, rollback/recovery, indexes, locks, foreign keys and data retention in a disposable clone first.
 - Confirm the host's bigint user IDs and username constraints before applying.
 - Obtain explicit owner approval for the target environment and migration window.
