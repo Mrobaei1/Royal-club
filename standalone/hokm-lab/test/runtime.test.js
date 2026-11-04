@@ -21,12 +21,19 @@ function fakePool() {
 test("runtime wires authenticated Fastify routes to PostgreSQL service and scheduler", async () => {
   const fastify = fakeFastify();
   const authenticate = async () => {};
+  const snapshots = [];
   const runtime = await createHokmRuntime({
-    fastify, pool: fakePool(), authenticate, schedulerIntervalMs: 500
+    fastify, pool: fakePool(), authenticate, schedulerIntervalMs: 500,
+    now: () => 12345, onSchedulerPoll: snapshot => snapshots.push(snapshot)
   });
   assert.equal(fastify.routes.length, 17);
   assert.ok(fastify.routes.every(route => route.preHandler === authenticate));
   assert.equal(runtime.scheduler.isRunning, false);
+  const poll = await runtime.scheduler.pollOnce();
+  assert.deepEqual(poll, { skipped: false, discovered: 0, processed: 0, failed: 0 });
+  assert.equal(snapshots.length, 1);
+  assert.equal(snapshots[0].lastSuccessfulPollAt, 12345);
+  assert.equal(Object.isFrozen(snapshots[0]), true);
   assert.equal(runtime.start(), true);
   assert.equal(runtime.scheduler.isRunning, true);
   assert.equal(runtime.stop(), true);
