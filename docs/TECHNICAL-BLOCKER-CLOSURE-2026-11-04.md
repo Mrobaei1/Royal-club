@@ -154,3 +154,14 @@ Observed results:
 - The synthetic user and test notification fixture were removed in the same validation transaction.
 
 This proves the cleanup SQL's deletion behavior against the cloned schema. It does not prove the deployed Function route's authorization, scheduled trigger-to-route binding, or production deletion of an eligible room. WBS 7.4 therefore remains In progress.
+
+
+A final catalog count on the repaired isolated branch now matches the source inventory exactly:
+
+| Catalog | Source declarations | Repaired isolated branch |
+|---|---:|---:|
+| Public base tables | 35 | 35 |
+| Public columns | 301 | 301 |
+| Explicit (non-constraint-backed) indexes | 34 | 34 |
+
+This is a count/name-level reconciliation for the previously identified drift, not a complete semantic definition comparison. Column types/defaults/nullability and all FK/check/index definitions still require the separate semantic review listed above.
