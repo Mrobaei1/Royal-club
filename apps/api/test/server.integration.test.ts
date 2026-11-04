@@ -1350,7 +1350,7 @@ test('subscription purchases debit the wallet atomically and record a ledger ent
   });
   assert.equal(forbiddenPlanChange.statusCode, 403, forbiddenPlanChange.body);
 
-  const previousOwnerId = process.env.OWNER_USER_ID;
+  const previousSubscriptionOwnerId = process.env.OWNER_USER_ID;
   process.env.OWNER_USER_ID = buyer.user.id;
   try {
     const createWeeklyPlan = await app.inject({
@@ -1379,8 +1379,8 @@ test('subscription purchases debit the wallet atomically and record a ledger ent
     });
     assert.equal(invalidPlan.statusCode, 400, invalidPlan.body);
   } finally {
-    if (previousOwnerId === undefined) delete process.env.OWNER_USER_ID;
-    else process.env.OWNER_USER_ID = previousOwnerId;
+    if (previousSubscriptionOwnerId === undefined) delete process.env.OWNER_USER_ID;
+    else process.env.OWNER_USER_ID = previousSubscriptionOwnerId;
   }
 
   const initialWallet = await app.inject({
