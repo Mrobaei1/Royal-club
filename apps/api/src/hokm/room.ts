@@ -363,7 +363,7 @@ export function roomViewForUser(room, userId, { now = Date.now() } = {}) {
     matchTarget: room.matchTarget, matchScore: [...room.matchScore], version: room.version,
     serverNow: now,
     hostUserId: room.hostUserId,
-    players: room.players.map(({ userId: id, seat, ready, connected, botControlled }) => ({ userId: id, seat, ready, connected, botControlled: Boolean(botControlled) })),
+    players: room.players.map(({ userId: id, seat, ready, connected, botControlled, forfeited }) => ({ userId: id, seat, ready, connected, botControlled: Boolean(botControlled), forfeited: Boolean(forfeited) })),
     ownProgress: room.playerProgress?.[userId] ?? { xp: 0, level: 1 },
     turnDeadlineAt: room.turnDeadlineAt ?? null,
     handRevealUntil: revealActive ? room.handRevealUntil : null,
