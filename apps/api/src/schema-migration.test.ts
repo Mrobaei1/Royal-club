@@ -50,6 +50,6 @@ test('migration fails closed on unexpected definitions and preserves seed/backfi
   assert.match(migration, /UPDATE users[\s\S]*?avatar_data_url IS NOT NULL[\s\S]*?avatar_change_count = 0/);
   assert.match(migration, /VALIDATE CONSTRAINT users_token_version_nonnegative_check/);
   assert.match(migration, /VALIDATE CONSTRAINT users_avatar_change_count_nonnegative_check/);
-  assert.match(migration, /conname='users_token_version_nonnegative_check'[\\s\\S]*?pg_get_constraintdef\\(oid\\) = 'CHECK \\(\\(token_version >= 0\\)\\)'/);
-  assert.match(migration, /conname='users_avatar_change_count_nonnegative_check'[\\s\\S]*?pg_get_constraintdef\\(oid\\) = 'CHECK \\(\\(avatar_change_count >= 0\\)\\)'/);
+  assert.match(migration, /conname\\s*=\\s*'users_token_version_nonnegative_check'[\\s\\S]*?pg_get_constraintdef\\(oid\\) = 'CHECK \\(\\(token_version >= 0\\)\\)'/);
+  assert.match(migration, /conname\\s*=\\s*'users_avatar_change_count_nonnegative_check'[\\s\\S]*?pg_get_constraintdef\\(oid\\) = 'CHECK \\(\\(avatar_change_count >= 0\\)\\)'/);
 });
