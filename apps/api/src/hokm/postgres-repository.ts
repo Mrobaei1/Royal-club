@@ -1,4 +1,35 @@
 // @ts-nocheck
+import { cardId } from "./engine.js";
+
+function restoreRoom(raw) {
+  if (!raw) return null;
+  const room = typeof raw === "string" ? JSON.parse(raw) : raw;
+  if (!room.round) return room;
+  const round = room.round;
+  let seenCards;
+  if (Array.isArray(round.seenCards)) {
+    seenCards = round.seenCards;
+  } else if (round.seenCards instanceof Set) {
+    seenCards = [...round.seenCards];
+  } else {
+    // Backward compatibility for rows written before Set serialization was
+    // normalized: dealt cards remain in hands or have been played in a trick.
+    seenCards = [
+      ...(round.hands ?? []).flat().map(cardId),
+      ...(round.completedTricks ?? []).flatMap(trick => trick.map(play => cardId(play.card))),
+      ...(round.currentTrick ?? []).map(play => cardId(play.card)),
+    ];
+  }
+  return { ...room, round: { ...round, seenCards: new Set(seenCards) } };
+}
+
+function serializeRoom(room) {
+  const serializable = room.round
+    ? { ...room, round: { ...room.round, seenCards: [...(room.round.seenCards ?? [])] } }
+    : room;
+  return JSON.stringify(serializable);
+}
+
 /**
  * PostgreSQL adapter for HokmRoomService.
  * Accepts a node-postgres Pool (connect/query). No driver dependency is bundled.
@@ -19,7 +50,7 @@ export class PostgresRoomRepository {
       "SELECT room_data FROM hokm_rooms WHERE room_id = $1",
       [roomId]
     );
-    return result.rows[0]?.room_data ?? null;
+    return restoreRoom(result.rows[0]?.room_data ?? null);
   }
 
   /** Find persisted rooms whose server-owned deadlines have elapsed. */
@@ -50,13 +81,13 @@ export class PostgresRoomRepository {
       "LIMIT $2"
     ].join("\n");
     const result = await this.#pool.query(sql, [now, limit]);
-    return result.rows.map(row => row.room_data);
+    return result.rows.map(row => restoreRoom(row.room_data));
   }
 
   async insert(room) {
     await this.#pool.query(
       "INSERT INTO hokm_rooms (room_id, version, room_data) VALUES ($1, $2, $3::jsonb)",
-      [room.roomId, room.version, JSON.stringify(room)]
+      [room.roomId, room.version, serializeRoom(room)]
     );
     return room;
   }
@@ -70,7 +101,7 @@ export class PostgresRoomRepository {
       await client.query("BEGIN");
       const updated = await client.query(
         "UPDATE hokm_rooms SET version = $3, room_data = $4::jsonb, updated_at = now() WHERE room_id = $1 AND version = $2 RETURNING room_id",
-        [roomId, expectedVersion, nextRoom.version, JSON.stringify(nextRoom)]
+        [roomId, expectedVersion, nextRoom.version, serializeRoom(nextRoom)]
       );
       if (updated.rowCount !== 1) {
         await client.query("ROLLBACK");
