@@ -295,6 +295,12 @@ class _HokmScreenState extends State<HokmScreen> with WidgetsBindingObserver {
   Future<void> _exitTemporarily() async {
     if (_roomId.isEmpty || _busy) return;
     _background = true;
+    _eventStreamAttempted = false;
+    _pollTimer?.cancel();
+    _pollTimer = null;
+    final subscription = _eventSubscription;
+    _eventSubscription = null;
+    if (subscription != null) await subscription.cancel();
     try {
       final room = await _api.disconnect(_roomId, _version);
       _accept(room);
