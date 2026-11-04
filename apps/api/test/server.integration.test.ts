@@ -3496,20 +3496,25 @@ test('Hokm SSE room stream pushes committed version changes to authenticated roo
     let buffer = '';
     const decoder = new TextDecoder();
     const readRoomEvent = async () => {
+      let timeoutHandle: NodeJS.Timeout;
       const timeout = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error('Timed out waiting for Hokm SSE room event.')), 5000);
+        timeoutHandle = setTimeout(() => reject(new Error('Timed out waiting for Hokm SSE room event.')), 5000);
       });
-      while (true) {
-        const next = await Promise.race([reader.read(), timeout]);
-        assert.equal(next.done, false, 'SSE stream closed before the expected room update.');
-        buffer += decoder.decode(next.value, { stream: true });
-        const boundary = buffer.indexOf('\\n\\n');
-        if (boundary < 0) continue;
-        const frame = buffer.slice(0, boundary);
-        buffer = buffer.slice(boundary + 2);
-        if (!frame.includes('event: room')) continue;
-        const dataLine = frame.split('\\n').find(line => line.startsWith('data: '));
-        if (dataLine) return JSON.parse(dataLine.slice(6));
+      try {
+        while (true) {
+          const next = await Promise.race([reader.read(), timeout]);
+          assert.equal(next.done, false, 'SSE stream closed before the expected room update.');
+          buffer += decoder.decode(next.value, { stream: true });
+          const boundary = buffer.indexOf('\\n\\n');
+          if (boundary < 0) continue;
+          const frame = buffer.slice(0, boundary);
+          buffer = buffer.slice(boundary + 2);
+          if (!frame.includes('event: room')) continue;
+          const dataLine = frame.split('\\n').find(line => line.startsWith('data: '));
+          if (dataLine) return JSON.parse(dataLine.slice(6));
+        }
+      } finally {
+        clearTimeout(timeoutHandle!);
       }
     };
 
