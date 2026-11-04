@@ -26,6 +26,17 @@ Every worker may discover the same due room. Each service transition reloads the
 
 All-four-disconnected expiry is checked before individual reconnect takeover or the current turn timeout. This prevents bot play from continuing after the owner's twenty-second all-player grace has expired.
 
+## Operational metrics and heartbeat
+
+The scheduler exposes a read-only `scheduler.metrics` snapshot and accepts `onSchedulerPoll(snapshot)` in `createHokmRuntime`. The snapshot contains:
+- `pollCount`, `failedPollCount`, and `skippedPollCount`.
+- Cumulative `discoveredRooms`, `processedTransitions`, and `failedRooms`.
+- `lastPollStartedAt`, `lastPollCompletedAt`, and `lastSuccessfulPollAt` timestamps.
+- `lastErrorAt`, `lastPollDurationMs`, and `oldestOverdueMs`.
+- `isRunning`, `isPolling`, `intervalMs`, and `batchSize`.
+
+Snapshots are immutable. The host should forward them to its monitoring system and alert when the scheduler heartbeat is stale, the worker is not running, failed polls/rooms persist, oldest overdue age breaches the accepted latency budget, or database compare-and-swap conflicts rise. Callback failures are isolated and cannot stop deadline processing. A poll with any failed room is not marked as a fully successful poll.
+
 ## Monitoring required before production
 
 Track:
@@ -46,6 +57,6 @@ This document describes the isolated lab implementation, not a production deploy
 - Verify authenticated manager role mapping from the real Royal Club authorization layer.
 - Test retries, transient DB outages, missed polls, graceful shutdown and clock synchronization.
 - Define and verify the operational latency SLO; 250ms is a polling default, not a guarantee of end-to-end execution latency.
-- Add metrics/alerts to the host monitoring system.
+- Connect the metrics callback to host monitoring and verify heartbeat/alert delivery.
 
 No voice/video calling, conferencing, live push-to-talk, WebRTC calling/signalling, TURN, or media relay is part of this runtime.
