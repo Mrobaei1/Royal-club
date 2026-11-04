@@ -275,4 +275,21 @@ test("service lets a connected participant start the next hand after host discon
   const next = await service.nextRound(user("u1"), room.roomId, disconnectedHost.version);
   assert.equal(next.status, "playing");
   assert.equal(next.hostUserId, "u1");
+test("cumulative player XP is hydrated for both the room host and later joiners", async () => {
+  const { service, repository } = serviceFixture();
+  const first = await service.create(user("u0"));
+  const seeded = await repository.get(first.roomId);
+  const withProgress = {
+    ...seeded,
+    playerProgress: { ...seeded.playerProgress, u0: { xp: 850, level: 2 }, u1: { xp: 430, level: 1 } },
+    version: seeded.version + 1,
+  };
+  assert.equal(await repository.compareAndSwap(first.roomId, seeded.version, withProgress), true);
+
+  const nextRoom = await service.create(user("u0"));
+  assert.deepEqual(nextRoom.ownProgress, { xp: 850, level: 2 });
+  const joined = await service.join(user("u1"), nextRoom.roomId, nextRoom.version);
+  assert.deepEqual(joined.ownProgress, { xp: 430, level: 1 });
+});
+
 });
