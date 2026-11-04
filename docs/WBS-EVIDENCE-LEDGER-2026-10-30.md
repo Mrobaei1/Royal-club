@@ -228,3 +228,11 @@ This section supersedes any earlier statements in this ledger that said the late
 - A branch restore from that snapshot completed and was catalog-checked: the restored snapshot contains 33 public tables / 289 columns. The original Production branch and API Function deployment 81 were preserved; the restored branch is retained separately.
 - The restore call's default finalization temporarily changed the project's default-branch pointer. This was corrected immediately by restoring the original branch name and default pointer. Follow-up checks confirmed the original branch ID `br-misty-flower-bavs47dm` is again `production` and default, with its original Function and cleanup trigger. This was a branch-control-plane change only; no SQL writes, migration, data update, or deployment occurred. Full details and the correction are in [Technical Blocker Closure Audit](TECHNICAL-BLOCKER-CLOSURE-2026-11-04.md).
 - WBS 7.5 remains Blocked: one historical snapshot restore is not three-point retention, does not establish a recurring backup schedule, and does not complete end-to-end application recovery/RPO/RTO acceptance. No WBS points are awarded by this evidence update.
+
+
+## Source-wide column semantic comparison — 2026-11-04
+
+- Compared all 301 parsed source column declarations against the repaired isolated Neon catalog: 301/301 names, zero missing/extra names, zero data-type mismatches, and one nullability mismatch.
+- The only mismatch is `users.username`: source DDL leaves it nullable; both Production and the isolated branch enforce NOT NULL. Read-only counts on both branches showed 0 NULL and 0 blank usernames (3 users on each at audit time). The stronger DB constraint was preserved; no relaxation was attempted.
+- This resolves the type/name audit for all 301 columns but does not establish full defaults/identity/generated/FK/check/index-expression parity. WBS 7.3 remains Blocked pending the explicit username nullability decision, remaining semantic checks, application compatibility, and complete backup/restore/rollback acceptance. No WBS points are awarded from this partial audit.
+- Full detail: [Technical Blocker Closure Audit](TECHNICAL-BLOCKER-CLOSURE-2026-11-04.md).
