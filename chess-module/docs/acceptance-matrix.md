@@ -25,13 +25,13 @@ A row is not complete merely because a contract or placeholder exists. Integrati
 - Staging authorization, input-boundary, concurrency, database and operational security review: [`security-resilience-checklist.md`](./security-resilience-checklist.md). These checks remain open until evidence is attached; the checklist is not a substitute for an independent security review.
 - Host-app integration prerequisites and owner-controlled execution sequence: [`host-integration-plan.md`](./host-integration-plan.md). Preparation is complete; actual host wiring remains blocked pending explicit owner authorization.
 
-## Current-head verification evidence
+## Verification evidence and current PR head
 
-Verified against PR head `cb93bcdddfc90fa084444729c9f3c6f45e1f5be9` on 2026-11-04. Isolated chess workflow [`41783129523`](https://github.com/Mrobaei1/Royal-club/actions/runs/41783129523) completed successfully on this exact SHA. Both `chess-api` and `chess-mobile` jobs, including every step, passed.
+The previously completed isolated chess workflow [`41783129523`](https://github.com/Mrobaei1/Royal-club/actions/runs/41783129523) passed on code commit `cb93bcdddfc90fa084444729c9f3c6f45e1f5be9`; it is historical evidence and is not misrepresented as validation of the current documentation-only head.
 
-- Isolated chess workflow run [`41783129523`](https://github.com/Mrobaei1/Royal-club/actions/runs/41783129523): dependency audit, Stockfish setup, API tests, TypeScript build, Flutter analysis and Flutter tests all passed.
-- The current-head run confirms success for all workflow steps; detailed test counts remain tied to the test logs/artifacts for their individual runs and are not inferred from the workflow summary.
-- Repository-level validation on the current head passed in the separately recorded runs: API unit/build (**103/103**), PostgreSQL integration (**30/30**), backgammon engine audit (**80 tests passed**) and web preview build. Web preview deployment was skipped intentionally.
+Current PR head at the time of this record: `ef021fa617420881667e74921a4795cf0e89f5b6` (2026-11-04). Its isolated chess workflow [`41784046467`](https://github.com/Mrobaei1/Royal-club/actions/runs/41784046467) is in progress: `chess-mobile` passed and `chess-api` was still running at the latest check. The web preview workflow [`41784046503`](https://github.com/Mrobaei1/Royal-club/actions/runs/41784046503) was also running. Do not mark current-head chess CI green until the API job completes successfully.
+
+- Repository-level validation on current head `ef021fa...` passed in separate workflows: Royal Club validation [`41784046469`](https://github.com/Mrobaei1/Royal-club/actions/runs/41784046469) (API build/tests and Flutter analyze/tests), backgammon engine audit [`41784046591`](https://github.com/Mrobaei1/Royal-club/actions/runs/41784046591) (80 tests), and Validate Royal Club [`41784046519`](https://github.com/Mrobaei1/Royal-club/actions/runs/41784046519) (API build/tests, Flutter analyze/tests and API integration tests).
 - The isolated PostgreSQL 16 migration suite reapplies all eleven chess migrations and exercises real database route flows, concurrency races, audit immutability and manager-only audit access.
 - Automated checks validate identity boundaries, participant authorization, malformed/overflowing IDs, chat permissions/rate limits, reconnect snapshots, WebSocket payload and ping limits, multi-device presence and bounded PostgreSQL listener usage.
 - These results establish automated CI acceptance only. They do not prove physical-device/two-device acceptance, accessibility on real devices, staging load/connection-flood behavior, backup restoration, or independent security review.
