@@ -10,7 +10,7 @@ const migration = await readFile(
 test('production schema reconciliation migration is transaction-scoped and additive', () => {
   assert.match(migration, /^--[\s\S]*?BEGIN;/m);
   assert.match(migration, /COMMIT;\s*$/);
-  assert.doesNotMatch(migration, /\b(DROP\s+TABLE|DROP\s+COLUMN|TRUNCATE|DELETE\s+FROM)\b/i);
+  assert.doesNotMatch(migration, /\b(DROP\s+TABLE|DROP\s+COLUMN|DROP\s+INDEX|TRUNCATE|DELETE\s+FROM)\b/i);
 });
 
 test('schema reconciliation migration contains every audited missing object', () => {
@@ -36,6 +36,7 @@ test('schema reconciliation migration contains every audited missing object', ()
   }
 
   assert.match(migration, /auth_token_revocations_expiry_idx/);
+  assert.match(migration, /users_username_casefold_unique_idx[\s\S]*?LOWER\(username\)/);
 });
 
 test('singleton seed is conflict-safe and legacy avatar counts are preserved', () => {
