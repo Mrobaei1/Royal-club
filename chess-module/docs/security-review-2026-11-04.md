@@ -29,7 +29,7 @@ This report records a code-level review and one corrected input-validation weakn
 
 **Regression coverage added:** zero, PostgreSQL BIGINT overflow and oversized decimal strings must return `400 invalid_user_id`.
 
-**Verification:** Current-head CI run [41783043723](https://github.com/Mrobaei1/Royal-club/actions/runs/41783043723) is required to pass before this fix is considered verified.
+**Verification:** Current PR-head isolated workflow [41783129523](https://github.com/Mrobaei1/Royal-club/actions/runs/41783129523) completed successfully on `cb93bcdddfc90fa084444729c9f3c6f45e1f5be9`; both API and mobile jobs passed, including dependency audit, Stockfish validation, API tests, TypeScript build, Flutter analysis and Flutter tests.
 
 ## Positive controls observed in source
 
@@ -69,4 +69,4 @@ No voice/video call, push-to-talk, WebRTC, microphone capture or paid audio infr
 
 ## Final disposition
 
-The internal source-review work package is recorded as complete after current-head CI passes. **Work package 7 remains open as an independent-review gate** until a qualified external reviewer has examined the host-integrated staging deployment and supplied a dated report with scope, findings, remediation and retest evidence.
+The internal source-review work package is recorded as complete: PR-head CI [41783129523](https://github.com/Mrobaei1/Royal-club/actions/runs/41783129523) passed on `cb93bcdddfc90fa084444729c9f3c6f45e1f5be9`. **Work package 7 remains open as an independent-review gate** until a qualified external reviewer has examined the host-integrated staging deployment and supplied a dated report with scope, findings, remediation and retest evidence.
