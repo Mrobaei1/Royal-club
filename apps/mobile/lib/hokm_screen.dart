@@ -177,7 +177,9 @@ class _HokmScreenState extends State<HokmScreen> with WidgetsBindingObserver {
 
   void _startFallbackPolling() {
     if (!mounted || _background || _roomId.isEmpty || _pollTimer != null ||
-        ['completed', 'cancelled', 'expired'].contains(_status)) return;
+        ['completed', 'cancelled', 'expired'].contains(_status)) {
+      return;
+    }
     _pollTimer = Timer.periodic(const Duration(milliseconds: 500), (_) => _refresh());
   }
 
