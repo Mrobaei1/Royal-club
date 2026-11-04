@@ -622,6 +622,42 @@ test("authenticated chess routes support private game, draw, chat, profiles and 
     assert.equal(raceRatingEvents.rows[0].count, 2);
     assert.equal(await adjudicateExpiredChessClocks(pool, raceNow + 1000), 0);
 
+    // Race a move against resignation from the same player. Row locking must
+    // serialize both intents and settle the terminal result exactly once.
+    const resignRaceRoom = await request(white, "POST", "/chess/rooms", {
+      timeControlId: "rapid", minOpponentLevel: 1, chatEnabled: true,
+    });
+    assert.equal(resignRaceRoom.statusCode, 201, resignRaceRoom.body);
+    const resignRaceJoin = await request(black, "POST",
+      `/chess/rooms/${resignRaceRoom.json().roomCode}/join`);
+    assert.equal(resignRaceJoin.statusCode, 201, resignRaceJoin.body);
+    const resignRaceGameId = resignRaceJoin.json().gameId as string;
+    const [racingMoveVsResign, racingResign] = await Promise.all([
+      request(white, "POST", `/chess/games/${resignRaceGameId}/moves`, { from: "e2", to: "e4" }, app),
+      request(white, "POST", `/chess/games/${resignRaceGameId}/resign`, undefined, appTwo),
+    ]);
+    assert.equal(racingResign.statusCode, 200, racingResign.body);
+    assert.ok(
+      racingMoveVsResign.statusCode === 200 ||
+      (racingMoveVsResign.statusCode === 404 && racingMoveVsResign.json().error === "active_game_not_found"),
+      racingMoveVsResign.body,
+    );
+    const resignRaceResult = await pool.query(
+      "SELECT status FROM chess_games WHERE id=$1", [resignRaceGameId],
+    );
+    assert.equal(resignRaceResult.rows[0].status, "black_win");
+    const resignRaceXp = await pool.query(
+      "SELECT COUNT(*)::int AS count FROM chess_progression_events WHERE game_id=$1 AND event_key='final_result'",
+      [resignRaceGameId],
+    );
+    assert.equal(resignRaceXp.rows[0].count, 2);
+    const resignRaceRating = await pool.query(
+      "SELECT COUNT(*)::int AS count FROM chess_rating_events WHERE game_id=$1",
+      [resignRaceGameId],
+    );
+    assert.equal(resignRaceRating.rows[0].count, 2);
+
+
     const cancellable = await request(white, "POST", "/chess/rooms", {
       timeControlId: "rapid", minOpponentLevel: 1, chatEnabled: true,
     });
