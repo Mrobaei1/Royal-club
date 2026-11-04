@@ -80,7 +80,7 @@ export class HokmRoomService {
   #repository;
   #queues = new Map();
 
-  constructor({ repository = new InMemoryRoomRepository(), now = () => Date.now(), id = () => randomUUID() } = {}) {
+  constructor({ repository = new InMemoryRoomRepository(), now = () => Date.now(), id = () => randomUUID() }: { repository?: any; now?: () => number; id?: () => string } = {}) {
     if (!repository || typeof repository.get !== "function" ||
         typeof repository.insert !== "function" ||
         typeof repository.compareAndSwap !== "function" ||
