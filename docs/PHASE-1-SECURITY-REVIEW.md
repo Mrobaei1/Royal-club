@@ -12,7 +12,7 @@ This is a source/configuration review, not a penetration test. Production was in
 - `JWT_SECRET` is required at startup and must be at least 32 characters; access tokens are signed with a one-hour expiry.
 - Authentication is based on submitted account credentials and JWT claims, not IP address or VPN exit IP.
 - Registration and login have separate account-keyed rate limits after request-body parsing.
-- Production CORS requires an explicit allowlist, rejects wildcard origins, and requires HTTPS origins. The development allowlist is explicit.
+- Production CORS requires an explicit allowlist, rejects wildcard origins, and requires HTTPS origins. The development allowlist is explicit. PR #157 adds passing API integration tests for an allowed-origin preflight and a denied unlisted-origin preflight; this verifies the source-level allowlist boundary but not the undisclosed production origin values.
 - Helmet and Fastify's global rate limiter are registered.
 - Owner-only writes are checked server-side against the numeric `OWNER_USER_ID`; missing/invalid configuration denies owner-only actions. The ID is not sourced from a username or email.
 - SMS configuration endpoints are owner-only; the API returns only whether an encrypted key exists, not the key. SMS settings remain disabled, and real-provider activation is rejected.
@@ -31,6 +31,7 @@ This is a source/configuration review, not a penetration test. Production was in
 - [x] Read-only metadata review of active Function environment-variable names, Neon allowed-IP policy, and production health/database endpoints; no secret values were read. Evidence: deployment 81 metadata and Actions run 41733596963.
 - [ ] Verify the actual numeric owner-ID value and exact production CORS allowlist through an authorized secure configuration review; determine whether an IP allowlist is compatible with Neon Function networking.
 - [x] Add integration coverage for expired/malformed JWTs, unauthenticated and non-owner administrative calls, and missing owner configuration.
+- [x] Add positive/negative CORS preflight integration coverage (PR #157, merged 2026-11-04); exact-head API integration/build, Flutter analyze/tests, Web Preview, and backgammon audit workflows passed. Production `CORS_ORIGINS` values remain undisclosed and require secure review.
 - [x] Harden API request log redaction and request metadata on `main` commit `f39a718ead43b88b08c4ffbc683e11acab12be1b` (PR #151): redact request bodies and credential headers, omit query strings/client IPs from request serialization, use server-generated correlation IDs, validate log levels, and add regression tests. Exact-head API build/unit/integration, Flutter, backgammon engine, and Web Preview workflows passed before merge; post-merge `main` workflows passed. External Neon/host log retention and access controls remain unverified.
 - [x] Implement dormant permission storage, owner-only grant/revocation/audit endpoints, fail-closed scoped enforcement, and kill switch; test scope, revocation, kill switch, and the 50-delegate ceiling.
 - [ ] Complete the approved role/permission matrix and owner-facing management workflows before creating or activating any additional privileged identity.
@@ -56,6 +57,7 @@ This is a source/configuration review, not a penetration test. Production was in
 
 ## Evidence refresh — 2026-11-04
 
+- PR #157 merged as `fe36d9d85ce619a2c8f01c46aff27b4b14ea7d55`; the API integration suite now proves an allowlisted origin receives the CORS preflight header and an unlisted origin does not. The exact production allowlist remains unverified.
 - PR #151 merged as `f39a718ead43b88b08c4ffbc683e11acab12be1b`. The API logger hardening is now part of `main`; exact-head CI passed, and the post-merge main runs passed: [Validate Royal Club](https://github.com/Mrobaei1/Royal-club/actions/runs/41733596925), [Royal Club validation](https://github.com/Mrobaei1/Royal-club/actions/runs/41733597127), [Royal Club Web Preview](https://github.com/Mrobaei1/Royal-club/actions/runs/41733597102), and [Production API Health](https://github.com/Mrobaei1/Royal-club/actions/runs/41733596963).
 - The Production API Health job explicitly checked both `/api/v1/health` and `/api/v1/health/db`; both returned the expected healthy status. This proves runtime availability and database connectivity for the configured endpoint, not source provenance.
 - Active Neon Function deployment 81 exposes the environment-variable names `CORS_ORIGINS`, `DATABASE_URL`, `JWT_SECRET`, `NEON_FUNCTION_RUNTIME`, `NODE_ENV`, and `OWNER_USER_ID`. Values remain undisclosed. `SMS_CREDENTIALS_ENCRYPTION_KEY` is not present in the environment-name list; SMS remains disabled.
