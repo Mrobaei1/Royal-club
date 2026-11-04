@@ -93,7 +93,7 @@ export class PostgresRoomRepository {
   }
 
   async compareAndSwap(roomId, expectedVersion, nextRoom) {
-    if (nextRoom.roomId !== roomId || nextRoom.version !== expectedVersion + 1) {
+    if (nextRoom.roomId !== roomId || !Number.isInteger(nextRoom.version) || nextRoom.version <= expectedVersion) {
       throw new Error("Invalid room compare-and-swap transition");
     }
     const client = await this.#pool.connect();
