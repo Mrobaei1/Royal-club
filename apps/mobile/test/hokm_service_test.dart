@@ -46,7 +46,7 @@ void main() {
 
   test('Hokm service decodes authenticated SSE room events', () async {
     final api = HokmService(
-      eventStream: (path) {
+      eventSource: (path) {
         expect(path, '/api/v1/hokm/rooms/room/events');
         return Stream.value(jsonEncode({'roomId': 'room', 'version': 9, 'status': 'playing'}));
       },
