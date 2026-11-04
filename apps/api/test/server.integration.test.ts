@@ -22,6 +22,30 @@ after(async () => {
   await testPool.end();
 });
 
+test('CORS preflight allows configured origins and withholds permission from unknown origins', async () => {
+  const allowed = await app.inject({
+    method: 'OPTIONS',
+    url: '/api/v1/health',
+    headers: {
+      origin: 'http://localhost:8080',
+      'access-control-request-method': 'GET',
+    },
+  });
+  assert.equal(allowed.statusCode, 204, allowed.body);
+  assert.equal(allowed.headers['access-control-allow-origin'], 'http://localhost:8080');
+
+  const denied = await app.inject({
+    method: 'OPTIONS',
+    url: '/api/v1/health',
+    headers: {
+      origin: 'https://untrusted-origin.example',
+      'access-control-request-method': 'GET',
+    },
+  });
+  assert.equal(denied.headers['access-control-allow-origin'], undefined,
+    'An unlisted browser origin must not receive CORS permission.');
+});
+
 function auth(token: string) {
   return { authorization: `Bearer ${token}` };
 }
