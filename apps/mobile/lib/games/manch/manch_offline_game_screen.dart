@@ -81,16 +81,18 @@ class _ManchOfflineGameScreenState extends State<ManchOfflineGameScreen> {
   }
 
   void _runBotTurn() {
-    if (!mounted || _state.isFinished || !_isBotTurn ||
-        _state.pendingDice != null) {
+    if (!mounted || _state.isFinished || !_isBotTurn) {
       return;
     }
-    final dice = widget.diceRoller?.call() ?? _random.nextInt(6) + 1;
+    // A restored save may already contain a die waiting for the bot. Reuse
+    // that authoritative local state instead of rolling again or stalling.
+    final dice = _state.pendingDice ??
+        (widget.diceRoller?.call() ?? _random.nextInt(6) + 1);
     if (dice < 1 || dice > 6) {
       throw StateError('Dice roller must return a value from 1 to 6.');
     }
     _matchStarted = true;
-    var next = _engine.roll(_state, dice);
+    var next = _state.pendingDice == null ? _engine.roll(_state, dice) : _state;
     final moves = _engine.legalMoves(next);
     if (next.pendingDice == null) {
       setState(() {
