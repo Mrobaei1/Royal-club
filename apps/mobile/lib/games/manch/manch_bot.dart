@@ -93,11 +93,18 @@ class ManchBot {
         playerIndex++) {
       if (playerIndex == move.playerIndex) continue;
       final opponent = state.players[playerIndex];
+      final occupiedCells = <int, int>{};
       for (final progress in opponent.tokens) {
         if (progress < 0 || progress >= ManchEngine.trackLength) continue;
-        final opponentCell = _global(opponent.colour, progress);
+        final cell = _global(opponent.colour, progress);
+        occupiedCells.update(cell, (count) => count + 1, ifAbsent: () => 1);
+      }
+      // A stacked pair is not capturable by the current rules engine, so it
+      // must not be treated as an immediate threat to the hard bot.
+      for (final entry in occupiedCells.entries) {
+        if (entry.value != 1) continue;
         final distance =
-            (targetCell - opponentCell + ManchEngine.trackLength) %
+            (targetCell - entry.key + ManchEngine.trackLength) %
                 ManchEngine.trackLength;
         if (distance >= 1 && distance <= 6) return true;
       }

@@ -207,6 +207,33 @@ void main() {
     expect(hard.toProgress, 11);
   });
 
+  test('hard bot does not treat a stacked opponent pair as capturable', () {
+    final state = ManchGameState(
+      players: [
+        ManchPlayerState(
+          colour: ManchColour.red,
+          tokens: [0, 10, -1, -1],
+        ),
+        ManchPlayerState(
+          colour: ManchColour.green,
+          tokens: [38, 38, -1, -1],
+        ),
+      ],
+      activePlayerIndex: 0,
+      profile: const ManchRuleProfile(),
+    );
+
+    final move = bot.chooseMove(
+      engine.roll(state, 1),
+      difficulty: ManchBotDifficulty.hard,
+    );
+
+    expect(move, isNotNull);
+    expect(move!.tokenIndex, 0);
+    expect(move.toProgress, 1);
+    expect(move.isCapture, isFalse);
+  });
+
   test('bot returns null when there is no pending legal move', () {
     final state = engine.newGame(playerCount: 2);
     expect(bot.chooseMove(state), isNull);
