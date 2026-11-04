@@ -220,3 +220,21 @@ This section supersedes any earlier statements in this ledger that said the late
 - WBS 7.3 remains Blocked only on the remaining release/recovery gates: source-wide semantic catalog comparison (not merely name counts), app compatibility acceptance, backup/restore rehearsal, rollback/recovery evidence and explicit owner-approved Production migration. The isolated additive migration itself and repeat-run/fail-closed validation are complete.
 - WBS 7.2 remains Blocked on owner-approved manual deployment and exact live SHA verification. WBS 6.2 remains Blocked on secure confirmation that the configured numeric owner ID identifies the GM account. WBS 7.6 remains Blocked on secure CORS/network/log-access acceptance. WBS 7.4 remains In progress pending a deployment-backed production route/outcome check.
 - No WBS points are awarded by this evidence update. No Production migration, deployment, config/network change, secret retrieval, APK build or PR merge occurred.
+
+
+## Backup inventory and restore rehearsal — 2026-11-04
+
+Read-only Production backup inventory found one retained manual snapshot:
+- Snapshot: `phase5-restore-acceptance-20261031`, created `2026-10-31T11:09:06Z`.
+- Production branch snapshot schedule: empty (no scheduled snapshots configured).
+- This does not satisfy the WBS 7.5 acceptance requirement for three recent recovery points or an approved recurring backup schedule.
+
+A restore rehearsal was initiated from that snapshot. Neon finalized the restored branch immediately because the restore call used its default `finalize=true`; this temporarily made the restored snapshot branch the default branch named `production`. The original Production branch ID was preserved, and the branch/function inventory showed the API Function remained attached to that original branch. The branch names and default-branch pointer were then restored to the original Production branch ID (`br-misty-flower-bavs47dm`). Post-correction verification confirmed:
+- Original branch ID is again named `production`, and is again the project's default/primary branch.
+- Original API Function `royalclubapi` deployment 81 and the enabled one-minute cleanup trigger remain attached to the original Production branch.
+- Original Production catalog remains 33 public tables / 289 columns.
+- The restored snapshot branch is retained separately as `restore-rehearsal-2026-11-04`; it contains 33 tables / 289 columns from the 2026-10-31 snapshot.
+
+No SQL writes, schema migrations, Function deployments, or data updates were performed during this rehearsal. The default-branch pointer was temporarily changed and then restored; this operational mistake is explicitly recorded. The rehearsal demonstrates that the retained snapshot can be restored into a branch, but it does not prove a complete application recovery, acceptable RPO/RTO, three-point retention, or a production cutover/rollback plan. Do not delete either branch without explicit owner approval.
+
+WBS 7.5 remains Blocked pending a configured and owner-approved schedule with at least three recent recovery points, an end-to-end application restore validation, measured recovery time/data-point, and an approved runbook.
