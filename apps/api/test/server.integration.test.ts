@@ -3316,3 +3316,100 @@ test('Hokm production API uses verified JWT identity, hides private hands, and g
     else process.env.OWNER_USER_ID = previousOwnerId;
   }
 });
+
+
+test('Hokm private chat is delivered only to its opposing-team participants and owner review stays sanitized', async () => {
+  const previousOwnerId = process.env.OWNER_USER_ID;
+  const players = await Promise.all([
+    register('Hokm Chat Host'),
+    register('Hokm Chat Opponent'),
+    register('Hokm Chat Teammate'),
+    register('Hokm Chat Other Opponent'),
+  ]);
+  const [host, opponent, teammate, otherOpponent] = players;
+  process.env.OWNER_USER_ID = host.user.id;
+  let roomId = '';
+  try {
+    const created = await app.inject({
+      method: 'POST', url: '/api/v1/hokm/rooms',
+      headers: auth(host.token), payload: { privateRoom: false, matchTarget: 3 },
+    });
+    assert.equal(created.statusCode, 200, created.body);
+    roomId = created.json().roomId;
+    let version = created.json().version;
+    for (const player of [opponent, teammate, otherOpponent]) {
+      const joined = await app.inject({
+        method: 'POST', url: `/api/v1/hokm/rooms/${roomId}/join`,
+        headers: auth(player.token), payload: { expectedVersion: version },
+      });
+      assert.equal(joined.statusCode, 200, joined.body);
+      version = joined.json().version;
+    }
+    for (const player of players) {
+      const ready = await app.inject({
+        method: 'POST', url: `/api/v1/hokm/rooms/${roomId}/ready`,
+        headers: auth(player.token), payload: { ready: true, expectedVersion: version },
+      });
+      assert.equal(ready.statusCode, 200, ready.body);
+      version = ready.json().version;
+    }
+    const started = await app.inject({
+      method: 'POST', url: `/api/v1/hokm/rooms/${roomId}/start`,
+      headers: auth(host.token), payload: { expectedVersion: version },
+    });
+    assert.equal(started.statusCode, 200, started.body);
+    version = started.json().version;
+
+    const sent = await app.inject({
+      method: 'POST', url: `/api/v1/hokm/rooms/${roomId}/chat`,
+      headers: auth(host.token),
+      payload: {
+        recipientUserId: opponent.user.id,
+        text: 'سلام 👋 private message',
+        messageId: `hokm-chat-${randomUUID()}`,
+        expectedVersion: version,
+      },
+    });
+    assert.equal(sent.statusCode, 200, sent.body);
+    version = sent.json().version;
+
+    const [senderView, recipientView, teammateView] = await Promise.all([
+      app.inject({ method: 'GET', url: `/api/v1/hokm/rooms/${roomId}`, headers: auth(host.token) }),
+      app.inject({ method: 'GET', url: `/api/v1/hokm/rooms/${roomId}`, headers: auth(opponent.token) }),
+      app.inject({ method: 'GET', url: `/api/v1/hokm/rooms/${roomId}`, headers: auth(teammate.token) }),
+    ]);
+    assert.equal(senderView.statusCode, 200);
+    assert.equal(recipientView.statusCode, 200);
+    assert.equal(teammateView.statusCode, 200);
+    assert.equal(senderView.json().chatMessages.length, 1);
+    assert.equal(recipientView.json().chatMessages.length, 1);
+    assert.equal(teammateView.json().chatMessages.length, 0,
+      'A same-team player must not receive another pair’s private chat.');
+    assert.equal(recipientView.json().chatMessages[0].text, 'سلام 👋 private message');
+
+    const sameTeamAttempt = await app.inject({
+      method: 'POST', url: `/api/v1/hokm/rooms/${roomId}/chat`,
+      headers: auth(host.token),
+      payload: {
+        recipientUserId: teammate.user.id,
+        text: 'This must be rejected',
+        messageId: `hokm-chat-${randomUUID()}`,
+        expectedVersion: version,
+      },
+    });
+    assert.notEqual(sameTeamAttempt.statusCode, 200);
+
+    const managerView = await app.inject({
+      method: 'GET', url: `/api/v1/hokm/rooms/${roomId}/manager`,
+      headers: auth(host.token),
+    });
+    assert.equal(managerView.statusCode, 200, managerView.body);
+    assert.equal(Object.hasOwn(managerView.json(), 'chatMessages'), false);
+    assert.equal(Object.hasOwn(managerView.json(), 'round'), false);
+    assert.equal(Object.hasOwn(managerView.json(), 'game'), false);
+  } finally {
+    if (roomId) await testPool.query('DELETE FROM hokm_rooms WHERE room_id = $1', [roomId]);
+    if (previousOwnerId === undefined) delete process.env.OWNER_USER_ID;
+    else process.env.OWNER_USER_ID = previousOwnerId;
+  }
+});
