@@ -691,37 +691,26 @@ if (!String(messageBodyConstraint.rows[0]?.definition ?? '').includes('680000'))
 }
 
 
-// Waiting rooms expire even if the lobby is never reopened. The timer is
-// useful on persistent hosts; the request hook provides best-effort cleanup in
-// warm/serverless runtimes where background timers may be suspended.
+// Use one cleanup query for scheduled, periodic, and request-triggered paths.
+// A shared throttle prevents a periodic scan and concurrent requests from
+// issuing duplicate database work in the same five-second window.
 let lastExpiredRoomCleanupAt = 0;
-const cleanupExpiredWaitingRooms = async () => {
+const cleanupExpiredEmptyRoomsBestEffort = async (): Promise<void> => {
   const now = Date.now();
   if (now - lastExpiredRoomCleanupAt < 5_000) return;
   lastExpiredRoomCleanupAt = now;
   try {
-    await pool.query(`
-      WITH expired AS (
-        SELECT id FROM backgammon_matches
-         WHERE status = 'waiting' AND guest_user_id IS NULL AND expires_at <= NOW()
-      ), notices AS (
-        DELETE FROM notifications
-         WHERE data->>'matchId' IN (SELECT id::text FROM expired)
-         RETURNING id
-      )
-      DELETE FROM backgammon_matches WHERE id IN (SELECT id FROM expired)
-    `);
+    await cleanupExpiredEmptyRooms();
   } catch (error: unknown) {
     lastExpiredRoomCleanupAt = 0;
     app.log.error({ err: error }, 'Expired waiting-room cleanup failed');
   }
 };
-const expiredWaitingRoomCleanup = setInterval(() => {
-  void cleanupExpiredWaitingRooms();
-}, 5_000);
-expiredWaitingRoomCleanup.unref();
-app.addHook('onRequest', async () => {
-  await cleanupExpiredWaitingRooms();
+app.addHook('onRequest', async (request) => {
+  // Let the authenticated scheduled-cleanup handler own its own deletion count;
+  // otherwise this generic hook could delete the rows before the handler runs.
+  if (request.url.split('?')[0] === '/internal/cleanup-expired-empty-rooms') return;
+  await cleanupExpiredEmptyRoomsBestEffort();
 });
 
 app.get('/api/v1/health', async () => ({
@@ -4858,12 +4847,10 @@ export { app };
 
 // Neon Functions invoke a Fetch-compatible handler; traditional hosts keep the normal listener.
 if (process.env.NEON_FUNCTION_RUNTIME !== '1') {
-  // Keep database cleanup automatic on long-running API hosts. Serverless runtimes
-  // use cleanupExpiredEmptyRooms() on room-list and invitation requests instead.
+  // Keep database cleanup automatic on long-running API hosts. The shared
+  // throttle also serves request-triggered cleanup in warm/serverless runtimes.
   const cleanupTimer = setInterval(() => {
-    void cleanupExpiredEmptyRooms().catch((error) => {
-      app.log.error({ err: error }, 'Could not clean up expired empty rooms');
-    });
+    void cleanupExpiredEmptyRoomsBestEffort();
   }, 5_000);
   cleanupTimer.unref();
   app.addHook('onClose', async () => { clearInterval(cleanupTimer); });
