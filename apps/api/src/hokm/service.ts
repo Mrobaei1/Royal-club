@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import {
   createRoom, joinRoom, leaveRoom, setPlayerReady, startRoom, startNextRound, applyRoomCommand,
   roomViewForUser, disconnectPlayer, reconnectPlayer, handleDisconnectTimeout,
-  processTurnTimeout, processAllDisconnectedTimeout, voteToCancelMatch,
+  processTurnTimeout, processAllDisconnectedTimeout, recordMatchForfeit, voteToCancelMatch,
   cancelForUnrecoverableTechnicalFailure, submitMatchAppeal, reviewMatchAppeal,
   submitCheatingReport, reviewCheatingReport, sendOpponentChatMessage
 } from "./room.js";
@@ -121,6 +121,12 @@ export class HokmRoomService {
   async leave(principal, roomId, expectedVersion) {
     const userId = authenticatedUser(principal);
     return this.#transition(roomId, expectedVersion, room => leaveRoom(room, userId), userId);
+  }
+
+  async forfeit(principal, roomId, expectedVersion) {
+    const userId = authenticatedUser(principal);
+    return this.#transition(roomId, expectedVersion,
+      room => recordMatchForfeit(room, userId), userId);
   }
 
   async ready(principal, roomId, ready, expectedVersion) {
