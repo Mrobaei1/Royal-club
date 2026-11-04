@@ -149,6 +149,18 @@ class AdminService {
 
   static Future<List<dynamic>> plans() async => (await _request('GET', '/api/v1/admin/subscription-plans'))['plans'] as List<dynamic>? ?? [];
 
+  static Future<Map<String, dynamic>> createPlan({
+    required String code,
+    required String name,
+    required int durationDays,
+    required int priceCredits,
+  }) async => (await _request('POST', '/api/v1/admin/subscription-plans', body: {
+        'code': code.trim().toLowerCase(),
+        'name': name.trim(),
+        'durationDays': durationDays,
+        'priceCredits': priceCredits,
+      }))['plan'] as Map<String, dynamic>;
+
   static Future<List<dynamic>> leagues() async =>
       (await _request('GET', '/api/v1/admin/leagues'))['leagues'] as List<dynamic>? ?? [];
 
