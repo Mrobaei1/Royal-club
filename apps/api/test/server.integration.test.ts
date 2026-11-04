@@ -413,6 +413,17 @@ test('registered players can join an online match and history does not expose op
   assert.equal(JSON.stringify(guestFriend).includes(guest.user.fullName), false);
   assert.equal(guestFriend.avatarDataUrl, avatar);
 
+  // The same stored bearer session must still authorize social data after a VPN/IP switch.
+  const friendsAfterNetworkChange = await app.inject({
+    method: 'GET',
+    url: '/api/v1/friends',
+    headers: { ...auth(host.token), 'x-forwarded-for': '203.0.113.88' },
+  });
+  assert.equal(friendsAfterNetworkChange.statusCode, 200, friendsAfterNetworkChange.body);
+  assert.ok((friendsAfterNetworkChange.json().friends as Array<Record<string, unknown>>)
+    .some((friend) => String(friend.userId) === String(guest.user.id)),
+  'The same account must retain its friend list after a client network/VPN IP change.');
+
   const created = await app.inject({
     method: 'POST',
     url: '/api/v1/matches',
@@ -538,6 +549,17 @@ test('registered players can join an online match and history does not expose op
     headers: auth(host.token),
   });
   assert.equal(snapshot.statusCode, 200, snapshot.body);
+
+  // Verify the same account's active-game authorization and state recovery from a new IP.
+  const snapshotAfterNetworkChange = await app.inject({
+    method: 'GET',
+    url: `/api/v1/matches/${matchId}/state`,
+    headers: { ...auth(host.token), 'x-forwarded-for': '198.51.100.42' },
+  });
+  assert.equal(snapshotAfterNetworkChange.statusCode, 200, snapshotAfterNetworkChange.body);
+  assert.equal(snapshotAfterNetworkChange.json().state.isHost, true);
+  assert.equal(snapshotAfterNetworkChange.json().state.matchId, snapshot.json().state.matchId);
+
   const state = snapshot.json().state;
   assert.equal(state.isHost, true);
   assert.equal(state.isMyTurn, true);
