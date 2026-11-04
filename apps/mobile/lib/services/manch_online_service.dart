@@ -5,18 +5,15 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 
 import 'auth_service.dart';
+import 'api_transport.dart';
 
 class ManchOnlineService {
   static const _storage = FlutterSecureStorage();
-  static const _baseUrl = AuthService.baseUrl;
-
   static Uri _uri(String path) {
-    AuthService.ensureConfigured();
-    final base = _baseUrl.trim().replaceFirst(RegExp(r'/+$'), '');
     if (path.startsWith('/../')) {
-      return Uri.parse('$base/api/v1/manch${path.substring(3)}');
+      return ApiTransport.uri('/api/v1/manch${path.substring(3)}');
     }
-    return Uri.parse('$base/api/v1/manch/matches$path');
+    return ApiTransport.uri('/api/v1/manch/matches$path');
   }
 
   static Future<Map<String, String>> _headers() async {
