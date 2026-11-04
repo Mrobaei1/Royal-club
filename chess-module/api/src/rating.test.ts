@@ -12,6 +12,29 @@ test("decisive result transfers rating points symmetrically",()=>{
 test("draw between equal ratings leaves both unchanged",()=>{
   assert.deepEqual(calculateEloPair({white:1200,black:1200},"draw"),{white:1200,black:1200});
 });
+
+test("half-point Elo boundaries preserve exact zero-sum transfers", () => {
+  const pair = calculateEloPair({white:1200,black:1200}, "white_win", 1);
+  assert.deepEqual(pair, {white:1201,black:1199});
+  assert.equal(pair.white + pair.black, 2400);
+});
+
+test("rating transfers remain zero-sum across outcomes and rating gaps", () => {
+  for (const current of [
+    {white:800,black:1200},
+    {white:1200,black:800},
+    {white:2400,black:1800},
+    {white:1800,black:2400},
+    {white:100,black:2500},
+    {white:2500,black:100},
+  ]) {
+    for (const result of ["white_win","black_win","draw"] as const) {
+      const pair = calculateEloPair(current,result);
+      assert.equal(pair.white + pair.black,current.white + current.black,
+        `rating total changed for ${JSON.stringify(current)} / ${result}`);
+    }
+  }
+});
 test("ratings do not fall below the minimum floor",()=>{
   assert.equal(calculateEloPair({white:100,black:2500},"black_win").white,100);
 });
