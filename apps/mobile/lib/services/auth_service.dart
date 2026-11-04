@@ -295,4 +295,41 @@ class AuthService {
       body: jsonEncode(body),
     )));
   }
+  /// Opens an authenticated Server-Sent Events stream for live room updates.
+  /// The caller owns the returned subscription; cancelling it closes the HTTP client.
+  static Stream<String> authenticatedEventStream(String path) async* {
+    if (!path.startsWith('/api/v1/')) {
+      throw ArgumentError('Authenticated API path must be versioned.');
+    }
+    ensureConfigured();
+    final token = await _storage.read(key: 'royal_club_token');
+    if (token == null || token.isEmpty) throw Exception('ابتدا وارد حساب شوید.');
+    final base = baseUrl.trim().replaceFirst(RegExp(r'/+$'), '');
+    final client = http.Client();
+    try {
+      final request = http.Request('GET', Uri.parse('$base$path'));
+      request.headers['Authorization'] = 'Bearer $token';
+      request.headers['Accept'] = 'text/event-stream';
+      final response = await client.send(request).timeout(const Duration(seconds: 15));
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        final body = await response.stream.bytesToString();
+        dynamic decoded;
+        try { decoded = jsonDecode(body); } catch (_) {}
+        if (decoded is Map) {
+          throw Exception(decoded['error']?.toString() ?? decoded['message']?.toString() ?? 'خطا در ارتباط با سرور');
+        }
+        throw Exception('خطا در ارتباط با سرور');
+      }
+      await for (final line in response.stream.transform(utf8.decoder).transform(const LineSplitter())) {
+        if (line.startsWith('data:')) yield line.substring(5).trimLeft();
+      }
+    } on TimeoutException {
+      throw Exception('پاسخ سرور بیش از حد طول کشید. لطفاً دوباره تلاش کنید.');
+    } on http.ClientException {
+      throw Exception('اتصال به سرور برقرار نشد. ممکن است سرویس API خاموش باشد یا آدرس آن تغییر کرده باشد.');
+    } finally {
+      client.close();
+    }
+  }
+
 }
