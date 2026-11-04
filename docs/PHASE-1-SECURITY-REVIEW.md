@@ -64,7 +64,7 @@ This is a source/configuration review, not a penetration test. Production was in
 - The Production API Health job explicitly checked both `/api/v1/health` and `/api/v1/health/db`; both returned the expected healthy status. This proves runtime availability and database connectivity for the configured endpoint, not source provenance.
 - Active Neon Function deployment 81 exposes the environment-variable names `CORS_ORIGINS`, `DATABASE_URL`, `JWT_SECRET`, `NEON_FUNCTION_RUNTIME`, `NODE_ENV`, and `OWNER_USER_ID`. Values remain undisclosed. `SMS_CREDENTIALS_ENCRYPTION_KEY` is not present in the environment-name list; SMS remains disabled.
 - Neon project metadata reports `allowed_ips.ips=[]`. This is an observed configuration, not an automatic vulnerability finding: the hosting/network architecture must be reviewed before deciding whether an allowlist is feasible.
-- The active deployment 81 predates the logging hardening merge. Latest-source deployment and provenance remain owner-approval-gated; no production deploy, migration, secret change, or network-policy change was made. The current production schema inventory confirms the listed security tables exist; full migration-history and source/schema parity are still not established.
+- The active deployment 81 predates the logging hardening merge. Latest-source deployment and provenance remain owner-approval-gated; no production deploy, migration, secret change, or network-policy change was made. The current production schema inventory confirms the permission/OTP security tables exist, but a source-to-catalog comparison found material drift: 2 source-declared tables, 12 source-declared columns and 1 explicit index are missing from Production. Full migration-history and source/schema parity remain open.
 
 **Decision remains Open — not security-cleared.** Source-level security tests and log redaction are now evidenced on `main`; deployed-source provenance, exact CORS/owner configuration values, network policy, schema reconciliation, external log controls, and final production acceptance remain open.
 
@@ -77,3 +77,37 @@ This is a source/configuration review, not a penetration test. Production was in
 - This verifies table presence and current disabled state, not migration-history completeness, API deployment provenance, production CORS values, or a penetration test. No production writes or configuration changes were made.
 
 **Security closure remains open.**
+
+## Source-to-production schema drift — 2026-11-04
+
+A read-only catalog comparison was performed between current `main` declarations in `apps/api/src/server.ts` and the active Neon production database. No writes were issued.
+
+| Catalog item | Current source | Production | Difference |
+|---|---:|---:|---:|
+| Tables | 35 | 33 | 2 missing |
+| Columns | 301 | 289 | 12 missing |
+| Explicit indexes | 34 | 33 | 1 missing |
+
+Missing tables:
+- `account_customization_pricing`
+- `auth_token_revocations`
+
+Missing columns:
+- `account_customization_pricing.id`
+- `account_customization_pricing.avatar_change_price_credits`
+- `account_customization_pricing.username_change_price_credits`
+- `account_customization_pricing.updated_by`
+- `account_customization_pricing.updated_at`
+- `auth_token_revocations.jti`
+- `auth_token_revocations.user_id`
+- `auth_token_revocations.expires_at`
+- `auth_token_revocations.created_at`
+- `backgammon_matches.turn_started_at`
+- `users.avatar_change_count`
+- `users.token_version`
+
+Missing explicit index: `auth_token_revocations_expiry_idx`. There are no extra production tables or columns compared with the source declarations. PostgreSQL constraint-backed indexes were excluded from the explicit-index comparison; PR #164 corrects the repository's schema-parity script, which previously counted those automatically generated indexes as extras.
+
+**Release impact:** the current API source contains startup-time `CREATE TABLE`, `ALTER TABLE`, `CREATE INDEX`, `INSERT` and `UPDATE` statements. Deploying the latest API source therefore performs schema/data changes during startup; it is not a code-only deployment. No explicit versioned migration history or rollback plan is established by this audit. Do not deploy or run migrations until the missing objects are reconciled through a reviewed migration plan with a tested backup/restore and rollback strategy, and the owner explicitly approves the operation.
+
+This finding does not imply that the currently deployed older Function is failing its existing health check. It means the active production catalog is not yet ready for the current `main` schema and feature set.
