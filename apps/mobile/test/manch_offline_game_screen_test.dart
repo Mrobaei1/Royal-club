@@ -271,6 +271,10 @@ void main() {
     await tester.tap(find.text('بازیابی'));
     await tester.pumpAndSettle();
 
+    await tester.ensureVisible(find.text('ذخیره'));
+    await tester.tap(find.text('ذخیره'));
+    await tester.pumpAndSettle();
+
     expect(store.saved!.players[1].tokens[0], 1);
     expect(store.saved!.activePlayerIndex, 0);
     expect(find.text('نوبت بازیکن قرمز'), findsOneWidget);
