@@ -275,6 +275,19 @@ export function reviewMatchAppeal(room, reviewerId, appealId, { decision, notes 
   return { ...room, appeals, version: room.version + 1 };
 }
 
+function isValidChatImageDataUrl(value) {
+  if (typeof value !== "string") return false;
+  const match = /^data:image\/(jpeg|png|webp);base64,([A-Za-z0-9+/]+={0,2})$/.exec(value);
+  if (!match) return false;
+  const [, format, encoded] = match;
+  if (encoded.length % 4 !== 0) return false;
+  const bytes = Buffer.from(encoded, "base64");
+  if (bytes.length === 0 || bytes.length > 650 * 1024 || bytes.toString("base64") !== encoded) return false;
+  if (format === "png") return bytes.length >= 8 && bytes.subarray(0, 8).equals(Buffer.from([0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a]));
+  if (format === "jpeg") return bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
+  return bytes.length >= 12 && bytes.toString("ascii",0,4) === "RIFF" && bytes.toString("ascii",8,12) === "WEBP";
+}
+
 /** Private one-to-one text chat is limited to opposing-team participants. */
 export function sendOpponentChatMessage(room, senderUserId, recipientUserId, {
   messageId, text, now
@@ -290,18 +303,22 @@ export function sendOpponentChatMessage(room, senderUserId, recipientUserId, {
   if (typeof messageId !== "string" || !messageId.trim() || messageId.length > 128) {
     throw new TypeError("A bounded chat message ID is required");
   }
-  if (typeof text !== "string" || !text.trim() || text.trim().length > 1000) {
+  const isImage = typeof text === "string" && text.startsWith("data:image/");
+  if (isImage) {
+    if (!isValidChatImageDataUrl(text)) throw new TypeError("Chat image must be a valid PNG, JPEG or WebP image up to 650 KiB");
+  } else if (typeof text !== "string" || !text.trim() || text.trim().length > 1000) {
     throw new TypeError("Chat text must contain between 1 and 1000 characters");
   }
+  const normalizedText = isImage ? text : text.trim();
   const messages = room.chatMessages ?? [];
   const duplicate = messages.find(message => message.messageId === messageId);
   if (duplicate) {
     if (duplicate.senderUserId !== senderUserId || duplicate.recipientUserId !== recipientUserId ||
-        duplicate.text !== text.trim()) throw new Error("Chat message ID was already used for different content");
+        duplicate.text !== normalizedText) throw new Error("Chat message ID was already used for different content");
     return room;
   }
   const message = Object.freeze({
-    messageId, senderUserId, recipientUserId, text: text.trim(), createdAt: now
+    messageId, senderUserId, recipientUserId, text: normalizedText, createdAt: now
   });
   return {
     ...room,
