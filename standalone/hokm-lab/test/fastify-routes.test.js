@@ -25,7 +25,7 @@ test("Fastify adapter registers authenticated room endpoints", async () => {
     submitAppeal: async () => ({}), managerView: async () => ({}), reviewCheating: async () => ({}), reviewAppeal: async () => ({})
   };
   await registerHokmRoutes(fastify, { service, authenticate });
-  assert.equal(fastify.routes.length, 17);
+  assert.equal(fastify.routes.length, 18);
   assert.ok(fastify.routes.every(route => route.preHandler === authenticate));
   assert.ok(fastify.routes.some(route => route.url === "/hokm/rooms/:roomId/command"));
 });
