@@ -1,5 +1,4 @@
 // @ts-nocheck
-// Ported from the independently verified Hokm lab; strict runtime validation remains in the domain/service layer.
 import {
   SUITS, createDeck, shuffleDeck, cardId, legalCards, resolveTrick,
   teamForSeat
