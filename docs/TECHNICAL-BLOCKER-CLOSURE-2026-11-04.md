@@ -141,3 +141,16 @@ The test confirms the additive repair statements work against a fresh Production
 3. Test application rollback compatibility while retaining the additive schema.
 4. Complete a separate backup/restore rehearsal and document recovery time/data-point evidence.
 5. Request explicit owner approval before any Production migration or deployment.
+
+
+### WBS 7.4 — isolated expired-room deletion test
+
+On the same isolated Neon validation branch, a synthetic user, expired empty waiting room, and linked notification were inserted inside a transaction. The exact cleanup CTE used by `cleanupExpiredEmptyRooms()` was then executed.
+
+Observed results:
+- One expired empty room was deleted.
+- Its linked notification was deleted.
+- Follow-up query returned zero matching test rooms and zero matching test notifications.
+- The synthetic user and test notification fixture were removed in the same validation transaction.
+
+This proves the cleanup SQL's deletion behavior against the cloned schema. It does not prove the deployed Function route's authorization, scheduled trigger-to-route binding, or production deletion of an eligible room. WBS 7.4 therefore remains In progress.
