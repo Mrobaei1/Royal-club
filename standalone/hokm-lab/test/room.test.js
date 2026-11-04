@@ -1,7 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { legalCards } from "../src/engine.js";
-import { createRoom, joinRoom, leaveRoom, setPlayerReady, startRoom, expireRoom, roomViewForUser, applyRoomCommand, startNextRound, recordMatchForfeit, disconnectPlayer, reconnectPlayer, handleDisconnectTimeout, processAllDisconnectedTimeout, cancelForUnrecoverableTechnicalFailure, ALL_PLAYERS_DISCONNECTED_MS, sendOpponentChatMessage } from "../src/room.js";
+import { createRoom, joinRoom, leaveRoom, setPlayerReady, startRoom as startRoomImpl, expireRoom, roomViewForUser, applyRoomCommand, startNextRound, recordMatchForfeit, disconnectPlayer, reconnectPlayer, handleDisconnectTimeout, processAllDisconnectedTimeout, cancelForUnrecoverableTechnicalFailure, ALL_PLAYERS_DISCONNECTED_MS, sendOpponentChatMessage } from "../src/room.js";
+
+const startRoom = (room, requester, options = {}) => startRoomImpl(room, requester, { ...options, selectHakemSeat: options.selectHakemSeat ?? (() => 0) });
 
 function fullReadyRoom(now = 1000, matchTarget = 7) {
   let room = createRoom({ roomId: "test-room", hostUserId: "u0", now, matchTarget });
