@@ -22,6 +22,30 @@ after(async () => {
   await testPool.end();
 });
 
+test('CORS preflight allows configured origins and withholds permission from unknown origins', async () => {
+  const allowed = await app.inject({
+    method: 'OPTIONS',
+    url: '/api/v1/health',
+    headers: {
+      origin: 'http://localhost:8080',
+      'access-control-request-method': 'GET',
+    },
+  });
+  assert.equal(allowed.statusCode, 204, allowed.body);
+  assert.equal(allowed.headers['access-control-allow-origin'], 'http://localhost:8080');
+
+  const denied = await app.inject({
+    method: 'OPTIONS',
+    url: '/api/v1/health',
+    headers: {
+      origin: 'https://untrusted-origin.example',
+      'access-control-request-method': 'GET',
+    },
+  });
+  assert.equal(denied.headers['access-control-allow-origin'], undefined,
+    'An unlisted browser origin must not receive CORS permission.');
+});
+
 function auth(token: string) {
   return { authorization: `Bearer ${token}` };
 }
@@ -82,14 +106,14 @@ test('registered players can join an online match and history does not expose op
   const sixCharacterLogin = await app.inject({
     method: 'POST',
     url: '/api/v1/auth/login',
-    headers: { 'x-forwarded-for': '198.51.100.11' },
+    remoteAddress: '198.51.100.11',
     payload: { email: sixCharacterEmail, password: '123456' },
   });
   assert.equal(sixCharacterLogin.statusCode, 200, sixCharacterLogin.body);
   const sameAccountOtherNetwork = await app.inject({
     method: 'POST',
     url: '/api/v1/auth/login',
-    headers: { 'x-forwarded-for': '203.0.113.24' },
+    remoteAddress: '203.0.113.24',
     payload: { email: sixCharacterEmail, password: '123456' },
   });
   assert.equal(sameAccountOtherNetwork.statusCode, 200, sameAccountOtherNetwork.body,
@@ -166,7 +190,8 @@ test('registered players can join an online match and history does not expose op
   const sameSessionAfterNetworkChange = await app.inject({
     method: 'GET',
     url: '/api/v1/me',
-    headers: { ...auth(login.json().accessToken), 'x-forwarded-for': '203.0.113.77' },
+    remoteAddress: '203.0.113.77',
+    headers: auth(login.json().accessToken),
   });
   assert.equal(sameSessionAfterNetworkChange.statusCode, 200, sameSessionAfterNetworkChange.body);
   assert.equal(sameSessionAfterNetworkChange.json().user.id, host.user.id,
@@ -413,6 +438,18 @@ test('registered players can join an online match and history does not expose op
   assert.equal(JSON.stringify(guestFriend).includes(guest.user.fullName), false);
   assert.equal(guestFriend.avatarDataUrl, avatar);
 
+  // The same stored bearer session must still authorize social data after a VPN/IP switch.
+  const friendsAfterNetworkChange = await app.inject({
+    method: 'GET',
+    url: '/api/v1/friends',
+    remoteAddress: '203.0.113.88',
+    headers: auth(host.token),
+  });
+  assert.equal(friendsAfterNetworkChange.statusCode, 200, friendsAfterNetworkChange.body);
+  assert.ok((friendsAfterNetworkChange.json().friends as Array<Record<string, unknown>>)
+    .some((friend) => String(friend.userId) === String(guest.user.id)),
+  'The same account must retain its friend list after a client network/VPN IP change.');
+
   const created = await app.inject({
     method: 'POST',
     url: '/api/v1/matches',
@@ -538,6 +575,19 @@ test('registered players can join an online match and history does not expose op
     headers: auth(host.token),
   });
   assert.equal(snapshot.statusCode, 200, snapshot.body);
+
+  // Verify the same account's active-game authorization and state recovery from a new IP.
+  const snapshotAfterNetworkChange = await app.inject({
+    method: 'GET',
+    url: `/api/v1/matches/${matchId}/state`,
+    remoteAddress: '198.51.100.42',
+    headers: auth(host.token),
+  });
+  assert.equal(snapshotAfterNetworkChange.statusCode, 200, snapshotAfterNetworkChange.body);
+  assert.equal(snapshotAfterNetworkChange.json().state.isHost, true);
+  assert.deepEqual(snapshotAfterNetworkChange.json().state.board, snapshot.json().state.board,
+    'The same account must recover the identical authoritative board after a VPN/IP change.');
+
   const state = snapshot.json().state;
   assert.equal(state.isHost, true);
   assert.equal(state.isMyTurn, true);
@@ -3186,7 +3236,6 @@ test('owner-managed profile customization pricing charges atomically and keeps t
     else process.env.OWNER_USER_ID = previousOwnerId;
   }
 });
-
 
 test('recorded voice-message configuration is owner-only, dormant and secret-safe', async () => {
   const previousOwnerId = process.env.OWNER_USER_ID;

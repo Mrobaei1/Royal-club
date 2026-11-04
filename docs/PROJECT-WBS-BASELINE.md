@@ -1,9 +1,9 @@
 # Royal Club — Approved Project Work Breakdown Structure (WBS)
 
-- **Baseline:** Owner-approved WBS v1.0
-- **Effective date:** 2026-10-30
+- **Baseline:** Owner-approved WBS v1.1
+- **Effective date:** 2026-11-02
 - **Repository:** https://github.com/Mrobaei1/Royal-club
-- **Baseline source:** live `main` at `8359d5253991083dd1be6af91bc847b65ce63b0b`, plus the product decisions and readiness records available on that date
+- **Baseline source:** live `main` at `3a7d68354f628b43c0080b4ea5bebc6d241ea325`, plus the owner-approved scope clarification recorded on 2026-11-02
 - **Total project weight:** **1,000 points (100%)**
 - **Leaf work packages:** **53** (verified by counting the leaf rows in the seven workstream tables; documentation correction only, with no scope or weight change).
 - **Status:** Governing scope and measurement baseline. The initial item-by-item status audit is recorded separately from the weights; no aggregate completion percentage is asserted by this document.
@@ -95,7 +95,7 @@ A green workflow only earns the automated-test portion it actually ran. Producti
 | ID | Work package / acceptance outcome | Points |
 |---|---|---:|
 | 4.1 | Friend search/add/remove/request lifecycle works by username; maximum 100 accepted friends is enforced by the API. | 20 |
-| 4.2 | Private chat works for the approved audience and supports text, images, all supported emoji, edit/delete rules and delivery behavior. Live audio/video calls, WebRTC calling and TURN/media-relay infrastructure are out of scope. Recorded voice messages may be added later as ordinary private-chat messages behind an owner-only, disabled-by-default feature switch; dormant admin configuration does not count as an implemented user-facing feature. | 25 |
+| 4.2 | Private chat works for the approved audience and supports text, images, all supported emoji, edit/delete rules and delivery behavior. Live audio/video calls and video chat are permanently out of scope. Recorded voice messages are a future optional capability only; they remain disabled and are not part of current user-facing functionality. | 25 |
 | 4.3 | Notifications are correctly targeted, localized, lifecycle-managed and support clear-all without affecting unrelated users. | 15 |
 | 4.4 | Spectator access requires host permission and approved friend/follower status; finished-match restrictions apply and replay is not introduced. | 15 |
 | 4.5 | Public profile, friend lists, chat, leaderboard, match history and spectator views consistently expose usernames only; audit legacy/empty profiles too. | 15 |
@@ -120,9 +120,9 @@ A green workflow only earns the automated-test portion it actually ran. Producti
 
 | ID | Work package / acceptance outcome | Points |
 |---|---|---:|
-| 6.1 | Admin experience is usable on mobile and desktop; ordinary users do not see admin navigation or privileged data. | 20 |
+| 6.1 | Admin experience is usable on mobile and desktop; ordinary users do not see admin navigation or privileged data. It includes a dormant, manager-only control for the future recorded-voice-message feature flag and configuration; the default is OFF and no user-facing microphone/send action is enabled. | 20 |
 | 6.2 | Owner identity is securely established through confirmed numeric owner configuration; no username/email-based privilege assignment. | 20 |
-| 6.3 | Manager/assistant permission matrix, scopes, limits (including 50-delegate ceiling), grant/revoke workflows and deny-by-default enforcement are reviewed and accepted. | 25 |
+| 6.3 | Manager/assistant permission matrix, scopes, limits (including 50-delegate ceiling), grant/revoke workflows and deny-by-default enforcement are reviewed and accepted, including authorization to change the dormant voice-message feature flag and server-side provider configuration. | 25 |
 | 6.4 | Agent task definitions/proposals, capabilities, approval requirements, state and audit model are complete while execution remains dormant by default. | 20 |
 | 6.5 | Operational controls include auditable actions, secret redaction, emergency kill switch, cancellation and revocation enforcement. | 20 |
 | 6.6 | Agent Center categories, monitoring/command UX and status reporting are implemented; external actions require explicit human approval. | 15 |
@@ -139,7 +139,7 @@ A green workflow only earns the automated-test portion it actually ran. Producti
 | 7.3 | Database migrations are reconciled with source, applied in an approved sequence, verified and have a tested rollback/recovery plan. | 25 |
 | 7.4 | Scheduled cleanup for expired rooms/invites is configured and verified for serverless idle periods; failures are observable. | 15 |
 | 7.5 | Monitoring, redacted logs, alerting, operational runbooks and owner-approved backup/restore (latest three recovery points) are tested. | 20 |
-| 7.6 | Production security/configuration is accepted: network/IP controls, CORS, secrets, owner ID, SMS gates and least privilege. | 20 |
+| 7.6 | Production security/configuration is accepted: network/IP controls, CORS, secrets, owner ID, SMS gates and least privilege. Any future voice-message provider credentials must be stored server-side, redacted from logs, and never exposed to clients; no TURN/WebRTC credentials or services are required. | 20 |
 | 7.7 | End-to-end acceptance covers two devices, real network changes, Android layouts, accessibility, performance and regression checklist. | 20 |
 | 7.8 | Final release candidate and APK are built/tested only after the owner's separate explicit APK approval; release notes and rollback plan are ready. | 15 |
 |  | **Subtotal** | **160** |
@@ -179,7 +179,7 @@ The live repository and readiness documents show substantial implementation and 
 - The 2026-10-30 checkpoint document contains an older main SHA than the live repository. Always prefer live GitHub refs and exact commit evidence over stale checkpoint metadata.
 - Agent execution, delegated grants, schedules, real SMS, paid features, production deployment and APK creation remain gated by separate owner approval.
 
-**Baseline scoring rule:** this v1.0 file fixes the scope and weights. The first numeric progress snapshot must be produced by a fresh item-by-item evidence audit against the live commit and latest CI. Do not reuse the earlier informal 45% estimate as a WBS score. Until that audit is complete, report the numeric WBS score as **pending baseline audit**, not as 0% and not as an invented estimate.
+**Baseline scoring rule:** this v1.1 file fixes the scope and weights. The first numeric progress snapshot must be produced by a fresh item-by-item evidence audit against the live commit and latest CI. Do not reuse the earlier informal 45% estimate as a WBS score. Until that audit is complete, report the numeric WBS score as **pending baseline audit**, not as 0% and not as an invented estimate.
 
 ## 6. Scope constraints that remain in force
 
@@ -188,7 +188,7 @@ The live repository and readiness documents show substantial implementation and 
 - All core games and social features are free initially. No monetization or payment activation without the owner's later explicit decision.
 - Internal non-transferable credit-token wallet; manager-controlled prices. League entry does not directly debit wallet credits.
 - Login identity must not depend on IP/VPN. Public views expose usernames, not full names or email.
-- Friends maximum: 100. Private chat is for the approved audience; images and emoji are supported. No live audio/video calls or TURN/WebRTC infrastructure. Recorded voice notes are a future owner-controlled feature, disabled by default and not available until recording/storage/playback are implemented and accepted. No replay.
+- Friends maximum: 100. Private chat is for the approved audience; images and emoji are supported. No live audio/video calls, video chat, or replay. Recorded voice messages are future-optional, manager-controlled, OFF by default, and excluded from current user functionality.
 - Spectator access requires host permission and approved friend/follower status.
 - Weekly league decisions: manager-selected minimum participants with audit trail; fair rest/bye balance and actual game counts; final stage only when format-compatible and explicitly approved; 24-hour appeals; reschedule double absence/technical interruptions where possible.
 - Agent tooling stays dormant; no role is granted based only on a username. Financial, role, outbound-message, destructive and production actions require human approval.
@@ -200,3 +200,4 @@ The live repository and readiness documents show substantial implementation and 
 | Version | Date | Change | Approval |
 |---|---|---|---|
 | 1.0 | 2026-10-30 | Initial project-wide WBS, 1,000-point weighting, evidence rules and baseline audit requirement. | Approved by project owner in conversation; implementation recorded in repository PR. |
+| 1.1 | 2026-11-02 | Clarified communication scope: live audio/video calling, video chat, WebRTC and TURN are excluded; future recorded voice messages remain dormant and manager-controlled. Added manager-only feature-flag/configuration and server-side secret-handling acceptance criteria. No work package count or weights changed. | Approved by project owner in conversation; merged to `main` in PR #118 (`2d79a53015632fe3b8707a1b17992a33757dcbca`). |
