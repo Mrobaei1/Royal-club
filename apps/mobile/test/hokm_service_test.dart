@@ -57,4 +57,17 @@ void main() {
     expect(update['status'], 'playing');
   });
 
+
+  test('Hokm service sends permanent forfeit with the expected room version', () async {
+    final api = HokmService(
+      post: (path, body) async {
+        expect(path, '/api/v1/hokm/rooms/room/forfeit');
+        expect(body, {'expectedVersion': 12});
+        return {'roomId': 'room', 'status': 'playing', 'version': 13};
+      },
+    );
+    final result = await api.forfeitMatch('room', 12);
+    expect(result['version'], 13);
+  });
+
 }
