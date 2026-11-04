@@ -98,7 +98,6 @@ The roadmap previously said 47 packages. Counting the actual leaf IDs in the app
 | 7.6 | 20 | Blocked | Read-only metadata lists `OWNER_USER_ID` and `CORS_ORIGINS`; values were not read. Neon allowed-IP list is empty; architecture compatibility is not yet assessed. SMS remains disabled. | Complete secure CORS/owner-value review, network-policy decision, external log-access review and owner-approved production security acceptance. |
 | 7.7 | 20 | Blocked | Two-device and real Android acceptance gates remain open | Complete end-to-end network, layout, accessibility, performance and regression acceptance. |
 | 7.8 | 15 | Blocked — approval gated | Owner instruction required; no APK authorization in current task | Prepare release notes/rollback readiness only; do not build or prepare APK until explicit approval. |
-
 ## Static source audit findings — 2026-10-30
 
 - **Public identity:** a scan of current-main `apps/api/src/server.ts` found `fullName` in registration/phone-registration responses and the authenticated `/api/v1/me/profile` response, all for the account owner. Public friend, chat, leaderboard, match-history and spectator handlers use usernames; API integration tests assert that full names/emails are absent from the relevant payloads. This is source-level evidence only; the manual screen-by-screen and legacy/empty-profile audit remains open.
@@ -198,6 +197,10 @@ See [Technical Blocker Closure Audit](TECHNICAL-BLOCKER-CLOSURE-2026-11-04.md) f
 - CI on the immediately preceding head `ef5325f043ce846407529242720aa2e02d1566ab` passed: API build + `npm test`, API integration (`npm run test:integration` against PostgreSQL 16), Flutter analyze/tests, backgammon engine/AI/board regression, and Web Preview. A fresh exact-head run is required after the latest username-index change.
 - WBS 7.3: targeted semantic catalog review confirmed audited new-table/column types, defaults, nullability, PK/FK/check constraints and expiry index. It found source drift in the legacy username index (case-sensitive DB index vs source-required `LOWER(username)`). The additive migration now creates `users_username_casefold_unique_idx`; isolated clone check found zero blank usernames and zero case-fold duplicate groups, and the new index was applied and verified on the isolated branch. Package remains Blocked pending full source-wide semantic parity, app compatibility, backup/restore, rollback/recovery and explicit Production approval.
 - WBS 7.4: production trigger configuration confirms the enabled one-minute schedule targets `royalclubapi` at `/internal/cleanup-expired-empty-rooms`. Current source route rejects calls without a valid trigger invocation and returns deleted-room count; integration tests assert 403 without trigger, 200 with valid trigger and actual deletion. Isolated Neon CTE test also deleted one expired room and linked notification. Package remains In progress until deployed Function provenance and production outcome observability are proven.
-- WBS 6.2 and 7.6 remain Blocked: owner identity and security configuration values were not read; secure owner acceptance, CORS/network review and log access review remain required.
-- WBS 7.2 remains Blocked: active Function deployment metadata still does not expose immutable bundled Git SHA. Health availability is not source provenance.
-- No WBS points awarded. Production remains unchanged; no secret retrieval, deployment, migration, network-policy change, APK build, or PR merge performed.
+
+### Final migration hardening evidence — 2026-11-04
+
+- Migration now contains a pre-commit fail-closed catalog verification for audited column types/defaults/nullability, foreign keys and index definitions. It fails rather than silently accepting mismatched existing objects.
+- Re-applied the complete 14-statement migration sequence in one transaction on isolated Neon branch `br-crimson-mouse-baq7v9aa`; all statements succeeded on the repeat run, including fail-closed verification and idempotent case-fold index creation.
+- API unit/build job passed on the then-current PR head; exact final-head full CI remains required after the last documentation commit.
+- No Production SQL writes were performed; read-only Production check still reports zero target tables, zero target columns and zero target indexes.
