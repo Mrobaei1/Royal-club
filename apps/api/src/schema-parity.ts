@@ -9,6 +9,14 @@ export type SchemaDiff = {
   extraInDatabase: string[];
 };
 
+export type IndexCatalogRow = { indexname: string; constraint_backed: boolean };
+
+export function extractExplicitIndexNames(rows: IndexCatalogRow[]): string[] {
+  return [...new Set(rows
+    .filter((row) => !row.constraint_backed)
+    .map((row) => row.indexname.toLowerCase()))].sort();
+}
+
 type CreateTableBlock = { table: string; body: string };
 
 function splitTopLevelSqlList(input: string): string[] {
@@ -145,14 +153,24 @@ async function main() {
         `SELECT table_name, column_name FROM information_schema.columns
           WHERE table_schema = 'public' ORDER BY table_name, ordinal_position`,
       ),
-      client.query<{ indexname: string }>(
-        `SELECT indexname FROM pg_indexes WHERE schemaname = 'public' ORDER BY indexname`,
+      client.query<IndexCatalogRow>(
+        `SELECT index_class.relname AS indexname,
+                EXISTS (
+                  SELECT 1 FROM pg_constraint constraint_row
+                   WHERE constraint_row.conindid = index_data.indexrelid
+                ) AS constraint_backed
+           FROM pg_index index_data
+           JOIN pg_class table_class ON table_class.oid = index_data.indrelid
+           JOIN pg_namespace table_namespace ON table_namespace.oid = table_class.relnamespace
+           JOIN pg_class index_class ON index_class.oid = index_data.indexrelid
+          WHERE table_namespace.nspname = 'public'
+          ORDER BY index_class.relname`,
       ),
     ]);
 
     const actualTables = tableResult.rows.map((row) => row.table_name);
     const actualColumns = columnResult.rows.map((row) => `${row.table_name}.${row.column_name}`);
-    const actualIndexes = indexResult.rows.map((row) => row.indexname);
+    const actualIndexes = extractExplicitIndexNames(indexResult.rows);
     const diffs = {
       tables: compareNames(expectedTables, actualTables),
       columns: compareNames(expectedColumns, actualColumns),
