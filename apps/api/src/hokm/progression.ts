@@ -1,5 +1,4 @@
 // @ts-nocheck
-// Ported from the independently verified Hokm lab; strict runtime validation remains in the domain/service layer.
 export function xpRequiredForNextLevel(level) {
   if (!Number.isInteger(level) || level < 1) throw new RangeError("level must be a positive integer");
   const n = level - 1;
