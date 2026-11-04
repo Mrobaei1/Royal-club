@@ -1,5 +1,4 @@
 // @ts-nocheck
-// Ported from the independently verified Hokm lab; strict runtime validation remains in the domain/service layer.
 /**
  * PostgreSQL adapter for HokmRoomService.
  * Accepts a node-postgres Pool (connect/query). No driver dependency is bundled.
