@@ -204,30 +204,51 @@ test('does not count an overshoot bear-off when a higher checker can still be bo
   assert.equal(maxPlayableDiceCount(state(board), [6], true), 1);
 });
 
-test('mirrors oversized bear-off priority correctly for host and guest', () => {
+test('oversized bear-off uses the nearest occupied point below the die for both players', () => {
+  // Host moves toward point 0. With die 5, point 4 (index 4) is empty,
+  // so the checker on point 4's next lower point (index 3) bears off.
   const hostBoard = emptyBoard();
-  hostBoard[1] = 1;
   hostBoard[3] = 1;
-  const hostCanBearOffFarther = applyBackgammonMove(
-    state(hostBoard), { from: 3, to: null, die: 6 }, true,
+  const hostMove = applyBackgammonMove(
+    state(hostBoard), { from: 3, to: null, die: 5 }, true,
   );
-  const hostCannotSkipFarther = applyBackgammonMove(
-    state(hostBoard), { from: 1, to: null, die: 6 }, true,
-  );
-  assert.ok('state' in hostCanBearOffFarther);
-  assert.ok('error' in hostCannotSkipFarther);
+  assert.ok('state' in hostMove);
+  if ('state' in hostMove) {
+    assert.equal(hostMove.state.board[3], 0);
+    assert.equal(hostMove.state.off.host, 15);
+  }
+  assert.equal(hasLegalMove(hostBoard, { host: 0, guest: 0 }, [5], true), true);
+  assert.equal(maxPlayableDiceCount(state(hostBoard), [5], true), 1);
 
+  // A checker on a point closer to the exit blocks skipping it.
+  const blockedHostBoard = emptyBoard();
+  blockedHostBoard[1] = 1;
+  blockedHostBoard[3] = 1;
+  assert.ok('error' in applyBackgammonMove(
+    state(blockedHostBoard), { from: 3, to: null, die: 6 }, true,
+  ));
+
+  // Guest moves toward point 23; the mirrored nearest lower point is
+  // the next occupied point toward the guest's exit (higher index).
   const guestBoard = emptyBoard();
   guestBoard[20] = -1;
-  guestBoard[22] = -1;
-  const guestCanBearOffCloser = applyBackgammonMove(
-    state(guestBoard), { from: 20, to: null, die: 6 }, false,
+  const guestMove = applyBackgammonMove(
+    state(guestBoard), { from: 20, to: null, die: 5 }, false,
   );
-  const guestCannotSkipFarther = applyBackgammonMove(
-    state(guestBoard), { from: 22, to: null, die: 6 }, false,
-  );
-  assert.ok('state' in guestCanBearOffCloser);
-  assert.ok('error' in guestCannotSkipFarther);
+  assert.ok('state' in guestMove);
+  if ('state' in guestMove) {
+    assert.equal(guestMove.state.board[20], 0);
+    assert.equal(guestMove.state.off.guest, 15);
+  }
+  assert.equal(hasLegalMove(guestBoard, { host: 0, guest: 0 }, [5], false), true);
+  assert.equal(maxPlayableDiceCount(state(guestBoard), [5], false), 1);
+
+  const blockedGuestBoard = emptyBoard();
+  blockedGuestBoard[20] = -1;
+  blockedGuestBoard[22] = -1;
+  assert.ok('error' in applyBackgammonMove(
+    state(blockedGuestBoard), { from: 20, to: null, die: 6 }, false,
+  ));
 });
 
 test('requires the higher die when only one of two individually legal dice can be played', () => {
