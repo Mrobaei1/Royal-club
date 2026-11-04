@@ -321,9 +321,15 @@ export function sendOpponentChatMessage(room, senderUserId, recipientUserId, {
   const message = Object.freeze({
     messageId, senderUserId, recipientUserId, text: normalizedText, createdAt: now
   });
+  const chatMessages = [...messages, message].slice(-500);
+  // Bound the JSON room aggregate even when users exchange large images.
+  while (chatMessages.length > 1 &&
+      chatMessages.reduce((total, item) => total + Buffer.byteLength(item.text, "utf8"), 0) > 2 * 1024 * 1024) {
+    chatMessages.shift();
+  }
   return {
     ...room,
-    chatMessages: [...messages, message].slice(-500),
+    chatMessages,
     version: room.version + 1
   };
 }
