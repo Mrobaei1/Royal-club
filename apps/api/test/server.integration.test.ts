@@ -1349,6 +1349,13 @@ test('subscription purchases debit the wallet atomically and record a ledger ent
     payload: { priceCredits: 0 },
   });
   assert.equal(forbiddenPlanChange.statusCode, 403, forbiddenPlanChange.body);
+  const forbiddenPlanCreate = await app.inject({
+    method: 'POST',
+    url: '/api/v1/admin/subscription-plans',
+    headers: auth(buyer.token),
+    payload: { code: 'unauthorized_plan', name: 'Unauthorized', durationDays: 7, priceCredits: 10 },
+  });
+  assert.equal(forbiddenPlanCreate.statusCode, 403, forbiddenPlanCreate.body);
 
   const previousSubscriptionOwnerId = process.env.OWNER_USER_ID;
   process.env.OWNER_USER_ID = buyer.user.id;
@@ -1362,6 +1369,16 @@ test('subscription purchases debit the wallet atomically and record a ledger ent
     assert.equal(createWeeklyPlan.statusCode, 201, createWeeklyPlan.body);
     assert.equal(createWeeklyPlan.json().plan.code, 'vip_weekly');
     assert.equal(createWeeklyPlan.json().plan.durationDays, 7);
+
+    const adminPlans = await app.inject({
+      method: 'GET',
+      url: '/api/v1/admin/subscription-plans',
+      headers: auth(buyer.token),
+    });
+    assert.equal(adminPlans.statusCode, 200, adminPlans.body);
+    const listedCodes = (adminPlans.json().plans as Array<Record<string, unknown>>).map(plan => plan.code);
+    assert.ok(listedCodes.includes('vip_monthly'));
+    assert.ok(listedCodes.includes('vip_weekly'));
 
     const duplicatePlan = await app.inject({
       method: 'POST',
