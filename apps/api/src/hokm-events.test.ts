@@ -31,12 +31,14 @@ test('Hokm event hub listens once and fans out only room notifications', async (
   client.emit('notification', { channel: 'hokm_room_updates', payload: 'room-1' });
   assert.deepEqual(received, ['room-1']);
 
+  client.emit('error', new Error('listener disconnected'));
+  assert.equal(hub.isRunning, false, 'A broken LISTEN connection must be visible to SSE clients.');
   assert.equal(await hub.close(), true);
   assert.equal(await hub.close(), false);
   assert.equal(hub.isRunning, false);
   assert.equal(client.released, true);
   assert.ok(client.queries.includes('UNLISTEN hokm_room_updates'));
-  assert.deepEqual(errors, []);
+  assert.deepEqual(errors, ['listener disconnected']);
 });
 
 test('Hokm event hub rejects invalid subscriptions and use before startup', async () => {
