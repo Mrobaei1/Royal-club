@@ -142,7 +142,6 @@ export class HokmDeadlineScheduler {
       this.#metrics.lastPollCompletedAt = completedAt;
       this.#metrics.lastPollDurationMs = Math.max(0, Date.now() - startedMonotonic);
       if (failed === 0) this.#metrics.lastSuccessfulPollAt = completedAt;
-      this.#notifyPoll();
       return { skipped: false, discovered, processed, failed };
     } catch (error) {
       this.#metrics.failedPollCount += 1;
@@ -150,10 +149,10 @@ export class HokmDeadlineScheduler {
       this.#metrics.lastPollCompletedAt = this.#now();
       this.#metrics.lastPollDurationMs = Math.max(0, Date.now() - startedMonotonic);
       try { this.#onError(error, { scope: "scheduler_poll" }); } catch { /* keep scheduler alive */ }
-      this.#notifyPoll();
       throw error;
     } finally {
       this.#polling = false;
+      this.#notifyPoll();
     }
   }
 
