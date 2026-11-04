@@ -47,6 +47,10 @@ Green CI proves static analysis, automated tests and migration smoke tests only.
 ## Integration gate
 Do not merge into `main`, register routes, expose a home-screen entry, deploy, migrate production, or build an APK without the owner's separate explicit instruction.
 
+## Product decisions and acceptance
+
+- [Product requirements and owner decisions](docs/product-requirements.md).
+
 ## Acceptance checklists
 
 - [`docs/acceptance-matrix.md`](docs/acceptance-matrix.md): automated coverage and remaining gates.
