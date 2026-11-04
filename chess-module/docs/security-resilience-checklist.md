@@ -51,7 +51,7 @@ Record each result with commit SHA, environment, evidence link, tester and remed
 ## Review execution record — 2026-11-04
 
 - Previously completed CI evidence: [workflow 41783129523](https://github.com/Mrobaei1/Royal-club/actions/runs/41783129523), commit `cb93bcdddfc90fa084444729c9f3c6f45e1f5be9`; both isolated API and mobile jobs passed. This is historical evidence, not a claim about the newer documentation head.
-- Current PR head `ef021fa617420881667e74921a4795cf0e89f5b6`: isolated chess workflow [41784046467](https://github.com/Mrobaei1/Royal-club/actions/runs/41784046467) was in progress at the latest check; mobile passed and API was still running. Current-head chess validation remains pending until the API job succeeds.
+- Current PR head verified 2026-11-04: `c1f7e2753a934e03963982616335a1e664d22ce4`. Isolated chess workflow [41784341350](https://github.com/Mrobaei1/Royal-club/actions/runs/41784341350) completed successfully: both API and mobile jobs passed, including dependency audit, Stockfish setup, API tests/build, Flutter analyze and Flutter tests.
 
 - Internal source-level security review performed on the standalone chess API and WebSocket implementation at PR #86.
 - Confirmed code paths reviewed: route identity extraction, participant authorization, manager-only settings/audit routes, parameterized SQL, numeric identifier validation, chat bounds/rate limiting, WebSocket participant checks, 16 KiB frame cap, command allowlist, ping rate limiting, notification channel construction, presence cleanup, progression transaction boundaries and audit immutability trigger.
