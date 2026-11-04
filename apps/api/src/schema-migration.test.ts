@@ -42,6 +42,10 @@ test('schema reconciliation migration contains every audited missing object', ()
 test('migration fails closed on unexpected definitions and preserves seed/backfill behavior', () => {
   assert.match(migration, /DO \$verify\$/);
   assert.match(migration, /RAISE EXCEPTION/);
+  assert.match(migration, /PRIMARY KEY \(jti\)/);
+  assert.match(migration, /avatar_change_price_credits >= 0/);
+  assert.match(migration, /username_change_price_credits >= 0/);
+  assert.match(migration, /CREATE UNIQUE INDEX/);
   assert.match(migration, /INSERT INTO account_customization_pricing \(id\)[\s\S]*?ON CONFLICT \(id\) DO NOTHING/);
   assert.match(migration, /UPDATE users[\s\S]*?avatar_data_url IS NOT NULL[\s\S]*?avatar_change_count = 0/);
   assert.match(migration, /VALIDATE CONSTRAINT users_token_version_nonnegative_check/);
