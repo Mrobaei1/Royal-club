@@ -27,11 +27,11 @@ A row is not complete merely because a contract or placeholder exists. Integrati
 
 ## Current-head verification evidence
 
-Verified against PR head `8fc74fc5f1278afa996dfc7c6bce42c9698efb61` on 2026-11-04. The code head `e69b6f3debe151aca19a8365eae6f60f725c316d` passed the isolated chess workflow; the current PR head adds only this acceptance-evidence documentation update, and all current-head workflow jobs completed successfully.
+Verified against PR head `5e17c9df53b9c14fd7278b73e4e68c680dc3eac6` on 2026-11-04. Isolated chess workflow [`41781822711`](https://github.com/Mrobaei1/Royal-club/actions/runs/41781822711) completed successfully on this exact SHA. Both `chess-api` and `chess-mobile` jobs, including every step, passed.
 
-- Isolated chess workflow run [`41780470447`](https://github.com/Mrobaei1/Royal-club/actions/runs/41780470447): API **66/66 tests passed**, Stockfish installed, independent perft/legal-move validation passed, TypeScript build passed, and `npm audit --audit-level=high` reported zero vulnerabilities.
-- Flutter: analysis clean and **34/34 tests passed**.
-- Repository-level validation on the current head passed: API unit/build (**103/103**), PostgreSQL integration (**30/30**), Flutter analysis/tests, backgammon engine audit (**80 tests passed**) and web preview build. Web preview deployment was skipped intentionally.
+- Isolated chess workflow run [`41781822711`](https://github.com/Mrobaei1/Royal-club/actions/runs/41781822711): dependency audit, Stockfish setup, API tests, TypeScript build, Flutter analysis and Flutter tests all passed.
+- Previously recorded detailed suite counts remain tied to their specifically identified earlier workflow runs; this current-head run confirms success but does not independently restate test counts in the workflow summary.
+- Repository-level validation on the current head passed in the separately recorded runs: API unit/build (**103/103**), PostgreSQL integration (**30/30**), backgammon engine audit (**80 tests passed**) and web preview build. Web preview deployment was skipped intentionally.
 - The isolated PostgreSQL 16 migration suite reapplies all eleven chess migrations and exercises real database route flows, concurrency races, audit immutability and manager-only audit access.
 - Automated checks validate identity boundaries, participant authorization, malformed/overflowing IDs, chat permissions/rate limits, reconnect snapshots, WebSocket payload and ping limits, multi-device presence and bounded PostgreSQL listener usage.
 - These results establish automated CI acceptance only. They do not prove physical-device/two-device acceptance, accessibility on real devices, staging load/connection-flood behavior, backup restoration, or independent security review.
