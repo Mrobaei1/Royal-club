@@ -146,7 +146,11 @@ export async function registerHokmRoutes(fastify, { service, authenticate, prefi
         try { unsubscribe = eventHub.subscribe(roomId, () => void sendCurrent()); }
         catch (error) { raw.end(); cleanup(); return reply; }
         raw.on("close", cleanup);
-        heartbeat = setInterval(() => { if (!closed) raw.write(": ping\\n\\n"); }, 15000);
+        heartbeat = setInterval(() => {
+          if (closed) return;
+          if (!eventHub.isRunning) { raw.end(); cleanup(); return; }
+          raw.write(": ping\\n\\n");
+        }, 15000);
         void sendCurrent();
         return reply;
       }
