@@ -106,14 +106,14 @@ test('registered players can join an online match and history does not expose op
   const sixCharacterLogin = await app.inject({
     method: 'POST',
     url: '/api/v1/auth/login',
-    headers: { 'x-forwarded-for': '198.51.100.11' },
+    remoteAddress: '198.51.100.11',
     payload: { email: sixCharacterEmail, password: '123456' },
   });
   assert.equal(sixCharacterLogin.statusCode, 200, sixCharacterLogin.body);
   const sameAccountOtherNetwork = await app.inject({
     method: 'POST',
     url: '/api/v1/auth/login',
-    headers: { 'x-forwarded-for': '203.0.113.24' },
+    remoteAddress: '203.0.113.24',
     payload: { email: sixCharacterEmail, password: '123456' },
   });
   assert.equal(sameAccountOtherNetwork.statusCode, 200, sameAccountOtherNetwork.body,
@@ -190,7 +190,8 @@ test('registered players can join an online match and history does not expose op
   const sameSessionAfterNetworkChange = await app.inject({
     method: 'GET',
     url: '/api/v1/me',
-    headers: { ...auth(login.json().accessToken), 'x-forwarded-for': '203.0.113.77' },
+    remoteAddress: '203.0.113.77',
+    headers: auth(login.json().accessToken),
   });
   assert.equal(sameSessionAfterNetworkChange.statusCode, 200, sameSessionAfterNetworkChange.body);
   assert.equal(sameSessionAfterNetworkChange.json().user.id, host.user.id,
@@ -441,7 +442,8 @@ test('registered players can join an online match and history does not expose op
   const friendsAfterNetworkChange = await app.inject({
     method: 'GET',
     url: '/api/v1/friends',
-    headers: { ...auth(host.token), 'x-forwarded-for': '203.0.113.88' },
+    remoteAddress: '203.0.113.88',
+    headers: auth(host.token),
   });
   assert.equal(friendsAfterNetworkChange.statusCode, 200, friendsAfterNetworkChange.body);
   assert.ok((friendsAfterNetworkChange.json().friends as Array<Record<string, unknown>>)
@@ -578,7 +580,8 @@ test('registered players can join an online match and history does not expose op
   const snapshotAfterNetworkChange = await app.inject({
     method: 'GET',
     url: `/api/v1/matches/${matchId}/state`,
-    headers: { ...auth(host.token), 'x-forwarded-for': '198.51.100.42' },
+    remoteAddress: '198.51.100.42',
+    headers: auth(host.token),
   });
   assert.equal(snapshotAfterNetworkChange.statusCode, 200, snapshotAfterNetworkChange.body);
   assert.equal(snapshotAfterNetworkChange.json().state.isHost, true);
