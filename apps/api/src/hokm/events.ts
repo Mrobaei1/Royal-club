@@ -38,6 +38,7 @@ export class HokmEventHub extends EventEmitter {
     });
     client.on('end', () => {
       this.#started = false;
+      if (this.#closed) return;
       try { this.#onError(new Error('Hokm PostgreSQL LISTEN connection ended')); } catch { /* ignored */ }
     });
     await client.query('LISTEN hokm_room_updates');
