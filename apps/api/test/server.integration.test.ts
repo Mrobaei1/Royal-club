@@ -3447,6 +3447,7 @@ test('Hokm room commits publish cross-connection PostgreSQL notifications for SS
   const hub = new HokmEventHub(testPool);
   const host = await register('Hokm Event Host');
   const guest = await register('Hokm Event Guest');
+  const outsider = await register('Hokm Event Outsider');
   let roomId = '';
   let unsubscribe = () => {};
   let timeoutHandle: NodeJS.Timeout | undefined;
@@ -3458,6 +3459,16 @@ test('Hokm room commits publish cross-connection PostgreSQL notifications for SS
     });
     assert.equal(created.statusCode, 200, created.body);
     roomId = created.json().roomId;
+
+    const unauthenticated = await app.inject({
+      method: 'GET', url: `/api/v1/hokm/rooms/${roomId}/events`,
+    });
+    assert.equal(unauthenticated.statusCode, 401);
+    const nonMember = await app.inject({
+      method: 'GET', url: `/api/v1/hokm/rooms/${roomId}/events`,
+      headers: auth(outsider.token),
+    });
+    assert.equal(nonMember.statusCode, 403);
 
     const notified = new Promise<string>((resolve, reject) => {
       timeoutHandle = setTimeout(() => reject(new Error('Timed out waiting for PostgreSQL Hokm room notification.')), 5000);
