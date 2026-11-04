@@ -706,7 +706,10 @@ const cleanupExpiredEmptyRoomsBestEffort = async (): Promise<void> => {
     app.log.error({ err: error }, 'Expired waiting-room cleanup failed');
   }
 };
-app.addHook('onRequest', async () => {
+app.addHook('onRequest', async (request) => {
+  // Let the authenticated scheduled-cleanup handler own its own deletion count;
+  // otherwise this generic hook could delete the rows before the handler runs.
+  if (request.url.split('?')[0] === '/internal/cleanup-expired-empty-rooms') return;
   await cleanupExpiredEmptyRoomsBestEffort();
 });
 
