@@ -165,3 +165,14 @@ A final catalog count on the repaired isolated branch now matches the source inv
 | Explicit (non-constraint-backed) indexes | 34 | 34 |
 
 This is a count/name-level reconciliation for the previously identified drift, not a complete semantic definition comparison. Column types/defaults/nullability and all FK/check/index definitions still require the separate semantic review listed above.
+
+
+## Semantic schema review and CI evidence — 2026-11-04
+
+The repaired isolated branch was reviewed against the current source declarations for the audited objects. Column type, nullability and defaults were inspected for the two new tables and the three repaired existing-table columns; the expected foreign keys, primary keys, check constraints and expiry index were inspected in PostgreSQL catalogs. The definitions for the new tables and the added turn timestamp match the current source declarations.
+
+The review found one additional pre-existing semantic drift: Production's legacy `users_username_unique_idx` is case-sensitive and excludes empty strings, while source requires uniqueness on `LOWER(username)` for non-null usernames. On the isolated Production clone, there were zero blank usernames and zero case-folded duplicate groups. The migration now adds an additive `users_username_casefold_unique_idx` on `LOWER(username)` with the source predicate, preserving the legacy index without destructive replacement. The index was applied and verified on the isolated branch. The migration and test both remain idempotent by using `IF NOT EXISTS`.
+
+The exact PR head `107bda4c4d20bbad6448154770889684eaad886c` has the following successful GitHub Actions jobs on the prior commit immediately before this semantic-index hardening: API build/unit tests, API integration tests (including scheduled-cleanup route 403-without-trigger / 200-with-valid-trigger and deletion assertion), Flutter analyze/tests, and backgammon engine/AI/board regression. A fresh exact-head CI run is required after the latest index migration/test edits before this change is considered validated.
+
+WBS 7.3 remains Blocked: targeted semantic definitions have been reviewed and the username uniqueness drift is addressed in the additive migration, but source-wide catalog parity, application compatibility against the repaired branch, backup/restore rehearsal, rollback/recovery evidence and owner-approved Production migration remain open. WBS 7.4 remains In progress: trigger configuration points to the route, route authentication and deletion behavior pass API integration tests, and the SQL CTE passed the isolated Neon test; however, the deployed Function bundle's commit provenance and production endpoint outcome remain unverified.
