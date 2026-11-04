@@ -39,7 +39,9 @@ test('schema reconciliation migration contains every audited missing object', ()
   assert.match(migration, /users_username_casefold_unique_idx[\s\S]*?LOWER\(username\)/);
 });
 
-test('singleton seed is conflict-safe and legacy avatar counts are preserved', () => {
+test('migration fails closed on unexpected definitions and preserves seed/backfill behavior', () => {
+  assert.match(migration, /DO \$verify\$/);
+  assert.match(migration, /RAISE EXCEPTION/);
   assert.match(migration, /INSERT INTO account_customization_pricing \(id\)[\s\S]*?ON CONFLICT \(id\) DO NOTHING/);
   assert.match(migration, /UPDATE users[\s\S]*?avatar_data_url IS NOT NULL[\s\S]*?avatar_change_count = 0/);
   assert.match(migration, /VALIDATE CONSTRAINT users_token_version_nonnegative_check/);
