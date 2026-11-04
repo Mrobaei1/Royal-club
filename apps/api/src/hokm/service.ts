@@ -62,7 +62,7 @@ export class InMemoryRoomRepository {
   async compareAndSwap(roomId, expectedVersion, nextRoom) {
     const current = this.#rooms.get(roomId);
     if (!current || current.version !== expectedVersion) return false;
-    if (nextRoom.roomId !== roomId || nextRoom.version !== expectedVersion + 1) {
+    if (nextRoom.roomId !== roomId || !Number.isInteger(nextRoom.version) || nextRoom.version <= expectedVersion) {
       throw new Error("Invalid room compare-and-swap transition");
     }
     this.#rooms.set(roomId, nextRoom);
