@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' as material;
 import 'l10n/app_text.dart';
 import 'package:flutter/services.dart';
 import 'services/admin_service.dart';
@@ -308,8 +309,8 @@ class _AdminScreenState extends State<AdminScreen> {
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext), child: Text(appText(context, 'انصراف', 'Cancel'))),
-          FilledButton(
+          material.TextButton(onPressed: () => Navigator.pop(dialogContext), child: Text(appText(context, 'انصراف', 'Cancel'))),
+          material.FilledButton(
             onPressed: () {
               final value = reasonController.text.trim();
               if (value.length >= 5 && value.length <= 500) Navigator.pop(dialogContext, value);
@@ -433,8 +434,8 @@ class _AdminScreenState extends State<AdminScreen> {
             Text(appText(context, 'ورود به لیگ هرگز از کیف پول اعتبار کم نمی‌کند.', 'League entry never debits wallet credits.')),
           ])),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(dialogContext), child: Text(appText(dialogContext, 'انصراف', 'Cancel'))),
-            FilledButton(onPressed: () {
+            material.TextButton(onPressed: () => Navigator.pop(dialogContext), child: Text(appText(dialogContext, 'انصراف', 'Cancel'))),
+            material.FilledButton(onPressed: () {
               final name = nameController.text.trim();
               final days = int.tryParse(daysController.text) ?? 0;
               final minimum = int.tryParse(minParticipantsController.text);
@@ -496,8 +497,8 @@ class _AdminScreenState extends State<AdminScreen> {
           'برای لیگ دوره‌ای، برنامه همه دورها ساخته می‌شود. دور استراحت نیز ثبت خواهد شد. این کار فقط یک‌بار برای هر لیگ مجاز است.',
           'For round-robin leagues, all rounds will be generated and byes recorded. Scheduling is allowed only once per league.')),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: Text(appText(context, 'انصراف', 'Cancel'))),
-          FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: Text(appText(context, 'ایجاد برنامه', 'Generate'))),
+          material.TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: Text(appText(context, 'انصراف', 'Cancel'))),
+          material.FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: Text(appText(context, 'ایجاد برنامه', 'Generate'))),
         ],
       ),
     );
@@ -640,7 +641,7 @@ class _AdminScreenState extends State<AdminScreen> {
                       ),
                     Align(
                       alignment: AlignmentDirectional.centerStart,
-                      child: TextButton.icon(
+                      child: material.TextButton.icon(
                         onPressed: () => setDialogState(() => fixtures.add({'one': null, 'two': null, 'bye': false})),
                         icon: const Icon(Icons.add),
                         label: Text(appText(context, 'افزودن مسابقه', 'Add fixture')),
@@ -655,8 +656,8 @@ class _AdminScreenState extends State<AdminScreen> {
               ),
             ),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: Text(appText(context, 'انصراف', 'Cancel'))),
-              FilledButton(
+              material.TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: Text(appText(context, 'انصراف', 'Cancel'))),
+              material.FilledButton(
                 onPressed: () {
                   final round = int.tryParse(roundController.text);
                   final used = <String>{};
@@ -763,27 +764,27 @@ class _AdminScreenState extends State<AdminScreen> {
                             Wrap(
                               spacing: 4,
                               children: [
-                                TextButton(
+                                material.TextButton(
                                   onPressed: () => _setLeagueMatchStatus(dialogContext, match, status: 'completed', winnerId: match['playerOneId']?.toString()),
                                   child: Text(appText(context, 'برد نفر اول', 'Player 1 wins')),
                                 ),
                                 if (match['playerTwoId'] != null)
-                                  TextButton(
+                                  material.TextButton(
                                     onPressed: () => _setLeagueMatchStatus(dialogContext, match, status: 'completed', winnerId: match['playerTwoId']?.toString()),
                                     child: Text(appText(context, 'برد نفر دوم', 'Player 2 wins')),
                                   ),
-                                TextButton(
+                                material.TextButton(
                                   onPressed: () => _setLeagueMatchStatus(dialogContext, match, status: 'double_absent', incidentNote: 'Both participants absent; replacement time to be arranged if possible.'),
                                   child: Text(appText(context, 'غیبت دوطرفه', 'Both absent')),
                                 ),
-                                TextButton(
+                                material.TextButton(
                                   onPressed: () => _setLeagueMatchStatus(dialogContext, match, status: 'technical_issue', incidentNote: 'Technical interruption; replacement time to be arranged if possible.'),
                                   child: Text(appText(context, 'اختلال فنی', 'Technical issue')),
                                 ),
                               ],
                             ),
                           if (match['status'] == 'double_absent' || match['status'] == 'technical_issue')
-                            TextButton(
+                            material.TextButton(
                               onPressed: () => _rescheduleLeagueMatch(dialogContext, match),
                               child: Text(appText(context, 'تعیین زمان جایگزین', 'Set replacement time')),
                             ),
@@ -806,7 +807,7 @@ class _AdminScreenState extends State<AdminScreen> {
                             Wrap(
                               spacing: 8,
                               children: [
-                                TextButton(
+                                material.TextButton(
                                   onPressed: () async {
                                     try {
                                       await AdminService.resolveLeagueAppeal(appeal['id'].toString(), status: 'accepted');
@@ -819,7 +820,7 @@ class _AdminScreenState extends State<AdminScreen> {
                                   },
                                   child: Text(appText(context, 'پذیرش', 'Accept')),
                                 ),
-                                TextButton(
+                                material.TextButton(
                                   onPressed: () async {
                                     try {
                                       await AdminService.resolveLeagueAppeal(appeal['id'].toString(), status: 'rejected');
@@ -843,7 +844,7 @@ class _AdminScreenState extends State<AdminScreen> {
           ),
           actions: [
             if (format != 'round_robin')
-              TextButton.icon(
+              material.TextButton.icon(
                 onPressed: participants.isEmpty ? null : () {
                   Navigator.pop(dialogContext);
                   _createManualLeagueRound(league, participants, rounds);
@@ -851,7 +852,7 @@ class _AdminScreenState extends State<AdminScreen> {
                 icon: const Icon(Icons.add),
                 label: Text(appText(context, 'ساخت دور دستی', 'Create manual round')),
               ),
-            TextButton(onPressed: () => Navigator.pop(dialogContext), child: Text(appText(context, 'بستن', 'Close'))),
+            material.TextButton(onPressed: () => Navigator.pop(dialogContext), child: Text(appText(context, 'بستن', 'Close'))),
           ],
         ),
       );
@@ -906,8 +907,8 @@ class _AdminScreenState extends State<AdminScreen> {
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: Text(appText(context, 'انصراف', 'Cancel'))),
-          FilledButton(onPressed: () => Navigator.pop(context, controller.text.trim()), child: Text(appText(context, 'ذخیره', 'Save'))),
+          material.TextButton(onPressed: () => Navigator.pop(context), child: Text(appText(context, 'انصراف', 'Cancel'))),
+          material.FilledButton(onPressed: () => Navigator.pop(context, controller.text.trim()), child: Text(appText(context, 'ذخیره', 'Save'))),
         ],
       ),
     );
@@ -977,8 +978,8 @@ class _AdminScreenState extends State<AdminScreen> {
           'This sends a real SMS to the entered number and may incur a charge. Continue only if the owner confirms.',
         )),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: Text(appText(dialogContext, 'انصراف', 'Cancel'))),
-          FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: Text(appText(dialogContext, 'تأیید هزینه و ارسال', 'Confirm cost and send'))),
+          material.TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: Text(appText(dialogContext, 'انصراف', 'Cancel'))),
+          material.FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: Text(appText(dialogContext, 'تأیید هزینه و ارسال', 'Confirm cost and send'))),
         ],
       ),
     );
@@ -1005,8 +1006,8 @@ class _AdminScreenState extends State<AdminScreen> {
           title: Text(appText(context, 'فعال‌سازی مجوزهای تفویض‌شده', 'Enable delegated permissions')),
           content: Text(appText(context, 'با این کار مجوزهای ثبت‌شده می‌توانند به مسیرهای سرور متصل‌شده دسترسی بدهند. فقط در صورت بررسی مجوزها ادامه دهید.', 'Existing grants may access server routes wired to delegated permissions. Continue only after reviewing the grants.')),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context, false), child: Text(appText(context, 'انصراف', 'Cancel'))),
-            FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(appText(context, 'فعال‌سازی', 'Enable'))),
+            material.TextButton(onPressed: () => Navigator.pop(context, false), child: Text(appText(context, 'انصراف', 'Cancel'))),
+            material.FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(appText(context, 'فعال‌سازی', 'Enable'))),
           ],
         ),
       );
@@ -1054,14 +1055,14 @@ class _AdminScreenState extends State<AdminScreen> {
             onChanged: (value) { if (value != null) setDialogState(() => selected = value); },
           ),
           const SizedBox(height: 10),
-          TextFormField(
+          material.TextFormField(
             controller: reason,
             maxLength: 500,
             decoration: InputDecoration(labelText: appText(context, 'دلیل اعطای مجوز (الزامی)', 'Reason (required)')),
             validator: (value) => (value == null || value.trim().length < 5) ? appText(context, 'دلیل باید حداقل ۵ نویسه باشد.', 'Reason must be at least 5 characters.') : null,
           ),
           if (selected == 'reports.manage')
-            TextFormField(
+            material.TextFormField(
               controller: scopeIds,
               maxLength: 1200,
               decoration: InputDecoration(
@@ -1085,8 +1086,8 @@ class _AdminScreenState extends State<AdminScreen> {
           Text(appText(context, 'این مجوز فقط در محدوده گزارش‌ها اثر دارد؛ reports.manage نیز فقط برای شناسه‌های هدف ثبت‌شده معتبر است. هیچ مجوزی خودکار ایجاد نمی‌شود.', 'This grant is operational only for the report routes; reports.manage is limited to the specified target user IDs. No grants are created automatically.'), style: const TextStyle(fontSize: 12)),
         ]))),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext), child: Text(appText(context, 'انصراف', 'Cancel'))),
-          FilledButton(onPressed: () {
+          material.TextButton(onPressed: () => Navigator.pop(dialogContext), child: Text(appText(context, 'انصراف', 'Cancel'))),
+          material.FilledButton(onPressed: () {
             if (formKey.currentState?.validate() == true) {
               Navigator.pop(dialogContext, {'permission': selected, 'reason': reason.text.trim(), 'reference': reference.text.trim(), 'resourceIds': scopeIds.text.trim()});
             }
@@ -1125,8 +1126,8 @@ class _AdminScreenState extends State<AdminScreen> {
         title: Text(appText(context, 'لغو مجوز', 'Revoke permission')),
         content: Text(appText(context, 'مجوز ${grant['permission']} لغو شود؟', 'Revoke ${grant['permission']}?')),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(appText(context, 'انصراف', 'Cancel'))),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(appText(context, 'لغو مجوز', 'Revoke grant'))),
+          material.TextButton(onPressed: () => Navigator.pop(context, false), child: Text(appText(context, 'انصراف', 'Cancel'))),
+          material.FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(appText(context, 'لغو مجوز', 'Revoke grant'))),
         ],
       ),
     );
@@ -1175,8 +1176,8 @@ class _AdminScreenState extends State<AdminScreen> {
           title: Text(appText(context, 'مشخصات کاربر', 'User details')),
           content: SingleChildScrollView(child: SelectableText(lines.join('\\n'))),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(dialogContext), child: Text(appText(context, 'بستن', 'Close'))),
-            FilledButton.icon(
+            material.TextButton(onPressed: () => Navigator.pop(dialogContext), child: Text(appText(context, 'بستن', 'Close'))),
+            material.FilledButton.icon(
               onPressed: () async {
                 await Clipboard.setData(ClipboardData(text: lines.join('\\n')));
                 if (dialogContext.mounted) Navigator.pop(dialogContext);
@@ -1284,7 +1285,7 @@ class _AdminScreenState extends State<AdminScreen> {
         content: Form(
           key: formKey,
           child: Column(mainAxisSize: MainAxisSize.min, children: [
-            TextFormField(
+            material.TextFormField(
               controller: code,
               decoration: InputDecoration(
                 labelText: appText(context, 'شناسه یکتا (انگلیسی)', 'Unique code (English)'),
@@ -1294,14 +1295,14 @@ class _AdminScreenState extends State<AdminScreen> {
                   ? appText(context, 'شناسه باید ۲ تا ۴۰ نویسه انگلیسی، عدد یا زیرخط باشد.', 'Use 2–40 English letters, digits or underscores.')
                   : null,
             ),
-            TextFormField(
+            material.TextFormField(
               controller: name,
               decoration: InputDecoration(labelText: appText(context, 'نام اشتراک', 'Subscription name')),
               validator: (value) => value == null || value.trim().isEmpty || value.trim().length > 100
                   ? appText(context, 'نام معتبر وارد کنید.', 'Enter a valid name.')
                   : null,
             ),
-            TextFormField(
+            material.TextFormField(
               controller: days,
               keyboardType: TextInputType.number,
               decoration: InputDecoration(labelText: appText(context, 'مدت (روز)', 'Duration (days)')),
@@ -1309,7 +1310,7 @@ class _AdminScreenState extends State<AdminScreen> {
                   ? appText(context, 'مدت باید بین ۱ تا ۳۶۵۰ روز باشد.', 'Duration must be 1–3650 days.')
                   : null,
             ),
-            TextFormField(
+            material.TextFormField(
               controller: price,
               keyboardType: TextInputType.number,
               decoration: InputDecoration(labelText: appText(context, 'قیمت (اعتبار)', 'Price (credits)')),
@@ -1320,8 +1321,8 @@ class _AdminScreenState extends State<AdminScreen> {
           ]),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: Text(appText(context, 'انصراف', 'Cancel'))),
-          FilledButton(
+          material.TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: Text(appText(context, 'انصراف', 'Cancel'))),
+          material.FilledButton(
             onPressed: () {
               if (formKey.currentState!.validate()) Navigator.pop(dialogContext, true);
             },
@@ -1376,14 +1377,14 @@ class _AdminScreenState extends State<AdminScreen> {
         content: Form(
           key: formKey,
           child: Column(mainAxisSize: MainAxisSize.min, children: [
-            TextFormField(
+            material.TextFormField(
               controller: name,
               decoration: InputDecoration(labelText: appText(context, 'نام اشتراک', 'Subscription name')),
               validator: (value) => value == null || value.trim().isEmpty || value.trim().length > 100
                   ? appText(context, 'نام معتبر وارد کنید.', 'Enter a valid name.')
                   : null,
             ),
-            TextFormField(
+            material.TextFormField(
               controller: days,
               keyboardType: TextInputType.number,
               decoration: InputDecoration(labelText: appText(context, 'مدت (روز)', 'Duration (days)')),
@@ -1391,7 +1392,7 @@ class _AdminScreenState extends State<AdminScreen> {
                   ? appText(context, 'مدت باید بین ۱ تا ۳۶۵۰ روز باشد.', 'Duration must be 1–3650 days.')
                   : null,
             ),
-            TextFormField(
+            material.TextFormField(
               controller: price,
               keyboardType: TextInputType.number,
               decoration: InputDecoration(labelText: appText(context, 'قیمت (اعتبار)', 'Price (credits)')),
@@ -1402,8 +1403,8 @@ class _AdminScreenState extends State<AdminScreen> {
           ]),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: Text(appText(context, 'انصراف', 'Cancel'))),
-          FilledButton(
+          material.TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: Text(appText(context, 'انصراف', 'Cancel'))),
+          material.FilledButton(
             onPressed: () {
               if (formKey.currentState!.validate()) Navigator.pop(dialogContext, true);
             },
@@ -1483,7 +1484,7 @@ class _AdminScreenState extends State<AdminScreen> {
                 Row(children: [Expanded(child: TextField(controller: _smsTtl, keyboardType: TextInputType.number, decoration: InputDecoration(labelText: appText(context, 'اعتبار کد (ثانیه)', 'Code validity (seconds)')))), const SizedBox(width: 8), Expanded(child: TextField(controller: _smsCooldown, keyboardType: TextInputType.number, decoration: InputDecoration(labelText: appText(context, 'فاصله ارسال مجدد', 'Resend cooldown (seconds)'))))]),
                 Row(children: [Expanded(child: TextField(controller: _smsAttempts, keyboardType: TextInputType.number, decoration: InputDecoration(labelText: appText(context, 'حداکثر تلاش', 'Maximum attempts')))), const SizedBox(width: 8), Expanded(child: TextField(controller: _smsDailyLimit, keyboardType: TextInputType.number, decoration: InputDecoration(labelText: appText(context, 'سقف روزانه', 'Daily limit'))))]),
                 const SizedBox(height: 10),
-                FilledButton.icon(onPressed: _busy ? null : _saveSmsSettings, icon: const Icon(Icons.save_outlined), label: Text(appText(context, 'ذخیره تنظیمات غیرفعال', 'Save disabled settings'))),
+                material.FilledButton.icon(onPressed: _busy ? null : _saveSmsSettings, icon: const Icon(Icons.save_outlined), label: Text(appText(context, 'ذخیره تنظیمات غیرفعال', 'Save disabled settings'))),
                 const SizedBox(height: 8),
                 OutlinedButton.icon(onPressed: _busy || _smsMode != 'real_provider' ? null : _testSmsConnection, icon: const Icon(Icons.link), label: Text(appText(context, 'بررسی اتصال ارائه‌دهنده', 'Test provider connection'))),
                 TextField(controller: _smsTestPhone, keyboardType: TextInputType.phone, decoration: InputDecoration(labelText: appText(context, 'شماره آزمایشی ایران', 'Iranian test phone'), hintText: '09123456789', border: const OutlineInputBorder())),
@@ -1537,7 +1538,7 @@ class _AdminScreenState extends State<AdminScreen> {
                 value: _leagueEnabled,
                 onChanged: _busy ? null : (value) => setState(() => _leagueEnabled = value),
               ),
-              FilledButton.icon(
+              material.FilledButton.icon(
                 onPressed: _busy ? null : _createLeague,
                 icon: const Icon(Icons.add_circle_outline),
                 label: Text(appText(context, 'ایجاد لیگ', 'Create league')),
@@ -1724,7 +1725,7 @@ class _AdminScreenState extends State<AdminScreen> {
                         onChanged: _busy ? null : (value) => setState(() => _agentTaskRecommend = value == true),
                         title: Text(appText(context, 'ارائه پیشنهاد برای بررسی انسانی', 'Recommend for human review')),
                       ),
-                      FilledButton.icon(
+                      material.FilledButton.icon(
                         onPressed: _busy ? null : _createAgentTask,
                         icon: const Icon(Icons.add_task),
                         label: Text(appText(context, 'ثبت پیش‌نویس وظیفه', 'Save task draft')),
@@ -1814,14 +1815,14 @@ class _AdminScreenState extends State<AdminScreen> {
               const SizedBox(height: 10),
               TextField(controller: _email, keyboardType: TextInputType.emailAddress, decoration: InputDecoration(labelText: appText(context, 'ایمیل دقیق کاربر', 'Exact user email'), border: const OutlineInputBorder())),
               const SizedBox(height: 8),
-              FilledButton(onPressed: _busy ? null : _search, child: Text(appText(context, 'جستجوی کاربر', 'Search user'))),
+              material.FilledButton(onPressed: _busy ? null : _search, child: Text(appText(context, 'جستجوی کاربر', 'Search user'))),
               for (final user in _users) Card(child: Padding(padding: const EdgeInsets.all(12), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text('@${user['username'] ?? appText(context, 'کاربر', 'User')}', style: const TextStyle(fontWeight: FontWeight.bold)),
                 Text(user['email']?.toString() ?? ''),
                 TextField(controller: _amount, keyboardType: TextInputType.number, decoration: InputDecoration(labelText: appText(context, 'مقدار اعتبار', 'Credit amount'))),
                 TextField(controller: _description, decoration: InputDecoration(labelText: appText(context, 'توضیح تراکنش', 'Transaction description'))),
                 const SizedBox(height: 8),
-                FilledButton(onPressed: _busy ? null : () => _credit(user), child: Text(appText(context, 'ثبت اعتبار', 'Add credits'))),
+                material.FilledButton(onPressed: _busy ? null : () => _credit(user), child: Text(appText(context, 'ثبت اعتبار', 'Add credits'))),
                 OutlinedButton.icon(onPressed: _busy ? null : () => _grantPermission(user), icon: const Icon(Icons.admin_panel_settings_outlined), label: Text(appText(context, 'اعطای مجوز محدود', 'Grant scoped permission'))),
                 OutlinedButton(onPressed: _busy ? null : () => _notify(userId: user['id'].toString()), child: Text(appText(context, 'ارسال اعلان به این کاربر', 'Send notification to this user'))),
                 OutlinedButton.icon(onPressed: _busy ? null : () => _exportUser(user), icon: const Icon(Icons.person_search_outlined), label: Text(appText(context, 'استخراج مشخصات کاربر', 'Export user details'))),
@@ -1833,7 +1834,7 @@ class _AdminScreenState extends State<AdminScreen> {
               const SizedBox(height: 8),
               TextField(controller: _notificationBody, maxLines: 3, maxLength: 1000, decoration: InputDecoration(labelText: appText(context, 'متن اعلان', 'Notification message'), border: const OutlineInputBorder())),
               const SizedBox(height: 8),
-              FilledButton.icon(onPressed: _busy ? null : () => _notify(), icon: const Icon(Icons.campaign_outlined), label: Text(appText(context, 'ارسال اعلان به همه کاربران', 'Send notification to all users'))),
+              material.FilledButton.icon(onPressed: _busy ? null : () => _notify(), icon: const Icon(Icons.campaign_outlined), label: Text(appText(context, 'ارسال اعلان به همه کاربران', 'Send notification to all users'))),
               const SizedBox(height: 22),
               Row(children: [
                 Expanded(child: Text(appText(context, 'گزارش‌های کاربران', 'User reports'), style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold))),
@@ -1857,7 +1858,7 @@ class _AdminScreenState extends State<AdminScreen> {
                     if (report['status'] == 'open') Wrap(spacing: 8, children: [
                       OutlinedButton(onPressed: _busy ? null : () => _updateReport(report, 'reviewed'), child: Text(appText(context, 'بررسی شد', 'Reviewed'))),
                       OutlinedButton(onPressed: _busy ? null : () => _updateReport(report, 'dismissed'), child: Text(appText(context, 'رد گزارش', 'Dismiss report'))),
-                      FilledButton.tonal(onPressed: _busy ? null : () => _updateReport(report, 'actioned'), child: Text(appText(context, 'اقدام شد', 'Action taken'))),
+                      material.FilledButton.tonal(onPressed: _busy ? null : () => _updateReport(report, 'actioned'), child: Text(appText(context, 'اقدام شد', 'Action taken'))),
                     ]),
                   ]),
                 ),
@@ -1867,7 +1868,7 @@ class _AdminScreenState extends State<AdminScreen> {
               const SizedBox(height: 8),
               Align(
                 alignment: AlignmentDirectional.centerStart,
-                child: FilledButton.icon(
+                child: material.FilledButton.icon(
                   onPressed: _busy ? null : _createPlan,
                   icon: const Icon(Icons.add),
                   label: Text(appText(context, 'ایجاد اشتراک جدید', 'Create new plan')),
@@ -1912,7 +1913,7 @@ class _AdminScreenState extends State<AdminScreen> {
                         decoration: InputDecoration(labelText: appText(context, 'هزینه تغییر نام کاربری (اعتبار)', 'Username change price (credits)')),
                       ),
                       const SizedBox(height: 12),
-                      FilledButton.icon(
+                      material.FilledButton.icon(
                         onPressed: _busy ? null : _saveAccountCustomizationPricing,
                         icon: const Icon(Icons.save_outlined),
                         label: Text(appText(context, 'ذخیره قیمت‌ها', 'Save prices')),
@@ -1927,13 +1928,13 @@ class _AdminScreenState extends State<AdminScreen> {
   );
 }
 ).hasMatch(v.trim()) ? appText(context, 'شناسه باید ۲ تا ۴۰ حرف انگلیسی، عدد یا زیرخط باشد.', 'Use 2–40 English letters, numbers or underscores.') : null),
-        TextFormField(controller: name, decoration: InputDecoration(labelText: appText(context, 'نام اشتراک', 'Plan name')), validator: (v) => v == null || v.trim().isEmpty || v.trim().length > 100 ? appText(context, 'نام معتبر وارد کنید.', 'Enter a valid name.') : null),
-        TextFormField(controller: days, keyboardType: TextInputType.number, inputFormatters: [FilteringTextInputFormatter.digitsOnly], decoration: InputDecoration(labelText: appText(context, 'مدت (روز)', 'Duration (days)')), validator: (v) => int.tryParse(v ?? '') == null || int.parse(v!) < 1 || int.parse(v) > 3650 ? appText(context, 'مدت باید بین ۱ تا ۳۶۵۰ روز باشد.', 'Duration must be 1–3650 days.') : null),
-        TextFormField(controller: price, keyboardType: TextInputType.number, inputFormatters: [FilteringTextInputFormatter.digitsOnly], decoration: InputDecoration(labelText: appText(context, 'قیمت (اعتبار)', 'Price (credits)')), validator: (v) => int.tryParse(v ?? '') == null || int.parse(v!) > 1000000000 ? appText(context, 'قیمت نامعتبر است.', 'Invalid price.') : null),
+        material.TextFormField(controller: name, decoration: InputDecoration(labelText: appText(context, 'نام اشتراک', 'Plan name')), validator: (v) => v == null || v.trim().isEmpty || v.trim().length > 100 ? appText(context, 'نام معتبر وارد کنید.', 'Enter a valid name.') : null),
+        material.TextFormField(controller: days, keyboardType: TextInputType.number, inputFormatters: [FilteringTextInputFormatter.digitsOnly], decoration: InputDecoration(labelText: appText(context, 'مدت (روز)', 'Duration (days)')), validator: (v) => int.tryParse(v ?? '') == null || int.parse(v!) < 1 || int.parse(v) > 3650 ? appText(context, 'مدت باید بین ۱ تا ۳۶۵۰ روز باشد.', 'Duration must be 1–3650 days.') : null),
+        material.TextFormField(controller: price, keyboardType: TextInputType.number, inputFormatters: [FilteringTextInputFormatter.digitsOnly], decoration: InputDecoration(labelText: appText(context, 'قیمت (اعتبار)', 'Price (credits)')), validator: (v) => int.tryParse(v ?? '') == null || int.parse(v!) > 1000000000 ? appText(context, 'قیمت نامعتبر است.', 'Invalid price.') : null),
       ])),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context, false), child: Text(appText(context, 'انصراف', 'Cancel'))),
-        FilledButton(onPressed: () { if (formKey.currentState!.validate()) Navigator.pop(context, true); }, child: Text(appText(context, 'ایجاد', 'Create'))),
+        material.TextButton(onPressed: () => Navigator.pop(context, false), child: Text(appText(context, 'انصراف', 'Cancel'))),
+        material.FilledButton(onPressed: () { if (formKey.currentState!.validate()) Navigator.pop(context, true); }, child: Text(appText(context, 'ایجاد', 'Create'))),
       ],
     ));
     if (accepted != true) { code.dispose(); name.dispose(); days.dispose(); price.dispose(); return; }
@@ -1958,13 +1959,13 @@ class _AdminScreenState extends State<AdminScreen> {
     final accepted = await showDialog<bool>(context: context, builder: (context) => AlertDialog(
       title: Text(appText(context, 'ویرایش اشتراک', 'Edit subscription')),
       content: Form(key: formKey, child: Column(mainAxisSize: MainAxisSize.min, children: [
-        TextFormField(controller: name, decoration: InputDecoration(labelText: appText(context, 'نام اشتراک', 'Subscription name')), validator: (v) => v == null || v.trim().isEmpty ? appText(context, 'نام الزامی است', 'Name is required') : null),
-        TextFormField(controller: days, keyboardType: TextInputType.number, decoration: InputDecoration(labelText: appText(context, 'مدت (روز)', 'Duration (days)')), validator: (v) => int.tryParse(v ?? '') == null || int.parse(v!) < 1 ? appText(context, 'مدت نامعتبر است', 'Invalid duration') : null),
-        TextFormField(controller: price, keyboardType: TextInputType.number, decoration: InputDecoration(labelText: appText(context, 'قیمت (اعتبار)', 'Price (credits)')), validator: (v) => int.tryParse(v ?? '') == null || int.parse(v!) < 0 ? appText(context, 'قیمت نامعتبر است', 'Invalid price') : null),
+        material.TextFormField(controller: name, decoration: InputDecoration(labelText: appText(context, 'نام اشتراک', 'Subscription name')), validator: (v) => v == null || v.trim().isEmpty ? appText(context, 'نام الزامی است', 'Name is required') : null),
+        material.TextFormField(controller: days, keyboardType: TextInputType.number, decoration: InputDecoration(labelText: appText(context, 'مدت (روز)', 'Duration (days)')), validator: (v) => int.tryParse(v ?? '') == null || int.parse(v!) < 1 ? appText(context, 'مدت نامعتبر است', 'Invalid duration') : null),
+        material.TextFormField(controller: price, keyboardType: TextInputType.number, decoration: InputDecoration(labelText: appText(context, 'قیمت (اعتبار)', 'Price (credits)')), validator: (v) => int.tryParse(v ?? '') == null || int.parse(v!) < 0 ? appText(context, 'قیمت نامعتبر است', 'Invalid price') : null),
       ])),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context, false), child: Text(appText(context, 'انصراف', 'Cancel'))),
-        FilledButton(onPressed: () { if (formKey.currentState!.validate()) Navigator.pop(context, true); }, child: Text(appText(context, 'ذخیره', 'Save'))),
+        material.TextButton(onPressed: () => Navigator.pop(context, false), child: Text(appText(context, 'انصراف', 'Cancel'))),
+        material.FilledButton(onPressed: () { if (formKey.currentState!.validate()) Navigator.pop(context, true); }, child: Text(appText(context, 'ذخیره', 'Save'))),
       ],
     ));
     if (accepted != true) { name.dispose(); days.dispose(); price.dispose(); return; }
@@ -2018,7 +2019,7 @@ class _AdminScreenState extends State<AdminScreen> {
                 Row(children: [Expanded(child: TextField(controller: _smsTtl, keyboardType: TextInputType.number, decoration: InputDecoration(labelText: appText(context, 'اعتبار کد (ثانیه)', 'Code validity (seconds)')))), const SizedBox(width: 8), Expanded(child: TextField(controller: _smsCooldown, keyboardType: TextInputType.number, decoration: InputDecoration(labelText: appText(context, 'فاصله ارسال مجدد', 'Resend cooldown (seconds)'))))]),
                 Row(children: [Expanded(child: TextField(controller: _smsAttempts, keyboardType: TextInputType.number, decoration: InputDecoration(labelText: appText(context, 'حداکثر تلاش', 'Maximum attempts')))), const SizedBox(width: 8), Expanded(child: TextField(controller: _smsDailyLimit, keyboardType: TextInputType.number, decoration: InputDecoration(labelText: appText(context, 'سقف روزانه', 'Daily limit'))))]),
                 const SizedBox(height: 10),
-                FilledButton.icon(onPressed: _busy ? null : _saveSmsSettings, icon: const Icon(Icons.save_outlined), label: Text(appText(context, 'ذخیره تنظیمات غیرفعال', 'Save disabled settings'))),
+                material.FilledButton.icon(onPressed: _busy ? null : _saveSmsSettings, icon: const Icon(Icons.save_outlined), label: Text(appText(context, 'ذخیره تنظیمات غیرفعال', 'Save disabled settings'))),
                 const SizedBox(height: 8),
                 OutlinedButton.icon(onPressed: _busy || _smsMode != 'real_provider' ? null : _testSmsConnection, icon: const Icon(Icons.link), label: Text(appText(context, 'بررسی اتصال ارائه‌دهنده', 'Test provider connection'))),
                 TextField(controller: _smsTestPhone, keyboardType: TextInputType.phone, decoration: InputDecoration(labelText: appText(context, 'شماره آزمایشی ایران', 'Iranian test phone'), hintText: '09123456789', border: const OutlineInputBorder())),
@@ -2072,7 +2073,7 @@ class _AdminScreenState extends State<AdminScreen> {
                 value: _leagueEnabled,
                 onChanged: _busy ? null : (value) => setState(() => _leagueEnabled = value),
               ),
-              FilledButton.icon(
+              material.FilledButton.icon(
                 onPressed: _busy ? null : _createLeague,
                 icon: const Icon(Icons.add_circle_outline),
                 label: Text(appText(context, 'ایجاد لیگ', 'Create league')),
@@ -2259,7 +2260,7 @@ class _AdminScreenState extends State<AdminScreen> {
                         onChanged: _busy ? null : (value) => setState(() => _agentTaskRecommend = value == true),
                         title: Text(appText(context, 'ارائه پیشنهاد برای بررسی انسانی', 'Recommend for human review')),
                       ),
-                      FilledButton.icon(
+                      material.FilledButton.icon(
                         onPressed: _busy ? null : _createAgentTask,
                         icon: const Icon(Icons.add_task),
                         label: Text(appText(context, 'ثبت پیش‌نویس وظیفه', 'Save task draft')),
@@ -2349,14 +2350,14 @@ class _AdminScreenState extends State<AdminScreen> {
               const SizedBox(height: 10),
               TextField(controller: _email, keyboardType: TextInputType.emailAddress, decoration: InputDecoration(labelText: appText(context, 'ایمیل دقیق کاربر', 'Exact user email'), border: const OutlineInputBorder())),
               const SizedBox(height: 8),
-              FilledButton(onPressed: _busy ? null : _search, child: Text(appText(context, 'جستجوی کاربر', 'Search user'))),
+              material.FilledButton(onPressed: _busy ? null : _search, child: Text(appText(context, 'جستجوی کاربر', 'Search user'))),
               for (final user in _users) Card(child: Padding(padding: const EdgeInsets.all(12), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text('@${user['username'] ?? appText(context, 'کاربر', 'User')}', style: const TextStyle(fontWeight: FontWeight.bold)),
                 Text(user['email']?.toString() ?? ''),
                 TextField(controller: _amount, keyboardType: TextInputType.number, decoration: InputDecoration(labelText: appText(context, 'مقدار اعتبار', 'Credit amount'))),
                 TextField(controller: _description, decoration: InputDecoration(labelText: appText(context, 'توضیح تراکنش', 'Transaction description'))),
                 const SizedBox(height: 8),
-                FilledButton(onPressed: _busy ? null : () => _credit(user), child: Text(appText(context, 'ثبت اعتبار', 'Add credits'))),
+                material.FilledButton(onPressed: _busy ? null : () => _credit(user), child: Text(appText(context, 'ثبت اعتبار', 'Add credits'))),
                 OutlinedButton.icon(onPressed: _busy ? null : () => _grantPermission(user), icon: const Icon(Icons.admin_panel_settings_outlined), label: Text(appText(context, 'اعطای مجوز محدود', 'Grant scoped permission'))),
                 OutlinedButton(onPressed: _busy ? null : () => _notify(userId: user['id'].toString()), child: Text(appText(context, 'ارسال اعلان به این کاربر', 'Send notification to this user'))),
                 OutlinedButton.icon(onPressed: _busy ? null : () => _exportUser(user), icon: const Icon(Icons.person_search_outlined), label: Text(appText(context, 'استخراج مشخصات کاربر', 'Export user details'))),
@@ -2368,7 +2369,7 @@ class _AdminScreenState extends State<AdminScreen> {
               const SizedBox(height: 8),
               TextField(controller: _notificationBody, maxLines: 3, maxLength: 1000, decoration: InputDecoration(labelText: appText(context, 'متن اعلان', 'Notification message'), border: const OutlineInputBorder())),
               const SizedBox(height: 8),
-              FilledButton.icon(onPressed: _busy ? null : () => _notify(), icon: const Icon(Icons.campaign_outlined), label: Text(appText(context, 'ارسال اعلان به همه کاربران', 'Send notification to all users'))),
+              material.FilledButton.icon(onPressed: _busy ? null : () => _notify(), icon: const Icon(Icons.campaign_outlined), label: Text(appText(context, 'ارسال اعلان به همه کاربران', 'Send notification to all users'))),
               const SizedBox(height: 22),
               Row(children: [
                 Expanded(child: Text(appText(context, 'گزارش‌های کاربران', 'User reports'), style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold))),
@@ -2392,7 +2393,7 @@ class _AdminScreenState extends State<AdminScreen> {
                     if (report['status'] == 'open') Wrap(spacing: 8, children: [
                       OutlinedButton(onPressed: _busy ? null : () => _updateReport(report, 'reviewed'), child: Text(appText(context, 'بررسی شد', 'Reviewed'))),
                       OutlinedButton(onPressed: _busy ? null : () => _updateReport(report, 'dismissed'), child: Text(appText(context, 'رد گزارش', 'Dismiss report'))),
-                      FilledButton.tonal(onPressed: _busy ? null : () => _updateReport(report, 'actioned'), child: Text(appText(context, 'اقدام شد', 'Action taken'))),
+                      material.FilledButton.tonal(onPressed: _busy ? null : () => _updateReport(report, 'actioned'), child: Text(appText(context, 'اقدام شد', 'Action taken'))),
                     ]),
                   ]),
                 ),
@@ -2438,7 +2439,7 @@ class _AdminScreenState extends State<AdminScreen> {
                         decoration: InputDecoration(labelText: appText(context, 'هزینه تغییر نام کاربری (اعتبار)', 'Username change price (credits)')),
                       ),
                       const SizedBox(height: 12),
-                      FilledButton.icon(
+                      material.FilledButton.icon(
                         onPressed: _busy ? null : _saveAccountCustomizationPricing,
                         icon: const Icon(Icons.save_outlined),
                         label: Text(appText(context, 'ذخیره قیمت‌ها', 'Save prices')),
