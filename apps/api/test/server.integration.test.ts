@@ -1409,7 +1409,7 @@ test('subscription purchases debit the wallet atomically and record a ledger ent
     .some((transaction) => Number(transaction.amount) === -300 && Number(transaction.balanceAfter) === 200));
 
   // League configuration is owner-only; league entry defaults to free and never debits wallet credits.
-  const previousOwnerId = process.env.OWNER_USER_ID;
+  const previousLeagueOwnerId = process.env.OWNER_USER_ID;
   const leagueOwner = await register('League Owner');
   process.env.OWNER_USER_ID = String(leagueOwner.user.id);
   try {
@@ -1667,8 +1667,8 @@ test('subscription purchases debit the wallet atomically and record a ledger ent
     assert.equal(walletAfterLeagueEntry.json().balance, 200,
       'League entry must not debit wallet credits.');
   } finally {
-    if (previousOwnerId === undefined) delete process.env.OWNER_USER_ID;
-    else process.env.OWNER_USER_ID = previousOwnerId;
+    if (previousLeagueOwnerId === undefined) delete process.env.OWNER_USER_ID;
+    else process.env.OWNER_USER_ID = previousLeagueOwnerId;
   }
 });
 
