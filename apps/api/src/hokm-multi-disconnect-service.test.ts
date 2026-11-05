@@ -20,9 +20,9 @@ test("deadline worker cancels two unrecovered disconnects instead of leaving one
   now = 22000;
   const firstDeadline = await service.processDueDeadlines({ authenticated: true, userId: "scheduler", role: "system" }, room.roomId);
   assert.equal(firstDeadline.length, 1);
-  room = await service.view(player("p2"), room.roomId);
+  room = await repository.get(room.roomId);
   assert.equal(room.players[0].temporaryBot, true);
-  assert.deepEqual((await repository.get(room.roomId)).pendingXpDeductions, ["p0"]);
+  assert.deepEqual(room.pendingXpDeductions, ["p0"]);
 
   now = 22010;
   const secondDeadline = await service.processDueDeadlines({ authenticated: true, userId: "scheduler", role: "system" }, room.roomId);
