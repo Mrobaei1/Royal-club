@@ -37,7 +37,8 @@ export function applyXpChange(
   if (!Number.isFinite(delta)) throw new TypeError("XP delta must be finite");
   const currentXp = Number.isFinite(progress?.xp) ? progress.xp! : 0;
   const xp = Math.max(0, currentXp + delta);
-  const oldLevel = Number.isInteger(progress?.level) && progress!.level! > 0 ? progress!.level! : 1;
+  const candidateLevel = progress?.level;
+  const oldLevel = Number.isInteger(candidateLevel) && candidateLevel! > 0 ? candidateLevel! : 1;
   return { xp, level: Math.max(oldLevel, levelForXp(xp)) };
 }
 
