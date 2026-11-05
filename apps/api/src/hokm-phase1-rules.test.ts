@@ -338,3 +338,18 @@ test('a temporary bot that is never reclaimed incurs exactly -5 XP when the matc
   progress = penalizeMatchLeaver(progress, 'p0');
   assert.equal(progress.p0.xp, 95);
 });
+
+test('a player who remains on temporary Hard bot receives only the -5 XP penalty, not win/loss XP', () => {
+  const players = [
+    { userId: 'p0', seat: 0, temporaryBot: true },
+    { userId: 'p1', seat: 1 },
+    { userId: 'p2', seat: 2 },
+    { userId: 'p3', seat: 3 }
+  ];
+  let progress = awardCompletedMatch(players, 0, { p0: { xp: 100, level: 1 } });
+  progress = penalizeMatchLeaver(progress, 'p0');
+  assert.equal(progress.p0.xp, 95);
+  assert.equal(progress.p1.xp, 5);
+  assert.equal(progress.p2.xp, 20);
+  assert.equal(progress.p3.xp, 5);
+});
