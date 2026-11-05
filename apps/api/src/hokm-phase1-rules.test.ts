@@ -7,9 +7,10 @@ import {
 } from './hokm/engine.js';
 import { createRound, chooseTrump, playCard, roundViewForSeat } from './hokm/round.js';
 import { chooseHardBotAction } from './hokm/bot.js';
+import { awardCompletedMatch, penalizeMatchLeaver } from './hokm/progression.js';
 import {
   createRoom, joinRoom, setPlayerReady, startRoom, voteToCancelMatch,
-  processAllDisconnectedTimeout, processMultipleDisconnectTimeout, processTurnTimeout, disconnectPlayer, reconnectPlayer, recordMatchForfeit, roomViewForUser, TURN_DEADLINE_MS,
+  processAllDisconnectedTimeout, processMultipleDisconnectTimeout, processTurnTimeout, disconnectPlayer, reconnectPlayer, handleDisconnectTimeout, recordMatchForfeit, roomViewForUser, TURN_DEADLINE_MS,
   END_OF_HAND_REVEAL_MS, ALL_PLAYERS_DISCONNECTED_MS
 } from './hokm/room.js';
 
@@ -89,6 +90,7 @@ test('round deals five cards first, only hakem chooses trump, then all players r
   assert.equal(playing.currentSeat, 2);
   assert.equal(playing.trumpSuit, 'spades');
   assert.equal(playing.undealtDeck.length, 0);
+  assert.throws(() => chooseTrump(playing, 2, 'hearts'), /not waiting for trump selection/);
 });
 
 test('round rejects out-of-turn, unowned and revoke-illegal card plays without mutating prior state', () => {
@@ -310,10 +312,10 @@ test('one temporary disconnect becomes Hard bot after 20 seconds and returning p
   room = startRoom(room, 'p0', { now: 1002, rng: () => 0.5 });
   room = disconnectPlayer(room, 'p0', { now: 2000, expectedVersion: room.version });
   const deadline = room.players[0].reconnectDeadline;
-  room = (await import('./hokm/room.js')).handleDisconnectTimeout(room, 'p0', { now: deadline, expectedVersion: room.version });
+  room = handleDisconnectTimeout(room, 'p0', { now: deadline, expectedVersion: room.version });
   assert.equal(room.players[0].temporaryBot, true);
   assert.deepEqual(room.pendingXpDeductions, ['p0']);
-  room = (await import('./hokm/room.js')).reconnectPlayer(room, 'p0', { now: deadline + 100, expectedVersion: room.version });
+  room = reconnectPlayer(room, 'p0', { now: deadline + 100, expectedVersion: room.version });
   assert.equal(room.players[0].connected, true);
   assert.equal(room.players[0].temporaryBot, false);
   assert.deepEqual(room.pendingXpDeductions, []);
@@ -327,11 +329,9 @@ test('a temporary bot that is never reclaimed incurs exactly -5 XP when the matc
   room = { ...room, playerProgress: { p0: { xp: 100, level: 1 } } };
   room = disconnectPlayer(room, 'p0', { now: 2000, expectedVersion: room.version });
   const deadline = room.players[0].reconnectDeadline;
-  room = (await import('./hokm/room.js')).handleDisconnectTimeout(room, 'p0', { now: deadline, expectedVersion: room.version });
+  room = handleDisconnectTimeout(room, 'p0', { now: deadline, expectedVersion: room.version });
   room = { ...room, status: 'playing', pendingXpDeductions: ['p0'] };
-  const { awardCompletedMatch } = await import('./hokm/progression.js');
   let progress = awardCompletedMatch(room.players, 1, room.playerProgress);
-  const { penalizeMatchLeaver } = await import('./hokm/progression.js');
   progress = penalizeMatchLeaver(progress, 'p0');
   assert.equal(progress.p0.xp, 95);
 });
