@@ -97,6 +97,12 @@ export class HokmRoomService {
 
   async create(principal, { privateRoom = true, matchTarget = 7, disconnectGraceMs } = {}) {
     const userId = authenticatedUser(principal);
+    if (disconnectGraceMs !== undefined && principal.role !== "owner") {
+      throw new Error("Only the owner may change the 20-second reconnect grace period");
+    }
+    if (matchTarget !== 7 && principal.role !== "owner" && principal.role !== "manager") {
+      throw new Error("Only an authorized manager may change the match target");
+    }
     const room = createRoom({
       roomId: this.id(), hostUserId: userId, now: this.now(),
       privateRoom, matchTarget, ...(disconnectGraceMs === undefined ? {} : { disconnectGraceMs })
