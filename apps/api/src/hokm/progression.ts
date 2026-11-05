@@ -52,7 +52,7 @@ export function awardCompletedMatch(
   if (winningTeam !== 0 && winningTeam !== 1) throw new RangeError("Invalid winning team");
   const result: PlayerProgressMap = { ...current };
   for (const player of players) {
-    if (player.forfeited) continue;
+    if (player.forfeited || player.temporaryBot) continue;
     const team = player.seat % 2 === 0 ? 0 : 1;
     result[player.userId] = applyXpChange(result[player.userId], team === winningTeam ? 20 : 5);
   }
