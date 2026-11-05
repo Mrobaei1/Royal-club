@@ -252,3 +252,29 @@ A read-only comparison was run between the 301 column declarations parsed from `
 The single discrepancy is `users.username`: source declares `username TEXT` without `NOT NULL`, while both the original Production branch and the repaired isolated branch report `is_nullable = NO`. Read-only counts on both branches show 0 NULL usernames and 0 empty usernames (3 users in each branch at audit time). The database's stronger NOT NULL constraint is preserved; it was not relaxed. This needs an explicit source/schema decision before semantic parity can be called complete. Do not infer that the other semantic dimensions are complete from this pass: defaults, generated/identity properties, all FK/check definitions and full index expressions still need independent comparison.
 
 WBS 7.3 remains Blocked. The comparison closes the type/name portion for all 301 columns and isolates one nullability discrepancy; it does not close the remaining constraints/defaults/index and recovery/release gates.
+
+
+## Cross-package exact-head CI sweep — 2026-11-06
+
+The following open PR heads were rechecked against GitHub Actions. These are validation results only; they do not constitute merge or product acceptance.
+
+| PR | Exact head | Result |
+|---|---|---|
+| #133 Hokm integration | `fd3d96bb7b66da1ba2372f0309bf0e6bbe5f55a8` | API build/unit tests, Flutter analyze/tests, API integration tests, backgammon audit and Web Preview build passed; preview deploy skipped |
+| #166 schema/blocker closure | `8a28743c070836e421ec010098c2354700c96361` | All four repository validation workflows passed |
+| #167 wallet localization | `6be7d5ac622faaeb51cdbe458e53290b7be06d1e` | All four repository validation workflows passed |
+| #168 home welcome-card removal | `7897e7aa5eb22b1d0da15a1428f1246c0c0afdb0` | All four repository validation workflows passed |
+| #169 owner subscription-plan creation | `aa5e974a55392c2234936f6cfe6510c05b1e479` | All four repository validation workflows passed |
+| #170 WBS criteria/retention policy | `6a837daf4ec5b56cf4373921b8ff61573c76ebd9` | All four repository validation workflows passed |
+| #86 standalone chess | `a4653feedd39f1be4edb2341d776d37da3fcbed3` | Root validation, API validation, Web Preview, isolated chess validation and backgammon audit passed |
+| #110 Manch foundation | `89679ace53bb81adbe5dd7fc27a6f5d6d9c8aea0` | Root/API validation, Web Preview and backgammon audit passed |
+| #137 Hokm mobile draft | `44ed6ba172627b9a690353a43e20f3e3192f593d` | Root/API validation, Web Preview and backgammon audit passed |
+| #144 UNO home integration | `7d30c6a34d923df1023871aa1b5a508671b15fe1` | UNO standalone CI, root/API validation, Web Preview and backgammon audit passed |
+| #148 subscription plans draft | `7d9c959e8550dd460d1d2589934d54b24f645175` | All four repository validation workflows passed |
+| #114 owner analytics draft | `524f5d52c0360abef40971f8e913665b0ec8cfa5` | Root/API validation, Netlify/Web Preview and backgammon audit passed |
+| #104 owner protection draft | `108fad95c5499c1841df728c07c37de8f1c24a2c` | Root/API validation, Web Preview and backgammon audit passed |
+| #97 infrastructure-agent proposal | `48baea053cca531e6ba2448bf10c40099e8cdf8c` | Root/API validation, Web Preview and backgammon audit passed |
+
+Two legacy branches are duplicates of newer mainline-targeted PRs: #147 is superseded by #167 (wallet localization), #146 by #168 (home-card removal), and #148 overlaps #169 (admin plan creation). PR #145 is non-mergeable against current main and contains stale evidence text; its docs should not be merged over the newer blocker/WBS audit. These remain open and untouched pending explicit owner direction.
+
+CI gaps are still not acceptance evidence: no device fleet run, production release, live Hokm worker, owner security review, recurring backup retention, or disaster-recovery exercise is claimed here.
