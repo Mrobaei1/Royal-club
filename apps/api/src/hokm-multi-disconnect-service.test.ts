@@ -33,3 +33,24 @@ test("deadline worker cancels two unrecovered disconnects instead of leaving one
   assert.deepEqual(cancelled.matchScore, [0, 0]);
   assert.deepEqual(cancelled.pendingXpDeductions, []);
 });
+
+test("only the owner may change the fixed 20-second reconnect grace; players use the default", async () => {
+  let now = 1000;
+  let id = 0;
+  const repository = new InMemoryRoomRepository();
+  const service = new HokmRoomService({ repository, now: () => now, id: () => `phase1-policy-${++id}` });
+  await assert.rejects(
+    service.create({ authenticated: true, userId: "player" }, { disconnectGraceMs: 30000 }),
+    /Only the owner may change/
+  );
+  const normal = await service.create({ authenticated: true, userId: "player" });
+  assert.equal((await repository.get(normal.roomId)).disconnectGraceMs, 20000);
+  const owner = await service.create({ authenticated: true, userId: "gm", role: "owner" }, { disconnectGraceMs: 30000 });
+  assert.equal((await repository.get(owner.roomId)).disconnectGraceMs, 30000);
+  await assert.rejects(
+    service.create({ authenticated: true, userId: "player2" }, { matchTarget: 5 }),
+    /Only an authorized manager/
+  );
+  const manager = await service.create({ authenticated: true, userId: "manager", role: "manager" }, { matchTarget: 5 });
+  assert.equal((await repository.get(manager.roomId)).matchTarget, 5);
+});
