@@ -1,0 +1,491 @@
+import 'dart:math' as math;
+
+import 'package:flutter/material.dart';
+
+import 'manch_game_state.dart';
+import 'manch_engine.dart';
+import 'manch_board_geometry.dart';
+
+/// Fixed seat positions for the classic Iranian four-colour Manch board.
+/// These positions deliberately do not depend on Directionality (RTL/LTR).
+enum ManchSeat { red, green, yellow, blue }
+
+/// A responsive, paint-only foundation for the Iranian Manch board.
+///
+/// This widget does not implement game rules, dice, turns, persistence or
+/// networking. Those belong in the Manch engine and screen layers.
+class IranianManchBoard extends StatelessWidget {
+  const IranianManchBoard({
+    super.key,
+    this.activeSeat,
+    this.gameState,
+    this.onHomeTap,
+    this.showSampleTokens = true,
+  });
+
+  final ManchSeat? activeSeat;
+  final ManchGameState? gameState;
+  final ValueChanged<ManchSeat>? onHomeTap;
+  final bool showSampleTokens;
+
+  @override
+  Widget build(BuildContext context) {
+    return AspectRatio(
+      aspectRatio: 1,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final side = math.min(constraints.maxWidth, constraints.maxHeight);
+          return Semantics(
+            label: _semanticsLabel(context),
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTapUp: onHomeTap == null
+                  ? null
+                  : (details) {
+                      final seat = _seatFor(details.localPosition, side);
+                      if (seat != null) onHomeTap!(seat);
+                    },
+              child: CustomPaint(
+                size: Size.square(side),
+                painter: _IranianManchPainter(
+                  activeSeat: activeSeat,
+                  gameState: gameState,
+                  showSampleTokens: showSampleTokens,
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  String _semanticsLabel(BuildContext context) {
+    final state = gameState;
+    if (state == null) return 'Iranian four-colour Manch board';
+    final isPersian = Localizations.localeOf(context).languageCode.toLowerCase() == 'fa';
+    String colourName(ManchColour colour) => isPersian
+        ? switch (colour) {
+            ManchColour.red => 'قرمز',
+            ManchColour.green => 'سبز',
+            ManchColour.yellow => 'زرد',
+            ManchColour.blue => 'آبی',
+          }
+        : colour.name[0].toUpperCase() + colour.name.substring(1);
+    final players = state.players.map((player) {
+      final yard = player.tokens.where((position) => position == -1).length;
+      final track = player.tokens.where((position) => position >= 0 && position < ManchEngine.trackLength).length;
+      final home = player.tokens.where((position) => position >= ManchEngine.trackLength && position < ManchEngine.finish).length;
+      final finished = player.tokens.where((position) => position == ManchEngine.finish).length;
+      final name = colourName(player.colour);
+      return isPersian
+          ? '$name: $yard در حیاط، $track در مسیر، $home در خانه و $finished تمام‌شده'
+          : '$name: $yard in yard, $track on track, $home in home, $finished finished';
+    }).join(isPersian ? '؛ ' : '; ');
+    final active = colourName(state.players[state.activePlayerIndex].colour);
+    final dice = state.pendingDice?.toString() ?? (isPersian ? 'انداخته نشده' : 'not rolled');
+    return isPersian
+        ? 'صفحه منچ چهاررنگ. نوبت $active. $players. تاس: $dice.'
+        : 'Iranian four-colour Manch board. $active to move. $players. Dice: $dice.';
+  }
+
+  ManchSeat? _seatFor(Offset point, double side) {
+    final x = point.dx / side;
+    final y = point.dy / side;
+    if (x < .4 && y < .4) return ManchSeat.red;
+    if (x > .6 && y < .4) return ManchSeat.green;
+    if (x > .6 && y > .6) return ManchSeat.yellow;
+    if (x < .4 && y > .6) return ManchSeat.blue;
+    return null;
+  }
+}
+
+class _IranianManchPainter extends CustomPainter {
+  const _IranianManchPainter({
+    required this.activeSeat,
+    required this.gameState,
+    required this.showSampleTokens,
+  });
+
+  final ManchSeat? activeSeat;
+  final ManchGameState? gameState;
+  final bool showSampleTokens;
+
+  static const frame = Color(0xFF111B31);
+  static const gold = Color(0xFFD8B45A);
+  static const route = Color(0xFFF7F1E5);
+  static const line = Color(0xFFB7AA96);
+
+  static const Map<ManchSeat, Color> seatColors = {
+    ManchSeat.red: Color(0xFFD94747),
+    ManchSeat.green: Color(0xFF239B69),
+    ManchSeat.yellow: Color(0xFFF0C642),
+    ManchSeat.blue: Color(0xFF397BD4),
+  };
+
+  // Route coordinates are shared with tests through the public top-level
+  // ManchBoardGeometry.trackCells constant to prevent painter/engine drift.
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final side = math.min(size.width, size.height);
+    if (side <= 0) return;
+    final u = side / 15;
+    final board = Rect.fromLTWH(0, 0, side, side);
+    final outer = RRect.fromRectAndRadius(board, Radius.circular(u * .55));
+
+    canvas.drawRRect(
+      outer,
+      Paint()
+        ..shader = const LinearGradient(
+          colors: [Color(0xFF263958), frame, Color(0xFF080F1E)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ).createShader(board),
+    );
+    canvas.save();
+    canvas.clipRRect(outer);
+    canvas.drawRect(board.deflate(u * .35), Paint()..color = const Color(0xFFDED2BC));
+
+    _drawYard(canvas, u, 0, 0, ManchSeat.red);
+    _drawYard(canvas, u, 9, 0, ManchSeat.green);
+    _drawYard(canvas, u, 9, 9, ManchSeat.yellow);
+    _drawYard(canvas, u, 0, 9, ManchSeat.blue);
+
+    // Draw only the 52 actual shared-route cells; the yards remain clear.
+    for (final point in ManchBoardGeometry.trackCells) {
+      final cell = Rect.fromLTWH(point.$2 * u, point.$1 * u, u, u);
+      canvas.drawRect(cell, Paint()..color = route);
+      canvas.drawRect(
+        cell,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = math.max(.6, u * .025)
+          ..color = line,
+      );
+    }
+
+    _drawEntryCell(canvas, u, 6, 0, ManchSeat.red);
+    _drawEntryCell(canvas, u, 0, 8, ManchSeat.green);
+    _drawEntryCell(canvas, u, 8, 14, ManchSeat.yellow);
+    _drawEntryCell(canvas, u, 14, 6, ManchSeat.blue);
+
+    _drawLane(canvas, u, ManchSeat.red,
+        List.generate(5, (i) => (7, i + 1)));
+    _drawLane(canvas, u, ManchSeat.green,
+        List.generate(5, (i) => (i + 1, 7)));
+    _drawLane(canvas, u, ManchSeat.yellow,
+        List.generate(5, (i) => (7, 13 - i)));
+    _drawLane(canvas, u, ManchSeat.blue,
+        List.generate(5, (i) => (13 - i, 7)));
+
+    _drawCentre(canvas, u);
+    _drawSafeMarker(canvas, Offset(.5 * u, 6.5 * u), u * .19);
+    _drawSafeMarker(canvas, Offset(8.5 * u, .5 * u), u * .19);
+    _drawSafeMarker(canvas, Offset(14.5 * u, 8.5 * u), u * .19);
+    _drawSafeMarker(canvas, Offset(6.5 * u, 14.5 * u), u * .19);
+
+    if (gameState case final state?) {
+      _drawGameTokens(canvas, u, state);
+    } else if (showSampleTokens) {
+      for (final seat in ManchSeat.values) {
+        _drawYardTokens(canvas, u, seat, activeSeat == seat);
+      }
+    }
+    canvas.restore();
+
+    canvas.drawRRect(
+      outer,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = math.max(2, u * .12)
+        ..color = gold,
+    );
+  }
+
+  void _drawEntryCell(
+      Canvas canvas, double u, int row, int col, ManchSeat seat) {
+    final rect = Rect.fromLTWH(col * u, row * u, u, u);
+    canvas.drawRect(rect, Paint()..color = seatColors[seat]!);
+    canvas.drawRect(
+      rect,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = math.max(.7, u * .04)
+        ..color = const Color(0xFFFFE7A0),
+    );
+  }
+
+  void _drawYard(Canvas canvas, double u, int col, int row, ManchSeat seat) {
+    final rect = Rect.fromLTWH(col * u, row * u, 6 * u, 6 * u);
+    final color = seatColors[seat]!;
+    canvas.drawRect(rect, Paint()..color = color);
+    final inner = rect.deflate(u * .55);
+    final rr = RRect.fromRectAndRadius(inner, Radius.circular(u * .38));
+    canvas.drawRRect(
+      rr,
+      Paint()
+        ..shader = LinearGradient(
+          colors: [Color.lerp(color, Colors.white, .22)!, color],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ).createShader(inner),
+    );
+    canvas.drawRRect(
+      rr,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = u * .07
+        ..color = const Color(0xFFFFE7A0),
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(inner.deflate(u * .85), Radius.circular(u * .2)),
+      Paint()..color = const Color(0xFFEDE5D7),
+    );
+  }
+
+  void _drawGameTokens(Canvas canvas, double u, ManchGameState state) {
+    const yardOffsets = [
+      Offset(2, 2), Offset(4, 2), Offset(2, 4), Offset(4, 4),
+    ];
+    final tokens = <({
+      ManchSeat seat,
+      int tokenIndex,
+      int progress,
+      Offset center,
+      String cellKey,
+      bool active,
+    })>[];
+
+    for (var p = 0; p < state.players.length; p++) {
+      final player = state.players[p];
+      final seat = ManchSeat.values.byName(player.colour.name);
+      final active = p == state.activePlayerIndex;
+      final yardOrigin = switch (seat) {
+        ManchSeat.red => Offset.zero,
+        ManchSeat.green => Offset(9 * u, 0),
+        ManchSeat.yellow => Offset(9 * u, 9 * u),
+        ManchSeat.blue => Offset(0, 9 * u),
+      };
+      final lane = switch (seat) {
+        ManchSeat.red => List.generate(5, (i) => (7, i + 1)),
+        ManchSeat.green => List.generate(5, (i) => (i + 1, 7)),
+        ManchSeat.yellow => List.generate(5, (i) => (7, 13 - i)),
+        ManchSeat.blue => List.generate(5, (i) => (13 - i, 7)),
+      };
+      for (var t = 0; t < 4; t++) {
+        final progress = player.tokens[t];
+        late final Offset center;
+        late final String cellKey;
+        if (progress == -1) {
+          final offset = yardOffsets[t];
+          center = yardOrigin + Offset(offset.dx * u, offset.dy * u);
+          cellKey = 'yard:${seat.name}:$t';
+        } else if (progress < 52) {
+          final global = ManchBoardGeometry.globalTrackIndex(player.colour, progress);
+          final cell = ManchBoardGeometry.trackCells[global];
+          center = Offset((cell.$2 + .5) * u, (cell.$1 + .5) * u);
+          cellKey = 'track:$global';
+        } else if (progress < 57) {
+          final laneIndex = progress - 52;
+          final cell = lane[laneIndex];
+          center = Offset((cell.$2 + .5) * u, (cell.$1 + .5) * u);
+          cellKey = 'lane:${seat.name}:$laneIndex';
+        } else {
+          const offsets = [
+            Offset(-.22, -.22), Offset(.22, -.22),
+            Offset(-.22, .22), Offset(.22, .22),
+          ];
+          center = Offset(7.5 * u, 7.5 * u) +
+              Offset(offsets[t].dx * u, offsets[t].dy * u);
+          cellKey = 'finish:${seat.name}:$t';
+        }
+        tokens.add((
+          seat: seat,
+          tokenIndex: t,
+          progress: progress,
+          center: center,
+          cellKey: cellKey,
+          active: active,
+        ));
+      }
+    }
+
+    // Keep stacked checkers visible instead of painting every checker at
+    // exactly the same centre. Grouping by shared-track cell also handles
+    // opposing colours that legally coexist on a non-safe cell.
+    final stacks = <String, List<int>>{};
+    for (var i = 0; i < tokens.length; i++) {
+      stacks.putIfAbsent(tokens[i].cellKey, () => []).add(i);
+    }
+    for (final indices in stacks.values) {
+      final count = indices.length;
+      for (var stackIndex = 0; stackIndex < count; stackIndex++) {
+        final token = tokens[indices[stackIndex]];
+        late final Offset offset;
+        late final double radius;
+        if (count == 1) {
+          offset = Offset.zero;
+          radius = u * .34;
+        } else if (count <= 4) {
+          const positions = [
+            Offset(-.22, -.22), Offset(.22, -.22),
+            Offset(-.22, .22), Offset(.22, .22),
+          ];
+          offset = positions[stackIndex] * u;
+          radius = u * .21;
+        } else {
+          final column = stackIndex % 4;
+          final row = stackIndex ~/ 4;
+          offset = Offset((column - 1.5) * .18 * u,
+              (row - 1.5) * .18 * u);
+          radius = u * .105;
+        }
+        _drawToken(
+          canvas,
+          token.center + offset,
+          radius,
+          seatColors[token.seat]!,
+          token.active,
+        );
+      }
+    }
+  }
+
+  void _drawYardTokens(
+      Canvas canvas, double u, ManchSeat seat, bool active) {
+    final origin = switch (seat) {
+      ManchSeat.red => Offset.zero,
+      ManchSeat.green => Offset(9 * u, 0),
+      ManchSeat.yellow => Offset(9 * u, 9 * u),
+      ManchSeat.blue => Offset(0, 9 * u),
+    };
+    for (final offset in const [
+      Offset(2, 2), Offset(4, 2), Offset(2, 4), Offset(4, 4)
+    ]) {
+      _drawToken(
+        canvas,
+        origin + Offset(offset.dx * u, offset.dy * u),
+        u * .34,
+        seatColors[seat]!,
+        active,
+      );
+    }
+  }
+
+  void _drawToken(
+      Canvas canvas, Offset center, double radius, Color color, bool active) {
+    canvas.drawCircle(
+      center + Offset(0, radius * .15),
+      radius,
+      Paint()
+        ..color = Colors.black.withValues(alpha: .25)
+        ..maskFilter = MaskFilter.blur(BlurStyle.normal, radius * .18),
+    );
+    canvas.drawCircle(
+      center,
+      radius,
+      Paint()
+        ..shader = RadialGradient(
+          center: const Alignment(-.35, -.4),
+          colors: [
+            Color.lerp(color, Colors.white, .35)!,
+            color,
+            Color.lerp(color, Colors.black, .25)!,
+          ],
+        ).createShader(Rect.fromCircle(center: center, radius: radius)),
+    );
+    canvas.drawCircle(
+      center,
+      radius,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = radius * .12
+        ..color = active ? gold : const Color(0xFFEFE4CF),
+    );
+    canvas.drawCircle(
+      center - Offset(radius * .18, radius * .2),
+      radius * .12,
+      Paint()..color = Colors.white.withValues(alpha: .65),
+    );
+  }
+
+  void _drawLane(
+      Canvas canvas, double u, ManchSeat seat, List<(int, int)> cells) {
+    final color = seatColors[seat]!;
+    for (final cell in cells) {
+      final rect = Rect.fromLTWH(cell.$2 * u, cell.$1 * u, u, u);
+      canvas.drawRect(rect, Paint()..color = color.withValues(alpha: .9));
+      canvas.drawRect(
+        rect,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = math.max(.7, u * .035)
+          ..color = const Color(0xAAFFFFFF),
+      );
+    }
+  }
+
+  void _drawCentre(Canvas canvas, double u) {
+    final center = Offset(7.5 * u, 7.5 * u);
+    final corners = [
+      (ManchSeat.green, Offset(6 * u, 6 * u), Offset(9 * u, 6 * u)),
+      (ManchSeat.yellow, Offset(9 * u, 6 * u), Offset(9 * u, 9 * u)),
+      (ManchSeat.blue, Offset(9 * u, 9 * u), Offset(6 * u, 9 * u)),
+      (ManchSeat.red, Offset(6 * u, 9 * u), Offset(6 * u, 6 * u)),
+    ];
+    for (final item in corners) {
+      final path = Path()
+        ..moveTo(item.$2.dx, item.$2.dy)
+        ..lineTo(item.$3.dx, item.$3.dy)
+        ..lineTo(center.dx, center.dy)
+        ..close();
+      canvas.drawPath(path, Paint()..color = seatColors[item.$1]!);
+      canvas.drawPath(
+        path,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = math.max(.8, u * .045)
+          ..color = const Color(0xFFFFE7A0),
+      );
+    }
+    canvas.drawCircle(center, u * .12, Paint()..color = route);
+    canvas.drawCircle(
+      center,
+      u * .12,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = u * .04
+        ..color = gold,
+    );
+  }
+
+  void _drawSafeMarker(Canvas canvas, Offset center, double radius) {
+    final path = Path();
+    for (var i = 0; i < 10; i++) {
+      final angle = -math.pi / 2 + i * math.pi / 5;
+      final r = i.isEven ? radius : radius * .43;
+      final p = center + Offset(math.cos(angle) * r, math.sin(angle) * r);
+      if (i == 0) {
+        path.moveTo(p.dx, p.dy);
+      } else {
+        path.lineTo(p.dx, p.dy);
+      }
+    }
+    path.close();
+    canvas.drawPath(path, Paint()..color = gold);
+    canvas.drawPath(
+      path,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = math.max(.6, radius * .12)
+        ..color = frame,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _IranianManchPainter oldDelegate) =>
+      oldDelegate.activeSeat != activeSeat ||
+      oldDelegate.gameState != gameState ||
+      oldDelegate.showSampleTokens != showSampleTokens;
+}

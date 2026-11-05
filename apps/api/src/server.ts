@@ -20,6 +20,7 @@ import { hasRoyalPermission, isRoyalPermission } from './permissions.js';
 import { isValidNeonTriggerInvocation } from './neon-trigger-auth.js';
 import { promisify } from 'node:util';
 import { createRoyalLoggerOptions } from './logging-config.js';
+import { ensureManchSchema, registerManchRoutes } from './manch-online.js';
 
 const scrypt = promisify(scryptCallback);
 
@@ -169,6 +170,24 @@ await pool.query(`
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   );
   INSERT INTO sms_otp_settings (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
+  -- Future recorded voice messages only. No live audio/video call or TURN infrastructure.
+  -- This stores owner intent and optional object-storage credentials; it does not enable runtime delivery.
+  CREATE TABLE IF NOT EXISTS voice_message_settings (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    requested_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+    storage_mode TEXT NOT NULL DEFAULT 'disabled' CHECK (storage_mode IN ('disabled', 'database', 's3_compatible')),
+    storage_endpoint TEXT NOT NULL DEFAULT '',
+    storage_bucket TEXT NOT NULL DEFAULT '',
+    storage_region TEXT NOT NULL DEFAULT '',
+    encrypted_access_key TEXT NOT NULL DEFAULT '',
+    encrypted_secret_key TEXT NOT NULL DEFAULT '',
+    max_duration_seconds INTEGER NOT NULL DEFAULT 60 CHECK (max_duration_seconds BETWEEN 5 AND 180),
+    max_file_bytes INTEGER NOT NULL DEFAULT 5242880 CHECK (max_file_bytes BETWEEN 65536 AND 20971520),
+    updated_by BIGINT REFERENCES users(id) ON DELETE SET NULL,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+  INSERT INTO voice_message_settings (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
+
   CREATE TABLE IF NOT EXISTS sms_otp_audit_log (
     id BIGSERIAL PRIMARY KEY,
     actor_user_id BIGINT REFERENCES users(id) ON DELETE SET NULL,
@@ -239,7 +258,7 @@ await pool.query(`
     ON admin_permission_audit_log (created_at DESC);
   ALTER TABLE admin_permission_audit_log DROP CONSTRAINT IF EXISTS admin_permission_audit_log_action_check;
   ALTER TABLE admin_permission_audit_log ADD CONSTRAINT admin_permission_audit_log_action_check
-    CHECK (action IN ('grant_created', 'grant_revoked', 'grant_rejected', 'kill_switch_changed'));
+    CHECK (action IN ('grant_created', 'grant_revoked', 'grant_rejected', 'kill_switch_changed', 'voice_message_settings_updated'));
   -- Dormant Phase 4 agent control plane. Definitions are plans only; no runtime executes them.
   CREATE TABLE IF NOT EXISTS agent_task_definitions (
     id BIGSERIAL PRIMARY KEY,
@@ -578,17 +597,23 @@ await pool.query(`
   CREATE INDEX IF NOT EXISTS backgammon_match_presence_heartbeat_idx
     ON backgammon_match_presence (last_heartbeat_at, match_id);
   CREATE TABLE IF NOT EXISTS game_disconnect_policies (
-    game_type TEXT PRIMARY KEY CHECK (game_type IN ('backgammon', 'cards', 'chess')),
+    game_type TEXT PRIMARY KEY CHECK (game_type IN ('backgammon', 'cards', 'chess', 'manch')),
     enabled BOOLEAN NOT NULL DEFAULT TRUE,
     grace_seconds INTEGER NOT NULL DEFAULT 18 CHECK (grace_seconds BETWEEN 5 AND 120),
     takeover_mode TEXT NOT NULL DEFAULT 'temporary_ai'
       CHECK (takeover_mode IN ('temporary_ai', 'wait_until_game_end', 'disabled')),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   );
+  ALTER TABLE game_disconnect_policies
+    DROP CONSTRAINT IF EXISTS game_disconnect_policies_game_type_check;
+  ALTER TABLE game_disconnect_policies
+    ADD CONSTRAINT game_disconnect_policies_game_type_check
+    CHECK (game_type IN ('backgammon', 'cards', 'chess', 'manch'));
   INSERT INTO game_disconnect_policies (game_type, enabled, grace_seconds, takeover_mode)
   VALUES ('backgammon', TRUE, 18, 'temporary_ai'),
          ('cards', TRUE, 18, 'temporary_ai'),
-         ('chess', TRUE, 18, 'wait_until_game_end')
+         ('chess', TRUE, 18, 'wait_until_game_end'),
+         ('manch', TRUE, 30, 'temporary_ai')
   ON CONFLICT (game_type) DO NOTHING;
   CREATE TABLE IF NOT EXISTS game_disconnect_policy_audit (
     id BIGSERIAL PRIMARY KEY,
@@ -681,6 +706,8 @@ await pool.query(`
   );
   CREATE INDEX IF NOT EXISTS auth_token_revocations_expiry_idx ON auth_token_revocations (expires_at);
 `);
+
+await ensureManchSchema(pool);
 
 const messageBodyConstraint = await pool.query(
   'SELECT pg_get_constraintdef(oid) AS definition FROM pg_constraint WHERE conrelid = \'private_messages\'::regclass AND conname = \'private_messages_body_check\'',
@@ -934,6 +961,8 @@ const requireMatchAuth = async (request: any, reply: any) => {
     return reply.code(401).send({ error: 'Authentication required.' });
   }
 };
+
+registerManchRoutes(app, pool, requireMatchAuth);
 
 async function updateBackgammonRatings(client: PoolClient, winnerUserId: string, loserUserId: string) {
   const orderedIds = [winnerUserId, loserUserId].sort((left, right) => {
@@ -1478,7 +1507,7 @@ app.get('/api/v1/admin/game-disconnect-policies', { onRequest: [requireOwnerAuth
 app.patch<{ Params: { gameType: string }; Body: { enabled?: boolean; graceSeconds?: number; takeoverMode?: string } }>('/api/v1/admin/game-disconnect-policies/:gameType', { onRequest: [requireOwnerAuth] }, async (request, reply) => {
   const { gameType } = request.params;
   const { enabled, graceSeconds, takeoverMode } = request.body ?? {};
-  if (!['backgammon', 'cards', 'chess'].includes(gameType) ||
+  if (!['backgammon', 'cards', 'chess', 'manch'].includes(gameType) ||
       (enabled !== undefined && typeof enabled !== 'boolean') ||
       (graceSeconds !== undefined && (!Number.isInteger(graceSeconds) || graceSeconds < 5 || graceSeconds > 120)) ||
       (takeoverMode !== undefined && !['temporary_ai', 'wait_until_game_end', 'disabled'].includes(takeoverMode))) {
@@ -2615,6 +2644,110 @@ app.patch<{ Body: { enabled?: boolean; deliveryMode?: string; provider?: string;
     [claims.sub ?? null, 'settings_updated', JSON.stringify({ enabled: false, deliveryMode: mode, provider, apiKeyChanged: Boolean(body.apiKey) || body.clearApiKey === true })]);
   return { ok: true, settings: { enabled: false, deliveryMode: mode, provider, senderId, templateId,
     apiKeyConfigured: Boolean(encryptedKey), otpTtlSeconds: ttl, resendCooldownSeconds: cooldown, maxAttempts: attempts, dailyLimit } };
+});
+
+
+// Owner-only configuration for future recorded voice messages. There is deliberately
+// no upload/playback route yet: requestedEnabled records manager intent only.
+// Runtime delivery stays unavailable until the separately reviewed media pipeline ships.
+app.get('/api/v1/admin/social/voice-messages', { onRequest: [requireOwnerAuth] }, async () => {
+  const result = await pool.query(`
+    SELECT requested_enabled AS "requestedEnabled", storage_mode AS "storageMode",
+           storage_endpoint AS "storageEndpoint", storage_bucket AS "storageBucket",
+           storage_region AS "storageRegion",
+           (encrypted_access_key <> '') AS "accessKeyConfigured",
+           (encrypted_secret_key <> '') AS "secretKeyConfigured",
+           max_duration_seconds AS "maxDurationSeconds", max_file_bytes AS "maxFileBytes",
+           updated_at AS "updatedAt"
+      FROM voice_message_settings WHERE id = 1
+  `);
+  return {
+    settings: result.rows[0] ?? {
+      requestedEnabled: false, storageMode: 'disabled', storageEndpoint: '',
+      storageBucket: '', storageRegion: '', accessKeyConfigured: false,
+      secretKeyConfigured: false, maxDurationSeconds: 60, maxFileBytes: 5242880,
+    },
+    runtimeAvailable: false,
+  };
+});
+
+app.patch<{ Body: {
+  requestedEnabled?: boolean; storageMode?: string; storageEndpoint?: string;
+  storageBucket?: string; storageRegion?: string; accessKey?: string;
+  secretKey?: string; clearAccessKey?: boolean; clearSecretKey?: boolean;
+  maxDurationSeconds?: number; maxFileBytes?: number;
+} }>('/api/v1/admin/social/voice-messages', { onRequest: [requireOwnerAuth] }, async (request, reply) => {
+  const body = request.body ?? {};
+  const currentResult = await pool.query('SELECT * FROM voice_message_settings WHERE id = 1');
+  const current = currentResult.rows[0];
+  const requestedEnabled = body.requestedEnabled ?? current.requested_enabled;
+  const storageMode = body.storageMode ?? current.storage_mode;
+  const endpoint = typeof body.storageEndpoint === 'string' ? body.storageEndpoint.trim() : current.storage_endpoint;
+  const bucket = typeof body.storageBucket === 'string' ? body.storageBucket.trim() : current.storage_bucket;
+  const region = typeof body.storageRegion === 'string' ? body.storageRegion.trim() : current.storage_region;
+  const duration = body.maxDurationSeconds ?? current.max_duration_seconds;
+  const maxBytes = body.maxFileBytes ?? current.max_file_bytes;
+  if (typeof requestedEnabled !== 'boolean' ||
+      !['disabled', 'database', 's3_compatible'].includes(storageMode) ||
+      endpoint.length > 500 || bucket.length > 120 || region.length > 120 ||
+      !Number.isInteger(duration) || duration < 5 || duration > 180 ||
+      !Number.isInteger(maxBytes) || maxBytes < 65536 || maxBytes > 20971520 ||
+      (body.accessKey !== undefined && (typeof body.accessKey !== 'string' || body.accessKey.length > 2048)) ||
+      (body.secretKey !== undefined && (typeof body.secretKey !== 'string' || body.secretKey.length > 4096)) ||
+      (body.clearAccessKey !== undefined && typeof body.clearAccessKey !== 'boolean') ||
+      (body.clearSecretKey !== undefined && typeof body.clearSecretKey !== 'boolean')) {
+    return reply.code(400).send({ error: 'Invalid voice-message settings.' });
+  }
+  if (storageMode === 's3_compatible' && (!endpoint || !/^https:\/\//i.test(endpoint) || !bucket || !region)) {
+    return reply.code(400).send({ error: 'S3-compatible storage requires an HTTPS endpoint, bucket and region.' });
+  }
+  let encryptedAccessKey = body.clearAccessKey === true ? '' : current.encrypted_access_key;
+  let encryptedSecretKey = body.clearSecretKey === true ? '' : current.encrypted_secret_key;
+  const accessKey = body.accessKey?.trim();
+  const secretKey = body.secretKey;
+  if ((accessKey || secretKey) && storageMode !== 's3_compatible') {
+    return reply.code(400).send({ error: 'Storage credentials are accepted only for S3-compatible storage.' });
+  }
+  if (accessKey || secretKey) {
+    const keyText = process.env.VOICE_STORAGE_CREDENTIALS_ENCRYPTION_KEY?.trim() ?? '';
+    const key = Buffer.from(keyText, 'base64');
+    if (key.length !== 32) {
+      return reply.code(503).send({ error: 'Voice storage credentials encryption is not configured on the server.' });
+    }
+    const encrypt = (value: string) => {
+      const iv = randomBytes(12);
+      const cipher = createCipheriv('aes-256-gcm', key, iv);
+      const ciphertext = Buffer.concat([cipher.update(value, 'utf8'), cipher.final()]);
+      return [iv.toString('base64'), cipher.getAuthTag().toString('base64'), ciphertext.toString('base64')].join('.');
+    };
+    if (accessKey) encryptedAccessKey = encrypt(accessKey);
+    if (secretKey) encryptedSecretKey = encrypt(secretKey);
+  }
+  const claims = request.user as { sub?: string };
+  const saved = await pool.query(`
+    UPDATE voice_message_settings
+       SET requested_enabled = $1, storage_mode = $2, storage_endpoint = $3,
+           storage_bucket = $4, storage_region = $5, encrypted_access_key = $6,
+           encrypted_secret_key = $7, max_duration_seconds = $8, max_file_bytes = $9,
+           updated_by = $10, updated_at = NOW()
+     WHERE id = 1
+     RETURNING requested_enabled AS "requestedEnabled", storage_mode AS "storageMode",
+               storage_endpoint AS "storageEndpoint", storage_bucket AS "storageBucket",
+               storage_region AS "storageRegion",
+               (encrypted_access_key <> '') AS "accessKeyConfigured",
+               (encrypted_secret_key <> '') AS "secretKeyConfigured",
+               max_duration_seconds AS "maxDurationSeconds", max_file_bytes AS "maxFileBytes",
+               updated_at AS "updatedAt"
+  `, [requestedEnabled, storageMode, endpoint, bucket, region, encryptedAccessKey,
+       encryptedSecretKey, duration, maxBytes, claims.sub ?? null]);
+  await pool.query(
+    'INSERT INTO admin_permission_audit_log (actor_user_id, action, permission, result, reason, details) VALUES ($1, $2, $3, $4, $5, $6::jsonb)',
+    [claims.sub ?? null, 'voice_message_settings_updated', 'social.voice_messages.configure', 'success',
+     'Owner updated dormant recorded voice-message configuration',
+     JSON.stringify({ requestedEnabled, storageMode, accessKeyChanged: Boolean(accessKey) || body.clearAccessKey === true,
+       secretKeyChanged: Boolean(secretKey) || body.clearSecretKey === true, runtimeAvailable: false })],
+  );
+  return { ok: true, settings: saved.rows[0], runtimeAvailable: false };
 });
 
 

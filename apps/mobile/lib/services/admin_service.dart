@@ -5,6 +5,24 @@ import 'package:http/http.dart' as http;
 import 'api_transport.dart';
 
 class AdminService {
+  static Future<List<dynamic>> gameDisconnectPolicies() async =>
+      (await _request('GET', '/api/v1/admin/game-disconnect-policies'))['policies'] as List<dynamic>? ?? [];
+
+  static Future<Map<String, dynamic>> updateGameDisconnectPolicy(
+    String gameType, {required bool enabled, required int graceSeconds, required String takeoverMode}
+  ) async => (await _request('PATCH', '/api/v1/admin/game-disconnect-policies/$gameType', body: {
+        'enabled': enabled,
+        'graceSeconds': graceSeconds,
+        'takeoverMode': takeoverMode,
+      }))['policy'] as Map<String, dynamic>;
+
+  static Future<Map<String, dynamic>> voiceMessageSettings() async =>
+      (await _request('GET', '/api/v1/admin/social/voice-messages'))['settings'] as Map<String, dynamic>;
+
+  static Future<Map<String, dynamic>> saveVoiceMessageSettings(Map<String, dynamic> settings) async =>
+      (await _request('PATCH', '/api/v1/admin/social/voice-messages', body: settings))['settings'] as Map<String, dynamic>;
+
+
   static const FlutterSecureStorage _storage = FlutterSecureStorage();
   static const Duration _requestTimeout = Duration(seconds: 15);
 

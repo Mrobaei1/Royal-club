@@ -95,3 +95,36 @@ test('all four players see remaining hands for exactly three seconds after the f
     null,
   );
 });
+
+test('all four players see remaining hands for three seconds after a non-final hand too', () => {
+  const now = 2_000;
+  const room = completedFinalHandFixture();
+  room.matchScore = [0, 0];
+
+  const completed = applyRoomCommand(
+    room,
+    'player-3',
+    { type: 'play_card', card: { suit: 'hearts', rank: '4' } },
+    room.version,
+    now,
+  );
+
+  assert.equal(completed.status, 'round_completed');
+  assert.equal(completed.handRevealUntil, now + END_OF_HAND_REVEAL_MS);
+  assert.deepEqual(completed.revealedHands.map(hand => hand.length), [1, 1, 1, 0]);
+
+  for (let seat = 0; seat < 4; seat += 1) {
+    assert.deepEqual(
+      roomViewForUser(completed, `player-${seat}`, { now }).revealedHands,
+      completed.revealedHands,
+    );
+  }
+  assert.deepEqual(
+    roomViewForUser(completed, 'player-2', { now: now + 2_999 }).revealedHands,
+    completed.revealedHands,
+  );
+  assert.equal(
+    roomViewForUser(completed, 'player-2', { now: now + 3_000 }).revealedHands,
+    null,
+  );
+});

@@ -54,6 +54,17 @@ class _AdminScreenState extends State<AdminScreen> {
   bool _busy = false;
   bool _customizationPricingAvailable = false;
   Map<String, dynamic> _smsSettings = {};
+  Map<String, dynamic> _voiceSettings = {};
+  bool _voiceRequestedEnabled = false;
+  final _manchGraceSeconds = TextEditingController(text: '30');
+  bool _manchDisconnectEnabled = true;
+  String _manchTakeoverMode = 'temporary_ai';
+  String _voiceStorageMode = 'disabled';
+  final _voiceEndpoint = TextEditingController();
+  final _voiceBucket = TextEditingController();
+  final _voiceRegion = TextEditingController();
+  final _voiceAccessKey = TextEditingController();
+  final _voiceSecretKey = TextEditingController();
   String _smsMode = 'disabled';
   String _smsProvider = 'kavenegar';
   final _smsSender = TextEditingController();
@@ -90,6 +101,8 @@ class _AdminScreenState extends State<AdminScreen> {
     _notificationTitle.dispose();
     _notificationBody.dispose();
     _smsSender.dispose(); _smsTemplate.dispose(); _smsApiKey.dispose(); _smsTestPhone.dispose(); _smsTtl.dispose(); _smsCooldown.dispose(); _smsAttempts.dispose(); _smsDailyLimit.dispose();
+    _voiceEndpoint.dispose(); _voiceBucket.dispose(); _voiceRegion.dispose(); _voiceAccessKey.dispose(); _voiceSecretKey.dispose();
+    _manchGraceSeconds.dispose();
     super.dispose();
   }
 
@@ -100,7 +113,7 @@ class _AdminScreenState extends State<AdminScreen> {
         if (mounted) setState(() { _owner = false; _loading = false; _error = null; });
         return;
       }
-      final results = await Future.wait([AdminService.plans(), AdminService.reports(), AdminService.smsOtpSettings(), AdminService.permissionSettings(), AdminService.permissionGrants(), AdminService.permissionAudit(), AdminService.leagues()]);
+      final results = await Future.wait([AdminService.plans(), AdminService.reports(), AdminService.smsOtpSettings(), AdminService.permissionSettings(), AdminService.permissionGrants(), AdminService.permissionAudit(), AdminService.leagues(), AdminService.voiceMessageSettings()]);
       if (!mounted) return;
       final sms = results[2] as Map<String, dynamic>;
       _smsSettings = sms; _smsMode = sms['deliveryMode']?.toString() ?? 'disabled';
@@ -114,6 +127,13 @@ class _AdminScreenState extends State<AdminScreen> {
       final grants = results[4] as List<dynamic>;
       final audit = results[5] as List<dynamic>;
       final leagues = results[6] as List<dynamic>;
+      final voice = results[7] as Map<String, dynamic>;
+      _voiceSettings = voice;
+      _voiceRequestedEnabled = voice['requestedEnabled'] == true;
+      _voiceStorageMode = voice['storageMode']?.toString() ?? 'disabled';
+      _voiceEndpoint.text = voice['storageEndpoint']?.toString() ?? '';
+      _voiceBucket.text = voice['storageBucket']?.toString() ?? '';
+      _voiceRegion.text = voice['storageRegion']?.toString() ?? '';
       setState(() { _owner = true; _plans = plans; _reports = reports; _delegatedPermissionsEnabled = permissionSettings['enabled'] == true; _permissionGrants = grants; _permissionAudit = audit; _leagues = leagues; _loading = false; _error = null; });
       try {
         final customizationPricing = await AdminService.accountCustomizationPricing();
@@ -128,12 +148,97 @@ class _AdminScreenState extends State<AdminScreen> {
         if (mounted) setState(() => _customizationPricingAvailable = false);
       }
       await _loadAgentTaskProposals();
+      await _loadManchDisconnectPolicy();
     } catch (e) {
       if (mounted) setState(() { _loading = false; _error = appError(context, e); });
     }
   }
 
 
+
+  Future<void> _loadManchDisconnectPolicy() async {
+    try {
+      final policies = await AdminService.gameDisconnectPolicies();
+      final policy = policies.whereType<Map>().cast<Map>().firstWhere(
+        (item) => item['gameType'] == 'manch',
+        orElse: () => <String, dynamic>{},
+      );
+      if (!mounted || policy.isEmpty) return;
+      setState(() {
+        _manchDisconnectEnabled = policy['enabled'] == true;
+        _manchGraceSeconds.text = (policy['graceSeconds'] ?? 30).toString();
+        final mode = policy['takeoverMode']?.toString() ?? 'temporary_ai';
+        _manchTakeoverMode = ['temporary_ai', 'wait_until_game_end', 'disabled'].contains(mode)
+            ? mode : 'temporary_ai';
+      });
+    } catch (_) {
+      // The owner panel remains usable when this optional policy endpoint is unavailable.
+    }
+  }
+
+  Future<void> _saveManchDisconnectPolicy() async {
+    final grace = int.tryParse(_manchGraceSeconds.text.trim());
+    if (grace == null || grace < 5 || grace > 120) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(appText(context, 'مهلت قطع ارتباط باید بین ۵ تا ۱۲۰ ثانیه باشد.', 'Disconnect grace must be between 5 and 120 seconds.')),
+      ));
+      return;
+    }
+    setState(() => _busy = true);
+    try {
+      await AdminService.updateGameDisconnectPolicy(
+        'manch',
+        enabled: _manchDisconnectEnabled,
+        graceSeconds: grace,
+        takeoverMode: _manchTakeoverMode,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(appText(context, 'تنظیمات قطع ارتباط منچ ذخیره و ممیزی شد.', 'Manch disconnect policy saved and audited.')),
+        ));
+      }
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appError(context, error))));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _saveVoiceMessageSettings() async {
+    final duration = int.tryParse(_voiceSettings['maxDurationSeconds']?.toString() ?? '60') ?? 60;
+    final maxBytes = int.tryParse(_voiceSettings['maxFileBytes']?.toString() ?? '5242880') ?? 5242880;
+    if (duration < 5 || duration > 180 || maxBytes < 65536 || maxBytes > 20971520) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appText(context,
+        'مدت و حجم مجاز ویس معتبر نیست.', 'Voice duration or size limit is invalid.'))));
+      return;
+    }
+    setState(() => _busy = true);
+    try {
+      final saved = await AdminService.saveVoiceMessageSettings({
+        'requestedEnabled': _voiceRequestedEnabled,
+        'storageMode': _voiceStorageMode,
+        'storageEndpoint': _voiceEndpoint.text.trim(),
+        'storageBucket': _voiceBucket.text.trim(),
+        'storageRegion': _voiceRegion.text.trim(),
+        if (_voiceAccessKey.text.trim().isNotEmpty) 'accessKey': _voiceAccessKey.text.trim(),
+        if (_voiceSecretKey.text.isNotEmpty) 'secretKey': _voiceSecretKey.text,
+        'maxDurationSeconds': duration,
+        'maxFileBytes': maxBytes,
+      });
+      _voiceAccessKey.clear();
+      _voiceSecretKey.clear();
+      if (mounted) setState(() => _voiceSettings = saved);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appText(context,
+          'تنظیمات زیرساخت ویس ذخیره شد؛ ارسال و پخش هنوز غیرفعال است.',
+          'Voice infrastructure settings saved; recording and playback remain unavailable.'))));
+      }
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appError(context, error))));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
 
   Future<void> _saveAccountCustomizationPricing() async {
     final avatarPrice = int.tryParse(_avatarChangePrice.text.trim());
@@ -1348,6 +1453,114 @@ class _AdminScreenState extends State<AdminScreen> {
                 Text(appText(context, 'ورود OTP همچنان خاموش است. پیامک آزمایشی فقط پس از تأیید جداگانه ارسال می‌شود.', 'OTP login remains off. A test SMS is sent only after separate confirmation.'), style: const TextStyle(fontSize: 12)),
                 Text(appText(context, 'کلید ذخیره شده: ${_smsSettings['apiKeyConfigured'] == true ? 'بله (مخفی)' : 'خیر'}', 'Saved key: ${_smsSettings['apiKeyConfigured'] == true ? 'yes (hidden)' : 'no'}'), style: const TextStyle(fontSize: 12)),
               ]))),
+              const SizedBox(height: 22),
+              Card(child: Padding(padding: const EdgeInsets.all(14), child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(appText(context, 'پیام صوتی ضبط‌شده — زیرساخت آینده', 'Recorded voice messages — future infrastructure'),
+                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 6),
+                  Text(appText(context,
+                    'این بخش فقط تنظیمات مدیریتی را نگه می‌دارد. تماس صوتی/تصویری زنده وجود ندارد. ضبط، ارسال و پخش ویس تا پیاده‌سازی و آزمون مسیر رسانه‌ای در دسترس کاربران قرار نمی‌گیرد.',
+                    'This section stores manager configuration only. Live audio/video calls are not part of Royal Club. Voice recording, sending and playback remain unavailable until the media pipeline is implemented and tested.'),
+                    style: const TextStyle(fontSize: 12)),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(appText(context, 'درخواست فعال‌سازی آینده ویس', 'Request future voice-message enablement')),
+                    subtitle: Text(appText(context,
+                      'فقط ثبت تصمیم مدیر است؛ در حال حاضر هیچ قابلیت ویسی برای کاربران فعال نمی‌شود.',
+                      'Records manager intent only; no voice feature is currently exposed to users.')),
+                    value: _voiceRequestedEnabled,
+                    onChanged: _busy ? null : (value) => setState(() => _voiceRequestedEnabled = value),
+                  ),
+                  DropdownButtonFormField<String>(
+                    initialValue: ['disabled', 'database', 's3_compatible'].contains(_voiceStorageMode) ? _voiceStorageMode : 'disabled',
+                    decoration: InputDecoration(labelText: appText(context, 'روش ذخیره‌سازی آینده', 'Future storage mode')),
+                    items: [
+                      DropdownMenuItem(value: 'disabled', child: Text(appText(context, 'غیرفعال (فعلی)', 'Disabled (current)'))),
+                      DropdownMenuItem(value: 'database', child: Text(appText(context, 'پایگاه داده موجود؛ بدون سرویس خارجی', 'Existing database; no external service'))),
+                      DropdownMenuItem(value: 's3_compatible', child: Text(appText(context, 'فضای ذخیره‌سازی سازگار با S3 (بعداً)', 'S3-compatible storage (later)'))),
+                    ],
+                    onChanged: _busy ? null : (value) => setState(() => _voiceStorageMode = value ?? 'disabled'),
+                  ),
+                  if (_voiceStorageMode == 's3_compatible') ...[
+                    const SizedBox(height: 8),
+                    TextField(controller: _voiceEndpoint, decoration: InputDecoration(labelText: appText(context, 'نشانی HTTPS فضای ذخیره‌سازی', 'Storage HTTPS endpoint'))),
+                    const SizedBox(height: 8),
+                    TextField(controller: _voiceBucket, decoration: InputDecoration(labelText: appText(context, 'نام Bucket', 'Bucket name'))),
+                    const SizedBox(height: 8),
+                    TextField(controller: _voiceRegion, decoration: InputDecoration(labelText: appText(context, 'Region', 'Region'))),
+                    const SizedBox(height: 8),
+                    TextField(controller: _voiceAccessKey, obscureText: true, decoration: InputDecoration(labelText: appText(context, 'Access key (اختیاری)', 'Access key (optional)'), helperText: _voiceSettings['accessKeyConfigured'] == true ? appText(context, 'کلید ذخیره شده و مخفی است.', 'A key is saved and hidden.') : null)),
+                    const SizedBox(height: 8),
+                    TextField(controller: _voiceSecretKey, obscureText: true, decoration: InputDecoration(labelText: appText(context, 'Secret key (اختیاری)', 'Secret key (optional)'), helperText: _voiceSettings['secretKeyConfigured'] == true ? appText(context, 'کلید ذخیره شده و مخفی است.', 'A key is saved and hidden.') : null)),
+                  ],
+                  const SizedBox(height: 8),
+                  Text(appText(context,
+                    'حداکثر مدت پیش‌فرض ۶۰ ثانیه و حجم پیش‌فرض ۵ مگابایت است. هیچ کلیدی بدون رمزنگاری سمت سرور ذخیره نمی‌شود. تنظیمات فعال‌شده نیز تا آماده‌شدن مسیر رسانه‌ای اثری روی کاربران ندارد.',
+                    'Defaults are 60 seconds and 5 MiB. Secrets are never stored without server-side encryption. Even saved enablement has no user-facing effect until the media pipeline is ready.'),
+                    style: const TextStyle(fontSize: 12)),
+                  const SizedBox(height: 10),
+                  FilledButton.icon(
+                    onPressed: _busy ? null : _saveVoiceMessageSettings,
+                    icon: const Icon(Icons.save_outlined),
+                    label: Text(appText(context, 'ذخیره تنظیمات ویس', 'Save voice-message settings')),
+                  ),
+                  Text(appText(context,
+                    'وضعیت اجرای واقعی: ${_voiceSettings['runtimeAvailable'] == true ? 'آماده' : 'غیرفعال — فقط زیرساخت مدیریتی'}',
+                    'Runtime status: ${_voiceSettings['runtimeAvailable'] == true ? 'Ready' : 'Unavailable — admin configuration only'}'),
+                    style: const TextStyle(fontSize: 12, color: Colors.orange)),
+                ],
+              ))),
+              const SizedBox(height: 22),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(appText(context, 'تنظیمات قطع ارتباط بازی منچ', 'Manch disconnect settings'),
+                        style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 6),
+                      Text(appText(context,
+                        'پس از پایان مهلت حضور بازیکن، سرور می‌تواند موقتاً یک حرکت قانونی را با AI انجام دهد. بازگشت بازیکن کنترل انسانی را بازیابی می‌کند.',
+                        'After a player presence lease expires, the server may perform legal turns temporarily with AI. The returning player regains human control.'),
+                        style: const TextStyle(fontSize: 12)),
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: Text(appText(context, 'فعال بودن سیاست قطع ارتباط', 'Enable disconnect policy')),
+                        value: _manchDisconnectEnabled,
+                        onChanged: _busy ? null : (value) => setState(() => _manchDisconnectEnabled = value),
+                      ),
+                      TextField(
+                        controller: _manchGraceSeconds,
+                        keyboardType: TextInputType.number,
+                        decoration: InputDecoration(
+                          labelText: appText(context, 'مهلت قطع ارتباط (۵ تا ۱۲۰ ثانیه)', 'Disconnect grace (5–120 seconds)'),
+                          border: const OutlineInputBorder(),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      DropdownButtonFormField<String>(
+                        initialValue: _manchTakeoverMode,
+                        decoration: InputDecoration(labelText: appText(context, 'رفتار هنگام قطع ارتباط', 'Disconnect behavior')),
+                        items: [
+                          DropdownMenuItem(value: 'temporary_ai', child: Text(appText(context, 'کنترل موقت AI', 'Temporary AI control'))),
+                          DropdownMenuItem(value: 'wait_until_game_end', child: Text(appText(context, 'انتظار تا پایان بازی', 'Wait until game ends'))),
+                          DropdownMenuItem(value: 'disabled', child: Text(appText(context, 'غیرفعال', 'Disabled'))),
+                        ],
+                        onChanged: _busy ? null : (value) => setState(() => _manchTakeoverMode = value ?? 'temporary_ai'),
+                      ),
+                      const SizedBox(height: 10),
+                      FilledButton.icon(
+                        onPressed: _busy ? null : _saveManchDisconnectPolicy,
+                        icon: const Icon(Icons.save_outlined),
+                        label: Text(appText(context, 'ذخیره سیاست منچ', 'Save Manch policy')),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
               const SizedBox(height: 22),
               Text(appText(context, 'مدیریت لیگ‌ها', 'League management'), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
               const SizedBox(height: 6),
