@@ -218,7 +218,7 @@ export function publicGameView({
     currentSeat,
     trumpSuit,
     playedTricks,
-    scores: [scores[0], scores[1]],
+    scores: [scores[0], scores[1]] as [number, number],
   });
 }
 
