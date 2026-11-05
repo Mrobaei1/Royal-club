@@ -28,17 +28,21 @@
 - Restore tests must use an isolated branch/environment, not overwrite Production.
 - Every backup/restore operation must record the backup identifier, source commit/deployment context where available, timestamps, result and integrity checks.
 
-## 4. Decisions still required
+## 4. Owner-approved operating parameters and remaining decisions
 
-The following operational parameters have **not** been specified by the owner and must not be guessed:
+The owner has already specified the operational requirement:
+- Create a compressed backup of all user data **daily at 23:59 in the `Asia/Tehran` timezone**.
+- Email the manager/GM a **secure, time-limited download link**; do not attach the raw backup or send a permanent/public link.
+- Retain the **latest three usable recovery points** and integrity-check them.
+- Test restore in an isolated environment before sensitive changes.
 
-- Daily backup execution time and timezone.
+Still to configure or decide:
+- The exact approved manager/GM recipient email address and the secure delivery provider/credentials.
 - RPO and RTO targets.
 - Recovery priority/order for services and data domains.
 - Full disaster-recovery topology, failover procedure and exercise cadence.
-- Whether the daily backup delivery workflow includes time-limited email download links, and its approved recipients/destination.
 
-The current Neon Free plan did not permit the attempted scheduled-snapshot configuration. A provider-plan change or a separately approved backup service is therefore required before the daily requirement can be operationally satisfied. Do not change billing, add paid services, create schedules, provision secrets or send backup links without the owner's separate approval.
+The current Neon Free plan did not permit the attempted scheduled-snapshot configuration. A provider-plan change or a separately approved backup service is therefore required before the approved daily workflow can be operationally satisfied. Do not change billing, add paid services, provision secrets or send backup links without the owner's separate approval.
 
 ## 5. Acceptance evidence
 
