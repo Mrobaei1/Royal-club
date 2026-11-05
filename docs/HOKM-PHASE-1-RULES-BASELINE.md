@@ -9,7 +9,8 @@ Scope: phase 1 (game specification and rules). This document does not authorize 
 - A match has exactly four players in two fixed partnerships: seats 0 and 2 are partners; seats 1 and 3 are partners.
 - Seats advance clockwise.
 - A room is not removed because of elapsed time while it has occupants. Empty rooms may be expired/cleaned up.
-- Match target is configurable only to 3, 5, or 7 points; the current default is 7.
+- The reconnect grace period is 20 seconds by default and can be changed only by the owner/GM.
+- Match target is configurable only to 3, 5, or 7 points by an authorized manager/owner; the current default is 7.
 - Private room visibility is supported; room state and private card hands remain server-authoritative.
 
 ## 2. Cards and hand rules
