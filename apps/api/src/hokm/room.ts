@@ -1,4 +1,5 @@
 // @ts-nocheck
+import { randomInt } from "node:crypto";
 import { createRound, chooseTrump, playCard, roundViewForSeat } from "./round.js";
 import { createDeck, shuffleDeck, legalCards } from "./engine.js";
 import { awardCompletedMatch, penalizeMatchLeaver } from "./progression.js";
@@ -197,14 +198,19 @@ export function setPlayerReady(room, userId, ready) {
   return { ...room, players, version: room.version + 1 };
 }
 
-export function startRoom(room, requesterUserId, { now, rng = Math.random } = {}) {
+export function startRoom(room, requesterUserId, { now, rng = Math.random, selectHakemSeat = () => randomInt(0, 4) } = {}) {
   requireNow(now);
   if (requesterUserId !== room.hostUserId) throw new Error("Only the host may start the game");
   if (room.status !== "waiting") throw new Error("Room has already started or closed");
   if (room.players.length !== MAX_PLAYERS) throw new Error("Exactly four players are required");
   if (!room.players.every(player => player.ready)) throw new Error("All players must be ready");
+  if (typeof selectHakemSeat !== "function") throw new TypeError("selectHakemSeat must be a function");
+  const hakemSeat = selectHakemSeat();
+  if (!Number.isInteger(hakemSeat) || hakemSeat < 0 || hakemSeat >= MAX_PLAYERS) {
+    throw new RangeError("Initial hakem must be selected randomly from seats 0 through 3");
+  }
   const deck = shuffleDeck(createDeck(), rng);
-  const round = createRound({ deck, hakemSeat: 0 });
+  const round = createRound({ deck, hakemSeat });
   return { ...room, status: "playing", round, turnStartedAt: now,
     turnDeadlineAt: now + TURN_DEADLINE_MS, version: room.version + 1 };
 }
@@ -221,7 +227,11 @@ export function startNextRound(room, requesterUserId, { rng = Math.random, now =
     }
   }
   if (Number.isFinite(room.handRevealUntil) && now < room.handRevealUntil) throw new Error("The 3-second end-of-hand reveal is still active");
-  const nextHakem = (room.round.hakemSeat + 1) % 4;
+  const previousHakem = room.round.hakemSeat;
+  const winningTeam = room.round.scores[0] > room.round.scores[1] ? 0 : 1;
+  const nextHakem = winningTeam === previousHakem % 2
+    ? previousHakem
+    : (previousHakem + 2) % 4;
   const round = createRound({ deck: shuffleDeck(createDeck(), rng), hakemSeat: nextHakem });
   const next = { ...room, hostUserId: hostUnavailable && requesterUserId !== room.hostUserId ? requesterUserId : room.hostUserId,
     status: "playing", round, turnStartedAt: now,
