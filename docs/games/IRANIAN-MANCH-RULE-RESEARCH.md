@@ -39,6 +39,24 @@ The following switches are implemented and configurable in the current profile: 
 
 The release rule contract is the owner-approved baseline plus the implemented profile switches listed above. The research-only extensions `threeEntryAttemptsWhenNoTokensOnTrack` and `teamModeEnabled` are explicitly excluded from this release and must not appear as selectable settings. A separate `startingCellsSafe` switch is unnecessary: its effect is fully represented by the existing `safeTrackIndices` field. The 2-/3-player seat arrangement remains an owner playtest/acceptance item, not an engine feature silently inferred from research.
 
+## Automated rule/edge-case acceptance matrix
+
+The release contract is the owner-approved classic baseline plus the profile switches listed above. The following matrix is covered by both client and server rule-engine tests; no unsupported household option is advertised as implemented.
+
+| Rule area | Verified behaviour | Flutter/Dart test evidence | API/TypeScript test evidence |
+|---|---|---|---|
+| Seats and tokens | 2–4 players, four tokens each, unique colours and stable seat mapping | `creates two to four players...`, `two, three and four player seat allocations are stable` | `creates 2–4 player states...` |
+| Entry and extra roll | Entry faces are configurable; six bonus is independent | `requires an entry face...`, `configured entry faces can capture...` | `requires a configured entry face...`, `entry on a configured face captures...` |
+| Capture and safety | A single exposed opponent is captured; safe cells and stacked pairs are protected | `captures one opponent token...`, `all four globally configured safe cells...`, `a stacked pair is not captured...` | `captures a single opponent...`, `does not capture on a configured safe cell`, `a stacked pair is not captured...` |
+| Blockades and stacking | Landing/path blocking and friendly stacking follow profile switches | `blockades block landing...`, `blockade before home lane...`, `friendly stacking can be disabled...` | `blockade blocks opponents...`, `blockade destination behavior...`, `friendly stacking can be disabled...` |
+| Finish | Exact finish and optional overshoot are independent, winner is declared once | `requires exact count to finish...`, `non-exact finish clamps...` | `requires exact finish...`, `non-exact finish clamps...` |
+| Bonus rules | Six, capture and finish bonuses are independently configurable | `capture extra roll follows...`, `finish bonus is controlled independently...` | `capture grants another roll only...`, `finish bonus is independent...` |
+| Consecutive sixes | Base profile has no penalty; optional lose-turn penalty is tested; legacy counters remain readable | `base profile does not lose...`, `optional third consecutive six penalty...`, `preserves legacy six counters...` | `base profile preserves the third-six turn`, `optional third consecutive six penalty...`, `caps consecutive sixes...` |
+| Invalid actions and state | Invalid dice, repeated rolls, illegal passes, finished-state actions and winner invariants are rejected | `rejects invalid dice...`, `a finished game rejects...`, `rejects state snapshots...` | `rejects invalid dice...`, `finished games reject...`, `requires completed-token and winner...` |
+| Persistence and simulation | State/profile JSON round-trips; seeded complete games finish for 2/3/4 players | `saves and restores a complete in-progress game`, `deterministic simulations preserve...` | `round-trips the full versioned state...`, `seeded complete games preserve...` |
+
+Exact-head validation on 2026-11-06 passed all 33 Flutter/Dart Manch engine tests and all 26 TypeScript Manch rule-engine tests as part of the green Flutter/API suites. The complete Flutter suite reported 152 passing tests.
+
 ## Open-source reference audit (pinned snapshots)
 
 These repositories were inspected as references only; **no third-party source code has been copied into Royal Club**.
