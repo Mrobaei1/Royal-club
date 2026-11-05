@@ -16,6 +16,8 @@ Scope: phase 1 (game specification and rules). This document does not authorize 
 
 - One standard 52-card deck: four suits, thirteen ranks per suit; no jokers.
 - A new deck is shuffled server-side.
+- The first hand's hakem is selected randomly from all four seats.
+- From the second hand onward, the winning partnership controls hakem selection: if the previous hakem belongs to the winning team, they remain hakem; otherwise the player opposite the previous hakem on the winning team becomes hakem.
 - The implemented deal gives the hakem and other seats five cards each first. After the hakem chooses trump, each seat receives the remaining eight cards.
 - The hakem chooses one of the four suits as trump and leads the first trick.
 - Turns proceed clockwise.
@@ -62,7 +64,7 @@ Scope: phase 1 (game specification and rules). This document does not authorize 
 
 The phase-one acceptance suite checks:
 - 52-card deck completeness, uniqueness, shuffle determinism and input validation.
-- four-seat deal, partner mapping, clockwise order, follow-suit, trick winner and first-to-seven scoring.
+- random first hakem selection, winning-team hakem retention/rotation, four-seat deal, partner mapping, clockwise order, follow-suit, trick winner and first-to-seven scoring.
 - five-card initial deal, hakem-only trump choice and eight-card second deal.
 - player-private projections (no opponent hands or undealt deck).
 - 7-second turn, 3-second reveal and 20-second all-disconnected constants and transitions.
