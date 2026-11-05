@@ -149,15 +149,18 @@ class _HokmScreenState extends State<HokmScreen> with WidgetsBindingObserver {
     setState(() { _room = room; _error = null; });
     _handRevealTimer?.cancel();
     final revealUntil = room['handRevealUntil'];
-    if (room['revealedHands'] is List && revealUntil is num && revealUntil.toInt() > _serverNow) {
-      _handRevealTimer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
-        if (!mounted || _serverNow >= revealUntil.toInt()) {
-          timer.cancel();
-          if (mounted) setState(() {});
-        } else {
-          setState(() {});
-        }
-      });
+    if (room['revealedHands'] is List && revealUntil is num) {
+      final remainingMs = revealUntil.toInt() - _serverNow;
+      if (remainingMs > 0) {
+        _handRevealTimer = Timer(Duration(milliseconds: remainingMs), () {
+          if (!mounted) return;
+          setState(() {
+            if (_room != null) {
+              _room = {..._room!, 'revealedHands': null, 'handRevealUntil': null};
+            }
+          });
+        });
+      }
     }
     if (['completed', 'cancelled', 'expired'].contains(room['status'])) {
       _pollTimer?.cancel();
@@ -562,8 +565,8 @@ class _HokmScreenState extends State<HokmScreen> with WidgetsBindingObserver {
   Widget _handRevealContent(List<dynamic> reveal) => Column(children: [
     const Divider(),
     Text(
-      t('نمایش کارت‌های باقی‌مانده • ${_secondsLeft(_room?['handRevealUntil'])} ثانیه',
-        'Remaining cards reveal • ${_secondsLeft(_room?['handRevealUntil'])}s'),
+      t('نمایش کارت‌های باقی‌مانده',
+        'Remaining cards reveal'),
       style: const TextStyle(fontWeight: FontWeight.bold),
     ),
     ...List.generate(reveal.length, (seat) {
