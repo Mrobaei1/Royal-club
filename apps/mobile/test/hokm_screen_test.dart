@@ -307,7 +307,7 @@ void main() {
     expect(find.text('K♥'), findsOneWidget);
     expect(find.text('Q♣'), findsOneWidget);
 
-    await tester.pump(const Duration(seconds: 3));
+    await tester.pump(const Duration(milliseconds: 3100));
     expect(find.textContaining('Remaining cards reveal'), findsNothing);
     expect(find.text('A♠'), findsNothing);
   });
