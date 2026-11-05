@@ -1,6 +1,6 @@
 export type PlayerProgress = { xp: number; level: number };
 export type PlayerProgressMap = Record<string, PlayerProgress | undefined>;
-export type ProgressPlayer = { seat: number; userId: string; forfeited?: boolean };
+export type ProgressPlayer = { seat: number; userId: string; forfeited?: boolean; temporaryBot?: boolean };
 
 export function xpRequiredForNextLevel(level: number): number {
   if (!Number.isInteger(level) || level < 1) throw new RangeError("level must be a positive integer");
