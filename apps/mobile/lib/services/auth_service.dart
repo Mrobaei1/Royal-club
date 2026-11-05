@@ -121,6 +121,8 @@ class AuthService {
     return _decode(response);
   }
 
+  static Future<String?> accessToken() => _storage.read(key: 'royal_club_token');
+
   static Future<Map<String, dynamic>> me() async {
     final token = await _storage.read(key: 'royal_club_token');
     if (token == null || token.isEmpty) throw Exception('ابتدا وارد حساب شوید.');
