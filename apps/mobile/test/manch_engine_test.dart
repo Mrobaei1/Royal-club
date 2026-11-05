@@ -565,4 +565,38 @@ void main() {
       expect(() => engine.passTurn(won), throwsStateError);
     });
 
+    test('caps consecutive sixes at the configured maximum without a penalty', () {
+      final state = ManchGameState(
+        players: [
+          ManchPlayerState(colour: ManchColour.red),
+          ManchPlayerState(colour: ManchColour.green),
+        ],
+        activePlayerIndex: 0,
+        profile: const ManchRuleProfile(),
+        consecutiveSixes: 3,
+      );
+      final rolled = engine.roll(state, 6);
+      expect(rolled.consecutiveSixes, 3);
+      expect(rolled.activePlayerIndex, 0);
+      expect(rolled.pendingDice, 6);
+    });
+
+    test('rejects impossible turn counters and a finished state with pending dice', () {
+      final base = engine.newGame(playerCount: 2);
+      expect(() => base.copyWith(consecutiveSixes: 4), throwsArgumentError);
+      expect(() => ManchGameState(
+        players: [
+          ManchPlayerState(colour: ManchColour.red, tokens: [57, 57, 57, 57]),
+          ManchPlayerState(colour: ManchColour.green),
+        ],
+        activePlayerIndex: 0,
+        profile: const ManchRuleProfile(),
+        winnerIndex: 0,
+        pendingDice: 6,
+        consecutiveSixes: 1,
+      ), throwsArgumentError);
+    });
+  });
+}
+
 }

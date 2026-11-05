@@ -330,5 +330,149 @@ test('seeded complete games preserve invariants for every supported player count
       );
     }
   }
+test('caps consecutive sixes and rejects impossible winner/pending-dice states', () => {
+  const base = createManchGame(['red', 'green']);
+  const rolled = rollManchDice({ ...base, consecutiveSixes: 3 }, 6);
+  assert.ok('state' in rolled);
+  if ('state' in rolled) {
+    assert.equal(rolled.state.consecutiveSixes, 3);
+    assert.equal(rolled.state.activePlayerIndex, 0);
+    assert.equal(rolled.state.pendingDice, 6);
+  }
+  assert.equal(isValidManchState({ ...base, consecutiveSixes: 4 }), false);
+  const finishedWithPendingDice: ManchGameState = {
+    ...base,
+    players: [
+      { colour: 'red', tokens: [57, 57, 57, 57] },
+      base.players[1],
+    ],
+    winnerIndex: 0,
+    pendingDice: 6,
+    consecutiveSixes: 1,
+  };
+  assert.equal(isValidManchState(finishedWithPendingDice), false);
+});
+
+test('rejects duplicate profile faces and duplicate safe cells', () => {
+  const base = createManchGame(['red', 'green']);
+  assert.equal(isValidManchState({
+    ...base, profile: { ...base.profile, entryFaces: [6, 6] },
+  }), false);
+  assert.equal(isValidManchState({
+    ...base, profile: { ...base.profile, safeTrackIndices: [0, 0] },
+  }), false);
+});
+
+test('base profile preserves the third-six turn', () => {
+  const base = createManchGame(['red', 'green']);
+  const rolled = rollManchDice({ ...base, consecutiveSixes: 2 }, 6);
+  assert.ok('state' in rolled);
+  if ('state' in rolled) {
+    assert.equal(rolled.state.activePlayerIndex, 0);
+    assert.equal(rolled.state.consecutiveSixes, 3);
+    assert.equal(rolled.state.pendingDice, 6);
+  }
+});
+
+test('entry on a configured face captures one exposed token on an unsafe entry cell', () => {
+  const profile = { ...defaultManchRuleProfile(), safeTrackIndices: [13, 26, 39] };
+  const state = withTokens([-1, -1, -1, -1], [39, -1, -1, -1], profile);
+  const rolled = rollManchDice(state, 6);
+  assert.ok('state' in rolled);
+  if (!('state' in rolled)) return;
+  const move = legalManchMoves(rolled.state)[0];
+  assert.equal(move.capturedPlayerIndex, 1);
+  assert.equal(move.capturedTokenIndex, 0);
+  const applied = applyManchMove(rolled.state, move.tokenIndex);
+  assert.ok('state' in applied);
+  if ('state' in applied) {
+    assert.equal(applied.state.players[1].tokens[0], -1);
+    assert.equal(applied.state.players[0].tokens[0], 0);
+  }
+});
+
+test('finish bonus is independent from six bonus', () => {
+  const profile = { ...defaultManchRuleProfile(), extraRollOnSix: false, extraRollOnFinish: true };
+  const state = withTokens([56, 54, 57, 57], [-1, -1, -1, -1], profile);
+  const rolled = rollManchDice(state, 1);
+  assert.ok('state' in rolled);
+  if (!('state' in rolled)) return;
+  const applied = applyManchMove(rolled.state, 0);
+  assert.ok('state' in applied);
+  if ('state' in applied) {
+    assert.equal(applied.state.players[0].tokens[0], 57);
+    assert.equal(applied.state.activePlayerIndex, 0);
+    assert.equal(applied.state.pendingDice, null);
+  }
+});
+
+test('rejects invalid dice, repeated rolls, and passing while a legal move exists', () => {
+  const base = createManchGame(['red', 'green']);
+  assert.ok('error' in rollManchDice(base, 0));
+  const rolled = rollManchDice(base, 6);
+  assert.ok('state' in rolled);
+  if (!('state' in rolled)) return;
+  assert.ok('error' in rollManchDice(rolled.state, 2));
+  assert.ok('error' in passManchTurn(rolled.state));
+});
+
+test('finished games reject every subsequent turn action', () => {
+  const base = createManchGame(['red', 'green']);
+  const finished: ManchGameState = {
+    ...base,
+    players: [
+      { colour: 'red', tokens: [57, 57, 57, 57] },
+      base.players[1],
+    ],
+    winnerIndex: 0,
+  };
+  assert.deepEqual(legalManchMoves(finished), []);
+  assert.ok('error' in rollManchDice(finished, 1));
+  assert.ok('error' in passManchTurn(finished));
+  assert.ok('error' in applyManchMove(finished, 0));
+});
+
+test('seeded complete games preserve invariants for every player count and fixed seed', () => {
+  const seats = {
+    2: ['red', 'yellow'],
+    3: ['red', 'green', 'yellow'],
+    4: ['red', 'green', 'yellow', 'blue'],
+  } as const;
+  for (const playerCount of [2, 3, 4] as const) {
+    for (const seed of [17, 73, 211, 997, 2027]) {
+      let state = createManchGame([...seats[playerCount]]);
+      let randomState = (seed * 104729 + playerCount * 8191) >>> 0;
+      let actions = 0;
+      while (state.winnerIndex === null && actions < 30000) {
+        randomState = (Math.imul(randomState, 1664525) + 1013904223) >>> 0;
+        const rolled = rollManchDice(state, (randomState % 6) + 1);
+        assert.ok('state' in rolled);
+        if (!('state' in rolled)) break;
+        state = rolled.state;
+        const moves = legalManchMoves(state);
+        if (moves.length === 0) {
+          const passed = passManchTurn(state);
+          assert.ok('state' in passed);
+          if (!('state' in passed)) break;
+          state = passed.state;
+        } else {
+          const move = moves[(randomState >>> 8) % moves.length];
+          const applied = applyManchMove(state, move.tokenIndex);
+          assert.ok('state' in applied);
+          if (!('state' in applied)) break;
+          state = applied.state;
+        }
+        actions++;
+        assert.equal(isValidManchState(state), true,
+          `Invalid state for ${playerCount} players, seed ${seed}, action ${actions}`);
+      }
+      assert.notEqual(state.winnerIndex, null,
+        `Game did not finish for ${playerCount} players, seed ${seed}`);
+    }
+  }
+});
+
+});
+
 });
 

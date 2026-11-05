@@ -52,7 +52,11 @@ class ManchEngine {
       throw StateError('Use or pass the pending dice first.');
     }
     if (dice < 1 || dice > 6) throw ArgumentError.value(dice, 'dice');
-    final sixes = dice == 6 ? state.consecutiveSixes + 1 : 0;
+    final sixes = dice == 6
+        ? (state.consecutiveSixes < state.profile.maxConsecutiveSixes
+            ? state.consecutiveSixes + 1
+            : state.profile.maxConsecutiveSixes)
+        : 0;
     if (dice == 6 && sixes >= state.profile.maxConsecutiveSixes &&
         state.profile.threeSixPenalty == ThreeSixPenalty.loseTurn) {
       return _advance(state.copyWith(consecutiveSixes: 0));

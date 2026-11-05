@@ -52,7 +52,9 @@ class ManchGameState {
     if (players.map((player) => player.colour).toSet().length != players.length) {
       throw ArgumentError('Each player must have a unique colour.');
     }
-    if (consecutiveSixes < 0 || turnNumber < 1) {
+    if (consecutiveSixes < 0 ||
+        consecutiveSixes > this.profile.maxConsecutiveSixes ||
+        turnNumber < 1) {
       throw ArgumentError('Invalid turn counters in Manch state.');
     }
     if (activePlayerIndex < 0 || activePlayerIndex >= players.length) {
@@ -64,6 +66,9 @@ class ManchGameState {
     if (winnerIndex != null &&
         (winnerIndex! < 0 || winnerIndex! >= players.length)) {
       throw ArgumentError('Invalid winner index.');
+    }
+    if (winnerIndex != null && pendingDice != null) {
+      throw ArgumentError('A finished game cannot retain pending dice.');
     }
     if (winnerIndex != null &&
         !players[winnerIndex!].tokens.every((position) => position == 57)) {

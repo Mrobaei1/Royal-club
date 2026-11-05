@@ -118,8 +118,10 @@ export function isValidManchState(state: ManchGameState): boolean {
 
   const p = state.profile;
   if (!p || !Array.isArray(p.entryFaces) || p.entryFaces.length === 0 ||
+      new Set(p.entryFaces).size !== p.entryFaces.length ||
       !p.entryFaces.every((face) => Number.isInteger(face) && face >= 1 && face <= 6) ||
       !Array.isArray(p.safeTrackIndices) ||
+      new Set(p.safeTrackIndices).size !== p.safeTrackIndices.length ||
       !p.safeTrackIndices.every((cell) => Number.isInteger(cell) && cell >= 0 && cell < 52) ||
       !Number.isInteger(p.maxConsecutiveSixes) || p.maxConsecutiveSixes < 2 ||
       !['none', 'loseTurn'].includes(p.threeSixPenalty) ||
@@ -130,6 +132,8 @@ export function isValidManchState(state: ManchGameState): boolean {
       typeof p.blockadeBlocksOpponents !== 'boolean' ||
       typeof p.friendlyStackingEnabled !== 'boolean' ||
       typeof p.exactFinishRequired !== 'boolean') return false;
+  if (state.consecutiveSixes > p.maxConsecutiveSixes) return false;
+  if (state.winnerIndex !== null && state.pendingDice !== null) return false;
   if (state.pendingDice === 6 && state.consecutiveSixes < 1) return false;
   if (state.pendingDice !== null && state.pendingDice !== 6 && state.consecutiveSixes !== 0) return false;
   return true;
@@ -140,7 +144,9 @@ export function rollManchDice(state: ManchGameState, dice: number):
   if (!isValidManchState(state) || state.winnerIndex !== null) return { error: 'Invalid or finished game.' };
   if (state.pendingDice !== null) return { error: 'Resolve the pending dice first.' };
   if (!Number.isInteger(dice) || dice < 1 || dice > 6) return { error: 'Invalid dice value.' };
-  const sixes = dice === 6 ? state.consecutiveSixes + 1 : 0;
+  const sixes = dice === 6
+    ? Math.min(state.consecutiveSixes + 1, state.profile.maxConsecutiveSixes)
+    : 0;
   if (dice === 6 && sixes >= state.profile.maxConsecutiveSixes &&
       state.profile.threeSixPenalty === 'loseTurn') {
     return { state: advance({ ...state, consecutiveSixes: 0 }) };

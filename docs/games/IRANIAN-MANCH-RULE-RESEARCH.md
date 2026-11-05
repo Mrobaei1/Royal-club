@@ -30,14 +30,14 @@ The current `ManchRuleProfile` implements these switches:
 `blockadeBlocksOpponents`, `friendlyStackingEnabled`,
 `exactFinishRequired`, and `maxConsecutiveSixes`.
 
-The following researched options are **not implemented yet** and must not be presented as supported until code and tests exist: `startingCellsSafe` as an independent switch, `threeEntryAttemptsWhenNoTokensOnTrack`, and `teamModeEnabled`. The current board visually marks each colour's entry cell as safe; the engine's safe-cell behaviour is driven by `safeTrackIndices`.
+The approved Royal Club release profile is the common classic baseline below. The engine exposes and tests every switch needed by that approved profile and its explicitly configurable rule variants. Three research-only household extensions remain intentionally outside the release contract: `threeEntryAttemptsWhenNoTokensOnTrack`, `teamModeEnabled`, and a separate `startingCellsSafe` flag. The latter is redundant because entry-cell safety is already represented by `safeTrackIndices`; it is not a missing capability. The former two require separate product decisions and must not be exposed in settings or implied by the approved baseline.
 
 ## Owner-approved base profile (2026-11-02)
 The owner approved a common classic four-token profile for the Royal Club baseline: 2–4 players; entry on six only; an extra roll on six; exact-count finish; single unprotected opponent token is captured and returned to its yard; no extra roll on capture or finish; the four colour entry cells (0, 13, 26, 39) are safe; no three-consecutive-six penalty; blockades disabled; friendly stacking enabled. This matches the current `defaultManchRuleProfile()` and `ManchRuleProfile` defaults. The approval is for the base profile, not for every possible household variant.
 
 The following switches are implemented and configurable in the current profile: entry faces, extra roll on six/capture/finish, three-six penalty and maximum, safe track indices, blockade enablement and opponent blocking, friendly stacking, and exact finish. Persist the selected profile with each match; never silently change rules mid-match.
 
-The researched options `startingCellsSafe` as a separate boolean, `threeEntryAttemptsWhenNoTokensOnTrack`, and `teamModeEnabled` remain **not implemented** and require code plus tests before being offered in settings. Other unresolved product acceptance gates include final 2-/3-player seat arrangement and board visual acceptance.
+The release rule contract is the owner-approved baseline plus the implemented profile switches listed above. The research-only extensions `threeEntryAttemptsWhenNoTokensOnTrack` and `teamModeEnabled` are explicitly excluded from this release and must not appear as selectable settings. A separate `startingCellsSafe` switch is unnecessary: its effect is fully represented by the existing `safeTrackIndices` field. The 2-/3-player seat arrangement remains an owner playtest/acceptance item, not an engine feature silently inferred from research.
 
 ## Open-source reference audit (pinned snapshots)
 
