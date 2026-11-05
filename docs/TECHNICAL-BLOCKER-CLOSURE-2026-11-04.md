@@ -278,3 +278,14 @@ The following open PR heads were rechecked against GitHub Actions. These are val
 Two legacy branches are duplicates of newer mainline-targeted PRs: #147 is superseded by #167 (wallet localization), #146 by #168 (home-card removal), and #148 overlaps #169 (admin plan creation). PR #145 is non-mergeable against current main and contains stale evidence text; its docs should not be merged over the newer blocker/WBS audit. These remain open and untouched pending explicit owner direction.
 
 CI gaps are still not acceptance evidence: no device fleet run, production release, live Hokm worker, owner security review, recurring backup retention, or disaster-recovery exercise is claimed here.
+
+## Cross-package regression work — 2026-11-06
+
+Additional isolated feature-branch work after the original blocker audit:
+- PR #133 Hokm production integration: fixed the test fixture to reflect the actual first-to-seven-tricks rule (a 4–3 score is not a completed hand). The current PR head `fd3d96bb7b66da1ba2372f0309bf0e6bbe5f55a8` passed all four required workflows: API build/tests, API integration tests, Flutter analyze/tests, and Web Preview; Backgammon engine audit also passed.
+- PR #148 owner-managed subscription plans: added API integration coverage for unauthenticated creation (401), non-owner creation (403), duplicate codes (409), malformed/fractional duration and unsafe numeric price (400). Exact code head `658bcfc5e30466efa0d7c1c5283c75353715a8fc` passed all four workflows, including API integration and Flutter validation.
+- PR #146 home welcome-card removal: added an explicit English-locale widget test. Exact code head `ef6852ce3945ed8eca6c746ba216a605916a2f43` passed all four workflows.
+- PR #147 monthly subscription localization: exact code head `a365e2e8ac4f058fcb3f1ab3f2b4cb5edab6de73` passed all four workflows.
+- PR #110 Iranian Manch: fixed a malformed test-group closure discovered by Flutter analyzer. The corrected test file has balanced delimiters and latest CI is running; no pass is claimed until all workflows complete.
+
+These are feature-branch changes only. No PR was merged, no production deployment or migration was performed, no APK was built, and no WBS score is awarded solely for CI success. PR #137 remains a separate older Hokm mobile draft and requires reconciliation with PR #133 before any integration. Chess PR #86 remains standalone by product decision.
