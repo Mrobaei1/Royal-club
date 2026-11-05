@@ -88,8 +88,8 @@ export function applyBackgammonMove(
       ? point <= 5 || count <= 0
       : point >= 18 || count >= 0);
     const overshootClear = hostTurn
-      ? !board.some((count, point) => point > from && point <= 5 && count > 0)
-      : !board.some((count, point) => point < from && point >= 18 && count < 0);
+      ? !board.some((count, point) => point < from && point >= 0 && count > 0)
+      : !board.some((count, point) => point > from && point <= 23 && count < 0);
     const distanceToOff = hostTurn ? from + 1 : 24 - from;
     if (!inHome || !allHome || die < distanceToOff ||
         (die > distanceToOff && !overshootClear)) {

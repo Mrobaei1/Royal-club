@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   compareNames,
+  extractExplicitIndexNames,
   extractDeclaredColumnNames,
   extractDeclaredIndexNames,
   extractDeclaredTableNames,
@@ -58,4 +59,13 @@ test('compareNames returns no differences for matching names', () => {
     missingFromDatabase: [],
     extraInDatabase: [],
   });
+});
+
+test('extractExplicitIndexNames ignores indexes backing primary and unique constraints', () => {
+  assert.deepEqual(extractExplicitIndexNames([
+    { indexname: 'users_pkey', constraint_backed: true },
+    { indexname: 'wallet_transactions_user_idx', constraint_backed: false },
+    { indexname: 'leagues_code_key', constraint_backed: true },
+    { indexname: 'wallet_transactions_user_idx', constraint_backed: false },
+  ]), ['wallet_transactions_user_idx']);
 });

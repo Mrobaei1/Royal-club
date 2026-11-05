@@ -147,7 +147,9 @@ class BackgammonEngine {
             }
           }
         } else {
-          for (var i = from + 1; i <= 5; i++) {
+          // Player -1 moves toward point -1. Only check points closer
+          // to that exit (lower indices), not the farther points.
+          for (var i = 0; i < from; i++) {
             if (board[i] < 0) {
               hasFartherChecker = true;
               break;

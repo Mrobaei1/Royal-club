@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
-import 'services/auth_service.dart';
+import 'services/api_transport.dart';
 
 class ContactService {
   static const FlutterSecureStorage _storage = FlutterSecureStorage();
@@ -15,10 +15,9 @@ class ContactService {
   }
 
   static Future<Map<String, dynamic>> _request(String method, String path, {Map<String, dynamic>? body}) async {
-    AuthService.ensureConfigured();
-    final base = AuthService.baseUrl.trim().replaceFirst(RegExp(r'/+$'), '');
+    ApiTransport.ensureConfigured();
     final headers = await _headers();
-    final uri = Uri.parse('$base$path');
+    final uri = ApiTransport.uri(path);
 
     late final http.Response response;
     try {

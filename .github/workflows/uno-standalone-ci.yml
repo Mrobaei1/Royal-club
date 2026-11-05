@@ -1,0 +1,78 @@
+name: UNO Standalone CI
+
+on:
+  push:
+    branches:
+      - feature/uno-standalone-clean
+      - feature/uno-standalone-development
+      - fix/uno-remove-live-voice
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'apps/uno/**'
+      - '.github/workflows/uno-standalone-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/uno
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --no-audit --no-fund
+      - run: npm test
+      - run: npm run build
+
+  flutter-module:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/uno/flutter
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - run: flutter pub get
+      - run: dart format lib test
+      - run: flutter analyze
+      - run: flutter test
+
+  server-integration:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: royal_club
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d royal_club"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    defaults:
+      run:
+        working-directory: apps/uno
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --no-audit --no-fund
+      - run: npm run build
+      - run: node --import tsx --test test/server.integration.test.ts
+        env:
+          UNO_INTEGRATION_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/royal_club

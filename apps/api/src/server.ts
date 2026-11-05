@@ -4980,12 +4980,10 @@ export { app };
 
 // Neon Functions invoke a Fetch-compatible handler; traditional hosts keep the normal listener.
 if (process.env.NEON_FUNCTION_RUNTIME !== '1') {
-  // Keep database cleanup automatic on long-running API hosts. Serverless runtimes
-  // use cleanupExpiredEmptyRooms() on room-list and invitation requests instead.
+  // Keep database cleanup automatic on long-running API hosts. The shared
+  // throttle also serves request-triggered cleanup in warm/serverless runtimes.
   const cleanupTimer = setInterval(() => {
-    void cleanupExpiredEmptyRooms().catch((error) => {
-      app.log.error({ err: error }, 'Could not clean up expired empty rooms');
-    });
+    void cleanupExpiredEmptyRoomsBestEffort();
   }, 5_000);
   cleanupTimer.unref();
   app.addHook('onClose', async () => { clearInterval(cleanupTimer); });
