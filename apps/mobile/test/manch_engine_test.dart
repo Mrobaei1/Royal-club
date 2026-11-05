@@ -416,8 +416,6 @@ void main() {
       }
     });
 
-  });
-
     test('a stacked pair is not captured as one exposed token', () {
       final state = ManchGameState(
         players: [
