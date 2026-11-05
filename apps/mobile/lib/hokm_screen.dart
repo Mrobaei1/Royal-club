@@ -150,7 +150,7 @@ class _HokmScreenState extends State<HokmScreen> with WidgetsBindingObserver {
     _handRevealTimer?.cancel();
     final revealUntil = room['handRevealUntil'];
     if (room['revealedHands'] is List && revealUntil is num && revealUntil.toInt() > _serverNow) {
-      _handRevealTimer = Timer.periodic(const Duration(milliseconds: 200), (timer) {
+      _handRevealTimer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
         if (!mounted || _serverNow >= revealUntil.toInt()) {
           timer.cancel();
           if (mounted) setState(() {});
