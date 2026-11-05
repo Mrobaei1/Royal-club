@@ -11,6 +11,7 @@ class FakeHokmApi implements HokmApi {
   int createCalls = 0;
   int nextRoundCalls = 0;
   bool createAsRoundCompleted = false;
+  bool createAsMatchCompleted = false;
   int joinCalls = 0;
   int viewCalls = 0;
   int commandCalls = 0;
@@ -86,10 +87,31 @@ class FakeHokmApi implements HokmApi {
     return state;
   }
 
+  Map<String, dynamic> _completedWithReveal() {
+    final state = _playing();
+    final now = DateTime.now().millisecondsSinceEpoch;
+    state['status'] = 'completed';
+    state['matchScore'] = [3, 0];
+    state['serverNow'] = now;
+    state['handRevealUntil'] = now + 3000;
+    state['revealedHands'] = [
+      [{'suit': 'spades', 'rank': 'A'}],
+      [{'suit': 'hearts', 'rank': 'K'}],
+      [{'suit': 'clubs', 'rank': 'Q'}],
+      [],
+    ];
+    state['game'] = null;
+    return state;
+  }
+
   @override
   Future<Map<String, dynamic>> createRoom({required int matchTarget, required bool privateRoom}) async {
     createCalls++;
-    room = createAsRoundCompleted ? _roundCompletedWithHostDisconnected() : _waiting();
+    room = createAsMatchCompleted
+        ? _completedWithReveal()
+        : createAsRoundCompleted
+            ? _roundCompletedWithHostDisconnected()
+            : _waiting();
     room['matchTarget'] = matchTarget;
     room['privateRoom'] = privateRoom;
     return Map<String, dynamic>.from(room);
@@ -260,6 +282,34 @@ void main() {
     await tester.pump(const Duration(milliseconds: 20));
     expect(api.appealReviewCalls, 1);
     expect(api.lastReviewNotes, 'Appeal evidence reviewed');
+  });
+
+  testWidgets('final hand cards are revealed to all players for only three seconds', (tester) async {
+    tester.view.physicalSize = const Size(1200, 1800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final api = FakeHokmApi()..createAsMatchCompleted = true;
+    await tester.pumpWidget(MaterialApp(
+      locale: const Locale('en'),
+      supportedLocales: const [Locale('fa'), Locale('en')],
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
+      home: HokmScreen(api: api, identityLoader: () async => 'u1'),
+    ));
+    await tester.pump();
+    await tester.tap(find.text('Create Hokm room'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    expect(find.text('Match completed'), findsOneWidget);
+    expect(find.textContaining('Remaining cards reveal'), findsOneWidget);
+    expect(find.text('A♠'), findsOneWidget);
+    expect(find.text('K♥'), findsOneWidget);
+    expect(find.text('Q♣'), findsOneWidget);
+
+    await tester.pump(const Duration(seconds: 3));
+    expect(find.textContaining('Remaining cards reveal'), findsNothing);
+    expect(find.text('A♠'), findsNothing);
   });
 
   testWidgets('connected player can start the next hand when the host is disconnected', (tester) async {
