@@ -330,6 +330,8 @@ test('seeded complete games preserve invariants for every supported player count
       );
     }
   }
+});
+
 test('caps consecutive sixes and rejects impossible winner/pending-dice states', () => {
   const base = createManchGame(['red', 'green']);
   const rolled = rollManchDice({ ...base, consecutiveSixes: 3 }, 6);
