@@ -191,10 +191,13 @@ export function startNextRound(room, requesterUserId, { rng = Math.random, now =
   if (Number.isFinite(room.handRevealUntil) && now < room.handRevealUntil) throw new Error("The 3-second end-of-hand reveal is still active");
   const nextHakem = (room.round.hakemSeat + 1) % 4;
   const round = createRound({ deck: shuffleDeck(createDeck(), rng), hakemSeat: nextHakem });
-  return { ...room, hostUserId: hostUnavailable && requesterUserId !== room.hostUserId ? requesterUserId : room.hostUserId,
+  const next = { ...room, hostUserId: hostUnavailable && requesterUserId !== room.hostUserId ? requesterUserId : room.hostUserId,
     status: "playing", round, turnStartedAt: now,
     turnDeadlineAt: now + TURN_DEADLINE_MS, handRevealUntil: null, revealedHands: null,
     version: room.version + 1 };
+  // If a permanent Hard bot owns the first turn of this hand, resolve it
+  // immediately on the server rather than waiting for a human timeout.
+  return advanceHardBotTurn(next, now);
 }
 
 /** Empty rooms only: elapsed time alone never expires a room with occupants. */
