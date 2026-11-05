@@ -1349,6 +1349,13 @@ test('subscription purchases debit the wallet atomically and record a ledger ent
     payload: { priceCredits: 0 },
   });
   assert.equal(forbiddenPlanChange.statusCode, 403, forbiddenPlanChange.body);
+  const unauthenticatedPlanCreate = await app.inject({
+    method: 'POST',
+    url: '/api/v1/admin/subscription-plans',
+    payload: { code: 'unauthenticated_plan', name: 'Unauthenticated', durationDays: 7, priceCredits: 10 },
+  });
+  assert.equal(unauthenticatedPlanCreate.statusCode, 401, unauthenticatedPlanCreate.body);
+
   const forbiddenPlanCreate = await app.inject({
     method: 'POST',
     url: '/api/v1/admin/subscription-plans',
@@ -1395,6 +1402,22 @@ test('subscription purchases debit the wallet atomically and record a ledger ent
       payload: { code: 'bad code', name: 'Invalid', durationDays: 0, priceCredits: -1 },
     });
     assert.equal(invalidPlan.statusCode, 400, invalidPlan.body);
+
+    const fractionalDuration = await app.inject({
+      method: 'POST',
+      url: '/api/v1/admin/subscription-plans',
+      headers: auth(buyer.token),
+      payload: { code: 'fractional_plan', name: 'Fractional', durationDays: 1.5, priceCredits: 10 },
+    });
+    assert.equal(fractionalDuration.statusCode, 400, fractionalDuration.body);
+
+    const unsafePrice = await app.inject({
+      method: 'POST',
+      url: '/api/v1/admin/subscription-plans',
+      headers: auth(buyer.token),
+      payload: { code: 'unsafe_price', name: 'Unsafe', durationDays: 7, priceCredits: 9007199254740992 },
+    });
+    assert.equal(unsafePrice.statusCode, 400, unsafePrice.body);
   } finally {
     if (previousSubscriptionOwnerId === undefined) delete process.env.OWNER_USER_ID;
     else process.env.OWNER_USER_ID = previousSubscriptionOwnerId;
