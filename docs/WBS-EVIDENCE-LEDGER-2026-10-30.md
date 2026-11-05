@@ -243,3 +243,14 @@ This section supersedes any earlier statements in this ledger that said the late
 Exact-head GitHub Actions were checked for open implementation PRs. #133 Hokm's corrected head `fd3d96b` passed API build/unit, Flutter analyze/tests, API integration, backgammon audit and Web Preview build (deployment skipped). #167 wallet localization, #168 welcome-card removal and #169 admin plan creation each passed the four repository validation workflows. #170's WBS/retention documentation passed the same four workflows. Chess #86, Manch #110, Hokm mobile #137, UNO integration #144, subscription-plan draft #148, owner analytics #114, owner-protection #104 and infrastructure proposal #97 also have successful historical exact-head CI as recorded in the technical audit.
 
 These results are not WBS points by themselves. No leaf score changes are made: CI does not prove physical-device acceptance, full game matches, load/multi-instance behavior, live worker provisioning, production schema/deployment, owner security acceptance, scheduled backup retention or disaster recovery. Duplicate/stale PRs #146/#147/#148 and stale/non-mergeable docs PR #145 remain unmerged; newer mainline PRs #168/#167/#169 carry the corresponding updates. Full evidence and exact SHAs are in [the technical blocker closure audit](TECHNICAL-BLOCKER-CLOSURE-2026-11-04.md).
+
+## Cross-package regression evidence — 2026-11-06
+
+Verified feature-branch validation (no WBS points awarded solely from green CI):
+- PR #133 Hokm production integration, head `fd3d96bb7b66da1ba2372f0309bf0e6bbe5f55a8`: API build/unit, API integration, Flutter analyze/tests, Web Preview, and Backgammon engine audit passed. A prior failed run exposed a stale 4–3 winner fixture inconsistent with first-to-seven scoring; corrected fixture is on the current head.
+- PR #148 subscription plan administration, head `658bcfc5e30466efa0d7c1c5283c75353715a8fc`: all four workflows passed; added unauthenticated/non-owner and numeric boundary tests.
+- PR #146 welcome-card removal, head `ef6852ce3945ed8eca6c746ba216a605916a2f43`: all four workflows passed; explicit English-locale widget coverage added.
+- PR #147 subscription localization, head `a365e2e8ac4f058fcb3f1ab3f2b4cb5edab6de73`: all four workflows passed.
+- PR #110 Iranian Manch: analyzer identified a malformed test-group closure; repaired on head `5bc0bb9feaa3a14bd72167aeb4226cd6ffda725f`; full CI is pending. Do not mark complete until all four workflows pass.
+
+Open integration/release boundaries: all PRs remain unmerged; PR #137's older Hokm mobile draft must be reconciled with #133; PR #86 chess stays standalone. Production migration/deploy, secrets/owner-ID verification, backup/restore acceptance and device/load testing remain gated. Full detail in [Technical Blocker Closure Audit](TECHNICAL-BLOCKER-CLOSURE-2026-11-04.md).
