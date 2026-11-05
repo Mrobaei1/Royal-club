@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import {
   createRoom, joinRoom, leaveRoom, setPlayerReady, startRoom, startNextRound, applyRoomCommand,
   roomViewForUser, disconnectPlayer, reconnectPlayer, handleDisconnectTimeout,
-  processTurnTimeout, processAllDisconnectedTimeout, recordMatchForfeit, voteToCancelMatch,
+  processTurnTimeout, processAllDisconnectedTimeout, processMultipleDisconnectTimeout, recordMatchForfeit, voteToCancelMatch,
   cancelForUnrecoverableTechnicalFailure, submitMatchAppeal, reviewMatchAppeal,
   submitCheatingReport, reviewCheatingReport, sendOpponentChatMessage
 } from "./room.js";
@@ -54,6 +54,7 @@ export class InMemoryRoomRepository {
       if (!["playing", "round_completed"].includes(room.status)) return false;
       if (Number.isFinite(room.turnDeadlineAt) && room.turnDeadlineAt <= now) return true;
       if (Number.isFinite(room.allDisconnectedDeadline) && room.allDisconnectedDeadline <= now) return true;
+      if (Number.isFinite(room.multipleDisconnectedDeadline) && room.multipleDisconnectedDeadline <= now) return true;
       return room.players.some(player => !player.connected && !player.forfeited && !player.temporaryBot &&
         Number.isFinite(player.reconnectDeadline) && player.reconnectDeadline <= now);
     }).slice(0, limit);
@@ -242,6 +243,13 @@ export class HokmRoomService {
       room => processAllDisconnectedTimeout(room, { now: this.now(), expectedVersion }), null);
   }
 
+  async processMultipleDisconnectDeadline(principal, roomId, expectedVersion) {
+    authenticatedUser(principal);
+    if (principal.role !== "system" && principal.role !== "service") throw new Error("Only a trusted service principal may process multiple-disconnect deadlines");
+    return this.#transition(roomId, expectedVersion,
+      room => processMultipleDisconnectTimeout(room, { now: this.now(), expectedVersion }), null);
+  }
+
   async cancelForTechnicalFailure(principal, roomId, expectedVersion, reason) {
     authenticatedUser(principal);
     if (principal.role !== "system" && principal.role !== "service") {
@@ -262,8 +270,17 @@ export class HokmRoomService {
 
     // The all-four-disconnected rule takes precedence over individual bot takeover
     // and turn deadlines: no bot should continue a match after the owner's 20s grace.
+    const allFourOffline = room.players.length === 4 &&
+      room.players.every(player => !player.connected && !player.forfeited);
     if (Number.isFinite(room.allDisconnectedDeadline) && this.now() >= room.allDisconnectedDeadline) {
       outcomes.push(await this.processAllDisconnectedDeadline(principal, roomId, room.version));
+      return outcomes;
+    }
+    if (allFourOffline) return outcomes;
+    const expiredDisconnects = room.players.filter(player => !player.connected && !player.forfeited &&
+      Number.isFinite(player.reconnectDeadline) && this.now() >= player.reconnectDeadline).length;
+    if (expiredDisconnects >= 2) {
+      outcomes.push(await this.processMultipleDisconnectDeadline(principal, roomId, room.version));
       return outcomes;
     }
 
