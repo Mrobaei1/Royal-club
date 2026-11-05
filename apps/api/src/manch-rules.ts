@@ -132,7 +132,6 @@ export function isValidManchState(state: ManchGameState): boolean {
       typeof p.blockadeBlocksOpponents !== 'boolean' ||
       typeof p.friendlyStackingEnabled !== 'boolean' ||
       typeof p.exactFinishRequired !== 'boolean') return false;
-  if (state.consecutiveSixes > p.maxConsecutiveSixes) return false;
   if (state.winnerIndex !== null && state.pendingDice !== null) return false;
   if (state.pendingDice === 6 && state.consecutiveSixes < 1) return false;
   if (state.pendingDice !== null && state.pendingDice !== 6 && state.consecutiveSixes !== 0) return false;

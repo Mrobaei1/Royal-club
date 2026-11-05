@@ -52,9 +52,7 @@ class ManchGameState {
     if (players.map((player) => player.colour).toSet().length != players.length) {
       throw ArgumentError('Each player must have a unique colour.');
     }
-    if (consecutiveSixes < 0 ||
-        consecutiveSixes > this.profile.maxConsecutiveSixes ||
-        turnNumber < 1) {
+    if (consecutiveSixes < 0 || turnNumber < 1) {
       throw ArgumentError('Invalid turn counters in Manch state.');
     }
     if (activePlayerIndex < 0 || activePlayerIndex >= players.length) {

@@ -581,9 +581,11 @@ void main() {
       expect(rolled.pendingDice, 6);
     });
 
-    test('rejects impossible turn counters and a finished state with pending dice', () {
+    test('preserves legacy six counters and rejects a finished state with pending dice', () {
       final base = engine.newGame(playerCount: 2);
-      expect(() => base.copyWith(consecutiveSixes: 4), throwsArgumentError);
+      final legacy = base.copyWith(consecutiveSixes: 4);
+      expect(legacy.consecutiveSixes, 4);
+      expect(engine.roll(legacy, 6).consecutiveSixes, 3);
       expect(() => ManchGameState(
         players: [
           ManchPlayerState(colour: ManchColour.red, tokens: [57, 57, 57, 57]),

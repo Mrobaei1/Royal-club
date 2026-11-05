@@ -341,7 +341,11 @@ test('caps consecutive sixes and rejects impossible winner/pending-dice states',
     assert.equal(rolled.state.activePlayerIndex, 0);
     assert.equal(rolled.state.pendingDice, 6);
   }
-  assert.equal(isValidManchState({ ...base, consecutiveSixes: 4 }), false);
+  const legacyCounter = { ...base, consecutiveSixes: 4 };
+  assert.equal(isValidManchState(legacyCounter), true);
+  const migratedRoll = rollManchDice(legacyCounter, 6);
+  assert.ok('state' in migratedRoll);
+  if ('state' in migratedRoll) assert.equal(migratedRoll.state.consecutiveSixes, 3);
   const finishedWithPendingDice: ManchGameState = {
     ...base,
     players: [
