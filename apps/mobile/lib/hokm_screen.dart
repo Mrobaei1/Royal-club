@@ -23,6 +23,7 @@ class _HokmScreenState extends State<HokmScreen> with WidgetsBindingObserver {
   final _chatController = TextEditingController();
   String? _chatRecipientUserId;
   Timer? _pollTimer;
+  Timer? _handRevealTimer;
   StreamSubscription<Map<String, dynamic>>? _eventSubscription;
   bool _eventStreamAttempted = false;
   Map<String, dynamic>? _room;
@@ -71,6 +72,12 @@ class _HokmScreenState extends State<HokmScreen> with WidgetsBindingObserver {
   int _secondsLeft(Object? deadline) => deadline is num
       ? ((deadline.toInt() - _serverNow) / 1000).ceil().clamp(0, 99).toInt()
       : 0;
+  List<dynamic>? get _visibleRevealedHands {
+    final until = _room?['handRevealUntil'];
+    final hands = _room?['revealedHands'];
+    if (hands is! List || until is! num || until.toInt() <= _serverNow) return null;
+    return hands;
+  }
   Map<String, dynamic>? get _game {
     final game = _room?['game'];
     return game is Map ? Map<String, dynamic>.from(game) : null;
@@ -95,6 +102,7 @@ class _HokmScreenState extends State<HokmScreen> with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _pollTimer?.cancel();
+    _handRevealTimer?.cancel();
     _eventSubscription?.cancel();
     _roomCode.dispose();
     _chatController.dispose();
@@ -139,6 +147,18 @@ class _HokmScreenState extends State<HokmScreen> with WidgetsBindingObserver {
     final serverNow = (room['serverNow'] as num?)?.toInt();
     if (serverNow != null) _serverClockOffsetMs = serverNow - DateTime.now().millisecondsSinceEpoch;
     setState(() { _room = room; _error = null; });
+    _handRevealTimer?.cancel();
+    final revealUntil = room['handRevealUntil'];
+    if (room['revealedHands'] is List && revealUntil is num && revealUntil.toInt() > _serverNow) {
+      _handRevealTimer = Timer.periodic(const Duration(milliseconds: 200), (timer) {
+        if (!mounted || _serverNow >= revealUntil.toInt()) {
+          timer.cancel();
+          if (mounted) setState(() {});
+        } else {
+          setState(() {});
+        }
+      });
+    }
     if (['completed', 'cancelled', 'expired'].contains(room['status'])) {
       _pollTimer?.cancel();
       _pollTimer = null;
@@ -539,10 +559,29 @@ class _HokmScreenState extends State<HokmScreen> with WidgetsBindingObserver {
     OutlinedButton(onPressed: _busy ? null : _leave, child: Text(t('خروج از اتاق', 'Leave room'))),
   ]));
 
+  Widget _handRevealContent(List<dynamic> reveal) => Column(children: [
+    const Divider(),
+    Text(
+      t('نمایش کارت‌های باقی‌مانده • ${_secondsLeft(_room?['handRevealUntil'])} ثانیه',
+        'Remaining cards reveal • ${_secondsLeft(_room?['handRevealUntil'])}s'),
+      style: const TextStyle(fontWeight: FontWeight.bold),
+    ),
+    ...List.generate(reveal.length, (seat) {
+      final hand = (reveal[seat] as List? ?? const []).whereType<Map>()
+        .map((card) => Map<String, dynamic>.from(card)).toList();
+      return Row(children: [
+        SizedBox(width: 54, child: Text(_seatName(seat), style: const TextStyle(fontSize: 11))),
+        Expanded(child: SingleChildScrollView(scrollDirection: Axis.horizontal,
+          child: Row(children: hand.map((card) => _playingCard(card)).toList()))),
+      ]);
+    }),
+  ]);
+
   Widget _match() {
     final game = _game;
     final score = (_room?['matchScore'] as List?) ?? const [0, 0];
     if (_status == 'completed' || _status == 'cancelled') {
+      final reveal = _status == 'completed' ? _visibleRevealedHands : null;
       return _panel(Column(children: [
         Icon(_status == 'completed' ? Icons.emoji_events : Icons.cancel_outlined,
           size: 48, color: Theme.of(context).colorScheme.primary),
@@ -550,6 +589,7 @@ class _HokmScreenState extends State<HokmScreen> with WidgetsBindingObserver {
         Text(_status == 'completed' ? t('مسابقه پایان یافت', 'Match completed') : t('مسابقه لغو شد', 'Match cancelled'),
           style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
         Text('${score[0]}  -  ${score[1]}', style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900)),
+        if (reveal != null) _handRevealContent(reveal),
         if (_status == 'completed') OutlinedButton(onPressed: _busy ? null : _appeal, child: Text(t('اعتراض به نتیجه', 'Appeal result'))),
         TextButton(onPressed: _leave, child: Text(t('بازگشت', 'Back'))),
       ]));
@@ -563,7 +603,7 @@ class _HokmScreenState extends State<HokmScreen> with WidgetsBindingObserver {
       .whereType<Map>().map((card) => Map<String, dynamic>.from(card)).toList();
     final trick = (game['currentTrick'] as List? ?? const [])
       .whereType<Map>().map((play) => Map<String, dynamic>.from(play)).toList();
-    final reveal = _room?['revealedHands'] as List?;
+    final reveal = _visibleRevealedHands;
     final turnLeft = _secondsLeft(_room?['turnDeadlineAt']);
     final canPlay = phase == 'playing' && mySeat != null && currentSeat == mySeat;
     final canChoose = phase == 'choose_trump' && mySeat != null && hakemSeat == mySeat;
@@ -624,19 +664,7 @@ class _HokmScreenState extends State<HokmScreen> with WidgetsBindingObserver {
             ]);
           }).toList(),
         ),
-        if (reveal != null) ...[
-          const Divider(),
-          Text(t('نمایش کارت‌های باقی‌مانده • ${_secondsLeft(_room?['handRevealUntil'])} ثانیه', 'Remaining cards reveal • ${_secondsLeft(_room?['handRevealUntil'])}s'), style: const TextStyle(fontWeight: FontWeight.bold)),
-          ...List.generate(reveal.length, (seat) {
-            final hand = (reveal[seat] as List? ?? const []).whereType<Map>()
-              .map((card) => Map<String, dynamic>.from(card)).toList();
-            return Row(children: [
-              SizedBox(width: 54, child: Text(_seatName(seat), style: const TextStyle(fontSize: 11))),
-              Expanded(child: SingleChildScrollView(scrollDirection: Axis.horizontal,
-                child: Row(children: hand.map((card) => _playingCard(card)).toList()))),
-            ]);
-          }),
-        ],
+        if (reveal != null) _handRevealContent(reveal),
       ])),
       const SizedBox(height: 10),
       _panel(Column(children: [
