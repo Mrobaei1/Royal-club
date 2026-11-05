@@ -81,7 +81,7 @@ export class HokmRoomService {
   #repository;
   #queues = new Map();
 
-  constructor({ repository = new InMemoryRoomRepository(), now = () => Date.now(), id = () => randomUUID() }: { repository?: any; now?: () => number; id?: () => string } = {}) {
+  constructor({ repository = new InMemoryRoomRepository(), now = () => Date.now(), id = () => randomUUID(), selectHakemSeat }: { repository?: any; now?: () => number; id?: () => string; selectHakemSeat?: () => number } = {}) {
     if (!repository || typeof repository.get !== "function" ||
         typeof repository.insert !== "function" ||
         typeof repository.compareAndSwap !== "function" ||
@@ -92,6 +92,7 @@ export class HokmRoomService {
     this.#repository = repository;
     this.now = now;
     this.id = id;
+    this.selectHakemSeat = selectHakemSeat;
   }
 
   async create(principal, { privateRoom = true, matchTarget = 7, disconnectGraceMs } = {}) {
@@ -138,7 +139,9 @@ export class HokmRoomService {
   async start(principal, roomId, expectedVersion) {
     const userId = authenticatedUser(principal);
     return this.#transition(roomId, expectedVersion,
-      room => startRoom(room, userId, { now: this.now() }), userId);
+      room => startRoom(room, userId, {
+        now: this.now(), ...(this.selectHakemSeat ? { selectHakemSeat: this.selectHakemSeat } : {})
+      }), userId);
   }
 
   async nextRound(principal, roomId, expectedVersion) {
