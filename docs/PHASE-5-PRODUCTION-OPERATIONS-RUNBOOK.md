@@ -67,8 +67,8 @@ Acceptance test for an approved non-production or controlled test window:
 
 Target requirements:
 - Confirm provider backup/snapshot retention and recovery-point availability for the production branch.
-- Preserve the owner-approved requirement for daily backups with the latest three usable recovery points and restore testing before sensitive changes.
-- The exact execution time/timezone and any email-link delivery workflow have not been specified; do not assume 23:59 Asia/Tehran or send links without approval. See `docs/DATA-LIFECYCLE-AND-RETENTION-POLICY.md`.
+- Preserve the owner-approved requirement: compressed backup of all user data daily at **23:59 Asia/Tehran**, email the manager/GM a **secure time-limited download link**, retain the latest **three usable recovery points**, and test restore before sensitive changes.
+- The schedule and delivery method are approved requirements, not implemented automation. The exact recipient address and secure delivery credentials/provider still need configuration. See `docs/DATA-LIFECYCLE-AND-RETENTION-POLICY.md`.
 - Before enabling any schedule, compare supported provider frequency/time-zone capabilities, expected cost, retention, and restore impact; obtain owner approval.
 - Keep any emailed download/share link time-limited and recipient-restricted. Never email raw database credentials or unrestricted permanent URLs.
 - Restore a selected recovery point to a **new isolated branch**, never over Production during the test. Verify schema, table counts, representative row integrity, and API compatibility; record recovery time and any data-loss window.
@@ -132,7 +132,7 @@ This verifies the SQL predicate and associated-notification deletion path on an 
 
 ## 11. Recurring snapshot capability limitation
 
-A daily Neon snapshot schedule with seven-day retention was attempted after the owner requested Phase 5 completion. Neon rejected the request with `backup schedule creation is not enabled for this project` (HTTP 404). No schedule was changed. The manual snapshot does not satisfy the requested recurring 23:59 Asia/Tehran backup with a time-limited email link and latest-three recovery-point workflow. A supported recurring backup path must be enabled by the provider/account or implemented through a separately configured secure backup service.
+A daily Neon snapshot schedule with seven-day retention was attempted after the owner requested Phase 5 completion. Neon rejected the request with `backup schedule creation is not enabled for this project` (HTTP 404). No schedule was changed. The manual snapshot does not satisfy the owner's approved compressed backup of all user data at 23:59 Asia/Tehran, secure time-limited manager email link, and latest-three recovery-point workflow. A supported recurring backup path must be enabled by the provider/account or implemented through a separately configured secure backup service.
 
 Provider-plan cross-check: the Neon project owner is on the Free plan. Neon documents scheduled snapshots as unavailable on Free, with one manual snapshot permitted on Free; snapshot storage is billed separately. The current manual snapshot is therefore the project's one available manual recovery point. Do not create additional snapshots or change plan/billing settings without reviewing cost and retention implications. The recurring backup requirement needs either an owner-approved plan change or a separately configured backup service with the necessary secrets and retention controls.
 
