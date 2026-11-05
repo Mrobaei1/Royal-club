@@ -180,15 +180,18 @@ test("personal XP is awarded only after the entire match finishes", () => {
   }
 });
 
-test("active-match exit applies -5 XP to the leaver once only", async () => {
+test("active-match exit queues exactly one -5 XP deduction for match completion", async () => {
   const { recordMatchForfeit } = await import("../src/room.js");
   let room = startRoom(fullReadyRoom(), "u0", { now: 2000, rng: () => 0.5 });
   room = { ...room, playerProgress: { u0: { xp: 100, level: 1 }, u1: { xp: 50, level: 1 } } };
   const exited = recordMatchForfeit(room, "u0");
-  assert.equal(exited.playerProgress.u0.xp, 95);
+  assert.equal(exited.playerProgress.u0.xp, 100, "the penalty is deferred until match completion");
   assert.equal(exited.playerProgress.u1.xp, 50);
+  assert.deepEqual(exited.pendingXpDeductions, ["u0"]);
   assert.equal(exited.players[0].forfeited, true);
-  assert.equal(recordMatchForfeit(exited, "u0").playerProgress.u0.xp, 95);
+  const repeated = recordMatchForfeit(exited, "u0");
+  assert.equal(repeated.playerProgress.u0.xp, 100);
+  assert.deepEqual(repeated.pendingXpDeductions, ["u0"]);
 });
 
 test("a player marked as having left cannot continue sending game commands", async () => {
