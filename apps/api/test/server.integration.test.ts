@@ -1303,6 +1303,22 @@ test('subscription purchases debit the wallet atomically and record a ledger ent
   const previousOwnerId = process.env.OWNER_USER_ID;
   process.env.OWNER_USER_ID = buyer.user.id;
   try {
+    const nonOwner = await register('Subscription Plan Unauthorized User');
+    const unauthenticatedCreate = await app.inject({
+      method: 'POST',
+      url: '/api/v1/admin/subscription-plans',
+      payload: { code: 'vip_unauth', name: 'Unauthorized', durationDays: 7, priceCredits: 90 },
+    });
+    assert.equal(unauthenticatedCreate.statusCode, 401, unauthenticatedCreate.body);
+
+    const forbiddenCreate = await app.inject({
+      method: 'POST',
+      url: '/api/v1/admin/subscription-plans',
+      headers: auth(nonOwner.token),
+      payload: { code: 'vip_forbidden', name: 'Forbidden', durationDays: 7, priceCredits: 90 },
+    });
+    assert.equal(forbiddenCreate.statusCode, 403, forbiddenCreate.body);
+
     const createWeeklyPlan = await app.inject({
       method: 'POST',
       url: '/api/v1/admin/subscription-plans',
@@ -1327,6 +1343,22 @@ test('subscription purchases debit the wallet atomically and record a ledger ent
       payload: { code: 'bad code', name: 'Invalid', durationDays: 0, priceCredits: -1 },
     });
     assert.equal(invalidPlan.statusCode, 400, invalidPlan.body);
+
+    const fractionalDuration = await app.inject({
+      method: 'POST',
+      url: '/api/v1/admin/subscription-plans',
+      headers: auth(buyer.token),
+      payload: { code: 'vip_fractional', name: 'Fractional', durationDays: 1.5, priceCredits: 10 },
+    });
+    assert.equal(fractionalDuration.statusCode, 400, fractionalDuration.body);
+
+    const unsafePrice = await app.inject({
+      method: 'POST',
+      url: '/api/v1/admin/subscription-plans',
+      headers: auth(buyer.token),
+      payload: { code: 'vip_unsafe', name: 'Unsafe price', durationDays: 7, priceCredits: 9007199254740992 },
+    });
+    assert.equal(unsafePrice.statusCode, 400, unsafePrice.body);
 
     const adminPlans = await app.inject({
       method: 'GET',
