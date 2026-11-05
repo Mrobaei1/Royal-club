@@ -119,7 +119,8 @@ export function reconnectPlayer(room, userId, { now, expectedVersion } = {}) {
   const players = room.players.map(candidate => candidate.userId === userId
     ? { ...candidate, connected: true, botControlled: false, temporaryBot: false, disconnectedAt: null, reconnectDeadline: null }
     : candidate);
-  return { ...room, players, allDisconnectedDeadline: null,
+  const pendingXpDeductions = (room.pendingXpDeductions ?? []).filter(id => id !== userId);
+  return { ...room, players, pendingXpDeductions, allDisconnectedDeadline: null,
     multipleDisconnectedDeadline: multipleDisconnectDeadline(players), version: room.version + 1 };
 }
 
@@ -137,7 +138,8 @@ export function handleDisconnectTimeout(room, userId, { now, expectedVersion } =
   const players = room.players.map(candidate => candidate.userId === userId
     ? { ...candidate, botControlled: true, temporaryBot: true }
     : candidate);
-  return advanceHardBotTurn({ ...room, players, version: room.version + 1 }, now);
+  const pendingXpDeductions = [...new Set([...(room.pendingXpDeductions ?? []), userId])];
+  return advanceHardBotTurn({ ...room, players, pendingXpDeductions, version: room.version + 1 }, now);
 }
 
 /** Cancel after all four seats have been disconnected for the full 20-second window. */
@@ -248,8 +250,9 @@ export function voteToCancelMatch(room, userId, approve, expectedVersion) {
   const votes = new Set(room.cancellationVotes ?? []);
   if (approve) votes.add(userId); else votes.delete(userId);
   const unanimous = room.players.length === MAX_PLAYERS && room.players.every(player => votes.has(player.userId));
-  const updated = { ...room, cancellationVotes: [...votes], version: room.version + 1 };
-  return unanimous ? cancelMatch(updated, "unanimous_player_request") : updated;
+  return unanimous
+    ? cancelMatch({ ...room, cancellationVotes: [...votes] }, "unanimous_player_request")
+    : { ...room, cancellationVotes: [...votes], version: room.version + 1 };
 }
 
 /** Participant report of suspected cheating; reports never adjudicate or change a match result. */
