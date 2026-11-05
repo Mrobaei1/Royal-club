@@ -156,6 +156,8 @@ For each leaf package:
 
 Completion fractions must be based on measurable acceptance criteria, not subjective estimates. Where a package has several criteria, split its weight evenly unless a documented sub-weight is more appropriate; record that sub-weight before scoring. Do not award points twice for the same evidence.
 
+The current criterion-level decomposition is recorded in [`docs/WBS-CRITERION-SCORING-MATRIX-2026-11-03.md`](WBS-CRITERION-SCORING-MATRIX-2026-11-03.md). It divides the approved leaf weights into equal 5-point criteria without changing WBS scope or weights. All criteria begin Pending until individually audited.
+
 ### Reporting rules
 
 Every progress report must include:
