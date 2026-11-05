@@ -95,7 +95,7 @@ export class HokmRoomService {
     this.selectHakemSeat = selectHakemSeat;
   }
 
-  async create(principal, { privateRoom = true, matchTarget = 7, disconnectGraceMs } = {}) {
+  async create(principal, { privateRoom = true, matchTarget = 7, disconnectGraceMs }: { privateRoom?: boolean; matchTarget?: number; disconnectGraceMs?: number } = {}) {
     const userId = authenticatedUser(principal);
     if (disconnectGraceMs !== undefined && principal.role !== "owner") {
       throw new Error("Only the owner may change the 20-second reconnect grace period");
