@@ -62,9 +62,17 @@ const financialActions = new Set<OwnerProtectedAction>([
   'financial_outflow',
 ]);
 
+// These operations have external or difficult-to-reverse effects and must
+// carry a distinct, action-bound GM approval in addition to owner step-up.
+// This helper only verifies the approval payload; the caller must atomically
+// consume the approval in durable storage before performing the operation.
 const approvalRequiredActions = new Set<OwnerProtectedAction>([
   ...financialActions,
   'agent_permanent_offboard',
+  'ownership_transfer',
+  'production_deploy',
+  'database_migration',
+  'destructive_operation',
 ]);
 
 function normalizeNumericId(value: string | null | undefined): string | null {
