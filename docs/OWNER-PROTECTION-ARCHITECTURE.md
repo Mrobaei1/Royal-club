@@ -133,3 +133,10 @@ Out of scope for software-only guarantees: a malicious repository owner with con
 ## 9. Definition of done
 
 The layer is complete only when all protected routes and execution paths enforce the policy; owner invariants hold under adversarial tests; migrations are tested on an isolated database with rollback evidence; audit tampering attempts are denied/detected; owner recovery is verified; exact-head CI passes; and production rollout receives separate explicit approval. Documentation-only or helper-only code is not completion.
+
+
+## Explicit approval and replay-safety boundary
+
+The policy primitive requires a distinct action-bound GM approval for financial refunds/outflows, permanent agent offboarding, ownership transfer, Production deployment, database migration and destructive operations, in addition to matching owner anchors and step-up authentication. The action digest and target must match the exact operation.
+
+The pure authorization helper does **not** consume approval records. Runtime callers must atomically mark an approval consumed in durable storage (for example, with a conditional update inside the same transaction/command reservation) before executing the protected operation. A check-then-act call to this helper alone is replayable under concurrency and must never be treated as a one-time approval system. This PR remains a policy primitive and tests only; it is not wired into production routes, background jobs, webhooks or deployment workflows. No runtime protection is claimed until every enforcement point is integrated and negative-tested.
