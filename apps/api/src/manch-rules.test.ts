@@ -471,8 +471,3 @@ test('seeded complete games preserve invariants for every player count and fixed
     }
   }
 });
-
-});
-
-});
-
