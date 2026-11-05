@@ -67,6 +67,8 @@ export class PostgresRoomRepository {
       "       THEN (room_data->>'turnDeadlineAt')::double precision END <= $1",
       "  OR CASE WHEN jsonb_typeof(room_data->'allDisconnectedDeadline') = 'number'",
       "          THEN (room_data->>'allDisconnectedDeadline')::double precision END <= $1",
+      "  OR CASE WHEN jsonb_typeof(room_data->'multipleDisconnectedDeadline') = 'number'",
+      "          THEN (room_data->>'multipleDisconnectedDeadline')::double precision END <= $1",
       "  OR EXISTS (",
       "    SELECT 1",
       "    FROM jsonb_array_elements(COALESCE(room_data->'players', '[]'::jsonb)) AS p(value)",
