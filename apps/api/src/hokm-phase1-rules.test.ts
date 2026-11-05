@@ -9,7 +9,7 @@ import { createRound, chooseTrump, playCard, roundViewForSeat } from './hokm/rou
 import { chooseHardBotAction } from './hokm/bot.js';
 import {
   createRoom, joinRoom, setPlayerReady, startRoom, voteToCancelMatch,
-  processAllDisconnectedTimeout, processTurnTimeout, disconnectPlayer, roomViewForUser, TURN_DEADLINE_MS,
+  processAllDisconnectedTimeout, processMultipleDisconnectTimeout, processTurnTimeout, disconnectPlayer, reconnectPlayer, recordMatchForfeit, roomViewForUser, TURN_DEADLINE_MS,
   END_OF_HAND_REVEAL_MS, ALL_PLAYERS_DISCONNECTED_MS
 } from './hokm/room.js';
 
@@ -228,4 +228,64 @@ test('all four players can see revealed remaining hands for three seconds only',
     assert.equal(expired.revealedHands, null);
     assert.equal(expired.handRevealUntil, null);
   }
+});
+
+test('two or three unrecovered disconnects cancel after both individual 20-second grace periods, with no score or XP changes', () => {
+  let room = createRoom({ roomId: 'phase1-multi-disconnect', hostUserId: 'p0', now: 1000, matchTarget: 3 });
+  for (const id of ['p1', 'p2', 'p3']) room = joinRoom(room, id, 1001);
+  for (const id of ['p0', 'p1', 'p2', 'p3']) room = setPlayerReady(room, id, true);
+  room = startRoom(room, 'p0', { now: 1002, rng: () => 0.5 });
+  room = { ...room, matchScore: [2, 1], playerProgress: { p0: { xp: 100, level: 1 } } };
+  room = disconnectPlayer(room, 'p0', { now: 2000, expectedVersion: room.version });
+  room = disconnectPlayer(room, 'p1', { now: 2010, expectedVersion: room.version });
+  assert.equal(room.multipleDisconnectedDeadline, 22010);
+  assert.throws(() => processMultipleDisconnectTimeout(room, { now: 22009, expectedVersion: room.version }), /Fewer than two/);
+  const cancelled = processMultipleDisconnectTimeout(room, { now: 22010, expectedVersion: room.version });
+  assert.equal(cancelled.status, 'cancelled');
+  assert.equal(cancelled.cancelReason, 'multiple_unrecovered_disconnects');
+  assert.deepEqual(cancelled.matchScore, [0, 0]);
+  assert.deepEqual(cancelled.playerProgress, { p0: { xp: 100, level: 1 } });
+  assert.deepEqual(cancelled.pendingXpDeductions, []);
+  assert.equal(cancelled.result, null);
+});
+
+test('reconnecting one of two disconnected players prevents multiple-disconnect cancellation', () => {
+  let room = createRoom({ roomId: 'phase1-multi-reconnect', hostUserId: 'p0', now: 1000 });
+  for (const id of ['p1', 'p2', 'p3']) room = joinRoom(room, id, 1001);
+  for (const id of ['p0', 'p1', 'p2', 'p3']) room = setPlayerReady(room, id, true);
+  room = startRoom(room, 'p0', { now: 1002, rng: () => 0.5 });
+  room = disconnectPlayer(room, 'p0', { now: 2000, expectedVersion: room.version });
+  room = disconnectPlayer(room, 'p1', { now: 2010, expectedVersion: room.version });
+  room = reconnectPlayer(room, 'p0', { now: 2100, expectedVersion: room.version });
+  assert.equal(room.multipleDisconnectedDeadline, null);
+  assert.equal(room.status, 'playing');
+});
+
+test('two voluntary forfeits cancel without applying either -5 XP penalty', () => {
+  let room = createRoom({ roomId: 'phase1-double-forfeit', hostUserId: 'p0', now: 1000 });
+  for (const id of ['p1', 'p2', 'p3']) room = joinRoom(room, id, 1001);
+  for (const id of ['p0', 'p1', 'p2', 'p3']) room = setPlayerReady(room, id, true);
+  room = startRoom(room, 'p0', { now: 1002, rng: () => 0.5 });
+  room = { ...room, playerProgress: { p0: { xp: 100, level: 1 }, p1: { xp: 50, level: 1 } } };
+  room = recordMatchForfeit(room, 'p0');
+  assert.deepEqual(room.pendingXpDeductions, ['p0']);
+  room = recordMatchForfeit(room, 'p1');
+  assert.equal(room.status, 'cancelled');
+  assert.equal(room.cancelReason, 'multiple_voluntary_exits');
+  assert.deepEqual(room.matchScore, [0, 0]);
+  assert.deepEqual(room.playerProgress, { p0: { xp: 100, level: 1 }, p1: { xp: 50, level: 1 } });
+  assert.deepEqual(room.pendingXpDeductions, []);
+});
+
+test('unanimous player cancellation clears all match points but preserves previously earned XP', () => {
+  let room = createRoom({ roomId: 'phase1-cancel-score', hostUserId: 'p0', now: 1000 });
+  for (const id of ['p1', 'p2', 'p3']) room = joinRoom(room, id, 1001);
+  for (const id of ['p0', 'p1', 'p2', 'p3']) room = setPlayerReady(room, id, true);
+  room = startRoom(room, 'p0', { now: 1002, rng: () => 0.5 });
+  room = { ...room, matchScore: [2, 1], playerProgress: { p0: { xp: 100, level: 1 } } };
+  for (const id of ['p0', 'p1', 'p2']) room = voteToCancelMatch(room, id, true, room.version);
+  room = voteToCancelMatch(room, 'p3', true, room.version);
+  assert.equal(room.status, 'cancelled');
+  assert.deepEqual(room.matchScore, [0, 0]);
+  assert.deepEqual(room.playerProgress, { p0: { xp: 100, level: 1 } });
 });
