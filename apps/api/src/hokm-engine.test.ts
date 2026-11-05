@@ -48,8 +48,8 @@ test('trick resolution gives trump priority over a higher off-trump card', () =>
 });
 
 test('seven tricks decide the hand and the client projection contains only its own hand', () => {
-  assert.deepEqual(scoreTricks([0, 1, 2, 3, 0, 1, 2]), {
-    tricks: [4, 3],
+  assert.deepEqual(scoreTricks([0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3, 0]), {
+    tricks: [7, 6],
     winnerTeam: 0,
   });
   const publicView = publicGameView({ phase: 'playing', currentSeat: 1, trumpSuit: 'clubs' });
