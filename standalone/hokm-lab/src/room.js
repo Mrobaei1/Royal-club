@@ -202,7 +202,9 @@ export function recordMatchForfeit(room, userId) {
     version: room.version + 1
   };
   if (players.filter(candidate => candidate.forfeited).length >= 2) {
-    return cancelMatch(updated, "multiple_voluntary_exits");
+    // cancelMatch increments the version itself. Rebase the intermediate
+    // forfeit state to the original version so the persisted transition is +1.
+    return cancelMatch({ ...updated, version: room.version }, "multiple_voluntary_exits");
   }
   return advanceHardBotTurn(updated);
 }
@@ -251,10 +253,13 @@ export function startNextRound(room, requesterUserId, { rng = Math.random, now =
     ? room.round.hakemSeat
     : (room.round.hakemSeat + 2) % MAX_PLAYERS;
   const round = createRound({ deck: shuffleDeck(createDeck(), rng), hakemSeat: nextHakem });
-  return { ...room, hostUserId: hostUnavailable && requesterUserId !== room.hostUserId ? requesterUserId : room.hostUserId,
+  const next = { ...room, hostUserId: hostUnavailable && requesterUserId !== room.hostUserId ? requesterUserId : room.hostUserId,
     status: "playing", round, turnStartedAt: now,
     turnDeadlineAt: now + TURN_DEADLINE_MS, handRevealUntil: null, revealedHands: null,
     version: room.version + 1 };
+  // A permanent Hard bot may own the first turn of the new hand; never wait
+  // for a human timeout or client request to advance an automated seat.
+  return advanceHardBotTurn(next, now);
 }
 
 /** Empty rooms only: elapsed time alone never expires a room with occupants. */
