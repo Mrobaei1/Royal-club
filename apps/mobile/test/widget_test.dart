@@ -113,6 +113,13 @@ void main() {
     expect(find.text('نسخه 1.1.13'), findsOneWidget);
   });
 
+  testWidgets('home omits the welcome card in English locale', (tester) async {
+    await tester.pumpWidget(_testApp(const HomeScreen(), locale: const Locale('en')));
+
+    expect(find.text('Welcome to Royal Club'), findsNothing);
+    expect(find.text('به باشگاه سلطنتی خوش آمدید'), findsNothing);
+  });
+
   testWidgets('home screen keeps all game cards', (tester) async {
     await tester.pumpWidget(_testApp(const HomeScreen()));
 
