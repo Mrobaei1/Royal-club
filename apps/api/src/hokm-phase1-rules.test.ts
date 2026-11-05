@@ -289,3 +289,49 @@ test('unanimous player cancellation clears all match points but preserves previo
   assert.deepEqual(room.matchScore, [0, 0]);
   assert.deepEqual(room.playerProgress, { p0: { xp: 100, level: 1 } });
 });
+
+test('Hard trump heuristic prioritizes suit count, then summed normal card ranks', () => {
+  const state = {
+    phase: 'choose_trump', hakemSeat: 0,
+    hands: [[
+      { suit: 'clubs', rank: '2' }, { suit: 'clubs', rank: '3' }, { suit: 'clubs', rank: '4' },
+      { suit: 'hearts', rank: 'A' }, { suit: 'hearts', rank: 'K' }, { suit: 'hearts', rank: 'Q' },
+      { suit: 'spades', rank: 'A' }, { suit: 'diamonds', rank: '2' }
+    ], [], [], []], currentTrick: [], trickWinners: []
+  };
+  assert.equal(chooseHardBotAction(state, 0).suit, 'hearts',
+    'equal suit counts are broken by the higher sum of 2..A rank values');
+});
+
+test('one temporary disconnect becomes Hard bot after 20 seconds and returning player reclaims control without penalty', () => {
+  let room = createRoom({ roomId: 'phase1-single-reconnect', hostUserId: 'p0', now: 1000 });
+  for (const id of ['p1', 'p2', 'p3']) room = joinRoom(room, id, 1001);
+  for (const id of ['p0', 'p1', 'p2', 'p3']) room = setPlayerReady(room, id, true);
+  room = startRoom(room, 'p0', { now: 1002, rng: () => 0.5 });
+  room = disconnectPlayer(room, 'p0', { now: 2000, expectedVersion: room.version });
+  const deadline = room.players[0].reconnectDeadline;
+  room = (await import('./hokm/room.js')).handleDisconnectTimeout(room, 'p0', { now: deadline, expectedVersion: room.version });
+  assert.equal(room.players[0].temporaryBot, true);
+  assert.deepEqual(room.pendingXpDeductions, ['p0']);
+  room = (await import('./hokm/room.js')).reconnectPlayer(room, 'p0', { now: deadline + 100, expectedVersion: room.version });
+  assert.equal(room.players[0].connected, true);
+  assert.equal(room.players[0].temporaryBot, false);
+  assert.deepEqual(room.pendingXpDeductions, []);
+});
+
+test('a temporary bot that is never reclaimed incurs exactly -5 XP when the match completes', () => {
+  let room = createRoom({ roomId: 'phase1-single-penalty', hostUserId: 'p0', now: 1000 });
+  for (const id of ['p1', 'p2', 'p3']) room = joinRoom(room, id, 1001);
+  for (const id of ['p0', 'p1', 'p2', 'p3']) room = setPlayerReady(room, id, true);
+  room = startRoom(room, 'p0', { now: 1002, rng: () => 0.5 });
+  room = { ...room, playerProgress: { p0: { xp: 100, level: 1 } } };
+  room = disconnectPlayer(room, 'p0', { now: 2000, expectedVersion: room.version });
+  const deadline = room.players[0].reconnectDeadline;
+  room = (await import('./hokm/room.js')).handleDisconnectTimeout(room, 'p0', { now: deadline, expectedVersion: room.version });
+  room = { ...room, status: 'playing', pendingXpDeductions: ['p0'] };
+  const { awardCompletedMatch } = await import('./hokm/progression.js');
+  let progress = awardCompletedMatch(room.players, 1, room.playerProgress);
+  const { penalizeMatchLeaver } = await import('./hokm/progression.js');
+  progress = penalizeMatchLeaver(progress, 'p0');
+  assert.equal(progress.p0.xp, 95);
+});
