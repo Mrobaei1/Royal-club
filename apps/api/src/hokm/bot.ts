@@ -278,9 +278,11 @@ export function chooseHardBotAction(state, seat) {
   if (state.phase === "choose_trump") {
     if (seat !== state.hakemSeat) throw new Error("Only the hakem bot may choose trump");
     const hand = state.hands[seat];
+    // Owner-approved suit strength: card count is the primary criterion;
+    // when counts tie, the sum of normal 2..A rank values breaks the tie.
     const suit = stableBest(SUITS, candidate => {
       const cards = hand.filter(card => card.suit === candidate);
-      return cards.length * 5 + cards.reduce((sum, card) => sum + Math.max(0, rank[card.rank] - 10), 0);
+      return cards.length * 1000 + cards.reduce((sum, card) => sum + rank[card.rank], 0);
     });
     return Object.freeze({ type: "choose_trump", suit, difficulty: "hard" });
   }
