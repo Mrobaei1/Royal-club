@@ -48,7 +48,7 @@ test('trick resolution gives trump priority over a higher off-trump card', () =>
 });
 
 test('seven tricks decide the hand and the client projection contains only its own hand', () => {
-  assert.deepEqual(scoreTricks([0, 2, 0, 2, 0, 2, 0]), {
+  assert.deepEqual(scoreTricks([0, 1, 2, 3, 0, 1, 2]), {
     tricks: [4, 3],
     winnerTeam: 0,
   });
