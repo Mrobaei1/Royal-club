@@ -264,7 +264,7 @@ The following open PR heads were rechecked against GitHub Actions. These are val
 | #166 schema/blocker closure | `8a28743c070836e421ec010098c2354700c96361` | All four repository validation workflows passed |
 | #167 wallet localization | `6be7d5ac622faaeb51cdbe458e53290b7be06d1e` | All four repository validation workflows passed |
 | #168 home welcome-card removal | `7897e7aa5eb22b1d0da15a1428f1246c0c0afdb0` | All four repository validation workflows passed |
-| #169 owner subscription-plan creation | `aa5e974a55392c2234936f6cfe6510c05b1e479` | All four repository validation workflows passed |
+| #169 owner subscription-plan creation | `aa5e974a55392c2234936f6cfe6510c05b51e479` | All four repository validation workflows passed |
 | #170 WBS criteria/retention policy | `6a837daf4ec5b56cf4373921b8ff61573c76ebd9` | All four repository validation workflows passed |
 | #86 standalone chess | `a4653feedd39f1be4edb2341d776d37da3fcbed3` | Root validation, API validation, Web Preview, isolated chess validation and backgammon audit passed |
 | #110 Manch foundation | `89679ace53bb81adbe5dd7fc27a6f5d6d9c8aea0` | Root/API validation, Web Preview and backgammon audit passed |
