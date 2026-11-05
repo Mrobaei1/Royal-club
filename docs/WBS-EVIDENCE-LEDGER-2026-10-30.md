@@ -254,3 +254,11 @@ Verified feature-branch validation (no WBS points awarded solely from green CI):
 - PR #110 Iranian Manch: analyzer identified a malformed test-group closure; repaired on head `5bc0bb9feaa3a14bd72167aeb4226cd6ffda725f`; full CI is pending. Do not mark complete until all four workflows pass.
 
 Open integration/release boundaries: all PRs remain unmerged; PR #137's older Hokm mobile draft must be reconciled with #133; PR #86 chess stays standalone. Production migration/deploy, secrets/owner-ID verification, backup/restore acceptance and device/load testing remain gated. Full detail in [Technical Blocker Closure Audit](TECHNICAL-BLOCKER-CLOSURE-2026-11-04.md).
+
+
+## Current-mainline port and dependency audit — 2026-11-06
+
+- PR #167 (wallet monthly-plan localization) and PR #168 (home welcome-card removal) are current-mainline ports of earlier draft fixes #147 and #146. Their exact heads `6be7d5ac622faaeb51cdbe458e53290b7be06d1e` and `7897e7aa5eb22b1d0da15a1428f1246c0c0afdb0` passed all four repository validation workflows. The earlier PRs remain open; do not merge both copies.
+- PR #169 ports owner-managed subscription-plan creation to current mainline and now includes unauthenticated (401), non-owner (403), fractional-duration and unsafe-price rejection tests. Its CI failure is traced to the same missing `apps/api/src/hokm/room.ts` implementation referenced by the existing mainline `hokm-room.test.ts`; API integration and Flutter checks pass, while API unit/Web Preview test workflows fail at module resolution. PR #110 has the same dependency. PR #133 is the provider of that missing module and must be integrated first; do not bypass the test or claim these PRs fully green.
+- PR #170 criterion matrix / data-retention policy documentation passed all four workflows. All 53 packages remain Pending until criterion-level evidence is individually reviewed; no WBS points are automatically awarded.
+- PR #133 is being revalidated at its latest head; its merge is still a separate owner decision. No PR was merged, no Production change or APK build occurred.
