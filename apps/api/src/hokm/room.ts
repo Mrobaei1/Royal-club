@@ -11,6 +11,20 @@ export const END_OF_HAND_REVEAL_MS = 3_000;
 export const ALL_PLAYERS_DISCONNECTED_MS = 20_000;
 const DEFAULT_DISCONNECT_GRACE_MS = 20_000;
 
+function multipleDisconnectDeadline(players) {
+  const deadlines = players.filter(player => !player.connected && !player.forfeited && Number.isFinite(player.reconnectDeadline))
+    .map(player => player.reconnectDeadline).sort((a, b) => a - b);
+  return deadlines.length >= 2 ? deadlines[1] : null;
+}
+
+function cancelMatch(room, reason) {
+  return { ...room, status: "cancelled", cancelReason: reason, result: null,
+    matchScore: [0, 0], pendingXpDeductions: [], cancellationVotes: [],
+    turnStartedAt: null, turnDeadlineAt: null, allDisconnectedDeadline: null,
+    multipleDisconnectedDeadline: null, handRevealUntil: null, revealedHands: null,
+    version: room.version + 1 };
+}
+
 function requireExpectedVersion(room, expectedVersion) {
   if (!Number.isInteger(expectedVersion) || expectedVersion !== room.version) throw new Error("Stale room version");
 }
@@ -43,8 +57,8 @@ export function createRoom({ roomId, hostUserId, now, privateRoom = true, matchT
     roomId, hostUserId, privateRoom: Boolean(privateRoom), createdAt: now,
     // No wall-clock TTL: a room remains alive while at least one player is in it.
     status: "waiting", matchTarget, disconnectGraceMs, matchScore: [0, 0],
-    playerProgress: {}, penalizedLeavers: [], cancellationVotes: [],
-    appeals: [], reports: [], chatMessages: [], allDisconnectedDeadline: null, handRevealUntil: null, revealedHands: null,
+    playerProgress: {}, pendingXpDeductions: [], penalizedLeavers: [], cancellationVotes: [],
+    appeals: [], reports: [], chatMessages: [], allDisconnectedDeadline: null, multipleDisconnectedDeadline: null, handRevealUntil: null, revealedHands: null,
     players: [{ userId: hostUserId, seat: 0, ready: false, connected: true, botControlled: false }],
     version: 1, round: null, turnDeadlineAt: null
   };
@@ -84,9 +98,10 @@ export function disconnectPlayer(room, userId, { now, expectedVersion } = {}) {
   const players = room.players.map(candidate => candidate.userId === userId
     ? { ...candidate, connected: false, disconnectedAt: now, reconnectDeadline: now + room.disconnectGraceMs, temporaryBot: false }
     : candidate);
-  const allDisconnected = players.length === MAX_PLAYERS && players.every(candidate => !candidate.connected);
+  const allDisconnected = players.length === MAX_PLAYERS && players.every(candidate => !candidate.connected && !candidate.forfeited);
   return { ...room, players,
     allDisconnectedDeadline: allDisconnected ? now + ALL_PLAYERS_DISCONNECTED_MS : null,
+    multipleDisconnectedDeadline: allDisconnected ? null : multipleDisconnectDeadline(players),
     version: room.version + 1 };
 }
 
@@ -104,7 +119,8 @@ export function reconnectPlayer(room, userId, { now, expectedVersion } = {}) {
   const players = room.players.map(candidate => candidate.userId === userId
     ? { ...candidate, connected: true, botControlled: false, temporaryBot: false, disconnectedAt: null, reconnectDeadline: null }
     : candidate);
-  return { ...room, players, allDisconnectedDeadline: null, version: room.version + 1 };
+  return { ...room, players, allDisconnectedDeadline: null,
+    multipleDisconnectedDeadline: multipleDisconnectDeadline(players), version: room.version + 1 };
 }
 
 /** Transfer a disconnected seat to the fixed-Hard bot after grace expires. */
@@ -115,6 +131,9 @@ export function handleDisconnectTimeout(room, userId, { now, expectedVersion } =
   if (!player) throw new Error("User is not a member of this room");
   if (player.forfeited || player.connected || player.temporaryBot) return room;
   if (!Number.isFinite(player.reconnectDeadline) || now < player.reconnectDeadline) throw new Error("Disconnect grace period has not elapsed");
+  const expiredCount = room.players.filter(candidate => !candidate.connected && !candidate.forfeited &&
+    Number.isFinite(candidate.reconnectDeadline) && now >= candidate.reconnectDeadline).length;
+  if (expiredCount >= 2) throw new Error("Multiple unrecovered disconnects must cancel the match before bot takeover");
   const players = room.players.map(candidate => candidate.userId === userId
     ? { ...candidate, botControlled: true, temporaryBot: true }
     : candidate);
@@ -129,29 +148,40 @@ export function processAllDisconnectedTimeout(room, { now, expectedVersion } = {
     throw new Error("All four players are not disconnected");
   }
   if (now < room.allDisconnectedDeadline) throw new Error("All-disconnected grace period has not elapsed");
-  return { ...room, status: "cancelled", cancelReason: "all_players_disconnected",
-    result: null, turnDeadlineAt: null, allDisconnectedDeadline: null, version: room.version + 1 };
+  return cancelMatch(room, "all_players_disconnected");
 }
 
-/** Active-match exit: charge the leaver once, reserve their seat for match resolution. */
+/** Cancel when at least two players have exhausted their own reconnect grace. */
+export function processMultipleDisconnectTimeout(room, { now, expectedVersion } = {}) {
+  requireNow(now); requireExpectedVersion(room, expectedVersion);
+  if (!["playing", "round_completed"].includes(room.status)) throw new Error("Only an unfinished match can process multiple disconnects");
+  const allFourOffline = room.players.length === MAX_PLAYERS &&
+    room.players.every(player => !player.connected && !player.forfeited);
+  if (allFourOffline) throw new Error("The all-four-disconnected 20-second rule takes precedence");
+  const expired = room.players.filter(player => !player.connected && !player.forfeited &&
+    Number.isFinite(player.reconnectDeadline) && now >= player.reconnectDeadline);
+  if (expired.length < 2) throw new Error("Fewer than two reconnect grace periods have expired");
+  return cancelMatch(room, "multiple_unrecovered_disconnects");
+}
+
+/** A single voluntary forfeit is penalized only if the match reaches a result. */
 export function recordMatchForfeit(room, userId) {
   requireUserId(userId);
-  if (room.status !== "playing") throw new Error("Only an active match can record a player exit");
+  if (!["playing", "round_completed"].includes(room.status)) throw new Error("Only an unfinished match can record a player exit");
   const player = room.players.find(candidate => candidate.userId === userId);
   if (!player) throw new Error("User is not a member of this room");
   if ((room.penalizedLeavers ?? []).includes(userId)) return room;
-  const playerProgress = penalizeMatchLeaver(room.playerProgress ?? {}, userId);
   const players = room.players.map(candidate => candidate.userId === userId
     ? { ...candidate, connected: false, forfeited: true, botControlled: true, temporaryBot: false, disconnectedAt: null, reconnectDeadline: null }
     : candidate);
-  const penalizedLeavers = [...(room.penalizedLeavers ?? []), userId];
-  const updated = { ...room, players, playerProgress, penalizedLeavers, version: room.version + 1 };
-  // Two voluntary exits make the match non-competitive; cancel without
-  // assigning a winner or mutating the match score.
-  if (penalizedLeavers.length >= 2) {
-    return { ...updated, status: "cancelled", cancelReason: "multiple_voluntary_exits",
-      result: null, turnDeadlineAt: null, allDisconnectedDeadline: null,
-      handRevealUntil: null, revealedHands: null };
+  const pendingXpDeductions = [...new Set([...(room.pendingXpDeductions ?? []), userId])];
+  const updated = { ...room, players, pendingXpDeductions,
+    penalizedLeavers: [...(room.penalizedLeavers ?? []), userId],
+    allDisconnectedDeadline: null,
+    multipleDisconnectedDeadline: multipleDisconnectDeadline(players),
+    version: room.version + 1 };
+  if (players.filter(candidate => candidate.forfeited).length >= 2) {
+    return cancelMatch({ ...updated, version: room.version }, "multiple_voluntary_exits");
   }
   return advanceHardBotTurn(updated);
 }
@@ -218,9 +248,8 @@ export function voteToCancelMatch(room, userId, approve, expectedVersion) {
   const votes = new Set(room.cancellationVotes ?? []);
   if (approve) votes.add(userId); else votes.delete(userId);
   const unanimous = room.players.length === MAX_PLAYERS && room.players.every(player => votes.has(player.userId));
-  return { ...room, cancellationVotes: [...votes],
-    ...(unanimous ? { status: "cancelled", cancelReason: "unanimous_player_request", result: null, turnDeadlineAt: null } : {}),
-    version: room.version + 1 };
+  const updated = { ...room, cancellationVotes: [...votes], version: room.version + 1 };
+  return unanimous ? cancelMatch(updated, "unanimous_player_request") : updated;
 }
 
 /** Participant report of suspected cheating; reports never adjudicate or change a match result. */
@@ -348,8 +377,7 @@ export function sendOpponentChatMessage(room, senderUserId, recipientUserId, {
 export function cancelForUnrecoverableTechnicalFailure(room, { reason = "unrecoverable_server_failure" } = {}) {
   if (!["playing", "round_completed"].includes(room.status)) throw new Error("Only an unfinished match can be canceled for technical failure");
   if (typeof reason !== "string" || !reason.trim() || reason.length > 160) throw new TypeError("A bounded cancellation reason is required");
-  return { ...room, status: "cancelled", cancelReason: reason, result: null,
-    turnDeadlineAt: null, allDisconnectedDeadline: null, version: room.version + 1 };
+  return cancelMatch(room, reason);
 }
 
 export function roomViewForUser(room, userId, { now = Date.now() } = {}) {
@@ -406,12 +434,16 @@ function applyCommandForSeat(room, seat, command, expectedVersion, now = Date.no
     status = matchScore[winningTeam] >= room.matchTarget ? "completed" : "round_completed";
     handRevealUntil = now + END_OF_HAND_REVEAL_MS;
     revealedHands = copyHands(round.hands);
-    if (status === "completed") playerProgress = awardCompletedMatch(room.players, winningTeam, playerProgress);
+    if (status === "completed") {
+      playerProgress = awardCompletedMatch(room.players, winningTeam, playerProgress);
+      for (const userId of room.pendingXpDeductions ?? []) playerProgress = penalizeMatchLeaver(playerProgress, userId);
+    }
   }
   return { ...room, round, matchScore, playerProgress, status,
     turnStartedAt: status === "playing" ? now : null,
     turnDeadlineAt: status === "playing" ? now + TURN_DEADLINE_MS : null,
     handRevealUntil, revealedHands,
+    pendingXpDeductions: status === "completed" ? [] : (room.pendingXpDeductions ?? []),
     version: room.version + 1 };
 }
 
