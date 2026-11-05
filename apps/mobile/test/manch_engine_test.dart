@@ -593,4 +593,5 @@ void main() {
         throwsArgumentError,
       );
     });
+  });
 }
