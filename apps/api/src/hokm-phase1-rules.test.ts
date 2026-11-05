@@ -17,6 +17,26 @@ import {
 const orderedDeck = () => createDeck();
 const fourPlayers = () => ['p0', 'p1', 'p2', 'p3'];
 
+test('initial hakem is selected from all four seats and the previous winning team controls the next hakem', () => {
+  const readyRoom = () => {
+    let room = createRoom({ roomId: 'phase1-hakem', hostUserId: 'p0', now: 1000 });
+    for (const id of ['p1', 'p2', 'p3']) room = joinRoom(room, id, 1001);
+    for (const id of ['p0', 'p1', 'p2', 'p3']) room = setPlayerReady(room, id, true);
+    return room;
+  };
+  const first = startRoom(readyRoom(), 'p0', { now: 2000, rng: () => 0.4, selectHakemSeat: () => 3 });
+  assert.equal(first.round.hakemSeat, 3);
+  assert.throws(() => startRoom(readyRoom(), 'p0', { now: 2000, selectHakemSeat: () => 4 }), /randomly from seats/);
+
+  const previous = { ...readyRoom(), status: 'round_completed', handRevealUntil: 0,
+    round: { phase: 'completed', hakemSeat: 1, scores: [0, 7] } };
+  const sameTeam = startNextRound(previous, 'p0', { now: 3000, rng: () => 0.4 });
+  assert.equal(sameTeam.round.hakemSeat, 1);
+  const otherTeam = startNextRound({ ...previous, round: { ...previous.round, scores: [7, 0] } },
+    'p0', { now: 3000, rng: () => 0.4 });
+  assert.equal(otherTeam.round.hakemSeat, 3);
+});
+
 test('standard deck has 52 unique cards and a complete 4x13 rank/suit matrix', () => {
   const deck = createDeck();
   assert.equal(deck.length, 52);
@@ -197,7 +217,7 @@ test('seven-second card timeout chooses only from the active seat legal cards', 
   let room = createRoom({ roomId: 'rules-card-timeout', hostUserId: players[0], now: 20 });
   for (const id of players.slice(1)) room = joinRoom(room, id, 21);
   for (const id of players) room = setPlayerReady(room, id, true);
-  room = startRoom(room, players[0], { now: 22, rng: () => 0.1 });
+  room = startRoom(room, players[0], { now: 22, rng: () => 0.1, selectHakemSeat: () => 0 });
   room = { ...room, round: chooseTrump(room.round, 0, 'hearts') };
   const beforeHand = room.round.hands[0];
   const legal = legalCards(beforeHand, []);
