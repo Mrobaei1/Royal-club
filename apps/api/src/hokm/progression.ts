@@ -1,6 +1,6 @@
 export type PlayerProgress = { xp: number; level: number };
 export type PlayerProgressMap = Record<string, PlayerProgress | undefined>;
-export type ProgressPlayer = { seat: number; userId: string };
+export type ProgressPlayer = { seat: number; userId: string; forfeited?: boolean };
 
 export function xpRequiredForNextLevel(level: number): number {
   if (!Number.isInteger(level) || level < 1) throw new RangeError("level must be a positive integer");
@@ -52,6 +52,7 @@ export function awardCompletedMatch(
   if (winningTeam !== 0 && winningTeam !== 1) throw new RangeError("Invalid winning team");
   const result: PlayerProgressMap = { ...current };
   for (const player of players) {
+    if (player.forfeited) continue;
     const team = player.seat % 2 === 0 ? 0 : 1;
     result[player.userId] = applyXpChange(result[player.userId], team === winningTeam ? 20 : 5);
   }
