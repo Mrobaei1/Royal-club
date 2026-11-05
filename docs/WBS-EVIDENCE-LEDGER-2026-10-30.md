@@ -236,3 +236,10 @@ This section supersedes any earlier statements in this ledger that said the late
 - The only mismatch is `users.username`: source DDL leaves it nullable; both Production and the isolated branch enforce NOT NULL. Read-only counts on both branches showed 0 NULL and 0 blank usernames (3 users on each at audit time). The stronger DB constraint was preserved; no relaxation was attempted.
 - This resolves the type/name audit for all 301 columns but does not establish full defaults/identity/generated/FK/check/index-expression parity. WBS 7.3 remains Blocked pending the explicit username nullability decision, remaining semantic checks, application compatibility, and complete backup/restore/rollback acceptance. No WBS points are awarded from this partial audit.
 - Full detail: [Technical Blocker Closure Audit](TECHNICAL-BLOCKER-CLOSURE-2026-11-04.md).
+
+
+## Cross-package CI audit — 2026-11-06
+
+Exact-head GitHub Actions were checked for open implementation PRs. #133 Hokm's corrected head `fd3d96b` passed API build/unit, Flutter analyze/tests, API integration, backgammon audit and Web Preview build (deployment skipped). #167 wallet localization, #168 welcome-card removal and #169 admin plan creation each passed the four repository validation workflows. #170's WBS/retention documentation passed the same four workflows. Chess #86, Manch #110, Hokm mobile #137, UNO integration #144, subscription-plan draft #148, owner analytics #114, owner-protection #104 and infrastructure proposal #97 also have successful historical exact-head CI as recorded in the technical audit.
+
+These results are not WBS points by themselves. No leaf score changes are made: CI does not prove physical-device acceptance, full game matches, load/multi-instance behavior, live worker provisioning, production schema/deployment, owner security acceptance, scheduled backup retention or disaster recovery. Duplicate/stale PRs #146/#147/#148 and stale/non-mergeable docs PR #145 remain unmerged; newer mainline PRs #168/#167/#169 carry the corresponding updates. Full evidence and exact SHAs are in [the technical blocker closure audit](TECHNICAL-BLOCKER-CLOSURE-2026-11-04.md).
