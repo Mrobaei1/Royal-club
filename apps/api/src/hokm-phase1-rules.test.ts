@@ -240,6 +240,7 @@ test('two or three unrecovered disconnects cancel after both individual 20-secon
   room = { ...room, matchScore: [2, 1], playerProgress: { p0: { xp: 100, level: 1 } } };
   room = disconnectPlayer(room, 'p0', { now: 2000, expectedVersion: room.version });
   room = disconnectPlayer(room, 'p1', { now: 2010, expectedVersion: room.version });
+  room = disconnectPlayer(room, 'p2', { now: 2020, expectedVersion: room.version });
   assert.equal(room.multipleDisconnectedDeadline, 22010);
   assert.throws(() => processMultipleDisconnectTimeout(room, { now: 22009, expectedVersion: room.version }), /Fewer than two/);
   const cancelled = processMultipleDisconnectTimeout(room, { now: 22010, expectedVersion: room.version });
