@@ -331,6 +331,8 @@ test('a temporary bot that is never reclaimed incurs exactly -5 XP when the matc
   room = disconnectPlayer(room, 'p0', { now: 2000, expectedVersion: room.version });
   const deadline = room.players[0].reconnectDeadline;
   room = handleDisconnectTimeout(room, 'p0', { now: deadline, expectedVersion: room.version });
+  assert.equal(room.players[0].temporaryBot, true);
+  assert.deepEqual(room.pendingXpDeductions, ['p0']);
   room = { ...room, status: 'playing', pendingXpDeductions: ['p0'] };
   let progress = awardCompletedMatch(room.players, 1, room.playerProgress);
   progress = penalizeMatchLeaver(progress, 'p0');
