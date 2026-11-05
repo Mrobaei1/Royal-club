@@ -2,6 +2,22 @@ import 'package:flutter/material.dart';
 import 'l10n/app_text.dart';
 import 'services/wallet_service.dart';
 
+ 
+/// Localizes known subscription plans by stable plan code. Unknown plans keep
+/// the name supplied by the server so manager-created plans remain configurable.
+String localizedSubscriptionPlanName({
+  required String languageCode,
+  required String planCode,
+  required String fallbackName,
+}) {
+  if (planCode == 'vip_monthly') {
+    return languageCode == 'en'
+        ? 'One-Month Premium Subscription'
+        : (fallbackName.isNotEmpty ? fallbackName : 'اشتراک ویژه یک‌ماهه');
+  }
+  return fallbackName;
+}
+
 class WalletScreen extends StatefulWidget {
   const WalletScreen({super.key});
 
@@ -115,7 +131,14 @@ class _WalletScreenState extends State<WalletScreen> {
               if (_subscription != null)
                 Card(color: Theme.of(context).colorScheme.surface, child: ListTile(
                   leading: Icon(Icons.workspace_premium, color: colors.primary),
-                  title: Text(_subscription!['planName']?.toString() ?? appText(context, 'اشتراک فعال', 'Active subscription'), style: TextStyle(color: colors.onSurface)),
+                  title: Text(
+                    localizedSubscriptionPlanName(
+                      languageCode: Localizations.localeOf(context).languageCode,
+                      planCode: _subscription!['planCode']?.toString() ?? '',
+                      fallbackName: _subscription!['planName']?.toString() ?? appText(context, 'اشتراک فعال', 'Active subscription'),
+                    ),
+                    style: TextStyle(color: colors.onSurface),
+                  ),
                   subtitle: Text(appText(context, 'پایان: ${_subscription!['endsAt'] ?? '—'}', 'Ends: ${_subscription!['endsAt'] ?? '—'}'), style: TextStyle(color: colors.onSurface.withValues(alpha: 0.7))),
                 )),
               if (_plans.isEmpty)
