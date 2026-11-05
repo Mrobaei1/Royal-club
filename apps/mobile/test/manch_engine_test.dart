@@ -586,17 +586,14 @@ void main() {
       final legacy = base.copyWith(consecutiveSixes: 4);
       expect(legacy.consecutiveSixes, 4);
       expect(engine.roll(legacy, 6).consecutiveSixes, 3);
-      expect(() => ManchGameState(
-        players: [
-          ManchPlayerState(colour: ManchColour.red, tokens: [57, 57, 57, 57]),
-          ManchPlayerState(colour: ManchColour.green),
-        ],
-        activePlayerIndex: 0,
-        profile: const ManchRuleProfile(),
-        winnerIndex: 0,
-        pendingDice: 6,
-        consecutiveSixes: 1,
-      ), throwsArgumentError);
+      expect(
+        () => base.copyWith(
+          winnerIndex: 0,
+          pendingDice: 6,
+          consecutiveSixes: 1,
+        ),
+        throwsArgumentError,
+      );
     });
   });
 }
