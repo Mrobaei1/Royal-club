@@ -62,6 +62,28 @@ test('permanent agent offboarding also requires explicit owner approval', () => 
   assert.deepEqual(authorizeOwnerProtectedAction({ ...request, approval: { ...ownerApproval, target: 'agent:marketing-01' } }), { allowed: true, reason: 'owner_approval_verified' });
 });
 
+test('production deployment, database migration and destructive actions require explicit owner approval', () => {
+  for (const action of ['production_deploy', 'database_migration', 'destructive_operation'] as const) {
+    const request = {
+      ...base,
+      action,
+      actionDigest: 'sha256:exact-action',
+      target: 'production:royal-club',
+    };
+    assert.deepEqual(authorizeOwnerProtectedAction(request), {
+      allowed: false,
+      reason: 'owner_approval_required',
+    });
+    assert.deepEqual(authorizeOwnerProtectedAction({
+      ...request,
+      approval: { ...ownerApproval, target: 'production:royal-club' },
+    }), {
+      allowed: true,
+      reason: 'owner_approval_verified',
+    });
+  }
+});
+
 test('non-owner cannot use a valid owner approval as delegated authority', () => {
   assert.deepEqual(authorizeOwnerProtectedAction({
     ...base,
