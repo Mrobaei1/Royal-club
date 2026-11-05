@@ -595,5 +595,4 @@ void main() {
         throwsArgumentError,
       );
     });
-  });
 }
