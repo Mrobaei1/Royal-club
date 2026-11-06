@@ -62,7 +62,10 @@ void main() {
     final api = HokmService(
       post: (path, body) async {
         expect(path, '/api/v1/hokm/rooms/room/forfeit');
-        expect(body, {'expectedVersion': 12});
+        expect(body, {
+          'expectedVersion': 12,
+          'idempotencyKey': 'hokm-12',
+        });
         return {'roomId': 'room', 'status': 'playing', 'version': 13};
       },
     );
