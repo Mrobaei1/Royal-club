@@ -3,12 +3,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'l10n/app_text.dart';
 import 'services/auth_service.dart';
+import 'services/admin_service.dart';
 import 'services/hokm_service.dart';
 
 class HokmScreen extends StatefulWidget {
   final HokmApi? api;
   final Future<String?> Function()? identityLoader;
-  const HokmScreen({super.key, this.api, this.identityLoader});
+  final Future<bool> Function()? canConfigureMatchTargetLoader;
+  const HokmScreen({super.key, this.api, this.identityLoader, this.canConfigureMatchTargetLoader});
   @override
   State<HokmScreen> createState() => _HokmScreenState();
 }
@@ -21,6 +23,7 @@ class _HokmScreenState extends State<HokmScreen> with WidgetsBindingObserver {
   String? _userId;
   String? _error;
   int _target = 7;
+  bool _canConfigureMatchTarget = false;
   bool _busy = false;
   bool _pollBusy = false;
   bool _background = false;
@@ -77,8 +80,19 @@ class _HokmScreenState extends State<HokmScreen> with WidgetsBindingObserver {
         final user = data['user'];
         id = user is Map ? user['id']?.toString() : null;
       }
+      var canConfigureMatchTarget = false;
+      try {
+        canConfigureMatchTarget = widget.canConfigureMatchTargetLoader != null
+            ? await widget.canConfigureMatchTargetLoader!()
+            : await AdminService.isOwner();
+      } catch (_) {
+        // Fail closed: ordinary players always use the manager-configured default.
+      }
       if (!mounted) return;
-      setState(() => _userId = id);
+      setState(() {
+        _userId = id;
+        _canConfigureMatchTarget = canConfigureMatchTarget;
+      });
     } catch (error) { _showError(error); }
   }
 
@@ -158,7 +172,10 @@ class _HokmScreenState extends State<HokmScreen> with WidgetsBindingObserver {
     finally { if (mounted) setState(() => _busy = false); }
   }
 
-  Future<void> _create() => _run(() => _api.createRoom(matchTarget: _target, privateRoom: false));
+  Future<void> _create() => _run(() => _api.createRoom(
+    matchTarget: _canConfigureMatchTarget ? _target : 7,
+    privateRoom: false,
+  ));
 
   Future<void> _join() {
     final code = _roomCode.text.trim();
@@ -306,13 +323,15 @@ class _HokmScreenState extends State<HokmScreen> with WidgetsBindingObserver {
     _panel(Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       Text(t('ساخت مسابقه جدید', 'Create a match'), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
       const SizedBox(height: 12),
-      DropdownButtonFormField<int>(
-        initialValue: _target,
-        decoration: InputDecoration(labelText: t('تعداد دست‌های لازم برای برد', 'Hands required to win')),
-        items: [3, 5, 7].map((value) => DropdownMenuItem(value: value, child: Text('$value'))).toList(),
-        onChanged: _busy ? null : (value) { if (value != null) setState(() => _target = value); },
-      ),
-      const SizedBox(height: 12),
+      if (_canConfigureMatchTarget) ...[
+        DropdownButtonFormField<int>(
+          initialValue: _target,
+          decoration: InputDecoration(labelText: t('تعداد دست‌های لازم برای برد', 'Hands required to win')),
+          items: [3, 5, 7].map((value) => DropdownMenuItem(value: value, child: Text('$value'))).toList(),
+          onChanged: _busy ? null : (value) { if (value != null) setState(() => _target = value); },
+        ),
+        const SizedBox(height: 12),
+      ]
       FilledButton.icon(onPressed: _busy || _userId == null ? null : _create,
         icon: const Icon(Icons.add_circle_outline), label: Text(t('ساخت اتاق حکم', 'Create Hokm room'))),
     ])),
