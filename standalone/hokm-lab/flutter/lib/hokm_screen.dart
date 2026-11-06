@@ -128,6 +128,20 @@ class _HokmScreenState extends State<HokmScreen> with WidgetsBindingObserver {
     if (['completed', 'cancelled', 'expired'].contains(room['status'])) {
       _pollTimer?.cancel();
       _pollTimer = null;
+      if (room['status'] == 'completed' &&
+          _secondsLeft(room['handRevealUntil']) > 0 &&
+          room['revealedHands'] is List) {
+        // Keep the final three-second reveal visible locally without polling
+        // a terminal match; hide it and unlock lobby exit when the deadline ends.
+        _pollTimer = Timer.periodic(const Duration(milliseconds: 250), (_) {
+          if (!mounted) return;
+          if (_secondsLeft(_room?['handRevealUntil']) == 0) {
+            _pollTimer?.cancel();
+            _pollTimer = null;
+          }
+          setState(() {});
+        });
+      }
     } else if (_roomId.isNotEmpty && _pollTimer == null) {
       _pollTimer = Timer.periodic(const Duration(milliseconds: 500), (_) => _refresh());
     }
@@ -410,6 +424,10 @@ class _HokmScreenState extends State<HokmScreen> with WidgetsBindingObserver {
     final game = _game;
     final score = (_room?['matchScore'] as List?) ?? const [0, 0];
     if (_status == 'completed' || _status == 'cancelled') {
+      final revealSeconds = _secondsLeft(_room?['handRevealUntil']);
+      final revealed = _status == 'completed' && revealSeconds > 0
+          ? _room?['revealedHands'] as List?
+          : null;
       return _panel(Column(children: [
         Icon(_status == 'completed' ? Icons.emoji_events : Icons.cancel_outlined,
           size: 48, color: Theme.of(context).colorScheme.primary),
@@ -418,7 +436,28 @@ class _HokmScreenState extends State<HokmScreen> with WidgetsBindingObserver {
           style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
         Text('${score[0]}  -  ${score[1]}', style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900)),
         if (_status == 'completed') OutlinedButton(onPressed: _busy ? null : _appeal, child: Text(t('اعتراض به نتیجه', 'Appeal result'))),
-        TextButton(onPressed: _leave, child: Text(t('بازگشت', 'Back'))),
+        if (revealed != null) ...[
+          const SizedBox(height: 10),
+          Text(t('کارت‌های باقی‌ماندهٔ پایان دست', 'Remaining cards at hand end'),
+            style: const TextStyle(fontWeight: FontWeight.w800)),
+          ...List.generate(revealed.length, (seat) {
+            final cards = (revealed[seat] as List? ?? const [])
+                .whereType<Map>()
+                .map((card) => Map<String, dynamic>.from(card))
+                .toList();
+            return ListTile(
+              dense: true,
+              title: Text(_seatName(seat)),
+              subtitle: Text(cards.map(_cardLabel).join('  ')),
+            );
+          }),
+        ],
+        if (revealSeconds > 0)
+          Text(t('بازگشت پس از پایان نمایش کارت‌ها فعال می‌شود', 'Return unlocks in ${revealSeconds}s')),
+        TextButton(
+          onPressed: _busy || revealSeconds > 0 ? null : _leave,
+          child: Text(t('بازگشت', 'Back')),
+        ),
       ]));
     }
     if (game == null) return _panel(Text(t('در انتظار وضعیت بازی...', 'Waiting for game state...')));
