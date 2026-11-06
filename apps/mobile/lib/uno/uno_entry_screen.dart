@@ -43,15 +43,19 @@ class _UnoEntryScreenState extends State<UnoEntryScreen> {
     return FutureBuilder<Map<String, dynamic>>(
       future: _session,
       builder: (context, snapshot) {
-        if (snapshot.hasError) return Scaffold(
+        if (snapshot.hasError) {
+          return Scaffold(
           appBar: AppBar(title: Text(fa ? 'بازی اونو' : 'UNO')),
           body: Center(child: Padding(padding: const EdgeInsets.all(24),
             child: Text(snapshot.error.toString(), textAlign: TextAlign.center))),
-        );
-        if (!snapshot.hasData) return Scaffold(
+          );
+        }
+        if (!snapshot.hasData) {
+          return Scaffold(
           appBar: AppBar(title: Text(fa ? 'بازی اونو' : 'UNO')),
           body: const Center(child: CircularProgressIndicator()),
-        );
+          );
+        }
         return UnoOnlineScreen(
           serverUrl: snapshot.data!['serverUrl'] as String,
           accessToken: snapshot.data!['token'] as String,
