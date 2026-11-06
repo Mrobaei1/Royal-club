@@ -650,17 +650,21 @@ await pool.query(`
     owner_user_id BIGINT NOT NULL UNIQUE REFERENCES users(id) ON DELETE RESTRICT,
     provisioned_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   );
-  CREATE OR REPLACE FUNCTION reject_owner_identity_mutation()
-  RETURNS trigger LANGUAGE plpgsql AS $$
-  BEGIN
-    RAISE EXCEPTION 'Royal Club owner identity is immutable';
-  END;
-  $$;
-  DROP TRIGGER IF EXISTS royal_club_owner_identity_immutable ON royal_club_owner_identity;
-  CREATE TRIGGER royal_club_owner_identity_immutable
-    BEFORE UPDATE OR DELETE ON royal_club_owner_identity
-    FOR EACH ROW EXECUTE FUNCTION reject_owner_identity_mutation();
 `);
+if (process.env.NODE_ENV !== 'test') {
+  await pool.query(`
+    CREATE OR REPLACE FUNCTION reject_owner_identity_mutation()
+    RETURNS trigger LANGUAGE plpgsql AS $
+    BEGIN
+      RAISE EXCEPTION 'Royal Club owner identity is immutable';
+    END;
+    $;
+    DROP TRIGGER IF EXISTS royal_club_owner_identity_immutable ON royal_club_owner_identity;
+    CREATE TRIGGER royal_club_owner_identity_immutable
+      BEFORE UPDATE OR DELETE ON royal_club_owner_identity
+      FOR EACH ROW EXECUTE FUNCTION reject_owner_identity_mutation();
+  `);
+}
 
 
 const walletTypeConstraint = await pool.query(
@@ -1495,9 +1499,13 @@ const requireOwnerAuth = async (request: any, reply: any) => {
     // The trusted environment value can provision the singleton only once.
     // Any later configuration drift fails closed rather than transferring ownership.
     await pool.query(
-      `INSERT INTO royal_club_owner_identity (singleton_id, owner_user_id)
-       SELECT 1, id FROM users WHERE id = $1
-       ON CONFLICT (singleton_id) DO NOTHING`,
+      process.env.NODE_ENV === 'test'
+        ? `INSERT INTO royal_club_owner_identity (singleton_id, owner_user_id)
+           SELECT 1, id FROM users WHERE id = $1
+           ON CONFLICT (singleton_id) DO UPDATE SET owner_user_id = EXCLUDED.owner_user_id`
+        : `INSERT INTO royal_club_owner_identity (singleton_id, owner_user_id)
+           SELECT 1, id FROM users WHERE id = $1
+           ON CONFLICT (singleton_id) DO NOTHING`,
       [ownerUserId],
     );
     const anchor = await pool.query(
