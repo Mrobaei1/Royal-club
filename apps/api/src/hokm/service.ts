@@ -293,7 +293,7 @@ export class HokmRoomService {
       return outcomes;
     }
 
-    if (room.status === "playing") {
+    if (["playing", "round_completed"].includes(room.status)) {
       const expiredSeats = room.players.filter(player => !player.connected && !player.forfeited &&
         !player.temporaryBot && Number.isFinite(player.reconnectDeadline) && this.now() >= player.reconnectDeadline);
       for (const player of expiredSeats) {
