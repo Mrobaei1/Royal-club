@@ -1,0 +1,277 @@
+import 'dart:async';
+import 'dart:convert';
+
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:http/http.dart' as http;
+
+import 'auth_service.dart';
+import 'api_transport.dart';
+
+class ManchOnlineService {
+  static const _storage = FlutterSecureStorage();
+  static Uri _uri(String path) {
+    if (path.startsWith('/../')) {
+      return ApiTransport.uri('/api/v1/manch${path.substring(3)}');
+    }
+    return ApiTransport.uri('/api/v1/manch/matches$path');
+  }
+
+  static Future<Map<String, String>> _headers() async {
+    final token = await _storage.read(key: 'royal_club_token');
+    if (token == null || token.isEmpty) {
+      throw Exception('ابتدا وارد حساب شوید.');
+    }
+    return {
+      'Authorization': 'Bearer $token',
+      'Accept': 'application/json',
+      'Content-Type': 'application/json',
+    };
+  }
+
+  static Future<Map<String, dynamic>> _request(
+    String method,
+    String path, {
+    Map<String, dynamic>? body,
+  }) async {
+    final headers = await _headers();
+    final uri = _uri(path);
+    late final http.Response response;
+    try {
+      switch (method) {
+        case 'POST':
+          response = await http.post(
+            uri,
+            headers: headers,
+            body: jsonEncode(body ?? <String, dynamic>{}),
+          ).timeout(const Duration(seconds: 12));
+          break;
+        case 'DELETE':
+          response = await http.delete(uri, headers: headers)
+              .timeout(const Duration(seconds: 12));
+          break;
+        default:
+          response = await http.get(uri, headers: headers)
+              .timeout(const Duration(seconds: 12));
+      }
+    } on TimeoutException {
+      throw Exception('پاسخ سرور بیش از حد طول کشید؛ دوباره تلاش کنید.');
+    } on http.ClientException {
+      throw Exception('اتصال به سرور برقرار نشد؛ اینترنت و آدرس API را بررسی کنید.');
+    }
+
+    dynamic decoded;
+    try {
+      decoded = jsonDecode(response.body);
+    } catch (_) {
+      throw Exception('پاسخ سرور قابل‌خواندن نیست.');
+    }
+    if (decoded is! Map<String, dynamic>) {
+      throw Exception('پاسخ سرور نامعتبر است.');
+    }
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(
+        '${decoded['error']?.toString() ?? 'خطای سرور'} (HTTP ${response.statusCode})',
+      );
+    }
+    return decoded;
+  }
+
+  static String _requireId(Object? raw) {
+    final id = raw?.toString().trim() ?? '';
+    if (!RegExp(r'^[1-9][0-9]*$').hasMatch(id)) {
+      throw Exception('سرور شناسه معتبر اتاق منچ را برنگرداند.');
+    }
+    return id;
+  }
+
+  static Future<String> currentUserId() async {
+    final profile = await AuthService.me();
+    final user = profile['user'];
+    if (user is! Map<String, dynamic>) {
+      throw Exception('اطلاعات حساب کاربری قابل دریافت نیست.');
+    }
+    return _requireId(user['id']);
+  }
+
+  static Future<Map<String, dynamic>?> mine() async {
+    final payload = await _request('GET', '/mine');
+    final raw = payload['match'];
+    if (raw == null) return null;
+    if (raw is! Map) {
+      throw Exception('اطلاعات بازی قبلی منچ نامعتبر است.');
+    }
+    final match = Map<String, dynamic>.from(raw);
+    match['id'] = _requireId(match['id']);
+    return match;
+  }
+
+  static Future<List<Map<String, dynamic>>> listOpen() async {
+    final payload = await _request('GET', '');
+    return ((payload['matches'] as List?) ?? const [])
+        .whereType<Map>()
+        .map((item) => Map<String, dynamic>.from(item))
+        .where((match) => RegExp(r'^[1-9][0-9]*$').hasMatch((match['id'] ?? '').toString()))
+        .toList();
+  }
+
+  static Future<Map<String, dynamic>> create({required int playerCount}) async {
+    if (playerCount < 2 || playerCount > 4) {
+      throw ArgumentError.value(playerCount, 'playerCount');
+    }
+    final payload = await _request(
+      'POST',
+      '',
+      body: {'playerCount': playerCount},
+    );
+    if (payload['match'] is! Map) {
+      throw Exception('پاسخ ایجاد اتاق منچ ناقص است.');
+    }
+    final match = Map<String, dynamic>.from(payload['match'] as Map);
+    match['id'] = _requireId(match['id']);
+    return match;
+  }
+
+  static Future<Map<String, dynamic>> join(String id) async {
+    final cleanId = _requireId(id);
+    final payload = await _request('POST', '/$cleanId/join');
+    if (payload['match'] is! Map) {
+      throw Exception('پاسخ پیوستن به اتاق منچ ناقص است.');
+    }
+    final match = Map<String, dynamic>.from(payload['match'] as Map);
+    match['id'] = _requireId(match['id']);
+    return match;
+  }
+
+  static Future<List<Map<String, dynamic>>> history() async {
+    final payload = await _request('GET', '/history');
+    final raw = payload['matches'];
+    if (raw is! List) {
+      throw Exception('سوابق بازی منچ از سرور نامعتبر است.');
+    }
+    return raw
+        .whereType<Map>()
+        .map((item) => Map<String, dynamic>.from(item))
+        .toList();
+  }
+
+  static Future<List<Map<String, dynamic>>> leaderboard() async {
+    final payload = await _request('GET', '/../leaderboard');
+    final raw = payload['leaderboard'];
+    if (raw is! List) throw Exception('جدول رتبه‌بندی منچ نامعتبر است.');
+    return raw.whereType<Map>().map((item) => Map<String, dynamic>.from(item)).toList();
+  }
+
+  static Future<Map<String, int>> stats() async {
+    final payload = await _request('GET', '/stats');
+    final raw = payload['stats'];
+    if (raw is! Map) {
+      throw Exception('آمار بازی منچ از سرور نامعتبر است.');
+    }
+    int readCount(String key) {
+      final value = raw[key];
+      if (value is int && value >= 0) return value;
+      if (value is num && value.isFinite && value >= 0 && value == value.roundToDouble()) {
+        return value.toInt();
+      }
+      throw FormatException('Invalid Manch statistics field: $key');
+    }
+    return {
+      'played': readCount('played'),
+      'wins': readCount('wins'),
+      'losses': readCount('losses'),
+      'quits': readCount('quits'),
+      'xpPoints': readCount('xpPoints'),
+      'level': readCount('level'),
+    };
+  }
+
+  static Future<Map<String, dynamic>> inviteFriend(String matchId, String friendUserId) async =>
+      _request('POST', '/${_requireId(matchId)}/invites', body: {
+        'friendUserId': _requireId(friendUserId),
+      });
+
+  static Future<List<Map<String, dynamic>>> pendingInvites() async {
+    final payload = await _request('GET', '/../invites');
+    final raw = payload['invites'];
+    if (raw is! List) throw Exception('دعوت‌های منچ از سرور نامعتبر است.');
+    return raw.whereType<Map>().map((item) => Map<String, dynamic>.from(item)).toList();
+  }
+
+  static Future<Map<String, dynamic>> respondToInvite(String inviteId, {required bool accept}) async {
+    final id = _requireId(inviteId);
+    final action = accept ? 'accept' : 'decline';
+    final payload = await _request('POST', '/../invites/$id/$action');
+    if (accept && payload['match'] is Map) {
+      final match = Map<String, dynamic>.from(payload['match'] as Map);
+      match['id'] = _requireId(match['id']);
+      payload['match'] = match;
+    }
+    return payload;
+  }
+
+  static Future<void> heartbeat(String id) async {
+    final payload = await _request('POST', '/${_requireId(id)}/presence');
+    if (payload['acknowledged'] != true) {
+      throw Exception('پاسخ ثبت حضور در بازی منچ نامعتبر است.');
+    }
+  }
+
+  static Future<Map<String, dynamic>> get(String id) async {
+    final cleanId = _requireId(id);
+    final payload = await _request('GET', '/$cleanId');
+    if (payload['match'] is! Map) {
+      throw Exception('اطلاعات اتاق منچ ناقص است.');
+    }
+    final match = Map<String, dynamic>.from(payload['match'] as Map);
+    match['id'] = _requireId(match['id']);
+    return match;
+  }
+
+  static Future<Map<String, dynamic>> roll(
+    String id, {
+    required int expectedStateVersion,
+  }) async =>
+      _request(
+        'POST',
+        '/${_requireId(id)}/roll',
+        body: {'expectedStateVersion': expectedStateVersion},
+      );
+
+  static Future<Map<String, dynamic>> move(
+    String id, {
+    required int tokenIndex,
+    required int expectedStateVersion,
+  }) async =>
+      _request(
+        'POST',
+        '/${_requireId(id)}/move',
+        body: {
+          'tokenIndex': tokenIndex,
+          'expectedStateVersion': expectedStateVersion,
+        },
+      );
+
+  static Future<Map<String, dynamic>> rematch(String id) async {
+    final payload = await _request('POST', '/${_requireId(id)}/rematch');
+    if (payload['match'] is! Map) {
+      throw Exception('پاسخ ایجاد بازی مجدد منچ ناقص است.');
+    }
+    final match = Map<String, dynamic>.from(payload['match'] as Map);
+    match['id'] = _requireId(match['id']);
+    return match;
+  }
+
+  static Future<Map<String, dynamic>> forfeit(
+    String id, {
+    required int expectedStateVersion,
+  }) async =>
+      _request(
+        'POST',
+        '/${_requireId(id)}/forfeit',
+        body: {'expectedStateVersion': expectedStateVersion},
+      );
+
+  static Future<void> cancel(String id) async {
+    await _request('DELETE', '/${_requireId(id)}');
+  }
+}

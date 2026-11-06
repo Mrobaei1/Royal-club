@@ -21,6 +21,7 @@ import 'services/friends_service.dart';
 import 'uno/uno_entry_screen.dart';
 import 'games/manch/manch_offline_game_screen.dart';
 import 'games/manch/manch_game_state.dart';
+import 'games/manch/manch_online_screen.dart';
 
 class RoyalLocaleState extends ChangeNotifier {
   RoyalLocaleState() { _load(); }
@@ -469,6 +470,15 @@ class _HomeScreenState extends State<HomeScreen> {
                     builder: (_) => mode == 'online' ? const OnlineLobbyScreen() : const EngineBackgammonScreen(),
                   ));
                 },
+              ),
+              const SizedBox(height: 12),
+              GameTile(
+                title: appText(context, 'منچ آنلاین', 'Online Manch'),
+                subtitle: appText(context, 'بازی چندنفره ۲ تا ۴ نفره', 'Online multiplayer for 2–4 players'),
+                icon: Icons.people_alt_rounded,
+                onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
+                  builder: (_) => const ManchOnlineLobbyScreen(),
+                )),
               ),
               const SizedBox(height: 12),
               GameTile(
