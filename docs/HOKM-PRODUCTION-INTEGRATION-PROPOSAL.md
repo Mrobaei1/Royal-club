@@ -51,3 +51,7 @@ The worker uses the PostgreSQL CAS repository, handles SIGTERM/SIGINT, and logs 
 - Optional recorded voice messages remain dormant and disabled; this work adds no audio feature.
 
 The worker's scheduler error callback is explicitly typed and emits only room identifier, error message, and event timestamp; it never logs private card state or database credentials.
+
+
+## Exact-head CI trigger — 2026-11-06
+The Hokm API/mobile proposal received source and test changes after the earlier recorded green runs. The branch's latest source head did not expose a GitHub Actions run in the repository evidence sweep. This entry intentionally triggers the repository's current validation workflows on the exact updated head; no test is considered passed until the resulting runs complete. Remaining product-rule questions Q25/Q26 must be resolved from the owner's recorded selections before acceptance. The selected 20-second reconnect grace is retained; the separate all-four-disconnected cancellation rule is also 20 seconds. Production worker deployment and physical four-device acceptance remain release gates.
