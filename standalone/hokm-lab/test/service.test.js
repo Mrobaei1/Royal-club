@@ -214,6 +214,38 @@ test("a player can join by room code without first reading a member-only room vi
 });
 
 
+test("service cancels a waiting room and returns safe exit acknowledgements until it is empty", async () => {
+  const { service } = serviceFixture();
+  let room = await service.create(user("u0"));
+  room = await service.join(user("u1"), room.roomId, room.version);
+  room = await service.join(user("u2"), room.roomId, room.version);
+
+  const hostExit = await service.leave(user("u0"), room.roomId, room.version);
+  assert.deepEqual(hostExit, {
+    roomId: room.roomId,
+    status: "cancelled",
+    version: room.version + 1,
+    cancelReason: "player_left_before_match_start",
+    left: true
+  });
+
+  let remaining = await service.view(user("u1"), room.roomId);
+  assert.equal(remaining.status, "cancelled");
+  assert.equal(remaining.players.length, 2);
+  assert.equal(remaining.hostUserId, "u1");
+
+  const secondExit = await service.leave(user("u1"), room.roomId, remaining.version);
+  assert.equal(secondExit.left, true);
+  assert.equal(secondExit.status, "cancelled");
+
+  remaining = await service.view(user("u2"), room.roomId);
+  assert.equal(remaining.players.length, 1);
+  const finalExit = await service.leave(user("u2"), room.roomId, remaining.version);
+  assert.equal(finalExit.left, true);
+  assert.equal(finalExit.status, "expired");
+  await assert.rejects(service.view(user("u2"), room.roomId), /not a member/);
+});
+
 test("service sends idempotent private text messages only between opposing teams", async () => {
   const { service } = serviceFixture();
   let room = await service.create(user("u0"));
