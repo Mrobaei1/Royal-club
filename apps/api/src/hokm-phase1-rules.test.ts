@@ -386,3 +386,18 @@ test('intentional exit permanently reserves the seat for Hard bot; no replacemen
   assert.throws(() => joinRoom(room, 'replacement-player', 3000), /not accepting players/);
   assert.equal(room.players.length, 4);
 });
+
+
+test('a single disconnected player is transferred to temporary Hard bot even during the three-second hand reveal', () => {
+  let room = createRoom({ roomId: 'phase1-reveal-disconnect', hostUserId: 'p0', now: 1000 });
+  for (const id of ['p1', 'p2', 'p3']) room = joinRoom(room, id, 1001);
+  for (const id of ['p0', 'p1', 'p2', 'p3']) room = setPlayerReady(room, id, true);
+  room = startRoom(room, 'p0', { now: 1002, rng: () => 0.5 });
+  room = { ...room, status: 'round_completed', handRevealUntil: 5000 };
+  room = disconnectPlayer(room, 'p0', { now: 2000, expectedVersion: room.version });
+  const deadline = room.players[0].reconnectDeadline;
+  room = handleDisconnectTimeout(room, 'p0', { now: deadline, expectedVersion: room.version });
+  assert.equal(room.status, 'round_completed');
+  assert.equal(room.players[0].temporaryBot, true);
+  assert.deepEqual(room.pendingXpDeductions, ['p0']);
+});
