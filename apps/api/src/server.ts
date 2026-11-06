@@ -20,6 +20,7 @@ import { hasRoyalPermission, isRoyalPermission } from './permissions.js';
 import { isValidNeonTriggerInvocation } from './neon-trigger-auth.js';
 import { promisify } from 'node:util';
 import { createRoyalLoggerOptions } from './logging-config.js';
+import { publicGameServices } from './game-services-config.js';
 
 const scrypt = promisify(scryptCallback);
 
@@ -712,6 +713,8 @@ app.addHook('onRequest', async (request) => {
   if (request.url.split('?')[0] === '/internal/cleanup-expired-empty-rooms') return;
   await cleanupExpiredEmptyRoomsBestEffort();
 });
+
+app.get('/api/v1/public/game-services', async () => ({ services: publicGameServices() }));
 
 app.get('/api/v1/health', async () => ({
   status: 'ok',
