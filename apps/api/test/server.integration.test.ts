@@ -73,6 +73,60 @@ async function register(fullName: string) {
   return { token: body.accessToken, user: body.user };
 }
 
+test('owner can version and roll back central game service configuration', async () => {
+  const previousOwnerId = process.env.OWNER_USER_ID;
+  const owner = await register('Game Service Config Owner');
+  const other = await register('Game Service Config Other');
+  process.env.OWNER_USER_ID = owner.user.id;
+  const before = await testPool.query(
+    'SELECT version, services FROM game_service_config WHERE singleton_id = 1',
+  );
+  const originalVersion = Number(before.rows[0].version);
+  const originalServices = before.rows[0].services;
+  try {
+    const denied = await app.inject({
+      method: 'GET', url: '/api/v1/admin/game-services', headers: auth(other.token),
+    });
+    assert.equal(denied.statusCode, 403);
+
+    const invalid = await app.inject({
+      method: 'PATCH', url: '/api/v1/admin/game-services',
+      headers: auth(owner.token), payload: { uno: 'http://insecure.example.com' },
+    });
+    assert.equal(invalid.statusCode, 400);
+
+    const saved = await app.inject({
+      method: 'PATCH', url: '/api/v1/admin/game-services',
+      headers: auth(owner.token), payload: { uno: 'https://uno-v2.example.com' },
+    });
+    assert.equal(saved.statusCode, 200, saved.body);
+    assert.equal(saved.json().config.version, originalVersion + 1);
+    assert.equal(saved.json().config.services.uno, 'https://uno-v2.example.com');
+
+    const publicConfig = await app.inject({ method: 'GET', url: '/api/v1/public/game-services' });
+    assert.equal(publicConfig.statusCode, 200, publicConfig.body);
+    assert.equal(publicConfig.json().version, originalVersion + 1);
+    assert.equal(publicConfig.json().services.uno, 'https://uno-v2.example.com');
+
+    const rollback = await app.inject({
+      method: 'POST',
+      url: `/api/v1/admin/game-services/rollback/${originalVersion}`,
+      headers: auth(owner.token),
+    });
+    assert.equal(rollback.statusCode, 200, rollback.body);
+    assert.equal(rollback.json().config.version, originalVersion + 2);
+    assert.deepEqual(rollback.json().config.services, originalServices);
+  } finally {
+    await testPool.query(
+      'UPDATE game_service_config SET version = $1, services = $2::jsonb, updated_by = NULL WHERE singleton_id = 1',
+      [originalVersion, JSON.stringify(originalServices)],
+    );
+    await testPool.query('DELETE FROM game_service_config_history WHERE version > $1', [originalVersion]);
+    if (previousOwnerId === undefined) delete process.env.OWNER_USER_ID;
+    else process.env.OWNER_USER_ID = previousOwnerId;
+  }
+});
+
 test('registered players can join an online match and history does not expose opponent email', async () => {
   const health = await app.inject({ method: 'GET', url: '/api/v1/health' });
   assert.equal(health.statusCode, 200);
