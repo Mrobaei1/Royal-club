@@ -19,6 +19,8 @@ import 'chat_screen.dart';
 import 'services/chat_service.dart';
 import 'services/friends_service.dart';
 import 'uno/uno_entry_screen.dart';
+import 'games/manch/manch_offline_game_screen.dart';
+import 'games/manch/manch_game_state.dart';
 
 class RoyalLocaleState extends ChangeNotifier {
   RoyalLocaleState() { _load(); }
@@ -467,6 +469,18 @@ class _HomeScreenState extends State<HomeScreen> {
                     builder: (_) => mode == 'online' ? const OnlineLobbyScreen() : const EngineBackgammonScreen(),
                   ));
                 },
+              ),
+              const SizedBox(height: 12),
+              GameTile(
+                title: appText(context, 'منچ ایرانی', 'Iranian Manch'),
+                subtitle: appText(context, 'بازی آفلاین با هوش مصنوعی', 'Offline game vs AI'),
+                icon: Icons.grid_view_rounded,
+                onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
+                  builder: (_) => const ManchOfflineGameScreen(
+                    playerCount: 2,
+                    botPlayers: {ManchColour.yellow},
+                  ),
+                )),
               ),
               const SizedBox(height: 12),
               GameTile(
