@@ -9,7 +9,7 @@ This baseline covers the currently implemented, deliberately single-instance sta
 
 The following are explicit release or future-scale gates, not hidden engineering work in this baseline:
 - Physical acceptance on at least two Android devices, including complete 2-player and 6-player matches.
-- Owner approval to integrate UNO into the root app.
+- Root-app integration is complete (PR #176 merged).
 - Owner approval for production hosting, production secrets, and database migration.
 - Separate explicit owner approval before APK generation.
 - Multi-instance/horizontal scaling. The current advisory lock intentionally enforces a safe single-instance deployment. The separate `DISTRIBUTED-ROOM-ARCHITECTURE.md` is a future design, not a claim that distributed execution is implemented.
@@ -36,7 +36,7 @@ Current engineering implementation score on this defined baseline: **100/100** f
 
 ## Release readiness is tracked separately
 
-Engineering WBS completion is not equivalent to release approval. Release remains **not accepted** until the two-device physical test is recorded and the owner separately authorizes any root-app integration, production deployment/migration, and APK build. No such actions are implied by this WBS.
+Engineering WBS completion is not equivalent to release approval. Release remains **not accepted** until the two-device physical test is recorded and the owner separately authorizes production deployment/migration and APK build. No such actions are implied by this WBS.
 
 
 ## Explicit non-scored gates and limitations
