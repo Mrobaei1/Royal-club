@@ -324,6 +324,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 20));
     expect(api.createCalls, 1);
+    expect(api.room['privateRoom'], isTrue);
     expect(find.text('hokm-room-code'), findsOneWidget);
     expect(find.text('اتاق انتظار'), findsOneWidget);
   });
