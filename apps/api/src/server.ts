@@ -21,6 +21,7 @@ import { isValidNeonTriggerInvocation } from './neon-trigger-auth.js';
 import { promisify } from 'node:util';
 import { createRoyalLoggerOptions } from './logging-config.js';
 import { publicGameServices } from './game-services-config.js';
+import { isOwnerIdentityConsistent } from './owner-protection.js';
 
 const scrypt = promisify(scryptCallback);
 
@@ -642,6 +643,25 @@ await pool.query(`
   CREATE INDEX IF NOT EXISTS backgammon_player_stats_leaderboard_idx
     ON backgammon_player_stats (rating DESC, wins DESC, games_played ASC);
 `);
+ 
+await pool.query(`
+  CREATE TABLE IF NOT EXISTS royal_club_owner_identity (
+    singleton_id SMALLINT PRIMARY KEY CHECK (singleton_id = 1),
+    owner_user_id BIGINT NOT NULL UNIQUE REFERENCES users(id) ON DELETE RESTRICT,
+    provisioned_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+  CREATE OR REPLACE FUNCTION reject_owner_identity_mutation()
+  RETURNS trigger LANGUAGE plpgsql AS $$
+  BEGIN
+    RAISE EXCEPTION 'Royal Club owner identity is immutable';
+  END;
+  $$;
+  DROP TRIGGER IF EXISTS royal_club_owner_identity_immutable ON royal_club_owner_identity;
+  CREATE TRIGGER royal_club_owner_identity_immutable
+    BEFORE UPDATE OR DELETE ON royal_club_owner_identity
+    FOR EACH ROW EXECUTE FUNCTION reject_owner_identity_mutation();
+`);
+
 
 const walletTypeConstraint = await pool.query(
   `SELECT pg_get_constraintdef(oid) AS definition
@@ -1470,6 +1490,25 @@ const requireOwnerAuth = async (request: any, reply: any) => {
   const claims = request.user as { sub?: string };
   if (!ownerUserId || !isNumericId(ownerUserId) || claims.sub !== ownerUserId) {
     return reply.code(403).send({ error: 'Owner access is not configured or is not permitted.' });
+  }
+  try {
+    // The trusted environment value can provision the singleton only once.
+    // Any later configuration drift fails closed rather than transferring ownership.
+    await pool.query(
+      `INSERT INTO royal_club_owner_identity (singleton_id, owner_user_id)
+       SELECT 1, id FROM users WHERE id = $1
+       ON CONFLICT (singleton_id) DO NOTHING`,
+      [ownerUserId],
+    );
+    const anchor = await pool.query(
+      'SELECT owner_user_id::text AS "ownerUserId" FROM royal_club_owner_identity WHERE singleton_id = 1',
+    );
+    if (!isOwnerIdentityConsistent(ownerUserId, anchor.rows[0]?.ownerUserId, claims.sub)) {
+      return reply.code(403).send({ error: 'Owner identity anchor is missing or inconsistent.' });
+    }
+  } catch (error) {
+    request.log.error({ err: error }, 'Owner identity anchor verification failed');
+    return reply.code(503).send({ error: 'Owner protection is temporarily unavailable.' });
   }
 };
 
