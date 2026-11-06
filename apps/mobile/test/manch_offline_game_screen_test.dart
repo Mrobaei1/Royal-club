@@ -1,0 +1,395 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:royal_club/games/manch/manch_bot.dart';
+import 'package:royal_club/games/manch/manch_game_state.dart';
+import 'package:royal_club/games/manch/manch_offline_game_screen.dart';
+import 'package:royal_club/games/manch/manch_save_store.dart';
+import 'package:royal_club/games/manch/manch_rule_profile.dart';
+
+void main() {
+  testWidgets('offline game localizes primary controls in English',
+      (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        locale: Locale('en'),
+        supportedLocales: [Locale('fa'), Locale('en')],
+        localizationsDelegates: GlobalMaterialLocalizations.delegates,
+        home: ManchOfflineGameScreen(diceRoller: _six),
+      ),
+    );
+
+    expect(find.text('Iranian Manch — Offline'), findsOneWidget);
+    expect(find.text('Red\'s turn'), findsOneWidget);
+    expect(find.text('Roll die'), findsOneWidget);
+    expect(
+      tester.getSemantics(find.text('Roll the die to start your turn.'))
+          .flagsCollection.isLiveRegion,
+      isTrue,
+    );
+    expect(find.text('Save'), findsOneWidget);
+    expect(find.text('Restore'), findsOneWidget);
+  });
+
+
+  testWidgets('offline game localizes AI difficulty and restart controls in English',
+      (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        locale: Locale('en'),
+        supportedLocales: [Locale('fa'), Locale('en')],
+        localizationsDelegates: GlobalMaterialLocalizations.delegates,
+        home: ManchOfflineGameScreen(
+          botPlayers: {ManchColour.yellow},
+        ),
+      ),
+    );
+
+    expect(find.text('AI difficulty'), findsOneWidget);
+    expect(find.byTooltip('Restart'), findsOneWidget);
+    await tester.tap(find.byType(DropdownButton<ManchBotDifficulty>));
+    await tester.pumpAndSettle();
+    expect(find.text('Easy'), findsOneWidget);
+    expect(find.text('Hard'), findsOneWidget);
+  });
+
+  testWidgets('offline game enters a token on six and grants the extra roll',
+      (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        locale: Locale('fa'),
+        supportedLocales: [Locale('fa'), Locale('en')],
+        localizationsDelegates: GlobalMaterialLocalizations.delegates,
+        home: ManchOfflineGameScreen(diceRoller: _six),
+      ),
+    );
+
+    expect(find.text('منچ ایرانی — بازی آفلاین'), findsOneWidget);
+    expect(find.text('نوبت بازیکن قرمز'), findsOneWidget);
+
+    await tester.ensureVisible(find.text('انداختن تاس'));
+    await tester.ensureVisible(find.text('انداختن تاس'));
+    await tester.tap(find.text('انداختن تاس'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('حرکت‌های مجاز'), findsOneWidget);
+    expect(find.textContaining('مهره 1:'), findsOneWidget);
+
+    await tester.ensureVisible(find.textContaining('مهره 1:'));
+    await tester.tap(find.textContaining('مهره 1:'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('مسیر 1 از 52'), findsWidgets);
+    expect(find.text('حرکت انجام شد؛ نوبت اضافه داری.'), findsOneWidget);
+    expect(find.text('انداختن تاس'), findsOneWidget);
+  });
+
+  testWidgets('offline game automatically advances when no legal move exists',
+      (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        locale: Locale('fa'),
+        supportedLocales: [Locale('fa'), Locale('en')],
+        localizationsDelegates: GlobalMaterialLocalizations.delegates,
+        home: ManchOfflineGameScreen(diceRoller: _one),
+      ),
+    );
+
+    await tester.ensureVisible(find.text('انداختن تاس'));
+    await tester.tap(find.text('انداختن تاس'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('نوبت بازیکن زرد'), findsOneWidget);
+    expect(find.text('حرکت قانونی نداشتی؛ نوبت بازیکن بعدی است.'),
+        findsOneWidget);
+    expect(find.text('انداختن تاس'), findsOneWidget);
+  });
+
+  testWidgets('offline game saves and restores its complete state',
+      (tester) async {
+    final store = _MemoryManchSaveStore();
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale('fa'),
+        supportedLocales: const [Locale('fa'), Locale('en')],
+        localizationsDelegates: GlobalMaterialLocalizations.delegates,
+        home: ManchOfflineGameScreen(
+          diceRoller: _six,
+          saveStore: store,
+        ),
+      ),
+    );
+
+    await tester.ensureVisible(find.text('انداختن تاس'));
+    await tester.tap(find.text('انداختن تاس'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.textContaining('مهره 1:'));
+    await tester.tap(find.textContaining('مهره 1:'));
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.text('ذخیره'));
+    await tester.tap(find.text('ذخیره'));
+    await tester.pumpAndSettle();
+    expect(store.saved, isNotNull);
+
+    await tester.tap(find.byTooltip('شروع دوباره'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('حیاط'), findsWidgets);
+
+    await tester.ensureVisible(find.text('بازیابی'));
+    await tester.tap(find.text('بازیابی'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('مسیر 1 از 52'), findsWidgets);
+    expect(find.text('بازی ذخیره‌شده بازیابی شد.'), findsOneWidget);
+  });
+
+  testWidgets('third consecutive six penalty advances without passing absent dice',
+      (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        locale: Locale('fa'),
+        supportedLocales: [Locale('fa'), Locale('en')],
+        localizationsDelegates: GlobalMaterialLocalizations.delegates,
+        home: ManchOfflineGameScreen(
+          diceRoller: _six,
+          profile: ManchRuleProfile(
+            threeSixPenalty: ThreeSixPenalty.loseTurn,
+          ),
+        ),
+      ),
+    );
+
+    for (var turn = 0; turn < 2; turn++) {
+      await tester.ensureVisible(find.text('انداختن تاس'));
+      await tester.tap(find.text('انداختن تاس'));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.textContaining('مهره 1:'));
+      await tester.tap(find.textContaining('مهره 1:'));
+      await tester.pumpAndSettle();
+    }
+
+    await tester.ensureVisible(find.text('انداختن تاس'));
+    await tester.tap(find.text('انداختن تاس'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('نوبت بازیکن زرد'), findsOneWidget);
+    expect(find.text('سه شش متوالی؛ نوبت خود را از دست دادی.'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('offline bot difficulty can be selected before the match starts',
+      (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        locale: Locale('fa'),
+        supportedLocales: [Locale('fa'), Locale('en')],
+        localizationsDelegates: GlobalMaterialLocalizations.delegates,
+        home: ManchOfflineGameScreen(
+          botPlayers: {ManchColour.yellow},
+        ),
+      ),
+    );
+
+    final selector = find.byType(DropdownButton<ManchBotDifficulty>);
+    expect(selector, findsOneWidget);
+    expect(
+      tester.widget<DropdownButton<ManchBotDifficulty>>(selector).value,
+      ManchBotDifficulty.normal,
+    );
+
+    await tester.tap(selector);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('سخت').last);
+    await tester.pumpAndSettle();
+
+    expect(
+      tester.widget<DropdownButton<ManchBotDifficulty>>(selector).value,
+      ManchBotDifficulty.hard,
+    );
+  });
+
+  testWidgets('bot difficulty locks after the first roll and move', (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        locale: Locale('fa'),
+        supportedLocales: [Locale('fa'), Locale('en')],
+        localizationsDelegates: GlobalMaterialLocalizations.delegates,
+        home: ManchOfflineGameScreen(
+          botPlayers: {ManchColour.yellow},
+          diceRoller: _six,
+        ),
+      ),
+    );
+
+    final selector = find.byType(DropdownButton<ManchBotDifficulty>);
+    expect(tester.widget<DropdownButton<ManchBotDifficulty>>(selector).onChanged,
+        isNotNull);
+
+    await tester.ensureVisible(find.text('انداختن تاس'));
+    await tester.tap(find.text('انداختن تاس'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.textContaining('مهره 1:'));
+    await tester.tap(find.textContaining('مهره 1:'));
+    await tester.pumpAndSettle();
+
+    expect(tester.widget<DropdownButton<ManchBotDifficulty>>(selector).onChanged,
+        isNull);
+  });
+
+  testWidgets('restored pending bot move is completed without rolling again',
+      (tester) async {
+    final store = _MemoryManchSaveStore()
+      ..saved = ManchGameState(
+        players: [
+          ManchPlayerState(colour: ManchColour.red),
+          ManchPlayerState(
+            colour: ManchColour.yellow,
+            tokens: [0, -1, -1, -1],
+          ),
+        ],
+        activePlayerIndex: 1,
+        profile: const ManchRuleProfile(),
+        pendingDice: 1,
+        turnNumber: 2,
+      );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale('fa'),
+        supportedLocales: const [Locale('fa'), Locale('en')],
+        localizationsDelegates: GlobalMaterialLocalizations.delegates,
+        home: ManchOfflineGameScreen(
+          botPlayers: const {ManchColour.yellow},
+          diceRoller: _unexpectedDiceRoll,
+          saveStore: store,
+        ),
+      ),
+    );
+
+    expect(find.text('نوبت بازیکن قرمز'), findsOneWidget);
+    await tester.ensureVisible(find.text('بازیابی'));
+    await tester.tap(find.text('بازیابی'));
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.text('ذخیره'));
+    await tester.tap(find.text('ذخیره'));
+    await tester.pumpAndSettle();
+
+    expect(store.saved!.players[1].tokens[0], 1);
+    expect(store.saved!.activePlayerIndex, 0);
+    expect(find.text('نوبت بازیکن قرمز'), findsOneWidget);
+    expect(find.text('انداختن تاس'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('restore button prevents overlapping load and bot scheduling',
+      (tester) async {
+    final restored = ManchGameState(
+      players: [
+        ManchPlayerState(colour: ManchColour.red),
+        ManchPlayerState(colour: ManchColour.yellow, tokens: [0, -1, -1, -1]),
+      ],
+      activePlayerIndex: 1,
+      profile: const ManchRuleProfile(),
+      pendingDice: 1,
+      turnNumber: 2,
+    );
+    final store = _DelayedManchSaveStore();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale('en'),
+        supportedLocales: const [Locale('fa'), Locale('en')],
+        localizationsDelegates: GlobalMaterialLocalizations.delegates,
+        home: ManchOfflineGameScreen(
+          botPlayers: const {ManchColour.yellow},
+          diceRoller: _unexpectedDiceRoll,
+          saveStore: store,
+        ),
+      ),
+    );
+
+    await tester.ensureVisible(find.text('Restore'));
+    await tester.tap(find.text('Restore'));
+    await tester.pump();
+    expect(store.loadCalls, 1);
+    expect(find.text('Restoring...'), findsOneWidget);
+    expect(tester.widget<OutlinedButton>(
+      find.ancestor(of: find.text('Restoring...'), matching: find.byType(OutlinedButton)),
+    ).onPressed, isNull);
+
+    await tester.tap(find.text('Restoring...'), warnIfMissed: false);
+    expect(store.loadCalls, 1);
+
+    store.completer.complete(restored);
+    await tester.pumpAndSettle();
+
+    expect(store.loadCalls, 1);
+    expect(find.text('Red\'s turn'), findsOneWidget);
+    expect(find.text('Roll die'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('configured bot plays its turn and returns control to human',
+      (tester) async {
+    var rollCount = 0;
+    int diceRoller() => rollCount++ == 0 ? 6 : 1;
+    final store = _MemoryManchSaveStore();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale('fa'),
+        supportedLocales: const [Locale('fa'), Locale('en')],
+        localizationsDelegates: GlobalMaterialLocalizations.delegates,
+        home: ManchOfflineGameScreen(
+          botPlayers: const {ManchColour.red},
+          diceRoller: diceRoller,
+          saveStore: store,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('نوبت بازیکن زرد'), findsOneWidget);
+    await tester.ensureVisible(find.text('ذخیره'));
+    await tester.tap(find.text('ذخیره'));
+    await tester.pumpAndSettle();
+    expect(store.saved, isNotNull);
+    expect(store.saved!.players[0].tokens[0], 1);
+    expect(store.saved!.activePlayerIndex, 1);
+    expect(find.text('انداختن تاس'), findsOneWidget);
+  });
+}
+
+int _six() => 6;
+int _one() => 1;
+int _unexpectedDiceRoll() =>
+    throw StateError('A restored pending die must not be rolled again.');
+
+class _DelayedManchSaveStore implements ManchSaveStore {
+  final Completer<ManchGameState?> completer = Completer<ManchGameState?>();
+  int loadCalls = 0;
+
+  @override
+  Future<void> save(ManchGameState state) async {}
+
+  @override
+  Future<ManchGameState?> load() {
+    loadCalls++;
+    return completer.future;
+  }
+}
+
+class _MemoryManchSaveStore implements ManchSaveStore {
+  ManchGameState? saved;
+
+  @override
+  Future<void> save(ManchGameState state) async {
+    saved = ManchGameState.fromJson(state.toJson());
+  }
+
+  @override
+  Future<ManchGameState?> load() async => saved;
+}
