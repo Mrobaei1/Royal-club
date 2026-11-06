@@ -63,3 +63,7 @@ These are explicit integration blockers. Keep this PR in draft and do not merge/
 - Optional recorded voice messages remain dormant and disabled; this work adds no audio feature.
 
 The worker's scheduler error callback is explicitly typed and emits only room identifier, error message, and event timestamp; it never logs private card state or database credentials.
+
+
+## Exact-head CI trigger — 2026-11-06
+The Hokm mobile proposal received owner-only match-target UI changes after earlier validation. The branch's latest source head did not expose a GitHub Actions run in the repository evidence sweep. This entry intentionally triggers the repository's current validation workflows on the exact updated head; no test is considered passed until the resulting runs complete. Ordinary players retain the default match target; only owner-authorized sessions may configure 3/5/7. Reconcile this older mobile proposal with the authoritative API/client branch before integration. Production worker deployment and physical four-device acceptance remain release gates.
