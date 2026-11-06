@@ -5,7 +5,7 @@ RUN npm install
 COPY tsconfig.json ./
 COPY src ./src
 COPY test ./test
-RUN npm test && npm run build && npm prune --omit=dev
+RUN npm run test:unit && npm run build && npm prune --omit=dev
 
 FROM node:22-alpine AS runtime
 ENV NODE_ENV=production
