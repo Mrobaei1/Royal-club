@@ -109,7 +109,7 @@ The following checkpoint supersedes the historical 2026-11-02 estimates above. I
 - **Weighted overall Hokm WBS: 80.68%.**
 - Packages **2.0, 3.0 and 4.0 are 100%** based on their stated domain acceptance criteria and exact-head test evidence.
 - Expert/Hard-bot opponent benchmarks remain in package 7. Physical four-device acceptance remains in package 11/12; neither is counted as an unfinished engine/round/room-domain criterion.
-- Exact-head evidence: [Hokm isolated validation — 137/137 Node + PostgreSQL 16, Flutter analyze clean and 14/14 widget tests](https://github.com/Mrobaei1/Royal-club/actions/runs/42207890230); [isolated Node suite](https://github.com/Mrobaei1/Royal-club/actions/runs/42207890240).
+- Exact-head evidence: [Hokm isolated validation — 137/137 Node + PostgreSQL 16, Flutter analyze clean and 14/14 widget tests](https://github.com/Mrobaei1/Royal-club/actions/runs/42208507236); [isolated Node suite](https://github.com/Mrobaei1/Royal-club/actions/runs/42208507330).
 
 ## Owner clarification addendum (2026-11-06)
 
