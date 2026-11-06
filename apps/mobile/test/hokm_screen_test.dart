@@ -597,3 +597,29 @@ void main() {
   });
 
 }
+
+
+  testWidgets('cancelled match immediately returns every connected player to the Hokm lobby', (tester) async {
+    final api = FakeEventHokmApi();
+    await tester.pumpWidget(MaterialApp(
+      locale: const Locale('en'),
+      supportedLocales: const [Locale('fa'), Locale('en')],
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
+      home: HokmScreen(api: api, identityLoader: () async => 'u1'),
+    ));
+    await tester.pump();
+    await tester.tap(find.text('Create Hokm room'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 20));
+    expect(find.text('Room code'), findsOneWidget);
+    expect(api.watchCalls, 1);
+
+    api.controller.add({...api.room, 'status': 'cancelled', 'cancelReason': 'multiple_unrecovered_disconnects'});
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 20));
+
+    expect(find.text('Create Hokm room'), findsOneWidget);
+    expect(find.text('Match cancelled'), findsNothing);
+    expect(find.textContaining('returned to the lobby'), findsOneWidget);
+    await api.controller.close();
+  });
