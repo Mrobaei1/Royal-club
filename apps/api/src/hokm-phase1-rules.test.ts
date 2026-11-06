@@ -448,3 +448,19 @@ test('leaving before match start immediately cancels the room for every particip
   assert.equal(cancelled.players.length, 3, 'retain participant membership for cancellation delivery/audit');
   assert.throws(() => joinRoom(cancelled, 'replacement', 1002), /not accepting players/);
 });
+
+
+test('temporary disconnect followed by intentional forfeit still queues only one -5 XP deduction', () => {
+  let room = createRoom({ roomId: 'phase1-single-penalty-dedupe', hostUserId: 'p0', now: 1000 });
+  for (const id of ['p1', 'p2', 'p3']) room = joinRoom(room, id, 1001);
+  for (const id of ['p0', 'p1', 'p2', 'p3']) room = setPlayerReady(room, id, true);
+  room = startRoom(room, 'p0', { now: 1002, rng: () => 0.5 });
+  room = disconnectPlayer(room, 'p0', { now: 2000, expectedVersion: room.version });
+  const deadline = room.players[0].reconnectDeadline;
+  room = handleDisconnectTimeout(room, 'p0', { now: deadline, expectedVersion: room.version });
+  assert.deepEqual(room.pendingXpDeductions, ['p0']);
+  room = recordMatchForfeit(room, 'p0');
+  assert.deepEqual(room.pendingXpDeductions, ['p0']);
+  const repeated = recordMatchForfeit(room, 'p0');
+  assert.deepEqual(repeated.pendingXpDeductions, ['p0']);
+});
