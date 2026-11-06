@@ -401,3 +401,38 @@ test('a single disconnected player is transferred to temporary Hard bot even dur
   assert.equal(room.players[0].temporaryBot, true);
   assert.deepEqual(room.pendingXpDeductions, ['p0']);
 });
+
+
+test('Hard trump selection uses suit count, rank sum, highest card, then random tie-break in that order', () => {
+  const stateFor = hand => ({
+    phase: 'choose_trump', hakemSeat: 0, hands: [hand, [], [], []],
+    currentTrick: [], trickWinners: []
+  });
+  const card = (suit, rank) => ({ suit, rank });
+
+  const countWins = chooseHardBotAction(stateFor([
+    card('clubs', '2'), card('clubs', '3'), card('clubs', '4'), card('clubs', '5'),
+    card('hearts', 'A'), card('hearts', 'K'), card('hearts', 'Q')
+  ]), 0, { rng: () => 0.5 });
+  assert.equal(countWins.suit, 'clubs');
+
+  const sumWins = chooseHardBotAction(stateFor([
+    card('clubs', '2'), card('clubs', '3'), card('clubs', '4'),
+    card('hearts', 'A'), card('hearts', 'K'), card('hearts', 'Q')
+  ]), 0, { rng: () => 0.5 });
+  assert.equal(sumWins.suit, 'hearts');
+
+  const highestWins = chooseHardBotAction(stateFor([
+    card('clubs', 'A'), card('clubs', '2'),
+    card('hearts', 'K'), card('hearts', '3')
+  ]), 0, { rng: () => 0.5 });
+  assert.equal(highestWins.suit, 'clubs');
+
+  const tiedHand = stateFor([
+    card('clubs', 'A'), card('clubs', '2'),
+    card('hearts', 'A'), card('hearts', '2')
+  ]);
+  assert.equal(chooseHardBotAction(tiedHand, 0, { rng: () => 0 }).suit, 'clubs');
+  assert.equal(chooseHardBotAction(tiedHand, 0, { rng: () => 0.99 }).suit, 'hearts');
+  assert.throws(() => chooseHardBotAction(tiedHand, 0, { rng: () => 1 }), /tie-break RNG/);
+});
