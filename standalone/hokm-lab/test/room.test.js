@@ -448,7 +448,7 @@ test("opposing-team text chat is private, bounded, idempotent and excludes teamm
 });
 
 
-test("terminal cancelled and completed views hide the round and any remaining-card reveal", () => {
+test("cancelled views hide cards while completed views reveal the final hand for three seconds", () => {
   let room = startRoom(fullReadyRoom(), "u0", { now: 2000, rng: () => 0 });
   room = {
     ...room,
@@ -462,10 +462,14 @@ test("terminal cancelled and completed views hide the round and any remaining-ca
   assert.equal(cancelledView.handRevealUntil, null);
 
   const completed = { ...room, status: "completed" };
-  const completedView = roomViewForUser(completed, "u0", { now: 3000 });
-  assert.equal(completedView.game, null);
-  assert.equal(completedView.revealedHands, null);
-  assert.equal(completedView.handRevealUntil, null);
+  const duringReveal = roomViewForUser(completed, "u0", { now: 8999 });
+  assert.equal(duringReveal.game, null);
+  assert.deepEqual(duringReveal.revealedHands, room.revealedHands);
+  assert.equal(duringReveal.handRevealUntil, 9000);
+  const afterReveal = roomViewForUser(completed, "u0", { now: 9000 });
+  assert.equal(afterReveal.game, null);
+  assert.equal(afterReveal.revealedHands, null);
+  assert.equal(afterReveal.handRevealUntil, null);
 });
 
 test("a connected player takes over next-hand start when the host remains disconnected", () => {
