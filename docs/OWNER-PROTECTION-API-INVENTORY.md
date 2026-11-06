@@ -1,16 +1,18 @@
-# Owner-protection API inventory — baseline review
+# Owner-protection API inventory — post-integration review
 
-- **Reviewed source:** `apps/api/src/server.ts` on baseline `3a7d68354f628b43c0080b4ea5bebc6d241ea325`.
+- **Reviewed source:** `apps/api/src/server.ts` on mainline `44eb8183b68af10a6578d5f6306586dff95b07a8`.
 - **Method:** static route declaration scan plus focused source inspection. This is an initial inventory, not a complete penetration test.
-- **Branch:** `security/owner-protection-layer`.
+- **Implementation:** PR #179 (durable anchor) and PR #183 (password step-up), both merged.
 
 ## Current enforcement observed
 
-- `requireOwnerAuth` first calls `requireMatchAuth`, then compares JWT subject to numeric `OWNER_USER_ID`.
-- Missing/invalid owner configuration denies owner-only routes.
-- The current owner check does not consult a durable immutable owner record and does not require step-up authentication.
+- `requireOwnerAuth` first calls `requireMatchAuth`, compares the JWT subject to numeric `OWNER_USER_ID`, and verifies the singleton durable owner identity record.
+- The durable record is provisioned once from the configured owner on the first successful owner-authenticated request; a PostgreSQL trigger rejects ordinary UPDATE/DELETE attempts.
+- Every owner-only POST/PATCH/PUT/DELETE route uses `requireOwnerStepUp`; read-only routes use `requireOwnerAuth`.
+- Step-up verifies the current owner password with the existing scrypt hash and timing-safe comparison, issues a five-minute signed token, and binds it to the active access-token session subject, version and JTI.
+- The admin panel exposes re-authentication; the mobile client stores the token securely, sends it on admin requests, and clears it on logout.
 - Route access is enforced server-side; hiding admin UI is not treated as a security control.
-- Existing delegated permission routes are owner-only and permission execution remains dormant.
+- Existing delegated permission execution remains dormant.
 
 ## Owner-guarded routes found in the static scan
 
@@ -61,7 +63,7 @@
 
 - Verify all route declarations, Fastify hooks, scheduled jobs, Neon functions, webhook handlers, and direct database write paths; a text scan can miss indirect registrations.
 - Replace the single environment-only owner check with a durable, fail-closed owner anchor after a reviewed migration/bootstrap plan.
-- Add step-up authentication and one-time action-bound owner approvals.
+- Add durable one-time action-bound owner approvals before introducing any refund or outbound-funds route; step-up authentication alone is not an approval ledger.
 - Ensure owner deletion/disable/demotion/session lockout cannot occur through any account-management path or FK cascade.
 - Review database role ownership and migration privileges; an application role with table ownership/DDL rights can bypass a trigger, so a trigger alone is not a complete tamper-proof boundary.
 - Reconcile current source schema with production before any separately approved deployment.
