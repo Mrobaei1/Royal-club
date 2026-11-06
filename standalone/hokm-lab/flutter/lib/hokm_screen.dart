@@ -219,10 +219,21 @@ class _HokmScreenState extends State<HokmScreen> with WidgetsBindingObserver {
 
   Future<void> _leave() async {
     if (_roomId.isEmpty) return;
-    if (_status == 'waiting') {
-      await _run(() => _api.leaveRoom(_roomId, _version));
-    } else if (['playing', 'round_completed'].contains(_status)) {
-      try { _accept(await _api.disconnect(_roomId, _version)); } catch (_) {}
+    try {
+      if (_status == 'waiting' || ['completed', 'cancelled', 'expired'].contains(_status)) {
+        // Waiting-room departure cancels the room; terminal-room departure
+        // releases this seat so empty-room cleanup can complete.
+        await _api.leaveRoom(_roomId, _version);
+      } else if (['playing', 'round_completed'].contains(_status)) {
+        // Leaving the screen during a live match is a transient disconnect,
+        // not a permanent forfeit or seat release.
+        await _api.disconnect(_roomId, _version);
+      }
+    } catch (error) {
+      // In particular, a completed player cannot exit until the final
+      // three-second hand reveal has ended.
+      _showError(error);
+      return;
     }
     if (!mounted) return;
     _pollTimer?.cancel();
