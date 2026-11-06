@@ -19,7 +19,9 @@ test('an underdog gains more rating points for an upset win', () => {
 test('rejects invalid ratings and k-factors', () => {
   assert.throws(() => calculateEloRatings(-1, 1000), RangeError);
   assert.throws(() => calculateEloRatings(1000, 1000, 0), RangeError);
+  assert.throws(() => calculateEloRatings(1000, 1000, 1.5), RangeError);
 });
+
 test('rating changes are zero-sum across representative rating gaps', () => {
   const cases = [
     [1000, 1000], [1000, 1400], [1400, 1000],
@@ -34,4 +36,20 @@ test('rating changes are zero-sum across representative rating gaps', () => {
     assert.ok(result.loserRating <= loserBefore, 'Loser rating must not increase.');
     assert.ok(result.loserRating >= 0, 'Ratings must not become negative.');
   }
+});
+
+test('rating floor caps the shared transfer without creating or destroying rating points', () => {
+  const result = calculateEloRatings(0, 1);
+  assert.deepEqual(result, { winnerRating: 1, loserRating: 0 });
+  assert.equal(result.winnerRating + result.loserRating, 1);
+
+  const noAvailablePoints = calculateEloRatings(1000, 0);
+  assert.deepEqual(noAvailablePoints, { winnerRating: 1000, loserRating: 0 });
+});
+
+test('rejects a result that would exceed the safe integer range', () => {
+  assert.throws(
+    () => calculateEloRatings(Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER),
+    RangeError,
+  );
 });
