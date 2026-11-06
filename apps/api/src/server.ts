@@ -21,6 +21,7 @@ import { isValidNeonTriggerInvocation } from './neon-trigger-auth.js';
 import { promisify } from 'node:util';
 import { createRoyalLoggerOptions } from './logging-config.js';
 import { normalizePublicServiceOrigin, publicGameServices } from './game-services-config.js';
+import { signGameServiceConfig } from './game-service-config-signing.js';
 import { isOwnerIdentityConsistent } from './owner-protection.js';
 import { ensureManchSchema, registerManchRoutes } from './manch-online.js';
 
@@ -785,7 +786,9 @@ app.get('/api/v1/public/game-services', async (_request, reply) => {
     );
     const row = result.rows[0];
     if (!row) return reply.code(503).send({ error: 'Game service configuration is unavailable.' });
-    return { version: Number(row.version), services: row.services, updatedAt: row.updatedAt };
+    const version = Number(row.version);
+    const services = row.services as { uno?: string | null };
+    return { version, services, updatedAt: row.updatedAt, ...signGameServiceConfig(version, services) };
   } catch (error) {
     app.log.error({ err: error }, 'Could not load public game service configuration');
     return reply.code(503).send({ error: 'Game service configuration is unavailable.' });
