@@ -298,3 +298,12 @@ These are feature-branch changes only. No PR was merged, no production deploymen
 - That is not the current `main` tree: the current main SHA observed during this audit is `07af6b0c9e91143ac03b4d836e44926c77e6dc81`, and neither Hokm path exists there. The PR #166 metadata still identifies `main` as its base. The merge ref is therefore stale or inconsistent with the PR's declared base.
 - The three failed jobs were rerun, but GitHub again checked out the same stale merge ref and reproduced the same module-resolution failure. This is not evidence that the additive schema migration itself failed. Refresh the PR merge ref against the declared current base and rerun the checks before evaluating the code.
 - No test was skipped or weakened, no Production state changed, and no WBS points are awarded from this CI anomaly.
+
+
+## Central service-origin configuration scope — 2026-11-06
+
+- Main now contains merged PR #181, which adds owner-only versioned storage/history and rollback for the public game-service configuration. The current editable schema and admin UI expose only the UNO origin.
+- The mobile `ApiTransport` still uses the build-time `API_BASE_URL`. Its source explicitly disables remote runtime origin changes until a signed-config protocol, pinned verification key, expiry/version checks and rollback policy are implemented and tested.
+- The admin UI also explicitly states that cryptographic signing is not enabled. Version history and owner-only access therefore do not yet satisfy the requested signed central configuration.
+- Remaining implementation scope: define an allow-listed schema covering the central API and each online game/service; sign canonical config payloads with a server-held asymmetric private key; pin the public verification key in clients; enforce signature, expiry, monotonic version and rollback rules before applying any new origin; retain a safe last-known-good origin; add negative tests for tampering, replay, expired payloads, downgrade and unapproved hosts.
+- A signing private key must be provisioned through the approved secret-management path. No key was generated, stored in the repository, or configured during this audit. No production origin was changed. This remains an open infrastructure/security package; no WBS points are awarded.
