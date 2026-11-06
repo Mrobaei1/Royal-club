@@ -69,7 +69,13 @@ class HokmService implements HokmApi, HokmEventApi {
 
   @override
   Future<Map<String, dynamic>> sendCommand(String roomId, Map<String, dynamic> command, int expectedVersion) =>
-      _post('${_roomPath(roomId)}/command', {'command': command, 'expectedVersion': expectedVersion});
+      _post('${_roomPath(roomId)}/command', {
+        'command': command,
+        'expectedVersion': expectedVersion,
+        // Stable across transport retries for this room version; the server
+        // scopes the key to the authenticated user and stores it with CAS.
+        'idempotencyKey': 'hokm-$expectedVersion',
+      });
 
   @override
   Future<Map<String, dynamic>> voteCancel(String roomId, bool approve, int expectedVersion) =>
