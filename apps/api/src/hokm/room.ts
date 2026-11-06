@@ -78,14 +78,12 @@ export function joinRoom(room, userId, now) {
     version: room.version + 1 };
 }
 
-/** A player may leave a waiting room; the room is eligible for cleanup only when empty. */
+/** Owner rule Q24: any departure before match start immediately closes the waiting room. */
 export function leaveRoom(room, userId) {
   requireUserId(userId);
   if (room.status !== "waiting") throw new Error("Players cannot leave a started room through this operation");
-  const players = room.players.filter(player => player.userId !== userId);
-  if (players.length === room.players.length) throw new Error("User is not a member of this room");
-  const hostUserId = room.hostUserId === userId ? (players[0]?.userId ?? null) : room.hostUserId;
-  return { ...room, hostUserId, players, version: room.version + 1 };
+  if (!room.players.some(player => player.userId === userId)) throw new Error("User is not a member of this room");
+  return cancelMatch(room, "player_left_before_match_start");
 }
 
 /** Temporary network loss; authenticated user identity must be supplied by the server. */
