@@ -30,6 +30,6 @@ If the workflow fails:
 
 - Do not commit `DATABASE_URL`, a Neon API key, or `JWT_SECRET` to GitHub source files or repository variables.
 - Neon injects the branch's `DATABASE_URL` into the Function environment. The workflow stores only the JWT secret in Neon Function environment configuration.
-- The Function is public HTTPS; the API's authentication and rate limits still apply. Public game-service configuration is Ed25519-signed using a domain-separated key derived from `JWT_SECRET`; the mobile client verifies the signature before connecting. Rotating `ROYAL_CLUB_JWT_SECRET` also rotates the configuration signing key and invalidates existing access tokens.
+- The Function is public HTTPS; the API's authentication and rate limits still apply. Public game-service configuration is Ed25519-signed using a domain-separated key derived from `JWT_SECRET`; the mobile client verifies the signature before connecting. Rotating `ROYAL_CLUB_JWT_SECRET` also rotates the configuration signing key and invalidates existing access tokens. Existing stored config/history signatures will then fail closed; do not rotate this secret without an owner-reviewed re-signing procedure for the current config and retained history.
 - Neon Functions are available on the free plan subject to current quotas and limits. Check Neon usage if traffic grows.
 - The previously shared database password should be rotated when convenient because it was exposed in chat. The deployment does not require posting it again.
