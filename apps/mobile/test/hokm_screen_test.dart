@@ -160,8 +160,10 @@ class FakeHokmApi implements HokmApi {
       Map<String, dynamic>.from(room);
 
   @override
-  Future<Map<String, dynamic>> leaveRoom(String roomId, int expectedVersion) async =>
-      Map<String, dynamic>.from(room);
+  Future<Map<String, dynamic>> leaveRoom(String roomId, int expectedVersion) async {
+    room = {...room, 'status': 'cancelled', 'cancelReason': 'player_left_before_match_start'};
+    return Map<String, dynamic>.from(room);
+  }
 
   @override
   Future<Map<String, dynamic>> forfeitMatch(String roomId, int expectedVersion) async {
@@ -616,7 +618,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 20));
 
-    expect(api.room['status'], 'waiting', 'the fake server fixture is not mutated by the UI');
+    expect(api.room['status'], 'cancelled');
     expect(find.text('Create Hokm room'), findsOneWidget);
   });
 
