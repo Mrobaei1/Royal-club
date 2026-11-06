@@ -307,3 +307,36 @@ These are feature-branch changes only. No PR was merged, no production deploymen
 - The admin UI also explicitly states that cryptographic signing is not enabled. Version history and owner-only access therefore do not yet satisfy the requested signed central configuration.
 - Remaining implementation scope: define an allow-listed schema covering the central API and each online game/service; sign canonical config payloads with a server-held asymmetric private key; pin the public verification key in clients; enforce signature, expiry, monotonic version and rollback rules before applying any new origin; retain a safe last-known-good origin; add negative tests for tampering, replay, expired payloads, downgrade and unapproved hosts.
 - A signing private key must be provisioned through the approved secret-management path. No key was generated, stored in the repository, or configured during this audit. No production origin was changed. This remains an open infrastructure/security package; no WBS points are awarded.
+
+
+## Cross-package continuation audit — 2026-11-06
+
+### Live repository baseline and exact-head review
+
+- Live `main` observed at `bc4adbca18131cb4a8a79d0410055a9c6d7c4cb0`.
+- PR #189 (owner step-up for delegated report mutations) is one commit ahead of `main`, mergeable, and its preceding exact head `a8e7a0cc87e4ecedeb8854b130486f2f442fe61e` passed all four repository workflows. A follow-up test-only commit `2729a2f4d330ba028804e55896335b53b91d3eb7` now adds negative integration cases for an expired step-up token and a token bound to a different session. No workflow run or status check surfaced for that new exact head at audit time; these added cases are therefore **not yet validated**.
+- PR #166 latest inspected head: `5e22baa1970c6f83e94fb1cb63849bdc8a528768`; it remains open and unmerged. Its four repository workflows passed on that exact head. This does not close the outstanding Production/recovery gates described above.
+- The latest heads of PR #133 (`098b8720a14c29f05e5d867f51f2377629a0c691`) and PR #137 (`6a36c5383f1f32aa403d78879e136e6fa42951dd`) surfaced Netlify preview success but no GitHub Actions workflow runs or combined CI checks in the exact-head lookup. Earlier successful runs on older heads do not validate these new heads.
+
+### Branch synchronization and duplicate-work findings
+
+A compare against live `main` found these open feature branches behind the current base: Hokm API #133 (36 commits), Hokm mobile #137 (36), Manch #110 (14), chess #86 (49), UNO #144 (30), analytics #114 (39), owner-protection foundation #104 (39), infrastructure proposal #97 (40), and schema blocker closure #166 (15). Several branches are also substantially ahead, so they require a controlled rebase/reconciliation rather than a blind merge. The current GitHub connector exposes no branch-rebase operation; no ref was force-moved and no merge was attempted.
+
+Duplicate/overlapping PRs remain open for owner review: #147 is superseded by #167 (wallet localization); #146 by #168 (home welcome-card removal); #148 overlaps #169 (owner subscription-plan creation). PR #145 contains stale evidence and is not suitable to merge over the current audit. No duplicate PR was closed or merged.
+
+### Criterion-level progress snapshot
+
+The live `docs/WBS-CRITERION-SCORING-MATRIX-2026-11-03.md` contains 200 five-point criteria. Exactly two are explicitly marked Passed (2.5-A Persian RTL and 2.5-B English LTR, each supported by owner-confirmed Android acceptance); 198 remain Pending. The evidence-backed score in that matrix is therefore 10 / 1,000 = **1%**. This is the recorded criterion score, not a claim that only 1% of code exists. CI passes, unmerged PRs, source-only implementation and unperformed manual/Production acceptance do not earn additional points.
+
+### Remaining hard acceptance gates
+
+- Reconcile and validate the stale/diverged game branches against current `main`; rerun exact-head CI after synchronization.
+- Complete the source-wide semantic database catalog audit and application-compatibility test on the isolated repaired branch.
+- Establish scheduled backup retention with at least three recovery points and complete an end-to-end application restore/rollback rehearsal with measured RPO/RTO.
+- Obtain secure owner confirmation for the numeric owner anchor and owner review of security/network/CORS configuration.
+- Obtain explicit owner authorization before Production migration/deployment; then verify deployed Git SHA and cleanup route outcome logs.
+- Provision and test the dedicated Hokm worker, then perform four-device acceptance; complete real-device/two-account/network-change checks for all applicable games.
+- Complete the standalone chess and card-game integration/acceptance boundaries without violating the requirement to keep chess isolated until explicitly accepted.
+- Preserve the no-APK, no-live-calling, no-agent-execution and no-financial-outflow boundaries unless separately authorized.
+
+No WBS points were added by this continuation audit. No Production database write, deployment, secret read/change, backup-schedule mutation, APK build, branch force-update, PR merge or PR closure was performed.
