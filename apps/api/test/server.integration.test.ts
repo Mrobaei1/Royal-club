@@ -127,6 +127,38 @@ test('owner can version and roll back central game service configuration', async
   }
 });
 
+test('immutable owner identity trigger rejects UPDATE and DELETE', async () => {
+  const previousOwnerId = process.env.OWNER_USER_ID;
+  const owner = await register('Immutable Owner Anchor');
+  process.env.OWNER_USER_ID = owner.user.id;
+  try {
+    const seeded = await app.inject({
+      method: 'GET', url: '/api/v1/admin/game-services', headers: auth(owner.token),
+    });
+    assert.equal(seeded.statusCode, 200, seeded.body);
+    await testPool.query(`
+      CREATE TRIGGER royal_club_owner_identity_immutable_test
+      BEFORE UPDATE OR DELETE ON royal_club_owner_identity
+      FOR EACH ROW EXECUTE FUNCTION reject_owner_identity_mutation()
+    `);
+    try {
+      await assert.rejects(
+        testPool.query('UPDATE royal_club_owner_identity SET owner_user_id = owner_user_id WHERE singleton_id = 1'),
+        /Royal Club owner identity is immutable/,
+      );
+      await assert.rejects(
+        testPool.query('DELETE FROM royal_club_owner_identity WHERE singleton_id = 1'),
+        /Royal Club owner identity is immutable/,
+      );
+    } finally {
+      await testPool.query('DROP TRIGGER IF EXISTS royal_club_owner_identity_immutable_test ON royal_club_owner_identity');
+    }
+  } finally {
+    if (previousOwnerId === undefined) delete process.env.OWNER_USER_ID;
+    else process.env.OWNER_USER_ID = previousOwnerId;
+  }
+});
+
 test('registered players can join an online match and history does not expose opponent email', async () => {
   const health = await app.inject({ method: 'GET', url: '/api/v1/health' });
   assert.equal(health.statusCode, 200);
