@@ -75,8 +75,12 @@ The phase-one acceptance suite checks:
 - Hard trump suit-count/rank-sum ordering and irreversible manual trump confirmation.
 - report/appeal and room visibility/privacy rules where exercised by the service integration tests.
 
-## 8. Owner confirmations still needed before phase 1 can be declared 100%
+## 8. Owner decisions recovered and implementation status
 
-The canonical implementation currently uses 5+8 dealing, hakem-leading, and first-to-seven-tricks hand completion. These remain the current standard-rule baseline. The earlier owner responses recovered for questions 13–20 are now reflected in rank ordering, trump-strength calculation, irreversible trump selection, disconnect/forfeit cancellation, and XP behavior. The exact wording/options for questions 21–23 are still not present in the retrievable record and are not guessed.
+- Questions 13–20: the recovered owner selections are reflected in card rank, trump strength, irreversible trump selection, disconnect/forfeit cancellation, and XP behavior.
+- Question 21, option 1: XP never becomes negative; a -5 XP penalty floors at zero and the permanent level never decreases. Implemented in `applyXpChange` and covered by the progression tests.
+- Question 22, option 1: after any match cancellation, the room closes immediately and all participants return to the Hokm lobby. The authoritative room becomes non-joinable with status `cancelled`; the mobile client now clears the room and returns to its lobby automatically when the cancellation event arrives. A retained cancelled-room record is kept for audit/idempotency; it is not an active room.
+- Question 23, option 1: after a voluntary forfeit, no new player can occupy that seat before the match ends; the Hard bot permanently controls the seat through the end of the match. Implemented by the fixed four-seat started-room model and `forfeited`/bot control state; covered by an explicit no-replacement test. This is distinct from a temporary disconnect, where the original player may reclaim control during the match.
+- A separate recovered decision on disconnect timeout scoring says an unrecovered disconnect that becomes a forfeit is scored like a forfeit: the disconnected player receives -5 XP (floored at zero) and the opposing team receives +20 XP on match completion. This remains consistent with the deferred penalty model; verify the exact trigger threshold against the separately approved disconnect grace rules before release.
 
-Phase 1 can be marked 100% only after the owner confirms or amends those rule points and the complete phase-one suite passes on the current branch.
+The standard-rule baseline remains 5+8 dealing, hakem-leading, and first-to-seven-tricks. Phase 1 can be marked 100% only after all current-head API, service, and Flutter tests pass and the separately documented owner-rule timing/edge cases are reconciled.
