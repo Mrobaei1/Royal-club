@@ -3455,7 +3455,7 @@ test('Hokm room commits publish cross-connection PostgreSQL notifications for SS
     await hub.start();
     const created = await app.inject({
       method: 'POST', url: '/api/v1/hokm/rooms',
-      headers: auth(host.token), payload: { privateRoom: false, matchTarget: 3 },
+      headers: auth(host.token), payload: { privateRoom: false, matchTarget: 7 },
     });
     assert.equal(created.statusCode, 200, created.body);
     roomId = created.json().roomId;
@@ -3505,7 +3505,7 @@ test('authenticated Hokm forfeit is permanent, idempotent and cancels on a secon
   const [host, first, second, third] = players;
   const created = await app.inject({
     method: 'POST', url: '/api/v1/hokm/rooms',
-    headers: auth(host.token), payload: { privateRoom: false, matchTarget: 3 },
+    headers: auth(host.token), payload: { privateRoom: false, matchTarget: 7 },
   });
   assert.equal(created.statusCode, 200, created.body);
   const roomId = created.json().roomId;
