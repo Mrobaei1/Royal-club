@@ -9,7 +9,7 @@ import { createRound, chooseTrump, playCard, roundViewForSeat } from './hokm/rou
 import { chooseHardBotAction } from './hokm/bot.js';
 import { awardCompletedMatch, penalizeMatchLeaver } from './hokm/progression.js';
 import {
-  createRoom, joinRoom, setPlayerReady, startRoom, startNextRound, voteToCancelMatch,
+  createRoom, joinRoom, leaveRoom, setPlayerReady, startRoom, startNextRound, voteToCancelMatch,
   processAllDisconnectedTimeout, processMultipleDisconnectTimeout, processTurnTimeout, disconnectPlayer, reconnectPlayer, handleDisconnectTimeout, recordMatchForfeit, roomViewForUser, TURN_DEADLINE_MS,
   END_OF_HAND_REVEAL_MS, ALL_PLAYERS_DISCONNECTED_MS
 } from './hokm/room.js';
