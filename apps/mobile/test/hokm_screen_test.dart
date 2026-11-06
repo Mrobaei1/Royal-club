@@ -611,7 +611,7 @@ void main() {
     await tester.tap(find.text('Create Hokm room'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 20));
-    expect(find.text('Room code'), findsOneWidget);
+    expect(find.text('Waiting room'), findsOneWidget);
     expect(api.watchCalls, 1);
 
     api.controller.add({...api.room, 'status': 'cancelled', 'cancelReason': 'multiple_unrecovered_disconnects'});
