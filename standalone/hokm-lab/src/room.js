@@ -484,6 +484,10 @@ function applyCommandForSeat(room, seat, command, expectedVersion, now = Date.no
 
 /** Execute bot-controlled seats immediately, always through the same round validator. */
 function advanceHardBotTurn(room, now = Date.now()) {
+  // All bot actions triggered by one human/service command are committed as
+  // one room transition. Internal trump selection plus the bot's opening
+  // card must not advance the persisted CAS version more than once.
+  const transitionVersion = room.version;
   let next = room;
   let steps = 0;
   while (next.status === "playing" && next.round && steps < 52) {
@@ -497,7 +501,7 @@ function advanceHardBotTurn(room, now = Date.now()) {
     next = applyCommandForSeat(next, seat, command, next.version, now);
     steps += 1;
   }
-  return next;
+  return next.version === transitionVersion ? next : { ...next, version: transitionVersion };
 }
 
 /** Server scheduler entry: auto-select trump via fixed Hard policy or a random legal card after 7 seconds. */
