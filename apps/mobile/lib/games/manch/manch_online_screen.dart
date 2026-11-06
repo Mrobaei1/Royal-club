@@ -1,0 +1,1059 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
+import 'iranian_manch_board.dart';
+import 'manch_engine.dart';
+import 'manch_game_state.dart';
+import 'manch_online_version_guard.dart';
+import '../../services/manch_online_service.dart';
+import '../../services/friends_service.dart';
+
+class ManchOnlineLobbyScreen extends StatefulWidget {
+  const ManchOnlineLobbyScreen({super.key});
+
+  @override
+  State<ManchOnlineLobbyScreen> createState() => _ManchOnlineLobbyScreenState();
+}
+
+class _ManchOnlineLobbyScreenState extends State<ManchOnlineLobbyScreen> {
+  List<Map<String, dynamic>> _matches = [];
+  List<Map<String, dynamic>> _history = [];
+  List<Map<String, dynamic>> _friends = [];
+  List<Map<String, dynamic>> _invites = [];
+  List<Map<String, dynamic>> _leaderboard = [];
+  Map<String, int>? _stats;
+  Map<String, dynamic>? _myMatch;
+  String? _userId;
+  String? _error;
+  bool _loading = true;
+  bool _openingGame = false;
+  bool _refreshing = false;
+  Timer? _poller;
+
+  bool get _isPersian =>
+      Localizations.localeOf(context).languageCode.toLowerCase() == 'fa';
+
+  String _text(String fa, String en) => _isPersian ? fa : en;
+
+  @override
+  void initState() {
+    super.initState();
+    _refresh();
+    _poller = Timer.periodic(
+      const Duration(seconds: 3),
+      (_) => _refresh(silent: true),
+    );
+  }
+
+  @override
+  void dispose() {
+    _poller?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _refresh({bool silent = false}) async {
+    if (!mounted || _refreshing || (_loading && silent)) return;
+    _refreshing = true;
+    if (!silent) setState(() => _loading = true);
+    try {
+      _userId ??= await ManchOnlineService.currentUserId();
+      var mine = _myMatch;
+      if (mine == null) {
+        mine = await ManchOnlineService.mine();
+        if (!mounted) return;
+        _myMatch = mine;
+      }
+      if (mine != null) {
+        try {
+          final refreshed = await ManchOnlineService.get(mine['id'].toString());
+          if (!mounted) return;
+          _myMatch = refreshed;
+          if (refreshed['status'] == 'active') {
+            _refreshing = false;
+            await _openGame(refreshed['id'].toString());
+            return;
+          }
+          if (refreshed['status'] == 'cancelled' ||
+              refreshed['status'] == 'finished') {
+            _myMatch = null;
+          }
+        } catch (error) {
+          if (error.toString().contains('404')) {
+            _myMatch = null;
+          } else if (!silent) {
+            rethrow;
+          }
+        }
+      }
+      final matches = await ManchOnlineService.listOpen();
+      var history = _history;
+      var stats = _stats;
+      try {
+        history = await ManchOnlineService.history();
+      } catch (_) {
+        // History is supplementary; a history outage must not block the lobby.
+      }
+      var invites = _invites;
+      var friends = _friends;
+      try {
+        invites = await ManchOnlineService.pendingInvites();
+      } catch (_) {
+        // Invitation inbox is supplementary; lobby access remains available.
+      }
+      try {
+        final friendData = await FriendsService.list();
+        friends = (friendData['friends'] as List? ?? const [])
+            .whereType<Map>()
+            .map((item) => Map<String, dynamic>.from(item))
+            .toList();
+      } catch (_) {
+        // Friend discovery is supplementary; public room joining remains available.
+      }
+      var leaderboard = _leaderboard;
+      try {
+        leaderboard = await ManchOnlineService.leaderboard();
+      } catch (_) {
+        // Ranking is supplementary; an outage must not block the lobby.
+      }
+      try {
+        stats = await ManchOnlineService.stats();
+      } catch (_) {
+        // Statistics are supplementary; an outage must not block the lobby.
+      }
+      if (!mounted) return;
+      setState(() {
+        _matches = matches;
+        _history = history;
+        _stats = stats;
+        _friends = friends;
+        _invites = invites;
+        _leaderboard = leaderboard;
+        _loading = false;
+        _error = null;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        if (!silent) _error = error.toString();
+      });
+    } finally {
+      _refreshing = false;
+    }
+  }
+
+  Future<void> _create(int playerCount) async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final match = await ManchOnlineService.create(playerCount: playerCount);
+      if (!mounted) return;
+      setState(() {
+        _myMatch = match;
+        _loading = false;
+      });
+      await _refresh(silent: true);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = error.toString();
+      });
+    }
+  }
+
+  Future<void> _join(String id) async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final match = await ManchOnlineService.join(id);
+      if (!mounted) return;
+      setState(() {
+        _myMatch = match;
+        _loading = false;
+      });
+      if (match['status'] == 'active') {
+        await _openGame(id);
+      } else {
+        await _refresh(silent: true);
+      }
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = error.toString();
+      });
+    }
+  }
+
+  Future<void> _inviteFriend() async {
+    final match = _myMatch;
+    if (match == null || match['status'] != 'waiting') return;
+    if (_friends.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(_text('برای دعوت، ابتدا باید دوستی داشته باشید.', 'Add a friend before sending an invitation.')),
+      ));
+      return;
+    }
+    final selected = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (dialogContext) => SimpleDialog(
+        title: Text(_text('دعوت دوست به منچ', 'Invite a friend to Manch')),
+        children: [
+          for (final friend in _friends)
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(dialogContext, friend),
+              child: Text('@${friend['username']?.toString() ?? friend['name']?.toString() ?? 'player'}'),
+            ),
+        ],
+      ),
+    );
+    if (selected == null || !mounted) return;
+    try {
+      await ManchOnlineService.inviteFriend(
+        match['id'].toString(),
+        selected['userId'].toString(),
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(_text('دعوت منچ ارسال شد.', 'Manch invitation sent.')),
+      ));
+      await _refresh(silent: true);
+    } catch (error) {
+      if (mounted) setState(() => _error = error.toString());
+    }
+  }
+
+  Future<void> _respondToInvite(Map<String, dynamic> invite, {required bool accept}) async {
+    try {
+      final response = await ManchOnlineService.respondToInvite(
+        invite['id'].toString(),
+        accept: accept,
+      );
+      if (!mounted) return;
+      setState(() {
+        _invites.removeWhere((item) => item['id'].toString() == invite['id'].toString());
+        if (accept && response['match'] is Map) {
+          _myMatch = Map<String, dynamic>.from(response['match'] as Map);
+        }
+      });
+      if (accept && response['match'] is Map) {
+        final match = Map<String, dynamic>.from(response['match'] as Map);
+        if (match['status'] == 'active') {
+          await _openGame(match['id'].toString());
+        } else {
+          await _refresh(silent: true);
+        }
+      } else {
+        await _refresh(silent: true);
+      }
+    } catch (error) {
+      if (mounted) setState(() => _error = error.toString());
+    }
+  }
+
+  Future<void> _cancelMine() async {
+    final match = _myMatch;
+    if (match == null) return;
+    try {
+      await ManchOnlineService.cancel(match['id'].toString());
+      if (!mounted) return;
+      setState(() {
+        _myMatch = null;
+        _error = _text('اتاق لغو شد.', 'Room cancelled.');
+      });
+      await _refresh(silent: true);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _error = error.toString());
+    }
+  }
+
+  Future<void> _openGame(String id) async {
+    if (_openingGame || _userId == null || !mounted) return;
+    _openingGame = true;
+    _poller?.cancel();
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ManchOnlineGameScreen(
+          matchId: id,
+          currentUserId: _userId!,
+        ),
+      ),
+    );
+    _openingGame = false;
+    if (!mounted) return;
+    _poller = Timer.periodic(
+      const Duration(seconds: 3),
+      (_) => _refresh(silent: true),
+    );
+    await _refresh();
+  }
+
+  Widget _statValue(String label, int value) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(value.toString(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+          Text(label),
+        ],
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    final myMatch = _myMatch;
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(_text('منچ آنلاین', 'Online Manch')),
+        actions: [
+          IconButton(
+            tooltip: _text('تازه‌سازی', 'Refresh'),
+            onPressed: _loading ? null : _refresh,
+            icon: const Icon(Icons.refresh),
+          ),
+        ],
+      ),
+      body: RefreshIndicator(
+        onRefresh: _refresh,
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            Text(
+              _text('ساخت اتاق بازی', 'Create a room'),
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final count in [2, 3, 4])
+                  FilledButton.tonal(
+                    onPressed: _loading ? null : () => _create(count),
+                    child: Text(
+                      _text('$count نفره', '$count players'),
+                    ),
+                  ),
+              ],
+            ),
+            if (myMatch != null) ...[
+              const SizedBox(height: 20),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _text('اتاق شما', 'Your room'),
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        _text(
+                          'کد اتاق: ${myMatch['roomCode']?.toString() ?? '—'}',
+                          'Room code: ${myMatch['roomCode']?.toString() ?? '—'}',
+                        ),
+                      ),
+                      Text(
+                        _text(
+                          'بازیکنان: ${(myMatch['players'] as List?)?.length ?? 1} از ${myMatch['playerCount'] ?? 2}',
+                          'Players: ${(myMatch['players'] as List?)?.length ?? 1} of ${myMatch['playerCount'] ?? 2}',
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        myMatch['status'] == 'active'
+                            ? _text('بازی آماده است.', 'Game is ready.')
+                            : _text(
+                                'در انتظار پیوستن بازیکنان؛ اتاق پس از ۳۰ ثانیه منقضی می‌شود.',
+                                'Waiting for players; the room expires after 30 seconds.',
+                              ),
+                      ),
+                      if (myMatch['status'] == 'waiting' &&
+                          myMatch['hostUserId']?.toString() == _userId)
+                        Wrap(
+                          alignment: WrapAlignment.end,
+                          spacing: 8,
+                          children: [
+                            TextButton.icon(
+                              onPressed: _inviteFriend,
+                              icon: const Icon(Icons.person_add_alt_1),
+                              label: Text(_text('دعوت دوست', 'Invite friend')),
+                            ),
+                            TextButton.icon(
+                              onPressed: _cancelMine,
+                              icon: const Icon(Icons.close),
+                              label: Text(_text('لغو اتاق', 'Cancel room')),
+                            ),
+                          ],
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+            if (_invites.isNotEmpty) ...[
+              Text(_text('دعوت‌های دریافتی منچ', 'Manch invitations'), style: Theme.of(context).textTheme.titleLarge),
+              const SizedBox(height: 8),
+              for (final invite in _invites)
+                Card(
+                  child: ListTile(
+                    title: Text(_text(
+                      'دعوت از @${invite['inviterUsername'] ?? 'بازیکن'}',
+                      'Invite from @${invite['inviterUsername'] ?? 'player'}',
+                    )),
+                    subtitle: Text(_text(
+                      'اتاق ${invite['roomCode'] ?? '—'} · ${invite['playerCount'] ?? 2} نفره',
+                      'Room ${invite['roomCode'] ?? '—'} · ${invite['playerCount'] ?? 2} players',
+                    )),
+                    trailing: Wrap(
+                      spacing: 4,
+                      children: [
+                        IconButton(
+                          tooltip: _text('پذیرفتن', 'Accept'),
+                          onPressed: _loading ? null : () => _respondToInvite(invite, accept: true),
+                          icon: const Icon(Icons.check_circle_outline),
+                        ),
+                        IconButton(
+                          tooltip: _text('رد کردن', 'Decline'),
+                          onPressed: _loading ? null : () => _respondToInvite(invite, accept: false),
+                          icon: const Icon(Icons.cancel_outlined),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+            if (_leaderboard.isNotEmpty)
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(_text('برترین بازیکنان منچ', 'Manch leaderboard'),
+                        style: Theme.of(context).textTheme.titleMedium),
+                      const SizedBox(height: 8),
+                      for (var index = 0; index < _leaderboard.length && index < 5; index++)
+                        ListTile(
+                          dense: true,
+                          contentPadding: EdgeInsets.zero,
+                          leading: CircleAvatar(child: Text('${index + 1}')),
+                          title: Text('@${_leaderboard[index]['username'] ?? 'player'}'),
+                          subtitle: Text(_text(
+                            'سطح ${_leaderboard[index]['level']} · ${_leaderboard[index]['xpPoints']} امتیاز تجربه',
+                            'Level ${_leaderboard[index]['level']} · ${_leaderboard[index]['xpPoints']} XP',
+                          )),
+                          trailing: Text('${_leaderboard[index]['wins']} W'),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            if (_stats != null)
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(_text('آمار منچ شما', 'Your Manch statistics'), style: Theme.of(context).textTheme.titleMedium),
+                      const SizedBox(height: 10),
+                      Wrap(
+                        alignment: WrapAlignment.spaceAround,
+                        spacing: 20,
+                        runSpacing: 12,
+                        children: [
+                          _statValue(_text('بازی', 'Played'), _stats?['played'] ?? 0),
+                          _statValue(_text('برد', 'Wins'), _stats?['wins'] ?? 0),
+                          _statValue(_text('باخت', 'Losses'), _stats?['losses'] ?? 0),
+                          _statValue(_text('خروج', 'Quits'), _stats?['quits'] ?? 0),
+                          _statValue(_text('سطح', 'Level'), _stats?['level'] ?? 1),
+                          _statValue(_text('XP', 'XP'), _stats?['xpPoints'] ?? 0),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            const SizedBox(height: 20),
+            Text(
+              _text('اتاق‌های قابل پیوستن', 'Open rooms'),
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 8),
+            if (_loading && _matches.isEmpty)
+              const Center(child: CircularProgressIndicator())
+            else if (_matches.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 20),
+                child: Text(_text('اتاق بازی فعالی وجود ندارد.', 'No open rooms right now.')),
+              )
+            else
+              for (final match in _matches)
+                Card(
+                  child: ListTile(
+                    title: Text(
+                      _text(
+                        'اتاق ${match['roomCode']?.toString() ?? ''}',
+                        'Room ${match['roomCode']?.toString() ?? ''}',
+                      ),
+                    ),
+                    subtitle: Text(
+                      _text(
+                        '@${match['hostUsername']?.toString() ?? 'بازیکن'} • ${match['joinedPlayers'] ?? 1} از ${match['playerCount'] ?? 2}',
+                        '@${match['hostUsername']?.toString() ?? 'player'} • ${match['joinedPlayers'] ?? 1} of ${match['playerCount'] ?? 2}',
+                      ),
+                    ),
+                    trailing: FilledButton(
+                      onPressed: _loading
+                          ? null
+                          : () => _join(match['id'].toString()),
+                      child: Text(_text('پیوستن', 'Join')),
+                    ),
+                  ),
+                ),
+            if (_history.isNotEmpty) ...[
+              const SizedBox(height: 22),
+              Text(
+                _text('سوابق بازی‌های منچ', 'Manch match history'),
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: 8),
+              for (final item in _history)
+                Card(
+                  child: ListTile(
+                    leading: CircleAvatar(
+                      child: Icon(
+                        item['winnerUserId']?.toString() == _userId
+                            ? Icons.emoji_events_outlined
+                            : Icons.history,
+                      ),
+                    ),
+                    title: Text(
+                      _text(
+                        'اتاق ${item['roomCode']?.toString() ?? '—'}',
+                        'Room ${item['roomCode']?.toString() ?? '—'}',
+                      ),
+                    ),
+                    subtitle: Text(
+                      item['finishReason']?.toString() == 'forfeit'
+                          ? _text('پایان با تسلیم', 'Ended by forfeit')
+                          : _text('پایان بازی', 'Game completed'),
+                    ),
+                    trailing: Text(
+                      item['winnerUserId']?.toString() == _userId
+                          ? _text('برد', 'Won')
+                          : _text('باخت', 'Lost'),
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        color: item['winnerUserId']?.toString() == _userId
+                            ? Theme.of(context).colorScheme.primary
+                            : Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+            if (_error != null) ...[
+              const SizedBox(height: 12),
+              Text(
+                _error!,
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class ManchOnlineGameScreen extends StatefulWidget {
+  const ManchOnlineGameScreen({
+    super.key,
+    required this.matchId,
+    required this.currentUserId,
+  });
+
+  final String matchId;
+  final String currentUserId;
+
+  @override
+  State<ManchOnlineGameScreen> createState() => _ManchOnlineGameScreenState();
+}
+
+class _ManchOnlineGameScreenState extends State<ManchOnlineGameScreen> {
+  final _engine = const ManchEngine();
+  Timer? _presenceTimer;
+  ManchGameState? _state;
+  List<Map<String, dynamic>> _players = [];
+  String? _currentTurnUserId;
+  String _status = 'در حال دریافت وضعیت بازی...';
+  String? _error;
+  String _matchStatus = 'active';
+  String? _winnerUserId;
+  String? _finishReason;
+  int _stateVersion = 0;
+  int? _lastDice;
+  bool _busy = false;
+  bool _loadingState = false;
+  bool _connectionLost = false;
+  Timer? _poller;
+
+  bool get _isPersian =>
+      Localizations.localeOf(context).languageCode.toLowerCase() == 'fa';
+
+  String _text(String fa, String en) => _isPersian ? fa : en;
+
+  bool get _myTurn =>
+      _currentTurnUserId == widget.currentUserId && _matchStatus == 'active';
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+    _sendPresence();
+    _presenceTimer = Timer.periodic(
+      const Duration(seconds: 10),
+      (_) => _sendPresence(),
+    );
+    _poller = Timer.periodic(
+      const Duration(seconds: 2),
+      (_) => _load(silent: true),
+    );
+  }
+
+  @override
+  void dispose() {
+    _poller?.cancel();
+    _presenceTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _sendPresence() async {
+    if (!mounted || _matchStatus != 'active') return;
+    try {
+      await ManchOnlineService.heartbeat(widget.matchId);
+    } catch (_) {
+      // Snapshot polling owns connection error reporting and retry UI.
+    }
+  }
+
+  Future<void> _load({bool silent = false}) async {
+    if (!mounted || _loadingState || (_busy && silent)) return;
+    _loadingState = true;
+    try {
+      final match = await ManchOnlineService.get(widget.matchId);
+      final rawState = match['gameState'];
+      if (rawState is! Map) {
+        throw Exception(_text('وضعیت بازی از سرور ناقص است.', 'The server returned an incomplete game state.'));
+      }
+      final state = ManchGameState.fromJson(Map<String, Object?>.from(rawState));
+      final incomingVersion = parseManchOnlineStateVersion(match['stateVersion']);
+      if (incomingVersion == null) {
+        throw const FormatException('Invalid Manch state version in server snapshot.');
+      }
+      if (!mounted) return;
+      if (!shouldAcceptManchOnlineVersion(
+        incomingVersion: incomingVersion,
+        currentVersion: _stateVersion,
+      )) {
+        if (_connectionLost) setState(() => _connectionLost = false);
+        return;
+      }
+      setState(() {
+        _connectionLost = false;
+        _state = state;
+        _players = (match['players'] as List? ?? const [])
+            .whereType<Map>()
+            .map((player) => Map<String, dynamic>.from(player))
+            .toList();
+        _currentTurnUserId = match['currentTurnUserId']?.toString();
+        _stateVersion = incomingVersion;
+        _matchStatus = match['status']?.toString() ?? 'active';
+        _winnerUserId = match['winnerUserId']?.toString();
+        _finishReason = match['finishReason']?.toString();
+        _lastDice = state.pendingDice ?? _lastDice;
+        _status = _matchStatus == 'finished' && _finishReason == 'forfeit'
+            ? _winnerUserId == widget.currentUserId
+                ? _text('حریف تسلیم شد؛ شما برنده شدید.', 'Opponent forfeited; you win.')
+                : _text('بازی با تسلیم حریف پایان یافت.', 'The match ended by forfeit.')
+            : state.isFinished
+                ? _text('بازی به پایان رسید.', 'The game has finished.')
+                : _myTurn
+                    ? _text('نوبت شماست.', 'It is your turn.')
+                    : _text('در انتظار حرکت بازیکن دیگر...', 'Waiting for the other player...');
+        _error = null;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _connectionLost = true;
+        if (!silent) _error = error.toString();
+      });
+    } finally {
+      _loadingState = false;
+    }
+  }
+
+  Future<void> _roll() async {
+    HapticFeedback.selectionClick();
+    if (!_myTurn || _state == null || _state!.pendingDice != null || _busy) return;
+    setState(() => _busy = true);
+    try {
+      final result = await ManchOnlineService.roll(
+        widget.matchId,
+        expectedStateVersion: _stateVersion,
+      );
+      final raw = result['state'];
+      if (raw is! Map) {
+        throw Exception(_text('پاسخ تاس از سرور ناقص است.', 'The server returned an incomplete dice response.'));
+      }
+      final state = ManchGameState.fromJson(Map<String, Object?>.from(raw));
+      final incomingVersion = parseManchOnlineStateVersion(result['stateVersion']);
+      if (incomingVersion == null) {
+        throw const FormatException('Missing or invalid Manch state version in action response.');
+      }
+      if (!mounted || !shouldAcceptManchOnlineVersion(
+        incomingVersion: incomingVersion,
+        currentVersion: _stateVersion,
+      )) {
+        return;
+      }
+      setState(() {
+        _state = state;
+        _stateVersion = incomingVersion;
+        _currentTurnUserId = result['currentTurnUserId']?.toString();
+        _lastDice = (result['dice'] as num?)?.toInt();
+        _status = result['turnLost'] == true
+            ? _text('سه شش متوالی؛ نوبت خود را از دست دادی.', 'Three consecutive sixes; your turn was lost.')
+            : result['autoPassed'] == true
+                ? _text('حرکت قانونی نداشتی؛ نوبت بازیکن بعدی است.', 'No legal move; turn passed to the next player.')
+                : result['noLegalMove'] == true
+                    ? _text('حرکت قانونی نداری؛ به‌دلیل شش، دوباره تاس بینداز.', 'No legal move; roll again because you got a six.')
+                    : _text('تاس انداخته شد؛ مهره را انتخاب کن.', 'Dice rolled; choose a token.');
+      });
+    } catch (error) {
+      if (mounted) setState(() => _error = error.toString());
+      await _load(silent: true);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _move(ManchMove move) async {
+    HapticFeedback.lightImpact();
+    if (!_myTurn || _busy) return;
+    setState(() => _busy = true);
+    try {
+      final result = await ManchOnlineService.move(
+        widget.matchId,
+        tokenIndex: move.tokenIndex,
+        expectedStateVersion: _stateVersion,
+      );
+      final raw = result['state'];
+      if (raw is! Map) {
+        throw Exception(_text('پاسخ حرکت از سرور ناقص است.', 'The server returned an incomplete move response.'));
+      }
+      final state = ManchGameState.fromJson(Map<String, Object?>.from(raw));
+      final incomingVersion = parseManchOnlineStateVersion(result['stateVersion']);
+      if (incomingVersion == null) {
+        throw const FormatException('Missing or invalid Manch state version in action response.');
+      }
+      if (!mounted || !shouldAcceptManchOnlineVersion(
+        incomingVersion: incomingVersion,
+        currentVersion: _stateVersion,
+      )) {
+        return;
+      }
+      setState(() {
+        _state = state;
+        _stateVersion = incomingVersion;
+        _currentTurnUserId = result['currentTurnUserId']?.toString();
+        _matchStatus = result['status']?.toString() ?? _matchStatus;
+        _status = state.isFinished
+            ? _text('بازی تمام شد؛ برنده مشخص شد.', 'Game over; winner determined.')
+            : _currentTurnUserId == widget.currentUserId
+                ? _text('حرکت ثبت شد؛ تاس اضافه داری.', 'Move saved; you have an extra roll.')
+                : _text('حرکت ثبت شد؛ نوبت حریف است.', 'Move saved; opponent turn.');
+      });
+    } catch (error) {
+      if (mounted) setState(() => _error = error.toString());
+      await _load(silent: true);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _rematch() async {
+    if (_busy || _matchStatus != 'finished') return;
+    setState(() => _busy = true);
+    try {
+      await ManchOnlineService.rematch(widget.matchId);
+      if (!mounted) return;
+      Navigator.of(context).pop();
+    } catch (error) {
+      if (mounted) setState(() => _error = error.toString());
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _forfeit() async {
+    if (_busy || _matchStatus != 'active' || _players.length != 2) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(_text('تسلیم در بازی؟', 'Forfeit this match?')),
+        content: Text(_text(
+          'با تأیید، بازی به نفع حریف تمام می‌شود.',
+          'Confirming ends the match and awards the win to your opponent.',
+        )),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(_text('بازگشت', 'Go back')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(_text('تأیید تسلیم', 'Forfeit')),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() => _busy = true);
+    try {
+      final result = await ManchOnlineService.forfeit(
+        widget.matchId,
+        expectedStateVersion: _stateVersion,
+      );
+      final incomingVersion = parseManchOnlineStateVersion(result['stateVersion']);
+      if (incomingVersion == null) {
+        throw const FormatException('Missing or invalid Manch state version in action response.');
+      }
+      if (!mounted || !shouldAcceptManchOnlineVersion(
+        incomingVersion: incomingVersion,
+        currentVersion: _stateVersion,
+      )) {
+        return;
+      }
+      setState(() {
+        _matchStatus = result['status']?.toString() ?? 'finished';
+        _finishReason = result['finishReason']?.toString() ?? 'forfeit';
+        _winnerUserId = result['winnerUserId']?.toString();
+        _currentTurnUserId = null;
+        _stateVersion = incomingVersion;
+        _status = _winnerUserId == widget.currentUserId
+            ? _text('حریف تسلیم شد؛ شما برنده شدید.', 'Opponent forfeited; you win.')
+            : _text('شما تسلیم شدید؛ حریف برنده شد.', 'You forfeited; your opponent wins.');
+      });
+    } catch (error) {
+      if (mounted) setState(() => _error = error.toString());
+      await _load(silent: true);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Color _colour(ManchColour colour) => switch (colour) {
+        ManchColour.red => const Color(0xFFD94747),
+        ManchColour.green => const Color(0xFF239B69),
+        ManchColour.yellow => const Color(0xFFF0C642),
+        ManchColour.blue => const Color(0xFF397BD4),
+      };
+
+  String _colourName(ManchColour colour) => switch (colour) {
+        ManchColour.red => _text('قرمز', 'Red'),
+        ManchColour.green => _text('سبز', 'Green'),
+        ManchColour.yellow => _text('زرد', 'Yellow'),
+        ManchColour.blue => _text('آبی', 'Blue'),
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    final state = _state;
+    final activePlayer = state == null
+        ? null
+        : state.players[state.activePlayerIndex];
+    final moves = state == null ? <ManchMove>[] : _engine.legalMoves(state);
+    final activeSeat = activePlayer == null
+        ? ManchSeat.red
+        : ManchSeat.values.byName(activePlayer.colour.name);
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(_text('منچ آنلاین', 'Online Manch')),
+        actions: [
+          IconButton(
+            onPressed: _busy ? null : _load,
+            icon: const Icon(Icons.refresh),
+            tooltip: _text('تازه‌سازی', 'Refresh'),
+          ),
+        ],
+      ),
+      body: state == null
+          ? Center(
+              child: _error == null
+                  ? const CircularProgressIndicator()
+                  : Text(_error!),
+            )
+          : ListView(
+              padding: const EdgeInsets.all(12),
+              children: [
+                if (_connectionLost)
+                  Card(
+                    color: Theme.of(context).colorScheme.errorContainer,
+                    child: ListTile(
+                      leading: const Icon(Icons.cloud_off_outlined),
+                      title: Semantics(
+                        liveRegion: true,
+                        child: Text(_text('ارتباط با سرور قطع شده است', 'Connection to the server was lost')),
+                      ),
+                      subtitle: Text(_text('وضعیت بازی حفظ شده؛ برای اتصال مجدد تلاش کنید.', 'Your game state is preserved. Retry to reconnect.')),
+                      trailing: IconButton(
+                        tooltip: _text('تلاش مجدد', 'Retry'),
+                        onPressed: _busy ? null : _load,
+                        icon: const Icon(Icons.refresh),
+                      ),
+                    ),
+                  ),
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Row(
+                      children: [
+                        CircleAvatar(
+                          backgroundColor: activePlayer == null
+                              ? Colors.grey
+                              : _colour(activePlayer.colour),
+                          child: Text((state.activePlayerIndex + 1).toString()),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Semantics(
+                            liveRegion: true,
+                            label: _status,
+                            child: Text(_status),
+                          ),
+                        ),
+                        Text(
+                          (_lastDice ?? state.pendingDice)?.toString() ?? '—',
+                          style: Theme.of(context).textTheme.headlineMedium,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    for (final player in _players)
+                      Chip(
+                        avatar: CircleAvatar(
+                          backgroundColor: _colour(
+                            ManchColour.values.byName(
+                              player['seatColour'].toString(),
+                            ),
+                          ),
+                        ),
+                        label: Text(
+                          '@${player['username']?.toString() ?? 'player'} · ${player['aiControlling'] == true && player['isOnline'] != true ? 'AI' : player['isOnline'] == true ? _text('آنلاین', 'online') : _text('آفلاین', 'offline')}',
+                        ),
+                      ),
+                  ],
+                ),
+                if (_myTurn && state.pendingDice == null && !state.isFinished)
+                  FilledButton.icon(
+                    onPressed: _busy ? null : _roll,
+                    icon: const Icon(Icons.casino_outlined),
+                    label: Text(_text('انداختن تاس', 'Roll dice')),
+                  )
+                else if (_myTurn && state.pendingDice != null)
+                  Text(
+                    _text('حرکت‌های مجاز', 'Legal moves'),
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                if (_myTurn && state.pendingDice != null)
+                  for (final move in moves)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: OutlinedButton(
+                        onPressed: _busy ? null : () => _move(move),
+                        child: Text(
+                          _text(
+                            'مهره ${move.tokenIndex + 1} را حرکت بده',
+                            'Move token ${move.tokenIndex + 1}',
+                          ),
+                        ),
+                      ),
+                    ),
+                if (_matchStatus == 'active' && _players.length == 2)
+                  OutlinedButton.icon(
+                    onPressed: _busy ? null : _forfeit,
+                    icon: const Icon(Icons.flag_outlined),
+                    label: Text(_text('تسلیم و پایان بازی', 'Forfeit match')),
+                  ),
+                const SizedBox(height: 10),
+                Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 520),
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 240),
+                      switchInCurve: Curves.easeOutCubic,
+                      switchOutCurve: Curves.easeInCubic,
+                      transitionBuilder: (child, animation) => FadeTransition(
+                        opacity: animation,
+                        child: ScaleTransition(
+                          scale: Tween<double>(begin: .985, end: 1).animate(animation),
+                          child: child,
+                        ),
+                      ),
+                      child: IranianManchBoard(
+                        key: ValueKey(state.toJson().toString()),
+                        activeSeat: activeSeat,
+                        gameState: state,
+                        showSampleTokens: false,
+                      ),
+                    ),
+                  ),
+                ),
+                if (_matchStatus == 'finished')
+                  FilledButton.icon(
+                    onPressed: _busy ? null : _rematch,
+                    icon: const Icon(Icons.replay_rounded),
+                    label: Text(_text('بازی مجدد', 'Rematch')),
+                  ),
+                if (_matchStatus == 'finished' && _finishReason == 'forfeit')
+                  Text(
+                    _winnerUserId == widget.currentUserId
+                        ? _text('شما برنده شدید؛ حریف تسلیم شد.', 'You won; your opponent forfeited.')
+                        : _text('شما تسلیم شدید؛ حریف برنده شد.', 'You forfeited; your opponent won.'),
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                if (state.isFinished)
+                  Text(
+                    _text('برنده: ', 'Winner: ') +
+                        _colourName(state.players[state.winnerIndex!].colour),
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                if (_error != null)
+                  Text(
+                    _error!,
+                    style: TextStyle(color: Theme.of(context).colorScheme.error),
+                  ),
+              ],
+            ),
+    );
+  }
+}
