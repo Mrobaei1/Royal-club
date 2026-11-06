@@ -21,7 +21,7 @@ import { isValidNeonTriggerInvocation } from './neon-trigger-auth.js';
 import { promisify } from 'node:util';
 import { createRoyalLoggerOptions } from './logging-config.js';
 import { normalizePublicServiceOrigin, publicGameServices } from './game-services-config.js';
-import { signGameServiceConfig } from './game-service-config-signing.js';
+import { signGameServiceConfig, verifyGameServiceConfigSignature } from './game-service-config-signing.js';
 import { isOwnerIdentityConsistent } from './owner-protection.js';
 import { ensureManchSchema, registerManchRoutes } from './manch-online.js';
 
@@ -660,25 +660,72 @@ await pool.query(`
     singleton_id SMALLINT PRIMARY KEY CHECK (singleton_id = 1),
     version BIGINT NOT NULL CHECK (version >= 1),
     services JSONB NOT NULL,
+    signature TEXT,
+    key_id TEXT,
+    public_key TEXT,
     updated_by BIGINT REFERENCES users(id) ON DELETE SET NULL,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   );
   CREATE TABLE IF NOT EXISTS game_service_config_history (
     version BIGINT PRIMARY KEY CHECK (version >= 1),
     services JSONB NOT NULL,
+    signature TEXT,
+    key_id TEXT,
+    public_key TEXT,
     updated_by BIGINT REFERENCES users(id) ON DELETE SET NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   );
+  ALTER TABLE game_service_config ADD COLUMN IF NOT EXISTS signature TEXT;
+  ALTER TABLE game_service_config ADD COLUMN IF NOT EXISTS key_id TEXT;
+  ALTER TABLE game_service_config ADD COLUMN IF NOT EXISTS public_key TEXT;
+  ALTER TABLE game_service_config_history ADD COLUMN IF NOT EXISTS signature TEXT;
+  ALTER TABLE game_service_config_history ADD COLUMN IF NOT EXISTS key_id TEXT;
+  ALTER TABLE game_service_config_history ADD COLUMN IF NOT EXISTS public_key TEXT;
 `);
 const initialGameServices = publicGameServices();
+const initialGameServiceSignature = signGameServiceConfig(1, initialGameServices);
 await pool.query(
-  `INSERT INTO game_service_config (singleton_id, version, services)
-   VALUES (1, 1, $1::jsonb) ON CONFLICT (singleton_id) DO NOTHING`,
-  [JSON.stringify(initialGameServices)],
+  `INSERT INTO game_service_config
+     (singleton_id, version, services, signature, key_id, public_key)
+   VALUES (1, 1, $1::jsonb, $2, $3, $4)
+   ON CONFLICT (singleton_id) DO NOTHING`,
+  [JSON.stringify(initialGameServices), initialGameServiceSignature.signature,
+   initialGameServiceSignature.keyId, initialGameServiceSignature.publicKey],
 );
+const unsignedCurrentGameConfig = await pool.query(
+  'SELECT version::text AS version, services FROM game_service_config WHERE singleton_id = 1 AND signature IS NULL',
+);
+if (unsignedCurrentGameConfig.rowCount) {
+  const row = unsignedCurrentGameConfig.rows[0];
+  const signed = signGameServiceConfig(Number(row.version), row.services);
+  await pool.query(
+    'UPDATE game_service_config SET signature = $2, key_id = $3, public_key = $4 WHERE singleton_id = 1 AND version = $1 AND signature IS NULL',
+    [Number(row.version), signed.signature, signed.keyId, signed.publicKey],
+  );
+}
+const unsignedHistory = await pool.query(
+  'SELECT version::text AS version, services FROM game_service_config_history WHERE signature IS NULL',
+);
+for (const row of unsignedHistory.rows) {
+  const signed = signGameServiceConfig(Number(row.version), row.services);
+  await pool.query(
+    'UPDATE game_service_config_history SET signature = $2, key_id = $3, public_key = $4 WHERE version = $1 AND signature IS NULL',
+    [Number(row.version), signed.signature, signed.keyId, signed.publicKey],
+  );
+}
+await pool.query(`
+  ALTER TABLE game_service_config ALTER COLUMN signature SET NOT NULL;
+  ALTER TABLE game_service_config ALTER COLUMN key_id SET NOT NULL;
+  ALTER TABLE game_service_config ALTER COLUMN public_key SET NOT NULL;
+  ALTER TABLE game_service_config_history ALTER COLUMN signature SET NOT NULL;
+  ALTER TABLE game_service_config_history ALTER COLUMN key_id SET NOT NULL;
+  ALTER TABLE game_service_config_history ALTER COLUMN public_key SET NOT NULL;
+`);
 await pool.query(
-  `INSERT INTO game_service_config_history (version, services, updated_by)
-   SELECT version, services, updated_by FROM game_service_config WHERE singleton_id = 1
+  `INSERT INTO game_service_config_history
+     (version, services, updated_by, signature, key_id, public_key)
+   SELECT version, services, updated_by, signature, key_id, public_key
+     FROM game_service_config WHERE singleton_id = 1
    ON CONFLICT (version) DO NOTHING`,
 );
 
@@ -782,13 +829,19 @@ app.addHook('onRequest', async (request) => {
 app.get('/api/v1/public/game-services', async (_request, reply) => {
   try {
     const result = await pool.query(
-      'SELECT version::text AS version, services, updated_at AS "updatedAt" FROM game_service_config WHERE singleton_id = 1',
+      'SELECT version::text AS version, services, signature, key_id AS "keyId", public_key AS "publicKey", updated_at AS "updatedAt" FROM game_service_config WHERE singleton_id = 1',
     );
     const row = result.rows[0];
     if (!row) return reply.code(503).send({ error: 'Game service configuration is unavailable.' });
     const version = Number(row.version);
     const services = row.services as { uno?: string | null };
-    return { version, services, updatedAt: row.updatedAt, ...signGameServiceConfig(version, services) };
+    if (!verifyGameServiceConfigSignature(version, services, {
+      algorithm: 'Ed25519', keyId: row.keyId, publicKey: row.publicKey, signature: row.signature,
+    })) return reply.code(503).send({ error: 'Game service configuration signature verification failed.' });
+    return {
+      version, services, updatedAt: row.updatedAt,
+      algorithm: 'Ed25519', keyId: row.keyId, publicKey: row.publicKey, signature: row.signature,
+    };
   } catch (error) {
     app.log.error({ err: error }, 'Could not load public game service configuration');
     return reply.code(503).send({ error: 'Game service configuration is unavailable.' });
@@ -1640,11 +1693,22 @@ app.post<{ Body: { password?: string } }>('/api/v1/admin/step-up', {
 
 app.get('/api/v1/admin/game-services', { onRequest: [requireOwnerAuth] }, async (_request, reply) => {
   const [current, history] = await Promise.all([
-    pool.query('SELECT version::text AS version, services, updated_at AS "updatedAt" FROM game_service_config WHERE singleton_id = 1'),
-    pool.query('SELECT version::text AS version, services, created_at AS "createdAt" FROM game_service_config_history ORDER BY version DESC LIMIT 20'),
+    pool.query('SELECT version::text AS version, services, signature, key_id AS "keyId", public_key AS "publicKey", updated_at AS "updatedAt" FROM game_service_config WHERE singleton_id = 1'),
+    pool.query('SELECT version::text AS version, services, signature, key_id AS "keyId", public_key AS "publicKey", created_at AS "createdAt" FROM game_service_config_history ORDER BY version DESC LIMIT 20'),
   ]);
   if (!current.rowCount) return reply.code(503).send({ error: 'Game service configuration is unavailable.' });
-  return { config: current.rows[0], history: history.rows };
+  const row = current.rows[0];
+  if (!verifyGameServiceConfigSignature(Number(row.version), row.services, {
+    algorithm: 'Ed25519', keyId: row.keyId, publicKey: row.publicKey, signature: row.signature,
+  })) return reply.code(503).send({ error: 'Current game service configuration signature is invalid.' });
+  const historyValid = history.rows.every((item) => verifyGameServiceConfigSignature(Number(item.version), item.services, {
+    algorithm: 'Ed25519', keyId: item.keyId, publicKey: item.publicKey, signature: item.signature,
+  }));
+  if (!historyValid) return reply.code(503).send({ error: 'Game service configuration history contains an invalid signature.' });
+  return {
+    config: { version: row.version, services: row.services, updatedAt: row.updatedAt },
+    history: history.rows.map(({ version, services, createdAt }) => ({ version, services, createdAt })),
+  };
 });
 
 app.patch<{ Body: { uno?: string | null } }>('/api/v1/admin/game-services', { onRequest: [requireOwnerStepUp] }, async (request, reply) => {
@@ -1661,21 +1725,29 @@ app.patch<{ Body: { uno?: string | null } }>('/api/v1/admin/game-services', { on
   try {
     await client.query('BEGIN');
     const current = await client.query(
-      'SELECT version, services FROM game_service_config WHERE singleton_id = 1 FOR UPDATE',
+      'SELECT version, services, signature, key_id AS "keyId", public_key AS "publicKey" FROM game_service_config WHERE singleton_id = 1 FOR UPDATE',
     );
     if (!current.rowCount) {
       await client.query('ROLLBACK');
       return reply.code(503).send({ error: 'Game service configuration is unavailable.' });
     }
-    const version = Number(current.rows[0].version) + 1;
-    const services = { ...(current.rows[0].services ?? {}), uno };
+    const currentRow = current.rows[0];
+    if (!verifyGameServiceConfigSignature(Number(currentRow.version), currentRow.services, {
+      algorithm: 'Ed25519', keyId: currentRow.keyId, publicKey: currentRow.publicKey, signature: currentRow.signature,
+    })) {
+      await client.query('ROLLBACK');
+      return reply.code(503).send({ error: 'Current game service configuration signature is invalid.' });
+    }
+    const version = Number(currentRow.version) + 1;
+    const services = { ...(currentRow.services ?? {}), uno };
+    const signed = signGameServiceConfig(version, services);
     await client.query(
-      'INSERT INTO game_service_config_history (version, services, updated_by) VALUES ($1, $2::jsonb, $3)',
-      [version, JSON.stringify(services), actor.sub],
+      'INSERT INTO game_service_config_history (version, services, updated_by, signature, key_id, public_key) VALUES ($1, $2::jsonb, $3, $4, $5, $6)',
+      [version, JSON.stringify(services), actor.sub, signed.signature, signed.keyId, signed.publicKey],
     );
     await client.query(
-      'UPDATE game_service_config SET version = $1, services = $2::jsonb, updated_by = $3, updated_at = NOW() WHERE singleton_id = 1',
-      [version, JSON.stringify(services), actor.sub],
+      'UPDATE game_service_config SET version = $1, services = $2::jsonb, updated_by = $3, updated_at = NOW(), signature = $4, key_id = $5, public_key = $6 WHERE singleton_id = 1',
+      [version, JSON.stringify(services), actor.sub, signed.signature, signed.keyId, signed.publicKey],
     );
     await client.query('COMMIT');
     return { config: { version, services } };
@@ -1695,25 +1767,36 @@ app.post<{ Params: { version: string } }>('/api/v1/admin/game-services/rollback/
   try {
     await client.query('BEGIN');
     const current = await client.query(
-      'SELECT version FROM game_service_config WHERE singleton_id = 1 FOR UPDATE',
+      'SELECT version, services, signature, key_id AS "keyId", public_key AS "publicKey" FROM game_service_config WHERE singleton_id = 1 FOR UPDATE',
     );
     const selected = await client.query(
-      'SELECT services FROM game_service_config_history WHERE version = $1',
+      'SELECT services, signature, key_id AS "keyId", public_key AS "publicKey" FROM game_service_config_history WHERE version = $1',
       [request.params.version],
     );
     if (!current.rowCount || !selected.rowCount) {
       await client.query('ROLLBACK');
       return reply.code(404).send({ error: 'Configuration version not found.' });
     }
-    const nextVersion = Number(current.rows[0].version) + 1;
-    const services = selected.rows[0].services;
+    const currentRow = current.rows[0];
+    const selectedRow = selected.rows[0];
+    if (!verifyGameServiceConfigSignature(Number(currentRow.version), currentRow.services, {
+      algorithm: 'Ed25519', keyId: currentRow.keyId, publicKey: currentRow.publicKey, signature: currentRow.signature,
+    }) || !verifyGameServiceConfigSignature(Number(request.params.version), selectedRow.services, {
+      algorithm: 'Ed25519', keyId: selectedRow.keyId, publicKey: selectedRow.publicKey, signature: selectedRow.signature,
+    })) {
+      await client.query('ROLLBACK');
+      return reply.code(503).send({ error: 'Current or selected game service configuration signature is invalid.' });
+    }
+    const nextVersion = Number(currentRow.version) + 1;
+    const services = selectedRow.services;
+    const signed = signGameServiceConfig(nextVersion, services);
     await client.query(
-      'INSERT INTO game_service_config_history (version, services, updated_by) VALUES ($1, $2::jsonb, $3)',
-      [nextVersion, JSON.stringify(services), actor.sub],
+      'INSERT INTO game_service_config_history (version, services, updated_by, signature, key_id, public_key) VALUES ($1, $2::jsonb, $3, $4, $5, $6)',
+      [nextVersion, JSON.stringify(services), actor.sub, signed.signature, signed.keyId, signed.publicKey],
     );
     await client.query(
-      'UPDATE game_service_config SET version = $1, services = $2::jsonb, updated_by = $3, updated_at = NOW() WHERE singleton_id = 1',
-      [nextVersion, JSON.stringify(services), actor.sub],
+      'UPDATE game_service_config SET version = $1, services = $2::jsonb, updated_by = $3, updated_at = NOW(), signature = $4, key_id = $5, public_key = $6 WHERE singleton_id = 1',
+      [nextVersion, JSON.stringify(services), actor.sub, signed.signature, signed.keyId, signed.publicKey],
     );
     await client.query('COMMIT');
     return { config: { version: nextVersion, services, rolledBackTo: Number(request.params.version) } };

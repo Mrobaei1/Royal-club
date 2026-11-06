@@ -1,6 +1,7 @@
 import test, { after, before } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
+import { verifyGameServiceConfigSignature } from '../src/game-service-config-signing.js';
 import { Pool } from 'pg';
 
 // This suite is run only against a disposable PostgreSQL database in CI.
@@ -95,10 +96,13 @@ test('owner can version and roll back central game service configuration', async
   const other = await register('Game Service Config Other');
   process.env.OWNER_USER_ID = owner.user.id;
   const before = await testPool.query(
-    'SELECT version, services FROM game_service_config WHERE singleton_id = 1',
+    'SELECT version, services, signature, key_id AS "keyId", public_key AS "publicKey" FROM game_service_config WHERE singleton_id = 1',
   );
   const originalVersion = Number(before.rows[0].version);
   const originalServices = before.rows[0].services;
+  const originalSignature = before.rows[0].signature;
+  const originalKeyId = before.rows[0].keyId;
+  const originalPublicKey = before.rows[0].publicKey;
   try {
     const denied = await app.inject({
       method: 'GET', url: '/api/v1/admin/game-services', headers: auth(other.token),
@@ -123,6 +127,21 @@ test('owner can version and roll back central game service configuration', async
     assert.equal(publicConfig.statusCode, 200, publicConfig.body);
     assert.equal(publicConfig.json().version, originalVersion + 1);
     assert.equal(publicConfig.json().services.uno, 'https://uno-v2.example.com');
+    assert.equal(publicConfig.json().algorithm, 'Ed25519');
+    assert.equal(verifyGameServiceConfigSignature(
+      publicConfig.json().version, publicConfig.json().services, publicConfig.json(), process.env.JWT_SECRET,
+    ), true);
+
+    await testPool.query(
+      'UPDATE game_service_config SET services = $1::jsonb WHERE singleton_id = 1',
+      [JSON.stringify({ uno: 'https://tampered.example.com' })],
+    );
+    const tampered = await app.inject({ method: 'GET', url: '/api/v1/public/game-services' });
+    assert.equal(tampered.statusCode, 503);
+    await testPool.query(
+      'UPDATE game_service_config SET services = $1::jsonb WHERE singleton_id = 1',
+      [JSON.stringify({ uno: 'https://uno-v2.example.com' })],
+    );
 
     const rollback = await app.inject({
       method: 'POST',
@@ -134,8 +153,8 @@ test('owner can version and roll back central game service configuration', async
     assert.deepEqual(rollback.json().config.services, originalServices);
   } finally {
     await testPool.query(
-      'UPDATE game_service_config SET version = $1, services = $2::jsonb, updated_by = NULL WHERE singleton_id = 1',
-      [originalVersion, JSON.stringify(originalServices)],
+      'UPDATE game_service_config SET version = $1, services = $2::jsonb, signature = $3, key_id = $4, public_key = $5, updated_by = NULL WHERE singleton_id = 1',
+      [originalVersion, JSON.stringify(originalServices), originalSignature, originalKeyId, originalPublicKey],
     );
     await testPool.query('DELETE FROM game_service_config_history WHERE version > $1', [originalVersion]);
     if (previousOwnerId === undefined) delete process.env.OWNER_USER_ID;

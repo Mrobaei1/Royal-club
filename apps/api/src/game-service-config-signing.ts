@@ -1,4 +1,4 @@
-import { createHash, createPrivateKey, createPublicKey, hkdfSync, sign as cryptoSign } from 'node:crypto';
+import { createHash, createPrivateKey, createPublicKey, hkdfSync, sign as cryptoSign, timingSafeEqual } from 'node:crypto';
 
 const ED25519_PKCS8_PREFIX = Buffer.from('302e020100300506032b657004220420', 'hex');
 export type PublicGameServices = { uno?: string | null };
@@ -37,4 +37,24 @@ export function signGameServiceConfig(
     publicKey: publicBytes.toString('base64'),
     signature: signature.toString('base64'),
   };
+}
+
+export function verifyGameServiceConfigSignature(
+  version: number,
+  services: PublicGameServices,
+  provided: { algorithm?: string; keyId?: string; publicKey?: string; signature?: string },
+  jwtSecret: string = process.env.JWT_SECRET ?? '',
+): boolean {
+  try {
+    const expected = signGameServiceConfig(version, services, jwtSecret);
+    if (provided.algorithm !== expected.algorithm ||
+        provided.keyId !== expected.keyId ||
+        provided.publicKey !== expected.publicKey ||
+        typeof provided.signature !== 'string') return false;
+    const actualBytes = Buffer.from(provided.signature, 'base64');
+    const expectedBytes = Buffer.from(expected.signature, 'base64');
+    return actualBytes.length === expectedBytes.length && timingSafeEqual(actualBytes, expectedBytes);
+  } catch {
+    return false;
+  }
 }

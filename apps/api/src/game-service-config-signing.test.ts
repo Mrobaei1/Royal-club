@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createPublicKey, verify as cryptoVerify } from 'node:crypto';
-import { canonicalGameServiceConfig, signGameServiceConfig } from './game-service-config-signing.js';
+import { canonicalGameServiceConfig, signGameServiceConfig, verifyGameServiceConfigSignature } from './game-service-config-signing.js';
 
 const SECRET = 'royal-club-test-jwt-secret-with-32-bytes-minimum';
 
@@ -18,6 +18,10 @@ test('game service config signature verifies and binds version and service origi
   assert.equal(cryptoVerify(null, canonicalGameServiceConfig(7, services), publicKey, signature), true);
   assert.equal(cryptoVerify(null, canonicalGameServiceConfig(8, services), publicKey, signature), false);
   assert.equal(cryptoVerify(null, canonicalGameServiceConfig(7, { uno: 'https://attacker.example.com' }), publicKey, signature), false);
+  assert.equal(verifyGameServiceConfigSignature(7, services, signed, SECRET), true);
+  assert.equal(verifyGameServiceConfigSignature(8, services, signed, SECRET), false);
+  assert.equal(verifyGameServiceConfigSignature(7, { uno: 'https://attacker.example.com' }, signed, SECRET), false);
+  assert.equal(verifyGameServiceConfigSignature(7, services, { ...signed, signature: 'tampered' }, SECRET), false);
 });
 
 test('game service signing rejects weak secrets and invalid versions', () => {
