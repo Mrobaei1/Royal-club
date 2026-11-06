@@ -447,8 +447,9 @@ export function roomViewForUser(room, userId, { now = Date.now() } = {}) {
   const player = room.players.find(candidate => candidate.userId === userId);
   if (!player) throw new Error("User is not a member of this room");
   const matchStillActive = !["completed", "cancelled", "expired"].includes(room.status);
-  const revealActive = matchStillActive &&
-    ["playing", "round_completed"].includes(room.status) &&
+  // The final hand is still revealed for three seconds after match completion;
+  // only the full game/replay projection is hidden in terminal match state.
+  const revealActive = ["playing", "round_completed", "completed"].includes(room.status) &&
     Number.isFinite(room.handRevealUntil) && now < room.handRevealUntil && Array.isArray(room.revealedHands);
   const game = room.round && matchStillActive ? roundViewForSeat(room.round, player.seat) : null;
   return Object.freeze({
