@@ -426,7 +426,7 @@ class _HokmScreenState extends State<HokmScreen> with WidgetsBindingObserver {
     if (_status == 'completed' || _status == 'cancelled') {
       final revealSeconds = _secondsLeft(_room?['handRevealUntil']);
       final revealed = _status == 'completed' && revealSeconds > 0
-          ? _room?['revealedHands'] as List?
+          ? (_room?['revealedHands'] as List?)
           : null;
       return _panel(Column(children: [
         Icon(_status == 'completed' ? Icons.emoji_events : Icons.cancel_outlined,
