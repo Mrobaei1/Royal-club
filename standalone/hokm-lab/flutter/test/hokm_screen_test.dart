@@ -10,6 +10,7 @@ class FakeHokmApi implements HokmApi {
   int nextRoundCalls = 0;
   bool createAsRoundCompleted = false;
   bool createAsCompleted = false;
+  bool createAsCompletedWithReveal = false;
   int joinCalls = 0;
   int viewCalls = 0;
   int commandCalls = 0;
@@ -88,9 +89,17 @@ class FakeHokmApi implements HokmApi {
   @override
   Future<Map<String, dynamic>> createRoom({required int matchTarget, required bool privateRoom}) async {
     createCalls++;
-    room = createAsCompleted
-        ? (_waiting()..['status'] = 'completed')
-        : createAsRoundCompleted ? _roundCompletedWithHostDisconnected() : _waiting();
+    room = createAsCompletedWithReveal
+        ? (_waiting()
+          ..['status'] = 'completed'
+          ..['serverNow'] = DateTime.now().millisecondsSinceEpoch
+          ..['handRevealUntil'] = DateTime.now().millisecondsSinceEpoch + 3000
+          ..['revealedHands'] = List.generate(4, (_) => [
+            {'suit': 'hearts', 'rank': 'A'}
+          ]))
+        : createAsCompleted
+          ? (_waiting()..['status'] = 'completed')
+          : createAsRoundCompleted ? _roundCompletedWithHostDisconnected() : _waiting();
     room['matchTarget'] = matchTarget;
     room['privateRoom'] = privateRoom;
     return Map<String, dynamic>.from(room);
@@ -402,12 +411,12 @@ void main() {
     expect(api.lastChatExpectedVersion, 3);
   });
 
-  testWidgets('completed room exit releases the seat instead of disconnecting', (tester) async {
+  testWidgets('completed room reveals final cards for three seconds before releasing the seat', (tester) async {
     tester.view.physicalSize = const Size(1200, 1800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    final api = FakeHokmApi()..createAsCompleted = true;
+    final api = FakeHokmApi()..createAsCompletedWithReveal = true;
     await tester.pumpWidget(MaterialApp(
       locale: const Locale('fa'),
       supportedLocales: const [Locale('fa'), Locale('en')],
@@ -419,6 +428,13 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 20));
     expect(find.text('مسابقه پایان یافت'), findsOneWidget);
+    expect(find.text('کارت‌های باقی‌ماندهٔ پایان دست'), findsOneWidget);
+    expect(tester.widget<TextButton>(find.widgetWithText(TextButton, 'بازگشت')).onPressed, isNull);
+
+    await tester.pump(const Duration(seconds: 3));
+    await tester.pump(const Duration(milliseconds: 10));
+    expect(find.text('کارت‌های باقی‌ماندهٔ پایان دست'), findsNothing);
+    expect(tester.widget<TextButton>(find.widgetWithText(TextButton, 'بازگشت')).onPressed, isNotNull);
     await tester.tap(find.text('بازگشت'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 20));
