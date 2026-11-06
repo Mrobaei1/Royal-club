@@ -47,7 +47,17 @@ test('CORS preflight allows configured origins and withholds permission from unk
 });
 
 function auth(token: string) {
-  return { authorization: `Bearer ${token}` };
+  const headers: Record<string, string> = { authorization: `Bearer ${token}` };
+  const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString('utf8')) as {
+    sub?: string; ver?: number; jti?: string;
+  };
+  if (payload.sub && payload.sub === process.env.OWNER_USER_ID) {
+    headers['x-owner-step-up'] = app.jwt.sign(
+      { sub: payload.sub, purpose: 'owner-step-up', ver: Number(payload.ver ?? 0), sessionJti: payload.jti },
+      { expiresIn: '5m' },
+    );
+  }
+  return headers;
 }
 
 async function register(fullName: string) {
@@ -122,6 +132,52 @@ test('owner can version and roll back central game service configuration', async
       [originalVersion, JSON.stringify(originalServices)],
     );
     await testPool.query('DELETE FROM game_service_config_history WHERE version > $1', [originalVersion]);
+    if (previousOwnerId === undefined) delete process.env.OWNER_USER_ID;
+    else process.env.OWNER_USER_ID = previousOwnerId;
+  }
+});
+
+test('owner step-up requires the current password and gates sensitive admin writes', async () => {
+  const previousOwnerId = process.env.OWNER_USER_ID;
+  const owner = await register('Step Up Owner');
+  process.env.OWNER_USER_ID = owner.user.id;
+  try {
+    const deniedWithoutStepUp = await app.inject({
+      method: 'PATCH',
+      url: '/api/v1/admin/game-services',
+      headers: { authorization: `Bearer ${owner.token}` },
+      payload: { uno: 'https://uno-stepup.example.com' },
+    });
+    assert.equal(deniedWithoutStepUp.statusCode, 403);
+
+    const wrongPassword = await app.inject({
+      method: 'POST',
+      url: '/api/v1/admin/step-up',
+      headers: { authorization: `Bearer ${owner.token}` },
+      payload: { password: 'wrong-password' },
+    });
+    assert.equal(wrongPassword.statusCode, 401);
+
+    const issued = await app.inject({
+      method: 'POST',
+      url: '/api/v1/admin/step-up',
+      headers: { authorization: `Bearer ${owner.token}` },
+      payload: { password: 'IntegrationPass123!' },
+    });
+    assert.equal(issued.statusCode, 200, issued.body);
+    assert.equal(issued.json().expiresIn, 300);
+
+    const accepted = await app.inject({
+      method: 'PATCH',
+      url: '/api/v1/admin/game-services',
+      headers: {
+        authorization: `Bearer ${owner.token}`,
+        'x-owner-step-up': issued.json().stepUpToken,
+      },
+      payload: { uno: 'https://uno-stepup.example.com' },
+    });
+    assert.equal(accepted.statusCode, 200, accepted.body);
+  } finally {
     if (previousOwnerId === undefined) delete process.env.OWNER_USER_ID;
     else process.env.OWNER_USER_ID = previousOwnerId;
   }
