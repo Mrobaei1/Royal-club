@@ -53,6 +53,10 @@ class _AdminScreenState extends State<AdminScreen> {
   List<dynamic> _users = [];
   bool _busy = false;
   bool _customizationPricingAvailable = false;
+  final _unoServiceUrl = TextEditingController();
+  int _gameServiceVersion = 0;
+  List<dynamic> _gameServiceHistory = [];
+  bool _gameServicesAvailable = false;
   Map<String, dynamic> _smsSettings = {};
   String _smsMode = 'disabled';
   String _smsProvider = 'kavenegar';
@@ -89,6 +93,7 @@ class _AdminScreenState extends State<AdminScreen> {
     _usernameChangePrice.dispose();
     _notificationTitle.dispose();
     _notificationBody.dispose();
+    _unoServiceUrl.dispose();
     _smsSender.dispose(); _smsTemplate.dispose(); _smsApiKey.dispose(); _smsTestPhone.dispose(); _smsTtl.dispose(); _smsCooldown.dispose(); _smsAttempts.dispose(); _smsDailyLimit.dispose();
     super.dispose();
   }
@@ -128,6 +133,7 @@ class _AdminScreenState extends State<AdminScreen> {
         if (mounted) setState(() => _customizationPricingAvailable = false);
       }
       await _loadAgentTaskProposals();
+      await _loadGameServices();
     } catch (e) {
       if (mounted) setState(() { _loading = false; _error = appError(context, e); });
     }
@@ -157,6 +163,75 @@ class _AdminScreenState extends State<AdminScreen> {
           content: Text(appText(context, 'قیمت خدمات حساب ذخیره شد.', 'Account service prices saved.')),
         ));
       }
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appError(context, error))));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _loadGameServices() async {
+    try {
+      final response = await AdminService.gameServices();
+      final config = response['config'] as Map<String, dynamic>;
+      if (!mounted) return;
+      setState(() {
+        final services = config['services'];
+        _unoServiceUrl.text = services is Map ? (services['uno']?.toString() ?? '') : '';
+        _gameServiceVersion = int.tryParse(config['version'].toString()) ?? 0;
+        _gameServiceHistory = response['history'] as List<dynamic>? ?? [];
+        _gameServicesAvailable = true;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _gameServicesAvailable = false);
+    }
+  }
+
+  Future<void> _saveGameServices() async {
+    final value = _unoServiceUrl.text.trim();
+    final uri = Uri.tryParse(value);
+    if (uri == null || uri.scheme != 'https' || uri.host.isEmpty ||
+        uri.path.isNotEmpty || uri.query.isNotEmpty || uri.fragment.isNotEmpty ||
+        uri.userInfo.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(appText(context, 'آدرس باید یک مبدأ HTTPS معتبر باشد.', 'Enter a valid HTTPS origin.')),
+      ));
+      return;
+    }
+    setState(() => _busy = true);
+    try {
+      await AdminService.updateGameServices(unoOrigin: uri.origin);
+      await _loadGameServices();
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(appText(context, 'تنظیم سرویس ذخیره شد.', 'Service configuration saved.')),
+      ));
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appError(context, error))));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _rollbackGameServices(int version) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(appText(dialogContext, 'بازگردانی تنظیمات', 'Rollback configuration')),
+        content: Text(appText(dialogContext, 'تنظیمات سرویس به نسخه $version بازگردد؟', 'Restore game service settings from version $version?')),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: Text(appText(dialogContext, 'انصراف', 'Cancel'))),
+          FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: Text(appText(dialogContext, 'تأیید', 'Confirm'))),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    setState(() => _busy = true);
+    try {
+      await AdminService.rollbackGameServices(version);
+      await _loadGameServices();
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(appText(context, 'تنظیمات به‌صورت نسخه جدید بازیابی شد.', 'Configuration restored as a new version.')),
+      ));
     } catch (error) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appError(context, error))));
     } finally {
@@ -1314,6 +1389,45 @@ class _AdminScreenState extends State<AdminScreen> {
               SizedBox(height: 8), Text(appText(context, 'این بخش فقط برای شناسه مالک تعریف‌شده در تنظیمات سرور قابل استفاده است.', 'This section is available only to the owner ID configured on the server.'), textAlign: TextAlign.center),
             ])))
           : ListView(padding: const EdgeInsets.all(16), children: [
+              if (_gameServicesAvailable)
+                Card(child: Padding(padding: const EdgeInsets.all(14), child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(appText(context, 'تنظیمات مرکزی سرویس بازی', 'Central game-service configuration'),
+                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 6),
+                    Text(appText(context, 'نسخه فعال: $_gameServiceVersion', 'Active version: $_gameServiceVersion')),
+                    const SizedBox(height: 8),
+                    TextField(controller: _unoServiceUrl, keyboardType: TextInputType.url,
+                      decoration: InputDecoration(labelText: appText(context, 'آدرس سرویس آنلاین اونو (HTTPS)', 'UNO online service origin (HTTPS)'),
+                        hintText: 'https://uno.example.com', border: const OutlineInputBorder())),
+                    const SizedBox(height: 10),
+                    FilledButton.icon(onPressed: _busy ? null : _saveGameServices,
+                      icon: const Icon(Icons.save_outlined),
+                      label: Text(appText(context, 'ذخیره نسخه جدید', 'Save new version'))),
+                    if (_gameServiceHistory.isNotEmpty) ...[
+                      const Divider(height: 24),
+                      Text(appText(context, 'نسخه‌های قبلی و بازیابی', 'Previous versions and rollback'),
+                        style: const TextStyle(fontWeight: FontWeight.bold)),
+                      for (final item in _gameServiceHistory.take(10))
+                        ListTile(
+                          dense: true,
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(appText(context, 'نسخه ${item['version']}', 'Version ${item['version']}')),
+                          subtitle: Text((item['services'] is Map ? item['services']['uno'] : null)?.toString() ?? '—'),
+                          trailing: OutlinedButton(
+                            onPressed: _busy || int.tryParse(item['version'].toString()) == _gameServiceVersion
+                                ? null : () => _rollbackGameServices(int.parse(item['version'].toString())),
+                            child: Text(appText(context, 'بازیابی', 'Restore')),
+                          ),
+                        ),
+                    ],
+                    Text(appText(context, 'هر تغییر یک نسخه مستقل ثبت می‌کند؛ بازیابی نیز نسخه جدید می‌سازد. امضای رمزنگاری‌شده هنوز در این مرحله فعال نشده است.',
+                      'Each change creates a version; rollback creates a new version. Cryptographic signing is not enabled in this stage.'),
+                      style: const TextStyle(fontSize: 12)),
+                  ],
+                ))),
+
 
               Card(child: Padding(padding: const EdgeInsets.all(14), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text(appText(context, 'امنیت و احراز هویت — پیامک / OTP', 'Security & authentication — SMS / OTP'), style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
