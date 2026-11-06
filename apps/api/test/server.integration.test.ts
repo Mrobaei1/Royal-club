@@ -1898,6 +1898,16 @@ test('delegated report permissions are owner-granted, resource-scoped, audited, 
     });
     assert.equal(deniedSmsMessageTest.statusCode, 403, deniedSmsMessageTest.body);
 
+    // Even the immutable owner must re-authenticate before changing OTP provider,
+    // delivery mode, credentials, or authentication policy.
+    const ownerWithoutStepUp = await app.inject({
+      method: 'PATCH',
+      url: '/api/v1/admin/security/sms-otp',
+      headers: { authorization: `Bearer ${owner.token}` },
+      payload: { enabled: false },
+    });
+    assert.equal(ownerWithoutStepUp.statusCode, 403, ownerWithoutStepUp.body);
+
     const enableDelegation = await app.inject({
       method: 'PATCH',
       url: '/api/v1/admin/permissions/settings',

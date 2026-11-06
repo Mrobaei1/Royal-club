@@ -2906,7 +2906,7 @@ app.get('/api/v1/admin/security/sms-otp', { onRequest: [requireOwnerStepUp] }, a
   return { settings: result.rows[0] ?? { enabled: false, deliveryMode: 'disabled', provider: '', senderId: '', templateId: '', apiKeyConfigured: false, otpTtlSeconds: 120, resendCooldownSeconds: 60, maxAttempts: 5, dailyLimit: 100 } };
 });
 
-app.patch<{ Body: { enabled?: boolean; deliveryMode?: string; provider?: string; senderId?: string; templateId?: string; apiKey?: string; clearApiKey?: boolean; otpTtlSeconds?: number; resendCooldownSeconds?: number; maxAttempts?: number; dailyLimit?: number } }>('/api/v1/admin/security/sms-otp', { onRequest: [requireOwnerAuth] }, async (request, reply) => {
+app.patch<{ Body: { enabled?: boolean; deliveryMode?: string; provider?: string; senderId?: string; templateId?: string; apiKey?: string; clearApiKey?: boolean; otpTtlSeconds?: number; resendCooldownSeconds?: number; maxAttempts?: number; dailyLimit?: number } }>('/api/v1/admin/security/sms-otp', { onRequest: [requireOwnerStepUp] }, async (request, reply) => {
   const body = request.body ?? {};
   const currentResult = await pool.query('SELECT * FROM sms_otp_settings WHERE id = 1');
   const current = currentResult.rows[0];
