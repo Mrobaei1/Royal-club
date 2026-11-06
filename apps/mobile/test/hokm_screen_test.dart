@@ -597,6 +597,29 @@ void main() {
   });
 
 
+
+  testWidgets('leaving a waiting room closes it and immediately returns the player to the lobby', (tester) async {
+    final api = FakeHokmApi();
+    await tester.pumpWidget(MaterialApp(
+      locale: const Locale('en'),
+      supportedLocales: const [Locale('fa'), Locale('en')],
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
+      home: HokmScreen(api: api, identityLoader: () async => 'u1'),
+    ));
+    await tester.pump();
+    await tester.tap(find.text('Create Hokm room'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 20));
+    expect(find.text('Waiting room'), findsOneWidget);
+
+    await tester.tap(find.text('Leave room'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 20));
+
+    expect(api.room['status'], 'waiting', 'the fake server fixture is not mutated by the UI');
+    expect(find.text('Create Hokm room'), findsOneWidget);
+  });
+
   testWidgets('cancelled match immediately returns every connected player to the Hokm lobby', (tester) async {
     final api = FakeEventHokmApi();
     await tester.pumpWidget(MaterialApp(
