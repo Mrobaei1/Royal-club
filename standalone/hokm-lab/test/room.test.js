@@ -14,8 +14,9 @@ function fullReadyRoom(now = 1000, matchTarget = 7) {
   return room;
 }
 
-test("room requires four unique users and refuses a fifth", () => {
+test("room requires four unique users, defaults to private invite, and refuses a fifth", () => {
   let room = createRoom({ roomId: "room", hostUserId: "u0", now: 100 });
+  assert.equal(room.privateRoom, true);
   room = joinRoom(room, "u1", 101);
   room = joinRoom(room, "u2", 102);
   room = joinRoom(room, "u3", 103);
@@ -165,21 +166,23 @@ test("completed hands award one match point and preserve the configured target",
   assert.equal(room.round.hakemSeat, expectedHakem);
 });
 
-test("match completes exactly when a team reaches the manager target", () => {
-  let room = startRoom(fullReadyRoom(1000, 3), "u0", { now: 2000, rng: () => 0.37 });
-  let roundsPlayed = 0;
-  while (room.status !== "completed" && roundsPlayed < 12) {
-    room = completeOneRound(room);
-    roundsPlayed += 1;
-    if (room.status === "round_completed") {
-      const sample = (0.17 + roundsPlayed * 0.061) % 0.99;
-      room = startNextRound(room, "u0", { rng: () => sample, now: room.handRevealUntil });
+test("matches complete exactly at each supported manager target: 3, 5, and 7", () => {
+  for (const target of [3, 5, 7]) {
+    let room = startRoom(fullReadyRoom(1000, target), "u0", { now: 2000, rng: () => 0.37 });
+    let roundsPlayed = 0;
+    while (room.status !== "completed" && roundsPlayed < target * 4) {
+      room = completeOneRound(room);
+      roundsPlayed += 1;
+      if (room.status === "round_completed") {
+        const sample = (0.17 + roundsPlayed * 0.061) % 0.99;
+        room = startNextRound(room, "u0", { rng: () => sample, now: room.handRevealUntil });
+      }
     }
+    assert.equal(room.status, "completed", `target ${target} must be reachable`);
+    assert.equal(Math.max(...room.matchScore), target);
+    assert.equal(room.matchScore[0] + room.matchScore[1], roundsPlayed);
+    assert.throws(() => startNextRound(room, "u0"), /previous round is not completed/);
   }
-  assert.equal(room.status, "completed");
-  assert.equal(Math.max(...room.matchScore), 3);
-  assert.equal(room.matchScore[0] + room.matchScore[1], roundsPlayed);
-  assert.throws(() => startNextRound(room, "u0"), /previous round is not completed/);
 });
 
 test("personal XP is awarded only after the entire match finishes", () => {
