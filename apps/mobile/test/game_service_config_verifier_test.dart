@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:cryptography/cryptography.dart';
 import 'package:flutter_test/flutter_test.dart';
-import '../lib/uno/game_service_config_verifier.dart';
+import 'package:royal_club/uno/game_service_config_verifier.dart';
 
 void main() {
   test('accepts a valid Ed25519 signature for the exact version and service origin', () async {
