@@ -170,6 +170,45 @@ class _AdminScreenState extends State<AdminScreen> {
     }
   }
 
+  Future<void> _reauthenticateOwner() async {
+    final controller = TextEditingController();
+    final password = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(appText(dialogContext, 'تأیید هویت مالک', 'Owner re-authentication')),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          obscureText: true,
+          decoration: InputDecoration(
+            labelText: appText(dialogContext, 'رمز عبور فعلی مالک', 'Current owner password'),
+            border: const OutlineInputBorder(),
+          ),
+          onSubmitted: (_) => Navigator.pop(dialogContext, controller.text),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext), child: Text(appText(dialogContext, 'انصراف', 'Cancel'))),
+          FilledButton(onPressed: () => Navigator.pop(dialogContext, controller.text), child: Text(appText(dialogContext, 'تأیید', 'Confirm'))),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (password == null || password.isEmpty || !mounted) return;
+    setState(() => _busy = true);
+    try {
+      await AdminService.ownerStepUp(password);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(appText(context, 'تأیید مالک تا ۵ دقیقه معتبر است.', 'Owner authentication is valid for 5 minutes.')),
+        ));
+      }
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appError(context, error))));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   Future<void> _loadGameServices() async {
     try {
       final response = await AdminService.gameServices();
@@ -1393,6 +1432,23 @@ class _AdminScreenState extends State<AdminScreen> {
               SizedBox(height: 8), Text(appText(context, 'این بخش فقط برای شناسه مالک تعریف‌شده در تنظیمات سرور قابل استفاده است.', 'This section is available only to the owner ID configured on the server.'), textAlign: TextAlign.center),
             ])))
           : ListView(padding: const EdgeInsets.all(16), children: [
+              Card(child: Padding(padding: const EdgeInsets.all(14), child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(appText(context, 'احراز هویت مجدد برای عملیات حساس', 'Re-authenticate for sensitive actions'),
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 6),
+                  Text(appText(context, 'برای تغییر تنظیمات مدیریتی حساس، رمز عبور مالک دوباره بررسی می‌شود و مجوز فقط ۵ دقیقه اعتبار دارد.',
+                    'Sensitive admin changes require the owner password again. The step-up token expires after 5 minutes.')),
+                  const SizedBox(height: 8),
+                  FilledButton.icon(
+                    onPressed: _busy ? null : _reauthenticateOwner,
+                    icon: const Icon(Icons.verified_user_outlined),
+                    label: Text(appText(context, 'تأیید مجدد مالک', 'Re-authenticate owner')),
+                  ),
+                ],
+              ))),
+
               if (_gameServicesAvailable)
                 Card(child: Padding(padding: const EdgeInsets.all(14), child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,

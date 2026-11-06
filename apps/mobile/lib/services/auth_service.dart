@@ -248,5 +248,8 @@ class AuthService {
   static Future<void> saveLanguagePreference(String languageCode) =>
       _storage.write(key: 'royal_club_language', value: languageCode);
 
-  static Future<void> logout() => _storage.delete(key: 'royal_club_token');
+  static Future<void> logout() async {
+    await _storage.delete(key: 'royal_club_token');
+    await _storage.delete(key: 'royal_club_owner_step_up_token');
+  }
 }

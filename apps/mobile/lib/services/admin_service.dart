@@ -11,7 +11,15 @@ class AdminService {
   static Future<Map<String, String>> _headers() async {
     final token = await _storage.read(key: 'royal_club_token');
     if (token == null || token.isEmpty) throw Exception('ابتدا وارد حساب شوید.');
-    return {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'};
+    final headers = <String, String>{
+      'Authorization': 'Bearer $token',
+      'Content-Type': 'application/json',
+    };
+    final stepUpToken = await _storage.read(key: 'royal_club_owner_step_up_token');
+    if (stepUpToken != null && stepUpToken.isNotEmpty) {
+      headers['x-owner-step-up'] = stepUpToken;
+    }
+    return headers;
   }
 
   static Future<Map<String, dynamic>> _request(String method, String path, {Map<String, dynamic>? body}) async {
@@ -133,6 +141,13 @@ class AdminService {
 
   static Future<void> revokePermissionGrant(String grantId) async {
     await _request('DELETE', '/api/v1/admin/permissions/grants/$grantId');
+  }
+
+  static Future<void> ownerStepUp(String password) async {
+    final response = await _request('POST', '/api/v1/admin/step-up', body: {'password': password});
+    final token = response['stepUpToken']?.toString();
+    if (token == null || token.isEmpty) throw Exception('تأیید مالک از سرور دریافت نشد.');
+    await _storage.write(key: 'royal_club_owner_step_up_token', value: token);
   }
 
   static Future<bool> isOwner() async => (await _request('GET', '/api/v1/admin/status'))['isOwner'] == true;
