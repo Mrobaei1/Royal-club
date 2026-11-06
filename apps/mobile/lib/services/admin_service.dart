@@ -136,6 +136,16 @@ class AdminService {
   }
 
   static Future<bool> isOwner() async => (await _request('GET', '/api/v1/admin/status'))['isOwner'] == true;
+
+  static Future<Map<String, dynamic>> gameServices() async =>
+      await _request('GET', '/api/v1/admin/game-services');
+
+  static Future<Map<String, dynamic>> updateGameServices({required String unoOrigin}) async =>
+      await _request('PATCH', '/api/v1/admin/game-services', body: {'uno': unoOrigin.trim()});
+
+  static Future<Map<String, dynamic>> rollbackGameServices(int version) async =>
+      await _request('POST', '/api/v1/admin/game-services/rollback/$version');
+
   static Future<Map<String, dynamic>> accountCustomizationPricing() async =>
       (await _request('GET', '/api/v1/admin/account-customization-pricing'))['settings'] as Map<String, dynamic>;
 

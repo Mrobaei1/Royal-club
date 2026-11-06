@@ -20,7 +20,7 @@ import { hasRoyalPermission, isRoyalPermission } from './permissions.js';
 import { isValidNeonTriggerInvocation } from './neon-trigger-auth.js';
 import { promisify } from 'node:util';
 import { createRoyalLoggerOptions } from './logging-config.js';
-import { publicGameServices } from './game-services-config.js';
+import { normalizePublicServiceOrigin, publicGameServices } from './game-services-config.js';
 import { isOwnerIdentityConsistent } from './owner-protection.js';
 
 const scrypt = promisify(scryptCallback);
@@ -643,6 +643,34 @@ await pool.query(`
   CREATE INDEX IF NOT EXISTS backgammon_player_stats_leaderboard_idx
     ON backgammon_player_stats (rating DESC, wins DESC, games_played ASC);
 `);
+
+await pool.query(`
+  CREATE TABLE IF NOT EXISTS game_service_config (
+    singleton_id SMALLINT PRIMARY KEY CHECK (singleton_id = 1),
+    version BIGINT NOT NULL CHECK (version >= 1),
+    services JSONB NOT NULL,
+    updated_by BIGINT REFERENCES users(id) ON DELETE SET NULL,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+  CREATE TABLE IF NOT EXISTS game_service_config_history (
+    version BIGINT PRIMARY KEY CHECK (version >= 1),
+    services JSONB NOT NULL,
+    updated_by BIGINT REFERENCES users(id) ON DELETE SET NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+`);
+const initialGameServices = publicGameServices();
+await pool.query(
+  `INSERT INTO game_service_config (singleton_id, version, services)
+   VALUES (1, 1, $1::jsonb) ON CONFLICT (singleton_id) DO NOTHING`,
+  [JSON.stringify(initialGameServices)],
+);
+await pool.query(
+  `INSERT INTO game_service_config_history (version, services, updated_by)
+   SELECT version, services, updated_by FROM game_service_config WHERE singleton_id = 1
+   ON CONFLICT (version) DO NOTHING`,
+);
+
  
 await pool.query(`
   CREATE TABLE IF NOT EXISTS royal_club_owner_identity (
@@ -740,7 +768,19 @@ app.addHook('onRequest', async (request) => {
   await cleanupExpiredEmptyRoomsBestEffort();
 });
 
-app.get('/api/v1/public/game-services', async () => ({ services: publicGameServices() }));
+app.get('/api/v1/public/game-services', async (_request, reply) => {
+  try {
+    const result = await pool.query(
+      'SELECT version::text AS version, services, updated_at AS "updatedAt" FROM game_service_config WHERE singleton_id = 1',
+    );
+    const row = result.rows[0];
+    if (!row) return reply.code(503).send({ error: 'Game service configuration is unavailable.' });
+    return { version: Number(row.version), services: row.services, updatedAt: row.updatedAt };
+  } catch (error) {
+    app.log.error({ err: error }, 'Could not load public game service configuration');
+    return reply.code(503).send({ error: 'Game service configuration is unavailable.' });
+  }
+});
 
 app.get('/api/v1/health', async () => ({
   status: 'ok',
@@ -1521,6 +1561,94 @@ const requireOwnerAuth = async (request: any, reply: any) => {
     return reply.code(503).send({ error: 'Owner protection is temporarily unavailable.' });
   }
 };
+
+app.get('/api/v1/admin/game-services', { onRequest: [requireOwnerAuth] }, async (_request, reply) => {
+  const [current, history] = await Promise.all([
+    pool.query('SELECT version::text AS version, services, updated_at AS "updatedAt" FROM game_service_config WHERE singleton_id = 1'),
+    pool.query('SELECT version::text AS version, services, created_at AS "createdAt" FROM game_service_config_history ORDER BY version DESC LIMIT 20'),
+  ]);
+  if (!current.rowCount) return reply.code(503).send({ error: 'Game service configuration is unavailable.' });
+  return { config: current.rows[0], history: history.rows };
+});
+
+app.patch<{ Body: { uno?: string | null } }>('/api/v1/admin/game-services', { onRequest: [requireOwnerAuth] }, async (request, reply) => {
+  const body = request.body ?? {};
+  if (!Object.prototype.hasOwnProperty.call(body, 'uno')) {
+    return reply.code(400).send({ error: 'Provide the UNO service origin or null to disable it.' });
+  }
+  const uno = body.uno === null ? null : normalizePublicServiceOrigin(body.uno);
+  if (body.uno !== null && !uno) {
+    return reply.code(400).send({ error: 'UNO service must be a valid HTTPS origin without credentials, path, query or fragment.' });
+  }
+  const actor = request.user as { sub: string };
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const current = await client.query(
+      'SELECT version, services FROM game_service_config WHERE singleton_id = 1 FOR UPDATE',
+    );
+    if (!current.rowCount) {
+      await client.query('ROLLBACK');
+      return reply.code(503).send({ error: 'Game service configuration is unavailable.' });
+    }
+    const version = Number(current.rows[0].version) + 1;
+    const services = { ...(current.rows[0].services ?? {}), uno };
+    await client.query(
+      'INSERT INTO game_service_config_history (version, services, updated_by) VALUES ($1, $2::jsonb, $3)',
+      [version, JSON.stringify(services), actor.sub],
+    );
+    await client.query(
+      'UPDATE game_service_config SET version = $1, services = $2::jsonb, updated_by = $3, updated_at = NOW() WHERE singleton_id = 1',
+      [version, JSON.stringify(services), actor.sub],
+    );
+    await client.query('COMMIT');
+    return { config: { version, services } };
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    request.log.error({ err: error }, 'Could not update game service configuration');
+    return reply.code(500).send({ error: 'Could not update game service configuration.' });
+  } finally {
+    client.release();
+  }
+});
+
+app.post<{ Params: { version: string } }>('/api/v1/admin/game-services/rollback/:version', { onRequest: [requireOwnerAuth] }, async (request, reply) => {
+  if (!isNumericId(request.params.version)) return reply.code(400).send({ error: 'Invalid configuration version.' });
+  const actor = request.user as { sub: string };
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const current = await client.query(
+      'SELECT version FROM game_service_config WHERE singleton_id = 1 FOR UPDATE',
+    );
+    const selected = await client.query(
+      'SELECT services FROM game_service_config_history WHERE version = $1',
+      [request.params.version],
+    );
+    if (!current.rowCount || !selected.rowCount) {
+      await client.query('ROLLBACK');
+      return reply.code(404).send({ error: 'Configuration version not found.' });
+    }
+    const nextVersion = Number(current.rows[0].version) + 1;
+    const services = selected.rows[0].services;
+    await client.query(
+      'INSERT INTO game_service_config_history (version, services, updated_by) VALUES ($1, $2::jsonb, $3)',
+      [nextVersion, JSON.stringify(services), actor.sub],
+    );
+    await client.query(
+      'UPDATE game_service_config SET version = $1, services = $2::jsonb, updated_by = $3, updated_at = NOW() WHERE singleton_id = 1',
+      [nextVersion, JSON.stringify(services), actor.sub],
+    );
+    await client.query('COMMIT');
+    return { config: { version: nextVersion, services, rolledBackTo: Number(request.params.version) } };
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    request.log.error({ err: error }, 'Could not roll back game service configuration');
+    return reply.code(500).send({ error: 'Could not roll back game service configuration.' });
+  } finally {
+    client.release();
+  }
+});
 
 app.get('/api/v1/admin/game-disconnect-policies', { onRequest: [requireOwnerAuth] }, async () => {
   const result = await pool.query('SELECT game_type AS "gameType", enabled, grace_seconds AS "graceSeconds", takeover_mode AS "takeoverMode", updated_at AS "updatedAt" FROM game_disconnect_policies ORDER BY game_type');
