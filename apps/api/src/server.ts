@@ -3500,6 +3500,32 @@ app.get('/api/v1/admin/subscription-plans', { onRequest: [requireOwnerAuth] }, a
   return { plans: result.rows };
 });
 
+app.post<{ Body: { code?: string; name?: string; durationDays?: number; priceCredits?: number } }>('/api/v1/admin/subscription-plans', { onRequest: [requireOwnerStepUp] }, async (request, reply) => {
+  const code = typeof request.body?.code === 'string' ? request.body.code.trim().toLowerCase() : '';
+  const name = typeof request.body?.name === 'string' ? request.body.name.trim() : '';
+  const { durationDays, priceCredits } = request.body ?? {};
+  if (!/^[a-z0-9_]{2,40}$/.test(code) ||
+      !name || name.length > 100 ||
+      !Number.isInteger(durationDays) || Number(durationDays) < 1 || Number(durationDays) > 3650 ||
+      !Number.isSafeInteger(priceCredits) || Number(priceCredits) < 0 || Number(priceCredits) > 1000000000) {
+    return reply.code(400).send({ error: 'Invalid subscription plan.' });
+  }
+  try {
+    const result = await pool.query(
+      `INSERT INTO subscription_plans (code, name, duration_days, price_credits, active)
+       VALUES ($1, $2, $3, $4, TRUE)
+       RETURNING code, name, duration_days AS "durationDays", price_credits AS "priceCredits", active`,
+      [code, name, durationDays, priceCredits],
+    );
+    return reply.code(201).send({ plan: result.rows[0] });
+  } catch (error) {
+    if ((error as { code?: string }).code === '23505') {
+      return reply.code(409).send({ error: 'A subscription plan with this code already exists.' });
+    }
+    throw error;
+  }
+});
+
 app.patch<{ Params: { code: string }; Body: { name?: string; durationDays?: number; priceCredits?: number; active?: boolean } }>('/api/v1/admin/subscription-plans/:code', { onRequest: [requireOwnerStepUp] }, async (request, reply) => {
   const { code } = request.params;
   const { name, durationDays, priceCredits, active } = request.body ?? {};
