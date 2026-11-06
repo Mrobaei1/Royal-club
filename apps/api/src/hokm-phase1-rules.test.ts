@@ -373,3 +373,16 @@ test('a player who remains on temporary Hard bot receives only the -5 XP penalty
   assert.equal(progress.p2.xp, 20);
   assert.equal(progress.p3.xp, 5);
 });
+
+
+test('intentional exit permanently reserves the seat for Hard bot; no replacement player may join', () => {
+  let room = createRoom({ roomId: 'phase1-no-replacement', hostUserId: 'p0', now: 1000 });
+  for (const id of ['p1', 'p2', 'p3']) room = joinRoom(room, id, 1001);
+  for (const id of ['p0', 'p1', 'p2', 'p3']) room = setPlayerReady(room, id, true);
+  room = startRoom(room, 'p0', { now: 1002, rng: () => 0.5 });
+  room = recordMatchForfeit(room, 'p0');
+  assert.equal(room.players[0].forfeited, true);
+  assert.equal(room.players[0].botControlled, true);
+  assert.throws(() => joinRoom(room, 'replacement-player', 3000), /not accepting players/);
+  assert.equal(room.players.length, 4);
+});
