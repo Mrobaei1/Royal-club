@@ -35,7 +35,7 @@
 - Unconfirmed regional rules remain explicit assumptions and block final rules sign-off.
 - Integration into the main Royal Club application requires a separate explicit approval.
 
-## Current baseline (2026-11-02; WBS scope clarification)
+## Historical baseline (2026-11-02; WBS scope clarification)
 
 | WBS | Evidence-based status | Estimate |
 |---|---|---:|
@@ -85,3 +85,34 @@ Three-trick search experiment review (2026-10-31): CI runs 41249664663, 41249711
 - Added `docs/rules-spec.md` with confirmed owner decisions, current engine assumptions explicitly marked unapproved, 15 open rule decisions (R-01–R-15), code/spec discrepancies and Phase 1 acceptance criteria.
 - Phase 1 estimate moved from 25% to 45% because the specification and sign-off checklist now exist; it is not signed off and cannot be marked complete until the owner resolves the open decisions.
 - Weighted overall estimate recalculated from 49.70% to 51.30% (8% Phase 1 weight × 20 percentage-point increase = +1.60 points).
+
+
+## Latest verified checkpoint (2026-11-06)
+
+The following checkpoint supersedes the historical 2026-11-02 estimates above. It applies only to the isolated Hokm workstream under `standalone/hokm-lab/`; it is not a production-readiness declaration.
+
+| WBS | Verified status | Estimate |
+|---|---|---:|
+| 1.0 | Owner decisions/specification baseline; additional recovered decisions recorded, final rules sign-off still pending | 45% |
+| 2.0 | 52-card engine, deterministic seeded shuffle/deal, follow-suit, trump/lead resolution, first-to-seven scoring, immutable deterministic round transitions and seeded property tests | 100% |
+| 3.0 | Five-card hakem phase, eight-card completion, 13-card hands, 3/5/7 match targets, full-match progression, final-hand three-second reveal, turn deadlines and match-end progression | 100% |
+| 4.0 | Four-seat private room-code lifecycle, ready/start, Q24 waiting-room cancellation, active-match host handoff, terminal exit, empty-only expiry and no occupied-room TTL | 100% |
+| 5.0 | Authoritative online service, PostgreSQL persistence, authenticated routes and event delivery; deployment/operational acceptance remains | 68% |
+| 6.0 | Disconnect grace, temporary Hard bot, reconnect and deadline recovery; worker provisioning and live acceptance remain | 88% |
+| 7.0 | Fixed Hard bot and seeded benchmark baseline; deeper expert/endgame evaluation remains | 84% |
+| 8.0 | Private text/image/emoji messaging and abuse controls; push transport remains and voice messages stay dormant | 75% |
+| 9.0 | Persian/English standalone Flutter UI, private hands, chat, final reveal and terminal exit handling; physical-device acceptance remains | 70% |
+| 10.0 | Owner-only review and manager controls; delegated permissions and operational acceptance remain | 65% |
+| 11.0 | Exact-head engine/room/round/progression, live PostgreSQL and Flutter validation; four-device, load and soak acceptance remain | 92% |
+| 12.0 | Production-port proposal and mobile integration; merge, migration, worker provisioning and release sign-off remain owner-gated | 58% |
+
+- **Weighted overall Hokm WBS: 80.68%.**
+- Packages **2.0, 3.0 and 4.0 are 100%** based on their stated domain acceptance criteria and exact-head test evidence.
+- Expert/Hard-bot opponent benchmarks remain in package 7. Physical four-device acceptance remains in package 11/12; neither is counted as an unfinished engine/round/room-domain criterion.
+- Exact-head evidence: [Hokm isolated validation — 137/137 Node + PostgreSQL 16, Flutter analyze clean and 14/14 widget tests](https://github.com/Mrobaei1/Royal-club/actions/runs/42207814783); [isolated Node suite](https://github.com/Mrobaei1/Royal-club/actions/runs/42207814729).
+
+## Owner clarification addendum (2026-11-06)
+
+- Question 24, option 2: if any player leaves before the match starts, cancel the waiting room immediately, return all remaining participants to the lobby, and do not allow a replacement into that room.
+- This does not remove active-match host recovery: after a match starts, a connected participant may take over next-hand start when the host is disconnected or unavailable.
+- The implementation keeps a cancelled/completed room until each remaining participant exits; only an empty room expires. Occupied rooms do not expire based on elapsed time.
