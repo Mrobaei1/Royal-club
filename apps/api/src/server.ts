@@ -1562,6 +1562,66 @@ const requireOwnerAuth = async (request: any, reply: any) => {
   }
 };
 
+const requireOwnerStepUp = async (request: any, reply: any) => {
+  await requireOwnerAuth(request, reply);
+  if (reply.sent) return;
+  const rawToken = request.headers['x-owner-step-up'];
+  if (typeof rawToken !== 'string' || !rawToken.trim()) {
+    return reply.code(403).send({ error: 'Fresh owner authentication is required for this operation.' });
+  }
+  try {
+    const stepUp = app.jwt.verify(rawToken) as {
+      sub?: string; purpose?: string; ver?: number;
+    };
+    const actor = request.user as { sub?: string; ver?: number };
+    if (stepUp.purpose !== 'owner-step-up' ||
+        !stepUp.sub || stepUp.sub !== actor.sub ||
+        stepUp.ver !== Number(actor.ver ?? 0)) {
+      return reply.code(403).send({ error: 'Owner step-up token is invalid or belongs to another session.' });
+    }
+  } catch {
+    return reply.code(403).send({ error: 'Owner step-up token is invalid or expired. Re-authenticate as owner.' });
+  }
+};
+
+app.post<{ Body: { password?: string } }>('/api/v1/admin/step-up', {
+  onRequest: [requireOwnerAuth],
+  config: {
+    rateLimit: {
+      max: 5,
+      timeWindow: '15 minutes',
+      hook: 'preHandler',
+      keyGenerator: (request) => {
+        const claims = request.user as { sub?: string };
+        return `owner-step-up:${claims.sub ?? 'unknown'}`;
+      },
+    },
+  },
+}, async (request, reply) => {
+  const password = request.body?.password;
+  const actor = request.user as { sub: string; ver?: number };
+  if (typeof password !== 'string' || password.length > 128) {
+    return reply.code(400).send({ error: 'Enter the current owner password.' });
+  }
+  const result = await pool.query('SELECT password_hash FROM users WHERE id = $1', [actor.sub]);
+  const passwordHash = result.rows[0]?.password_hash as string | undefined;
+  let matches = false;
+  if (passwordHash) {
+    const [saltHex, hashHex] = passwordHash.split(':');
+    if (/^[0-9a-f]{32}$/.test(saltHex ?? '') && /^[0-9a-f]{128}$/.test(hashHex ?? '')) {
+      const candidate = await scrypt(password, Buffer.from(saltHex, 'hex'), 64) as Buffer;
+      matches = timingSafeEqual(candidate, Buffer.from(hashHex, 'hex'));
+    }
+  }
+  if (!matches) return reply.code(401).send({ error: 'Owner password is incorrect.' });
+  const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
+  const stepUpToken = app.jwt.sign(
+    { sub: actor.sub, purpose: 'owner-step-up', ver: Number(actor.ver ?? 0), jti: randomUUID() },
+    { expiresIn: '5m' },
+  );
+  return { stepUpToken, expiresAt, expiresIn: 300 };
+});
+
 app.get('/api/v1/admin/game-services', { onRequest: [requireOwnerAuth] }, async (_request, reply) => {
   const [current, history] = await Promise.all([
     pool.query('SELECT version::text AS version, services, updated_at AS "updatedAt" FROM game_service_config WHERE singleton_id = 1'),
@@ -1571,7 +1631,7 @@ app.get('/api/v1/admin/game-services', { onRequest: [requireOwnerAuth] }, async 
   return { config: current.rows[0], history: history.rows };
 });
 
-app.patch<{ Body: { uno?: string | null } }>('/api/v1/admin/game-services', { onRequest: [requireOwnerAuth] }, async (request, reply) => {
+app.patch<{ Body: { uno?: string | null } }>('/api/v1/admin/game-services', { onRequest: [requireOwnerStepUp] }, async (request, reply) => {
   const body = request.body ?? {};
   if (!Object.prototype.hasOwnProperty.call(body, 'uno')) {
     return reply.code(400).send({ error: 'Provide the UNO service origin or null to disable it.' });
@@ -1612,7 +1672,7 @@ app.patch<{ Body: { uno?: string | null } }>('/api/v1/admin/game-services', { on
   }
 });
 
-app.post<{ Params: { version: string } }>('/api/v1/admin/game-services/rollback/:version', { onRequest: [requireOwnerAuth] }, async (request, reply) => {
+app.post<{ Params: { version: string } }>('/api/v1/admin/game-services/rollback/:version', { onRequest: [requireOwnerStepUp] }, async (request, reply) => {
   if (!isNumericId(request.params.version)) return reply.code(400).send({ error: 'Invalid configuration version.' });
   const actor = request.user as { sub: string };
   const client = await pool.connect();
@@ -1655,7 +1715,7 @@ app.get('/api/v1/admin/game-disconnect-policies', { onRequest: [requireOwnerAuth
   return { policies: result.rows };
 });
 
-app.patch<{ Params: { gameType: string }; Body: { enabled?: boolean; graceSeconds?: number; takeoverMode?: string } }>('/api/v1/admin/game-disconnect-policies/:gameType', { onRequest: [requireOwnerAuth] }, async (request, reply) => {
+app.patch<{ Params: { gameType: string }; Body: { enabled?: boolean; graceSeconds?: number; takeoverMode?: string } }>('/api/v1/admin/game-disconnect-policies/:gameType', { onRequest: [requireOwnerStepUp] }, async (request, reply) => {
   const { gameType } = request.params;
   const { enabled, graceSeconds, takeoverMode } = request.body ?? {};
   if (!['backgammon', 'cards', 'chess'].includes(gameType) ||
@@ -1773,7 +1833,7 @@ app.post<{
     code?: string; name?: string; enabled?: boolean; entryMode?: string;
     subscriptionDaysCost?: number; startsAt?: string | null; endsAt?: string | null; rules?: unknown;
   };
-}>('/api/v1/admin/leagues', { onRequest: [requireOwnerAuth] }, async (request, reply) => {
+}>('/api/v1/admin/leagues', { onRequest: [requireOwnerStepUp] }, async (request, reply) => {
   const body = request.body ?? {};
   const code = body.code?.trim();
   const name = body.name?.trim();
@@ -1837,7 +1897,7 @@ app.patch<{
     name?: string; enabled?: boolean; entryMode?: string;
     subscriptionDaysCost?: number; startsAt?: string | null; endsAt?: string | null; rules?: unknown;
   };
-}>('/api/v1/admin/leagues/:id', { onRequest: [requireOwnerAuth] }, async (request, reply) => {
+}>('/api/v1/admin/leagues/:id', { onRequest: [requireOwnerStepUp] }, async (request, reply) => {
   if (!isNumericId(request.params.id)) return reply.code(400).send({ error: 'Invalid league id.' });
   const body = request.body ?? {};
   const has = (key: string) => Object.prototype.hasOwnProperty.call(body, key);
@@ -2024,7 +2084,7 @@ app.get('/api/v1/leagues/:id/entries/me', { onRequest: [requireMatchAuth] }, asy
 });
 
 // Weekly league execution: schedule generation, participant game counts, match outcomes, and appeals.
-app.post<{ Params: { id: string }; Body: { roundNumber?: number; stage?: string; startsAt?: string | null; managerApproved?: boolean; matches?: Array<{ playerOneId?: string | number; playerTwoId?: string | number | null }> } }>('/api/v1/admin/leagues/:id/rounds', { onRequest: [requireOwnerAuth] }, async (request, reply) => {
+app.post<{ Params: { id: string }; Body: { roundNumber?: number; stage?: string; startsAt?: string | null; managerApproved?: boolean; matches?: Array<{ playerOneId?: string | number; playerTwoId?: string | number | null }> } }>('/api/v1/admin/leagues/:id/rounds', { onRequest: [requireOwnerStepUp] }, async (request, reply) => {
   const leagueId = request.params.id, body = request.body ?? {};
   const roundNumber = body.roundNumber, stage = body.stage ?? 'regular';
   const startsAt = body.startsAt ? new Date(body.startsAt) : new Date();
@@ -2070,7 +2130,7 @@ app.post<{ Params: { id: string }; Body: { roundNumber?: number; stage?: string;
   } finally { client.release(); }
 });
 
-app.post<{ Params: { id: string }; Body: { startsAt?: string | null; intervalDays?: number } }>('/api/v1/admin/leagues/:id/schedule', { onRequest: [requireOwnerAuth] }, async (request, reply) => {
+app.post<{ Params: { id: string }; Body: { startsAt?: string | null; intervalDays?: number } }>('/api/v1/admin/leagues/:id/schedule', { onRequest: [requireOwnerStepUp] }, async (request, reply) => {
   const leagueId = request.params.id;
   const start = request.body?.startsAt ? new Date(request.body.startsAt) : new Date();
   const interval = request.body?.intervalDays ?? 7;
@@ -2135,7 +2195,7 @@ app.get<{ Params: { id: string } }>('/api/v1/admin/leagues/:id/report', { onRequ
   return { league: league.rows[0], participants: participants.rows, rounds: rounds.rows, appeals: appeals.rows, matches: matches.rows };
 });
 
-app.patch<{ Params: { id: string }; Body: { status?: string; winnerId?: string | number | null; score?: unknown; incidentNote?: string; replacementAt?: string | null } }>('/api/v1/admin/league-matches/:id', { onRequest: [requireOwnerAuth] }, async (request, reply) => {
+app.patch<{ Params: { id: string }; Body: { status?: string; winnerId?: string | number | null; score?: unknown; incidentNote?: string; replacementAt?: string | null } }>('/api/v1/admin/league-matches/:id', { onRequest: [requireOwnerStepUp] }, async (request, reply) => {
   const id = request.params.id, body = request.body ?? {};
   if (!isNumericId(id) || !['completed','double_absent','technical_issue','rescheduled','in_progress'].includes(body.status ?? '')) return reply.code(400).send({ error: 'Invalid league match update.' });
   if (body.incidentNote !== undefined && (typeof body.incidentNote !== 'string' || body.incidentNote.length > 2000)) return reply.code(400).send({ error: 'Incident note must be 2000 characters or fewer.' });
@@ -2178,7 +2238,7 @@ app.post<{ Params: { id: string; matchId: string }; Body: { reason?: string } }>
   }
 });
 
-app.patch<{ Params: { id: string }; Body: { status?: 'accepted' | 'rejected'; managerNote?: string } }>('/api/v1/admin/league-appeals/:id', { onRequest: [requireOwnerAuth] }, async (request, reply) => {
+app.patch<{ Params: { id: string }; Body: { status?: 'accepted' | 'rejected'; managerNote?: string } }>('/api/v1/admin/league-appeals/:id', { onRequest: [requireOwnerStepUp] }, async (request, reply) => {
   const id = request.params.id, status = request.body?.status, note = request.body?.managerNote?.trim() ?? null;
   if (!isNumericId(id) || !['accepted','rejected'].includes(status ?? '') || (note !== null && note.length > 2000)) return reply.code(400).send({ error: 'Invalid appeal decision.' });
   const claims = request.user as { sub: string };
@@ -2277,7 +2337,7 @@ app.get('/api/v1/admin/agent-tasks', { onRequest: [requireOwnerAuth] }, async ()
 
 app.post<{ Body: { code?: string; title?: string; domain?: string; description?: string; requestedCapabilities?: string[]; requiresHumanApproval?: boolean } }>(
   '/api/v1/admin/agent-tasks',
-  { onRequest: [requireOwnerAuth], config: { rateLimit: { max: 10, timeWindow: '1 minute' } } },
+  { onRequest: [requireOwnerStepUp], config: { rateLimit: { max: 10, timeWindow: '1 minute' } } },
   async (request, reply) => {
     const body = request.body ?? {};
     const code = typeof body.code === 'string' ? body.code.trim().toLowerCase() : '';
@@ -2357,7 +2417,7 @@ app.get('/api/v1/admin/agent-task-audit', { onRequest: [requireOwnerAuth] }, asy
 
 app.post<{ Params: { id: string }; Body: { input?: Record<string, unknown> } }>(
   '/api/v1/admin/agent-tasks/:id/proposals',
-  { onRequest: [requireOwnerAuth], config: { rateLimit: { max: 20, timeWindow: '1 minute' } } },
+  { onRequest: [requireOwnerStepUp], config: { rateLimit: { max: 20, timeWindow: '1 minute' } } },
   async (request, reply) => {
     if (!isNumericId(request.params.id)) return reply.code(400).send({ error: 'Invalid task definition ID.' });
     const input = request.body?.input ?? {};
@@ -2401,7 +2461,7 @@ app.post<{ Params: { id: string }; Body: { input?: Record<string, unknown> } }>(
 
 app.post<{ Params: { id: string }; Body: { reason?: string } }>(
   '/api/v1/admin/agent-task-proposals/:id/reject',
-  { onRequest: [requireOwnerAuth], config: { rateLimit: { max: 20, timeWindow: '1 minute' } } },
+  { onRequest: [requireOwnerStepUp], config: { rateLimit: { max: 20, timeWindow: '1 minute' } } },
   async (request, reply) => {
     if (!isNumericId(request.params.id)) return reply.code(400).send({ error: 'Invalid proposal ID.' });
     const reason = typeof request.body?.reason === 'string' ? request.body.reason.trim() : '';
@@ -2450,7 +2510,7 @@ app.get('/api/v1/admin/permissions/settings', { onRequest: [requireOwnerAuth] },
   return { settings: result.rows[0] ?? { enabled: false } };
 });
 
-app.patch<{ Body: { enabled?: boolean } }>('/api/v1/admin/permissions/settings', { onRequest: [requireOwnerAuth] }, async (request, reply) => {
+app.patch<{ Body: { enabled?: boolean } }>('/api/v1/admin/permissions/settings', { onRequest: [requireOwnerStepUp] }, async (request, reply) => {
   const enabled = request.body?.enabled;
   if (typeof enabled !== 'boolean') return reply.code(400).send({ error: 'Provide an enabled boolean.' });
   const claims = request.user as { sub?: string };
@@ -2494,7 +2554,7 @@ app.get('/api/v1/admin/permissions/grants', { onRequest: [requireOwnerAuth] }, a
 
 app.post<{ Body: { userId?: string; permission?: string; scope?: unknown; reason?: string; approvalReference?: string } }>(
   '/api/v1/admin/permissions/grants',
-  { onRequest: [requireOwnerAuth], config: { rateLimit: { max: 20, timeWindow: '1 minute' } } },
+  { onRequest: [requireOwnerStepUp], config: { rateLimit: { max: 20, timeWindow: '1 minute' } } },
   async (request, reply) => {
     const body = request.body ?? {};
     const userId = body.userId;
@@ -2572,7 +2632,7 @@ app.post<{ Body: { userId?: string; permission?: string; scope?: unknown; reason
   },
 );
 
-app.delete<{ Params: { id: string } }>('/api/v1/admin/permissions/grants/:id', { onRequest: [requireOwnerAuth] }, async (request, reply) => {
+app.delete<{ Params: { id: string } }>('/api/v1/admin/permissions/grants/:id', { onRequest: [requireOwnerStepUp] }, async (request, reply) => {
   if (!isNumericId(request.params.id)) return reply.code(400).send({ error: 'Invalid grant ID.' });
   const claims = request.user as { sub?: string };
   const client = await pool.connect();
@@ -2625,7 +2685,7 @@ app.get('/api/v1/contact-methods', { onRequest: [requireMatchAuth] }, async () =
   return { methods: result.rows };
 });
 
-app.patch<{ Body: { methods?: Array<{ label?: string; value?: string }> } }>('/api/v1/admin/contact-methods', { onRequest: [requireOwnerAuth] }, async (request, reply) => {
+app.patch<{ Body: { methods?: Array<{ label?: string; value?: string }> } }>('/api/v1/admin/contact-methods', { onRequest: [requireOwnerStepUp] }, async (request, reply) => {
   const methods = request.body?.methods;
   if (!Array.isArray(methods) || methods.length > 20) return reply.code(400).send({ error: 'Provide at most 20 contact methods.' });
   const clean = methods.map((item) => ({
@@ -2669,7 +2729,7 @@ app.get<{ Params: { userId: string } }>('/api/v1/admin/users/:userId/profile', {
   return { user: result.rows[0] };
 });
 
-app.post<{ Body: { userId?: string; amount?: number; description?: string } }>('/api/v1/admin/wallet/credit', { onRequest: [requireOwnerAuth] }, async (request, reply) => {
+app.post<{ Body: { userId?: string; amount?: number; description?: string } }>('/api/v1/admin/wallet/credit', { onRequest: [requireOwnerStepUp] }, async (request, reply) => {
   const { userId, amount, description } = request.body ?? {};
   if (!isNumericId(userId) || !Number.isSafeInteger(amount) || Number(amount) <= 0 || Number(amount) > 1000000000 ||
       (description !== undefined && (typeof description !== 'string' || description.length > 200))) {
@@ -2738,7 +2798,7 @@ app.post<{ Params: { userId: string }; Body: { reason?: string } }>('/api/v1/use
 
 // SMS OTP configuration is owner-only and disabled by default. This endpoint only
 // manages settings; it deliberately does not send messages or switch authentication flows.
-app.get('/api/v1/admin/security/sms-otp', { onRequest: [requireOwnerAuth] }, async () => {
+app.get('/api/v1/admin/security/sms-otp', { onRequest: [requireOwnerStepUp] }, async () => {
   const result = await pool.query(`SELECT enabled, delivery_mode AS "deliveryMode", provider, sender_id AS "senderId",
       template_id AS "templateId", (encrypted_api_key <> '') AS "apiKeyConfigured",
       otp_ttl_seconds AS "otpTtlSeconds", resend_cooldown_seconds AS "resendCooldownSeconds",
@@ -2798,7 +2858,7 @@ app.patch<{ Body: { enabled?: boolean; deliveryMode?: string; provider?: string;
 });
 
 
-app.post('/api/v1/admin/security/sms-otp/test-connection', { onRequest: [requireOwnerAuth] }, async (request, reply) => {
+app.post('/api/v1/admin/security/sms-otp/test-connection', { onRequest: [requireOwnerStepUp] }, async (request, reply) => {
   const settings = await pool.query(
     'SELECT delivery_mode, provider, encrypted_api_key FROM sms_otp_settings WHERE id = 1',
   );
@@ -2818,7 +2878,7 @@ app.post('/api/v1/admin/security/sms-otp/test-connection', { onRequest: [require
 });
 
 app.post<{ Body: { phone?: string; confirmCost?: boolean } }>('/api/v1/admin/security/sms-otp/test-message', {
-  onRequest: [requireOwnerAuth],
+  onRequest: [requireOwnerStepUp],
   config: { rateLimit: { max: 5, timeWindow: '1 hour' } },
 }, async (request, reply) => {
   const phone = normalizeIranianMobile(request.body?.phone);
@@ -3280,7 +3340,7 @@ app.patch<{ Params: { id: string }; Body: { status?: string } }>('/api/v1/admin/
   return { report: result.rows[0] };
 });
 
-app.post<{ Body: { userId?: string; title?: string; body?: string } }>('/api/v1/admin/notifications', { onRequest: [requireOwnerAuth] }, async (request, reply) => {
+app.post<{ Body: { userId?: string; title?: string; body?: string } }>('/api/v1/admin/notifications', { onRequest: [requireOwnerStepUp] }, async (request, reply) => {
   const claims = request.user as { sub: string };
   const { userId, title, body } = request.body ?? {};
   const cleanTitle = typeof title === 'string' ? title.trim() : '';
@@ -3311,7 +3371,7 @@ app.get('/api/v1/admin/account-customization-pricing', { onRequest: [requireOwne
 
 app.patch<{ Body: { avatarChangePriceCredits?: number; usernameChangePriceCredits?: number } }>(
   '/api/v1/admin/account-customization-pricing',
-  { onRequest: [requireOwnerAuth] },
+  { onRequest: [requireOwnerStepUp] },
   async (request, reply) => {
     const { avatarChangePriceCredits, usernameChangePriceCredits } = request.body ?? {};
     if ((avatarChangePriceCredits === undefined && usernameChangePriceCredits === undefined) ||
@@ -3341,7 +3401,7 @@ app.get('/api/v1/admin/subscription-plans', { onRequest: [requireOwnerAuth] }, a
   return { plans: result.rows };
 });
 
-app.patch<{ Params: { code: string }; Body: { name?: string; durationDays?: number; priceCredits?: number; active?: boolean } }>('/api/v1/admin/subscription-plans/:code', { onRequest: [requireOwnerAuth] }, async (request, reply) => {
+app.patch<{ Params: { code: string }; Body: { name?: string; durationDays?: number; priceCredits?: number; active?: boolean } }>('/api/v1/admin/subscription-plans/:code', { onRequest: [requireOwnerStepUp] }, async (request, reply) => {
   const { code } = request.params;
   const { name, durationDays, priceCredits, active } = request.body ?? {};
   if (!/^[a-z0-9_]{2,40}$/.test(code) ||
