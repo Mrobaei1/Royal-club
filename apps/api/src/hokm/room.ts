@@ -58,7 +58,7 @@ export function createRoom({ roomId, hostUserId, now, privateRoom = true, matchT
     roomId, hostUserId, privateRoom: Boolean(privateRoom), createdAt: now,
     // No wall-clock TTL: a room remains alive while at least one player is in it.
     status: "waiting", matchTarget, disconnectGraceMs, matchScore: [0, 0],
-    playerProgress: {}, pendingXpDeductions: [], penalizedLeavers: [], cancellationVotes: [],
+    playerProgress: {}, pendingXpDeductions: [], penalizedLeavers: [], cancellationVotes: [], processedCommands: [],
     appeals: [], reports: [], chatMessages: [], allDisconnectedDeadline: null, multipleDisconnectedDeadline: null, handRevealUntil: null, revealedHands: null,
     players: [{ userId: hostUserId, seat: 0, ready: false, connected: true, botControlled: false }],
     version: 1, round: null, turnDeadlineAt: null
