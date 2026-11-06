@@ -436,3 +436,15 @@ test('Hard trump selection uses suit count, rank sum, highest card, then random 
   assert.equal(chooseHardBotAction(tiedHand, 0, { rng: () => 0.99 }).suit, 'hearts');
   assert.throws(() => chooseHardBotAction(tiedHand, 0, { rng: () => 1 }), /tie-break RNG/);
 });
+
+
+test('leaving before match start immediately cancels the room for every participant', () => {
+  let room = createRoom({ roomId: 'phase1-waiting-exit', hostUserId: 'p0', now: 1000 });
+  for (const id of ['p1', 'p2']) room = joinRoom(room, id, 1001);
+  const cancelled = leaveRoom(room, 'p1');
+  assert.equal(cancelled.status, 'cancelled');
+  assert.equal(cancelled.cancelReason, 'player_left_before_match_start');
+  assert.deepEqual(cancelled.matchScore, [0, 0]);
+  assert.equal(cancelled.players.length, 3, 'retain participant membership for cancellation delivery/audit');
+  assert.throws(() => joinRoom(cancelled, 'replacement', 1002), /not accepting players/);
+});
