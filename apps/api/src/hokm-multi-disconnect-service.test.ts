@@ -54,3 +54,33 @@ test("only the owner may change the fixed 20-second reconnect grace; players use
   const manager = await service.create({ authenticated: true, userId: "manager", role: "manager" }, { matchTarget: 5 });
   assert.equal((await repository.get(manager.roomId)).matchTarget, 5);
 });
+
+
+test("game command idempotency key prevents duplicate execution and rejects key reuse with different payload", async () => {
+  let now = 1000;
+  let id = 0;
+  const repository = new InMemoryRoomRepository();
+  const service = new HokmRoomService({
+    repository, now: () => now, id: () => `phase1-idempotency-${++id}`,
+    selectHakemSeat: () => 0
+  });
+  const player = userId => ({ authenticated: true, userId });
+  let room = await service.create(player("p0"));
+  for (const userId of ["p1", "p2", "p3"]) room = await service.join(player(userId), room.roomId, room.version);
+  for (const userId of ["p0", "p1", "p2", "p3"]) room = await service.ready(player(userId), room.roomId, true, room.version);
+  room = await service.start(player("p0"), room.roomId, room.version);
+  const originalVersion = room.version;
+  const command = { type: "choose_trump", suit: "spades" };
+  const first = await service.command(player("p0"), room.roomId, command, originalVersion, "hokm-acceptance-1");
+  const duplicate = await service.command(player("p0"), room.roomId, command, originalVersion, "hokm-acceptance-1");
+  assert.equal(duplicate.version, first.version);
+  assert.deepEqual(duplicate.game, first.game);
+  await assert.rejects(
+    service.command(player("p0"), room.roomId, { type: "choose_trump", suit: "hearts" }, originalVersion, "hokm-acceptance-1"),
+    /different game command/
+  );
+  await assert.rejects(
+    service.command(player("p0"), room.roomId, command, originalVersion, ""),
+    /idempotency key/
+  );
+});
