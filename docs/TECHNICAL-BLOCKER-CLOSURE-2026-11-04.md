@@ -340,3 +340,15 @@ The live `docs/WBS-CRITERION-SCORING-MATRIX-2026-11-03.md` contains 200 five-poi
 - Preserve the no-APK, no-live-calling, no-agent-execution and no-financial-outflow boundaries unless separately authorized.
 
 No WBS points were added by this continuation audit. No Production database write, deployment, secret read/change, backup-schedule mutation, APK build, branch force-update, PR merge or PR closure was performed.
+
+
+## Superseding security-PR validation — 2026-11-06
+
+The new exact head of PR #189, `2729a2f4d330ba028804e55896335b53b91d3eb7`, completed validation after the earlier cross-package snapshot:
+- API build/unit tests and API integration tests passed.
+- Flutter analyze/tests passed.
+- Backgammon engine audit passed.
+- Web Preview build passed; deployment was correctly skipped for a pull request.
+- The new expired-token and cross-session-token negative integration cases are included in that exact-head run.
+
+PR #189 remains open/unmerged. PR #166's latest commit in this documentation branch changes documentation only; the preceding code-bearing head `5e22baa1970c6f83e94fb1cb63849bdc8a528768` retains its four successful validation workflows. No Production action or WBS score change follows from these checks.
