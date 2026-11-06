@@ -151,8 +151,40 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 20));
     expect(api.createCalls, 1);
+    expect(api.room['matchTarget'], 7);
+    expect(find.byType(DropdownButtonFormField<int>), findsNothing);
     expect(find.text('hokm-room-code'), findsOneWidget);
     expect(find.text('اتاق انتظار'), findsOneWidget);
+  });
+
+
+  testWidgets('owner can choose the manager-controlled match target', (tester) async {
+    tester.view.physicalSize = const Size(1200, 1800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final api = FakeHokmApi();
+    await tester.pumpWidget(MaterialApp(
+      locale: const Locale('fa'),
+      supportedLocales: const [Locale('fa'), Locale('en')],
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
+      home: HokmScreen(
+        api: api,
+        identityLoader: () async => 'owner-1',
+        canConfigureMatchTargetLoader: () async => true,
+      ),
+    ));
+    await tester.pump();
+    expect(find.byType(DropdownButtonFormField<int>), findsOneWidget);
+    await tester.tap(find.byType(DropdownButtonFormField<int>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('3').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('ساخت اتاق حکم'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 20));
+    expect(api.createCalls, 1);
+    expect(api.room['matchTarget'], 3);
   });
 
   testWidgets('join by room code does not require a member-only room view first', (tester) async {
