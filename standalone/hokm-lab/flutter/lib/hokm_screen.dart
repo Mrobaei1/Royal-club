@@ -20,6 +20,8 @@ class _HokmScreenState extends State<HokmScreen> with WidgetsBindingObserver {
   final _chatController = TextEditingController();
   String? _chatRecipientUserId;
   Timer? _pollTimer;
+  Timer? _finalRevealTimer;
+  bool _finalRevealActive = false;
   Map<String, dynamic>? _room;
   String? _userId;
   String? _error;
@@ -88,6 +90,7 @@ class _HokmScreenState extends State<HokmScreen> with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _pollTimer?.cancel();
+    _finalRevealTimer?.cancel();
     _roomCode.dispose();
     _chatController.dispose();
     if (_roomId.isNotEmpty && ['playing', 'round_completed'].contains(_status) && !_background) {
@@ -125,23 +128,27 @@ class _HokmScreenState extends State<HokmScreen> with WidgetsBindingObserver {
     final serverNow = (room['serverNow'] as num?)?.toInt();
     if (serverNow != null) _serverClockOffsetMs = serverNow - DateTime.now().millisecondsSinceEpoch;
     setState(() { _room = room; _error = null; });
+    _finalRevealTimer?.cancel();
+    _finalRevealTimer = null;
+    final revealUntil = room['handRevealUntil'] as num?;
+    final revealDurationMs = revealUntil != null && serverNow != null
+        ? (revealUntil.toInt() - serverNow).clamp(0, 3000)
+        : 0;
+    _finalRevealActive = room['status'] == 'completed' &&
+        revealDurationMs > 0 && room['revealedHands'] is List;
+    if (_finalRevealActive) {
+      // Use the server-provided remaining duration, not the device wall clock.
+      _finalRevealTimer = Timer(Duration(milliseconds: revealDurationMs), () {
+        if (!mounted) return;
+        setState(() {
+          _finalRevealActive = false;
+          _finalRevealTimer = null;
+        });
+      });
+    }
     if (['completed', 'cancelled', 'expired'].contains(room['status'])) {
       _pollTimer?.cancel();
       _pollTimer = null;
-      if (room['status'] == 'completed' &&
-          _secondsLeft(room['handRevealUntil']) > 0 &&
-          room['revealedHands'] is List) {
-        // Keep the final three-second reveal visible locally without polling
-        // a terminal match; hide it and unlock lobby exit when the deadline ends.
-        _pollTimer = Timer.periodic(const Duration(milliseconds: 250), (_) {
-          if (!mounted) return;
-          if (_secondsLeft(_room?['handRevealUntil']) == 0) {
-            _pollTimer?.cancel();
-            _pollTimer = null;
-          }
-          setState(() {});
-        });
-      }
     } else if (_roomId.isNotEmpty && _pollTimer == null) {
       _pollTimer = Timer.periodic(const Duration(milliseconds: 500), (_) => _refresh());
     }
@@ -252,6 +259,9 @@ class _HokmScreenState extends State<HokmScreen> with WidgetsBindingObserver {
     if (!mounted) return;
     _pollTimer?.cancel();
     _pollTimer = null;
+    _finalRevealTimer?.cancel();
+    _finalRevealTimer = null;
+    _finalRevealActive = false;
     setState(() { _room = null; _roomCode.clear(); });
   }
 
@@ -424,8 +434,7 @@ class _HokmScreenState extends State<HokmScreen> with WidgetsBindingObserver {
     final game = _game;
     final score = (_room?['matchScore'] as List?) ?? const [0, 0];
     if (_status == 'completed' || _status == 'cancelled') {
-      final revealSeconds = _secondsLeft(_room?['handRevealUntil']);
-      final revealed = _status == 'completed' && revealSeconds > 0
+      final revealed = _status == 'completed' && _finalRevealActive
           ? (_room?['revealedHands'] as List?)
           : null;
       return _panel(Column(children: [
@@ -452,10 +461,10 @@ class _HokmScreenState extends State<HokmScreen> with WidgetsBindingObserver {
             );
           }),
         ],
-        if (revealSeconds > 0)
-          Text(t('بازگشت پس از پایان نمایش کارت‌ها فعال می‌شود', 'Return unlocks in ${revealSeconds}s')),
+        if (_finalRevealActive)
+          Text(t('کارت‌های پایانی به مدت سه ثانیه نمایش داده می‌شوند', 'Final cards remain visible for three seconds')),
         TextButton(
-          onPressed: _busy || revealSeconds > 0 ? null : _leave,
+          onPressed: _busy || _finalRevealActive ? null : _leave,
           child: Text(t('بازگشت', 'Back')),
         ),
       ]));
