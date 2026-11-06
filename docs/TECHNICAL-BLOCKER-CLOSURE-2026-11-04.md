@@ -289,3 +289,12 @@ Additional isolated feature-branch work after the original blocker audit:
 - PR #110 Iranian Manch: fixed a malformed test-group closure discovered by Flutter analyzer. The corrected test file has balanced delimiters and latest CI is running; no pass is claimed until all workflows complete.
 
 These are feature-branch changes only. No PR was merged, no production deployment or migration was performed, no APK was built, and no WBS score is awarded solely for CI success. PR #137 remains a separate older Hokm mobile draft and requires reconciliation with PR #133 before any integration. Chess PR #86 remains standalone by product decision.
+
+
+## CI checkout integrity finding — 2026-11-06
+
+- The failed PR #166 validation jobs checked out `refs/remotes/pull/166/merge` and reported that `apps/api/src/hokm-room.test.ts` imports `apps/api/src/hokm/room.js`, which was missing.
+- Inspection of that merge ref showed its merge commit `11a72c3b29e5b61f2a2a9cd571fd59e7b531b761` was created as `Merge ce66e70525a8d21d474f929e0de656c5b07aa9d9 into 678608cc5b410ea7523f200f64eadbe910f46c07`. The base commit `678608c` is a Hokm test-only commit that adds `hokm-room.test.ts` without the matching `hokm/room.ts` implementation.
+- That is not the current `main` tree: the current main SHA observed during this audit is `07af6b0c9e91143ac03b4d836e44926c77e6dc81`, and neither Hokm path exists there. The PR #166 metadata still identifies `main` as its base. The merge ref is therefore stale or inconsistent with the PR's declared base.
+- The three failed jobs were rerun, but GitHub again checked out the same stale merge ref and reproduced the same module-resolution failure. This is not evidence that the additive schema migration itself failed. Refresh the PR merge ref against the declared current base and rerun the checks before evaluating the code.
+- No test was skipped or weakened, no Production state changed, and no WBS points are awarded from this CI anomaly.
