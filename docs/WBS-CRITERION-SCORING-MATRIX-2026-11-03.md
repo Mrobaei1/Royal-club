@@ -214,11 +214,11 @@
 
 | WBS criterion | Acceptance criterion | Points | Score | Evidence |
 |---|---|---:|---:|---|
-| 7.1-A | API build/unit | 5 | Pending | Not audited |
-| 7.1-B | API DB integration | 5 | Pending | Not audited |
-| 7.1-C | Flutter analyze/tests | 5 | Pending | Not audited |
-| 7.1-D | Engine audit | 5 | Pending | Not audited |
-| 7.1-E | Web preview checks | 5 | Pending | Not audited |
+| 7.1-A | API build/unit | 5 | Passed | PR #166 exact head `5b0898c0818533e543b3f8df85515aaa573a770d`; API build and `npm test` passed in run `42223001081` (2026-11-06). |
+| 7.1-B | API DB integration | 5 | Passed | PR #166 exact head `5b0898c0818533e543b3f8df85515aaa573a770d`; PostgreSQL integration passed in run `42223001021` (`npm run test:integration`). |
+| 7.1-C | Flutter analyze/tests | 5 | Passed | PR #166 exact head `5b0898c0818533e543b3f8df85515aaa573a770d`; Flutter analyze and tests passed in runs `42223001021` and `42223001081`. |
+| 7.1-D | Engine audit | 5 | Passed | PR #166 exact head `5b0898c0818533e543b3f8df85515aaa573a770d`; backgammon engine and AI regression audit passed in run `42223001007`. |
+| 7.1-E | Web preview checks | 5 | Passed | PR #166 exact head `5b0898c0818533e543b3f8df85515aaa573a770d`; API/mobile/web preview build passed in run `42223001210`; deploy step correctly skipped for PR preview. |
 | 7.2-A | Repeatable manual deployment | 5 | Pending | Not audited |
 | 7.2-B | Owner approval | 5 | Pending | Not audited |
 | 7.2-C | Source provenance | 5 | Pending | Not audited |
@@ -252,9 +252,9 @@
 - Packages decomposed: **53/53**
 - Acceptance criteria: **200**
 - Points represented: **1000/1,000**
-- Earned points currently evidenced: **10/1,000 (1.0%)** — criteria 2.5-A and 2.5-B passed on 2026-11-04.
-- Remaining criteria: **198 Pending** (990 points not yet earned).
-- Official project percentage: **1.0% evidence-backed minimum**; this is not a full-project audit and will increase only as additional criteria pass.
+- Earned points currently evidenced: **35/1,000 (3.5%)** — criteria 2.5-A and 2.5-B (10 points) plus 7.1-A through 7.1-E (25 points) passed on exact proposed PR #166 head `5b0898c0818533e543b3f8df85515aaa573a770d` on 2026-11-06.
+- Remaining criteria: **193 Pending** (965 points not yet earned).
+- Official project percentage: **3.5% evidence-backed minimum**; this remains a partial criterion audit, not a claim that only 3.5% of code exists. Increase only as additional criteria pass.
 
 ## Required evidence record
 
