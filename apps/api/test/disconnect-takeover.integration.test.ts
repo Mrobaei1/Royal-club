@@ -19,7 +19,23 @@ after(async () => {
 });
 
 function auth(token: string) {
-  return { authorization: `Bearer ${token}` };
+  const headers: Record<string, string> = { authorization: `Bearer ${token}` };
+  const parts = token.split('.');
+  if (parts.length !== 3 || !parts[1]) return headers;
+  try {
+    const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8')) as {
+      sub?: string; ver?: number; jti?: string;
+    };
+    if (payload.sub && payload.sub === process.env.OWNER_USER_ID) {
+      headers['x-owner-step-up'] = app.jwt.sign(
+        { sub: payload.sub, purpose: 'owner-step-up', ver: Number(payload.ver ?? 0), sessionJti: payload.jti },
+        { expiresIn: '5m' },
+      );
+    }
+  } catch {
+    // Let malformed tokens reach the API's normal authentication guard.
+  }
+  return headers;
 }
 
 async function register(label: string) {

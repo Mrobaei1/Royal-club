@@ -48,14 +48,20 @@ test('CORS preflight allows configured origins and withholds permission from unk
 
 function auth(token: string) {
   const headers: Record<string, string> = { authorization: `Bearer ${token}` };
-  const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString('utf8')) as {
-    sub?: string; ver?: number; jti?: string;
-  };
-  if (payload.sub && payload.sub === process.env.OWNER_USER_ID) {
-    headers['x-owner-step-up'] = app.jwt.sign(
-      { sub: payload.sub, purpose: 'owner-step-up', ver: Number(payload.ver ?? 0), sessionJti: payload.jti },
-      { expiresIn: '5m' },
-    );
+  const parts = token.split('.');
+  if (parts.length !== 3 || !parts[1]) return headers;
+  try {
+    const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8')) as {
+      sub?: string; ver?: number; jti?: string;
+    };
+    if (payload.sub && payload.sub === process.env.OWNER_USER_ID) {
+      headers['x-owner-step-up'] = app.jwt.sign(
+        { sub: payload.sub, purpose: 'owner-step-up', ver: Number(payload.ver ?? 0), sessionJti: payload.jti },
+        { expiresIn: '5m' },
+      );
+    }
+  } catch {
+    // Malformed tokens are passed through so the API can reject them normally.
   }
   return headers;
 }
@@ -166,6 +172,21 @@ test('owner step-up requires the current password and gates sensitive admin writ
     });
     assert.equal(issued.statusCode, 200, issued.body);
     assert.equal(issued.json().expiresIn, 300);
+
+    const wrongSessionToken = app.jwt.sign(
+      { sub: owner.user.id, purpose: 'owner-step-up', ver: 0, sessionJti: 'another-session' },
+      { expiresIn: '5m' },
+    );
+    const wrongSession = await app.inject({
+      method: 'PATCH',
+      url: '/api/v1/admin/game-services',
+      headers: {
+        authorization: `Bearer ${owner.token}`,
+        'x-owner-step-up': wrongSessionToken,
+      },
+      payload: { uno: 'https://uno-stepup.example.com' },
+    });
+    assert.equal(wrongSession.statusCode, 403);
 
     const accepted = await app.inject({
       method: 'PATCH',

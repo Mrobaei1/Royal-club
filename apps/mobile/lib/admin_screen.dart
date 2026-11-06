@@ -197,9 +197,11 @@ class _AdminScreenState extends State<AdminScreen> {
     setState(() => _busy = true);
     try {
       await AdminService.ownerStepUp(password);
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(appText(context, 'تأیید مالک تا ۵ دقیقه معتبر است.', 'Owner authentication is valid for 5 minutes.')),
-      ));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(appText(context, 'تأیید مالک تا ۵ دقیقه معتبر است.', 'Owner authentication is valid for 5 minutes.')),
+        ));
+      }
     } catch (error) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appError(context, error))));
     } finally {
