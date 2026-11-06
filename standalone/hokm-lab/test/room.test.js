@@ -39,21 +39,42 @@ test("waiting room never expires while occupied, regardless of elapsed time", ()
   assert.equal(joinRoom(afterHours, "u1", 1000 + 24 * 60 * 60 * 1000).players.length, 2);
 });
 
-test("only an empty room expires; leaving last player makes it eligible", () => {
+test("only an empty room expires; leaving the last participant makes it eligible", () => {
   let room = createRoom({ roomId: "room", hostUserId: "u0", now: 1000 });
-  room = leaveRoom(room, "u0");
+  room = leaveRoom(room, "u0", 1001);
   assert.equal(room.players.length, 0);
-  const expired = expireRoom(room, 1001);
+  assert.equal(room.status, "expired");
+  const expired = expireRoom(room, 1002);
   assert.equal(expired.status, "expired");
-  assert.throws(() => joinRoom(expired, "u1", 1002), /not accepting/);
+  assert.throws(() => joinRoom(expired, "u1", 1003), /not accepting/);
 });
 
-test("host departure transfers host role while room remains occupied", () => {
+test("a waiting-room departure cancels for everyone and participants can empty the room", () => {
   let room = createRoom({ roomId: "room", hostUserId: "u0", now: 100 });
   room = joinRoom(room, "u1", 101);
-  room = leaveRoom(room, "u0");
+  room = joinRoom(room, "u2", 102);
+
+  room = leaveRoom(room, "u0", 103);
+  assert.equal(room.status, "cancelled");
+  assert.equal(room.cancelReason, "player_left_before_match_start");
   assert.equal(room.hostUserId, "u1");
-  assert.equal(expireRoom(room, 999999).status, "waiting");
+  assert.deepEqual(room.players.map(player => player.userId), ["u1", "u2"]);
+  assert.throws(() => joinRoom(room, "u3", 104), /not accepting/);
+
+  room = leaveRoom(room, "u1", 105);
+  assert.equal(room.status, "cancelled");
+  assert.deepEqual(room.players.map(player => player.userId), ["u2"]);
+  room = leaveRoom(room, "u2", 106);
+  assert.equal(room.status, "expired");
+  assert.equal(room.players.length, 0);
+});
+
+test("completed room cannot be emptied until the three-second hand reveal ends", () => {
+  const room = { ...fullReadyRoom(1000, 3), status: "completed", handRevealUntil: 5000 };
+  assert.throws(() => leaveRoom(room, "u0", 4999), /reveal/);
+  const exited = leaveRoom(room, "u0", 5000);
+  assert.equal(exited.status, "completed");
+  assert.equal(exited.players.length, 3);
 });
 
 test("host can start only after all four players are ready", () => {
