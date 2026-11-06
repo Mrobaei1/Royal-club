@@ -151,14 +151,25 @@ test("post-match appeal is participant-only and management review does not rewri
   assert.deepEqual(room.result, { winnerTeam: 0 });
 });
 
-test("completed match view exposes no full replay/history", () => {
+test("completed match hides replay but preserves the final-hand reveal for exactly three seconds", () => {
+  const revealedHands = [
+    [{ suit: "spades", rank: "A" }],
+    [{ suit: "hearts", rank: "K" }],
+    [{ suit: "clubs", rank: "Q" }],
+    [{ suit: "diamonds", rank: "J" }]
+  ];
   const completed = { ...readyRoom(1000), status: "completed", matchScore: [3, 2],
+    handRevealUntil: 12000, revealedHands,
     round: { phase: "completed", hakemSeat: 0, currentSeat: 0, trumpSuit: "spades",
       hands: [[], [], [], []], currentTrick: [], completedTricks: [{ secret: "should-not-leak" }],
       trickWinners: [], scores: [7, 2], seenCards: new Set(), undealtDeck: [] } };
-  const view = roomViewForUser(completed, "u0", { now: 9000 });
-  assert.equal(view.game, null);
-  assert.equal(view.revealedHands, null);
+  const duringReveal = roomViewForUser(completed, "u0", { now: 11999 });
+  assert.equal(duringReveal.game, null);
+  assert.deepEqual(duringReveal.revealedHands, revealedHands);
+  assert.equal("completedTricks" in duringReveal, false);
+  const afterReveal = roomViewForUser(completed, "u0", { now: 12000 });
+  assert.equal(afterReveal.game, null);
+  assert.equal(afterReveal.revealedHands, null);
 });
 
 test("cheating reports are participant-scoped and management review does not decide the winner", async () => {
