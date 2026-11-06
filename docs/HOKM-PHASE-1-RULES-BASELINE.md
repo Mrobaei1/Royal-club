@@ -32,7 +32,8 @@ Scope: phase 1 (game specification and rules). This document does not authorize 
 - Hakem trump selection deadline: 7 seconds.
 - Every card-play deadline: 7 seconds.
 - On a card timeout, the server selects uniformly by index from that player's currently legal cards; it must never select an illegal revoke.
-- Suit strength for Hard trump selection is calculated by suit card count first; ties are resolved by the sum of normal card rank values (2 through Ace).
+- Suit strength for automatic Hard trump selection is lexicographic: highest suit card count, then highest sum of card rank values, then highest single card rank; only a complete tie is resolved randomly.
+- Rank values are 2–10 at face value, Jack 11, Queen 12, King 13 and Ace 14.
 - Manual trump selection is final and cannot be changed after confirmation.
 - On a trump-selection timeout, the server applies the Hard bot's deterministic trump-selection heuristic.
 - The server owns deadlines and automatic actions; clients cannot submit bot actions as if they were human commands.
@@ -72,12 +73,19 @@ The phase-one acceptance suite checks:
 - random legal card selection after a card timeout and Hard trump selection after a trump timeout.
 - unanimous cancellation, all-four-disconnected cancellation, and two/three-player unrecovered-disconnect cancellation.
 - deferred one-time forfeit/temporary-disconnect penalties, penalty removal on reconnect, and zero XP/score effects when a match is cancelled.
-- Hard trump suit-count/rank-sum ordering and irreversible manual trump confirmation.
+- Hard trump suit-count/rank-sum/highest-card ordering, random complete-tie resolution, and irreversible manual trump confirmation.
 - report/appeal and room visibility/privacy rules where exercised by the service integration tests.
 
 ## 8. Owner decisions recovered and implementation status
 
-- Questions 13–20: the recovered owner selections are reflected in card rank, trump strength, irreversible trump selection, disconnect/forfeit cancellation, and XP behavior.
+- Question 13, option 1: standard 52-card deck, four suits, ranks 2 through Ace, no jokers.
+- Question 14, option 1: automatic trump selection compares suit card count, then summed rank values, then highest card; a complete tie is resolved randomly.
+- Question 15, option 1: ranks 2–10 use face value, Jack 11, Queen 12, King 13, Ace 14.
+- Questions 16–17, option 2: two or three intentional exits, or two/three disconnects not recovered within 20 seconds, cancel without result, match points or XP changes.
+- Question 18, option 2: one intentional exit continues with Hard bot; apply one -5 XP penalty at match completion.
+- Question 19, option 1: a single disconnect uses a temporary Hard bot after 20 seconds; return before match completion removes the penalty; no return before completion applies one -5 XP penalty.
+- Question 20, option 1: simultaneous intentional-exit/disconnect penalty conditions are deduplicated; never apply -10 XP.
+
 - Question 21, option 1: XP never becomes negative; a -5 XP penalty floors at zero and the permanent level never decreases. Implemented in `applyXpChange` and covered by the progression tests.
 - Question 22, option 1: after any match cancellation, the room closes immediately and all participants return to the Hokm lobby. The authoritative room becomes non-joinable with status `cancelled`; the mobile client now clears the room and returns to its lobby automatically when the cancellation event arrives. A retained cancelled-room record is kept for audit/idempotency; it is not an active room.
 - Question 23, option 1: after a voluntary forfeit, no new player can occupy that seat before the match ends; the Hard bot permanently controls the seat through the end of the match. Implemented by the fixed four-seat started-room model and `forfeited`/bot control state; covered by an explicit no-replacement test. This is distinct from a temporary disconnect, where the original player may reclaim control during the match.
