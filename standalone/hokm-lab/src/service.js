@@ -150,7 +150,18 @@ export class HokmRoomService {
 
   async leave(principal, roomId, expectedVersion) {
     const userId = authenticatedUser(principal);
-    return this.#transition(roomId, expectedVersion, room => leaveRoom(room, userId), userId);
+    const now = this.now();
+    return this.#transition(roomId, expectedVersion,
+      room => leaveRoom(room, userId, now),
+      updated => updated.players.some(player => player.userId === userId)
+        ? roomViewForUser(updated, userId, { now })
+        : Object.freeze({
+            roomId: updated.roomId,
+            status: updated.status,
+            version: updated.version,
+            cancelReason: updated.cancelReason ?? null,
+            left: true
+          }));
   }
 
   async forfeit(principal, roomId, expectedVersion) {
