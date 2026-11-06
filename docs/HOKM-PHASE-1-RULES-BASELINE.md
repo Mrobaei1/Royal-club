@@ -9,6 +9,7 @@ Scope: phase 1 (game specification and rules). This document does not authorize 
 - A match has exactly four players in two fixed partnerships: seats 0 and 2 are partners; seats 1 and 3 are partners.
 - Seats advance clockwise.
 - A room is not removed because of elapsed time while it has occupants. Empty rooms may be expired/cleaned up.
+- If any player leaves before the match starts (including while waiting for the remaining opponents), the waiting room is immediately cancelled and all participants return to the Hokm lobby. The cancelled record is retained for audit/event delivery and cannot accept joins.
 - The reconnect grace period is 20 seconds by default and can be changed only by the owner/GM.
 - Match target is configurable only to 3, 5, or 7 points by an authorized manager/owner; the current default is 7.
 - Private room visibility is supported; room state and private card hands remain server-authoritative.
@@ -86,6 +87,7 @@ The phase-one acceptance suite checks:
 - Question 19, option 1: a single disconnect uses a temporary Hard bot after 20 seconds; return before match completion removes the penalty; no return before completion applies one -5 XP penalty.
 - Question 20, option 1: simultaneous intentional-exit/disconnect penalty conditions are deduplicated; never apply -10 XP.
 
+- Question 24, option 2: any player departure before match start immediately cancels the waiting room; all participants return to the Hokm lobby.
 - Question 21, option 1: XP never becomes negative; a -5 XP penalty floors at zero and the permanent level never decreases. Implemented in `applyXpChange` and covered by the progression tests.
 - Question 22, option 1: after any match cancellation, the room closes immediately and all participants return to the Hokm lobby. The authoritative room becomes non-joinable with status `cancelled`; the mobile client now clears the room and returns to its lobby automatically when the cancellation event arrives. A retained cancelled-room record is kept for audit/idempotency; it is not an active room.
 - Question 23, option 1: after a voluntary forfeit, no new player can occupy that seat before the match ends; the Hard bot permanently controls the seat through the end of the match. Implemented by the fixed four-seat started-room model and `forfeited`/bot control state; covered by an explicit no-replacement test. This is distinct from a temporary disconnect, where the original player may reclaim control during the match.
