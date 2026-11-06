@@ -18,6 +18,7 @@ import 'contact_screen.dart';
 import 'chat_screen.dart';
 import 'services/chat_service.dart';
 import 'services/friends_service.dart';
+import 'uno/uno_entry_screen.dart';
 
 class RoyalLocaleState extends ChangeNotifier {
   RoyalLocaleState() { _load(); }
@@ -466,6 +467,13 @@ class _HomeScreenState extends State<HomeScreen> {
                     builder: (_) => mode == 'online' ? const OnlineLobbyScreen() : const EngineBackgammonScreen(),
                   ));
                 },
+              ),
+              const SizedBox(height: 12),
+              GameTile(
+                title: appText(context, 'بازی اونو', 'UNO'),
+                subtitle: appText(context, 'بازی آنلاین ۲ تا ۶ نفره', 'Online game for 2–6 players'),
+                icon: Icons.style_rounded,
+                onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const UnoEntryScreen())),
               ),
               const SizedBox(height: 12),
               GameTile(title: AppLocalizations.of(context).chess, subtitle: AppLocalizations.of(context).comingSoon, icon: Icons.grid_4x4_rounded, comingSoon: true),
