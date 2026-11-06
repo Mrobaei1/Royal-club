@@ -1947,6 +1947,37 @@ test('delegated report permissions are owner-granted, resource-scoped, audited, 
     });
     assert.equal(ownerReportMutationWithoutStepUp.statusCode, 403, ownerReportMutationWithoutStepUp.body);
 
+    const ownerClaims = JSON.parse(Buffer.from(owner.token.split('.')[1], 'base64url').toString('utf8')) as {
+      sub: string; ver?: number; jti?: string;
+    };
+    const wrongSessionStepUp = app.jwt.sign({
+      sub: ownerClaims.sub,
+      purpose: 'owner-step-up',
+      ver: Number(ownerClaims.ver ?? 0),
+      sessionJti: 'different-session',
+    }, { expiresIn: '5m' });
+    const wrongSessionMutation = await app.inject({
+      method: 'PATCH',
+      url: `/api/v1/admin/reports/${reportAId}`,
+      headers: { authorization: `Bearer ${owner.token}`, 'x-owner-step-up': wrongSessionStepUp },
+      payload: { status: 'dismissed' },
+    });
+    assert.equal(wrongSessionMutation.statusCode, 403, wrongSessionMutation.body);
+
+    const expiredStepUp = app.jwt.sign({
+      sub: ownerClaims.sub,
+      purpose: 'owner-step-up',
+      ver: Number(ownerClaims.ver ?? 0),
+      sessionJti: ownerClaims.jti,
+    }, { expiresIn: -1 });
+    const expiredStepUpMutation = await app.inject({
+      method: 'PATCH',
+      url: `/api/v1/admin/reports/${reportAId}`,
+      headers: { authorization: `Bearer ${owner.token}`, 'x-owner-step-up': expiredStepUp },
+      payload: { status: 'dismissed' },
+    });
+    assert.equal(expiredStepUpMutation.statusCode, 403, expiredStepUpMutation.body);
+
     const ownerReportMutationWithStepUp = await app.inject({
       method: 'PATCH',
       url: `/api/v1/admin/reports/${reportAId}`,
