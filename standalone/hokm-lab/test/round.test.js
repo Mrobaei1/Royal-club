@@ -16,6 +16,27 @@ test("round starts with five cards per player and waits for hakem", () => {
   assert.deepEqual(state.hands.map((h) => h.length), [5, 5, 5, 5]);
 });
 
+test("round state transitions are deterministic and preserve prior snapshots", () => {
+  const { state } = makeState(0);
+  const originalHands = state.hands.map(hand => hand.map(card => ({ ...card })));
+
+  const firstTrumpChoice = chooseTrump(state, 0, "spades");
+  const repeatedTrumpChoice = chooseTrump(state, 0, "spades");
+  assert.deepEqual(firstTrumpChoice, repeatedTrumpChoice);
+  assert.deepEqual(state.hands, originalHands);
+  assert.equal(state.phase, "choose_trump");
+  assert.equal(state.undealtDeck.length, 32);
+
+  const openingCard = firstTrumpChoice.hands[0][0];
+  const firstPlay = playCard(firstTrumpChoice, 0, openingCard);
+  const repeatedPlay = playCard(repeatedTrumpChoice, 0, openingCard);
+  assert.deepEqual(firstPlay, repeatedPlay);
+  assert.equal(firstTrumpChoice.hands[0].length, 13);
+  assert.equal(firstTrumpChoice.currentTrick.length, 0);
+  assert.equal(firstPlay.currentTrick.length, 1);
+  assert.equal(firstPlay.currentSeat, 1);
+});
+
 test("only hakem may choose a valid trump; then each hand has 13 cards", () => {
   const { state } = makeState(1);
   assert.throws(() => chooseTrump(state, 0, "hearts"), /hakem/);
