@@ -596,8 +596,6 @@ void main() {
     expect(find.text('Create Hokm room'), findsOneWidget);
   });
 
-}
-
 
   testWidgets('cancelled match immediately returns every connected player to the Hokm lobby', (tester) async {
     final api = FakeEventHokmApi();
@@ -623,3 +621,4 @@ void main() {
     expect(find.textContaining('returned to the lobby'), findsOneWidget);
     await api.controller.close();
   });
+}
