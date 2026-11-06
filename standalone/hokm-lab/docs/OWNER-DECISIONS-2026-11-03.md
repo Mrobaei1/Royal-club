@@ -173,3 +173,9 @@ Do not award completion percentage for documentation alone. The green lab test s
 - No production deployment, main-branch integration, paid media infrastructure, audio/video calling, or APK build is authorized by this document.
 
 **Status:** owner decisions recorded; implementation/acceptance gaps remain open. This document does not claim the game is complete or production-ready.
+
+
+## Owner-approved clarification addendum (2026-11-06)
+
+- **Question 24 — option 2:** if any player leaves before the match starts, cancel the entire waiting room immediately, return the remaining participants to the lobby, and do not accept a replacement player into that room.
+- This rule applies only before match start. During an active match, a disconnected/unavailable host may still be replaced for next-hand coordination by a connected participant; the temporary Hard bot and reconnect rules remain in force.
