@@ -49,11 +49,11 @@ test('CORS preflight allows configured origins and withholds permission from unk
 function auth(token: string) {
   const headers: Record<string, string> = { authorization: `Bearer ${token}` };
   const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString('utf8')) as {
-    sub?: string; ver?: number;
+    sub?: string; ver?: number; jti?: string;
   };
   if (payload.sub && payload.sub === process.env.OWNER_USER_ID) {
     headers['x-owner-step-up'] = app.jwt.sign(
-      { sub: payload.sub, purpose: 'owner-step-up', ver: Number(payload.ver ?? 0) },
+      { sub: payload.sub, purpose: 'owner-step-up', ver: Number(payload.ver ?? 0), sessionJti: payload.jti },
       { expiresIn: '5m' },
     );
   }

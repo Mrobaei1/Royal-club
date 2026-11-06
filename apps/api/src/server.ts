@@ -1571,12 +1571,13 @@ const requireOwnerStepUp = async (request: any, reply: any) => {
   }
   try {
     const stepUp = app.jwt.verify(rawToken) as {
-      sub?: string; purpose?: string; ver?: number;
+      sub?: string; purpose?: string; ver?: number; sessionJti?: string;
     };
-    const actor = request.user as { sub?: string; ver?: number };
+    const actor = request.user as { sub?: string; ver?: number; jti?: string };
     if (stepUp.purpose !== 'owner-step-up' ||
         !stepUp.sub || stepUp.sub !== actor.sub ||
-        stepUp.ver !== Number(actor.ver ?? 0)) {
+        stepUp.ver !== Number(actor.ver ?? 0) ||
+        !actor.jti || stepUp.sessionJti !== actor.jti) {
       return reply.code(403).send({ error: 'Owner step-up token is invalid or belongs to another session.' });
     }
   } catch {
@@ -1599,7 +1600,7 @@ app.post<{ Body: { password?: string } }>('/api/v1/admin/step-up', {
   },
 }, async (request, reply) => {
   const password = request.body?.password;
-  const actor = request.user as { sub: string; ver?: number };
+  const actor = request.user as { sub: string; ver?: number; jti?: string };
   if (typeof password !== 'string' || password.length > 128) {
     return reply.code(400).send({ error: 'Enter the current owner password.' });
   }
@@ -1616,7 +1617,7 @@ app.post<{ Body: { password?: string } }>('/api/v1/admin/step-up', {
   if (!matches) return reply.code(401).send({ error: 'Owner password is incorrect.' });
   const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
   const stepUpToken = app.jwt.sign(
-    { sub: actor.sub, purpose: 'owner-step-up', ver: Number(actor.ver ?? 0), jti: randomUUID() },
+    { sub: actor.sub, purpose: 'owner-step-up', ver: Number(actor.ver ?? 0), sessionJti: actor.jti, jti: randomUUID() },
     { expiresIn: '5m' },
   );
   return { stepUpToken, expiresAt, expiresIn: 300 };
