@@ -2391,6 +2391,23 @@ const requireOwnerOrPermission = (
   await requirePermission(permission, resourceIdOf)(request, reply);
 };
 
+// Delegated staff retain their scoped permission path, but the immutable owner
+// must present a fresh session-bound step-up token before mutating report state.
+const requireOwnerOrPermissionStepUp = (
+  permission: string,
+  resourceIdOf?: (request: any) => string | undefined | Promise<string | undefined>,
+) => async (request: any, reply: any) => {
+  await requireMatchAuth(request, reply);
+  if (reply.sent) return;
+  const ownerUserId = process.env.OWNER_USER_ID?.trim();
+  const claims = request.user as { sub?: string };
+  if (ownerUserId && isNumericId(ownerUserId) && claims.sub === ownerUserId) {
+    await requireOwnerStepUp(request, reply);
+    return;
+  }
+  await requirePermission(permission, resourceIdOf)(request, reply);
+};
+
 // Phase 4 agent control plane: plans and proposals only. There is intentionally no execution endpoint.
 const agentTaskDomains = new Set([
   'membership', 'marketing', 'deposits', 'leagues', 'moderation',
@@ -3421,7 +3438,7 @@ app.get('/api/v1/admin/reports', { onRequest: [requireOwnerOrPermission('reports
   return { reports: result.rows };
 });
 
-app.patch<{ Params: { id: string }; Body: { status?: string } }>('/api/v1/admin/reports/:id', { onRequest: [requireOwnerOrPermission('reports.manage', async (request) => {
+app.patch<{ Params: { id: string }; Body: { status?: string } }>('/api/v1/admin/reports/:id', { onRequest: [requireOwnerOrPermissionStepUp('reports.manage', async (request) => {
   if (!isNumericId(request.params?.id)) return undefined;
   const target = await pool.query('SELECT reported_user_id::text AS id FROM user_reports WHERE id = $1', [request.params.id]);
   return target.rows[0]?.id;

@@ -1939,6 +1939,22 @@ test('delegated report permissions are owner-granted, resource-scoped, audited, 
     const reportAId = String(createdA.rows[0].id);
     const reportBId = String(createdB.rows[0].id);
 
+    const ownerReportMutationWithoutStepUp = await app.inject({
+      method: 'PATCH',
+      url: `/api/v1/admin/reports/${reportAId}`,
+      headers: { authorization: `Bearer ${owner.token}` },
+      payload: { status: 'dismissed' },
+    });
+    assert.equal(ownerReportMutationWithoutStepUp.statusCode, 403, ownerReportMutationWithoutStepUp.body);
+
+    const ownerReportMutationWithStepUp = await app.inject({
+      method: 'PATCH',
+      url: `/api/v1/admin/reports/${reportAId}`,
+      headers: auth(owner.token),
+      payload: { status: 'reviewed' },
+    });
+    assert.equal(ownerReportMutationWithStepUp.statusCode, 200, ownerReportMutationWithStepUp.body);
+
     const reportList = await app.inject({
       method: 'GET',
       url: '/api/v1/admin/reports',
