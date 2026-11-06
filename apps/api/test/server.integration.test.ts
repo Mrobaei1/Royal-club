@@ -1532,6 +1532,79 @@ test('subscription purchases debit the wallet atomically and record a ledger ent
   });
   assert.equal(forbiddenPlanChange.statusCode, 403, forbiddenPlanChange.body);
 
+  const unauthenticatedPlanCreate = await app.inject({
+    method: 'POST',
+    url: '/api/v1/admin/subscription-plans',
+    payload: { code: 'unauthenticated_plan', name: 'Unauthenticated', durationDays: 7, priceCredits: 10 },
+  });
+  assert.equal(unauthenticatedPlanCreate.statusCode, 401, unauthenticatedPlanCreate.body);
+
+  const forbiddenPlanCreate = await app.inject({
+    method: 'POST',
+    url: '/api/v1/admin/subscription-plans',
+    headers: auth(buyer.token),
+    payload: { code: 'unauthorized_plan', name: 'Unauthorized', durationDays: 7, priceCredits: 10 },
+  });
+  assert.equal(forbiddenPlanCreate.statusCode, 403, forbiddenPlanCreate.body);
+
+  const previousPlanOwnerId = process.env.OWNER_USER_ID;
+  process.env.OWNER_USER_ID = buyer.user.id;
+  try {
+    const ownerWithoutStepUp = await app.inject({
+      method: 'POST',
+      url: '/api/v1/admin/subscription-plans',
+      headers: { authorization: `Bearer ${buyer.token}` },
+      payload: { code: 'vip_weekly', name: 'Weekly Premium', durationDays: 7, priceCredits: 90 },
+    });
+    assert.equal(ownerWithoutStepUp.statusCode, 403, ownerWithoutStepUp.body);
+
+    const stepUp = await app.inject({
+      method: 'POST',
+      url: '/api/v1/admin/step-up',
+      headers: { authorization: `Bearer ${buyer.token}` },
+      payload: { password: 'IntegrationPass123!' },
+    });
+    assert.equal(stepUp.statusCode, 200, stepUp.body);
+
+    const createWeeklyPlan = await app.inject({
+      method: 'POST',
+      url: '/api/v1/admin/subscription-plans',
+      headers: {
+        authorization: `Bearer ${buyer.token}`,
+        'x-owner-step-up': stepUp.json().stepUpToken,
+      },
+      payload: { code: 'vip_weekly', name: 'Weekly Premium', durationDays: 7, priceCredits: 90 },
+    });
+    assert.equal(createWeeklyPlan.statusCode, 201, createWeeklyPlan.body);
+    assert.equal(createWeeklyPlan.json().plan.code, 'vip_weekly');
+    assert.equal(createWeeklyPlan.json().plan.durationDays, 7);
+
+    const duplicatePlan = await app.inject({
+      method: 'POST',
+      url: '/api/v1/admin/subscription-plans',
+      headers: {
+        authorization: `Bearer ${buyer.token}`,
+        'x-owner-step-up': stepUp.json().stepUpToken,
+      },
+      payload: { code: 'vip_weekly', name: 'Duplicate', durationDays: 14, priceCredits: 150 },
+    });
+    assert.equal(duplicatePlan.statusCode, 409, duplicatePlan.body);
+
+    const invalidPlan = await app.inject({
+      method: 'POST',
+      url: '/api/v1/admin/subscription-plans',
+      headers: {
+        authorization: `Bearer ${buyer.token}`,
+        'x-owner-step-up': stepUp.json().stepUpToken,
+      },
+      payload: { code: 'bad code', name: 'Invalid', durationDays: 0, priceCredits: -1 },
+    });
+    assert.equal(invalidPlan.statusCode, 400, invalidPlan.body);
+  } finally {
+    if (previousPlanOwnerId === undefined) delete process.env.OWNER_USER_ID;
+    else process.env.OWNER_USER_ID = previousPlanOwnerId;
+  }
+
   const initialWallet = await app.inject({
     method: 'GET',
     url: '/api/v1/wallet',
