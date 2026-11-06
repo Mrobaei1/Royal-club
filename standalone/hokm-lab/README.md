@@ -93,3 +93,14 @@ Do not describe this module as complete until the remaining acceptance criteria 
 - Royal Club API: **32/32 integration tests passed**, API build/tests passed, and the Web Preview build passed. The deploy step was skipped; no deployment was performed.
 - Exact-head evidence: [Hokm lab validation](https://github.com/Mrobaei1/Royal-club/actions/runs/41784780513), [Royal Club API integration](https://github.com/Mrobaei1/Royal-club/actions/runs/41784790957), [Royal Club build/mobile validation](https://github.com/Mrobaei1/Royal-club/actions/runs/41784790952), [Web Preview build](https://github.com/Mrobaei1/Royal-club/actions/runs/41784791003).
 - No production deployment, merge to `main`, worker provisioning, or APK build was performed.
+
+
+## Latest verified checkpoint (2026-11-06)
+
+- Isolated Hokm Node 20 + PostgreSQL 16: **137/137 tests passed** on the latest completed full validation.
+- Standalone Flutter: **analyze clean; 14/14 widget tests passed**.
+- Newly covered: deterministic immutable round transitions; complete matches at all supported 3/5/7 targets; Q24 waiting-room cancellation; terminal-room exit and empty-only cleanup; final-hand reveal visible to all four players for exactly three seconds, including when the match ends; Flutter blocks lobby exit until that final reveal expires.
+- Hokm WBS packages **2.0 Rules Engine, 3.0 Round/Match Controller, and 4.0 Room/Invitation Lifecycle are each 100%**. Weighted isolated Hokm WBS progress is **80.68%**.
+- Evidence: [Hokm isolated validation](https://github.com/Mrobaei1/Royal-club/actions/runs/42207814783), [isolated Node tests](https://github.com/Mrobaei1/Royal-club/actions/runs/42207814729), and the updated [12-package WBS report](docs/HOKM-WBS-2026-11-03.md).
+
+**Release boundary remains unchanged:** PR #133 and PR #137 are separate Draft integration proposals; neither is merged. No production database migration, worker provisioning, deployment, or APK build was performed. Physical four-device, load and soak acceptance remain in WBS packages 11/12.
