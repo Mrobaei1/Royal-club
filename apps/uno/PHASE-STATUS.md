@@ -1,4 +1,4 @@
-# UNO phase status — 2026-11-03
+# UNO phase status — 2026-11-06
 
 This report is paired with [UNO-WBS.md](./UNO-WBS.md), a UNO-only weighted baseline totaling 100 points. It is separate from the Royal Club-wide WBS.
 
@@ -37,5 +37,6 @@ The defined standalone single-instance engineering baseline is **100/100** on th
 
 - Physical Android acceptance on at least two devices, including complete 2-player and 6-player matches, Persian/English layouts, chat, reconnect/account switching and private-hand visibility: **not executed here**. Automated CI cannot substitute for physical devices. Record evidence in [INTEGRATION_CHECKLIST.md](./INTEGRATION_CHECKLIST.md).
 - Multi-instance/horizontal scaling: **not implemented**. The current single-instance advisory lock is an intentional safety boundary. See [DISTRIBUTED-ROOM-ARCHITECTURE.md](./DISTRIBUTED-ROOM-ARCHITECTURE.md).
-- Root-app integration, production hosting/migration/secrets and APK generation: not authorized and not performed.
-- PR #122 remains Draft and unmerged. No production deployment or live database migration has occurred.
+- Root-app integration: **merged** (PR #176); signed/versioned/rollbackable central service configuration is merged (PRs #181 and #185).
+- Backend production hosting, live database migration, production configuration and APK generation: **not performed**. These remain release gates.
+- Physical Android acceptance on two or more devices remains pending.

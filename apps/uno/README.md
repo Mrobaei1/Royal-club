@@ -1,6 +1,6 @@
-# Royal Club UNO — isolated development package
+# Royal Club UNO — integrated client, separately deployed backend
 
-Standalone and not imported by the Royal Club mobile app or API. Integration, deployment, database migration and APK creation remain separate owner-approval gates.
+The Royal Club root Flutter app now includes the UNO lobby/table client and home-screen entry. It resolves the persistent UNO service origin from the owner-managed, versioned and Ed25519-signed central API configuration. The backend in this directory remains a separate persistent Node.js service and must be deployed independently; no production deployment or database migration is implied.
 
 ## Product rules
 - 2–6 seated players per table; host creates the table and players join with its short code.
@@ -27,7 +27,13 @@ npm run dev
 The service exposes `GET /health`. Socket.IO authenticates with the existing Royal Club HS256 access token and resolves only the public username from the existing users table. It does not accept client-supplied usernames or query full name/email.
 
 ## Flutter client
-The isolated Flutter package provides the lobby, readiness, host start, card actions, private hand and text chat. It requests no microphone permission and contains no audio/video or live-media dependency.
+The production app client is integrated under `apps/mobile/lib/uno/` and verifies the Ed25519 signature on the central service configuration before connecting. `apps/uno/flutter/` remains an isolated/reference client package; it is not copied into the root app. The client requests no microphone permission and contains no audio/video or live-media dependency.
+
+## Root-app integration and service discovery
+- The root app exposes UNO from the home screen; the backend remains a separate persistent service.
+- Configure the backend's stable HTTPS origin in the owner panel under Central game-service configuration. Each change creates a signed version; rollback creates a new signed version.
+- `UNO_SERVER_URL` on the API is only the initial seed for a new configuration record. After initialization, the owner panel is authoritative.
+- The mobile app does not use `--dart-define=UNO_SERVER_URL`; it fetches and verifies the signed configuration through the Royal Club API.
 
 ## Operational boundaries
 - PostgreSQL snapshots restore rooms after restart. Because room mutations are currently process-local, the service acquires a PostgreSQL session advisory lock before loading snapshots and refuses to start if another instance owns it. This prevents concurrent replicas from corrupting snapshots; it does not provide horizontal scaling. Distributed per-room transactions and a shared Socket.IO adapter are still required before multi-instance operation.
