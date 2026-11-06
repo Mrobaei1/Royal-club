@@ -153,7 +153,7 @@
 | 5.1-C | Atomic balance | 5 | Pending | Not audited |
 | 5.1-D | Idempotent concurrency | 5 | Pending | Not audited |
 | 5.1-E | Owner adjustments | 5 | Pending | Not audited |
-| 5.2-A | Manager plans | 5 | Pending | Not audited |
+| 5.2-A | Manager plans | 5 | Passed | PR #148 exact head `658bcfc5e30466efa0d7c1c5283c75353715a8fc`; owner-only create-plan API, manager UI flow, validation/duplicate tests passed in API integration run `42108013254` and Flutter/API run `42108013513` (2026-11-05). |
 | 5.2-B | Transactional activation | 5 | Pending | Not audited |
 | 5.2-C | Expiry/removal | 5 | Pending | Not audited |
 | 5.2-D | Server-controlled prices | 5 | Pending | Not audited |
@@ -252,9 +252,9 @@
 - Packages decomposed: **53/53**
 - Acceptance criteria: **200**
 - Points represented: **1000/1,000**
-- Earned points currently evidenced: **35/1,000 (3.5%)** — criteria 2.5-A and 2.5-B (10 points) plus 7.1-A through 7.1-E (25 points) passed on exact proposed PR #166 head `5b0898c0818533e543b3f8df85515aaa573a770d` on 2026-11-06.
-- Remaining criteria: **193 Pending** (965 points not yet earned).
-- Official project percentage: **3.5% evidence-backed minimum**; this remains a partial criterion audit, not a claim that only 3.5% of code exists. Increase only as additional criteria pass.
+- Earned points currently evidenced: **40/1,000 (4.0%)** — criteria 2.5-A/B (10 points), 5.2-A (5 points), and 7.1-A through 7.1-E (25 points) have criterion-specific evidence on 2026-11-06.
+- Remaining criteria: **192 Pending** (960 points not yet earned).
+- Official project percentage: **4.0% evidence-backed minimum**; this remains a partial criterion audit, not a claim that only 4.0% of code exists. Increase only as additional criteria pass.
 
 ## Required evidence record
 
