@@ -128,7 +128,7 @@ export function reconnectPlayer(room, userId, { now, expectedVersion } = {}) {
 /** Transfer a disconnected seat to the fixed-Hard bot after grace expires. */
 export function handleDisconnectTimeout(room, userId, { now, expectedVersion } = {}) {
   requireUserId(userId); requireNow(now); requireExpectedVersion(room, expectedVersion);
-  if (room.status !== "playing") throw new Error("Only an active match can process a disconnect timeout");
+  if (!["playing", "round_completed"].includes(room.status)) throw new Error("Only an unfinished match can process a disconnect timeout");
   const player = room.players.find(candidate => candidate.userId === userId);
   if (!player) throw new Error("User is not a member of this room");
   if (player.forfeited || player.connected || player.temporaryBot) return room;
