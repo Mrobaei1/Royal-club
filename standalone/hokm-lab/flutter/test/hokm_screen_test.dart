@@ -9,10 +9,12 @@ class FakeHokmApi implements HokmApi {
   int createCalls = 0;
   int nextRoundCalls = 0;
   bool createAsRoundCompleted = false;
+  bool createAsCompleted = false;
   int joinCalls = 0;
   int viewCalls = 0;
   int commandCalls = 0;
   int disconnectCalls = 0;
+  int leaveCalls = 0;
   int chatCalls = 0;
   String? lastChatRecipient;
   String? lastChatText;
@@ -86,7 +88,9 @@ class FakeHokmApi implements HokmApi {
   @override
   Future<Map<String, dynamic>> createRoom({required int matchTarget, required bool privateRoom}) async {
     createCalls++;
-    room = createAsRoundCompleted ? _roundCompletedWithHostDisconnected() : _waiting();
+    room = createAsCompleted
+        ? (_waiting()..['status'] = 'completed')
+        : createAsRoundCompleted ? _roundCompletedWithHostDisconnected() : _waiting();
     room['matchTarget'] = matchTarget;
     room['privateRoom'] = privateRoom;
     return Map<String, dynamic>.from(room);
@@ -135,8 +139,10 @@ class FakeHokmApi implements HokmApi {
       Map<String, dynamic>.from(room);
 
   @override
-  Future<Map<String, dynamic>> leaveRoom(String roomId, int expectedVersion) async =>
-      Map<String, dynamic>.from(room);
+  Future<Map<String, dynamic>> leaveRoom(String roomId, int expectedVersion) async {
+    leaveCalls++;
+    return Map<String, dynamic>.from(room);
+  }
 
   @override
   Future<Map<String, dynamic>> disconnect(String roomId, int expectedVersion) async {
@@ -394,6 +400,31 @@ void main() {
     expect(api.lastChatText, 'سلام 👋');
     expect(api.lastChatMessageId, startsWith('hokm-chat-'));
     expect(api.lastChatExpectedVersion, 3);
+  });
+
+  testWidgets('completed room exit releases the seat instead of disconnecting', (tester) async {
+    tester.view.physicalSize = const Size(1200, 1800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final api = FakeHokmApi()..createAsCompleted = true;
+    await tester.pumpWidget(MaterialApp(
+      locale: const Locale('fa'),
+      supportedLocales: const [Locale('fa'), Locale('en')],
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
+      home: HokmScreen(api: api, identityLoader: () async => 'u1'),
+    ));
+    await tester.pump();
+    await tester.tap(find.text('ساخت اتاق حکم'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 20));
+    expect(find.text('مسابقه پایان یافت'), findsOneWidget);
+    await tester.tap(find.text('بازگشت'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 20));
+    expect(api.leaveCalls, 1);
+    expect(api.disconnectCalls, 0);
+    expect(find.text('ساخت اتاق حکم'), findsOneWidget);
   });
 
   testWidgets('temporary exit disconnects exactly once', (tester) async {
