@@ -185,7 +185,7 @@ class _HokmScreenState extends State<HokmScreen> with WidgetsBindingObserver {
     finally { if (mounted) setState(() => _busy = false); }
   }
 
-  Future<void> _create() => _run(() => _api.createRoom(matchTarget: _target, privateRoom: false));
+  Future<void> _create() => _run(() => _api.createRoom(matchTarget: _target, privateRoom: true));
 
   Future<void> _join() {
     final code = _roomCode.text.trim();
