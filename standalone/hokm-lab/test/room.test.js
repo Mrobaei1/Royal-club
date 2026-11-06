@@ -229,6 +229,13 @@ test("a voluntary leaver is replaced by Hard bot and receives one deferred XP de
       clock = Math.max(clock, room.turnStartedAt + 1);
       continue;
     }
+    if (room.round.phase === "choose_trump") {
+      const seat = room.round.hakemSeat;
+      const player = room.players.find(candidate => candidate.seat === seat);
+      assert.equal(player.botControlled, false, "server must advance the fixed Hard bot before returning control");
+      room = applyRoomCommand(room, player.userId, { type: "choose_trump", suit: "spades" }, room.version, clock++);
+      continue;
+    }
     const seat = room.round.currentSeat;
     const player = room.players.find(candidate => candidate.seat === seat);
     assert.equal(player.botControlled, false, "server must advance the fixed Hard bot before returning control");
@@ -239,6 +246,24 @@ test("a voluntary leaver is replaced by Hard bot and receives one deferred XP de
   const winningTeam = room.matchScore[0] > room.matchScore[1] ? 0 : 1;
   assert.equal(room.playerProgress.u0.xp, 100 + (winningTeam === 0 ? 20 : 5) - 5);
   assert.deepEqual(room.pendingXpDeductions, []);
+});
+
+test("temporary Hard bot trump selection and opening card share one CAS version", () => {
+  const ready = fullReadyRoom(1000, 3);
+  let room = startRoom(ready, "u0", {
+    now: 2000,
+    rng: () => 0.5,
+    selectHakemSeat: () => 0,
+  });
+  const before = room.version;
+
+  room = recordMatchForfeit(room, "u0");
+
+  assert.equal(room.version, before + 1);
+  assert.equal(room.round.phase, "playing");
+  assert.equal(room.round.currentTrick.length, 1);
+  assert.equal(room.round.currentTrick[0].seat, 0);
+  assert.equal(room.round.currentSeat, 1);
 });
 
 function awaitRecordForfeit(room,userId){
