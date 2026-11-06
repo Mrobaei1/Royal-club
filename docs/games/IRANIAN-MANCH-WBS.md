@@ -1,6 +1,6 @@
 # Iranian Manch — Work Breakdown Structure (Royal Club)
 
-Status: online implementation integrated on `main`; end-to-end acceptance remains active.
+Status: offline foundation integrated on `main`; online multiplayer integration is under review in PR #184.
 The owner approved the common classic four-token baseline on 2026-11-02. Board visual acceptance and final online release acceptance remain required.
 
 ## Goal
@@ -40,7 +40,7 @@ Deliver a Persian/Iranian classic four-colour Manch game that fits the existing 
 
 ## Current measured progress
 
-Measured conservatively from committed implementation and available test evidence (latest report: 2026-11-06). The offline engine and online API/client have been integrated into the current mainline; physical two-device/network-interruption testing, final visual acceptance and owner release sign-off remain open. Percentages below are completion within each work package, not the weighted contribution.
+Measured conservatively from committed implementation and available test evidence (latest report: 2026-11-06). The offline engine is integrated on `main`; the online API/client is submitted in PR #184 and is not counted as integrated until merge. Physical two-device/network-interruption testing, final visual acceptance and owner release sign-off remain open. Percentages below are completion within each work package, not the weighted contribution.
 
 | ID | Work package | Weight | Current progress | Evidence / remaining gate |
 |---:|---|---:|---:|---|
