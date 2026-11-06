@@ -92,13 +92,43 @@ export function joinRoom(room, userId, now) {
 }
 
 /** A player may leave a waiting room; the room is eligible for cleanup only when empty. */
-export function leaveRoom(room, userId) {
+export function leaveRoom(room, userId, now = Date.now()) {
   requireUserId(userId);
-  if (room.status !== "waiting") throw new Error("Players cannot leave a started room through this operation");
+  requireNow(now);
+  if (!room.players.some(player => player.userId === userId)) throw new Error("User is not a member of this room");
+
+  if (room.status === "waiting") {
+    // Owner rule Q24: any departure before start cancels the whole waiting room.
+    // Remove the caller after creating the cancellation state; remaining
+    // members can observe the cancellation and leave independently.
+    const cancelled = cancelMatch(room, "player_left_before_match_start");
+    const players = cancelled.players.filter(player => player.userId !== userId);
+    return {
+      ...cancelled,
+      players,
+      hostUserId: cancelled.hostUserId === userId ? (players[0]?.userId ?? null) : cancelled.hostUserId,
+      status: players.length === 0 ? "expired" : "cancelled"
+    };
+  }
+
+  if (["playing", "round_completed"].includes(room.status)) {
+    throw new Error("Players cannot leave an active match; use disconnect or forfeit");
+  }
+  if (!["completed", "cancelled", "expired"].includes(room.status)) {
+    throw new Error("Room is not in a leaveable state");
+  }
+  if (Number.isFinite(room.handRevealUntil) && now < room.handRevealUntil) {
+    throw new Error("The 3-second end-of-hand reveal must finish before leaving");
+  }
+
   const players = room.players.filter(player => player.userId !== userId);
-  if (players.length === room.players.length) throw new Error("User is not a member of this room");
-  const hostUserId = room.hostUserId === userId ? (players[0]?.userId ?? null) : room.hostUserId;
-  return { ...room, hostUserId, players, version: room.version + 1 };
+  return {
+    ...room,
+    players,
+    hostUserId: room.hostUserId === userId ? (players[0]?.userId ?? null) : room.hostUserId,
+    status: players.length === 0 ? "expired" : room.status,
+    version: room.version + 1
+  };
 }
 
 /** Temporary network loss; authenticated user identity must be supplied by the server. */
@@ -265,7 +295,7 @@ export function startNextRound(room, requesterUserId, { rng = Math.random, now =
 /** Empty rooms only: elapsed time alone never expires a room with occupants. */
 export function expireRoom(room, now) {
   requireNow(now);
-  if (room.players.length === 0 && room.status !== "expired" && room.status !== "completed") {
+  if (room.players.length === 0 && room.status !== "expired") {
     return { ...room, status: "expired", version: room.version + 1 };
   }
   return room;
