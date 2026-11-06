@@ -83,7 +83,7 @@ The phase-one acceptance suite checks:
 - Question 14, option 1: automatic trump selection compares suit card count, then summed rank values, then highest card; a complete tie is resolved randomly.
 - Question 15, option 1: ranks 2–10 use face value, Jack 11, Queen 12, King 13, Ace 14.
 - Questions 16–17, option 2: two or three intentional exits, or two/three disconnects not recovered within 20 seconds, cancel without result, match points or XP changes.
-- Question 18, option 2: one intentional exit continues with Hard bot; apply one -5 XP penalty at match completion.
+- Question 18, option 1: one intentional exit continues with Hard bot; apply one -5 XP penalty at match completion.
 - Question 19, option 1: a single disconnect uses a temporary Hard bot after 20 seconds; return before match completion removes the penalty; no return before completion applies one -5 XP penalty.
 - Question 20, option 1: simultaneous intentional-exit/disconnect penalty conditions are deduplicated; never apply -10 XP.
 
