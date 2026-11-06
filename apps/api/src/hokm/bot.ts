@@ -273,18 +273,31 @@ function searchExpectedTrickValue(state, seat, candidates, ledger) {
 }
 
 /** Fixed Hard policy; no opponent hand or undealt deck is inspected. */
-export function chooseHardBotAction(state, seat) {
+export function chooseHardBotAction(state, seat, { rng = Math.random } = {}) {
   assertState(state, seat);
   if (state.phase === "choose_trump") {
     if (seat !== state.hakemSeat) throw new Error("Only the hakem bot may choose trump");
+    if (typeof rng !== "function") throw new TypeError("Trump tie-break RNG is required");
     const hand = state.hands[seat];
-    // Owner-approved suit strength: card count is the primary criterion;
-    // when counts tie, the sum of normal 2..A rank values breaks the tie.
-    const suit = stableBest(SUITS, candidate => {
-      const cards = hand.filter(card => card.suit === candidate);
-      return cards.length * 1000 + cards.reduce((sum, card) => sum + rank[card.rank], 0);
+    const suitStrength = SUITS.map(suit => {
+      const cards = hand.filter(card => card.suit === suit);
+      return { suit, count: cards.length,
+        rankSum: cards.reduce((sum, card) => sum + rank[card.rank], 0),
+        highest: cards.reduce((best, card) => Math.max(best, rank[card.rank]), 0) };
     });
-    return Object.freeze({ type: "choose_trump", suit, difficulty: "hard" });
+    const bestCount = Math.max(...suitStrength.map(item => item.count));
+    const byCount = suitStrength.filter(item => item.count === bestCount);
+    const bestSum = Math.max(...byCount.map(item => item.rankSum));
+    const bySum = byCount.filter(item => item.rankSum === bestSum);
+    const bestHighest = Math.max(...bySum.map(item => item.highest));
+    const tied = bySum.filter(item => item.highest === bestHighest);
+    let selected = tied[0];
+    if (tied.length > 1) {
+      const roll = rng();
+      if (!Number.isFinite(roll) || roll < 0 || roll >= 1) throw new RangeError("Trump tie-break RNG must return a value in [0, 1)");
+      selected = tied[Math.floor(roll * tied.length)];
+    }
+    return Object.freeze({ type: "choose_trump", suit: selected.suit, difficulty: "hard" });
   }
   if (state.phase !== "playing") throw new Error("Bot cannot act outside an active round");
   if (state.currentSeat !== seat) throw new Error("It is not the bot's turn");
