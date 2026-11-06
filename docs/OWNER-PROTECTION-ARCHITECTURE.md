@@ -1,9 +1,9 @@
 # Royal Club — Owner Protection & Governance Layer
 
-- **Status:** implementation specification; branch-only; not a production security certification.
+- **Status:** durable owner identity anchor and session-bound password step-up are implemented on `main`; this is not a production security certification.
 - **Owner authority:** the Royal Club owner is the sole principal for the protected ownership boundary. The general manager/owner is not merely an operational administrator.
-- **Implementation branch:** `security/owner-protection-layer`
-- **Baseline:** `main` at `3a7d68354f628b43c0080b4ea5bebc6d241ea325` (re-verify before each code change).
+- **Implementation:** `main` (PRs #179 and #183)
+- **Baseline:** `main` at `44eb8183b68af10a6578d5f6306586dff95b07a8`.
 
 ## 1. Security objectives
 
@@ -25,7 +25,7 @@ Out of scope for software-only guarantees: a malicious repository owner with con
 ## 3. Protected ownership invariant
 
 - The authoritative owner anchor is a securely provisioned immutable numeric account ID, not a username, display name, email, phone number, IP address, or client-supplied JWT role.
-- The API must deny owner-only operations if the configured owner ID is absent, invalid, or inconsistent with the durable owner record.
+- The API denies owner-only operations if the configured owner ID is absent, invalid, or inconsistent with the durable owner record; all owner-only mutation routes additionally require the session-bound step-up token.
 - The owner ID must never be editable through ordinary application APIs, manager UI, agent tools, or database rows writable by the application runtime.
 - No endpoint or workflow may transfer ownership, replace the owner, delete the owner, disable the owner, demote the owner, revoke the owner's only viable access path, or allow a deputy to become owner.
 - Any future ownership transfer, if ever explicitly desired by the owner, is a separate out-of-band governance project and is not implemented by this layer.
@@ -37,13 +37,13 @@ Out of scope for software-only guarantees: a malicious repository owner with con
 - Resolve the owner from a secret/configuration value provisioned outside the app and a durable singleton owner record.
 - Compare numeric IDs server-side; never trust role claims in a request body or token as the sole source of owner authority.
 - Detect configuration/database disagreement and fail closed for privileged operations.
-- Bootstrap is a one-time, controlled operation with no public self-service route and no username-based inference.
+- Current bootstrap: the configured numeric `OWNER_USER_ID` provisions the singleton durable record on the first successful owner-authenticated request; no public self-service route or username inference exists. The DB trigger blocks ordinary UPDATE/DELETE, but a database superuser/schema owner can still alter it.
 - Never place owner secrets, recovery codes, or private keys in source control, logs, mobile bundles, or agent context.
 
 ### L2 — Strong authentication and step-up
-- Require MFA for owner sign-in and step-up authentication for ownership/security/financial actions. Prefer passkeys/WebAuthn; retain a separately secured recovery factor.
+- Current implementation: sensitive owner-only mutations require a fresh current-password check using the existing scrypt hash and timing-safe comparison. A signed step-up token expires after five minutes and is bound to the active access-token session. MFA/passkeys/WebAuthn and a separate recovery factor remain future work.
 - Use short-lived access tokens, rotation/revocation of refresh sessions, token-version/session invalidation, CSRF protection where cookie sessions are used, rate limits, and replay protection.
-- Bind approvals to an exact canonical action digest, target, amount/currency where relevant, expiry, requester, approver, and one-time consumption.
+- Durable action-bound approval storage/one-time consumption is not implemented yet. Any future refund or outbound-funds endpoint must add it before the route is introduced.
 - Do not rely on IP address or VPN state as identity proof.
 
 ### L3 — Immutable owner protections

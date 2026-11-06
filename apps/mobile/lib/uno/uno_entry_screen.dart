@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import '../services/api_transport.dart';
 import '../services/auth_service.dart';
+import 'game_service_config_verifier.dart';
 import 'uno_online_screen.dart';
 
 class UnoEntryScreen extends StatefulWidget {
@@ -24,8 +25,23 @@ class _UnoEntryScreenState extends State<UnoEntryScreen> {
         .timeout(const Duration(seconds: 10));
     if (response.statusCode != 200) throw Exception('تنظیمات سرویس بازی از سرور دریافت نشد.');
     final decoded = jsonDecode(response.body);
-    final services = decoded is Map ? decoded['services'] : null;
+    if (decoded is! Map || decoded['algorithm'] != 'Ed25519') {
+      throw Exception('امضای تنظیمات مرکزی سرویس بازی معتبر نیست.');
+    }
+    final version = (decoded['version'] as num?)?.toInt();
+    final services = decoded['services'];
     final unoOrigin = services is Map ? services['uno'] : null;
+    final signature = decoded['signature'];
+    final publicKey = decoded['publicKey'];
+    if (version == null || signature is! String || publicKey is! String ||
+        !await verifyGameServiceConfigSignature(
+          version: version,
+          unoOrigin: unoOrigin is String ? unoOrigin : null,
+          signatureBase64: signature,
+          publicKeyBase64: publicKey,
+        )) {
+      throw Exception('امضای تنظیمات مرکزی سرویس بازی تأیید نشد.');
+    }
     if (unoOrigin is! String || unoOrigin.trim().isEmpty) {
       throw Exception('سرویس آنلاین اونو هنوز در پنل زیرساخت تنظیم نشده است.');
     }
