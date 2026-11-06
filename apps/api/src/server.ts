@@ -654,11 +654,11 @@ await pool.query(`
 if (process.env.NODE_ENV !== 'test') {
   await pool.query(`
     CREATE OR REPLACE FUNCTION reject_owner_identity_mutation()
-    RETURNS trigger LANGUAGE plpgsql AS $
+    RETURNS trigger LANGUAGE plpgsql AS $owner_guard$
     BEGIN
       RAISE EXCEPTION 'Royal Club owner identity is immutable';
     END;
-    $;
+    $owner_guard$;
     DROP TRIGGER IF EXISTS royal_club_owner_identity_immutable ON royal_club_owner_identity;
     CREATE TRIGGER royal_club_owner_identity_immutable
       BEFORE UPDATE OR DELETE ON royal_club_owner_identity
