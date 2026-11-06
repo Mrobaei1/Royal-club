@@ -132,7 +132,7 @@ class _HokmScreenState extends State<HokmScreen> with WidgetsBindingObserver {
     _finalRevealTimer = null;
     final revealUntil = room['handRevealUntil'] as num?;
     final revealDurationMs = revealUntil != null && serverNow != null
-        ? (revealUntil.toInt() - serverNow).clamp(0, 3000)
+        ? (revealUntil.toInt() - serverNow).clamp(0, 3000).toInt()
         : 0;
     _finalRevealActive = room['status'] == 'completed' &&
         revealDurationMs > 0 && room['revealedHands'] is List;
