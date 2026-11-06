@@ -144,6 +144,23 @@ class _HokmScreenState extends State<HokmScreen> with WidgetsBindingObserver {
 
   void _accept(Map<String, dynamic> room) {
     if (!mounted) return;
+    if (room['status'] == 'cancelled') {
+      // Owner rule Q22: a cancelled match closes immediately and every
+      // participant returns to the Hokm room lobby without a manual Back tap.
+      _pollTimer?.cancel();
+      _pollTimer = null;
+      _handRevealTimer?.cancel();
+      _handRevealTimer = null;
+      final subscription = _eventSubscription;
+      _eventSubscription = null;
+      _eventStreamAttempted = false;
+      if (subscription != null) unawaited(subscription.cancel());
+      setState(() { _room = null; _roomCode.clear(); _error = null; });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(t('مسابقه لغو شد؛ به لابی برگشتید.', 'Match cancelled; you returned to the lobby.'))),
+      );
+      return;
+    }
     final serverNow = (room['serverNow'] as num?)?.toInt();
     if (serverNow != null) _serverClockOffsetMs = serverNow - DateTime.now().millisecondsSinceEpoch;
     setState(() { _room = room; _error = null; });
@@ -373,7 +390,7 @@ class _HokmScreenState extends State<HokmScreen> with WidgetsBindingObserver {
         final updated = await _api.forfeitMatch(roomId, version);
         matchCancelled = updated['status'] == 'cancelled';
         forfeited = true;
-        _accept(updated);
+        if (!matchCancelled) _accept(updated);
       } catch (error) {
         _showError(error);
         return;
