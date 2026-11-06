@@ -202,9 +202,11 @@ class _AdminScreenState extends State<AdminScreen> {
     try {
       await AdminService.updateGameServices(unoOrigin: uri.origin);
       await _loadGameServices();
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(appText(context, 'تنظیم سرویس ذخیره شد.', 'Service configuration saved.')),
-      ));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(appText(context, 'تنظیم سرویس ذخیره شد.', 'Service configuration saved.')),
+        ));
+      }
     } catch (error) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appError(context, error))));
     } finally {
@@ -229,9 +231,11 @@ class _AdminScreenState extends State<AdminScreen> {
     try {
       await AdminService.rollbackGameServices(version);
       await _loadGameServices();
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(appText(context, 'تنظیمات به‌صورت نسخه جدید بازیابی شد.', 'Configuration restored as a new version.')),
-      ));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(appText(context, 'تنظیمات به‌صورت نسخه جدید بازیابی شد.', 'Configuration restored as a new version.')),
+        ));
+      }
     } catch (error) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appError(context, error))));
     } finally {
