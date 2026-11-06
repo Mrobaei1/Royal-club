@@ -156,10 +156,38 @@ export class HokmRoomService {
       room => startNextRound(room, userId, { now: this.now() }), userId);
   }
 
-  async command(principal, roomId, command, expectedVersion) {
+  async command(principal, roomId, command, expectedVersion, idempotencyKey) {
     const userId = authenticatedUser(principal);
-    return this.#transition(roomId, expectedVersion,
-      room => applyRoomCommand(room, userId, command, expectedVersion, this.now()), userId);
+    if (!Number.isInteger(expectedVersion)) throw new TypeError("expectedVersion is required");
+    if (typeof idempotencyKey !== "string" || !idempotencyKey.trim() || idempotencyKey.length > 128) {
+      throw new TypeError("A bounded idempotency key is required for every game command");
+    }
+    const fingerprint = command?.type === "choose_trump"
+      ? JSON.stringify({ type: command.type, suit: command.suit })
+      : command?.type === "play_card"
+        ? JSON.stringify({ type: command.type, suit: command.card?.suit, rank: command.card?.rank })
+        : JSON.stringify(command);
+    return this.#serialize(roomId, async () => {
+      const current = await this.#repository.get(roomId);
+      if (!current) throw new Error("Room not found");
+      const previous = (current.processedCommands ?? []).find(entry =>
+        entry.userId === userId && entry.idempotencyKey === idempotencyKey);
+      if (previous) {
+        if (previous.fingerprint !== fingerprint) {
+          throw new Error("Idempotency key was already used for a different game command");
+        }
+        return roomViewForUser(current, userId, { now: this.now() });
+      }
+      if (current.version !== expectedVersion) throw new Error("Stale room version");
+      const transformed = applyRoomCommand(current, userId, command, expectedVersion, this.now());
+      const processedCommands = [...(current.processedCommands ?? []), {
+        userId, idempotencyKey, fingerprint, acceptedVersion: expectedVersion, processedAt: this.now()
+      }].slice(-128);
+      const next = { ...transformed, processedCommands };
+      const saved = await this.#repository.compareAndSwap(roomId, expectedVersion, next);
+      if (!saved) throw new Error("Concurrent room update; retry with the same idempotency key");
+      return roomViewForUser(next, userId, { now: this.now() });
+    });
   }
 
   async disconnect(principal, roomId, expectedVersion) {
