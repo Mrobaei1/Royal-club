@@ -64,7 +64,7 @@ test("game command idempotency key prevents duplicate execution and rejects key 
     repository, now: () => now, id: () => `phase1-idempotency-${++id}`,
     selectHakemSeat: () => 0
   });
-  const player = userId => ({ authenticated: true, userId });
+  const player = (userId: string) => ({ authenticated: true, userId });
   let room = await service.create(player("p0"));
   for (const userId of ["p1", "p2", "p3"]) room = await service.join(player(userId), room.roomId, room.version);
   for (const userId of ["p0", "p1", "p2", "p3"]) room = await service.ready(player(userId), room.roomId, true, room.version);
