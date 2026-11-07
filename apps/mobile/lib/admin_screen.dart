@@ -1389,6 +1389,48 @@ class _AdminScreenState extends State<AdminScreen> {
     }
   }
 
+  Future<void> _createPlan() async {
+    final code = TextEditingController();
+    final name = TextEditingController();
+    final days = TextEditingController(text: '30');
+    final price = TextEditingController(text: '0');
+    final accepted = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(appText(context, 'ایجاد اشتراک جدید', 'Create subscription plan')),
+        content: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
+          TextField(controller: code, decoration: InputDecoration(labelText: appText(context, 'کد یکتا', 'Unique code'))),
+          TextField(controller: name, decoration: InputDecoration(labelText: appText(context, 'نام اشتراک', 'Plan name'))),
+          TextField(controller: days, keyboardType: TextInputType.number, inputFormatters: [FilteringTextInputFormatter.digitsOnly], decoration: InputDecoration(labelText: appText(context, 'مدت (روز)', 'Duration (days)'))),
+          TextField(controller: price, keyboardType: TextInputType.number, inputFormatters: [FilteringTextInputFormatter.digitsOnly], decoration: InputDecoration(labelText: appText(context, 'قیمت (اعتبار)', 'Price (credits)'))),
+        ])),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: Text(appText(context, 'انصراف', 'Cancel'))),
+          FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: Text(appText(context, 'ایجاد', 'Create'))),
+        ],
+      ),
+    );
+    if (!mounted || accepted != true) { code.dispose(); name.dispose(); days.dispose(); price.dispose(); return; }
+    final planCode = code.text.trim().toLowerCase();
+    final duration = int.tryParse(days.text);
+    final credits = int.tryParse(price.text);
+    if (!RegExp(r'^[a-z0-9_]{2,40}$').hasMatch(planCode) || name.text.trim().isEmpty || name.text.trim().length > 100 || duration == null || duration < 1 || duration > 3650 || credits == null || credits < 0 || credits > 1000000000) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appText(context, 'اطلاعات اشتراک معتبر نیست.', 'Subscription details are invalid.'))));
+      code.dispose(); name.dispose(); days.dispose(); price.dispose();
+      return;
+    }
+    setState(() => _busy = true);
+    try {
+      await AdminService.createPlan(code: planCode, name: name.text.trim(), durationDays: duration, priceCredits: credits);
+      await _load();
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appText(context, 'اشتراک جدید ایجاد شد.', 'Subscription plan created.'))));
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appError(context, error))));
+    } finally {
+      code.dispose(); name.dispose(); days.dispose(); price.dispose();
+      if (mounted) setState(() => _busy = false);
+    }
+  }
   Future<void> _editPlan(dynamic plan) async {
     final name = TextEditingController(text: plan['name']?.toString() ?? '');
     final days = TextEditingController(text: plan['durationDays']?.toString() ?? '30');
@@ -1894,6 +1936,12 @@ class _AdminScreenState extends State<AdminScreen> {
               ),
               const SizedBox(height: 22),
               Text(appText(context, 'مدیریت اشتراک‌ها', 'Subscription management'), style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              Align(alignment: AlignmentDirectional.centerStart, child: FilledButton.icon(
+                onPressed: _busy ? null : _createPlan,
+                icon: const Icon(Icons.add),
+                label: Text(appText(context, 'ایجاد اشتراک جدید', 'Create subscription plan')),
+              )),
               const SizedBox(height: 8),
               for (final plan in _plans) Card(child: ListTile(
                 leading: const Icon(Icons.workspace_premium),
