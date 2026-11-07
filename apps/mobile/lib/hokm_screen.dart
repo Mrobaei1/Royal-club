@@ -526,13 +526,19 @@ class _HokmScreenState extends State<HokmScreen> with WidgetsBindingObserver {
     _panel(Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       Text(t('ساخت مسابقه جدید', 'Create a match'), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
       const SizedBox(height: 12),
-      DropdownButtonFormField<int>(
-        initialValue: _target,
-        decoration: InputDecoration(labelText: t('تعداد دست‌های لازم برای برد', 'Hands required to win')),
-        items: [3, 5, 7].map((value) => DropdownMenuItem(value: value, child: Text('$value'))).toList(),
-        onChanged: _busy ? null : (value) { if (value != null) setState(() => _target = value); },
-      ),
-      const SizedBox(height: 12),
+      if (widget.managerAccess) ...[
+        DropdownButtonFormField<int>(
+          initialValue: _target,
+          decoration: InputDecoration(labelText: t('تعداد دست‌های لازم برای برد', 'Hands required to win')),
+          items: [3, 5, 7].map((value) => DropdownMenuItem(value: value, child: Text('$value'))).toList(),
+          onChanged: _busy ? null : (value) { if (value != null) setState(() => _target = value); },
+        ),
+        const SizedBox(height: 12),
+      ] else
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Text(t('هدف مسابقه برای بازیکنان ۷ دست است.', 'The match target for regular players is fixed at 7 hands.')),
+        ),
       FilledButton.icon(onPressed: _busy || _userId == null ? null : _create,
         icon: const Icon(Icons.add_circle_outline), label: Text(t('ساخت اتاق حکم', 'Create Hokm room'))),
     ])),
