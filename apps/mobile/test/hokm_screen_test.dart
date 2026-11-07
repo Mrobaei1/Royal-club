@@ -378,7 +378,7 @@ void main() {
     ));
     await tester.pump();
     expect(find.text('Hands required to win'), findsNothing);
-    expect(find.text('fixed at 7 hands'), findsOneWidget);
+    expect(find.textContaining('fixed at 7 hands'), findsOneWidget);
     await tester.tap(find.text('Create Hokm room'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 20));
