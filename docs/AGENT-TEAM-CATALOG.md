@@ -27,6 +27,7 @@ The code catalogue includes these responsibilities:
 15. Platform operations — health and redacted telemetry; no deploy or production changes.
 16. Community and moderation — triage reports; no permanent sanction by default.
 17. Advertising operations — campaign analysis and drafts; no spend, publication or user contact.
+18. Infrastructure & reliability — API/hosting/DNS/TLS health, incident diagnosis, safe recovery proposals and owner notifications; production changes remain owner-approved.
 
 The game-specialist template is instantiated by a stable game key (examples: `game_operations:uno`, `game_operations:poker`). These are identifiers/templates only, not live agents.
 
