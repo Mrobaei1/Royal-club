@@ -69,3 +69,29 @@ test('extractExplicitIndexNames ignores indexes backing primary and unique const
     { indexname: 'wallet_transactions_user_idx', constraint_backed: false },
   ]), ['wallet_transactions_user_idx']);
 });
+
+
+test('extractExplicitIndexNames normalizes the additive case-fold index over the legacy index', () => {
+  assert.deepEqual(extractExplicitIndexNames([
+    {
+      indexname: 'users_username_unique_idx',
+      constraint_backed: false,
+      indexdef: 'CREATE UNIQUE INDEX users_username_unique_idx ON public.users USING btree (username) WHERE (username <> \'\'::text)',
+    },
+    {
+      indexname: 'users_username_casefold_unique_idx',
+      constraint_backed: false,
+      indexdef: 'CREATE UNIQUE INDEX users_username_casefold_unique_idx ON public.users USING btree (lower(username)) WHERE (username IS NOT NULL)',
+    },
+  ]), ['users_username_unique_idx']);
+});
+
+test('extractExplicitIndexNames retains the source index when its definition already matches', () => {
+  assert.deepEqual(extractExplicitIndexNames([
+    {
+      indexname: 'users_username_unique_idx',
+      constraint_backed: false,
+      indexdef: 'CREATE UNIQUE INDEX users_username_unique_idx ON public.users USING btree (lower(username)) WHERE (username IS NOT NULL)',
+    },
+  ]), ['users_username_unique_idx']);
+});

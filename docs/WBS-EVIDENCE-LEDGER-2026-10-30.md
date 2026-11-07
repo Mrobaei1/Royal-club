@@ -83,7 +83,7 @@ The roadmap previously said 47 packages. Counting the actual leaf IDs in the app
 | 5.6 | 10 | In progress | WBS §6; free-by-default policy; readiness checklist | Test owner/manager controls while ensuring paid behavior remains disabled absent approval. |
 | 5.7 | 10 | Blocked | Execution roadmap P3 | Manual Persian/English manager UI acceptance before any activation. |
 | 6.1 | 20 | In progress | Admin UI source; readiness checklist | Complete mobile/desktop usability and non-admin negative-access acceptance. |
-| 6.2 | 20 | Blocked | Checkpoint production audit: OWNER_USER_ID absent | Obtain owner-confirmed numeric configuration through the approved secure path; never infer it. |
+| 6.2 | 20 | Blocked | Active Function metadata lists `OWNER_USER_ID`; its value was not retrieved. | Verify the numeric owner binding through the authorized secure path and obtain owner acceptance; never infer or expose the value. |
 | 6.3 | 25 | In progress | Delegated-permission source/tests; readiness checklist | Review full permission matrix/scopes/revocation and 50-assistant ceiling; do not seed grants. |
 | 6.4 | 20 | In progress | PR #55 merged; agent task proposal source/docs | Complete capabilities/approval/state/audit model while execution stays dormant. |
 | 6.5 | 20 | In progress | Permission/agent audit and kill-switch source/tests | Verify kill-switch, cancellation, revocation and secret-redaction controls end-to-end. |
@@ -91,16 +91,13 @@ The roadmap previously said 47 packages. Counting the actual leaf IDs in the app
 | 6.7 | 10 | Not started | No provider-validated deposit/payment adapter evidence identified | Only proceed after separate provider/security design and owner approval. |
 | 6.8 | 10 | Blocked | WBS approval gate; no manual owner acceptance evidence | Complete owner-facing acceptance; do not activate identities, grants, schedules or financial actions. |
 | 7.1 | 25 | In progress | Main `10e3921`: runs 41186639789, 41186639847, 41186639831 and Production health 41186639790 all passed. Current docs-only main `7c7502`: Production health 41186861447 passed; remaining workflows were pending/in progress at audit time. PR #78 head `96fa920`: runs 41186501237, 41186501241, 41186501258, 41186501259 all passed; PR #78 merged as `10e3921` | Continue requiring exact-head API build/unit/integration, Flutter analyze/tests, engine audit and Web Preview checks for every implementation PR. |
-| 7.2 | 20 | Blocked | Neon `Royal-Club-API` production branch reports active Function deployment 80 (created before PR #77); latest post-merge health/database workflow 41186861447 passed but did not deploy PR #77; Neon does not expose bundled Git SHA | Independently attest deployed source provenance and complete production registration/login smoke tests; no new deployment without approval. |
-| 7.3 | 25 | Blocked | Read-only Neon inspection: 33 public tables; 33 current `server.ts` table declarations; table names match with no missing/extra table | Complete column/index/migration-sequence reconciliation and documented rollback/recovery review; no production mutation without approval. |
-| 7.4 | 15 | Blocked | apps/api/src/server.ts cleanup endpoint; checkpoint says no scheduled Neon trigger | Configure/verify approved scheduled trigger and idle/serverless cleanup observability. |
+| 7.2 | 20 | Blocked | Active Function deployment metadata still does not expose a bundled Git SHA; health checks prove availability only. | Add immutable build/commit provenance and complete owner-approved deployment plus registration/login smoke tests. |
+| 7.3 | 25 | Blocked | Read-only source/catalog comparison: 35 source tables vs 33 Production; 2 tables, 12 columns and 1 explicit index missing. Additive migration artifact is tested on isolated Neon branch `schema-repair-validation-2026-11-04`; full semantic parity, app integration, backup/restore and rollback remain open. | Complete full catalog-definition comparison, API integration on the repaired branch, recovery rehearsal and owner-approved production migration; no Production mutation without approval. |
+| 7.4 | 15 | In progress | Neon trigger `trigger-612bdbb2-b904-4aa3-b35a-4e6f4914822d` is enabled on `* * * * *`; Function invoke begin/end logs are present once per minute. Exact cleanup CTE deleted one synthetic expired room and its linked notification on isolated Neon validation branch `schema-repair-validation-2026-11-04`; follow-up counts were zero. | Verify deployed trigger-to-route authorization/binding and safe production outcome observability; production snapshot had no eligible expired rooms. |
 | 7.5 | 20 | Not started | WBS §6 and execution roadmap P5; no tested backup/restore evidence identified | Complete monitoring/runbooks and owner-approved latest-three backup/restore test. |
-| 7.6 | 20 | Blocked | Checkpoint production security audit; owner/SMS secrets absent | Complete network/CORS/secrets/owner-ID/least-privilege acceptance with owner approval. |
+| 7.6 | 20 | Blocked | Read-only metadata lists `OWNER_USER_ID` and `CORS_ORIGINS`; values were not read. Neon allowed-IP list is empty; architecture compatibility is not yet assessed. SMS remains disabled. | Complete secure CORS/owner-value review, network-policy decision, external log-access review and owner-approved production security acceptance. |
 | 7.7 | 20 | Blocked | Two-device and real Android acceptance gates remain open | Complete end-to-end network, layout, accessibility, performance and regression acceptance. |
-| 7.8 | 15 | Blocked — approval gated | Owner instruction required; no APK authorization in current task | Prepare release notes/rollback readiness only; do not build or prepare APK until explicit approval. |
-
-
-## Static source audit findings — 2026-10-30
+| 7.8 | 15 | Blocked — approval gated | Owner instruction required; no APK authorization in current task | Prepare release notes/rollback readiness only; do not build or prepare APK until explicit approval. |## Static source audit findings — 2026-10-30
 
 - **Public identity:** a scan of current-main `apps/api/src/server.ts` found `fullName` in registration/phone-registration responses and the authenticated `/api/v1/me/profile` response, all for the account owner. Public friend, chat, leaderboard, match-history and spectator handlers use usernames; API integration tests assert that full names/emails are absent from the relevant payloads. This is source-level evidence only; the manual screen-by-screen and legacy/empty-profile audit remains open.
 - **Clear-all notifications:** the mobile notifications screen has a confirmed delete-all action, `NotificationsService.deleteAll()` calls `DELETE /api/v1/notifications`, and the API deletes only rows for the authenticated `user_id`. The integration test verifies that clearing one account's notifications leaves the other account's notifications intact. Device UX acceptance remains open.
@@ -179,3 +176,98 @@ The repository search showed active, unmerged work including PRs #86 (isolated c
 - No APK build or preparation is authorized by this audit.
 - No Production deployment, migration, schema mutation, secret change, paid activation, SMS activation, agent activation, grant creation or scheduled agent action was performed or authorized by this documentation update.
 - Live audio/video calling, WebRTC calling and TURN remain out of scope. Recorded voice messages remain future-optional and OFF by default.
+
+
+## Technical blocker closure addendum — 2026-11-04
+
+See [Technical Blocker Closure Audit](TECHNICAL-BLOCKER-CLOSURE-2026-11-04.md) for exact read-only evidence and the isolated migration test.
+
+- WBS 7.4 moves from Blocked to In progress: trigger schedule and recurring Function invocations are now verified; actual deletion remains unproven because no eligible expired room existed at observation time.
+- WBS 7.3 remains Blocked: an additive migration has been authored and passed on an isolated Neon branch, including a repeat run; complete semantic parity, app integration, backup/restore and rollback are still required.
+- WBS 6.2 remains Blocked: the active Function metadata contains the owner variable name, but secure value verification and owner acceptance remain open.
+- WBS 7.2 and 7.6 remain Blocked: deployed-source provenance and secure production configuration/network acceptance remain open.
+- No WBS points are awarded by this status update. No Production mutation, migration, deployment, secret retrieval, or network-policy change was performed.
+
+- Additional 7.4 evidence: isolated Neon test branch proved the cleanup CTE deletes an expired empty room and its linked notification; no Production rows were changed.
+
+## Technical closure follow-up — 2026-11-04 (latest exact-head audit)
+
+- PR #166 remains open and unmerged on `chore/technical-blocker-closure-2026-11-04`. Latest observed commit after migration/test hardening: `107bda4c4d20bbad6448154770889684eaad886c`. Do not merge or deploy without explicit owner approval.
+- CI on the immediately preceding head `ef5325f043ce846407529242720aa2e02d1566ab` passed: API build + `npm test`, API integration (`npm run test:integration` against PostgreSQL 16), Flutter analyze/tests, backgammon engine/AI/board regression, and Web Preview. A fresh exact-head run is required after the latest username-index change.
+- WBS 7.3: targeted semantic catalog review confirmed audited new-table/column types, defaults, nullability, PK/FK/check constraints and expiry index. It found source drift in the legacy username index (case-sensitive DB index vs source-required `LOWER(username)`). The additive migration now creates `users_username_casefold_unique_idx`; isolated clone check found zero blank usernames and zero case-fold duplicate groups, and the new index was applied and verified on the isolated branch. Package remains Blocked pending full source-wide semantic parity, app compatibility, backup/restore, rollback/recovery and explicit Production approval.
+- WBS 7.4: production trigger configuration confirms the enabled one-minute schedule targets `royalclubapi` at `/internal/cleanup-expired-empty-rooms`. Current source route rejects calls without a valid trigger invocation and returns deleted-room count; integration tests assert 403 without trigger, 200 with valid trigger and actual deletion. Isolated Neon CTE test also deleted one expired room and linked notification. Package remains In progress until deployed Function provenance and production outcome observability are proven.
+
+
+## Latest technical audit — 2026-11-04 (source parity and stale Function)
+
+- Source/catalog name parity was re-run against the repaired isolated Neon branch using the same parser and index-normalization logic as `apps/api/src/schema-parity.ts`: tables 35/35, columns 301/301, explicit indexes 34/34, with no missing or extra names. This is name-level parity, not full semantic parity of all source definitions.
+- `schema-parity.ts` now reads `pg_get_indexdef` and normalizes the verified additive `users_username_casefold_unique_idx` to the source's `users_username_unique_idx`, ignoring only the known case-sensitive legacy definition. Added unit tests cover both legacy and already-correct indexes.
+- Production Neon Function remains deployment 81, created `2026-10-31T10:24:43Z`; GitHub commit `b74c05ff68b9cd3334d07a2d084983b0b48ad7cc` at 11:24:28Z subsequently added trigger-auth validation, cleanup-success logging, and SHA provenance. The active Function is therefore older than those changes. No successful/failed cleanup application log was found in the last seven days; invocation begin/end alone do not prove route execution.
+- Manual-only deployment workflow already verifies main/Production target, schema parity, and exact `ROYAL_CLUB_GIT_SHA` via the health endpoint, then runs registration/login/profile/friend/match smoke tests. PR #166 additionally makes the owner ID secret mandatory and validates numeric format before deployment; no secret value was read.
+- 7.2 remains Blocked pending owner-approved deployment and exact live SHA match. 7.4 remains In progress pending deployment-backed route/outcome verification. 6.2 remains Blocked pending owner confirmation that the configured numeric ID is the owner account. 7.6 remains Blocked pending secure CORS/network/log access acceptance. 7.3 remains Blocked pending full semantic review, app compatibility, backup/restore and rollback evidence.
+- No WBS points awarded. No Production migration/deployment/configuration change or APK build performed.
+
+
+## Superseding verification — 2026-11-04 23:31 local
+
+This section supersedes any earlier statements in this ledger that said the latest exact-head CI was pending.
+
+- PR #166 current observed head: `2273698e200e19887d3f41294a679eafebf77282`; PR state open, not merged.
+- All four workflows completed successfully on this exact head: `Validate Royal Club` (API build/tests, API integration tests and Flutter analyze/tests), `Royal Club validation` (API build/tests and Flutter analyze/tests), `Backgammon engine audit`, and `Royal Club Web Preview` (build succeeded; deploy step correctly skipped for a PR preview).
+- The manual Production deployment workflow was not run. It is workflow-dispatch only, restricted to `main` and the confirmed Production Neon project/branch. Its pre-deploy gates include API build/tests, read-only schema check, required explicit owner ID, function deployment readiness, health check with exact build SHA, and registration/profile/friend smoke tests.
+- Neon Production trigger is confirmed enabled every minute and targets `royalclubapi` at `/internal/cleanup-expired-empty-rooms`. Active Function deployment remains #81 from 2026-10-31; no newer deployment was made. Thus trigger configuration and source CI are verified, but the deployed bundle does not yet contain the latest source changes, and production route outcome/provenance remains unverified.
+- Isolated schema-repair branch currently reports 35 public tables and 301 columns, with the additive case-fold username index present. Production read-only verification still reports zero of the two target tables, zero of the three target columns and zero of the two target indexes; no Production schema change occurred.
+- WBS 7.3 remains Blocked only on the remaining release/recovery gates: source-wide semantic catalog comparison (not merely name counts), app compatibility acceptance, backup/restore rehearsal, rollback/recovery evidence and explicit owner-approved Production migration. The isolated additive migration itself and repeat-run/fail-closed validation are complete.
+- WBS 7.2 remains Blocked on owner-approved manual deployment and exact live SHA verification. WBS 6.2 remains Blocked on secure confirmation that the configured numeric owner ID identifies the GM account. WBS 7.6 remains Blocked on secure CORS/network/log-access acceptance. WBS 7.4 remains In progress pending a deployment-backed production route/outcome check.
+- No WBS points are awarded by this evidence update. No Production migration, deployment, config/network change, secret retrieval, APK build or PR merge occurred.
+
+
+## Backup/restore evidence update — 2026-11-04
+
+- Read-only Production backup inventory found one manual snapshot dated 2026-10-31 and an empty Production snapshot schedule. The WBS 7.5 requirement for three recent recovery points and tested recurring backups is not met.
+- A branch restore from that snapshot completed and was catalog-checked: the restored snapshot contains 33 public tables / 289 columns. The original Production branch and API Function deployment 81 were preserved; the restored branch is retained separately.
+- The restore call's default finalization temporarily changed the project's default-branch pointer. This was corrected immediately by restoring the original branch name and default pointer. Follow-up checks confirmed the original branch ID `br-misty-flower-bavs47dm` is again `production` and default, with its original Function and cleanup trigger. This was a branch-control-plane change only; no SQL writes, migration, data update, or deployment occurred. Full details and the correction are in [Technical Blocker Closure Audit](TECHNICAL-BLOCKER-CLOSURE-2026-11-04.md).
+- WBS 7.5 remains Blocked: one historical snapshot restore is not three-point retention, does not establish a recurring backup schedule, and does not complete end-to-end application recovery/RPO/RTO acceptance. No WBS points are awarded by this evidence update.
+
+
+## Source-wide column semantic comparison — 2026-11-04
+
+- Compared all 301 parsed source column declarations against the repaired isolated Neon catalog: 301/301 names, zero missing/extra names, zero data-type mismatches, and one nullability mismatch.
+- The only mismatch is `users.username`: source DDL leaves it nullable; both Production and the isolated branch enforce NOT NULL. Read-only counts on both branches showed 0 NULL and 0 blank usernames (3 users on each at audit time). The stronger DB constraint was preserved; no relaxation was attempted.
+- This resolves the type/name audit for all 301 columns but does not establish full defaults/identity/generated/FK/check/index-expression parity. WBS 7.3 remains Blocked pending the explicit username nullability decision, remaining semantic checks, application compatibility, and complete backup/restore/rollback acceptance. No WBS points are awarded from this partial audit.
+- Full detail: [Technical Blocker Closure Audit](TECHNICAL-BLOCKER-CLOSURE-2026-11-04.md).
+
+
+## Cross-package CI audit — 2026-11-06
+
+Exact-head GitHub Actions were checked for open implementation PRs. #133 Hokm's corrected head `fd3d96b` passed API build/unit, Flutter analyze/tests, API integration, backgammon audit and Web Preview build (deployment skipped). #167 wallet localization, #168 welcome-card removal and #169 admin plan creation each passed the four repository validation workflows. #170's WBS/retention documentation passed the same four workflows. Chess #86, Manch #110, Hokm mobile #137, UNO integration #144, subscription-plan draft #148, owner analytics #114, owner-protection #104 and infrastructure proposal #97 also have successful historical exact-head CI as recorded in the technical audit.
+
+These results are not WBS points by themselves. No leaf score changes are made: CI does not prove physical-device acceptance, full game matches, load/multi-instance behavior, live worker provisioning, production schema/deployment, owner security acceptance, scheduled backup retention or disaster recovery. Duplicate/stale PRs #146/#147/#148 and stale/non-mergeable docs PR #145 remain unmerged; newer mainline PRs #168/#167/#169 carry the corresponding updates. Full evidence and exact SHAs are in [the technical blocker closure audit](TECHNICAL-BLOCKER-CLOSURE-2026-11-04.md).
+
+## Cross-package regression evidence — 2026-11-06
+
+Verified feature-branch validation (no WBS points awarded solely from green CI):
+- PR #133 Hokm production integration, head `fd3d96bb7b66da1ba2372f0309bf0e6bbe5f55a8`: API build/unit, API integration, Flutter analyze/tests, Web Preview, and Backgammon engine audit passed. A prior failed run exposed a stale 4–3 winner fixture inconsistent with first-to-seven scoring; corrected fixture is on the current head.
+- PR #148 subscription plan administration, head `658bcfc5e30466efa0d7c1c5283c75353715a8fc`: all four workflows passed; added unauthenticated/non-owner and numeric boundary tests.
+- PR #146 welcome-card removal, head `ef6852ce3945ed8eca6c746ba216a605916a2f43`: all four workflows passed; explicit English-locale widget coverage added.
+- PR #147 subscription localization, head `a365e2e8ac4f058fcb3f1ab3f2b4cb5edab6de73`: all four workflows passed.
+- PR #110 Iranian Manch: analyzer identified a malformed test-group closure; repaired on head `5bc0bb9feaa3a14bd72167aeb4226cd6ffda725f`; full CI is pending. Do not mark complete until all four workflows pass.
+
+Open integration/release boundaries: all PRs remain unmerged; PR #137's older Hokm mobile draft must be reconciled with #133; PR #86 chess stays standalone. Production migration/deploy, secrets/owner-ID verification, backup/restore acceptance and device/load testing remain gated. Full detail in [Technical Blocker Closure Audit](TECHNICAL-BLOCKER-CLOSURE-2026-11-04.md).
+
+
+## Current-mainline port and dependency audit — 2026-11-06
+
+- PR #167 (wallet monthly-plan localization) and PR #168 (home welcome-card removal) are current-mainline ports of earlier draft fixes #147 and #146. Their exact heads `6be7d5ac622faaeb51cdbe458e53290b7be06d1e` and `7897e7aa5eb22b1d0da15a1428f1246c0c0afdb0` passed all four repository validation workflows. The earlier PRs remain open; do not merge both copies.
+- PR #169 ports owner-managed subscription-plan creation to current mainline and now includes unauthenticated (401), non-owner (403), fractional-duration and unsafe-price rejection tests. Its CI failure is traced to the same missing `apps/api/src/hokm/room.ts` implementation referenced by the existing mainline `hokm-room.test.ts`; API integration and Flutter checks pass, while API unit/Web Preview test workflows fail at module resolution. PR #110 has the same dependency. PR #133 is the provider of that missing module and must be integrated first; do not bypass the test or claim these PRs fully green.
+- PR #170 criterion matrix / data-retention policy documentation passed all four workflows. All 53 packages remain Pending until criterion-level evidence is individually reviewed; no WBS points are automatically awarded.
+- PR #133 is being revalidated at its latest head; its merge is still a separate owner decision. No PR was merged, no Production change or APK build occurred.
+
+
+## Cross-package follow-up — 2026-11-06 (latest branch corrections)
+
+- PR #166 head `d9730916fccfb189360c4b997a9004b09e007ce7`: stale PR merge-ref diagnosis is recorded in the technical audit. The refreshed merge ref now targets current main `d0f7558406a427acb4cec1e5c50f215d57e941f6`. Earlier exact-head run on code-bearing commit `e3569008109f8a23885d76802d7e6e9dea65a298` passed API build/unit, API integration, Flutter analyze/tests, backgammon audit and Web Preview build. Fresh exact-head runs on `d973091` are in progress; no WBS points are awarded pending completion and remaining Production/recovery gates.
+- PR #133 Hokm API head `6aec85771dcef35f5f6535d7d08bf182e82b3cd2`: two ordinary-player integration fixtures that incorrectly requested owner-controlled target 3 now use default target 7. The owner-controlled target-3 fixtures remain unchanged. This corrects test setup without weakening authorization. The PR remains Draft; this new head has no exact-head Actions evidence yet.
+- PR #137 Hokm mobile head `6a36c5383f1f32aa403d78879e136e6fa42951dd`: the public lobby no longer exposes the 3/5/7 target selector to ordinary players; they create with default 7. The selector is shown only after the server-backed owner check, with widget tests added for ordinary and owner behavior. This is unverified by exact-head CI and remains Draft. The current Hokm auth adapter maps owner/player only; delegated manager identity is not yet wired into this setting.
+- Mainline PR #181 adds versioned owner-managed game-service configuration and rollback for UNO only. The mobile API origin remains build-time configured; cryptographic signatures and a pinned verification key are not implemented. The requested signed, centrally managed API/all-game origin control remains incomplete pending a secure signing-key provisioning path.
+- No PR was merged by this task. No Production migration/deployment, origin change, secret change, worker provisioning, APK build or WBS score change was performed.
