@@ -540,7 +540,11 @@ class _HomeScreenState extends State<HomeScreen> {
                   MaterialPageRoute<void>(builder: (_) => FutureBuilder<bool>(
                     future: AdminService.isOwner(),
                     builder: (context, ownerSnapshot) {
-                      if (!ownerSnapshot.hasData) return const Scaffold(body: Center(child: CircularProgressIndicator()));
+                      if (!ownerSnapshot.hasData && !ownerSnapshot.hasError) {
+                        return const Scaffold(body: Center(child: CircularProgressIndicator()));
+                      }
+                      // A failed owner lookup must never grant the match-target control.
+                      // Let ordinary players continue with the server-enforced default.
                       return HokmScreen(
                         api: HokmService(),
                         identityLoader: () async {
