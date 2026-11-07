@@ -153,7 +153,7 @@
 | 5.1-C | Atomic balance | 5 | Pending | Not audited |
 | 5.1-D | Idempotent concurrency | 5 | Pending | Not audited |
 | 5.1-E | Owner adjustments | 5 | Pending | Not audited |
-| 5.2-A | Manager plans | 5 | Pending | Not audited |
+| 5.2-A | Manager plans | 5 | Passed | PR #192 exact head `02dac555352ea0d70e391168272a24cc44c66299`; owner step-up protected create-plan API/UI; API integration run `42230679256`, API build/tests and Flutter analyze/tests run `42230679251` (2026-11-07). |
 | 5.2-B | Transactional activation | 5 | Pending | Not audited |
 | 5.2-C | Expiry/removal | 5 | Pending | Not audited |
 | 5.2-D | Server-controlled prices | 5 | Pending | Not audited |
@@ -214,11 +214,11 @@
 
 | WBS criterion | Acceptance criterion | Points | Score | Evidence |
 |---|---|---:|---:|---|
-| 7.1-A | API build/unit | 5 | Pending | Not audited |
-| 7.1-B | API DB integration | 5 | Pending | Not audited |
-| 7.1-C | Flutter analyze/tests | 5 | Pending | Not audited |
-| 7.1-D | Engine audit | 5 | Pending | Not audited |
-| 7.1-E | Web preview checks | 5 | Pending | Not audited |
+| 7.1-A | API build/unit | 5 | Passed | PR #166 exact head `5b0898c0818533e543b3f8df85515aaa573a770d`; API build and tests passed in run `42223001081` (2026-11-06). |
+| 7.1-B | API DB integration | 5 | Passed | PR #166 exact head `5b0898c0818533e543b3f8df85515aaa573a770d`; PostgreSQL integration passed in run `42223001021`. |
+| 7.1-C | Flutter analyze/tests | 5 | Passed | PR #166 exact head `5b0898c0818533e543b3f8df85515aaa573a770d`; Flutter analyze/tests passed in runs `42223001021` and `42223001081`. |
+| 7.1-D | Engine audit | 5 | Passed | PR #166 exact head `5b0898c0818533e543b3f8df85515aaa573a770d`; backgammon engine/AI audit passed in run `42223001007`. |
+| 7.1-E | Web preview checks | 5 | Passed | PR #166 exact head `5b0898c0818533e543b3f8df85515aaa573a770d`; Web Preview build passed in run `42223001210`; deployment correctly skipped on PR. |
 | 7.2-A | Repeatable manual deployment | 5 | Pending | Not audited |
 | 7.2-B | Owner approval | 5 | Pending | Not audited |
 | 7.2-C | Source provenance | 5 | Pending | Not audited |
@@ -252,9 +252,9 @@
 - Packages decomposed: **53/53**
 - Acceptance criteria: **200**
 - Points represented: **1000/1,000**
-- Earned points currently evidenced: **10/1,000 (1.0%)** — criteria 2.5-A and 2.5-B passed on 2026-11-04.
-- Remaining criteria: **198 Pending** (990 points not yet earned).
-- Official project percentage: **1.0% evidence-backed minimum**; this is not a full-project audit and will increase only as additional criteria pass.
+- Earned points currently evidenced: **40/1,000 (4.0%)** — criteria 2.5-A/B (10 points), 5.2-A (5 points), and 7.1-A through 7.1-E (25 points) have criterion-specific evidence.
+- Remaining criteria: **192 Pending** (960 points not yet earned).
+- Official project percentage: **4.0% evidence-backed minimum**; this is a partial criterion audit, not a claim that only 4.0% of code exists. Increase only as additional criteria pass.
 
 ## Required evidence record
 
