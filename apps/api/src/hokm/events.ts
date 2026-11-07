@@ -63,9 +63,12 @@ export class HokmEventHub extends EventEmitter {
     const client = this.#client;
     this.#client = null;
     if (client) {
-      try { await client.query('UNLISTEN hokm_room_updates'); }
+      // This is a dedicated LISTEN connection. Destroy it directly on shutdown
+      // instead of waiting for an UNLISTEN round trip that can hang while the
+      // database/network is already draining. Closing the connection removes
+      // the subscription automatically and cannot leak it back into the pool.
+      try { client.release(true); }
       catch (error) { try { this.#onError(error); } catch { /* ignored */ } }
-      finally { client.release(); }
     }
     this.removeAllListeners();
     return true;
