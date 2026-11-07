@@ -7,8 +7,9 @@ import { HokmEventHub } from './hokm/events.js';
 class FakeListenerClient extends EventEmitter {
   queries = [];
   released = false;
+  destroyed = false;
   async query(sql) { this.queries.push(sql); return { rows: [] }; }
-  release() { this.released = true; }
+  release(destroy = false) { this.released = true; this.destroyed = destroy; }
 }
 
 test('Hokm event hub listens once and fans out only room notifications', async () => {
@@ -37,7 +38,10 @@ test('Hokm event hub listens once and fans out only room notifications', async (
   assert.equal(await hub.close(), false);
   assert.equal(hub.isRunning, false);
   assert.equal(client.released, true);
-  assert.ok(client.queries.includes('UNLISTEN hokm_room_updates'));
+  assert.equal(client.destroyed, true,
+    'The dedicated LISTEN connection must be destroyed rather than returned to the pool on shutdown.');
+  assert.equal(client.queries.includes('UNLISTEN hokm_room_updates'), false,
+    'Shutdown must not wait for an extra database round trip.');
   assert.deepEqual(errors, ['listener disconnected']);
 });
 
