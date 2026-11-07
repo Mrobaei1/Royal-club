@@ -35,10 +35,10 @@ The roadmap previously said 47 packages. Counting the actual leaf IDs in the app
 
 ## Status summary
 
-- In progress: 38 packages
-- Blocked: 10 packages
-- Not started: 4 packages
-- Blocked — approval gated: 1 packages
+- In progress: 40 packages
+- Blocked: 9 packages
+- Not started: 3 packages
+- Blocked — approval gated: 1 package
 - Total: 53 packages / 1000 points.
 
 ## Package-by-package evidence register
@@ -271,3 +271,13 @@ Open integration/release boundaries: all PRs remain unmerged; PR #137's older Ho
 - PR #137 Hokm mobile head `6a36c5383f1f32aa403d78879e136e6fa42951dd`: the public lobby no longer exposes the 3/5/7 target selector to ordinary players; they create with default 7. The selector is shown only after the server-backed owner check, with widget tests added for ordinary and owner behavior. This is unverified by exact-head CI and remains Draft. The current Hokm auth adapter maps owner/player only; delegated manager identity is not yet wired into this setting.
 - Mainline PR #181 adds versioned owner-managed game-service configuration and rollback for UNO only. The mobile API origin remains build-time configured; cryptographic signatures and a pinned verification key are not implemented. The requested signed, centrally managed API/all-game origin control remains incomplete pending a secure signing-key provisioning path.
 - No PR was merged by this task. No Production migration/deployment, origin change, secret change, worker provisioning, APK build or WBS score change was performed.
+
+
+## Criterion scoring update — 2026-11-07
+
+- PR #166 was merged as `608754f4f387fba441111fb4ee440bebe7de1586`; its exact-head API build/unit, PostgreSQL integration, Flutter analyze/tests, backgammon engine audit and Web Preview build passed. These satisfy WBS 7.1-A through 7.1-E (25 points) in the criterion matrix.
+- PR #189 was merged as `eb312f710d17a3ac7464f0b37eacd1f3dbc2feca`; owner report mutations now require fresh session-bound step-up while delegated access remains resource-scoped.
+- PR #192 was merged as `bc0a7128ffaa6a2c4a6f496ced3827afaed0d7ae`; exact-head API integration, API build/tests, Flutter analyze/tests and Web Preview build passed. This satisfies WBS 5.2-A (5 points) for owner-managed plan creation with step-up protection.
+- Together with the previously accepted 2.5-A/B evidence (10 points), the criterion matrix records 40/1,000 = 4.0% evidence-backed minimum. The remaining 192 criteria are pending. This is not a complete project percentage.
+- Package status counts were reconciled against the current 53-row register: 40 In progress, 9 Blocked, 3 Not started, 1 Approval gated. No additional WBS points are inferred from PR merges alone.
+- No Production migration/deployment, secret read, APK build, SMS/payment activation, or Agent activation was performed.
