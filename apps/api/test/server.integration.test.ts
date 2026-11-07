@@ -2824,7 +2824,7 @@ test('Phase 4 agent task definitions remain dormant and proposals require human 
     assert.equal(templates.statusCode, 200, templates.body);
     assert.equal(templates.json().runtimeEnabled, false);
     const roleTemplates = templates.json().templates as Array<Record<string, unknown>>;
-    assert.equal(roleTemplates.length, 17);
+    assert.equal(roleTemplates.length, 18);
     assert.ok(roleTemplates.some((template) => template.code === 'backgammon'));
     assert.ok(roleTemplates.some((template) => template.code === 'chess'));
     assert.ok(roleTemplates.some((template) => template.code === 'card_games'));
