@@ -183,3 +183,8 @@ Replace the current long, owner-only admin screen with a navigable, responsive c
 - No UI-only security; backend permission checks remain mandatory.
 - Flutter analyze and relevant tests pass at exact branch head.
 - No merge to main, production deployment, or APK build without separate owner approval.
+
+
+## Preview API isolation gate
+
+The Netlify API proxy requires the deployment-scoped `ROYAL_CLUB_API_ORIGIN` variable. It accepts only a bare HTTPS origin and returns HTTP 503 when the variable is missing or invalid. Do not configure PR previews to use the Production API origin; use a dedicated isolated staging API/database. This is intentionally fail-closed so a public pull-request preview cannot silently read or mutate Production data.
