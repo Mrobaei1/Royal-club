@@ -42,7 +42,7 @@ class _HokmScreenState extends State<HokmScreen> with WidgetsBindingObserver {
   String get _roomId => (_room?['roomId'] ?? '').toString();
   int get _version => (_room?['version'] as num?)?.toInt() ?? 0;
   String get _status => (_room?['status'] ?? 'waiting').toString();
-  bool get _host => _userId != null && _room?['hostUserId']?.toString() == _userId;
+  bool get _host => _room?['isHost'] == true;
   bool get _hostUnavailable {
     final hostId = _room?['hostUserId']?.toString();
     if (hostId == null) return false;
