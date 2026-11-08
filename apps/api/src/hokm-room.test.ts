@@ -104,5 +104,6 @@ test('room projections expose usernames but never full names', () => {
   assert.equal(view.players[1].userId, 'player-1');
   assert.equal(view.isHost, true);
   assert.equal(Object.hasOwn(view, 'hostUserId'), false);
+  assert.equal(view.hostSeat, 0);
   assert.equal(roomViewForUser(room, 'player-1').isHost, false);
 });
