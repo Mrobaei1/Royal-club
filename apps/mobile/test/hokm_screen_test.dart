@@ -299,6 +299,7 @@ void main() {
       home: HokmScreen(api: api, identityLoader: () async => 'u1'),
     ));
     await tester.pump();
+    await tester.ensureVisible(find.text('Create Hokm room'));
     await tester.tap(find.text('Create Hokm room'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 50));
@@ -567,9 +568,11 @@ void main() {
     await tester.tap(find.text('Create Hokm room'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 20));
+    await tester.ensureVisible(find.text('I am ready'));
     await tester.tap(find.text('I am ready'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 20));
+    await tester.ensureVisible(find.text('Start match'));
     await tester.tap(find.text('Start match'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 20));
@@ -613,11 +616,13 @@ void main() {
   });
 
 
-  testWidgets('active Hokm exit requires explicit permanent forfeit confirmation', (tester) async {
-    tester.view.physicalSize = const Size(1200, 1800);
+  testWidgets('active Hokm exit dialog fits a narrow screen with large text', (tester) async {
+    tester.view.physicalSize = const Size(360, 720);
     tester.view.devicePixelRatio = 1;
+    tester.platformDispatcher.textScaleFactorTestValue = 1.5;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
     final api = FakeHokmApi();
     await tester.pumpWidget(MaterialApp(
       locale: const Locale('en'),
@@ -635,14 +640,17 @@ void main() {
     await tester.tap(find.text('Start match'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 20));
+    await tester.ensureVisible(find.text('Forfeit match'));
     await tester.tap(find.text('Forfeit match'));
     await tester.pump();
     expect(find.text('Forfeit this match?'), findsOneWidget);
+    expect(tester.takeException(), isNull);
     await tester.tap(find.text('Forfeit'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 20));
     expect(api.forfeitCalls, 1);
     expect(find.text('Create Hokm room'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
 
