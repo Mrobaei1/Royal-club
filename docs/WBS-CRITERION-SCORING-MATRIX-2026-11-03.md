@@ -59,7 +59,7 @@
 | 2.5-D | Dynamic text/directional UI | 5 | Pending | Not audited |
 | 2.6-A | JWT/session negative tests | 5 | Pending | Not audited |
 | 2.6-B | Rate limits/CORS/network controls | 5 | Pending | Not audited |
-| 2.6-C | Sensitive log redaction | 5 | Pending | Not audited |
+| 2.6-C | Sensitive log redaction | 5 | Passed | API unit CI run 42478821167; request body/header/cookie/query-string redaction, route-template serialization, IP omission and server-generated request IDs |
 | 2.7-A | Same account VPN off/on | 5 | Pending | Not audited |
 | 2.7-B | Identity/session continuity | 5 | Pending | Not audited |
 | 2.7-C | Access/game/social recovery | 5 | Pending | Not audited |
@@ -252,9 +252,9 @@
 - Packages decomposed: **53/53**
 - Acceptance criteria: **200**
 - Points represented: **1000/1,000**
-- Earned points currently evidenced: **110/1,000 (11.0%)** — prior 95 points plus 15 points for criteria 2.2-A, 2.2-B and 2.2-C after exact-head API build and PostgreSQL integration CI passed on the current mainline code.
-- Remaining criteria: **178 Pending** (890 points not yet earned).
-- Official project percentage: **11.0% evidence-backed minimum**; this remains a partial criterion audit, not a claim that only 11.0% of code exists. The six recently closed criteria are supported by exact-head negative-test CI, friend-only free chat/free-by-default route audit, username-only privacy regressions, OTP digest/expiry/rate-limit and purpose-binding tests, and encrypted owner-controlled SMS credential tests. Provider deployment portability, NFR target approval, physical VPN/device acceptance, owner-approved retention and DR acceptance remain open.
+- Earned points currently evidenced: **115/1,000 (11.5%)** — prior 95 points plus 20 points for criteria 2.2-A, 2.2-B, 2.2-C and 2.6-C after exact-head API build/unit and PostgreSQL integration CI passed on the current mainline code.
+- Remaining criteria: **177 Pending** (885 points not yet earned).
+- Official project percentage: **11.5% evidence-backed minimum**; this remains a partial criterion audit, not a claim that only 11.0% of code exists. The six recently closed criteria are supported by exact-head negative-test CI, friend-only free chat/free-by-default route audit, username-only privacy regressions, OTP digest/expiry/rate-limit and purpose-binding tests, and encrypted owner-controlled SMS credential tests. Provider deployment portability, NFR target approval, physical VPN/device acceptance, owner-approved retention and DR acceptance remain open.
 
 ## Required evidence record
 
@@ -273,17 +273,17 @@ The following percentages are calculated directly from the 200 criterion rows in
 | WBS phase | Total weight | Passed criteria | Earned points | Progress |
 | --- | ---: | ---: | ---: | ---: |
 | Phase 1 — Architecture and project management | 80 | 11/16 | 55 | 68.75% |
-| Phase 2 | 130 | 5/26 | 25 | 19.23% |
+| Phase 2 | 130 | 6/26 | 30 | 23.08% |
 | Phase 3 | 230 | 0/46 | 0 | 0.00% |
 | Phase 4 | 120 | 0/24 | 0 | 0.00% |
 | Phase 5 | 140 | 1/28 | 5 | 3.57% |
 | Phase 6 | 140 | 0/28 | 0 | 0.00% |
 | Phase 7 | 160 | 5/32 | 25 | 15.63% |
-| **Total** | **1,000** | **22/200** | **110** | **11.00%** |
+| **Total** | **1,000** | **23/200** | **115** | **11.50%** |
 
 
 
-## Phase 2 OTP/security evidence audit — 2026-11-08
+## Phase 2 OTP/security and logging evidence audit — 2026-11-08
 
 Three Phase 2 criteria now pass (15/130 points):
 - **2.2-A Passed:** Iranian phone normalization, salted/digested OTP storage, single-use consumption, expiry, resend cooldown, bounded attempts, per-phone/global daily limits, and production simulator lock are covered by integration tests.
@@ -291,3 +291,6 @@ Three Phase 2 criteria now pass (15/130 points):
 - **2.2-C Passed:** SMS provider API keys are encrypted with AES-256-GCM using a server-side 32-byte key; settings endpoints require owner step-up; API responses expose only an `apiKeyConfigured` boolean; tests assert that plaintext and ciphertext fields are not returned. Activation remains disabled.
 - Evidence: exact-head API integration run [42478821103](https://github.com/Mrobaei1/Royal-club/actions/runs/42478821103/job/128726055974) and API build/test run [42478821167](https://github.com/Mrobaei1/Royal-club/actions/runs/42478821167/job/128726055955), on PR #206 head `1446067e28615406dd7ae6121f11a0700ed3c0e0`; source/test files were unchanged by subsequent documentation-only PR #208.
 - **2.2-D remains Pending:** live SMS/OTP activation and approved device/provider acceptance are not authorized or evidenced. No SMS was sent and no credentials were activated.
+
+
+- **2.6-C Passed (5 points):** API logger tests verify request bodies, authorization/cookie/API-key headers, response cookies and query strings are redacted; request serialization uses route templates, omits client IP, and uses server-generated request IDs. Exact-head API unit/build run [42478821167](https://github.com/Mrobaei1/Royal-club/actions/runs/42478821167/job/128726055955) passed with `logging-config.test.ts` included in `npm test`.
