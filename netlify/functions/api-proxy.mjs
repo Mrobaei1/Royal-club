@@ -36,7 +36,7 @@ export default async (request, context) => {
   const parameterPath = typeof context.params?.splat === 'string'
     ? context.params.splat
     : '';
-  const path = (routedPath || parameterPath).replace(/^\\/+/, '');
+  const path = (routedPath || parameterPath).replace(/^\/+/, '');
 
   if (!path || path.split('/').some(segment => segment === '.' || segment === '..')) {
     return Response.json({ error: 'Invalid API route' }, { status: 400 });
