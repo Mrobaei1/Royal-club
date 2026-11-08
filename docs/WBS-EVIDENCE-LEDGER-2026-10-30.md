@@ -347,3 +347,114 @@ Open integration/release boundaries: all PRs remain unmerged; PR #137's older Ho
 - The old PR #114 head `9ab685f4af6b266fb293812e9d476fd5b16ee129` was 52 commits behind/diverged and had only Netlify preview checks; it is not a valid integration candidate.
 - Its remaining Netlify proxy/redirect/workflow was deliberately not merged: the global `/api/*` redirect would affect Production, and `ROYAL_CLUB_API_ORIGIN` is not configured. Adopt only after Production and isolated preview API origins are configured and tested.
 - Analytics limitations remain: no event producers for chess/cards/UNO/Mafia, process-memory latency samples reset on restart, PDF does not support Persian characters, and provider/Agent costs are not sourced. No Production deployment or preview API origin was enabled.
+
+## Phase 2 OTP/security evidence audit — 2026-11-08
+
+- **2.2-A Passed (5 points):** integration tests cover Iranian phone normalization, six-digit OTP format, salted/digested storage (plaintext code absent from DB), single-use consumption, expiration, cooldown, maximum attempts, per-phone/global daily limits, and production-mode simulator rejection.
+- **2.2-B Passed (5 points):** registration/login/link/reset OTP challenges are purpose-bound. Tests reject registration codes on generic verification, verify phone ownership during registration, login and account linking, reject unverified profile phone edits, and reject linking a phone already owned by another account.
+- **2.2-C Passed (5 points):** owner-step-up protected SMS settings encrypt provider API keys using AES-256-GCM with a server-side 32-byte key. Tests verify ciphertext-at-rest, no plaintext/ciphertext leakage in read responses, and activation rejection.
+- Exact-head evidence: PR #206 head `1446067e28615406dd7ae6121f11a0700ed3c0e0`; API integration run [42478821103](https://github.com/Mrobaei1/Royal-club/actions/runs/42478821103/job/128726055974) and API build/unit run [42478821167](https://github.com/Mrobaei1/Royal-club/actions/runs/42478821167/job/128726055955) passed. The OTP implementation and integration tests were unchanged by the later docs-only PR #208.
+- **2.2-D remains Pending:** live SMS activation, approved provider/device acceptance and any real SMS delivery require a separate explicit owner decision. No activation or real SMS send was performed.
+- WBS weights unchanged. Total evidence-backed score: **110/1,000 (11.0%)**; Phase 2: **25/130 (19.23%)**; Phase 1 remains **55/80 (68.75%)**.
+
+
+## Sensitive log redaction evidence — 2026-11-08
+
+- **2.6-C Passed (5 points):** `apps/api/src/logging-config.ts` redacts request bodies, authorization/cookie/API-key/proxy-authorization headers and response cookies. Request serialization strips query strings (which may contain OTP/reset tokens), omits client IP, and prefers route templates; request IDs are generated server-side and caller-supplied IDs are disabled.
+- Unit tests in `apps/api/src/logging-config.test.ts` cover redaction paths, query-string and IP omission, request ID uniqueness, and safe log-level fallback. Exact-head API unit/build run [42478821167](https://github.com/Mrobaei1/Royal-club/actions/runs/42478821167/job/128726055955) passed on PR #206 head `1446067e28615406dd7ae6121f11a0700ed3c0e0`.
+- WBS Phase 2 score is now 30/130 (23.08%); total evidence-backed score is 115/1,000 (11.5%). Criteria 2.6-A and 2.6-B remain Pending pending additional exact-head negative tests for token version invalidation and rate-limit/network boundaries.
+
+
+## JWT/session revocation evidence — 2026-11-08
+
+- **2.6-A Passed (5 points):** integration tests cover expired, malformed and missing JWTs, idempotent logout revocation, password recovery invalidating previous sessions, and explicit token-version invalidation. The new regression test increments a user's `token_version`, verifies old tokens are rejected on both self-profile and friends routes, then verifies a fresh login works.
+- PR #210 exact head `f5ab13e7ec13a099a1b59ba1ca09a6c060a0066c` passed API integration run [42486568179](https://github.com/Mrobaei1/Royal-club/actions/runs/42486568179/job/128749630826), API build/unit run [42486568179](https://github.com/Mrobaei1/Royal-club/actions/runs/42486568179/job/128749630797), root Flutter tests/analyze, backgammon engine audit and Web Preview build. PR #210 merged as `b99b79b010b0af662909bbac2e669ca958e676a3`.
+- Phase 2 score: **35/130 (26.92%)**; total evidence-backed score: **120/1,000 (12.0%)**. Criteria 2.6-B (explicit rate-limit/network-boundary negative tests) remains Pending.
+
+
+## Registration password policy evidence — 2026-11-08
+
+- **2.1-B Passed (5 points):** `isValidRegistrationPassword` enforces at least six Unicode code points and at most 128 UTF-8 bytes. Tests cover five/six-character boundary, Persian letters, emoji code points, 128/129-byte boundary, empty and non-string input.
+- Exact-head evidence: PR #210 API build/unit run [42486568179](https://github.com/Mrobaei1/Royal-club/actions/runs/42486568179/job/128749630797) passed; the same validation source/tests were included in PR #206 API build/test run [42478821167](https://github.com/Mrobaei1/Royal-club/actions/runs/42478821167/job/128726055955). No policy change was made.
+- Phase 2 score: **40/130 (30.77%)**; total evidence-backed score: **125/1,000 (12.5%)**.
+
+
+## Registration/login and session lifecycle evidence — 2026-11-08
+
+- **2.1-A Passed (5 points):** integration test `logout revokes the current bearer session while a fresh login creates a new session` exercises account registration, authenticated profile access, logout, email/password login and fresh authenticated profile access. Phone OTP registration/login is separately covered by the purpose-bound OTP integration test.
+- **2.1-C Passed (5 points):** session tests prove current-token revocation, idempotent logout, fresh-login recovery, password-reset invalidation of all prior sessions, and explicit `token_version` invalidation across protected routes.
+- Exact-head evidence: PR #210 API integration run [42486568179](https://github.com/Mrobaei1/Royal-club/actions/runs/42486568179/job/128749630826) and API build/unit run [42486568179](https://github.com/Mrobaei1/Royal-club/actions/runs/42486568179/job/128749630797) passed before merge `b99b79b010b0af662909bbac2e669ca958e676a3`.
+- Phase 2 score: **50/130 (38.46%)**; total evidence-backed score: **135/1,000 (13.5%)**. Criterion 2.1-D remains Pending because the live recovery provider/device acceptance is not enabled or approved.
+
+
+## Persian/English localization evidence — 2026-11-08
+
+- **2.4-A Passed (5 points):** `app_fa.arb` and `app_en.arb` both declare their expected locale and have identical non-metadata message keys; `localization_resource_parity_test.dart` and `localization_test.dart` assert parity.
+- **2.4-C Passed (5 points):** `appError` translates common API/service exceptions into English; notification localization tests cover friend request, friend acceptance and match invitation titles/bodies in Persian and English.
+- **2.4-D Passed (5 points):** widget tests pump Persian then English locale, verify shared text follows the selected language and assert RTL/LTR directionality.
+- Exact-head Flutter analyze/test run [42486568179](https://github.com/Mrobaei1/Royal-club/actions/runs/42486568179/job/128749630554) passed on PR #210 head `f5ab13e7ec13a099a1b59ba1ca09a6c060a0066c`. No localization code was changed by PR #210; the tests were run against current mainline source.
+- **2.4-B remains Pending:** a complete screen-by-screen audit of all visible static UI strings is still required.
+- Phase 2 score: **65/130 (50.0%)**; total evidence-backed score: **150/1,000 (15.0%)**.
+
+
+## Cross-account authorization regression evidence — 2026-11-08
+
+- **2.3-D Passed (5 points):** new integration test verifies a caller-supplied foreign `userId` cannot redirect `/api/v1/me/profile` updates to another account. Private chat is readable only by the two accepted friends; an unrelated account receives 403 on read/send, 404 on edit, and zero rows deleted when attempting to delete the pair's message.
+- PR #214 exact-head API integration run [424...](https://github.com/Mrobaei1/Royal-club/actions/runs/42486935392/job/128750743909) passed, as did API build/unit, Flutter analyze/tests, backgammon engine audit and Web Preview build. PR #214 merged as `7f3505fd2120517221d2d04c8713c3c125a47850`.
+- Phase 2 score: **70/130 (53.85%)**; total evidence-backed score: **155/1,000 (15.5%)**.
+
+
+## Public identity projection evidence — 2026-11-08
+
+- **2.3-B Passed (5 points):** public user search returns username and omits fullName/email; incoming friend requests omit email; chat conversation projections expose username and omit fullName; match history does not expose opponent email. Hokm integration tests verify nonparticipants cannot inspect room state and player views never include other players' hands or the undealt deck.
+- Exact-head API integration run [42486935392](https://github.com/Mrobaei1/Royal-club/actions/runs/42486935392/job/128750743909) passed on PR #214 head `36b052fedb6a4b6944ad28f94fab91ee42d31fb5`; PR #214 merged as `7f3505fd2120517221d2d04c8713c3c125a47850`.
+- Phase 2 score: **75/130 (57.69%)**; total evidence-backed score: **160/1,000 (16.0%)**. Criterion 2.3-C (legacy/empty profile privacy) remains Pending pending explicit empty/legacy payload regression coverage.
+
+
+## Rate-limit, CORS and network-boundary evidence — 2026-11-08
+
+- **2.6-B Passed (5 points):** new integration test proves login throttling is account-bound, not IP-bound: ten invalid attempts across two remote addresses return 401 and the eleventh returns 429; a separate account remains unaffected. Existing CORS test denies untrusted origins. API server config explicitly sets `trustProxy: false`, and OTP integration tests cover cooldown, attempt limits and daily limits.
+- Exact-head evidence: PR #216 head `0ccbabd035c0282f86a8f9fc615d1ee964cfeaa9`; API integration run [42487192996](https://github.com/Mrobaei1/Royal-club/actions/runs/42487192996/job/128751531735), API build/unit run [42487192984](https://github.com/Mrobaei1/Royal-club/actions/runs/42487192984/job/128751531635), Flutter, backgammon and Web Preview checks all passed. PR #216 merged as `9fbe93068095ad0f8d6944cbf50576ce7dad2a1e`.
+- Phase 2 score: **80/130 (61.54%)**; total evidence-backed score: **165/1,000 (16.5%)**. No Production rate-limit/CORS/network configuration was changed.
+
+
+## Legacy/empty public profile privacy evidence — 2026-11-08
+
+- **2.3-C Passed (5 points):** added `publicUsernameLabel` and `normalizedPublicUsername`, which accept only the public username field and use neutral localized fallback labels for null, blank, whitespace and non-string legacy values. Friends, Chat, Leaderboard and Hokm screens now use this shared helper; no private fullName/email/phone fallback is available through the helper.
+- Flutter regression tests cover empty/legacy values and username formatting. Exact-head Flutter analyze/widget test run [42487475637](https://github.com/Mrobaei1/Royal-club/actions/runs/42487475637/job/128752407108) passed on PR #218 head `ac3908d4aedc4cea6cec5b3659271cc020d54597`; PR #218 merged as `851d5c70af0f58e11ef840a3e50d8393306bbea4`.
+- Phase 2 score: **85/130 (65.38%)**; total evidence-backed score: **170/1,000 (17.0%)**.
+
+
+## Network-change session and game/social recovery evidence — 2026-11-08
+
+- **2.7-B Passed (5 points):** integration tests authenticate a user and then change the request remote address; `/api/v1/me` continues to resolve the same JWT subject and account identity.
+- **2.7-C Passed (5 points):** after a network/IP change, the same authenticated account retains its accepted friend list and recovers the identical active backgammon match board/state. These API tests demonstrate session continuity independent of IP address.
+- Exact-head evidence: PR #221 head `1591e0498eeea3b2084038d2b554693175374ec8`, API integration run [42487784052](https://github.com/Mrobaei1/Royal-club/actions/runs/42487784052/job/128753337846) passed. Physical Android VPN OFF/ON acceptance is not implied and remains pending.
+- Phase 2 score: **95/130 (73.08%)**; total evidence-backed score: **180/1,000 (18.0%)**.
+
+
+## Password recovery and account recovery evidence — 2026-11-08
+
+- **2.1-D Passed (5 points):** password recovery integration tests cover unknown-number non-enumeration, purpose-bound reset OTP, one-time consumption, password replacement, rejection of the old password, acceptance of the new password and revocation of all prior sessions. The development simulator is isolated to test/development mode and does not send real SMS; production provider/device activation remains pending under 2.2-D.
+- Exact-head API integration run [42487784052](https://github.com/Mrobaei1/Royal-club/actions/runs/42487784052/job/128753337846) passed on PR #221 head `1591e0498eeea3b2084038d2b554693175374ec8`.
+- Phase 2 score: **100/130 (76.92%)**; total evidence-backed score: **185/1,000 (18.5%)**.
+
+
+## Self-profile privacy evidence — 2026-11-08
+
+- **2.3-A Passed (5 points):** integration tests verify `GET /api/v1/me` resolves the profile solely from the verified JWT subject. A foreign `userId` query parameter cannot switch identity; two test accounts each receive their own email/full name/phone and never the other account's private identity.
+- Exact-head evidence: PR #222 head `619742db619a8009d8cf849e902cc08e5671ea8a`, API integration run [42487826951](https://github.com/Mrobaei1/Royal-club/actions/runs/42487826951/job/128753465486) passed; PR #222 merged as `6677e8da9b41cfa00a8450aa2a3c0db021e59838`.
+- Phase 2 score: **105/130 (80.77%)**; total evidence-backed score: **190/1,000 (19.0%)**.
+
+
+## Static UI localization audit — 2026-11-08
+
+- **2.4-B Passed (5 points):** audited user-visible static text across Main/auth, Account, Admin, Friends, Chat, Leaderboard, Notifications, Online Lobby/Match, Wallet, Owner Analytics, Spectator, Backgammon, Manch offline/online, Hokm/manager review, UNO online, and Chess lobby/game/admin/profile. Labels/prompts are rendered through bilingual `appText`, screen-local `t/_text/_t` helpers or explicit locale branches. Language names, usernames and stored descriptions are data values rather than static UI copy.
+- ARB key parity and locale-switch widget tests separately verify English/Persian resources and RTL/LTR directionality. Exact-head Flutter analyze/widget run [42487826939](https://github.com/Mrobaei1/Royal-club/actions/runs/42487826939/job/128753465277) passed on PR #222 head `619742db619a8009d8cf849e902cc08e5671ea8a`.
+- Phase 2 score: **110/130 (84.62%)**; total evidence-backed score: **195/1,000 (19.5%)**. Dynamic UNO/match error text improvements are tracked separately in PR #224.
+
+
+## Additional dynamic error localization — 2026-11-08
+
+- PR #224 merged as `df6023c2db676d349136d747259ff04bb498d14e`. It adds shared error translations for invalid match-room IDs and UNO sign-in/configuration/signature/service-origin failures, with tests asserting English output and unchanged Persian source messages.
+- Exact-head Flutter analyze/widget tests, API build/integration, backgammon audit and Web Preview checks passed on PR #224 head `93dafcf77d869ac0135d8c3e2173fefba1b8ddde`. This strengthens criterion 2.4-C; WBS points and weights are unchanged.
