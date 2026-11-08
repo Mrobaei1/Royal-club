@@ -45,15 +45,9 @@ try {
 }
 
 const roomManager = new UnoRoomManager();
-await pool.query(`
-  CREATE TABLE IF NOT EXISTS uno_room_snapshots (
-    id SMALLINT PRIMARY KEY CHECK (id = 1),
-    state JSONB NOT NULL DEFAULT '{"rooms":[]}'::jsonb,
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-  );
-  INSERT INTO uno_room_snapshots (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
-`);
-const savedRooms = await pool.query('SELECT state FROM uno_room_snapshots WHERE id = 1');
+// The snapshot table and singleton row are provisioned by the owner-run migration.
+// Runtime credentials intentionally have no CREATE privilege on the public schema.
+const savedRooms = await pool.query('SELECT state FROM public.uno_room_snapshots WHERE id = 1');
 if (savedRooms.rows[0]?.state) roomManager.restoreSnapshot(savedRooms.rows[0].state);
 // A process restart invalidates every old transport. Seats remain reserved, but
 // must be marked offline until their authenticated clients reconnect.
@@ -62,7 +56,7 @@ let roomWriteQueue: Promise<unknown> = Promise.resolve();
 const persistRooms = (): Promise<void> => {
   const snapshot = JSON.stringify(roomManager.exportSnapshot());
   roomWriteQueue = roomWriteQueue.catch(() => undefined).then(() =>
-    pool.query('UPDATE uno_room_snapshots SET state = $1::jsonb, updated_at = NOW() WHERE id = 1', [snapshot]),
+    pool.query('UPDATE public.uno_room_snapshots SET state = $1::jsonb, updated_at = NOW() WHERE id = 1', [snapshot]),
   );
   return roomWriteQueue.then(() => {});
 };
