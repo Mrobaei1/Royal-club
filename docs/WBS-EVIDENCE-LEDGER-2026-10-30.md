@@ -356,3 +356,10 @@ Open integration/release boundaries: all PRs remain unmerged; PR #137's older Ho
 - Exact-head evidence: PR #206 head `1446067e28615406dd7ae6121f11a0700ed3c0e0`; API integration run [42478821103](https://github.com/Mrobaei1/Royal-club/actions/runs/42478821103/job/128726055974) and API build/unit run [42478821167](https://github.com/Mrobaei1/Royal-club/actions/runs/42478821167/job/128726055955) passed. The OTP implementation and integration tests were unchanged by the later docs-only PR #208.
 - **2.2-D remains Pending:** live SMS activation, approved provider/device acceptance and any real SMS delivery require a separate explicit owner decision. No activation or real SMS send was performed.
 - WBS weights unchanged. Total evidence-backed score: **110/1,000 (11.0%)**; Phase 2: **25/130 (19.23%)**; Phase 1 remains **55/80 (68.75%)**.
+
+
+## Sensitive log redaction evidence — 2026-11-08
+
+- **2.6-C Passed (5 points):** `apps/api/src/logging-config.ts` redacts request bodies, authorization/cookie/API-key/proxy-authorization headers and response cookies. Request serialization strips query strings (which may contain OTP/reset tokens), omits client IP, and prefers route templates; request IDs are generated server-side and caller-supplied IDs are disabled.
+- Unit tests in `apps/api/src/logging-config.test.ts` cover redaction paths, query-string and IP omission, request ID uniqueness, and safe log-level fallback. Exact-head API unit/build run [42478821167](https://github.com/Mrobaei1/Royal-club/actions/runs/42478821167/job/128726055955) passed on PR #206 head `1446067e28615406dd7ae6121f11a0700ed3c0e0`.
+- WBS Phase 2 score is now 30/130 (23.08%); total evidence-backed score is 115/1,000 (11.5%). Criteria 2.6-A and 2.6-B remain Pending pending additional exact-head negative tests for token version invalidation and rate-limit/network boundaries.
