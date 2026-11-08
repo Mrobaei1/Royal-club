@@ -24,6 +24,10 @@ import { normalizePublicServiceOrigin, publicGameServices } from './game-service
 import { signGameServiceConfig, verifyGameServiceConfigSignature } from './game-service-config-signing.js';
 import { isOwnerIdentityConsistent } from './owner-protection.js';
 import { ensureManchSchema, registerManchRoutes } from './manch-online.js';
+import { PostgresRoomRepository } from './hokm/postgres-repository.js';
+import { HokmRoomService } from './hokm/service.js';
+import { HokmEventHub } from './hokm/events.js';
+import { registerHokmRoutes } from './hokm/fastify-routes.js';
 
 const scrypt = promisify(scryptCallback);
 
@@ -653,6 +657,19 @@ await pool.query(`
 `);
 
 await ensureManchSchema(pool);
+await pool.query(`
+  CREATE TABLE IF NOT EXISTS hokm_rooms (
+    room_id TEXT PRIMARY KEY, version INTEGER NOT NULL CHECK (version >= 1),
+    room_data JSONB NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+  CREATE INDEX IF NOT EXISTS hokm_rooms_status_updated_idx ON hokm_rooms ((room_data->>'status'), updated_at);
+  CREATE TABLE IF NOT EXISTS hokm_player_progress (
+    user_id BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    xp DOUBLE PRECISION NOT NULL DEFAULT 0 CHECK (xp >= 0),
+    level INTEGER NOT NULL DEFAULT 1 CHECK (level >= 1), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+`);
 
 
 await pool.query(`
@@ -1071,6 +1088,24 @@ const requireMatchAuth = async (request: any, reply: any) => {
 };
 
 registerManchRoutes(app, pool, requireMatchAuth);
+
+const requireHokmAuth = async (request: any, reply: any) => {
+  await requireMatchAuth(request, reply);
+  if (reply.sent) return;
+  const claims = request.user as { sub?: string };
+  if (!claims.sub || !isNumericId(claims.sub)) return reply.code(401).send({ error: 'A valid authenticated Royal Club user is required.' });
+  const ownerUserId = process.env.OWNER_USER_ID?.trim();
+  request.auth = { authenticated: true, userId: claims.sub,
+    role: ownerUserId && isNumericId(ownerUserId) && claims.sub === ownerUserId ? 'owner' : 'player' };
+};
+const hokmRepository = new PostgresRoomRepository(pool);
+const hokmService = new HokmRoomService({ repository: hokmRepository });
+if (typeof hokmService.forfeit !== 'function') throw new Error('HokmRoomService is missing the required forfeit operation.');
+const hokmEventHub = new HokmEventHub(pool, {
+  onError: (error: unknown) => app.log.error({ err: error }, 'Hokm PostgreSQL event listener failed'),
+});
+await hokmEventHub.start();
+await registerHokmRoutes(app, { service: hokmService, authenticate: requireHokmAuth, prefix: '/api/v1', eventHub: hokmEventHub });
 
 async function updateBackgammonRatings(client: PoolClient, winnerUserId: string, loserUserId: string) {
   const orderedIds = [winnerUserId, loserUserId].sort((left, right) => {
@@ -5223,7 +5258,7 @@ app.post('/internal/cleanup-expired-empty-rooms', async (request, reply) => {
   }
 });
 
-app.addHook('onClose', async () => { await pool.end(); });
+app.addHook('onClose', async () => { await hokmEventHub.close(); await pool.end(); });
 
 export { app };
 
