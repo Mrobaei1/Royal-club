@@ -3477,6 +3477,34 @@ test('friend acceptance serializes concurrent requests at the 100-friend boundar
 });
 
 
+test('login rate limits are account-bound and cannot be bypassed by changing network address', async () => {
+  const email = `rate-limit-${randomUUID()}@example.test`;
+  const responses = [];
+  for (let attempt = 0; attempt < 11; attempt++) {
+    responses.push(await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/login',
+      remoteAddress: attempt % 2 === 0 ? '198.51.100.10' : '203.0.113.20',
+      payload: { email, password: 'WrongPassword123!' },
+    }));
+  }
+  assert.deepEqual(
+    responses.slice(0, 10).map((response) => response.statusCode),
+    Array(10).fill(401),
+  );
+  assert.equal(responses[10].statusCode, 429,
+    'Changing remote address must not reset the account-specific login budget.');
+
+  const independentAccount = await app.inject({
+    method: 'POST',
+    url: '/api/v1/auth/login',
+    remoteAddress: '203.0.113.20',
+    payload: { email: `independent-${randomUUID()}@example.test`, password: 'WrongPassword123!' },
+  });
+  assert.equal(independentAccount.statusCode, 401,
+    'Rate limiting one identity must not block unrelated accounts.');
+});
+
 test('logout revokes the current bearer session while a fresh login creates a new session', async () => {
   const user = await register('Session Lifecycle Player');
   const beforeLogout = await app.inject({
