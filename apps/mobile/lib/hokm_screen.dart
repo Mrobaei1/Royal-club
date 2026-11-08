@@ -44,10 +44,10 @@ class _HokmScreenState extends State<HokmScreen> with WidgetsBindingObserver {
   String get _status => (_room?['status'] ?? 'waiting').toString();
   bool get _host => _room?['isHost'] == true;
   bool get _hostUnavailable {
-    final hostId = _room?['hostUserId']?.toString();
-    if (hostId == null) return false;
-    final hosts = _players.where((player) => player['userId']?.toString() == hostId).toList();
-    return hosts.isEmpty || hosts.first['connected'] != true || hosts.first['forfeited'] == true;
+    final hostSeat = (_room?['hostSeat'] as num?)?.toInt();
+    if (hostSeat == null) return false;
+    final host = _playerAtSeat(hostSeat);
+    return host == null || host['connected'] != true || host['forfeited'] == true;
   }
   List<Map<String, dynamic>> get _players {
     final list = _room?['players'];
