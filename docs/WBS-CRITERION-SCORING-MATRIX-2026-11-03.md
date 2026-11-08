@@ -50,7 +50,7 @@
 | 2.3-C | Legacy/empty profile privacy | 5 | Passed | Flutter CI run 42487475637; null/blank/non-string username fallback tests and username-only display helper across Friends, Chat, Leaderboard and Hokm |
 | 2.3-D | Cross-account authorization | 5 | Passed | API integration CI run 42486935392; foreign profile userId spoofing and outsider private-chat read/send/edit/delete regression test |
 | 2.4-A | ARB parity | 5 | Passed | Flutter CI run 42486568179; Persian and English ARB locale/key parity tests |
-| 2.4-B | Visible static UI localization | 5 | Pending | Not audited |
+| 2.4-B | Visible static UI localization | 5 | Passed | Flutter CI run 42487826939; screen-by-screen bilingual source audit across auth/account/admin/social/game/wallet/analytics and chess/UNO/Manch/Hokm surfaces |
 | 2.4-C | Dynamic errors/notifications localization | 5 | Passed | Flutter CI run 42486568179; appError translations and localized friend/match notification title/body tests |
 | 2.4-D | Locale-switch regression tests | 5 | Passed | Flutter CI run 42486568179; Persian/English locale switching, RTL/LTR direction and selected-language UI text tests |
 | 2.5-A | Persian RTL on Android | 5 | Passed | Owner-confirmed manual Android check, 2026-11-04; no issue reported |
@@ -252,9 +252,9 @@
 - Packages decomposed: **53/53**
 - Acceptance criteria: **200**
 - Points represented: **1000/1,000**
-- Earned points currently evidenced: **190/1,000 (19.0%)** — prior 185 points plus 5 points for criterion 2.3-A after exact-head self-profile identity isolation tests passed.
-- Remaining criteria: **162 Pending** (810 points not yet earned).
-- Official project percentage: **19.0% evidence-backed minimum**; this remains a partial criterion audit, not a claim that only 11.0% of code exists. The six recently closed criteria are supported by exact-head negative-test CI, friend-only free chat/free-by-default route audit, username-only privacy regressions, OTP digest/expiry/rate-limit and purpose-binding tests, and encrypted owner-controlled SMS credential tests. Provider deployment portability, NFR target approval, physical VPN/device acceptance, owner-approved retention and DR acceptance remain open.
+- Earned points currently evidenced: **195/1,000 (19.5%)** — prior 190 points plus 5 points for criterion 2.4-B after a screen-by-screen bilingual static UI audit and exact-head Flutter CI passed.
+- Remaining criteria: **161 Pending** (805 points not yet earned).
+- Official project percentage: **19.5% evidence-backed minimum**; this remains a partial criterion audit, not a claim that only 11.0% of code exists. The six recently closed criteria are supported by exact-head negative-test CI, friend-only free chat/free-by-default route audit, username-only privacy regressions, OTP digest/expiry/rate-limit and purpose-binding tests, and encrypted owner-controlled SMS credential tests. Provider deployment portability, NFR target approval, physical VPN/device acceptance, owner-approved retention and DR acceptance remain open.
 
 ## Required evidence record
 
@@ -273,13 +273,13 @@ The following percentages are calculated directly from the 200 criterion rows in
 | WBS phase | Total weight | Passed criteria | Earned points | Progress |
 | --- | ---: | ---: | ---: | ---: |
 | Phase 1 — Architecture and project management | 80 | 11/16 | 55 | 68.75% |
-| Phase 2 | 130 | 21/26 | 105 | 80.77% |
+| Phase 2 | 130 | 22/26 | 110 | 84.62% |
 | Phase 3 | 230 | 0/46 | 0 | 0.00% |
 | Phase 4 | 120 | 0/24 | 0 | 0.00% |
 | Phase 5 | 140 | 1/28 | 5 | 3.57% |
 | Phase 6 | 140 | 0/28 | 0 | 0.00% |
 | Phase 7 | 160 | 5/32 | 25 | 15.63% |
-| **Total** | **1,000** | **38/200** | **190** | **19.00%** |
+| **Total** | **1,000** | **39/200** | **195** | **19.50%** |
 
 
 
@@ -338,3 +338,6 @@ Three Phase 2 criteria now pass (15/130 points):
 
 
 - **2.3-A Passed (5 points):** API integration test creates two accounts and proves `GET /api/v1/me` returns only the private identity associated with the verified JWT subject. Supplying another user's ID as a query parameter cannot redirect the response; each account receives only its own email, full name and phone. Exact-head API integration run [42487826951](https://github.com/Mrobaei1/Royal-club/actions/runs/42487826951/job/128753465486) passed on PR #222 head `619742db619a8009d8cf849e902cc08e5671ea8a`; merged as `6677e8da9b41cfa00a8450aa2a3c0db021e59838`.
+
+
+- **2.4-B Passed (5 points):** screen-by-screen static UI audit covered Main/auth, Account, Admin, Friends, Chat, Leaderboard, Notifications, Online Lobby/Match, Wallet, Owner Analytics, Spectator, Backgammon, Manch offline/online, Hokm/manager review, UNO online, and Chess lobby/game/admin/profile. User-visible static labels and prompts use bilingual `appText`, screen-local `t/_text/_t`, or explicit Persian/English locale branches. Language names and usernames are intentionally data values, not untranslated UI. ARB parity and locale-switch/RTL-LTR widget tests pass. Exact-head Flutter analyze/widget CI passed on PR #222 head `619742db619a8009d8cf849e902cc08e5671ea8a`, run [42487826939](https://github.com/Mrobaei1/Royal-club/actions/runs/42487826939/job/128753465277).
