@@ -446,7 +446,7 @@ function applyCommandForSeat(room, seat, command, expectedVersion, now = Date.no
     handRevealUntil = now + END_OF_HAND_REVEAL_MS;
     revealedHands = copyHands(round.hands);
     if (status === "completed") {
-      playerProgress = awardCompletedMatch(room.players, winningTeam, playerProgress);
+      playerProgress = awardCompletedMatch(room.players, winningTeam, playerProgress, room.pendingXpDeductions ?? []);
       for (const userId of room.pendingXpDeductions ?? []) playerProgress = penalizeMatchLeaver(playerProgress, userId);
     }
   }
