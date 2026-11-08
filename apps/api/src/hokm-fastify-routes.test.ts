@@ -60,3 +60,18 @@ test('expected match-state conflicts remain client conflicts', async () => {
     error: 'Only an active match can be canceled by player agreement',
   });
 });
+
+test('private Hokm chat is rate-limited by authenticated account after authentication', async () => {
+  const routes: Array<Record<string, any>> = [];
+  await registerHokmRoutes(
+    { route: (definition: Record<string, any>) => routes.push(definition) },
+    { service: {}, authenticate: async () => {} },
+  );
+  const chat = routes.find(item => item.method === 'POST' && item.url === '/hokm/rooms/:roomId/chat');
+  assert.ok(chat);
+  assert.equal(chat.config.rateLimit.max, 30);
+  assert.equal(chat.config.rateLimit.timeWindow, '1 minute');
+  assert.equal(chat.config.rateLimit.hook, 'preHandler');
+  assert.equal(chat.config.rateLimit.keyGenerator({ auth: { userId: '42' } }), 'hokm-chat:42');
+  assert.equal(chat.config.rateLimit.keyGenerator({ auth: { userId: '77' } }), 'hokm-chat:77');
+});
