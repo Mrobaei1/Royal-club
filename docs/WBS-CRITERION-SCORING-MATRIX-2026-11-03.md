@@ -46,7 +46,7 @@
 | 2.2-C | Provider credentials encrypted and owner-controlled | 5 | Passed | API integration CI run 42478821103; owner-step-up settings test verifies AES-256-GCM ciphertext at rest and secret-free reads |
 | 2.2-D | Production activation gated and approved device/provider acceptance | 5 | Pending | Not audited |
 | 2.3-A | Self-profile privacy | 5 | Pending | Not audited |
-| 2.3-B | Public APIs suppress private identity | 5 | Pending | Not audited |
+| 2.3-B | Public APIs suppress private identity | 5 | Passed | API integration CI run 42486935392; username-only public friend/chat projections, private-field absence and opponent-email-free match history assertions |
 | 2.3-C | Legacy/empty profile privacy | 5 | Pending | Not audited |
 | 2.3-D | Cross-account authorization | 5 | Passed | API integration CI run 42486935392; foreign profile userId spoofing and outsider private-chat read/send/edit/delete regression test |
 | 2.4-A | ARB parity | 5 | Passed | Flutter CI run 42486568179; Persian and English ARB locale/key parity tests |
@@ -252,9 +252,9 @@
 - Packages decomposed: **53/53**
 - Acceptance criteria: **200**
 - Points represented: **1000/1,000**
-- Earned points currently evidenced: **155/1,000 (15.5%)** — prior 150 points plus 5 points for criterion 2.3-D after exact-head cross-account API integration CI passed.
-- Remaining criteria: **169 Pending** (845 points not yet earned).
-- Official project percentage: **15.5% evidence-backed minimum**; this remains a partial criterion audit, not a claim that only 11.0% of code exists. The six recently closed criteria are supported by exact-head negative-test CI, friend-only free chat/free-by-default route audit, username-only privacy regressions, OTP digest/expiry/rate-limit and purpose-binding tests, and encrypted owner-controlled SMS credential tests. Provider deployment portability, NFR target approval, physical VPN/device acceptance, owner-approved retention and DR acceptance remain open.
+- Earned points currently evidenced: **160/1,000 (16.0%)** — prior 155 points plus 5 points for criterion 2.3-B after exact-head public-projection privacy integration CI passed.
+- Remaining criteria: **168 Pending** (840 points not yet earned).
+- Official project percentage: **16.0% evidence-backed minimum**; this remains a partial criterion audit, not a claim that only 11.0% of code exists. The six recently closed criteria are supported by exact-head negative-test CI, friend-only free chat/free-by-default route audit, username-only privacy regressions, OTP digest/expiry/rate-limit and purpose-binding tests, and encrypted owner-controlled SMS credential tests. Provider deployment portability, NFR target approval, physical VPN/device acceptance, owner-approved retention and DR acceptance remain open.
 
 ## Required evidence record
 
@@ -273,13 +273,13 @@ The following percentages are calculated directly from the 200 criterion rows in
 | WBS phase | Total weight | Passed criteria | Earned points | Progress |
 | --- | ---: | ---: | ---: | ---: |
 | Phase 1 — Architecture and project management | 80 | 11/16 | 55 | 68.75% |
-| Phase 2 | 130 | 14/26 | 70 | 53.85% |
+| Phase 2 | 130 | 15/26 | 75 | 57.69% |
 | Phase 3 | 230 | 0/46 | 0 | 0.00% |
 | Phase 4 | 120 | 0/24 | 0 | 0.00% |
 | Phase 5 | 140 | 1/28 | 5 | 3.57% |
 | Phase 6 | 140 | 0/28 | 0 | 0.00% |
 | Phase 7 | 160 | 5/32 | 25 | 15.63% |
-| **Total** | **1,000** | **31/200** | **155** | **15.50%** |
+| **Total** | **1,000** | **32/200** | **160** | **16.00%** |
 
 
 
@@ -316,3 +316,6 @@ Three Phase 2 criteria now pass (15/130 points):
 
 
 - **2.3-D Passed (5 points):** integration tests prove caller-supplied foreign `userId` cannot redirect a self-profile update, and private chat is restricted to the two accepted friends. A third account is denied message reads and sends; attempts to edit/delete another pair's messages affect zero rows. Exact-head API integration CI passed on PR #214 head `36b052fedb6a4b6944ad28f94fab91ee42d31fb5`, run [424...](https://github.com/Mrobaei1/Royal-club/actions/runs/42486935392/job/128750743909); the required API, Flutter, backgammon and web checks all passed before merge `7f3505fd2120517221d2d04c8713c3c125a47850`.
+
+
+- **2.3-B Passed (5 points):** current API integration tests assert that public user search and incoming friend projections expose usernames but omit full name/email, chat conversation projections expose username without full name, and match history does not expose opponent email. Hokm API tests also assert private hands and undealt deck are never returned to unauthorized viewers. Exact-head API integration CI passed on PR #214 head `36b052fedb6a4b6944ad28f94fab91ee42d31fb5`, run [42486935392](https://github.com/Mrobaei1/Royal-club/actions/runs/42486935392/job/128750743909).
