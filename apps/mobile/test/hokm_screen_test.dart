@@ -647,6 +647,37 @@ void main() {
 
 
 
+  testWidgets('Hokm manager review form remains usable on a narrow screen with large text', (tester) async {
+    tester.view.physicalSize = const Size(360, 720);
+    tester.view.devicePixelRatio = 1;
+    tester.platformDispatcher.textScaleFactorTestValue = 1.6;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+
+    final api = FakeHokmApi();
+    await tester.pumpWidget(MaterialApp(
+      locale: const Locale('fa'),
+      supportedLocales: const [Locale('fa'), Locale('en')],
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
+      home: HokmManagerReviewScreen(api: api, roomId: 'room-1'),
+    ));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 30));
+    expect(tester.takeException(), isNull);
+
+    final notes = find.byType(TextField).first;
+    await tester.ensureVisible(notes);
+    await tester.enterText(notes, 'بررسی شواهد و ثبت نتیجه');
+    final submit = find.byTooltip('ثبت بررسی');
+    await tester.ensureVisible(submit);
+    await tester.tap(submit);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 30));
+    expect(api.reportReviewCalls, 1);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('leaving a waiting room closes it and immediately returns the player to the lobby', (tester) async {
     final api = FakeHokmApi();
     await tester.pumpWidget(MaterialApp(
