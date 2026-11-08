@@ -98,4 +98,4 @@ Acceptance requires verified source-to-metric lineage, reproducible calculations
 - API p50/p95 and 5xx rate are process-local five-minute samples; database probe latency is measured during overview requests.
 - The integration test suite seeds 10,000 events to validate aggregate queries and export paths.
 - Not implemented/connected: chess/cards/UNO/Mafia event producers, signup-cohort retention, true session duration, durable distributed API telemetry, provider resource/billing data, agent execution cost/quality, advanced drill-down, and production load testing.
-- CI must pass at the exact latest PR head before this implementation slice is considered validated. No production deployment, merge, or APK build is included.
+- PR #197 exact-head CI passed before merge; later current-main API/Flutter CI also passed. The first implementation slice is merged into main. No Production deployment or APK build was performed; the remaining roadmap is not a claim of a complete live dashboard.
