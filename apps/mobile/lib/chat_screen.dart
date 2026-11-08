@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'l10n/app_text.dart';
+import 'public_identity.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
 import 'profile_avatar.dart';
@@ -48,7 +49,7 @@ class _ChatScreenState extends State<ChatScreen> {
             final unread = (item['unreadCount'] as num?)?.toInt() ?? 0;
             return ListTile(
               leading: RoyalAvatar(dataUrl: item['avatarDataUrl']?.toString(), radius: 22),
-              title: Text(item['username']?.toString().isNotEmpty == true ? '@${item['username']}' : (appText(context, 'دوست', 'Friend'))),
+              title: Text(publicUsernameLabel(item['username'], fallback: appText(context, 'دوست', 'Friend'))),
               subtitle: Text(
                 item['lastMessageDeleted'] == true
                     ? (appText(context, 'پیام حذف شده', 'Message deleted'))
@@ -59,7 +60,7 @@ class _ChatScreenState extends State<ChatScreen> {
               onTap: () async {
                 await Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => ChatThreadScreen(
                   userId: item['userId'].toString(),
-                  title: item['username']?.toString().isNotEmpty == true ? '@${item['username']}' : (_isEnglish ? 'Friend' : 'دوست'),
+                  title: publicUsernameLabel(item['username'], fallback: _isEnglish ? 'Friend' : 'دوست'),
                   avatarDataUrl: item['avatarDataUrl']?.toString(),
                 )));
                 _load();
