@@ -22,9 +22,9 @@
 | 1.2-A | Flutter/API/PostgreSQL boundaries respected | 5 | Passed | Static architecture review: README.md, apps/mobile/pubspec.yaml, apps/api/package.json and apps/api/src/server.ts; consolidated in docs/ARCHITECTURE-AND-NFRS.md (2026-11-08). |
 | 1.2-B | Provider portability and deployment boundaries verified | 5 | Pending | Not audited |
 | 1.2-C | Server-authoritative game/economy rules negatively tested | 5 | Passed | PR #204 head `fb7021615e90325712b6668d6a6a88eefaad9c3c`: API build/unit + PostgreSQL integration run `42475968379`; Manch/Hokm/backgammon negative coverage; Chess isolated API/mobile run `42475968328`; backgammon engine audit `42475968383`. UNO least-privilege negative integration/standalone CI passed on PR #203 head `ee8ccf74e865ceb63665915cfe39193a70f2e70c`, run `42475232236`. All exact-head workflows passed. (2026-11-08) |
-| 1.3-A | Free-by-default policy enforced | 5 | Pending | Not audited |
+| 1.3-A | Free-by-default policy enforced | 5 | Passed | Source audit across API, Manch, Hokm, Chess and UNO found no mandatory subscription/paid gate for core game/social routes. Only league `subscription_days` entry is gated and it is owner-opt-in; default league mode is `free`/0 days. Default customization prices are 0; VIP plan purchase is optional. Exact-head API/game CI: PR #204 runs `42475968379`, `42475968332`, `42475968328`, `42475968383`; UNO Standalone CI on PR #203 head `ee8ccf74e865ceb63665915cfe39193a70f2e70c`, run `42475232236`. (2026-11-08) |
 | 1.3-B | IP/VPN-independent identity verified | 5 | Pending | Not audited |
-| 1.3-C | Username-only public identity and privacy enforced | 5 | Pending | Not audited |
+| 1.3-C | Username-only public identity and privacy enforced | 5 | Passed | API payload assertions exclude fullName/email from friend, chat, leaderboard, match-history and spectator projections; Manch, Hokm, Chess and UNO tests/projections use usernames only. Static UI audit: friends/chat/lobby/leaderboard/Hokm/Chess surfaces use username or generic empty-profile fallback; fullName is limited to self-profile/auth and owner-only admin views. Exact-head PR #204 validation runs `42475968379`, `42475968328`, `42475968332`; UNO Standalone CI PR #203 run `42475232236`. Manual device and legacy-profile visual acceptance remains tracked under WBS 4.5. (2026-11-08) |
 | 1.4-A | WBS baseline/change control maintained | 5 | Passed | Frozen WBS v1.1 baseline plus change-control rules in docs/PROJECT-GOVERNANCE.md; no scope/weight changes. |
 | 1.4-B | Owner decisions and approvals traceable | 5 | Passed | Confirmed decisions and unresolved approvals recorded in docs/REQUIREMENTS-TRACEABILITY.md and docs/PROJECT-GOVERNANCE.md (2026-11-08). |
 | 1.4-C | Evidence links and milestone reports current | 5 | Passed | WBS matrix and rolling evidence ledger refreshed 2026-11-08; exact links/SHAs and remaining gates retained. |
@@ -252,9 +252,9 @@
 - Packages decomposed: **53/53**
 - Acceptance criteria: **200**
 - Points represented: **1000/1,000**
-- Earned points currently evidenced: **85/1,000 (8.5%)** — prior 80 points plus criterion 1.2-C (server-authoritative game/economy negative tests) after exact-head CI passed on the integrated mainline.
-- Remaining criteria: **183 Pending** (915 points not yet earned).
-- Official project percentage: **8.5% evidence-backed minimum**; this remains a partial criterion audit, not a claim that only 8.5% of code exists. The new 1.2-C pass is supported by exact-head negative test/CI evidence; provider portability, NFR target approval, free-by-default enforcement, privacy/network acceptance, owner-approved retention and DR acceptance remain open.
+- Earned points currently evidenced: **95/1,000 (9.5%)** — prior 80 points plus criterion 1.2-C (server-authoritative game/economy negative tests) after exact-head CI passed on the integrated mainline.
+- Remaining criteria: **181 Pending** (905 points not yet earned).
+- Official project percentage: **9.5% evidence-backed minimum**; this remains a partial criterion audit, not a claim that only 8.5% of code exists. The new 1.2-C pass is supported by exact-head negative test/CI evidence; provider portability, NFR target approval, physical VPN/device acceptance, owner-approved retention and DR acceptance remain open.
 
 ## Required evidence record
 
@@ -263,4 +263,4 @@ For each criterion record: `criterion ID | pass/fail/blocked/not tested | exact 
 
 ## Phase 1 architecture/governance audit — 2026-11-08
 
-Nine criteria passed (45/80 Phase 1 points; 56.25% of WBS 1.0). The eight prior architecture/governance criteria remain passed, and 1.2-C now passes based on exact-head negative tests and CI across backgammon, Manch, Hokm, chess, wallet/economy and UNO database boundaries. Criteria 1.1-B, 1.2-B, 1.3-A/B/C and 1.5-A/B remain Pending; no points are inferred from proposals, partial evidence or merged code without tests. Provider portability, owner-approved measurable NFRs, end-to-end free-by-default and privacy/network acceptance, approved retention/deletion durations, and application-level disaster recovery remain open.
+Eleven criteria passed (55/80 Phase 1 points; 68.75% of WBS 1.0). In addition to the eight prior architecture/governance criteria and 1.2-C, criteria 1.3-A (free-by-default enforcement) and 1.3-C (username-only public identity/privacy) now pass based on cross-module source audit, regression assertions and exact-head CI. Criteria 1.1-B, 1.2-B, 1.3-B and 1.5-A/B remain Pending. Physical VPN OFF/ON testing, legacy/empty-profile device acceptance under WBS 4.5, second-provider portability, owner-approved NFRs/retention, and application-level disaster recovery remain open.
