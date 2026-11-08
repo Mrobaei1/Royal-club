@@ -402,3 +402,10 @@ Open integration/release boundaries: all PRs remain unmerged; PR #137's older Ho
 - **2.3-D Passed (5 points):** new integration test verifies a caller-supplied foreign `userId` cannot redirect `/api/v1/me/profile` updates to another account. Private chat is readable only by the two accepted friends; an unrelated account receives 403 on read/send, 404 on edit, and zero rows deleted when attempting to delete the pair's message.
 - PR #214 exact-head API integration run [424...](https://github.com/Mrobaei1/Royal-club/actions/runs/42486935392/job/128750743909) passed, as did API build/unit, Flutter analyze/tests, backgammon engine audit and Web Preview build. PR #214 merged as `7f3505fd2120517221d2d04c8713c3c125a47850`.
 - Phase 2 score: **70/130 (53.85%)**; total evidence-backed score: **155/1,000 (15.5%)**.
+
+
+## Public identity projection evidence — 2026-11-08
+
+- **2.3-B Passed (5 points):** public user search returns username and omits fullName/email; incoming friend requests omit email; chat conversation projections expose username and omit fullName; match history does not expose opponent email. Hokm integration tests verify nonparticipants cannot inspect room state and player views never include other players' hands or the undealt deck.
+- Exact-head API integration run [42486935392](https://github.com/Mrobaei1/Royal-club/actions/runs/42486935392/job/128750743909) passed on PR #214 head `36b052fedb6a4b6944ad28f94fab91ee42d31fb5`; PR #214 merged as `7f3505fd2120517221d2d04c8713c3c125a47850`.
+- Phase 2 score: **75/130 (57.69%)**; total evidence-backed score: **160/1,000 (16.0%)**. Criterion 2.3-C (legacy/empty profile privacy) remains Pending pending explicit empty/legacy payload regression coverage.
