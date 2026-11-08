@@ -41,9 +41,9 @@
 | 2.1-B | Six-character password policy | 5 | Pending | Not audited |
 | 2.1-C | Session lifecycle/logout/revocation | 5 | Pending | Not audited |
 | 2.1-D | Recovery/account flows | 5 | Pending | Not audited |
-| 2.2-A | OTP normalization/digest/expiry/limits | 5 | Pending | Not audited |
-| 2.2-B | Purpose-bound register/login/link ownership | 5 | Pending | Not audited |
-| 2.2-C | Provider credentials encrypted and owner-controlled | 5 | Pending | Not audited |
+| 2.2-A | OTP normalization/digest/expiry/limits | 5 | Passed | API integration CI run 42478821103; OTP digest, expiry, cooldown, attempt exhaustion, daily limits and normalization regression tests |
+| 2.2-B | Purpose-bound register/login/link ownership | 5 | Passed | API integration CI run 42478821103; purpose-bound register/login/link, cross-purpose rejection, duplicate phone-link and unverified profile-edit tests |
+| 2.2-C | Provider credentials encrypted and owner-controlled | 5 | Passed | API integration CI run 42478821103; owner-step-up settings test verifies AES-256-GCM ciphertext at rest and secret-free reads |
 | 2.2-D | Production activation gated and approved device/provider acceptance | 5 | Pending | Not audited |
 | 2.3-A | Self-profile privacy | 5 | Pending | Not audited |
 | 2.3-B | Public APIs suppress private identity | 5 | Pending | Not audited |
@@ -252,9 +252,9 @@
 - Packages decomposed: **53/53**
 - Acceptance criteria: **200**
 - Points represented: **1000/1,000**
-- Earned points currently evidenced: **95/1,000 (9.5%)** — prior 80 points plus 15 points for criteria 1.2-C, 1.3-A and 1.3-C after exact-head CI and source/route audits passed on the integrated mainline.
-- Remaining criteria: **181 Pending** (905 points not yet earned).
-- Official project percentage: **9.5% evidence-backed minimum**; this remains a partial criterion audit, not a claim that only 9.5% of code exists. The three new passes are supported by exact-head negative-test CI, friend-only free chat and free-by-default route audit, and username-only privacy regression evidence; provider portability, NFR target approval, physical VPN/device acceptance, owner-approved retention and DR acceptance remain open.
+- Earned points currently evidenced: **110/1,000 (11.0%)** — prior 95 points plus 15 points for criteria 2.2-A, 2.2-B and 2.2-C after exact-head API build and PostgreSQL integration CI passed on the current mainline code.
+- Remaining criteria: **178 Pending** (890 points not yet earned).
+- Official project percentage: **11.0% evidence-backed minimum**; this remains a partial criterion audit, not a claim that only 11.0% of code exists. The six recently closed criteria are supported by exact-head negative-test CI, friend-only free chat/free-by-default route audit, username-only privacy regressions, OTP digest/expiry/rate-limit and purpose-binding tests, and encrypted owner-controlled SMS credential tests. Provider deployment portability, NFR target approval, physical VPN/device acceptance, owner-approved retention and DR acceptance remain open.
 
 ## Required evidence record
 
@@ -266,18 +266,28 @@ For each criterion record: `criterion ID | pass/fail/blocked/not tested | exact 
 Eleven criteria passed (55/80 Phase 1 points; 68.75% of WBS 1.0). In addition to the eight prior architecture/governance criteria, 1.2-C (server-authoritative game/economy negative tests), 1.3-A (free-by-default enforcement) and 1.3-C (username-only public identity/privacy) now pass based on exact-head CI and cross-module regression/source evidence. The 2026-10-26 owner decision confirms private chat is available to friends without a subscription, with non-friends blocked; current code and tests match it. Criteria 1.1-B, 1.2-B, 1.3-B and 1.5-A/B remain Pending. Physical VPN OFF/ON testing, legacy/empty-profile device acceptance under WBS 4.5, second-provider portability, owner-approved NFRs/retention, and application-level disaster recovery remain open.
 
 
-## Phase roll-up — 2026-11-08
+## Phase roll-up — 2026-11-08 (updated after OTP evidence audit)
 
 The following percentages are calculated directly from the 200 criterion rows in this matrix. A criterion earns its full five points only when its status is `Passed`; Pending criteria earn zero. Weights are unchanged.
 
 | WBS phase | Total weight | Passed criteria | Earned points | Progress |
 | --- | ---: | ---: | ---: | ---: |
 | Phase 1 — Architecture and project management | 80 | 11/16 | 55 | 68.75% |
-| Phase 2 | 130 | 2/26 | 10 | 7.69% |
+| Phase 2 | 130 | 5/26 | 25 | 19.23% |
 | Phase 3 | 230 | 0/46 | 0 | 0.00% |
 | Phase 4 | 120 | 0/24 | 0 | 0.00% |
 | Phase 5 | 140 | 1/28 | 5 | 3.57% |
 | Phase 6 | 140 | 0/28 | 0 | 0.00% |
 | Phase 7 | 160 | 5/32 | 25 | 15.63% |
-| **Total** | **1,000** | **19/200** | **95** | **9.50%** |
+| **Total** | **1,000** | **22/200** | **110** | **11.00%** |
 
+
+
+## Phase 2 OTP/security evidence audit — 2026-11-08
+
+Three Phase 2 criteria now pass (15/130 points):
+- **2.2-A Passed:** Iranian phone normalization, salted/digested OTP storage, single-use consumption, expiry, resend cooldown, bounded attempts, per-phone/global daily limits, and production simulator lock are covered by integration tests.
+- **2.2-B Passed:** OTP challenges are purpose-bound for register/login/link/reset; cross-purpose use is rejected, registration and login bind to the verified phone, phone linking requires an authenticated account, duplicate ownership is rejected, and unverified profile phone edits are blocked.
+- **2.2-C Passed:** SMS provider API keys are encrypted with AES-256-GCM using a server-side 32-byte key; settings endpoints require owner step-up; API responses expose only an `apiKeyConfigured` boolean; tests assert that plaintext and ciphertext fields are not returned. Activation remains disabled.
+- Evidence: exact-head API integration run [42478821103](https://github.com/Mrobaei1/Royal-club/actions/runs/42478821103/job/128726055974) and API build/test run [42478821167](https://github.com/Mrobaei1/Royal-club/actions/runs/42478821167/job/128726055955), on PR #206 head `1446067e28615406dd7ae6121f11a0700ed3c0e0`; source/test files were unchanged by subsequent documentation-only PR #208.
+- **2.2-D remains Pending:** live SMS/OTP activation and approved device/provider acceptance are not authorized or evidenced. No SMS was sent and no credentials were activated.
