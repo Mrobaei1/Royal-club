@@ -18,6 +18,16 @@ Royal Club is an Android-first multi-game platform in active development, built 
 - `infra`: local infrastructure configuration.
 - `docs`: architecture, security, deployment, phase-readiness, and acceptance documentation.
 
+## Architecture and project governance
+
+- [Architecture and non-functional requirements](docs/ARCHITECTURE-AND-NFRS.md)
+- [Requirements and owner-decision traceability](docs/REQUIREMENTS-TRACEABILITY.md)
+- [Project governance and change control](docs/PROJECT-GOVERNANCE.md)
+- [Data lifecycle and recovery requirements](docs/DATA-LIFECYCLE-AND-RECOVERY.md)
+- [Phase dependency and parallel execution map](docs/PHASE-DEPENDENCY-MAP.md)
+- [WBS criterion scoring matrix](docs/WBS-CRITERION-SCORING-MATRIX-2026-11-03.md)
+- [Rolling WBS evidence ledger](docs/WBS-EVIDENCE-LEDGER-2026-10-30.md)
+
 ## Readiness and release gates
 
 See [Project checkpoint and continuation handoff](docs/PROJECT-CHECKPOINT-2026-10-30.md), [Phase 1–4 readiness](docs/PHASE-1-3-READINESS.md), [API security review](docs/PHASE-1-SECURITY-REVIEW.md), and [Persian/English localization audit](docs/PHASE-1-LOCALIZATION-AUDIT.md).

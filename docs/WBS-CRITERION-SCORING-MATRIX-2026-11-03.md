@@ -1,12 +1,12 @@
 # Royal Club — WBS criterion-level scoring matrix
 
-**Baseline:** WBS v1.1 · **Audit scaffold:** 2026-11-03 · **53 leaf packages · 1,000 points**
+**Baseline:** WBS v1.1 · **Latest audit:** 2026-11-08 · **53 leaf packages · 1,000 points**
 
 ## Rules
 
 - Every approved package weight is divided into equal **5-point criteria**, preserving the 1,000-point baseline.
 - Each criterion earns 5 points only after its acceptance outcome is evidenced and passed. Failed, blocked, untested or unsupported criteria earn 0.
-- **All criteria begin Pending.** This matrix decomposes the baseline; it does not award points or claim completion.
+- **Every criterion begins Pending.** A criterion may be changed to Passed only in a dated evidence update that identifies its acceptance proof; this matrix records both the baseline and subsequent audited passes.
 - CI proves only the checks actually run. Manual-device, Production, provider and owner-approval criteria require separate evidence.
 - Record exact commit/PR, workflow run, test report, read-only verification or manual acceptance. Do not double-count evidence.
 
@@ -16,22 +16,22 @@
 
 | WBS criterion | Acceptance criterion | Points | Score | Evidence |
 |---|---|---:|---:|---|
-| 1.1-A | Android-first/Iran+international requirements approved | 5 | Pending | Not audited |
+| 1.1-A | Android-first/Iran+international requirements approved | 5 | Passed | Owner-approved WBS v1.1; architecture baseline and requirements traceability reviewed 2026-11-08. |
 | 1.1-B | Persian/English and security/cost/extensibility NFRs measurable | 5 | Pending | Not audited |
-| 1.1-C | Requirements trace to implementation and owner decisions | 5 | Pending | Not audited |
-| 1.2-A | Flutter/API/PostgreSQL boundaries respected | 5 | Pending | Not audited |
+| 1.1-C | Requirements trace to implementation and owner decisions | 5 | Passed | docs/REQUIREMENTS-TRACEABILITY.md maps approved decisions to WBS, implementation surfaces, evidence and residual gates (2026-11-08). |
+| 1.2-A | Flutter/API/PostgreSQL boundaries respected | 5 | Passed | Static architecture review: README.md, apps/mobile/pubspec.yaml, apps/api/package.json and apps/api/src/server.ts; consolidated in docs/ARCHITECTURE-AND-NFRS.md (2026-11-08). |
 | 1.2-B | Provider portability and deployment boundaries verified | 5 | Pending | Not audited |
 | 1.2-C | Server-authoritative game/economy rules negatively tested | 5 | Pending | Not audited |
 | 1.3-A | Free-by-default policy enforced | 5 | Pending | Not audited |
 | 1.3-B | IP/VPN-independent identity verified | 5 | Pending | Not audited |
 | 1.3-C | Username-only public identity and privacy enforced | 5 | Pending | Not audited |
-| 1.4-A | WBS baseline/change control maintained | 5 | Pending | Not audited |
-| 1.4-B | Owner decisions and approvals traceable | 5 | Pending | Not audited |
-| 1.4-C | Evidence links and milestone reports current | 5 | Pending | Not audited |
+| 1.4-A | WBS baseline/change control maintained | 5 | Passed | Frozen WBS v1.1 baseline plus change-control rules in docs/PROJECT-GOVERNANCE.md; no scope/weight changes. |
+| 1.4-B | Owner decisions and approvals traceable | 5 | Passed | Confirmed decisions and unresolved approvals recorded in docs/REQUIREMENTS-TRACEABILITY.md and docs/PROJECT-GOVERNANCE.md (2026-11-08). |
+| 1.4-C | Evidence links and milestone reports current | 5 | Passed | WBS matrix and rolling evidence ledger refreshed 2026-11-08; exact links/SHAs and remaining gates retained. |
 | 1.5-A | Data lifecycle/retention/deletion approved | 5 | Pending | Not audited |
 | 1.5-B | Backup/restore/DR procedures documented and tested | 5 | Pending | Not audited |
-| 1.6-A | Roadmap dependencies reviewed | 5 | Pending | Not audited |
-| 1.6-B | Chess/card scope preserved with backgammon priority | 5 | Pending | Not audited |
+| 1.6-A | Roadmap dependencies reviewed | 5 | Passed | docs/PHASE-DEPENDENCY-MAP.md reviews phase prerequisites, critical path, parallel work and approval gates (2026-11-08). |
+| 1.6-B | Chess/card scope preserved with backgammon priority | 5 | Passed | Owner-approved WBS v1.1, README.md, execution roadmap and docs/REQUIREMENTS-TRACEABILITY.md preserve chess/cards while prioritizing backgammon. |
 
 ### 2.0 Accounts, security, localization
 
@@ -252,10 +252,15 @@
 - Packages decomposed: **53/53**
 - Acceptance criteria: **200**
 - Points represented: **1000/1,000**
-- Earned points currently evidenced: **40/1,000 (4.0%)** — criteria 2.5-A/B (10 points), 5.2-A (5 points), and 7.1-A through 7.1-E (25 points) have criterion-specific evidence.
-- Remaining criteria: **192 Pending** (960 points not yet earned).
-- Official project percentage: **4.0% evidence-backed minimum**; this is a partial criterion audit, not a claim that only 4.0% of code exists. Increase only as additional criteria pass.
+- Earned points currently evidenced: **80/1,000 (8.0%)** — prior 40 points plus eight Phase 1 architecture/governance criteria (1.1-A, 1.1-C, 1.2-A, 1.4-A/B/C, 1.6-A/B).
+- Remaining criteria: **184 Pending** (920 points not yet earned).
+- Official project percentage: **8.0% evidence-backed minimum**; this remains a partial criterion audit, not a claim that only 8.0% of code exists. The new Phase 1 points are documentation/static-architecture evidence and do not close provider portability, server-authority negative tests, NFR target approval, data retention approval or DR acceptance.
 
 ## Required evidence record
 
 For each criterion record: `criterion ID | pass/fail/blocked/not tested | exact evidence URL or commit | audit date | reviewer | blocker/owner decision`. A passing criterion is worth exactly 5 points. Re-audit after new commits or manual acceptance and retain prior evidence history.
+
+
+## Phase 1 architecture/governance audit — 2026-11-08
+
+Eight criteria passed (40/80 Phase 1 points; 50% of WBS 1.0) based on the owner-approved WBS, current repository architecture and the new governance/traceability/dependency artifacts. Criteria 1.1-B, 1.2-B/C, 1.3-A/B/C and 1.5-A/B remain Pending; no points are inferred from proposals or partial evidence. In particular, provider portability, current-head negative tests for authoritative game/economy behavior, end-to-end enforcement of free-by-default and privacy/network rules, owner-approved retention/deletion durations, and application-level disaster recovery remain open.
