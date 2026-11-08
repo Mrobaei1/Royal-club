@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'l10n/app_text.dart';
+import 'public_identity.dart';
 import 'profile_avatar.dart';
 import 'chat_screen.dart';
 import 'services/friends_service.dart';
@@ -132,11 +133,10 @@ class _FriendsScreenState extends State<FriendsScreen> {
     String? subtitleOverride,
     VoidCallback? onTap,
   }) {
-    final username = user['username']?.toString().trim() ?? '';
-    final displayName = username.isNotEmpty ? '@$username' : appText(context, 'کاربر', 'User');
+    final username = normalizedPublicUsername(user['username']);
+    final displayName = publicUsernameLabel(user['username'], fallback: appText(context, 'کاربر', 'User'));
     final title = titleOverride ?? displayName;
-    final subtitle = subtitleOverride ??
-        (username.isNotEmpty ? '@$username' : '');
+    final subtitle = subtitleOverride ?? (username != null ? '@$username' : '');
     return Card(
       color: Theme.of(context).colorScheme.surface,
       child: ListTile(
@@ -222,7 +222,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
                 const SizedBox(height: 8),
                 ..._results.map((user) => _userTile(
                       user,
-                      titleOverride: '@${user['username'] ?? ''}',
+                      titleOverride: publicUsernameLabel(user['username'], fallback: appText(context, 'کاربر', 'User')),
                       subtitleOverride: '',
                       trailing: IconButton(
                         onPressed: _busy
@@ -270,9 +270,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
                     user,
                     onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => ChatThreadScreen(
                       userId: (user['userId'] ?? user['id']).toString(),
-                      title: ((user['username'])?.toString().trim().isNotEmpty == true)
-                          ? '@${user['username']}'
-                          : (isEnglish ? 'Friend' : 'دوست'),
+                      title: publicUsernameLabel(user['username'], fallback: isEnglish ? 'Friend' : 'دوست'),
                       avatarDataUrl: (user['avatarDataUrl'] ?? user['avatar_data_url'] ?? user['profilePhoto'] ?? user['photoUrl'])?.toString(),
                     ))),
                     trailing: IconButton(
