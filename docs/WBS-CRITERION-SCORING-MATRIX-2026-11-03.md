@@ -252,9 +252,9 @@
 - Packages decomposed: **53/53**
 - Acceptance criteria: **200**
 - Points represented: **1000/1,000**
-- Earned points currently evidenced: **95/1,000 (9.5%)** — prior 80 points plus criterion 1.2-C (server-authoritative game/economy negative tests) after exact-head CI passed on the integrated mainline.
+- Earned points currently evidenced: **95/1,000 (9.5%)** — prior 80 points plus 15 points for criteria 1.2-C, 1.3-A and 1.3-C after exact-head CI and source/route audits passed on the integrated mainline.
 - Remaining criteria: **181 Pending** (905 points not yet earned).
-- Official project percentage: **9.5% evidence-backed minimum**; this remains a partial criterion audit, not a claim that only 8.5% of code exists. The new 1.2-C pass is supported by exact-head negative test/CI evidence; provider portability, NFR target approval, physical VPN/device acceptance, owner-approved retention and DR acceptance remain open.
+- Official project percentage: **9.5% evidence-backed minimum**; this remains a partial criterion audit, not a claim that only 9.5% of code exists. The three new passes are supported by exact-head negative-test CI, free-by-default source/route audit and username-only privacy regression evidence; provider portability, NFR target approval, physical VPN/device acceptance, owner-approved retention and DR acceptance remain open.
 
 ## Required evidence record
 
