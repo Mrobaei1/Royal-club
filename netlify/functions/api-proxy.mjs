@@ -1,31 +1,56 @@
-const API_ORIGIN = 'https://br-misty-flower-bavs47dm-royalclubapi.compute.c-8.eu-central-1.aws.neon.tech';
 const FUNCTION_PREFIX = '/.netlify/functions/api-proxy/';
 
+function configuredApiOrigin() {
+  const raw = process.env.ROYAL_CLUB_API_ORIGIN?.trim();
+  if (!raw) return null;
+  try {
+    const origin = new URL(raw);
+    if (origin.protocol !== 'https:' || origin.username || origin.password ||
+        origin.pathname !== '/' || origin.search || origin.hash) {
+      return null;
+    }
+    return origin;
+  } catch {
+    return null;
+  }
+}
+
 export default async (request, context) => {
+  const apiOrigin = configuredApiOrigin();
+  // Fail closed: preview deployments must be explicitly pointed at an isolated
+  // staging API. Never silently route a PR preview to the production database.
+  if (!apiOrigin) {
+    return Response.json(
+      { error: 'API proxy is not configured for this deployment context.' },
+      { status: 503 },
+    );
+  }
+
   const incoming = new URL(request.url);
-  // Netlify's plain function handler does not populate wildcard params unless
-  // a custom config.path is declared. The redirect preserves the remaining
-  // path in the function URL, so derive it from the request pathname.
   const routedPath = incoming.pathname.startsWith(FUNCTION_PREFIX)
     ? incoming.pathname.slice(FUNCTION_PREFIX.length)
     : '';
   const parameterPath = typeof context.params?.splat === 'string'
     ? context.params.splat
     : '';
-  const path = (routedPath || parameterPath).replace(/^\/+/, '');
+  const path = (routedPath || parameterPath).replace(/^\\/+/, '');
 
-  if (!path) {
-    return Response.json({ error: 'Missing API route' }, { status: 400 });
+  if (!path || path.split('/').some(segment => segment === '.' || segment === '..')) {
+    return Response.json({ error: 'Invalid API route' }, { status: 400 });
   }
 
-  const target = new URL('/' + path + incoming.search, API_ORIGIN);
+  const target = new URL('/' + path, apiOrigin);
+  target.search = incoming.search;
+
   const headers = new Headers(request.headers);
   headers.delete('host');
-  headers.delete('origin');
   headers.delete('connection');
   headers.delete('content-length');
 
   const method = request.method.toUpperCase();
+  if (!['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'].includes(method)) {
+    return Response.json({ error: 'Unsupported API method' }, { status: 405 });
+  }
   const body = method === 'GET' || method === 'HEAD' ? undefined : await request.arrayBuffer();
 
   try {
@@ -43,7 +68,7 @@ export default async (request, context) => {
       status: upstream.status,
       headers: responseHeaders,
     });
-  } catch (_) {
+  } catch {
     return Response.json({ error: 'API upstream unavailable' }, { status: 502 });
   }
 };
