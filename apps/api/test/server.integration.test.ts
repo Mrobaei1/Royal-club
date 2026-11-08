@@ -3922,7 +3922,7 @@ test('authenticated Hokm forfeit is permanent, idempotent and cancels on a secon
 
   const secondForfeit = await app.inject({
     method: 'POST', url: `/api/v1/hokm/rooms/${roomId}/forfeit`,
-    headers: auth(first.token), payload: { expectedVersion: version },
+    headers: auth(first.token), payload: { expectedVersion: version, idempotencyKey: 'hokm-forfeit-first' },
   });
   assert.equal(secondForfeit.statusCode, 200, secondForfeit.body);
   assert.equal(secondForfeit.json().status, 'cancelled');
