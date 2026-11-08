@@ -50,3 +50,13 @@ test('expected authorization failures remain forbidden rather than becoming serv
   assert.equal(result.statusCode, 403);
   assert.deepEqual(result.payload, { error: 'Only the host may start the game' });
 });
+
+test('expected match-state conflicts remain client conflicts', async () => {
+  const result = await invokeCreate(async () => {
+    throw new Error('Only an active match can be canceled by player agreement');
+  });
+  assert.equal(result.statusCode, 409);
+  assert.deepEqual(result.payload, {
+    error: 'Only an active match can be canceled by player agreement',
+  });
+});
