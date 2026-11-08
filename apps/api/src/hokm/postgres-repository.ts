@@ -66,7 +66,7 @@ export class PostgresRoomRepository {
       : { rows: [] };
     const playerProgress = { ...(room.playerProgress ?? {}) };
     for (const userId of userIds) {
-      playerProgress[userId] = { xp: 0, level: 1 };
+      playerProgress[userId] ??= { xp: 0, level: 1 };
     }
     for (const row of persisted.rows) {
       playerProgress[String(row.userId)] = {
