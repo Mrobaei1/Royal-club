@@ -55,3 +55,31 @@ The worker's scheduler error callback is explicitly typed and emits only room id
 
 ## Exact-head CI trigger — 2026-11-06
 The Hokm API/mobile proposal received source and test changes after the earlier recorded green runs. The branch's latest source head did not expose a GitHub Actions run in the repository evidence sweep. This entry intentionally triggers the repository's current validation workflows on the exact updated head; no test is considered passed until the resulting runs complete. Remaining product-rule questions Q25/Q26 must be resolved from the owner's recorded selections before acceptance. The current implementation uses a 20-second individual reconnect grace and a separate 20-second all-four-disconnected cancellation deadline. A separate 120-second reference remains unresolved; the 20-second implementation value is not treated as final owner-approved product wording until the original selection is verified. Production worker deployment and physical four-device acceptance remain release gates.
+
+
+## Current-main reconciliation and evidence ledger — 2026-11-08
+
+Canonical integration candidate: PR #195, branch `integration/hokm-current-main-rebase`. It is based on the current mainline snapshot and supersedes the stale/conflicting integration approach in PR #133 for validation purposes. Neither PR is authorized for merge until the owner explicitly approves.
+
+### Engineering corrections made during reconciliation
+
+- Fixed match progression so a voluntary forfeit or unrecovered disconnect receives exactly -5 XP and the opposing partnership is guaranteed +20 XP at match completion. The guaranteed +20 replaces, rather than stacks with, the ordinary award. Regression tests cover both forfeit and disconnect paths.
+- Fixed a cumulative progression defect: room reads now hydrate account XP/level from `hokm_player_progress` before the next match transition. Without this, a new room could start with an empty per-room progression map and overwrite the player's previous aggregate. PostgreSQL hydration tests were added.
+- Worker and PostgreSQL event-listener logs no longer serialize raw database error messages that could contain infrastructure details.
+- The current mainline infrastructure-reliability agent catalog and its integration assertions were preserved during reconciliation.
+
+### Current evidence state
+
+- PR #195 is mergeable and exact-head GitHub Actions workflows have been triggered. A queued/in-progress state is not a pass; final results must be checked against the final head SHA.
+- Automated source tests cover rules, private-hand projections, scoring, authenticated routes, PostgreSQL room persistence, room-event notifications, and mobile widgets/services.
+- The dedicated Hokm deadline worker is a separate process. The API route integration does not itself provision or supervise that worker.
+
+### Release gates that remain open
+
+1. **Owner decision reconciliation:** Question 26 is recorded as option 1, but its original question/options are not present in the retrievable approved record. A separate 120-second timing reference also conflicts with the current 20-second individual reconnect and all-four-disconnected implementation. Do not change either timeout based on inference; retrieve the original owner-approved wording and reconcile it before marking rules acceptance complete.
+2. **Worker staging:** deploy two worker instances in an isolated staging environment; prove compare-and-swap prevents duplicate actions, restart recovery, shutdown behavior, clock drift handling, and overdue-deadline alerting.
+3. **Physical acceptance:** complete a four-device match, verify all four players' 3-second hand reveal, private hands/chat, cancellation, owner controls, disconnect takeover and reconnect hand-back on real devices and real network interruption.
+4. **Load and operational acceptance:** validate production-like concurrency, API/database pool limits, worker backlog and monitoring with recorded results.
+5. **Final review:** exact-head API build/unit/integration, Flutter analyze/tests, web preview, security review and owner sign-off must all pass on the same final candidate head.
+
+No production migration/deployment, worker provisioning, APK build, or merge to `main` is included in this evidence refresh.
