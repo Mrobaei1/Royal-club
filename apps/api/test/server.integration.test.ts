@@ -3587,6 +3587,45 @@ test('login rate limits are account-bound and cannot be bypassed by changing net
     'Rate limiting one identity must not block unrelated accounts.');
 });
 
+test('self-profile returns only the authenticated account private identity', async () => {
+  const first = await register('Self Profile Privacy One');
+  const second = await register('Self Profile Privacy Two');
+  const expected = await testPool.query(
+    'SELECT id::text, email, full_name, phone FROM users WHERE id = ANY($1::bigint[])',
+    [[first.user.id, second.user.id]],
+  );
+  const firstExpected = expected.rows.find((row) => row.id === first.user.id);
+  const secondExpected = expected.rows.find((row) => row.id === second.user.id);
+  assert.ok(firstExpected);
+  assert.ok(secondExpected);
+
+  const firstProfile = await app.inject({
+    method: 'GET',
+    url: `/api/v1/me?userId=${second.user.id}`,
+    headers: auth(first.token),
+  });
+  assert.equal(firstProfile.statusCode, 200, firstProfile.body);
+  assert.equal(firstProfile.json().user.id, first.user.id);
+  assert.equal(firstProfile.json().user.email, firstExpected.email);
+  assert.equal(firstProfile.json().user.fullName, firstExpected.full_name);
+  assert.equal(firstProfile.json().user.phone, firstExpected.phone);
+  assert.equal(JSON.stringify(firstProfile.json()).includes(secondExpected.email), false);
+  assert.equal(JSON.stringify(firstProfile.json()).includes(secondExpected.full_name), false);
+
+  const secondProfile = await app.inject({
+    method: 'GET',
+    url: '/api/v1/me',
+    headers: auth(second.token),
+  });
+  assert.equal(secondProfile.statusCode, 200, secondProfile.body);
+  assert.equal(secondProfile.json().user.id, second.user.id);
+  assert.equal(secondProfile.json().user.email, secondExpected.email);
+  assert.equal(secondProfile.json().user.fullName, secondExpected.full_name);
+  assert.equal(secondProfile.json().user.phone, secondExpected.phone);
+  assert.equal(JSON.stringify(secondProfile.json()).includes(firstExpected.email), false);
+  assert.equal(JSON.stringify(secondProfile.json()).includes(firstExpected.full_name), false);
+});
+
 test('logout revokes the current bearer session while a fresh login creates a new session', async () => {
   const user = await register('Session Lifecycle Player');
   const beforeLogout = await app.inject({
