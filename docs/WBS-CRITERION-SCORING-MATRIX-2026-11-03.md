@@ -38,7 +38,7 @@
 | WBS criterion | Acceptance criterion | Points | Score | Evidence |
 |---|---|---:|---:|---|
 | 2.1-A | Registration/login end-to-end | 5 | Pending | Not audited |
-| 2.1-B | Six-character password policy | 5 | Pending | Not audited |
+| 2.1-B | Six-character password policy | 5 | Passed | API unit CI run 42486568179; Unicode character minimum and 128 UTF-8 byte maximum regression tests |
 | 2.1-C | Session lifecycle/logout/revocation | 5 | Pending | Not audited |
 | 2.1-D | Recovery/account flows | 5 | Pending | Not audited |
 | 2.2-A | OTP normalization/digest/expiry/limits | 5 | Passed | API integration CI run 42478821103; OTP digest, expiry, cooldown, attempt exhaustion, daily limits and normalization regression tests |
@@ -252,9 +252,9 @@
 - Packages decomposed: **53/53**
 - Acceptance criteria: **200**
 - Points represented: **1000/1,000**
-- Earned points currently evidenced: **120/1,000 (12.0%)** — prior 115 points plus 5 points for criterion 2.6-A after exact-head API build/unit and PostgreSQL integration CI passed.
-- Remaining criteria: **176 Pending** (880 points not yet earned).
-- Official project percentage: **12.0% evidence-backed minimum**; this remains a partial criterion audit, not a claim that only 11.0% of code exists. The six recently closed criteria are supported by exact-head negative-test CI, friend-only free chat/free-by-default route audit, username-only privacy regressions, OTP digest/expiry/rate-limit and purpose-binding tests, and encrypted owner-controlled SMS credential tests. Provider deployment portability, NFR target approval, physical VPN/device acceptance, owner-approved retention and DR acceptance remain open.
+- Earned points currently evidenced: **125/1,000 (12.5%)** — prior 120 points plus 5 points for criterion 2.1-B after exact-head API build/unit and PostgreSQL integration CI passed.
+- Remaining criteria: **175 Pending** (875 points not yet earned).
+- Official project percentage: **12.5% evidence-backed minimum**; this remains a partial criterion audit, not a claim that only 11.0% of code exists. The six recently closed criteria are supported by exact-head negative-test CI, friend-only free chat/free-by-default route audit, username-only privacy regressions, OTP digest/expiry/rate-limit and purpose-binding tests, and encrypted owner-controlled SMS credential tests. Provider deployment portability, NFR target approval, physical VPN/device acceptance, owner-approved retention and DR acceptance remain open.
 
 ## Required evidence record
 
@@ -273,13 +273,13 @@ The following percentages are calculated directly from the 200 criterion rows in
 | WBS phase | Total weight | Passed criteria | Earned points | Progress |
 | --- | ---: | ---: | ---: | ---: |
 | Phase 1 — Architecture and project management | 80 | 11/16 | 55 | 68.75% |
-| Phase 2 | 130 | 7/26 | 35 | 26.92% |
+| Phase 2 | 130 | 8/26 | 40 | 30.77% |
 | Phase 3 | 230 | 0/46 | 0 | 0.00% |
 | Phase 4 | 120 | 0/24 | 0 | 0.00% |
 | Phase 5 | 140 | 1/28 | 5 | 3.57% |
 | Phase 6 | 140 | 0/28 | 0 | 0.00% |
 | Phase 7 | 160 | 5/32 | 25 | 15.63% |
-| **Total** | **1,000** | **24/200** | **120** | **12.00%** |
+| **Total** | **1,000** | **25/200** | **125** | **12.50%** |
 
 
 
@@ -297,3 +297,6 @@ Three Phase 2 criteria now pass (15/130 points):
 
 
 - **2.6-A Passed (5 points):** exact-head API integration tests prove expired, malformed and missing bearer tokens are rejected; logout revokes the current token; password recovery invalidates earlier sessions; and incrementing `users.token_version` invalidates previously issued tokens across both `/api/v1/me` and `/api/v1/friends`, while a fresh login succeeds. Evidence: PR #210 head `f5ab13e7ec13a099a1b59ba1ca09a6c060a0066c`, API integration run [42486568179](https://github.com/Mrobaei1/Royal-club/actions/runs/42486568179/job/128749630826) and API build/unit run [42486568179](https://github.com/Mrobaei1/Royal-club/actions/runs/42486568179/job/128749630797), all required checks passed before merge `b99b79b010b0af662909bbac2e669ca958e676a3`.
+
+
+- **2.1-B Passed (5 points):** registration password validation requires at least six Unicode code points and caps the password at 128 UTF-8 bytes. Unit tests cover five-vs-six characters, Persian and emoji characters, exact 128-byte acceptance, 129-byte rejection, empty and non-string values. Exact-head API build/unit CI passed in PR #210 run [42486568179](https://github.com/Mrobaei1/Royal-club/actions/runs/42486568179/job/128749630797); the same source test was also included in PR #206's passing API build/test run [42478821167](https://github.com/Mrobaei1/Royal-club/actions/runs/42478821167/job/128726055955).
