@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { HokmDeadlineScheduler } from "./hokm/deadline-scheduler.js";
 
 test("expected multi-worker CAS contention is counted as skipped, not as an operational failure", async () => {
-  const errors = [];
+  const errors: unknown[] = [];
   const scheduler = new HokmDeadlineScheduler({
     repository: { async listDueRooms() { return [{ roomId: "shared-room", turnDeadlineAt: 900 }]; } },
     service: { async processDueDeadlines() { throw new Error("Concurrent room update; retry with the latest version"); } },
