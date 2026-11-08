@@ -37,6 +37,7 @@ class FakeHokmApi implements HokmApi {
     'matchScore': [0, 0],
     'version': 1,
     'isHost': isHost,
+    'hostSeat': 0,
     'players': [
       {'userId': 'u1', 'username': 'alice', 'seat': 0, 'ready': false, 'connected': true, 'botControlled': false},
       {'userId': 'u2', 'username': 'bob', 'seat': 1, 'ready': true, 'connected': true, 'botControlled': false},
