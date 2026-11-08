@@ -37,32 +37,32 @@
 
 | WBS criterion | Acceptance criterion | Points | Score | Evidence |
 |---|---|---:|---:|---|
-| 2.1-A | Registration/login end-to-end | 5 | Pending | Not audited |
-| 2.1-B | Six-character password policy | 5 | Pending | Not audited |
-| 2.1-C | Session lifecycle/logout/revocation | 5 | Pending | Not audited |
-| 2.1-D | Recovery/account flows | 5 | Pending | Not audited |
-| 2.2-A | OTP normalization/digest/expiry/limits | 5 | Pending | Not audited |
-| 2.2-B | Purpose-bound register/login/link ownership | 5 | Pending | Not audited |
-| 2.2-C | Provider credentials encrypted and owner-controlled | 5 | Pending | Not audited |
+| 2.1-A | Registration/login end-to-end | 5 | Passed | API integration CI run 42486568179; registration, logout, fresh email/password login and authenticated profile round-trip |
+| 2.1-B | Six-character password policy | 5 | Passed | API unit CI run 42486568179; Unicode character minimum and 128 UTF-8 byte maximum regression tests |
+| 2.1-C | Session lifecycle/logout/revocation | 5 | Passed | API integration CI run 42486568179; logout idempotency, old-token rejection, password-reset revocation and token-version invalidation |
+| 2.1-D | Recovery/account flows | 5 | Passed | API integration CI run 42487784052; phone OTP recovery, non-enumeration, one-time code consumption, password replacement and prior-session revocation |
+| 2.2-A | OTP normalization/digest/expiry/limits | 5 | Passed | API integration CI run 42478821103; OTP digest, expiry, cooldown, attempt exhaustion, daily limits and normalization regression tests |
+| 2.2-B | Purpose-bound register/login/link ownership | 5 | Passed | API integration CI run 42478821103; purpose-bound register/login/link, cross-purpose rejection, duplicate phone-link and unverified profile-edit tests |
+| 2.2-C | Provider credentials encrypted and owner-controlled | 5 | Passed | API integration CI run 42478821103; owner-step-up settings test verifies AES-256-GCM ciphertext at rest and secret-free reads |
 | 2.2-D | Production activation gated and approved device/provider acceptance | 5 | Pending | Not audited |
-| 2.3-A | Self-profile privacy | 5 | Pending | Not audited |
-| 2.3-B | Public APIs suppress private identity | 5 | Pending | Not audited |
-| 2.3-C | Legacy/empty profile privacy | 5 | Pending | Not audited |
-| 2.3-D | Cross-account authorization | 5 | Pending | Not audited |
-| 2.4-A | ARB parity | 5 | Pending | Not audited |
+| 2.3-A | Self-profile privacy | 5 | Passed | API integration CI run 42487826951; JWT-subject self-profile isolation and foreign userId query-spoofing regression test |
+| 2.3-B | Public APIs suppress private identity | 5 | Passed | API integration CI run 42486935392; username-only public friend/chat projections, private-field absence and opponent-email-free match history assertions |
+| 2.3-C | Legacy/empty profile privacy | 5 | Passed | Flutter CI run 42487475637; null/blank/non-string username fallback tests and username-only display helper across Friends, Chat, Leaderboard and Hokm |
+| 2.3-D | Cross-account authorization | 5 | Passed | API integration CI run 42486935392; foreign profile userId spoofing and outsider private-chat read/send/edit/delete regression test |
+| 2.4-A | ARB parity | 5 | Passed | Flutter CI run 42486568179; Persian and English ARB locale/key parity tests |
 | 2.4-B | Visible static UI localization | 5 | Pending | Not audited |
-| 2.4-C | Dynamic errors/notifications localization | 5 | Pending | Not audited |
-| 2.4-D | Locale-switch regression tests | 5 | Pending | Not audited |
+| 2.4-C | Dynamic errors/notifications localization | 5 | Passed | Flutter CI run 42486568179; appError translations and localized friend/match notification title/body tests |
+| 2.4-D | Locale-switch regression tests | 5 | Passed | Flutter CI run 42486568179; Persian/English locale switching, RTL/LTR direction and selected-language UI text tests |
 | 2.5-A | Persian RTL on Android | 5 | Passed | Owner-confirmed manual Android check, 2026-11-04; no issue reported |
 | 2.5-B | English LTR on Android | 5 | Passed | Owner-confirmed manual Android check, 2026-11-04; no issue reported |
 | 2.5-C | Dialogs/forms/overflow | 5 | Pending | Not audited |
 | 2.5-D | Dynamic text/directional UI | 5 | Pending | Not audited |
-| 2.6-A | JWT/session negative tests | 5 | Pending | Not audited |
-| 2.6-B | Rate limits/CORS/network controls | 5 | Pending | Not audited |
-| 2.6-C | Sensitive log redaction | 5 | Pending | Not audited |
+| 2.6-A | JWT/session negative tests | 5 | Passed | API integration CI run 42486568179; expired/malformed/missing JWTs, logout revocation, password-reset version bump, and explicit token-version invalidation across protected routes |
+| 2.6-B | Rate limits/CORS/network controls | 5 | Passed | API integration CI run 42487192996; account-bound login throttling across changing remote addresses, unknown-origin CORS denial, trustProxy disabled and OTP cooldown/daily limits |
+| 2.6-C | Sensitive log redaction | 5 | Passed | API unit CI run 42478821167; request body/header/cookie/query-string redaction, route-template serialization, IP omission and server-generated request IDs |
 | 2.7-A | Same account VPN off/on | 5 | Pending | Not audited |
-| 2.7-B | Identity/session continuity | 5 | Pending | Not audited |
-| 2.7-C | Access/game/social recovery | 5 | Pending | Not audited |
+| 2.7-B | Identity/session continuity | 5 | Passed | API integration CI run 42487784052; authenticated session and account identity remain stable after remote-address/VPN IP changes |
+| 2.7-C | Access/game/social recovery | 5 | Passed | API integration CI run 42487784052; friend list and active backgammon match state recover after remote-address change |
 
 ### 3.0 Games and backgammon
 
@@ -252,9 +252,9 @@
 - Packages decomposed: **53/53**
 - Acceptance criteria: **200**
 - Points represented: **1000/1,000**
-- Earned points currently evidenced: **95/1,000 (9.5%)** — prior 80 points plus 15 points for criteria 1.2-C, 1.3-A and 1.3-C after exact-head CI and source/route audits passed on the integrated mainline.
-- Remaining criteria: **181 Pending** (905 points not yet earned).
-- Official project percentage: **9.5% evidence-backed minimum**; this remains a partial criterion audit, not a claim that only 9.5% of code exists. The three new passes are supported by exact-head negative-test CI, friend-only free chat and free-by-default route audit, and username-only privacy regression evidence; provider portability, NFR target approval, physical VPN/device acceptance, owner-approved retention and DR acceptance remain open.
+- Earned points currently evidenced: **190/1,000 (19.0%)** — prior 185 points plus 5 points for criterion 2.3-A after exact-head self-profile identity isolation tests passed.
+- Remaining criteria: **162 Pending** (810 points not yet earned).
+- Official project percentage: **19.0% evidence-backed minimum**; this remains a partial criterion audit, not a claim that only 11.0% of code exists. The six recently closed criteria are supported by exact-head negative-test CI, friend-only free chat/free-by-default route audit, username-only privacy regressions, OTP digest/expiry/rate-limit and purpose-binding tests, and encrypted owner-controlled SMS credential tests. Provider deployment portability, NFR target approval, physical VPN/device acceptance, owner-approved retention and DR acceptance remain open.
 
 ## Required evidence record
 
@@ -266,18 +266,75 @@ For each criterion record: `criterion ID | pass/fail/blocked/not tested | exact 
 Eleven criteria passed (55/80 Phase 1 points; 68.75% of WBS 1.0). In addition to the eight prior architecture/governance criteria, 1.2-C (server-authoritative game/economy negative tests), 1.3-A (free-by-default enforcement) and 1.3-C (username-only public identity/privacy) now pass based on exact-head CI and cross-module regression/source evidence. The 2026-10-26 owner decision confirms private chat is available to friends without a subscription, with non-friends blocked; current code and tests match it. Criteria 1.1-B, 1.2-B, 1.3-B and 1.5-A/B remain Pending. Physical VPN OFF/ON testing, legacy/empty-profile device acceptance under WBS 4.5, second-provider portability, owner-approved NFRs/retention, and application-level disaster recovery remain open.
 
 
-## Phase roll-up — 2026-11-08
+## Phase roll-up — 2026-11-08 (updated after OTP evidence audit)
 
 The following percentages are calculated directly from the 200 criterion rows in this matrix. A criterion earns its full five points only when its status is `Passed`; Pending criteria earn zero. Weights are unchanged.
 
 | WBS phase | Total weight | Passed criteria | Earned points | Progress |
 | --- | ---: | ---: | ---: | ---: |
 | Phase 1 — Architecture and project management | 80 | 11/16 | 55 | 68.75% |
-| Phase 2 | 130 | 2/26 | 10 | 7.69% |
+| Phase 2 | 130 | 21/26 | 105 | 80.77% |
 | Phase 3 | 230 | 0/46 | 0 | 0.00% |
 | Phase 4 | 120 | 0/24 | 0 | 0.00% |
 | Phase 5 | 140 | 1/28 | 5 | 3.57% |
 | Phase 6 | 140 | 0/28 | 0 | 0.00% |
 | Phase 7 | 160 | 5/32 | 25 | 15.63% |
-| **Total** | **1,000** | **19/200** | **95** | **9.50%** |
+| **Total** | **1,000** | **38/200** | **190** | **19.00%** |
 
+
+
+## Phase 2 OTP/security and logging evidence audit — 2026-11-08
+
+Three Phase 2 criteria now pass (15/130 points):
+- **2.2-A Passed:** Iranian phone normalization, salted/digested OTP storage, single-use consumption, expiry, resend cooldown, bounded attempts, per-phone/global daily limits, and production simulator lock are covered by integration tests.
+- **2.2-B Passed:** OTP challenges are purpose-bound for register/login/link/reset; cross-purpose use is rejected, registration and login bind to the verified phone, phone linking requires an authenticated account, duplicate ownership is rejected, and unverified profile phone edits are blocked.
+- **2.2-C Passed:** SMS provider API keys are encrypted with AES-256-GCM using a server-side 32-byte key; settings endpoints require owner step-up; API responses expose only an `apiKeyConfigured` boolean; tests assert that plaintext and ciphertext fields are not returned. Activation remains disabled.
+- Evidence: exact-head API integration run [42478821103](https://github.com/Mrobaei1/Royal-club/actions/runs/42478821103/job/128726055974) and API build/test run [42478821167](https://github.com/Mrobaei1/Royal-club/actions/runs/42478821167/job/128726055955), on PR #206 head `1446067e28615406dd7ae6121f11a0700ed3c0e0`; source/test files were unchanged by subsequent documentation-only PR #208.
+- **2.2-D remains Pending:** live SMS/OTP activation and approved device/provider acceptance are not authorized or evidenced. No SMS was sent and no credentials were activated.
+
+
+- **2.6-C Passed (5 points):** API logger tests verify request bodies, authorization/cookie/API-key headers, response cookies and query strings are redacted; request serialization uses route templates, omits client IP, and uses server-generated request IDs. Exact-head API unit/build run [42478821167](https://github.com/Mrobaei1/Royal-club/actions/runs/42478821167/job/128726055955) passed with `logging-config.test.ts` included in `npm test`.
+
+
+- **2.6-A Passed (5 points):** exact-head API integration tests prove expired, malformed and missing bearer tokens are rejected; logout revokes the current token; password recovery invalidates earlier sessions; and incrementing `users.token_version` invalidates previously issued tokens across both `/api/v1/me` and `/api/v1/friends`, while a fresh login succeeds. Evidence: PR #210 head `f5ab13e7ec13a099a1b59ba1ca09a6c060a0066c`, API integration run [42486568179](https://github.com/Mrobaei1/Royal-club/actions/runs/42486568179/job/128749630826) and API build/unit run [42486568179](https://github.com/Mrobaei1/Royal-club/actions/runs/42486568179/job/128749630797), all required checks passed before merge `b99b79b010b0af662909bbac2e669ca958e676a3`.
+
+
+- **2.1-B Passed (5 points):** registration password validation requires at least six Unicode code points and caps the password at 128 UTF-8 bytes. Unit tests cover five-vs-six characters, Persian and emoji characters, exact 128-byte acceptance, 129-byte rejection, empty and non-string values. Exact-head API build/unit CI passed in PR #210 run [42486568179](https://github.com/Mrobaei1/Royal-club/actions/runs/42486568179/job/128749630797); the same source test was also included in PR #206's passing API build/test run [42478821167](https://github.com/Mrobaei1/Royal-club/actions/runs/42478821167/job/128726055955).
+
+
+- **2.1-A Passed (5 points):** integration coverage exercises registration, authenticated self-profile access, logout, fresh email/password login, and a subsequent authenticated profile round-trip. OTP-based registration/login is also covered in the purpose-bound phone OTP test. Exact-head API integration CI passed in PR #210 run [42486568179](https://github.com/Mrobaei1/Royal-club/actions/runs/42486568179/job/128749630826).
+- **2.1-C Passed (5 points):** integration coverage proves logout revokes the active bearer token, repeated logout is idempotent, a new login restores access, password recovery invalidates all prior sessions, and incrementing `token_version` invalidates existing tokens across protected routes. Exact-head API integration CI passed in PR #210 run [42486568179](https://github.com/Mrobaei1/Royal-club/actions/runs/42486568179/job/128749630826).
+
+
+## Localization evidence audit — 2026-11-08
+
+- **2.4-A Passed (5 points):** Persian and English ARB files declare their correct locales and have identical message-key sets; parity is covered by Flutter tests.
+- **2.4-C Passed (5 points):** common service/API errors map to English through `appError`; friend-request, friend-accepted and match-invite notification titles/bodies are translated by notification type and selected language.
+- **2.4-D Passed (5 points):** widget tests switch between Persian and English, verify selected-language shared UI text, and assert RTL for Persian and LTR for English.
+- Exact-head Flutter analyze/test CI passed on PR #210 head `f5ab13e7ec13a099a1b59ba1ca09a6c060a0066c`, run [42486568179](https://github.com/Mrobaei1/Royal-club/actions/runs/42486568179/job/128749630554). PR #206 also ran the same localization test suite successfully on its exact head.
+- **2.4-B remains Pending:** full visible static UI localization across all app screens has not yet been exhaustively audited; no broad completion claim is made.
+
+
+- **2.3-D Passed (5 points):** integration tests prove caller-supplied foreign `userId` cannot redirect a self-profile update, and private chat is restricted to the two accepted friends. A third account is denied message reads and sends; attempts to edit/delete another pair's messages affect zero rows. Exact-head API integration CI passed on PR #214 head `36b052fedb6a4b6944ad28f94fab91ee42d31fb5`, run [424...](https://github.com/Mrobaei1/Royal-club/actions/runs/42486935392/job/128750743909); the required API, Flutter, backgammon and web checks all passed before merge `7f3505fd2120517221d2d04c8713c3c125a47850`.
+
+
+- **2.3-B Passed (5 points):** current API integration tests assert that public user search and incoming friend projections expose usernames but omit full name/email, chat conversation projections expose username without full name, and match history does not expose opponent email. Hokm API tests also assert private hands and undealt deck are never returned to unauthorized viewers. Exact-head API integration CI passed on PR #214 head `36b052fedb6a4b6944ad28f94fab91ee42d31fb5`, run [42486935392](https://github.com/Mrobaei1/Royal-club/actions/runs/42486935392/job/128750743909).
+
+
+- **2.6-B Passed (5 points):** API integration tests prove account-bound login throttling is not bypassed by switching remote addresses: ten failed attempts are allowed, the eleventh returns 429 across two network addresses, and a separate account remains unaffected. The same exact-head integration suite verifies unknown-origin CORS preflights do not receive permission; API configuration has `trustProxy: false`; OTP resend cooldown and daily-limit behavior are also negative-tested. Evidence: PR #216 head `0ccbabd035c0282f86a8f9fc615d1ee964cfeaa9`, integration run [42487192996](https://github.com/Mrobaei1/Royal-club/actions/runs/42487192996/job/128751531735), passed before merge `9fbe93068095ad0f8d6944cbf50576ce7dad2a1e`.
+
+
+- **2.3-C Passed (5 points):** legacy or blank public usernames now use neutral localized labels rather than private full name/email/phone. A single public-identity helper accepts only the public username field and is used by Friends, Chat, Leaderboard and Hokm screens. Flutter tests cover null, empty, whitespace and non-string legacy values and confirm username-only formatting. Exact-head Flutter CI passed on PR #218 head `ac3908d4aedc4cea6cec5b3659271cc020d54597`, run [42487475637](https://github.com/Mrobaei1/Royal-club/actions/runs/42487475637/job/128752407108); PR #218 merged as `851d5c70af0f58e11ef840a3e50d8393306bbea4`.
+
+
+## Network-change identity and recovery evidence — 2026-11-08
+
+- **2.7-B Passed (5 points):** API integration tests sign in a user, change the request remote address to a different network/VPN IP and confirm `/api/v1/me` still returns the same authenticated account identity.
+- **2.7-C Passed (5 points):** the same account retains its accepted-friend list after a remote-address change and can recover the identical active backgammon match board/state from a different IP. The session remains tied to the verified account, not its IP address.
+- Exact-head API integration CI passed on PR #221 head `1591e0498eeea3b2084038d2b554693175374ec8`, run [42487784052](https://github.com/Mrobaei1/Royal-club/actions/runs/42487784052/job/128753337846). Physical Android VPN OFF/ON acceptance remains separately pending under 2.7-A and Phase 1 1.3-B.
+
+
+- **2.1-D Passed (5 points):** password recovery integration test verifies unknown phone requests do not reveal account existence or trigger a billable SMS, a purpose-bound reset OTP changes the password, the code is single-use, the old password stops working, the new password works, and all previously issued sessions are revoked. The development simulator is used only in tests; live SMS activation remains separately pending under 2.2-D. Exact-head API integration run [42487784052](https://github.com/Mrobaei1/Royal-club/actions/runs/42487784052/job/128753337846) passed.
+
+
+- **2.3-A Passed (5 points):** API integration test creates two accounts and proves `GET /api/v1/me` returns only the private identity associated with the verified JWT subject. Supplying another user's ID as a query parameter cannot redirect the response; each account receives only its own email, full name and phone. Exact-head API integration run [42487826951](https://github.com/Mrobaei1/Royal-club/actions/runs/42487826951/job/128753465486) passed on PR #222 head `619742db619a8009d8cf849e902cc08e5671ea8a`; merged as `6677e8da9b41cfa00a8450aa2a3c0db021e59838`.
