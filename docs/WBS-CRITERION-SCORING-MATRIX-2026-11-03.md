@@ -264,3 +264,20 @@ For each criterion record: `criterion ID | pass/fail/blocked/not tested | exact 
 ## Phase 1 architecture/governance audit — 2026-11-08
 
 Eleven criteria passed (55/80 Phase 1 points; 68.75% of WBS 1.0). In addition to the eight prior architecture/governance criteria, 1.2-C (server-authoritative game/economy negative tests), 1.3-A (free-by-default enforcement) and 1.3-C (username-only public identity/privacy) now pass based on exact-head CI and cross-module regression/source evidence. The 2026-10-26 owner decision confirms private chat is available to friends without a subscription, with non-friends blocked; current code and tests match it. Criteria 1.1-B, 1.2-B, 1.3-B and 1.5-A/B remain Pending. Physical VPN OFF/ON testing, legacy/empty-profile device acceptance under WBS 4.5, second-provider portability, owner-approved NFRs/retention, and application-level disaster recovery remain open.
+
+
+## Phase roll-up — 2026-11-08
+
+The following percentages are calculated directly from the 200 criterion rows in this matrix. A criterion earns its full five points only when its status is `Passed`; Pending criteria earn zero. Weights are unchanged.
+
+| WBS phase | Total weight | Passed criteria | Earned points | Progress |
+| --- | ---: | ---: | ---: | ---: |
+| Phase 1 — Architecture and project management | 80 | 11/16 | 55 | 68.75% |
+| Phase 2 | 130 | 2/26 | 10 | 7.69% |
+| Phase 3 | 230 | 0/46 | 0 | 0.00% |
+| Phase 4 | 120 | 0/24 | 0 | 0.00% |
+| Phase 5 | 140 | 1/28 | 5 | 3.57% |
+| Phase 6 | 140 | 0/28 | 0 | 0.00% |
+| Phase 7 | 160 | 5/32 | 25 | 15.63% |
+| **Total** | **1,000** | **19/200** | **95** | **9.50%** |
+

@@ -341,9 +341,9 @@ Open integration/release boundaries: all PRs remain unmerged; PR #137's older Ho
 - This is a static provider-contract test, not a real Render deployment. WBS 1.2-B remains Pending until a separate Render staging service/database is deployed, health and DB portability are smoke-tested, and teardown/rollback is verified. The Render connector was suggested but is not yet connected; no cloud resource was created.
 
 
-## Owner executive analytics dashboard candidate — 2026-11-08
+## Owner executive analytics dashboard — current-main status — 2026-11-08
 
-- PR #114 remains Draft and is not merged. Current head `9ab685f4af6b266fb293812e9d476fd5b16ee129` is 52 commits behind and diverged from current main.
-- Its exact head has only Netlify preview checks; no current-head API build/integration or Flutter validation is present. Historical CI from older heads is not accepted as current evidence.
-- Scope includes owner-only analytics API, activity/game event instrumentation, CSV/PDF export and mobile analytics screen. Known limitations are explicitly documented: no event producers for chess/cards/UNO/Mafia, process-memory latency samples reset on restart, PDF does not support Persian characters, and provider/Agent costs are not sourced.
-- Do not merge the stale branch. Port and re-test on current main before considering integration; no production preview API origin or deployment was enabled.
+- The analytics API, event instrumentation, owner dashboard screen and admin navigation are already merged in PR #197 (`d85960475299c2cb573d16a1c20b1be305025ed6`). PR #114 was closed as a stale duplicate; its architecture/instrumentation/dashboard documents were refreshed and merged in PR #208.
+- The old PR #114 head `9ab685f4af6b266fb293812e9d476fd5b16ee129` was 52 commits behind/diverged and had only Netlify preview checks; it is not a valid integration candidate.
+- Its remaining Netlify proxy/redirect/workflow was deliberately not merged: the global `/api/*` redirect would affect Production, and `ROYAL_CLUB_API_ORIGIN` is not configured. Adopt only after Production and isolated preview API origins are configured and tested.
+- Analytics limitations remain: no event producers for chess/cards/UNO/Mafia, process-memory latency samples reset on restart, PDF does not support Persian characters, and provider/Agent costs are not sourced. No Production deployment or preview API origin was enabled.
