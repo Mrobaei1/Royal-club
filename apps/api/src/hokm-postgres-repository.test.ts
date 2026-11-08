@@ -22,10 +22,12 @@ test("PostgreSQL room reads hydrate cumulative account XP from the durable progr
     async query(sql: string, params?: unknown[]) {
       calls.push({ sql, params });
       if (sql.includes("FROM hokm_rooms")) return { rows: [{ room_data: room }] };
-      if (sql.includes("FROM hokm_player_progress")) {
+      if (sql.includes("FROM users u")) {
         return { rows: [
-          { userId: "10", xp: "79439", level: 100 },
-          { userId: "11", xp: "295", level: 2 },
+          { userId: "10", username: "RoyalPlayer", xp: "79439", level: 100 },
+          { userId: "11", username: "CardMaster", xp: "295", level: 2 },
+          { userId: "12", username: "Guest12", xp: null, level: null },
+          { userId: "13", username: "Guest13", xp: null, level: null },
         ] };
       }
       throw new Error("Unexpected query");
@@ -39,6 +41,9 @@ test("PostgreSQL room reads hydrate cumulative account XP from the durable progr
     "12": { xp: 0, level: 1 },
     "13": { xp: 0, level: 1 },
   });
+  assert.deepEqual(restored.players.map(player => player.username), [
+    "RoyalPlayer", "CardMaster", "Guest12", "Guest13",
+  ]);
   assert.deepEqual(calls[1]?.params, [["10", "11", "12", "13"]]);
 });
 
