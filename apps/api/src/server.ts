@@ -1660,11 +1660,15 @@ const requireHokmAuth = async (request: any, reply: any) => {
     return reply.code(401).send({ error: 'A valid authenticated Royal Club user is required.' });
   }
   const ownerUserId = process.env.OWNER_USER_ID?.trim();
-  request.auth = {
-    authenticated: true,
-    userId: claims.sub,
-    role: ownerUserId && isNumericId(ownerUserId) && claims.sub === ownerUserId ? 'owner' : 'player'
-  };
+  let role = 'player';
+  if (ownerUserId && isNumericId(ownerUserId) && claims.sub === ownerUserId) {
+    // Reuse the platform's persistent owner-identity anchor check. Do not let
+    // Hokm manager routes bypass owner-protection by trusting only an env var.
+    await requireOwnerAuth(request, reply);
+    if (reply.sent) return;
+    role = 'owner';
+  }
+  request.auth = { authenticated: true, userId: claims.sub, role };
 };
 
 const hokmRepository = new PostgresRoomRepository(pool);
