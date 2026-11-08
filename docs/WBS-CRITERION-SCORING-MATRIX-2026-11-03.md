@@ -6,7 +6,7 @@
 
 - Every approved package weight is divided into equal **5-point criteria**, preserving the 1,000-point baseline.
 - Each criterion earns 5 points only after its acceptance outcome is evidenced and passed. Failed, blocked, untested or unsupported criteria earn 0.
-- **All criteria begin Pending.** This matrix decomposes the baseline; it does not award points or claim completion.
+- **Every criterion begins Pending.** A criterion may be changed to Passed only in a dated evidence update that identifies its acceptance proof; this matrix records both the baseline and subsequent audited passes.
 - CI proves only the checks actually run. Manual-device, Production, provider and owner-approval criteria require separate evidence.
 - Record exact commit/PR, workflow run, test report, read-only verification or manual acceptance. Do not double-count evidence.
 
