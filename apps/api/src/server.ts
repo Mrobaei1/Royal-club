@@ -1670,7 +1670,7 @@ const requireHokmAuth = async (request: any, reply: any) => {
 const hokmRepository = new PostgresRoomRepository(pool);
 const hokmService = new HokmRoomService({ repository: hokmRepository });
 const hokmEventHub = new HokmEventHub(pool, {
-  onError: (error: unknown) => app.log.error({ err: error }, 'Hokm PostgreSQL event listener failed')
+  onError: (error: unknown) => app.log.error({ errorType: error instanceof Error ? error.name.slice(0, 64) : 'unknown_error' }, 'Hokm PostgreSQL event listener failed')
 });
 await hokmEventHub.start();
 await registerHokmRoutes(app, {
