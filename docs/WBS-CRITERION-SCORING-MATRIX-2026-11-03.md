@@ -341,3 +341,5 @@ Three Phase 2 criteria now pass (15/130 points):
 
 
 - **2.4-B Passed (5 points):** screen-by-screen static UI audit covered Main/auth, Account, Admin, Friends, Chat, Leaderboard, Notifications, Online Lobby/Match, Wallet, Owner Analytics, Spectator, Backgammon, Manch offline/online, Hokm/manager review, UNO online, and Chess lobby/game/admin/profile. User-visible static labels and prompts use bilingual `appText`, screen-local `t/_text/_t`, or explicit Persian/English locale branches. Language names and usernames are intentionally data values, not untranslated UI. ARB parity and locale-switch/RTL-LTR widget tests pass. Exact-head Flutter analyze/widget CI passed on PR #222 head `619742db619a8009d8cf849e902cc08e5671ea8a`, run [42487826939](https://github.com/Mrobaei1/Royal-club/actions/runs/42487826939/job/128753465277).
+
+- Additional dynamic-error coverage merged in PR #224: invalid match-room ID and UNO sign-in, user-ID, configuration, signature and service-origin errors now translate through the shared English/Persian error mapper; Flutter regression tests cover both locales.
