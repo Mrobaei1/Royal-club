@@ -446,8 +446,17 @@ function applyCommandForSeat(room, seat, command, expectedVersion, now = Date.no
     handRevealUntil = now + END_OF_HAND_REVEAL_MS;
     revealedHands = copyHands(round.hands);
     if (status === "completed") {
-      playerProgress = awardCompletedMatch(room.players, winningTeam, playerProgress, room.pendingXpDeductions ?? []);
-      for (const userId of room.pendingXpDeductions ?? []) playerProgress = penalizeMatchLeaver(playerProgress, userId);
+      // A disconnected player who has not returned by match completion must
+      // receive the forfeit outcome even when the 20-second takeover deadline
+      // has not elapsed yet. Do not award ordinary win/loss XP to that seat.
+      const matchLeavers = [...new Set([
+        ...(room.pendingXpDeductions ?? []),
+        ...room.players
+          .filter(candidate => candidate.connected === false || candidate.forfeited || candidate.temporaryBot)
+          .map(candidate => candidate.userId)
+      ])];
+      playerProgress = awardCompletedMatch(room.players, winningTeam, playerProgress, matchLeavers);
+      for (const userId of matchLeavers) playerProgress = penalizeMatchLeaver(playerProgress, userId);
     }
   }
   return { ...room, round, matchScore, playerProgress, status,
