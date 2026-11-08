@@ -3998,10 +3998,12 @@ test('Hokm owner manager authorization fails closed when the persistent owner id
   const owner = await register('Hokm Anchor Owner');
   const other = await register('Hokm Anchor Other');
   const previousOwnerId = process.env.OWNER_USER_ID;
+  const previousNodeEnv = process.env.NODE_ENV;
   const previousAnchor = await testPool.query(
     'SELECT owner_user_id::text AS "ownerUserId" FROM royal_club_owner_identity WHERE singleton_id = 1',
   );
   process.env.OWNER_USER_ID = owner.user.id;
+  process.env.NODE_ENV = 'production';
   let roomId = '';
   try {
     await testPool.query(
@@ -4034,5 +4036,7 @@ test('Hokm owner manager authorization fails closed when the persistent owner id
     }
     if (previousOwnerId === undefined) delete process.env.OWNER_USER_ID;
     else process.env.OWNER_USER_ID = previousOwnerId;
+    if (previousNodeEnv === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = previousNodeEnv;
   }
 });
