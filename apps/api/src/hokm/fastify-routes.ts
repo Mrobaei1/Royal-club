@@ -82,9 +82,10 @@ function statusFor(error) {
   return 500;
 }
 
-function route(fastify, authenticate, method, url, operation) {
+function route(fastify, authenticate, method, url, operation, config = undefined) {
   fastify.route({
     method, url, preHandler: authenticate,
+    ...(config ? { config } : {}),
     handler: async (request, reply) => {
       try {
         const result = await operation(request);
@@ -151,7 +152,14 @@ export async function registerHokmRoutes(fastify, { service, authenticate, prefi
 
   route(fastify, authenticate, "POST", path("/hokm/rooms/:roomId/chat"), request =>
     service.sendChatMessage(request.auth, request.params.roomId, request.body?.recipientUserId,
-      request.body?.text, request.body?.messageId, request.body?.expectedVersion));
+      request.body?.text, request.body?.messageId, request.body?.expectedVersion), {
+        rateLimit: {
+          max: 30,
+          timeWindow: "1 minute",
+          hook: "preHandler",
+          keyGenerator: request => `hokm-chat:${request.auth?.userId ?? "anonymous"}`
+        }
+      });
 
   route(fastify, authenticate, "POST", path("/hokm/rooms/:roomId/reports"), request =>
     service.reportCheating(request.auth, request.params.roomId, request.body?.reportedUserId,
