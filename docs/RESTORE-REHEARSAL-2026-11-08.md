@@ -10,7 +10,7 @@ This audit compares two isolated restores made from the same Neon manual snapsho
 - Production project: `Royal-Club-API` / `crimson-moon-58282245`.
 - Current Production branch: `production` / `br-misty-flower-bavs47dm`.
 - Restore A: `phase5-restore-test-20261031` / `br-crimson-rice-baahb4f3`; Neon reports `restore_status=restored`.
-- Restore B: `restore-rehearsal-2026-11-04` / `br-plain-voice-balyjaip`; Neon reports `restore_status=finalized`.
+- Restore B: `restore-rehearsal-2026-11-04` / `br-plain-voice-balyjaip`; Neon reports `restore_status=finalized` and `restored_as=br-misty-flower-bavs47dm` (the Production branch ID).
 
 Both restore branches identify the same source snapshot. A fresh Neon snapshot-list query returned only this one manual snapshot; no recurring/scheduled snapshot was listed.
 
@@ -72,6 +72,7 @@ Production has continued to receive writes after the 2026-10-31 snapshot. Its cu
 - RPO and RTO have not been measured from a declared incident time through a complete recovery procedure. Branch metadata timestamps alone are not a valid RTO measurement.
 - No application-level registration/login/game/wallet/chat smoke test was run against either restore.
 - No full row-by-row checksum, attachment/media/object-storage restore, external encrypted backup, or 23:59 Asia/Tehran email-link delivery was verified.
-- The restore branches remain isolated; no restore was promoted to or substituted for Production.
+- Restore B's finalized metadata points to the Production branch ID, and an earlier audit recorded a temporary Production-position swap. The current branch/compute lineage and whether Production was temporarily replaced must be reconciled before the restore process can be considered operationally safe.
+- At the time of this read-only audit, Neon lists both restore branches as non-primary/non-default and `production` (`br-misty-flower-bavs47dm`) as primary/default. However Restore B reports `restore_status=finalized` and `restored_as` the Production branch ID; a prior audit also recorded an accidental Production-position branch swap during the 2026-11-04 rehearsal. Therefore historical branch/compute lineage is **not certified as clean** by this audit. No branch role, compute assignment or data was changed in this pass.
 
 **WBS 1.5-B remains Pending.** This audit adds repeatable point-in-time restore evidence but does not satisfy the recurring backup, measured RPO/RTO and application-level recovery acceptance criteria.
