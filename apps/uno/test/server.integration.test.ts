@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn, type ChildProcess } from 'node:child_process';
-import { createHmac } from 'node:crypto';
+import { createHmac, randomUUID } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
 import { Pool } from 'pg';
 import { io as connect, type Socket } from 'socket.io-client';
@@ -98,6 +98,12 @@ test('PostgreSQL-backed UNO service authenticates and restores live rooms', {
   timeout: 45_000,
 }, async () => {
   const pool = new Pool({ connectionString: databaseUrl });
+  const roleName = `uno_runtime_test_${process.pid}`;
+  const rolePassword = `integration-${randomUUID()}`;
+  const runtimeDatabaseUrl = new URL(databaseUrl);
+  runtimeDatabaseUrl.username = roleName;
+  runtimeDatabaseUrl.password = rolePassword;
+  let roleCreated = false;
   let service: ChildProcess | null = null;
   let getServiceLogs = () => '';
   const sockets: Socket[] = [];
@@ -106,10 +112,20 @@ test('PostgreSQL-backed UNO service authenticates and restores live rooms', {
       CREATE TABLE IF NOT EXISTS users (
         id BIGSERIAL PRIMARY KEY,
         username TEXT NOT NULL,
-        token_version INTEGER NOT NULL DEFAULT 0
+        token_version INTEGER NOT NULL DEFAULT 0,
+        phone TEXT
       )
     `);
+    await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS phone TEXT');
     await pool.query('TRUNCATE users RESTART IDENTITY');
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS public.uno_room_snapshots (
+        id SMALLINT PRIMARY KEY CHECK (id = 1),
+        state JSONB NOT NULL DEFAULT '{"rooms":[]}'::jsonb,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+    await pool.query('INSERT INTO public.uno_room_snapshots (id) VALUES (1) ON CONFLICT (id) DO NOTHING');
     const inserted = await pool.query(
       'INSERT INTO users (username, token_version) VALUES ($1, 0), ($2, 0) RETURNING id, username',
       ['integration_host', 'integration_guest'],
@@ -119,13 +135,42 @@ test('PostgreSQL-backed UNO service authenticates and restores live rooms', {
     const hostToken = createToken(hostId);
     const guestToken = createToken(guestId);
 
-    let running = startService(databaseUrl!);
+    const databaseName = decodeURIComponent(new URL(databaseUrl).pathname.slice(1));
+    const safeDatabaseName = databaseName.replaceAll('"', '""');
+    await pool.query(`CREATE ROLE "${roleName}" LOGIN PASSWORD '${rolePassword}'`);
+    roleCreated = true;
+    await pool.query(`GRANT CONNECT ON DATABASE "${safeDatabaseName}" TO "${roleName}"`);
+    await pool.query(`GRANT USAGE ON SCHEMA public TO "${roleName}"`);
+    await pool.query(`GRANT SELECT (id, username, token_version) ON TABLE public.users TO "${roleName}"`);
+    await pool.query(`GRANT SELECT, INSERT, UPDATE ON TABLE public.uno_room_snapshots TO "${roleName}"`);
+
+    const runtimePool = new Pool({ connectionString: runtimeDatabaseUrl.toString() });
+    try {
+      const profile = await runtimePool.query(
+        'SELECT username, token_version FROM public.users WHERE id = $1 LIMIT 1', [hostId],
+      );
+      assert.equal(profile.rows[0]?.username, 'integration_host');
+      await assert.rejects(
+        runtimePool.query('SELECT phone FROM public.users WHERE id = $1', [hostId]),
+        (error: { code?: string }) => error.code === '42501',
+        'runtime role must not read unrelated personal columns',
+      );
+      await assert.rejects(
+        runtimePool.query('CREATE TABLE public.uno_runtime_must_not_create (id integer)'),
+        (error: { code?: string }) => error.code === '42501',
+        'runtime role must not create schema objects',
+      );
+    } finally {
+      await runtimePool.end();
+    }
+
+    let running = startService(runtimeDatabaseUrl.toString());
     service = running.child;
     getServiceLogs = running.logs;
     await waitForHealth(service, running.logs);
 
     // A second replica must fail before loading or writing the shared snapshot.
-    const competing = startService(databaseUrl!, port + 1);
+    const competing = startService(runtimeDatabaseUrl.toString(), port + 1);
     await delay(1000);
     assert.notEqual(competing.child.exitCode, null, 'a second UNO instance must be rejected');
     assert.match(competing.logs(), /already running|Multiple replicas/i);
@@ -200,7 +245,7 @@ test('PostgreSQL-backed UNO service authenticates and restores live rooms', {
     service = null;
 
     await delay(150);
-    running = startService(databaseUrl!);
+    running = startService(runtimeDatabaseUrl.toString());
     service = running.child;
     getServiceLogs = running.logs;
     await waitForHealth(service, running.logs);
@@ -225,6 +270,10 @@ test('PostgreSQL-backed UNO service authenticates and restores live rooms', {
   } finally {
     for (const socket of sockets) socket.disconnect();
     if (service) await stopService(service);
+    if (roleCreated) {
+      await pool.query(`DROP OWNED BY "${roleName}"`).catch(() => undefined);
+      await pool.query(`DROP ROLE IF EXISTS "${roleName}"`).catch(() => undefined);
+    }
     await pool.end();
   }
 });
