@@ -445,3 +445,10 @@ Open integration/release boundaries: all PRs remain unmerged; PR #137's older Ho
 - **2.3-A Passed (5 points):** integration tests verify `GET /api/v1/me` resolves the profile solely from the verified JWT subject. A foreign `userId` query parameter cannot switch identity; two test accounts each receive their own email/full name/phone and never the other account's private identity.
 - Exact-head evidence: PR #222 head `619742db619a8009d8cf849e902cc08e5671ea8a`, API integration run [42487826951](https://github.com/Mrobaei1/Royal-club/actions/runs/42487826951/job/128753465486) passed; PR #222 merged as `6677e8da9b41cfa00a8450aa2a3c0db021e59838`.
 - Phase 2 score: **105/130 (80.77%)**; total evidence-backed score: **190/1,000 (19.0%)**.
+
+
+## Static UI localization audit — 2026-11-08
+
+- **2.4-B Passed (5 points):** audited user-visible static text across Main/auth, Account, Admin, Friends, Chat, Leaderboard, Notifications, Online Lobby/Match, Wallet, Owner Analytics, Spectator, Backgammon, Manch offline/online, Hokm/manager review, UNO online, and Chess lobby/game/admin/profile. Labels/prompts are rendered through bilingual `appText`, screen-local `t/_text/_t` helpers or explicit locale branches. Language names, usernames and stored descriptions are data values rather than static UI copy.
+- ARB key parity and locale-switch widget tests separately verify English/Persian resources and RTL/LTR directionality. Exact-head Flutter analyze/widget run [42487826939](https://github.com/Mrobaei1/Royal-club/actions/runs/42487826939/job/128753465277) passed on PR #222 head `619742db619a8009d8cf849e902cc08e5671ea8a`.
+- Phase 2 score: **110/130 (84.62%)**; total evidence-backed score: **195/1,000 (19.5%)**. Dynamic UNO/match error text improvements are tracked separately in PR #224.
