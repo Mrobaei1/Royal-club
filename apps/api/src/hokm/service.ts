@@ -133,6 +133,7 @@ export class HokmRoomService {
 
   async forfeit(principal, roomId, expectedVersion, idempotencyKey) {
     const userId = authenticatedUser(principal);
+    if (typeof roomId !== "string" || !roomId.trim()) throw new TypeError("roomId is required");
     if (!Number.isInteger(expectedVersion)) throw new TypeError("expectedVersion is required");
     if (typeof idempotencyKey !== "string" || !idempotencyKey.trim() || idempotencyKey.length > 128) {
       throw new TypeError("A bounded idempotency key is required for forfeit");
