@@ -21,15 +21,15 @@
 | 1.1-C | Requirements trace to implementation and owner decisions | 5 | Passed | docs/REQUIREMENTS-TRACEABILITY.md maps approved decisions to WBS, implementation surfaces, evidence and residual gates (2026-11-08). |
 | 1.2-A | Flutter/API/PostgreSQL boundaries respected | 5 | Passed | Static architecture review: README.md, apps/mobile/pubspec.yaml, apps/api/package.json and apps/api/src/server.ts; consolidated in docs/ARCHITECTURE-AND-NFRS.md (2026-11-08). |
 | 1.2-B | Provider portability and deployment boundaries verified | 5 | Pending | Not audited |
-| 1.2-C | Server-authoritative game/economy rules negatively tested | 5 | Pending | Not audited |
-| 1.3-A | Free-by-default policy enforced | 5 | Pending | Not audited |
+| 1.2-C | Server-authoritative game/economy rules negatively tested | 5 | Passed | PR #204 head `fb7021615e90325712b6668d6a6a88eefaad9c3c`: API build/unit + PostgreSQL integration run `42475968379`; Manch/Hokm/backgammon negative coverage; Chess isolated API/mobile run `42475968328`; backgammon engine audit `42475968383`. UNO least-privilege negative integration/standalone CI passed on PR #203 head `ee8ccf74e865ceb63665915cfe39193a70f2e70c`, run `42475232236`. All exact-head workflows passed. (2026-11-08) |
+| 1.3-A | Free-by-default policy enforced | 5 | Passed | Core game/league routes have no mandatory subscription gate; league `subscription_days` is owner-opt-in and default is `free`/0 days. Private chat is friend-only but does not require a subscription, matching the owner's explicit 2026-10-26 decision; non-friends cannot message. Default customization prices are 0; VIP purchase is optional. Exact-head API/game CI: PR #204 runs `42475968379`, `42475968332`, `42475968328`, `42475968383`; UNO Standalone CI PR #203 run `42475232236`. (2026-11-08) |
 | 1.3-B | IP/VPN-independent identity verified | 5 | Pending | Not audited |
-| 1.3-C | Username-only public identity and privacy enforced | 5 | Pending | Not audited |
+| 1.3-C | Username-only public identity and privacy enforced | 5 | Passed | API payload assertions exclude fullName/email from friend, chat, leaderboard, match-history and spectator projections; Manch, Hokm, Chess and UNO tests/projections use usernames only. Static UI audit: friends/chat/lobby/leaderboard/Hokm/Chess surfaces use username or generic empty-profile fallback; fullName is limited to self-profile/auth and owner-only admin views. Exact-head PR #204 validation runs `42475968379`, `42475968328`, `42475968332`; UNO Standalone CI PR #203 run `42475232236`. Manual device and legacy-profile visual acceptance remains tracked under WBS 4.5. (2026-11-08) |
 | 1.4-A | WBS baseline/change control maintained | 5 | Passed | Frozen WBS v1.1 baseline plus change-control rules in docs/PROJECT-GOVERNANCE.md; no scope/weight changes. |
 | 1.4-B | Owner decisions and approvals traceable | 5 | Passed | Confirmed decisions and unresolved approvals recorded in docs/REQUIREMENTS-TRACEABILITY.md and docs/PROJECT-GOVERNANCE.md (2026-11-08). |
 | 1.4-C | Evidence links and milestone reports current | 5 | Passed | WBS matrix and rolling evidence ledger refreshed 2026-11-08; exact links/SHAs and remaining gates retained. |
 | 1.5-A | Data lifecycle/retention/deletion approved | 5 | Pending | Not audited |
-| 1.5-B | Backup/restore/DR procedures documented and tested | 5 | Pending | Not audited |
+| 1.5-B | Backup/restore/DR procedures documented and tested | 5 | Pending | Two isolated restores from snapshot `snap-spring-truth-ba9rbrg1` have identical 33-table/78-index/27-sequence structures and matching exact row counts in all 33 tables. See `docs/RESTORE-REHEARSAL-2026-11-08.md`. Still missing recurring backup schedule, measured RPO/RTO, application-level restore smoke tests and external email-link backup. (2026-11-08) |
 | 1.6-A | Roadmap dependencies reviewed | 5 | Passed | docs/PHASE-DEPENDENCY-MAP.md reviews phase prerequisites, critical path, parallel work and approval gates (2026-11-08). |
 | 1.6-B | Chess/card scope preserved with backgammon priority | 5 | Passed | Owner-approved WBS v1.1, README.md, execution roadmap and docs/REQUIREMENTS-TRACEABILITY.md preserve chess/cards while prioritizing backgammon. |
 
@@ -252,9 +252,9 @@
 - Packages decomposed: **53/53**
 - Acceptance criteria: **200**
 - Points represented: **1000/1,000**
-- Earned points currently evidenced: **80/1,000 (8.0%)** — prior 40 points plus eight Phase 1 architecture/governance criteria (1.1-A, 1.1-C, 1.2-A, 1.4-A/B/C, 1.6-A/B).
-- Remaining criteria: **184 Pending** (920 points not yet earned).
-- Official project percentage: **8.0% evidence-backed minimum**; this remains a partial criterion audit, not a claim that only 8.0% of code exists. The new Phase 1 points are documentation/static-architecture evidence and do not close provider portability, server-authority negative tests, NFR target approval, data retention approval or DR acceptance.
+- Earned points currently evidenced: **95/1,000 (9.5%)** — prior 80 points plus 15 points for criteria 1.2-C, 1.3-A and 1.3-C after exact-head CI and source/route audits passed on the integrated mainline.
+- Remaining criteria: **181 Pending** (905 points not yet earned).
+- Official project percentage: **9.5% evidence-backed minimum**; this remains a partial criterion audit, not a claim that only 9.5% of code exists. The three new passes are supported by exact-head negative-test CI, friend-only free chat and free-by-default route audit, and username-only privacy regression evidence; provider portability, NFR target approval, physical VPN/device acceptance, owner-approved retention and DR acceptance remain open.
 
 ## Required evidence record
 
@@ -263,4 +263,4 @@ For each criterion record: `criterion ID | pass/fail/blocked/not tested | exact 
 
 ## Phase 1 architecture/governance audit — 2026-11-08
 
-Eight criteria passed (40/80 Phase 1 points; 50% of WBS 1.0) based on the owner-approved WBS, current repository architecture and the new governance/traceability/dependency artifacts. Criteria 1.1-B, 1.2-B/C, 1.3-A/B/C and 1.5-A/B remain Pending; no points are inferred from proposals or partial evidence. In particular, provider portability, current-head negative tests for authoritative game/economy behavior, end-to-end enforcement of free-by-default and privacy/network rules, owner-approved retention/deletion durations, and application-level disaster recovery remain open.
+Eleven criteria passed (55/80 Phase 1 points; 68.75% of WBS 1.0). In addition to the eight prior architecture/governance criteria, 1.2-C (server-authoritative game/economy negative tests), 1.3-A (free-by-default enforcement) and 1.3-C (username-only public identity/privacy) now pass based on exact-head CI and cross-module regression/source evidence. The 2026-10-26 owner decision confirms private chat is available to friends without a subscription, with non-friends blocked; current code and tests match it. Criteria 1.1-B, 1.2-B, 1.3-B and 1.5-A/B remain Pending. Physical VPN OFF/ON testing, legacy/empty-profile device acceptance under WBS 4.5, second-provider portability, owner-approved NFRs/retention, and application-level disaster recovery remain open.
