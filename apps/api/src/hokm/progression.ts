@@ -47,14 +47,27 @@ export function awardCompletedMatch(
   players: readonly ProgressPlayer[],
   winningTeam: 0 | 1,
   current: PlayerProgressMap = {},
+  forfeitUserIds: readonly string[] = [],
 ): PlayerProgressMap {
   if (!Array.isArray(players) || players.length !== 4) throw new TypeError("Four players required");
   if (winningTeam !== 0 && winningTeam !== 1) throw new RangeError("Invalid winning team");
+  if (!Array.isArray(forfeitUserIds) || forfeitUserIds.some(id => typeof id !== "string" || !id.trim())) {
+    throw new TypeError("forfeitUserIds must contain valid user IDs");
+  }
+  const forfeitingUsers = new Set(forfeitUserIds);
+  const forfeitingTeams = new Set(players
+    .filter(player => forfeitingUsers.has(player.userId) || player.forfeited || player.temporaryBot)
+    .map(player => player.seat % 2));
   const result: PlayerProgressMap = { ...current };
   for (const player of players) {
-    if (player.forfeited || player.temporaryBot) continue;
-    const team = player.seat % 2 === 0 ? 0 : 1;
-    result[player.userId] = applyXpChange(result[player.userId], team === winningTeam ? 20 : 5);
+    if (forfeitingUsers.has(player.userId) || player.forfeited || player.temporaryBot) continue;
+    const team = player.seat % 2;
+    // Owner-approved forfeit/disconnect outcome: the opposing partnership is
+    // guaranteed the +20 XP win award even if the remaining game later ends
+    // against it. This is a replacement award, never an extra +20.
+    const opposingForfeit = forfeitingTeams.has(1 - team);
+    const award = opposingForfeit ? 20 : (team === winningTeam ? 20 : 5);
+    result[player.userId] = applyXpChange(result[player.userId], award);
   }
   return result;
 }
