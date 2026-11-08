@@ -41,7 +41,7 @@ test("PostgreSQL room reads hydrate cumulative account XP from the durable progr
     "12": { xp: 0, level: 1 },
     "13": { xp: 0, level: 1 },
   });
-  assert.deepEqual(restored.players.map(player => player.username), [
+  assert.deepEqual(restored.players.map((player: { username: string }) => player.username), [
     "RoyalPlayer", "CardMaster", "Guest12", "Guest13",
   ]);
   assert.deepEqual(calls[1]?.params, [["10", "11", "12", "13"]]);
