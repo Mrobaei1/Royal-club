@@ -7,13 +7,76 @@
 function statusFor(error) {
   const message = String(error?.message ?? "");
   if (/verified authenticated principal/.test(message)) return 401;
-  if (/not a member|Only the host|trusted service principal|Only an authorized manager|Only the owner|cannot submit|forfeited player cannot|player cannot report themselves|Only an authorized manager|Only the owner|cannot submit|forfeited player cannot|player who left the match cannot submit|Both reporter and reported player must be match participants|Both chat participants must belong|Private match chat is limited/.test(message)) return 403;
+
+  const forbidden = [
+    /not a member/,
+    /Only the host/,
+    /trusted service principal/,
+    /Only an authorized manager/,
+    /Only the owner/,
+    /forfeited player cannot/,
+    /player who left the match cannot submit/,
+    /Both reporter and reported player must be match participants/,
+    /Both chat participants must belong/,
+    /Private match chat is limited/,
+  ];
+  if (forbidden.some(pattern => pattern.test(message))) return 403;
+
   if (/^(Room|Cheating report|Appeal) not found$/.test(message)) return 404;
-  if (/Stale room version|Concurrent room update|already exists|full|not accepting|already started|not completed|not playing|not accepting card plays|already been reviewed|already has a pending appeal|grace period expired|deadline has not elapsed|not elapsed|cannot be canceled|cannot be appealed|not accepting|only during an active match|only an unfinished match|Readiness can only change|Exactly four players|All players must be ready|Room has already started|previous round is not completed|still active|Fewer than two reconnect grace periods|Multiple unrecovered disconnects|already been reviewed|already has a pending appeal|Chat message ID was already used|grace period expired|deadline has not elapsed|not elapsed|cannot be canceled|cannot be appealed|Only an active match can be canceled|Only a completed match result can be appealed|Only completed match appeals can be reviewed|This match cannot accept reports|Cheating report has already been reviewed|Appeal has already been reviewed|The previous round is not completed|Only the host may start the next round|No legal card is available for automatic play|The 3-second end-of-hand reveal is still active|only during an active match|only an unfinished match|Readiness can only change|Exactly four players|All players must be ready|Room has already started|previous round is not completed|still active|Fewer than two reconnect grace periods|Multiple unrecovered disconnects|all-four-disconnected 20-second rule/.test(message)) return 409;
+
+  const conflicts = [
+    /Stale room version/,
+    /Concurrent room update/,
+    /already exists/,
+    /Room is full/,
+    /Room is not accepting players/,
+    /already started/,
+    /not completed/,
+    /not playing/,
+    /not accepting card plays/,
+    /already been reviewed/,
+    /already has a pending appeal/,
+    /Chat message ID was already used/,
+    /grace period expired/,
+    /deadline has not elapsed/,
+    /cannot be canceled/,
+    /cannot be appealed/,
+    /Only an active match can be canceled/,
+    /Only a completed match result can be appealed/,
+    /Only completed match appeals can be reviewed/,
+    /This match cannot accept reports/,
+    /The previous round is not completed/,
+    /Only the host may start the next round/,
+    /No legal card is available for automatic play/,
+    /The 3-second end-of-hand reveal is still active/,
+    /only during an active match/,
+    /only an unfinished match/,
+    /Readiness can only change/,
+    /Exactly four players/,
+    /All players must be ready/,
+    /Fewer than two reconnect grace periods/,
+    /Multiple unrecovered disconnects/,
+    /all-four-disconnected 20-second rule/,
+    /Only an active match can be canceled by player agreement/,
+  ];
+  if (conflicts.some(pattern => pattern.test(message))) return 409;
+
+  const invalidRequests = [
+    /Unsupported game command/,
+    /A player cannot message themselves/,
+    /A player cannot report themselves/,
+    /Chat is available only/,
+    /Report reason must/,
+    /Appeal reason must/,
+    /Review notes must/,
+    /A bounded/,
+    /must contain between/,
+    /must be a valid/,
+    /decision must be/,
+  ];
   if (error instanceof TypeError || error instanceof RangeError ||
-      /Unsupported game command|A player cannot message themselves|Chat is available only|A player cannot report themselves|Both chat participants|Private match chat|A bounded|must contain between|must be a valid|Review notes must|Report reason must|Appeal reason must|decision must be/.test(message)) {
-    return 400;
-  }
+      invalidRequests.some(pattern => pattern.test(message))) return 400;
+
   // Unknown exceptions may contain SQL, infrastructure or credential details.
   // Treat them as server errors and never echo their raw messages to clients.
   return 500;
