@@ -622,7 +622,7 @@ void main() {
     tester.platformDispatcher.textScaleFactorTestValue = 1.5;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValueTestValue);
     final api = FakeHokmApi();
     await tester.pumpWidget(MaterialApp(
       locale: const Locale('en'),
@@ -661,7 +661,7 @@ void main() {
     tester.platformDispatcher.textScaleFactorTestValue = 1.6;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValueTestValue);
 
     final api = FakeHokmApi();
     await tester.pumpWidget(MaterialApp(
@@ -692,7 +692,7 @@ void main() {
     tester.platformDispatcher.textScaleFactorTestValue = 1.6;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    addTearDown(tester.platformDispatcher.clearTextScaleFactor);
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
 
     final api = FakeHokmApi();
     api.room = api._playing();
