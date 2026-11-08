@@ -9,6 +9,7 @@ const MAX_PLAYERS = 4;
 const VALID_MATCH_TARGETS = Object.freeze([3, 5, 7]);
 export const TURN_DEADLINE_MS = 7_000;
 export const END_OF_HAND_REVEAL_MS = 3_000;
+const secureRandom = () => randomInt(0, 1_000_000) / 1_000_000;
 export const ALL_PLAYERS_DISCONNECTED_MS = 20_000;
 const DEFAULT_DISCONNECT_GRACE_MS = 20_000;
 
@@ -196,7 +197,7 @@ export function setPlayerReady(room, userId, ready) {
   return { ...room, players, version: room.version + 1 };
 }
 
-export function startRoom(room, requesterUserId, { now, rng = Math.random, selectHakemSeat = () => randomInt(0, 4) } = {}) {
+export function startRoom(room, requesterUserId, { now, rng = secureRandom, selectHakemSeat = () => randomInt(0, 4) } = {}) {
   requireNow(now);
   if (requesterUserId !== room.hostUserId) throw new Error("Only the host may start the game");
   if (room.status !== "waiting") throw new Error("Room has already started or closed");
@@ -213,7 +214,7 @@ export function startRoom(room, requesterUserId, { now, rng = Math.random, selec
     turnDeadlineAt: now + TURN_DEADLINE_MS, version: room.version + 1 };
 }
 
-export function startNextRound(room, requesterUserId, { rng = Math.random, now = Date.now() } = {}) {
+export function startNextRound(room, requesterUserId, { rng = secureRandom, now = Date.now() } = {}) {
   requireNow(now);
   if (room.status !== "round_completed") throw new Error("The previous round is not completed");
   const host = room.players.find(player => player.userId === room.hostUserId);
@@ -409,7 +410,7 @@ export function roomViewForUser(room, userId, { now = Date.now() } = {}) {
     matchTarget: room.matchTarget, matchScore: [...room.matchScore], version: room.version,
     serverNow: now,
     hostUserId: room.hostUserId,
-    players: room.players.map(({ userId: id, seat, ready, connected, botControlled, forfeited }) => ({ userId: id, seat, ready, connected, botControlled: Boolean(botControlled), forfeited: Boolean(forfeited) })),
+    players: room.players.map(({ userId: id, username, seat, ready, connected, botControlled, forfeited }) => ({ userId: id, username: username ?? null, seat, ready, connected, botControlled: Boolean(botControlled), forfeited: Boolean(forfeited) })),
     ownProgress: room.playerProgress?.[userId] ?? { xp: 0, level: 1 },
     turnDeadlineAt: room.turnDeadlineAt ?? null,
     handRevealUntil: revealActive ? room.handRevealUntil : null,
@@ -446,8 +447,17 @@ function applyCommandForSeat(room, seat, command, expectedVersion, now = Date.no
     handRevealUntil = now + END_OF_HAND_REVEAL_MS;
     revealedHands = copyHands(round.hands);
     if (status === "completed") {
-      playerProgress = awardCompletedMatch(room.players, winningTeam, playerProgress, room.pendingXpDeductions ?? []);
-      for (const userId of room.pendingXpDeductions ?? []) playerProgress = penalizeMatchLeaver(playerProgress, userId);
+      // A disconnected player who has not returned by match completion must
+      // receive the forfeit outcome even when the 20-second takeover deadline
+      // has not elapsed yet. Do not award ordinary win/loss XP to that seat.
+      const matchLeavers = [...new Set([
+        ...(room.pendingXpDeductions ?? []),
+        ...room.players
+          .filter(candidate => candidate.connected === false || candidate.forfeited || candidate.temporaryBot)
+          .map(candidate => candidate.userId)
+      ])];
+      playerProgress = awardCompletedMatch(room.players, winningTeam, playerProgress, matchLeavers);
+      for (const userId of matchLeavers) playerProgress = penalizeMatchLeaver(playerProgress, userId);
     }
   }
   return { ...room, round, matchScore, playerProgress, status,
@@ -466,7 +476,7 @@ function advanceHardBotTurn(room, now = Date.now()) {
     const seat = activeSeat(next.round);
     const occupant = next.players.find(player => player.seat === seat);
     if (!occupant?.botControlled) break;
-    const action = chooseHardBotAction(next.round, seat);
+    const action = chooseHardBotAction(next.round, seat, { rng: secureRandom });
     const command = action.type === "choose_trump"
       ? { type: "choose_trump", suit: action.suit }
       : { type: "play_card", card: action.card };
@@ -477,7 +487,7 @@ function advanceHardBotTurn(room, now = Date.now()) {
 }
 
 /** Server scheduler entry: auto-select trump via fixed Hard policy or a random legal card after 7 seconds. */
-export function processTurnTimeout(room, { now, expectedVersion, rng = Math.random } = {}) {
+export function processTurnTimeout(room, { now, expectedVersion, rng = secureRandom } = {}) {
   requireNow(now); requireExpectedVersion(room, expectedVersion);
   if (room.status !== "playing" || !room.round) throw new Error("Room is not playing");
   if (!Number.isFinite(room.turnDeadlineAt) || now < room.turnDeadlineAt) throw new Error("Turn deadline has not elapsed");
@@ -486,7 +496,7 @@ export function processTurnTimeout(room, { now, expectedVersion, rng = Math.rand
   if (!occupant) throw new Error("Active seat is not occupied");
   let command;
   if (room.round.phase === "choose_trump") {
-    const action = chooseHardBotAction(room.round, seat);
+    const action = chooseHardBotAction(room.round, seat, { rng });
     command = { type: "choose_trump", suit: action.suit };
   } else {
     const legal = legalCards(room.round.hands[seat], room.round.currentTrick);

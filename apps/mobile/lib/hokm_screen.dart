@@ -446,6 +446,11 @@ class _HokmScreenState extends State<HokmScreen> with WidgetsBindingObserver {
     await _run(() => _api.submitAppeal(_roomId, reason, _version));
   }
 
+  String _playerLabel(Map<String, dynamic> player, int seat) {
+    final username = player['username']?.toString().trim();
+    return username != null && username.isNotEmpty ? username : _seatName(seat);
+  }
+
   String _seatName(int seat) => (_english
       ? ['North', 'East', 'South', 'West']
       : ['بالا', 'راست', 'پایین', 'چپ'])[seat % 4];
@@ -567,7 +572,7 @@ class _HokmScreenState extends State<HokmScreen> with WidgetsBindingObserver {
       final player = _playerAtSeat(seat);
       return ListTile(
         leading: CircleAvatar(child: Text((seat + 1).toString())),
-        title: Text(player == null ? t('صندلی خالی', 'Empty seat') : '${_seatName(seat)} • ${player['userId']}'),
+        title: Text(player == null ? t('صندلی خالی', 'Empty seat') : _playerLabel(player, seat)),
         subtitle: Text(player == null ? t('منتظر بازیکن', 'Waiting for player') :
           player['ready'] == true ? t('آماده', 'Ready') : t('هنوز آماده نیست', 'Not ready')),
         trailing: Icon(player?['connected'] == true ? Icons.circle : Icons.circle_outlined,
@@ -650,7 +655,7 @@ class _HokmScreenState extends State<HokmScreen> with WidgetsBindingObserver {
             backgroundColor: active ? const Color(0xFFD8B45A) : null,
             child: Text((seat + 1).toString(), style: TextStyle(color: active ? Colors.black : null)),
           ),
-          title: Text(player == null ? _seatName(seat) : '${_seatName(seat)} • ${player['userId']}'),
+          title: Text(player == null ? _seatName(seat) : _playerLabel(player, seat)),
           subtitle: Text(player?['botControlled'] == true ? t('ربات موقت', 'Temporary AI') :
             player?['connected'] == true ? t('متصل', 'Connected') : t('قطع ارتباط', 'Disconnected')),
           trailing: player != null && player['userId']?.toString() != _userId
@@ -715,7 +720,7 @@ class _HokmScreenState extends State<HokmScreen> with WidgetsBindingObserver {
                 : _opponents.first['userId']?.toString(),
             items: _opponents.map((player) {
               final id = player['userId'].toString();
-              return DropdownMenuItem<String>(value: id, child: Text(id));
+              return DropdownMenuItem<String>(value: id, child: Text(_playerLabel(player, (player['seat'] as num?)?.toInt() ?? 0)));
             }).toList(),
             onChanged: _busy ? null : (value) => setState(() => _chatRecipientUserId = value),
           ),

@@ -123,59 +123,6 @@ class AuthService {
 
   static Future<String?> accessToken() => _storage.read(key: 'royal_club_token');
 
-  /// Authenticated JSON GET used by game-specific services. Origins remain owned by ApiTransport.
-  static Future<Map<String, dynamic>> authenticatedGet(String path) async {
-    if (!path.startsWith('/api/v1/')) throw ArgumentError('Authenticated API path must be versioned.');
-    final token = await _storage.read(key: 'royal_club_token');
-    if (token == null || token.isEmpty) throw Exception('ابتدا وارد حساب شوید.');
-    return _decode(await _send(() => http.get(
-      ApiTransport.uri(path),
-      headers: {'Authorization': 'Bearer $token'},
-    )));
-  }
-
-  /// Authenticated JSON POST used by game-specific services.
-  static Future<Map<String, dynamic>> authenticatedPost(
-    String path, Map<String, dynamic> body,
-  ) async {
-    if (!path.startsWith('/api/v1/')) throw ArgumentError('Authenticated API path must be versioned.');
-    final token = await _storage.read(key: 'royal_club_token');
-    if (token == null || token.isEmpty) throw Exception('ابتدا وارد حساب شوید.');
-    return _decode(await _send(() => http.post(
-      ApiTransport.uri(path),
-      headers: {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'},
-      body: jsonEncode(body),
-    )));
-  }
-
-  /// Authenticated SSE stream; the subscription owns and closes its HTTP client.
-  static Stream<String> authenticatedEventStream(String path) async* {
-    if (!path.startsWith('/api/v1/')) throw ArgumentError('Authenticated API path must be versioned.');
-    ensureConfigured();
-    final token = await _storage.read(key: 'royal_club_token');
-    if (token == null || token.isEmpty) throw Exception('ابتدا وارد حساب شوید.');
-    final client = http.Client();
-    try {
-      final request = http.Request('GET', ApiTransport.uri(path));
-      request.headers['Authorization'] = 'Bearer $token';
-      request.headers['Accept'] = 'text/event-stream';
-      final response = await client.send(request).timeout(const Duration(seconds: 15));
-      if (response.statusCode < 200 || response.statusCode >= 300) {
-        final body = await response.stream.bytesToString();
-        throw Exception(body.isEmpty ? 'خطا در ارتباط با سرور' : body);
-      }
-      await for (final line in response.stream.transform(utf8.decoder).transform(const LineSplitter())) {
-        if (line.startsWith('data:')) yield line.substring(5).trimLeft();
-      }
-    } on TimeoutException {
-      throw Exception('پاسخ سرور بیش از حد طول کشید. لطفاً دوباره تلاش کنید.');
-    } on http.ClientException {
-      throw Exception('اتصال به سرور برقرار نشد.');
-    } finally {
-      client.close();
-    }
-  }
-
   static Future<Map<String, dynamic>> me() async {
     final token = await _storage.read(key: 'royal_club_token');
     if (token == null || token.isEmpty) throw Exception('ابتدا وارد حساب شوید.');
@@ -300,6 +247,60 @@ class AuthService {
 
   static Future<void> saveLanguagePreference(String languageCode) =>
       _storage.write(key: 'royal_club_language', value: languageCode);
+
+  /// Authenticated JSON requests for game-specific services, resolved through ApiTransport.
+  static Future<Map<String, dynamic>> authenticatedGet(String path) async {
+    if (!path.startsWith('/api/v1/')) throw ArgumentError('Authenticated API path must be versioned.');
+    final token = await _storage.read(key: 'royal_club_token');
+    if (token == null || token.isEmpty) throw Exception('ابتدا وارد حساب شوید.');
+    return _decode(await _send(() => http.get(
+      ApiTransport.uri(path),
+      headers: {'Authorization': 'Bearer $token'},
+    )));
+  }
+
+  static Future<Map<String, dynamic>> authenticatedPost(
+    String path, Map<String, dynamic> body,
+  ) async {
+    if (!path.startsWith('/api/v1/')) throw ArgumentError('Authenticated API path must be versioned.');
+    final token = await _storage.read(key: 'royal_club_token');
+    if (token == null || token.isEmpty) throw Exception('ابتدا وارد حساب شوید.');
+    return _decode(await _send(() => http.post(
+      ApiTransport.uri(path),
+      headers: {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'},
+      body: jsonEncode(body),
+    )));
+  }
+
+  static Stream<String> authenticatedEventStream(String path) async* {
+    if (!path.startsWith('/api/v1/')) throw ArgumentError('Authenticated API path must be versioned.');
+    ensureConfigured();
+    final token = await _storage.read(key: 'royal_club_token');
+    if (token == null || token.isEmpty) throw Exception('ابتدا وارد حساب شوید.');
+    final client = http.Client();
+    try {
+      final request = http.Request('GET', ApiTransport.uri(path));
+      request.headers['Authorization'] = 'Bearer $token';
+      request.headers['Accept'] = 'text/event-stream';
+      final response = await client.send(request).timeout(const Duration(seconds: 15));
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        final body = await response.stream.bytesToString();
+        dynamic decoded;
+        try { decoded = jsonDecode(body); } catch (_) {}
+        if (decoded is Map) throw Exception(decoded['error']?.toString() ?? 'خطا در ارتباط با سرور');
+        throw Exception('خطا در ارتباط با سرور');
+      }
+      await for (final line in response.stream.transform(utf8.decoder).transform(const LineSplitter())) {
+        if (line.startsWith('data:')) yield line.substring(5).trimLeft();
+      }
+    } on TimeoutException {
+      throw Exception('پاسخ سرور بیش از حد طول کشید. لطفاً دوباره تلاش کنید.');
+    } on http.ClientException {
+      throw Exception('اتصال به سرور برقرار نشد. ممکن است سرویس API خاموش باشد یا آدرس آن تغییر کرده باشد.');
+    } finally {
+      client.close();
+    }
+  }
 
   static Future<void> logout() async {
     await _storage.delete(key: 'royal_club_token');

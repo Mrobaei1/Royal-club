@@ -18,12 +18,12 @@ import 'contact_screen.dart';
 import 'chat_screen.dart';
 import 'services/chat_service.dart';
 import 'services/friends_service.dart';
+import 'hokm_screen.dart';
+import 'services/hokm_service.dart';
 import 'uno/uno_entry_screen.dart';
 import 'games/manch/manch_offline_game_screen.dart';
 import 'games/manch/manch_game_state.dart';
 import 'games/manch/manch_online_screen.dart';
-import 'hokm_screen.dart';
-import 'services/hokm_service.dart';
 
 class RoyalLocaleState extends ChangeNotifier {
   RoyalLocaleState() { _load(); }
@@ -508,23 +508,25 @@ class _HomeScreenState extends State<HomeScreen> {
                 title: appText(context, 'حکم', 'Hokm'),
                 subtitle: appText(context, 'بازی کارتی چهار نفره', 'Four-player trick-taking card game'),
                 icon: Icons.style_rounded,
-                onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => FutureBuilder<bool>(
-                  future: AdminService.isOwner(),
-                  builder: (context, ownerSnapshot) {
-                    if (!ownerSnapshot.hasData && !ownerSnapshot.hasError) {
-                      return const Scaffold(body: Center(child: CircularProgressIndicator()));
-                    }
-                    return HokmScreen(
-                      api: HokmService(),
-                      identityLoader: () async {
-                        final profile = await AuthService.me();
-                        final user = profile['user'];
-                        return user is Map ? user['id']?.toString() : null;
-                      },
-                      managerAccess: ownerSnapshot.data == true,
-                    );
-                  },
-                ))),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(builder: (_) => FutureBuilder<bool>(
+                    future: AdminService.isOwner(),
+                    builder: (context, ownerSnapshot) {
+                      if (!ownerSnapshot.hasData && !ownerSnapshot.hasError) {
+                        return const Scaffold(body: Center(child: CircularProgressIndicator()));
+                      }
+                      return HokmScreen(
+                        api: HokmService(),
+                        identityLoader: () async {
+                          final profile = await AuthService.me();
+                          final user = profile['user'];
+                          return user is Map ? user['id']?.toString() : null;
+                        },
+                        managerAccess: ownerSnapshot.data == true,
+                      );
+                    },
+                  )),
+                ),
               ),
               const SizedBox(height: 12),
               GameTile(title: AppLocalizations.of(context).cardGames, subtitle: royalLocaleState.locale.languageCode == 'fa' ? 'به‌زودی' : 'Coming soon', icon: Icons.style_rounded, comingSoon: true),

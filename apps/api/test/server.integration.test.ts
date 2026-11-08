@@ -4,6 +4,9 @@ import { randomUUID } from 'node:crypto';
 import { verifyGameServiceConfigSignature } from '../src/game-service-config-signing.js';
 import { Pool } from 'pg';
 import { HokmEventHub } from '../src/hokm/events.js';
+import { HokmDeadlineScheduler } from '../src/hokm/deadline-scheduler.js';
+import { PostgresRoomRepository } from '../src/hokm/postgres-repository.js';
+import { HokmRoomService } from '../src/hokm/service.js';
 
 // This suite is run only against a disposable PostgreSQL database in CI.
 process.env.JWT_SECRET ??= 'royal-club-integration-test-secret-32-characters';
@@ -4027,23 +4030,24 @@ test('authenticated Hokm forfeit is permanent, idempotent and cancels on a secon
 
   const forfeit = await app.inject({
     method: 'POST', url: `/api/v1/hokm/rooms/${roomId}/forfeit`,
-    headers: auth(host.token), payload: { expectedVersion: version },
+    headers: auth(host.token), payload: { expectedVersion: version, idempotencyKey: 'hokm-forfeit-host' },
   });
   assert.equal(forfeit.statusCode, 200, forfeit.body);
   assert.equal(forfeit.json().status, 'playing');
   assert.equal(forfeit.json().players.find(player => player.userId === host.user.id).forfeited, true);
+  const startedVersion = version;
   version = forfeit.json().version;
 
   const duplicate = await app.inject({
     method: 'POST', url: `/api/v1/hokm/rooms/${roomId}/forfeit`,
-    headers: auth(host.token), payload: { expectedVersion: version },
+    headers: auth(host.token), payload: { expectedVersion: startedVersion, idempotencyKey: 'hokm-forfeit-host' },
   });
   assert.equal(duplicate.statusCode, 200, duplicate.body);
   assert.equal(duplicate.json().version, version);
 
   const secondForfeit = await app.inject({
     method: 'POST', url: `/api/v1/hokm/rooms/${roomId}/forfeit`,
-    headers: auth(first.token), payload: { expectedVersion: version },
+    headers: auth(first.token), payload: { expectedVersion: version, idempotencyKey: 'hokm-forfeit-first' },
   });
   assert.equal(secondForfeit.statusCode, 200, secondForfeit.body);
   assert.equal(secondForfeit.json().status, 'cancelled');
@@ -4051,4 +4055,114 @@ test('authenticated Hokm forfeit is permanent, idempotent and cancels on a secon
   assert.deepEqual(secondForfeit.json().matchScore, [0, 0]);
   assert.equal(secondForfeit.json().result, null);
   await testPool.query('DELETE FROM hokm_rooms WHERE room_id = $1', [roomId]);
+});
+
+
+test('two independent Hokm deadline workers commit a due turn exactly once through PostgreSQL CAS', async () => {
+  const users = await Promise.all([
+    register('Hokm Worker Host'),
+    register('Hokm Worker One'),
+    register('Hokm Worker Two'),
+    register('Hokm Worker Three'),
+  ]);
+  let clock = 1_000;
+  const repository = new PostgresRoomRepository(testPool);
+  const firstService = new HokmRoomService({
+    repository, now: () => clock, selectHakemSeat: () => 0,
+  });
+  const secondService = new HokmRoomService({
+    repository, now: () => clock, selectHakemSeat: () => 0,
+  });
+  const principal = (user) => ({ authenticated: true, userId: user.user.id });
+  let room = await firstService.create(principal(users[0]));
+  const roomId = room.roomId;
+  try {
+    for (const user of users.slice(1)) {
+      room = await firstService.join(principal(user), roomId, room.version);
+    }
+    for (const user of users) {
+      room = await firstService.ready(principal(user), roomId, true, room.version);
+    }
+    room = await firstService.start(principal(users[0]), roomId, room.version);
+    const dueAt = clock + 7_000;
+    const schedulerNow = dueAt + 1;
+    const forcedDue = await testPool.query(
+      `UPDATE hokm_rooms
+          SET version = version + 1,
+              room_data = jsonb_set(
+                jsonb_set(room_data, '{turnDeadlineAt}', to_jsonb($2::double precision), true),
+                '{version}', to_jsonb(version + 1), true
+              ),
+              updated_at = NOW()
+        WHERE room_id = $1
+        RETURNING version`,
+      [roomId, dueAt],
+    );
+    assert.equal(forcedDue.rowCount, 1);
+    clock = schedulerNow;
+
+    const firstWorker = new HokmDeadlineScheduler({
+      service: firstService, repository, now: () => clock, intervalMs: 100,
+    });
+    const secondWorker = new HokmDeadlineScheduler({
+      service: secondService, repository, now: () => clock, intervalMs: 100,
+    });
+    const results = await Promise.all([firstWorker.pollOnce(), secondWorker.pollOnce()]);
+    const committed = await repository.get(roomId);
+    assert.equal(results.reduce((sum, result) => sum + result.processed, 0), 1);
+    assert.equal(results.reduce((sum, result) => sum + result.failed, 0), 0);
+    assert.equal(committed.version, Number(forcedDue.rows[0].version) + 1);
+    assert.equal(committed.round.phase, 'playing');
+    assert.ok(committed.turnDeadlineAt > schedulerNow);
+  } finally {
+    await testPool.query('DELETE FROM hokm_rooms WHERE room_id = $1', [roomId]);
+  }
+});
+
+
+test('Hokm owner manager authorization fails closed when the persistent owner identity anchor disagrees with OWNER_USER_ID', async () => {
+  const owner = await register('Hokm Anchor Owner');
+  const other = await register('Hokm Anchor Other');
+  const previousOwnerId = process.env.OWNER_USER_ID;
+  const previousNodeEnv = process.env.NODE_ENV;
+  const previousAnchor = await testPool.query(
+    'SELECT owner_user_id::text AS "ownerUserId" FROM royal_club_owner_identity WHERE singleton_id = 1',
+  );
+  process.env.OWNER_USER_ID = owner.user.id;
+  process.env.NODE_ENV = 'production';
+  let roomId = '';
+  try {
+    await testPool.query(
+      `INSERT INTO royal_club_owner_identity (singleton_id, owner_user_id)
+       VALUES (1, $1)
+       ON CONFLICT (singleton_id) DO UPDATE SET owner_user_id = EXCLUDED.owner_user_id`,
+      [other.user.id],
+    );
+    const rejectedOwner = await app.inject({
+      method: 'POST', url: '/api/v1/hokm/rooms',
+      headers: auth(owner.token), payload: { privateRoom: false, matchTarget: 7 },
+    });
+    assert.equal(rejectedOwner.statusCode, 403);
+
+    const ordinaryPlayer = await app.inject({
+      method: 'POST', url: '/api/v1/hokm/rooms',
+      headers: auth(other.token), payload: { privateRoom: false, matchTarget: 7 },
+    });
+    assert.equal(ordinaryPlayer.statusCode, 200, ordinaryPlayer.body);
+    roomId = ordinaryPlayer.json().roomId;
+  } finally {
+    if (roomId) await testPool.query('DELETE FROM hokm_rooms WHERE room_id = $1', [roomId]);
+    if (previousAnchor.rowCount) {
+      await testPool.query(
+        'UPDATE royal_club_owner_identity SET owner_user_id = $1 WHERE singleton_id = 1',
+        [previousAnchor.rows[0].ownerUserId],
+      );
+    } else {
+      await testPool.query('DELETE FROM royal_club_owner_identity WHERE singleton_id = 1');
+    }
+    if (previousOwnerId === undefined) delete process.env.OWNER_USER_ID;
+    else process.env.OWNER_USER_ID = previousOwnerId;
+    if (previousNodeEnv === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = previousNodeEnv;
+  }
 });

@@ -133,6 +133,14 @@ export class HokmDeadlineScheduler {
           const outcomes = await this.#service.processDueDeadlines(this.#principal, room.roomId);
           if (outcomes.length) processed += outcomes.length;
         } catch (error) {
+          const message = error instanceof Error ? error.message : "";
+          if (message === "Stale room version" || message.startsWith("Concurrent room update")) {
+            // Another worker or live player action already advanced this room.
+            // CAS contention is expected in a multi-worker deployment; the next
+            // poll will re-read the durable deadline and must not page as failure.
+            this.#metrics.skippedPollCount += 1;
+            continue;
+          }
           failed += 1;
           this.#metrics.lastErrorAt = this.#now();
           try { this.#onError(error, { roomId: room.roomId }); } catch { /* monitoring must not stop the worker */ }

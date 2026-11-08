@@ -9,7 +9,8 @@
     "start": "node dist/server.js",
     "test": "node --import tsx --test src/*.test.ts",
     "test:integration": "node --import tsx --test --test-concurrency=1 test/*.test.ts",
-    "schema:check": "node --import tsx src/schema-parity.ts"
+    "schema:check": "node --import tsx src/schema-parity.ts",
+    "start:hokm-worker": "node dist/hokm-worker.js"
   },
   "dependencies": {
     "@fastify/cors": "^11.3.1",

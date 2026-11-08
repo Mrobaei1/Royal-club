@@ -50,7 +50,40 @@ export class PostgresRoomRepository {
       "SELECT room_data FROM hokm_rooms WHERE room_id = $1",
       [roomId]
     );
-    return restoreRoom(result.rows[0]?.room_data ?? null);
+    const room = restoreRoom(result.rows[0]?.room_data ?? null);
+    if (!room) return null;
+
+    // Progress is a cross-match account aggregate, not a per-room resettable
+    // value. Hydrate every participant from PostgreSQL before any transition
+    // can calculate the next match award.
+    const userIds = (room.players ?? []).map(player => player.userId)
+      .filter(userId => typeof userId === "string" && /^\d+$/.test(userId));
+    const accounts = userIds.length
+      ? await this.#pool.query(
+          `SELECT u.id::text AS "userId", u.username, p.xp, p.level
+             FROM users u
+             LEFT JOIN hokm_player_progress p ON p.user_id = u.id
+            WHERE u.id = ANY($1::bigint[])`,
+          [userIds]
+        )
+      : { rows: [] };
+    const playerProgress = { ...(room.playerProgress ?? {}) };
+    const usernames = new Map();
+    for (const userId of userIds) {
+      playerProgress[userId] ??= { xp: 0, level: 1 };
+    }
+    for (const row of accounts.rows) {
+      const userId = String(row.userId);
+      usernames.set(userId, typeof row.username === "string" && row.username.trim() ? row.username : null);
+      if (row.xp !== null && row.xp !== undefined && row.level !== null && row.level !== undefined) {
+        playerProgress[userId] = { xp: Number(row.xp), level: Number(row.level) };
+      }
+    }
+    const players = room.players.map(player => ({
+      ...player,
+      username: usernames.get(player.userId) ?? null
+    }));
+    return { ...room, players, playerProgress };
   }
 
   /** Find persisted rooms whose server-owned deadlines have elapsed. */

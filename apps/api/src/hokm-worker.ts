@@ -17,6 +17,17 @@ if (!Number.isInteger(batchSize) || batchSize < 1 || batchSize > 1000) {
   throw new Error('HOKM_SCHEDULER_BATCH_SIZE must be between 1 and 1000.');
 }
 
+function safeDatabaseError(error: unknown) {
+  const candidate = error && typeof error === 'object' ? error as { name?: unknown; code?: unknown } : {};
+  const code = typeof candidate.code === 'string' && /^[A-Z0-9_]{1,32}$/.test(candidate.code)
+    ? candidate.code
+    : null;
+  return {
+    errorType: typeof candidate.name === 'string' ? candidate.name.slice(0, 64) : 'unknown_error',
+    errorCode: code
+  };
+}
+
 const pool = new Pool({ connectionString, max: 10 });
 await pool.query('SELECT 1 FROM hokm_rooms LIMIT 0');
 
@@ -33,7 +44,7 @@ const scheduler = new HokmDeadlineScheduler({
       event: 'hokm_deadline_scheduler_error',
       roomId: context?.roomId ?? null,
       scope: context?.scope ?? null,
-      error: error instanceof Error ? error.message : 'unknown_error',
+      ...safeDatabaseError(error),
       at: new Date().toISOString()
     }));
   },

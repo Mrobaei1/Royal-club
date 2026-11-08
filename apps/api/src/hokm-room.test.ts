@@ -91,3 +91,15 @@ test('all four players see remaining hands for exactly three seconds after the f
     null,
   );
 });
+
+
+test('room projections expose usernames but never full names', () => {
+  let room = createRoom({ roomId: 'hokm-username-projection', hostUserId: 'player-0', now: 1_000 });
+  room = joinRoom(room, 'player-1', 1_001);
+  room.players[1].username = 'cardMaster';
+  room.players[1].fullName = 'Private Legal Name';
+  const view = roomViewForUser(room, 'player-0');
+  assert.equal(view.players[1].username, 'cardMaster');
+  assert.equal(Object.hasOwn(view.players[1], 'fullName'), false);
+  assert.equal(view.players[1].userId, 'player-1');
+});
