@@ -1,8 +1,8 @@
 # Royal Club — WBS v1.1 Evidence Ledger (rolling audit)
 
-- **Audit date:** 2026-11-02 (scope revision; package scoring remains pending)
+- **Audit date:** 2026-11-08 (Phase 1 architecture/governance evidence refresh)
 - **Governing baseline:** `docs/PROJECT-WBS-BASELINE.md`, WBS v1.1
-- **Live main checked for this revision:** `3a7d68354f628b43c0080b4ea5bebc6d241ea325`
+- **Live main checked for this revision:** `d85960475299c2cb573d16a1c20b1be305025ed6`
 - **Documentation follow-up:** PR #70 merged as `22dbff4caf81e3507da31e38bc2905cc964baf41` (WBS count correction and evidence ledger; no application code changed).
 - **Online disconnect implementation:** PR #67 merged as `69f315b2c2d38eba3c1e688ab48be77d17a2137c`.
 - **Notification/empty-bar fixes:** PR #75 merged as `227563f82c63ec5e9e4d4fa6c3e78e27cd059d26`.
@@ -11,7 +11,7 @@
 - **Post-merge main verification:** PR #78 merge head `10e3921` passed API build/integration, Flutter, engine and Web Preview in runs `41186639789`, `41186639847`, `41186639831` (and exact PR-head runs below). Current docs-only main head `7c7502` has Production API/database health passed in `41186861447`; its remaining CI workflows were in progress at this audit.
 - **Leaf package count:** **53** (six + seven + ten + seven + seven + eight + eight)
 - **Total baseline weight:** **1,000 points**; the package weights below sum to exactly 1,000.
-- **Purpose:** rolling evidence inventory and status register. The WBS v1.1 scope clarification does not itself earn progress points; the scored baseline remains pending a leaf-by-leaf acceptance-criteria audit.
+- **Purpose:** rolling evidence inventory and status register. Criterion scoring is maintained in the WBS matrix; current score is a partial evidence-backed minimum.
 
 ## Important count correction
 
@@ -45,12 +45,12 @@ The roadmap previously said 47 packages. Counting the actual leaf IDs in the app
 
 | WBS | Weight | Status | Current evidence | Remaining acceptance / next action |
 |---|---:|---|---|---|
-| 1.1 | 15 | In progress | WBS v1.0; project checkpoint | Keep product/NFR decisions synchronized with implementation and manual acceptance. |
-| 1.2 | 15 | In progress | apps/mobile; apps/api/src/server.ts; WBS §5 | Verify provider portability and architecture boundaries against deployed configuration. |
+| 1.1 | 15 | In progress | Owner-approved WBS v1.1; docs/ARCHITECTURE-AND-NFRS.md; docs/REQUIREMENTS-TRACEABILITY.md. Criteria 1.1-A and 1.1-C passed. | 1.1-B remains open: obtain owner-approved measurable performance, security, cost and extensibility targets. |
+| 1.2 | 15 | In progress | Static source review of apps/mobile, apps/api/package.json and apps/api/src/server.ts; docs/ARCHITECTURE-AND-NFRS.md. Criterion 1.2-A passed. | Verify portability on a second provider/isolated deployment; complete current-head negative tests for authoritative game/economy boundaries (1.2-B/C). |
 | 1.3 | 15 | In progress | WBS §6; project checkpoint §7 | Verify privacy/free-by-default/VPN rules across all public and account surfaces. |
-| 1.4 | 15 | In progress | WBS v1.0 (PR #68); roadmap (PR #69); 53-package correction/evidence ledger (PR #70, merge `22dbff4`) | Complete scored evidence links, decision log and recurring milestone reporting. |
-| 1.5 | 10 | In progress | WBS §6; execution roadmap P5 | Complete approved retention, backup/restore and disaster-recovery runbooks/tests. |
-| 1.6 | 10 | In progress | EXECUTION-ROADMAP-v1 §2; WBS §6 | Roadmap is recorded; verify ongoing dependency review and continued chess/card scope. |
+| 1.4 | 15 | In progress | WBS v1.1; docs/PROJECT-GOVERNANCE.md; docs/REQUIREMENTS-TRACEABILITY.md; updated matrix and this rolling ledger. Criteria 1.4-A/B/C passed. | Continue refreshing evidence after each milestone; do not create a scheduled background job. |
+| 1.5 | 10 | In progress | docs/DATA-LIFECYCLE-AND-RECOVERY.md; docs/TECHNICAL-BLOCKER-CLOSURE-2026-11-04.md. | Obtain owner approval for retention/deletion and RPO/RTO; implement approved backup cadence and complete application-level restore/rollback drills (1.5-A/B remain Pending). |
+| 1.6 | 10 | In progress | docs/EXECUTION-ROADMAP-v1.md; docs/PHASE-DEPENDENCY-MAP.md; README.md. Criteria 1.6-A/B passed. | Re-review dependencies after game/API contract changes; retain chess/card scope while backgammon remains priority. |
 | 2.1 | 20 | In progress | docs/PHASE-1-3-READINESS.md §Phase 1; API auth tests | Verify full session lifecycle, recovery and end-to-end flows. |
 | 2.2 | 20 | In progress | docs/PHASE-1-3-READINESS.md §OTP; docs/SMS-AUTH-ADMIN-CONFIG.md | Real provider activation and Android registration/login/linking acceptance remain gated. |
 | 2.3 | 20 | In progress | apps/api/src/server.ts self-account/auth routes; apps/api/test/server.integration.test.ts privacy assertions | Complete manual audit of every public surface and legacy/empty profiles. |
@@ -281,3 +281,12 @@ Open integration/release boundaries: all PRs remain unmerged; PR #137's older Ho
 - Together with the previously accepted 2.5-A/B evidence (10 points), the criterion matrix records 40/1,000 = 4.0% evidence-backed minimum. The remaining 192 criteria are pending. This is not a complete project percentage.
 - Package status counts were reconciled against the current 53-row register: 40 In progress, 9 Blocked, 3 Not started, 1 Approval gated. No additional WBS points are inferred from PR merges alone.
 - No Production migration/deployment, secret read, APK build, SMS/payment activation, or Agent activation was performed.
+
+
+## Phase 1 architecture/governance audit refresh — 2026-11-08
+
+- Created consolidated architecture/NFR baseline, requirements-to-implementation traceability and confirmed-decision log, project governance, data lifecycle/recovery requirements, and phase dependency/parallel-execution map.
+- Updated the criterion matrix with eight evidence-backed passes: 1.1-A, 1.1-C, 1.2-A, 1.4-A, 1.4-B, 1.4-C, 1.6-A and 1.6-B (40 points of WBS 1.0). No criteria were reweighted or added.
+- Phase 1 architecture/governance score is 40/80 = 50%. The whole-project score in the updated matrix is 80/1,000 = 8.0% evidence-backed minimum, pending exact-head CI and merge of this documentation PR.
+- Still open: measurable numeric NFR targets and owner approvals; second-provider portability verification; exact-head negative tests for server-authoritative game/economy rules; full enforcement review of free-by-default, IP/VPN independence and public-identity privacy; owner-approved retention/deletion rules; three-point backup retention and application-level recovery/rollback tests.
+- No Production mutation/deployment, secret retrieval/change, SMS/payment activation, agent activation, APK build, or owner-gated operation was performed.
