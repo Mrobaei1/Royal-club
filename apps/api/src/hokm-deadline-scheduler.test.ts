@@ -18,7 +18,7 @@ test("expected multi-worker CAS contention is counted as skipped, not as an oper
 });
 
 test("unexpected deadline processing failures remain visible to monitoring", async () => {
-  const errors = [];
+  const errors: Array<{ message: string; context: { roomId: string } }> = [];
   const scheduler = new HokmDeadlineScheduler({
     repository: { async listDueRooms() { return [{ roomId: "broken-room", turnDeadlineAt: 900 }]; } },
     service: { async processDueDeadlines() { throw new Error("database unavailable"); } },
