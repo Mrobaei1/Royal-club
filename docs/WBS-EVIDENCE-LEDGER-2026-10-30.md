@@ -385,3 +385,13 @@ Open integration/release boundaries: all PRs remain unmerged; PR #137's older Ho
 - **2.1-C Passed (5 points):** session tests prove current-token revocation, idempotent logout, fresh-login recovery, password-reset invalidation of all prior sessions, and explicit `token_version` invalidation across protected routes.
 - Exact-head evidence: PR #210 API integration run [42486568179](https://github.com/Mrobaei1/Royal-club/actions/runs/42486568179/job/128749630826) and API build/unit run [42486568179](https://github.com/Mrobaei1/Royal-club/actions/runs/42486568179/job/128749630797) passed before merge `b99b79b010b0af662909bbac2e669ca958e676a3`.
 - Phase 2 score: **50/130 (38.46%)**; total evidence-backed score: **135/1,000 (13.5%)**. Criterion 2.1-D remains Pending because the live recovery provider/device acceptance is not enabled or approved.
+
+
+## Persian/English localization evidence — 2026-11-08
+
+- **2.4-A Passed (5 points):** `app_fa.arb` and `app_en.arb` both declare their expected locale and have identical non-metadata message keys; `localization_resource_parity_test.dart` and `localization_test.dart` assert parity.
+- **2.4-C Passed (5 points):** `appError` translates common API/service exceptions into English; notification localization tests cover friend request, friend acceptance and match invitation titles/bodies in Persian and English.
+- **2.4-D Passed (5 points):** widget tests pump Persian then English locale, verify shared text follows the selected language and assert RTL/LTR directionality.
+- Exact-head Flutter analyze/test run [42486568179](https://github.com/Mrobaei1/Royal-club/actions/runs/42486568179/job/128749630554) passed on PR #210 head `f5ab13e7ec13a099a1b59ba1ca09a6c060a0066c`. No localization code was changed by PR #210; the tests were run against current mainline source.
+- **2.4-B remains Pending:** a complete screen-by-screen audit of all visible static UI strings is still required.
+- Phase 2 score: **65/130 (50.0%)**; total evidence-backed score: **150/1,000 (15.0%)**.
