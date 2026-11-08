@@ -322,3 +322,13 @@ Open integration/release boundaries: all PRs remain unmerged; PR #137's older Ho
 - Phase 1 now has 10/16 criteria passed = 50/80 = 62.5%. Whole-project evidence-backed minimum is 90/1,000 = 9.0%; 182 criteria remain Pending. No weights changed.
 - Remaining Phase 1 criteria: 1.1-B (owner approval of measurable NFR targets), 1.2-B (verified second-provider portability), 1.3-A (resolve private-chat/free-by-default policy), 1.3-B (physical Android VPN OFF/ON acceptance), 1.5-A (owner-approved retention/deletion policy), 1.5-B (approved backup cadence plus isolated restore/rollback with measured RPO/RTO).
 - Manual device and legacy/empty-profile visual acceptance remains tracked under WBS 4.5; this does not undo the API/source-level 1.3-C privacy enforcement pass. No paid behavior, SMS/payment, production change, APK build or Agent runtime was activated.
+
+
+## Repeatable point-in-time restore audit — 2026-11-08
+
+- Read-only inspection compared Production branch `br-misty-flower-bavs47dm` with two isolated restores of snapshot `snap-spring-truth-ba9rbrg1`: `br-crimson-rice-baahb4f3` and `br-plain-voice-balyjaip`.
+- Production and both restore branches have identical structural object sets: 33 public tables, 78 indexes and 27 sequences. No missing/extra table, index or sequence names were found.
+- Exact `COUNT(*)` queries across all 33 tables returned matching row counts for both restore branches (33/33). No personal row values were read.
+- Current Production differs from the 2026-10-31 snapshot in post-snapshot tables (for example matches 6 vs 4, wallet accounts 3 vs 2, private messages 13 vs 10, notifications 12 vs 5). This is expected point-in-time divergence and shows why the snapshot's RPO must be measured rather than assumed.
+- No SQL writes, migrations, cleanup, role changes, deployments, schedule changes or branch deletions were performed. Full detail: `docs/RESTORE-REHEARSAL-2026-11-08.md`.
+- **WBS 1.5-B remains Pending:** no recurring backup schedule, measured RPO/RTO, application-level restore smoke test, complete row checksum, external encrypted backup, or 23:59 Asia/Tehran email-link delivery is evidenced.
