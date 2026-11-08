@@ -19,6 +19,10 @@
 ## Database and security gate
 The Royal Club API owns the versioned/signed game-service configuration tables; the UNO service owns `public.uno_room_snapshots`.
 
+### API schema prerequisite
+
+UNO validates Royal Club JWT revocation/version state by reading `users.token_version`. The live `Royal-Club-API` Neon schema was inspected on 2026-11-08 and this column was absent. The repository already contains `apps/api/migrations/20261104_001_reconcile_production_schema.sql`, which adds it alongside other API schema reconciliation changes. That API migration is a separate owner-approved operation: validate it on the existing rehearsal branch, review its full scope, and apply it to the API database only under the API release/backup plan. Do not run it as part of UNO deployment. Verify `public.users.token_version` exists before configuring UNO; otherwise authenticated socket connections will fail.
+
 ### Owner-run schema migration
 
 Run `apps/uno/migrations/001_create_room_snapshots.sql` once as the database owner before the first UNO startup. The runtime no longer creates or alters database objects at startup.
