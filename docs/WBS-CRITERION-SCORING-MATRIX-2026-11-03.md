@@ -254,7 +254,7 @@
 - Points represented: **1000/1,000**
 - Earned points currently evidenced: **90/1,000 (9.0%)** — prior 80 points plus 10 points for criteria 1.2-C and 1.3-C after exact-head CI and source/route audits passed on the integrated mainline.
 - Remaining criteria: **182 Pending** (910 points not yet earned).
-- Official project percentage: **9.0% evidence-backed minimum**; this remains a partial criterion audit, not a claim that only 9.5% of code exists. The two new passes are supported by exact-head negative-test CI and username-only privacy regression evidence; free-by-default remains pending until the private-chat audience conflict is resolved, alongside provider portability, NFR target approval, physical VPN/device acceptance, owner-approved retention and DR acceptance.
+- Official project percentage: **9.0% evidence-backed minimum**; this remains a partial criterion audit, not a claim that only 9.0% of code exists. The two new passes are supported by exact-head negative-test CI and username-only privacy regression evidence; free-by-default remains pending until the private-chat audience conflict is resolved, alongside provider portability, NFR target approval, physical VPN/device acceptance, owner-approved retention and DR acceptance.
 
 ## Required evidence record
 
