@@ -29,7 +29,7 @@
 | 1.4-B | Owner decisions and approvals traceable | 5 | Passed | Confirmed decisions and unresolved approvals recorded in docs/REQUIREMENTS-TRACEABILITY.md and docs/PROJECT-GOVERNANCE.md (2026-11-08). |
 | 1.4-C | Evidence links and milestone reports current | 5 | Passed | WBS matrix and rolling evidence ledger refreshed 2026-11-08; exact links/SHAs and remaining gates retained. |
 | 1.5-A | Data lifecycle/retention/deletion approved | 5 | Pending | Not audited |
-| 1.5-B | Backup/restore/DR procedures documented and tested | 5 | Pending | Not audited |
+| 1.5-B | Backup/restore/DR procedures documented and tested | 5 | Pending | Two isolated restores from snapshot `snap-spring-truth-ba9rbrg1` have identical 33-table/78-index/27-sequence structures and matching exact row counts in all 33 tables. See `docs/RESTORE-REHEARSAL-2026-11-08.md`. Still missing recurring backup schedule, measured RPO/RTO, application-level restore smoke tests and external email-link backup. (2026-11-08) |
 | 1.6-A | Roadmap dependencies reviewed | 5 | Passed | docs/PHASE-DEPENDENCY-MAP.md reviews phase prerequisites, critical path, parallel work and approval gates (2026-11-08). |
 | 1.6-B | Chess/card scope preserved with backgammon priority | 5 | Passed | Owner-approved WBS v1.1, README.md, execution roadmap and docs/REQUIREMENTS-TRACEABILITY.md preserve chess/cards while prioritizing backgammon. |
 
