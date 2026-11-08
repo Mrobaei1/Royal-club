@@ -55,3 +55,40 @@
 ## Safety
 
 This document does not authorize a Production snapshot schedule change, migration, deletion, restore, deployment, or access-policy change.
+
+
+## Proposed retention and deletion schedule — not yet owner-approved
+
+This is a conservative proposal for decision, not an active retention policy. No automated deletion or retention job may be enabled from this proposal alone.
+
+| Data class | Proposed retention | Deletion / exception |
+|---|---|---|
+| Account profile and credentials | While account exists; credential/session artifacts expire or revoke on their own security lifecycle | On verified account deletion, remove or irreversibly anonymize personal profile fields subject to legally required records |
+| Active game rooms and transient presence | Active room lifetime plus 30 days for dispute/recovery support | Purge expired room snapshots and transient presence after the window |
+| Completed game history/results | 24 months | Retain minimal non-identifying aggregate statistics longer only if approved |
+| Private chat and image attachments | 12 months after last activity | Delete both metadata and stored binary objects; preserve only a narrowly scoped record if a substantiated safety/legal hold applies |
+| Notifications | 90 days after creation | Delete expired read/unread notifications; do not treat notifications as durable financial evidence |
+| Wallet ledger and subscription transactions | 7 years as a proposed audit period | Restrict access; never rewrite history; confirm applicable legal/accounting obligations before adoption |
+| Security and owner audit events | 12 months online, then up to 24 months archived | Redact tokens/secrets; restrict owner/security access; shorten if no longer necessary |
+| Operational telemetry | 30 days raw, 13 months aggregated | Aggregate or anonymize identifiers before longer retention |
+| OTP challenges and delivery metadata | 24 hours for challenge material; 90 days for redacted delivery audit | Never retain plaintext OTP; remove expired challenge rows |
+
+### Deletion workflow proposal
+
+1. Verify account ownership and any legally required identity/hold checks.
+2. Disable login and revoke active sessions immediately.
+3. Enumerate linked profile, social, media, game, notification and device records.
+4. Delete or anonymize personal data according to the approved class schedule; retain only approved ledger/audit exceptions.
+5. Remove object-store binaries and derived thumbnails; verify no public URL remains.
+6. Record a minimal deletion audit event without copying the deleted personal content.
+7. Verify completion and report exceptions to the owner.
+
+### Owner decisions required
+
+- Confirm or revise each retention duration and any legal/accounting exceptions.
+- Confirm account deletion behavior for internal credits, subscriptions, match history, chat and reports.
+- Confirm whether a user may export their account data before deletion.
+- Confirm jurisdictional legal review and the responsible data controller/contact.
+- Approve the actual scheduled purge mechanism and evidence/audit format.
+
+Until these decisions are made, retention/deletion remains a documented design proposal and WBS 1.5-A remains Pending. No records are automatically purged by this document.

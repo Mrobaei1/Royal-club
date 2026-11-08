@@ -84,3 +84,33 @@ The table defines the measurement required for acceptance. Numeric service-level
 ## Change history
 
 - 2026-11-08: initial consolidated architecture/NFR baseline prepared against live repository documentation and source entry points. This is not a production security certification or owner approval of numeric SLOs.
+
+
+## Proposed measurable service targets — not yet owner-approved
+
+These values are an engineering proposal to make acceptance measurable. They are not production SLAs, capacity promises, or permission to scale/deploy. The owner must approve or revise them before they become binding.
+
+| Area | Proposed acceptance target | Measurement |
+|---|---|---|
+| API latency | p95 ≤ 500 ms and p99 ≤ 1,500 ms for ordinary authenticated reads at the agreed 1,000-concurrent-user profile | 15-minute steady-state load, report per-route p50/p95/p99 |
+| Game command latency | p95 ≤ 300 ms server processing time, excluding client/network RTT | Instrument authoritative command receipt to committed response |
+| API availability | 99.5% monthly for the API once production monitoring is in place | Provider-independent synthetic health probes; exclude announced maintenance only if policy approved |
+| Server error rate | < 1% 5xx over a rolling 15-minute window under the agreed load profile | Count 5xx / total API requests; report route and dependency breakdown |
+| Recovery | Proposed RPO ≤ 15 minutes; RTO ≤ 4 hours for core account/game data | Isolated restore drill, measure data-loss window and time to verified service |
+| Security | 100% of authorization-negative test cases reject; zero known critical/high findings at release | Exact-head automated negative tests plus independent review for release |
+| Localization | 100% of visible core navigation/game/auth strings localized in fa/en; no clipped text at supported font scale | Automated localization coverage plus Android device matrix |
+| Accessibility | All primary controls have accessible labels/actions; no critical TalkBack blockers | Manual TalkBack walkthrough and widget-level semantics tests |
+| Cost | Monthly infrastructure spend stays within a GM-approved budget; alert at 70% and 90% | Provider billing exports and monthly cost report |
+| Extensibility | New game integration reuses shared auth, service discovery, telemetry and navigation contracts; no duplicate account/wallet authority | Architecture checklist and contract tests per game |
+
+### Proposed load profile
+
+- 1,000 concurrent authenticated users, including a representative mix of lobby reads, active game commands, chat/notification polling and profile reads.
+- Ramp up over 10 minutes, hold for 15 minutes, then ramp down; repeat at least three times.
+- Record request throughput, p50/p95/p99 latency, 4xx/5xx rates, DB pool saturation, CPU/memory, reconnect success and queue/deadline lag.
+- Run first in isolated staging with synthetic accounts and data. Do not run against Production without a separate explicit approval.
+- A successful load test must include evidence of no duplicate settlement, lost committed game actions, cross-user data leakage or unbounded resource growth.
+
+### Decision status
+
+All values above remain **Proposed / Approval required**. In particular, monthly availability, RPO/RTO, infrastructure budget, the 1,000-user profile and latency/error thresholds must be confirmed by the GM before WBS 1.1-B can be marked Passed.
