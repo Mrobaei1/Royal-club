@@ -1,11 +1,13 @@
 # Royal Club — Execution Roadmap v1.0
 
 - **Date:** 2026-10-30
-- **Governing baseline:** Owner-approved WBS v1.0, 1,000 points, seven workstreams, 53 leaf packages.
+- **Governing baseline:** Owner-approved WBS v1.1, 1,000 points, seven workstreams, 53 leaf packages. WBS v1.1 supersedes the v1.0 reference below; scope/weights remain frozen.
 - **Purpose:** Set the execution order, dependencies, exit gates and working rules for completing Royal Club efficiently.
 - **Status:** Owner-confirmed execution order; it does not change WBS scope or weights.
 
 ## 1. Execution principles
+
+See [Project governance](PROJECT-GOVERNANCE.md), [Architecture and NFRs](ARCHITECTURE-AND-NFRS.md), [Requirements traceability](REQUIREMENTS-TRACEABILITY.md), and [Phase dependency map](PHASE-DEPENDENCY-MAP.md) for the current operating contracts.
 
 1. The approved WBS v1.0 remains the single source of truth for scope, weights and progress. This roadmap orders the work; it does not redefine or reweight it.
 2. Work in dependency order. Prefer finishing and verifying one coherent slice over opening many parallel, partially completed changes.
@@ -22,13 +24,19 @@
 
 **WBS:** 1.4, 1.6, 7.1
 
-Tasks:
-- Verify and complete the documentation-only WBS v1.0 PR #68: confirm exact diff, current-head CI, review/merge rules, then merge only when all repository rules permit.
-- Keep this roadmap linked to the WBS and maintain one evidence ledger for all 53 leaf packages.
-- Reconcile current `main`, open PRs, CI status and known blockers before each execution batch.
-- Replace provisional progress estimates with an item-by-item evidence audit; do not report an informal estimate as an official WBS score.
+**Status as of 2026-11-08: control-documentation baseline established; ongoing evidence refresh remains mandatory.**
 
-**Exit gate:** WBS v1.0 is present on `main`; roadmap is tracked; 53-package evidence ledger has an owner, status, evidence and next action for each package.
+Completed:
+- Owner-approved WBS v1.1 is authoritative on `main`; 53 leaf packages and 1,000 points remain frozen.
+- One criterion-level scoring matrix and rolling evidence ledger cover the 200 acceptance criteria; PR #199 added architecture/NFR, traceability, governance, data lifecycle and dependency-map documents and merged as `0677958e7912db2201c6a1ece33372a204c80fc5`.
+- The matrix records 80/1,000 (8.0%) evidence-backed minimum, including 40/80 points for WBS 1.0. See the matrix for criterion-level evidence and open gates.
+- Current-main refs, open PRs, exact-head CI and known release blockers are rechecked before each execution batch.
+
+Ongoing controls:
+- Refresh the ledger after each meaningful milestone and re-audit evidence when a branch changes or a test becomes stale.
+- Do not infer completion from PR count, source presence, merge alone or an older CI run.
+
+**Exit gate:** the baseline and control documents are on `main`; every criterion has a status/evidence/next action; progress is computed only from criterion-level passes. This documentation/control gate is established; it does not mean all 16 Phase 1 criteria or the full 1.0 workstream are complete.
 
 ### P1 — Close critical backgammon and online-match correctness risks
 
@@ -150,3 +158,13 @@ This queue was refreshed after PR #70 merged. Re-check live refs and exact-head 
 ## 6. Change control
 
 This roadmap is version 1.0. It may be reordered to respond to newly discovered critical risks, but WBS scope and weights remain frozen. Any change to product scope, monetization, production activation, permissions, agent execution or APK authorization still requires the owner's explicit decision. Record material roadmap revisions with a dated change log and update the repository evidence.
+
+
+## 7. Current project control snapshot — 2026-11-08
+
+- Governing baseline: WBS v1.1, 53 leaf packages, 200 criteria, 1,000 points.
+- Evidence-backed score in the mainline criterion matrix: 80/1,000 (8.0%). WBS 1.0 architecture/governance: 40/80 (50%); eight of its sixteen five-point criteria remain Pending.
+- Phase 1 remaining criteria: 1.1-B (measurable NFR targets), 1.2-B (provider portability), 1.2-C (negative tests for server-authoritative game/economy boundaries), 1.3-A (free-by-default enforcement), 1.3-B (IP/VPN-independent identity verification), 1.3-C (username-only privacy enforcement), 1.5-A (owner-approved retention/deletion), and 1.5-B (tested backup/restore/DR).
+- Current integration risks: chess/Hokm PR #196 remains open; UNO security PR #198 remains open and UNO Railway is not deployed. Do not enable either game service through a production change without the required review/approval.
+- Production migrations/deployment, secret/network changes, SMS/payment activation, delegated grants, Agent runtime, financial actions and APK builds remain separately approval-gated.
+- Documentation merge PR #199 was docs-only. No application test workflow was triggered for that PR; application CI evidence must be attached to the relevant code changes, not inferred from the documentation merge.
