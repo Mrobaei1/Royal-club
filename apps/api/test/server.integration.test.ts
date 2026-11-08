@@ -3477,6 +3477,88 @@ test('friend acceptance serializes concurrent requests at the 100-friend boundar
 });
 
 
+test('self-profile and private-chat APIs reject cross-account access and identity spoofing', async () => {
+  const sender = await register('Cross Account Sender');
+  const recipient = await register('Cross Account Recipient');
+  const outsider = await register('Cross Account Outsider');
+
+  const spoofedProfileUpdate = await app.inject({
+    method: 'PATCH',
+    url: '/api/v1/me/profile',
+    headers: auth(sender.token),
+    payload: {
+      userId: recipient.user.id,
+      fullName: 'Attempted Recipient Takeover',
+      phone: '+491234567891',
+      country: 'Germany',
+    },
+  });
+  assert.equal(spoofedProfileUpdate.statusCode, 200, spoofedProfileUpdate.body);
+  const profileRows = await testPool.query(
+    'SELECT id, full_name FROM users WHERE id = ANY($1::bigint[]) ORDER BY id',
+    [[sender.user.id, recipient.user.id]],
+  );
+  assert.equal(profileRows.rows.find((row) => String(row.id) === sender.user.id)?.full_name,
+    'Attempted Recipient Takeover');
+  assert.equal(profileRows.rows.find((row) => String(row.id) === recipient.user.id)?.full_name,
+    'Cross Account Recipient',
+    'A caller-supplied userId must never redirect a self-profile update to another account.');
+
+  await testPool.query(
+    "INSERT INTO friendships (requester_id, addressee_id, status) VALUES ($1, $2, 'accepted')",
+    [sender.user.id, recipient.user.id],
+  );
+  const sent = await app.inject({
+    method: 'POST',
+    url: `/api/v1/chat/${recipient.user.id}/messages`,
+    headers: auth(sender.token),
+    payload: { body: 'Private message visible only to the two friends.' },
+  });
+  assert.equal(sent.statusCode, 201, sent.body);
+  const messageId = String(sent.json().message.id);
+
+  const recipientRead = await app.inject({
+    method: 'GET',
+    url: `/api/v1/chat/${sender.user.id}/messages`,
+    headers: auth(recipient.token),
+  });
+  assert.equal(recipientRead.statusCode, 200, recipientRead.body);
+  assert.equal(recipientRead.json().messages.some((message: { id: string }) => String(message.id) === messageId), true);
+
+  const outsiderRead = await app.inject({
+    method: 'GET',
+    url: `/api/v1/chat/${sender.user.id}/messages`,
+    headers: auth(outsider.token),
+  });
+  assert.equal(outsiderRead.statusCode, 403, outsiderRead.body);
+
+  const outsiderSend = await app.inject({
+    method: 'POST',
+    url: `/api/v1/chat/${sender.user.id}/messages`,
+    headers: auth(outsider.token),
+    payload: { body: 'Attempted unauthorized message.' },
+  });
+  assert.equal(outsiderSend.statusCode, 403, outsiderSend.body);
+
+  const outsiderEdit = await app.inject({
+    method: 'PATCH',
+    url: `/api/v1/chat/${sender.user.id}/messages/${messageId}`,
+    headers: auth(outsider.token),
+    payload: { body: 'Attempted unauthorized edit.' },
+  });
+  assert.equal(outsiderEdit.statusCode, 404, outsiderEdit.body);
+
+  const outsiderDelete = await app.inject({
+    method: 'DELETE',
+    url: `/api/v1/chat/${sender.user.id}/messages`,
+    headers: auth(outsider.token),
+    payload: { messageIds: [messageId], scope: 'both' },
+  });
+  assert.equal(outsiderDelete.statusCode, 200, outsiderDelete.body);
+  assert.equal(outsiderDelete.json().deleted, 0,
+    'An unrelated account must not be able to delete another pair\'s private message.');
+});
+
 test('logout revokes the current bearer session while a fresh login creates a new session', async () => {
   const user = await register('Session Lifecycle Player');
   const beforeLogout = await app.inject({
