@@ -354,7 +354,7 @@ test('a temporary bot that is never reclaimed incurs exactly -5 XP when the matc
   assert.equal(room.players[0].temporaryBot, true);
   assert.deepEqual(room.pendingXpDeductions, ['p0']);
   room = { ...room, status: 'playing', pendingXpDeductions: ['p0'] };
-  let progress = awardCompletedMatch(room.players, 1, room.playerProgress);
+  let progress = awardCompletedMatch(room.players, 1, room.playerProgress, room.pendingXpDeductions);
   progress = penalizeMatchLeaver(progress, 'p0');
   assert.equal(progress.p0.xp, 95);
 });
@@ -369,9 +369,9 @@ test('a player who remains on temporary Hard bot receives only the -5 XP penalty
   let progress = awardCompletedMatch(players, 0, { p0: { xp: 100, level: 1 } });
   progress = penalizeMatchLeaver(progress, 'p0');
   assert.equal(progress.p0.xp, 95);
-  assert.equal(progress.p1.xp, 5);
+  assert.equal(progress.p1.xp, 20, 'the opposing partnership is guaranteed the forfeit +20 award');
   assert.equal(progress.p2.xp, 20);
-  assert.equal(progress.p3.xp, 5);
+  assert.equal(progress.p3.xp, 20, 'the opposing partnership is guaranteed the forfeit +20 award');
 });
 
 
