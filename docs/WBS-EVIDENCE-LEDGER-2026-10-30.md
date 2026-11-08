@@ -302,3 +302,14 @@ Open integration/release boundaries: all PRs remain unmerged; PR #137's older Ho
 - WBS 1.2-B remains Pending: no verified second-provider deployment/rehearsal has been completed. WBS 1.2-C remains Pending: authoritative game/economy negative tests require exact-head, complete evidence across current modules.
 - WBS 1.5-A remains Pending pending owner-approved retention/deletion durations and exceptions. WBS 1.5-B remains Pending pending approved backup cadence/retention plus an application-level isolated restore and rollback drill with measured RPO/RTO.
 - No Production migration/deployment, data deletion, backup schedule mutation, secret/network change, SMS/payment activation, agent activation, APK build or financial action was performed.
+
+
+## Current-main integration and UNO security follow-up — 2026-11-08
+
+- PR #203 merged as `a4e66ad6540c6342b2f2c0952cbeaaf35d5a8592`. It removes UNO snapshot-table DDL from runtime startup, adds an owner-run schema migration, limits the UNO runtime role to required user columns and snapshot-table operations, and adds negative PostgreSQL privilege tests.
+- Exact-head checks on PR #203 passed: UNO Standalone CI, API build/unit tests, PostgreSQL API integration tests, Flutter module tests, root Flutter analyze/tests, backgammon engine audit and Web Preview build. Deployment was skipped; no Production migration, role provisioning, deployment, or UNO activation occurred.
+- Duplicate PR #198 was closed as superseded by merged PR #203.
+- PR #204 now carries the 95-file chess + canonical Hokm integration onto current mainline. Its original PR #196 source exposed three TypeScript implicit-any errors in two Hokm test fixtures; all three were corrected before porting. The refreshed PR #204 head is `fb7021615e90325712b6668d6a6a88eefaad9c3c`, based on the current mainline tree, and its fresh exact-head validation is running. API build/unit, API integration, chess API/mobile, root Flutter, backgammon audit and Web Preview must all finish successfully before merge.
+- PR #195 and #196 remain superseded integration candidates until PR #204 passes and is merged; no duplicate branch is to be merged independently.
+- WBS weights and scores are unchanged: Phase 1 remains 40/80 (50%); total remains 80/1,000 (8.0% evidence-backed minimum). These integration changes do not award Phase 1 points by themselves.
+- UNO production remains blocked: the live API database still requires the separately reviewed owner-approved API schema reconciliation for `users.token_version`; the owner-run UNO snapshot migration and least-privilege role have not been applied. No APK build, SMS/payment activation, financial action, or Agent runtime activation occurred.
