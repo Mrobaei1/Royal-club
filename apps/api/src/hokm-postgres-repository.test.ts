@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { PostgresRoomRepository } from "./hokm/postgres-repository.js";
 
 test("PostgreSQL room reads hydrate cumulative account XP from the durable progression table", async () => {
-  const calls = [];
+  const calls: Array<{ sql: string; params?: unknown[] }> = [];
   const room = {
     roomId: "progress-room",
     status: "playing",
@@ -19,7 +19,7 @@ test("PostgreSQL room reads hydrate cumulative account XP from the durable progr
   };
   const pool = {
     async connect() { return {}; },
-    async query(sql, params) {
+    async query(sql: string, params?: unknown[]) {
       calls.push({ sql, params });
       if (sql.includes("FROM hokm_rooms")) return { rows: [{ room_data: room }] };
       if (sql.includes("FROM hokm_player_progress")) {
@@ -39,7 +39,7 @@ test("PostgreSQL room reads hydrate cumulative account XP from the durable progr
     "12": { xp: 0, level: 1 },
     "13": { xp: 0, level: 1 },
   });
-  assert.deepEqual(calls[1].params, [["10", "11", "12", "13"]]);
+  assert.deepEqual(calls[1]?.params, [["10", "11", "12", "13"]]);
 });
 
 test("missing PostgreSQL rooms return null without querying account progression", async () => {
