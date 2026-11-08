@@ -332,3 +332,10 @@ Open integration/release boundaries: all PRs remain unmerged; PR #137's older Ho
 - Current Production differs from the 2026-10-31 snapshot in post-snapshot tables (for example matches 6 vs 4, wallet accounts 3 vs 2, private messages 13 vs 10, notifications 12 vs 5). This is expected point-in-time divergence and shows why the snapshot's RPO must be measured rather than assumed.
 - No SQL writes, migrations, cleanup, role changes, deployments, schedule changes, branch renames or branch deletions were performed in this audit. Neon Functions inventory confirms `royalclubapi` deployment #81 remains active on the current Production branch and no function is listed on Restore B. Restore B's `restored_as` points to the Production branch ID, and an earlier audit recorded a temporary Production-position swap; current historical lineage/compute reassignment remains unresolved. Full detail: `docs/RESTORE-REHEARSAL-2026-11-08.md`.
 - **WBS 1.5-B remains Pending:** no recurring backup schedule, measured RPO/RTO, application-level restore smoke test, complete row checksum, external encrypted backup, or 23:59 Asia/Tehran email-link delivery is evidenced.
+
+
+## Provider portability contract evidence — 2026-11-08
+
+- PR #207 merged as `e3a3105f15f7751f6ff9f1f80813a93a5d49b175` after exact-head CI passed on `1dd7655256d7ee7839429ee5146c6dd4fb7e639d`.
+- Added `apps/api/src/provider-portability.test.ts` to validate the existing Render blueprint's Node runtime, build/start commands, health-check path, standard PostgreSQL `DATABASE_URL`, JWT/CORS environment contract, and PostgreSQL 16 Docker Compose readiness.
+- This is a static provider-contract test, not a real Render deployment. WBS 1.2-B remains Pending until a separate Render staging service/database is deployed, health and DB portability are smoke-tested, and teardown/rollback is verified. The Render connector was suggested but is not yet connected; no cloud resource was created.
