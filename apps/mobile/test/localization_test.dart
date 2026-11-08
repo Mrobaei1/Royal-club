@@ -70,6 +70,31 @@ void main() {
     );
   });
 
+  test('match and UNO setup errors are translated into English', () {
+    final errors = <String, String>{
+      'شناسه اتاق بازی معتبر نیست. از فهرست بازی‌های آنلاین دوباره وارد شوید.':
+          'Invalid match ID. Reopen the room from the online lobby.',
+      'ابتدا وارد حساب Royal Club شوید.':
+          'Please sign in to Royal Club first.',
+      'شناسه کاربر از سرور Royal Club دریافت نشد.':
+          'Could not obtain the user ID from the Royal Club server.',
+      'تنظیمات سرویس بازی از سرور دریافت نشد.':
+          'Could not load game-service configuration from the server.',
+      'امضای تنظیمات مرکزی سرویس بازی معتبر نیست.':
+          'The central game-service configuration signature is invalid.',
+      'امضای تنظیمات مرکزی سرویس بازی تأیید نشد.':
+          'The central game-service configuration signature could not be verified.',
+      'سرویس آنلاین اونو هنوز در پنل زیرساخت تنظیم نشده است.':
+          'The online UNO service is not configured in the infrastructure panel yet.',
+      'آدرس سرویس اونو معتبر نیست.':
+          'The UNO service address is invalid.',
+    };
+    for (final entry in errors.entries) {
+      expect(appErrorForLanguage('en', Exception(entry.key)), entry.value);
+      expect(appErrorForLanguage('fa', Exception(entry.key)), entry.key);
+    }
+  });
+
   testWidgets('common Persian service errors are translated in English', (tester) async {
     await tester.pumpWidget(
       _localizedApp(const Locale('en'), (context) {

@@ -58,6 +58,22 @@ String appErrorForLanguage(String languageCode, Object? error) {
         'The leaderboard server response could not be read.',
     'پاسخ سرور رتبه‌بندی نامعتبر است.':
         'The leaderboard server returned an invalid response.',
+    'شناسه اتاق بازی معتبر نیست. از فهرست بازی‌های آنلاین دوباره وارد شوید.':
+        'Invalid match ID. Reopen the room from the online lobby.',
+    'ابتدا وارد حساب Royal Club شوید.':
+        'Please sign in to Royal Club first.',
+    'شناسه کاربر از سرور Royal Club دریافت نشد.':
+        'Could not obtain the user ID from the Royal Club server.',
+    'تنظیمات سرویس بازی از سرور دریافت نشد.':
+        'Could not load game-service configuration from the server.',
+    'امضای تنظیمات مرکزی سرویس بازی معتبر نیست.':
+        'The central game-service configuration signature is invalid.',
+    'امضای تنظیمات مرکزی سرویس بازی تأیید نشد.':
+        'The central game-service configuration signature could not be verified.',
+    'سرویس آنلاین اونو هنوز در پنل زیرساخت تنظیم نشده است.':
+        'The online UNO service is not configured in the infrastructure panel yet.',
+    'آدرس سرویس اونو معتبر نیست.':
+        'The UNO service address is invalid.',
     'شناسه کاربر معتبر نیست. لطفاً دوباره نام کاربری را جست‌وجو کنید.':
         'Invalid user ID. Please search for the username again.',
     'نام، شماره تلفن معتبر و کشور را وارد کنید.':
