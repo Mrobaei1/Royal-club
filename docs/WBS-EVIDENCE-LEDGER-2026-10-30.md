@@ -339,3 +339,11 @@ Open integration/release boundaries: all PRs remain unmerged; PR #137's older Ho
 - PR #207 merged as `e3a3105f15f7751f6ff9f1f80813a93a5d49b175` after exact-head CI passed on `1dd7655256d7ee7839429ee5146c6dd4fb7e639d`.
 - Added `apps/api/src/provider-portability.test.ts` to validate the existing Render blueprint's Node runtime, build/start commands, health-check path, standard PostgreSQL `DATABASE_URL`, JWT/CORS environment contract, and PostgreSQL 16 Docker Compose readiness.
 - This is a static provider-contract test, not a real Render deployment. WBS 1.2-B remains Pending until a separate Render staging service/database is deployed, health and DB portability are smoke-tested, and teardown/rollback is verified. The Render connector was suggested but is not yet connected; no cloud resource was created.
+
+
+## Owner executive analytics dashboard candidate — 2026-11-08
+
+- PR #114 remains Draft and is not merged. Current head `9ab685f4af6b266fb293812e9d476fd5b16ee129` is 52 commits behind and diverged from current main.
+- Its exact head has only Netlify preview checks; no current-head API build/integration or Flutter validation is present. Historical CI from older heads is not accepted as current evidence.
+- Scope includes owner-only analytics API, activity/game event instrumentation, CSV/PDF export and mobile analytics screen. Known limitations are explicitly documented: no event producers for chess/cards/UNO/Mafia, process-memory latency samples reset on restart, PDF does not support Persian characters, and provider/Agent costs are not sourced.
+- Do not merge the stale branch. Port and re-test on current main before considering integration; no production preview API origin or deployment was enabled.
