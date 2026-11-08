@@ -3905,16 +3905,17 @@ test('authenticated Hokm forfeit is permanent, idempotent and cancels on a secon
 
   const forfeit = await app.inject({
     method: 'POST', url: `/api/v1/hokm/rooms/${roomId}/forfeit`,
-    headers: auth(host.token), payload: { expectedVersion: version },
+    headers: auth(host.token), payload: { expectedVersion: version, idempotencyKey: 'hokm-forfeit-host' },
   });
   assert.equal(forfeit.statusCode, 200, forfeit.body);
   assert.equal(forfeit.json().status, 'playing');
   assert.equal(forfeit.json().players.find(player => player.userId === host.user.id).forfeited, true);
+  const startedVersion = version;
   version = forfeit.json().version;
 
   const duplicate = await app.inject({
     method: 'POST', url: `/api/v1/hokm/rooms/${roomId}/forfeit`,
-    headers: auth(host.token), payload: { expectedVersion: version },
+    headers: auth(host.token), payload: { expectedVersion: startedVersion, idempotencyKey: 'hokm-forfeit-host' },
   });
   assert.equal(duplicate.statusCode, 200, duplicate.body);
   assert.equal(duplicate.json().version, version);
