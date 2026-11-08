@@ -11,6 +11,7 @@ class FakeHokmApi implements HokmApi {
   int createCalls = 0;
   int nextRoundCalls = 0;
   bool createAsRoundCompleted = false;
+  bool isHost = true;
   bool createAsMatchCompleted = false;
   int joinCalls = 0;
   int viewCalls = 0;
@@ -35,7 +36,7 @@ class FakeHokmApi implements HokmApi {
     'matchTarget': 3,
     'matchScore': [0, 0],
     'version': 1,
-    'hostUserId': 'u1',
+    'isHost': isHost,
     'players': [
       {'userId': 'u1', 'username': 'alice', 'seat': 0, 'ready': false, 'connected': true, 'botControlled': false},
       {'userId': 'u2', 'username': 'bob', 'seat': 1, 'ready': true, 'connected': true, 'botControlled': false},
@@ -80,7 +81,7 @@ class FakeHokmApi implements HokmApi {
   Map<String, dynamic> _roundCompletedWithHostDisconnected() {
     final state = _playing();
     state['status'] = 'round_completed';
-    state['hostUserId'] = 'u1';
+    state['isHost'] = false;
     state['handRevealUntil'] = null;
     state['players'][0]['connected'] = false;
     state['game']['phase'] = 'completed';
@@ -319,7 +320,7 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    final api = FakeHokmApi()..createAsRoundCompleted = true;
+    final api = FakeHokmApi()..createAsRoundCompleted = true..isHost = false;
     await tester.pumpWidget(MaterialApp(
       locale: const Locale('en'),
       supportedLocales: const [Locale('fa'), Locale('en')],
