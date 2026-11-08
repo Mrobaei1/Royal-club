@@ -12,7 +12,7 @@ This audit compares two isolated restores made from the same Neon manual snapsho
 - Restore A: `phase5-restore-test-20261031` / `br-crimson-rice-baahb4f3`; Neon reports `restore_status=restored`.
 - Restore B: `restore-rehearsal-2026-11-04` / `br-plain-voice-balyjaip`; Neon reports `restore_status=finalized`.
 
-Both restore branches identify the same source snapshot.
+Both restore branches identify the same source snapshot. A fresh Neon snapshot-list query returned only this one manual snapshot; no recurring/scheduled snapshot was listed.
 
 ## Structural parity
 
