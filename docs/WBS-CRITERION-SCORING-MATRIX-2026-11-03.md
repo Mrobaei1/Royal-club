@@ -49,10 +49,10 @@
 | 2.3-B | Public APIs suppress private identity | 5 | Pending | Not audited |
 | 2.3-C | Legacy/empty profile privacy | 5 | Pending | Not audited |
 | 2.3-D | Cross-account authorization | 5 | Pending | Not audited |
-| 2.4-A | ARB parity | 5 | Pending | Not audited |
+| 2.4-A | ARB parity | 5 | Passed | Flutter CI run 42486568179; Persian and English ARB locale/key parity tests |
 | 2.4-B | Visible static UI localization | 5 | Pending | Not audited |
-| 2.4-C | Dynamic errors/notifications localization | 5 | Pending | Not audited |
-| 2.4-D | Locale-switch regression tests | 5 | Pending | Not audited |
+| 2.4-C | Dynamic errors/notifications localization | 5 | Passed | Flutter CI run 42486568179; appError translations and localized friend/match notification title/body tests |
+| 2.4-D | Locale-switch regression tests | 5 | Passed | Flutter CI run 42486568179; Persian/English locale switching, RTL/LTR direction and selected-language UI text tests |
 | 2.5-A | Persian RTL on Android | 5 | Passed | Owner-confirmed manual Android check, 2026-11-04; no issue reported |
 | 2.5-B | English LTR on Android | 5 | Passed | Owner-confirmed manual Android check, 2026-11-04; no issue reported |
 | 2.5-C | Dialogs/forms/overflow | 5 | Pending | Not audited |
@@ -252,9 +252,9 @@
 - Packages decomposed: **53/53**
 - Acceptance criteria: **200**
 - Points represented: **1000/1,000**
-- Earned points currently evidenced: **135/1,000 (13.5%)** — prior 125 points plus 10 points for criteria 2.1-A and 2.1-C after exact-head API build/unit and PostgreSQL integration CI passed.
-- Remaining criteria: **173 Pending** (865 points not yet earned).
-- Official project percentage: **13.5% evidence-backed minimum**; this remains a partial criterion audit, not a claim that only 11.0% of code exists. The six recently closed criteria are supported by exact-head negative-test CI, friend-only free chat/free-by-default route audit, username-only privacy regressions, OTP digest/expiry/rate-limit and purpose-binding tests, and encrypted owner-controlled SMS credential tests. Provider deployment portability, NFR target approval, physical VPN/device acceptance, owner-approved retention and DR acceptance remain open.
+- Earned points currently evidenced: **150/1,000 (15.0%)** — prior 135 points plus 15 points for criteria 2.4-A, 2.4-C and 2.4-D after exact-head Flutter analyze/test CI passed.
+- Remaining criteria: **170 Pending** (850 points not yet earned).
+- Official project percentage: **15.0% evidence-backed minimum**; this remains a partial criterion audit, not a claim that only 11.0% of code exists. The six recently closed criteria are supported by exact-head negative-test CI, friend-only free chat/free-by-default route audit, username-only privacy regressions, OTP digest/expiry/rate-limit and purpose-binding tests, and encrypted owner-controlled SMS credential tests. Provider deployment portability, NFR target approval, physical VPN/device acceptance, owner-approved retention and DR acceptance remain open.
 
 ## Required evidence record
 
@@ -273,13 +273,13 @@ The following percentages are calculated directly from the 200 criterion rows in
 | WBS phase | Total weight | Passed criteria | Earned points | Progress |
 | --- | ---: | ---: | ---: | ---: |
 | Phase 1 — Architecture and project management | 80 | 11/16 | 55 | 68.75% |
-| Phase 2 | 130 | 10/26 | 50 | 38.46% |
+| Phase 2 | 130 | 13/26 | 65 | 50.00% |
 | Phase 3 | 230 | 0/46 | 0 | 0.00% |
 | Phase 4 | 120 | 0/24 | 0 | 0.00% |
 | Phase 5 | 140 | 1/28 | 5 | 3.57% |
 | Phase 6 | 140 | 0/28 | 0 | 0.00% |
 | Phase 7 | 160 | 5/32 | 25 | 15.63% |
-| **Total** | **1,000** | **27/200** | **135** | **13.50%** |
+| **Total** | **1,000** | **30/200** | **150** | **15.00%** |
 
 
 
@@ -304,3 +304,12 @@ Three Phase 2 criteria now pass (15/130 points):
 
 - **2.1-A Passed (5 points):** integration coverage exercises registration, authenticated self-profile access, logout, fresh email/password login, and a subsequent authenticated profile round-trip. OTP-based registration/login is also covered in the purpose-bound phone OTP test. Exact-head API integration CI passed in PR #210 run [42486568179](https://github.com/Mrobaei1/Royal-club/actions/runs/42486568179/job/128749630826).
 - **2.1-C Passed (5 points):** integration coverage proves logout revokes the active bearer token, repeated logout is idempotent, a new login restores access, password recovery invalidates all prior sessions, and incrementing `token_version` invalidates existing tokens across protected routes. Exact-head API integration CI passed in PR #210 run [42486568179](https://github.com/Mrobaei1/Royal-club/actions/runs/42486568179/job/128749630826).
+
+
+## Localization evidence audit — 2026-11-08
+
+- **2.4-A Passed (5 points):** Persian and English ARB files declare their correct locales and have identical message-key sets; parity is covered by Flutter tests.
+- **2.4-C Passed (5 points):** common service/API errors map to English through `appError`; friend-request, friend-accepted and match-invite notification titles/bodies are translated by notification type and selected language.
+- **2.4-D Passed (5 points):** widget tests switch between Persian and English, verify selected-language shared UI text, and assert RTL for Persian and LTR for English.
+- Exact-head Flutter analyze/test CI passed on PR #210 head `f5ab13e7ec13a099a1b59ba1ca09a6c060a0066c`, run [42486568179](https://github.com/Mrobaei1/Royal-club/actions/runs/42486568179/job/128749630554). PR #206 also ran the same localization test suite successfully on its exact head.
+- **2.4-B remains Pending:** full visible static UI localization across all app screens has not yet been exhaustively audited; no broad completion claim is made.
