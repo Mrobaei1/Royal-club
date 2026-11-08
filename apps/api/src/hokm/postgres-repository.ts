@@ -57,7 +57,7 @@ export class PostgresRoomRepository {
     // value. Hydrate every participant from PostgreSQL before any transition
     // can calculate the next match award.
     const userIds = (room.players ?? []).map(player => player.userId)
-      .filter(userId => typeof userId === "string" && /^\\d+$/.test(userId));
+      .filter(userId => typeof userId === "string" && /^\d+$/.test(userId));
     const persisted = userIds.length
       ? await this.#pool.query(
           'SELECT user_id::text AS "userId", xp, level FROM hokm_player_progress WHERE user_id = ANY($1::bigint[])',
