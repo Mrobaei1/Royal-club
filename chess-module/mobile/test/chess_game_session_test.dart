@@ -1,0 +1,155 @@
+import 'package:flutter_test/flutter_test.dart';
+import 'package:royal_club_chess/chess_api_client.dart';
+import 'package:royal_club_chess/chess_game_session.dart';
+
+class _FakeChessApiClient extends ChessApiClient {
+  _FakeChessApiClient() : super(baseUri: Uri.parse('http://localhost'), accessToken: 'test');
+
+  String status = 'active';
+  int rating = 1320;
+  int profileFetches = 0;
+  bool canClaimDraw = false;
+  int drawClaimCalls = 0;
+  String? claimError;
+
+  @override
+  Future<Map<String, dynamic>> game(String gameId) async => {
+        'gameId': gameId,
+        'fen': 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+        'status': status,
+        'drawClaimable': canClaimDraw,
+        'drawClaimReason': canClaimDraw ? 'fifty_move_rule' : null,
+        'legalMoves': ['e2e4', 'g1f3'],
+        'isHost': true,
+        'clock': {
+          'whiteMs': 300000,
+          'blackMs': 300000,
+          'active': 'white',
+          'lastStartedAt': DateTime.now().millisecondsSinceEpoch,
+        },
+        'players': {
+          'white': {'username': 'white_player'},
+          'black': {'username': 'black_player'},
+        },
+      };
+
+  @override
+  Future<List<Map<String, dynamic>>> chatHistory(String gameId, {String afterId = '0'}) async => [
+        {'username': 'white_player', 'message': 'hello', 'createdAt': '2026-10-31T10:00:00.000Z'},
+      ];
+
+  @override
+  Future<Map<String, dynamic>> sendChat(String gameId, String message) async => {
+        'id': '777',
+        'username': 'white_player',
+        'message': message,
+        'createdAt': '2026-11-03T10:00:00.000Z',
+      };
+
+  @override
+  Future<Map<String, dynamic>> claimDraw(String gameId) async {
+    drawClaimCalls += 1;
+    if (claimError != null) {
+      status = 'black_win';
+      canClaimDraw = false;
+      throw ChessApiException(409, claimError!);
+    }
+    status = 'draw';
+    canClaimDraw = false;
+    return {'status': 'draw', 'reason': 'fifty_move_rule'};
+  }
+
+  @override
+  Future<Map<String, dynamic>> pendingDrawOffer(String gameId) async => {
+        'pending': false,
+        'offeredByMe': false,
+      };
+
+  @override
+  Future<Map<String, dynamic>> playerProfileByUsername(String username) async {
+    profileFetches += 1;
+    return {
+        'username': username,
+        'level': 4,
+        'xp': 950,
+        'rating': rating,
+        'games': 10,
+        'wins': 6,
+        'losses': 3,
+        'draws': 1,
+        'winRate': 60.0,
+      };
+  }
+}
+
+void main() {
+  test('game session refreshes both public profiles when the game becomes terminal', () async {
+    final api = _FakeChessApiClient();
+    final session = ChessGameSession(api: api, gameId: '99');
+    await session.refresh();
+    expect(api.profileFetches, 2);
+    expect(session.whiteProfile?.rating, 1320);
+
+    api.status = 'white_win';
+    api.rating = 1400;
+    await session.refresh();
+
+    expect(api.profileFetches, 4);
+    expect(session.whiteProfile?.rating, 1400);
+    expect(session.blackProfile?.rating, 1400);
+    session.dispose();
+  });
+
+  test('game session exposes and submits an authoritative draw claim', () async {
+    final api = _FakeChessApiClient()..canClaimDraw = true;
+    final session = ChessGameSession(api: api, gameId: '99');
+    await session.refresh();
+    expect(session.drawClaimable, isTrue);
+    await session.claimDraw();
+    expect(api.drawClaimCalls, 1);
+    expect(session.status, 'draw');
+    expect(session.drawClaimable, isFalse);
+    session.dispose();
+  });
+
+  test('game session refreshes after a draw claim loses a clock race', () async {
+    final api = _FakeChessApiClient()
+      ..canClaimDraw = true
+      ..claimError = 'clock_expired';
+    final session = ChessGameSession(api: api, gameId: '99');
+    await session.refresh();
+    await expectLater(session.claimDraw(), throwsA(isA<ChessApiException>()));
+    expect(session.status, 'black_win');
+    expect(session.drawClaimable, isFalse);
+    session.dispose();
+  });
+
+  test('game session deduplicates repeated chat delivery by server message ID', () async {
+    final session = ChessGameSession(api: _FakeChessApiClient(), gameId: '99');
+    await session.refresh();
+    await session.sendChat('same message');
+    await session.sendChat('same message');
+
+    expect(session.messages.length, 2);
+    expect(session.messages.last.id, '777');
+    expect(session.messages.last.text, 'same message');
+    session.dispose();
+  });
+
+  test('game session refresh hydrates game, profiles, chat, and clocks', () async {
+    final session = ChessGameSession(api: _FakeChessApiClient(), gameId: '99');
+    await session.refresh();
+
+    expect(session.fen, contains(' w '));
+    expect(session.legalMoves, contains('e2e4'));
+    expect(session.whiteUsername, 'white_player');
+    expect(session.blackUsername, 'black_player');
+    expect(session.whiteProfile?.rating, 1320);
+    expect(session.blackProfile?.level, 4);
+    expect(session.messages.single.text, 'hello');
+    expect(session.isHost, isTrue);
+    expect(session.activeSide, 'white');
+    expect(session.whiteClock.inMilliseconds, lessThanOrEqualTo(300000));
+    session.dispose();
+  });
+}

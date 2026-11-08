@@ -1,0 +1,67 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:royal_club_chess/chess_admin_settings_screen.dart';
+import 'package:royal_club_chess/chess_lobby_screen.dart';
+
+void main() {
+  const controls = [
+    ChessTimeControl(id: 'rapid', displayName: 'Rapid', baseMs: 300000, incrementMs: 0, enabled: true),
+  ];
+
+  testWidgets('lobby submits private room creation with selected settings', (tester) async {
+    var created = false;
+    await tester.pumpWidget(MaterialApp(
+      home: ChessLobbyScreen(
+        timeControls: controls,
+        onCreateRoom: (id, level, chat) async {
+          expect(id, 'rapid');
+          expect(level, 1);
+          expect(chat, isTrue);
+          created = true;
+        },
+        onJoinRoom: (_) async {},
+        onJoinMatchmaking: (_, __) async {},
+        onCancelMatchmaking: () {},
+      ),
+    ));
+
+    expect(find.text('In-game voice'), findsNothing);
+    expect(find.text('میکروفون در بازی'), findsNothing);
+    await tester.tap(find.text('Create private room'));
+    await tester.pumpAndSettle();
+    expect(created, isTrue);
+  });
+
+  testWidgets('manager voice-message placeholder remains locked and disabled', (tester) async {
+    await tester.pumpWidget(const MaterialApp(
+      home: ChessAdminSettingsScreen(
+        controls: controls,
+        canManage: true,
+        onSave: _ignoreSave,
+        onDelete: _ignoreDelete,
+      ),
+    ));
+
+    expect(find.text('Voice messages (future feature)'), findsOneWidget);
+    final toggle = tester.widget<Switch>(find.byType(Switch));
+    expect(toggle.value, isFalse);
+    expect(toggle.onChanged, isNull);
+  });
+
+  testWidgets('non-admin cannot see chess time-control editing actions', (tester) async {
+    await tester.pumpWidget(const MaterialApp(
+      home: ChessAdminSettingsScreen(
+        controls: controls,
+        canManage: false,
+        onSave: _ignoreSave,
+        onDelete: _ignoreDelete,
+      ),
+    ));
+
+    expect(find.text('You do not have permission to manage settings'), findsOneWidget);
+    expect(find.byIcon(Icons.add), findsNothing);
+  });
+}
+
+void _ignoreSave(ChessTimeControl _) {}
+void _ignoreDelete(String _) {}
