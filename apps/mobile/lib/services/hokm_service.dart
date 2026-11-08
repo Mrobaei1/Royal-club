@@ -87,7 +87,10 @@ class HokmService implements HokmApi, HokmEventApi {
 
   @override
   Future<Map<String, dynamic>> forfeitMatch(String roomId, int expectedVersion) =>
-      _post('${_roomPath(roomId)}/forfeit', {'expectedVersion': expectedVersion});
+      _post('${_roomPath(roomId)}/forfeit', {
+        'expectedVersion': expectedVersion,
+        'idempotencyKey': 'hokm-$expectedVersion',
+      });
 
   @override
   Future<Map<String, dynamic>> disconnect(String roomId, int expectedVersion) =>
