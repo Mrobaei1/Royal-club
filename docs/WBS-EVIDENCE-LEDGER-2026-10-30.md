@@ -377,3 +377,11 @@ Open integration/release boundaries: all PRs remain unmerged; PR #137's older Ho
 - **2.1-B Passed (5 points):** `isValidRegistrationPassword` enforces at least six Unicode code points and at most 128 UTF-8 bytes. Tests cover five/six-character boundary, Persian letters, emoji code points, 128/129-byte boundary, empty and non-string input.
 - Exact-head evidence: PR #210 API build/unit run [42486568179](https://github.com/Mrobaei1/Royal-club/actions/runs/42486568179/job/128749630797) passed; the same validation source/tests were included in PR #206 API build/test run [42478821167](https://github.com/Mrobaei1/Royal-club/actions/runs/42478821167/job/128726055955). No policy change was made.
 - Phase 2 score: **40/130 (30.77%)**; total evidence-backed score: **125/1,000 (12.5%)**.
+
+
+## Registration/login and session lifecycle evidence — 2026-11-08
+
+- **2.1-A Passed (5 points):** integration test `logout revokes the current bearer session while a fresh login creates a new session` exercises account registration, authenticated profile access, logout, email/password login and fresh authenticated profile access. Phone OTP registration/login is separately covered by the purpose-bound OTP integration test.
+- **2.1-C Passed (5 points):** session tests prove current-token revocation, idempotent logout, fresh-login recovery, password-reset invalidation of all prior sessions, and explicit `token_version` invalidation across protected routes.
+- Exact-head evidence: PR #210 API integration run [42486568179](https://github.com/Mrobaei1/Royal-club/actions/runs/42486568179/job/128749630826) and API build/unit run [42486568179](https://github.com/Mrobaei1/Royal-club/actions/runs/42486568179/job/128749630797) passed before merge `b99b79b010b0af662909bbac2e669ca958e676a3`.
+- Phase 2 score: **50/130 (38.46%)**; total evidence-backed score: **135/1,000 (13.5%)**. Criterion 2.1-D remains Pending because the live recovery provider/device acceptance is not enabled or approved.
