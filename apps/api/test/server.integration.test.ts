@@ -3992,3 +3992,47 @@ test('two independent Hokm deadline workers commit a due turn exactly once throu
     await testPool.query('DELETE FROM hokm_rooms WHERE room_id = $1', [roomId]);
   }
 });
+
+
+test('Hokm owner manager authorization fails closed when the persistent owner identity anchor disagrees with OWNER_USER_ID', async () => {
+  const owner = await register('Hokm Anchor Owner');
+  const other = await register('Hokm Anchor Other');
+  const previousOwnerId = process.env.OWNER_USER_ID;
+  const previousAnchor = await testPool.query(
+    'SELECT owner_user_id::text AS "ownerUserId" FROM royal_club_owner_identity WHERE singleton_id = 1',
+  );
+  process.env.OWNER_USER_ID = owner.user.id;
+  let roomId = '';
+  try {
+    await testPool.query(
+      `INSERT INTO royal_club_owner_identity (singleton_id, owner_user_id)
+       VALUES (1, $1)
+       ON CONFLICT (singleton_id) DO UPDATE SET owner_user_id = EXCLUDED.owner_user_id`,
+      [other.user.id],
+    );
+    const rejectedOwner = await app.inject({
+      method: 'POST', url: '/api/v1/hokm/rooms',
+      headers: auth(owner.token), payload: { privateRoom: false, matchTarget: 7 },
+    });
+    assert.equal(rejectedOwner.statusCode, 403);
+
+    const ordinaryPlayer = await app.inject({
+      method: 'POST', url: '/api/v1/hokm/rooms',
+      headers: auth(other.token), payload: { privateRoom: false, matchTarget: 7 },
+    });
+    assert.equal(ordinaryPlayer.statusCode, 200, ordinaryPlayer.body);
+    roomId = ordinaryPlayer.json().roomId;
+  } finally {
+    if (roomId) await testPool.query('DELETE FROM hokm_rooms WHERE room_id = $1', [roomId]);
+    if (previousAnchor.rowCount) {
+      await testPool.query(
+        'UPDATE royal_club_owner_identity SET owner_user_id = $1 WHERE singleton_id = 1',
+        [previousAnchor.rows[0].ownerUserId],
+      );
+    } else {
+      await testPool.query('DELETE FROM royal_club_owner_identity WHERE singleton_id = 1');
+    }
+    if (previousOwnerId === undefined) delete process.env.OWNER_USER_ID;
+    else process.env.OWNER_USER_ID = previousOwnerId;
+  }
+});
