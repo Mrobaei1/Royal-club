@@ -3516,6 +3516,37 @@ test('logout revokes the current bearer session while a fresh login creates a ne
   assert.equal(freshProfile.statusCode, 200, freshProfile.body);
 });
 
+test('token version changes invalidate every previously issued access token', async () => {
+  const user = await register('Token Version Revocation Player');
+  const before = await app.inject({
+    method: 'GET', url: '/api/v1/me', headers: auth(user.token),
+  });
+  assert.equal(before.statusCode, 200, before.body);
+
+  await testPool.query(
+    'UPDATE users SET token_version = token_version + 1 WHERE id = $1',
+    [user.user.id],
+  );
+
+  for (const url of ['/api/v1/me', '/api/v1/friends']) {
+    const response = await app.inject({
+      method: 'GET', url, headers: auth(user.token),
+    });
+    assert.equal(response.statusCode, 401,
+      `A token issued before a credential/session version change must be rejected by ${url}.`);
+  }
+
+  const freshLogin = await app.inject({
+    method: 'POST', url: '/api/v1/auth/login',
+    payload: { email: user.user.email, password: 'IntegrationPass123!' },
+  });
+  assert.equal(freshLogin.statusCode, 200, freshLogin.body);
+  const freshProfile = await app.inject({
+    method: 'GET', url: '/api/v1/me', headers: auth(freshLogin.json().accessToken),
+  });
+  assert.equal(freshProfile.statusCode, 200, freshProfile.body);
+});
+
 test('phone OTP password recovery changes password, consumes code once, and revokes all prior sessions', async () => {
   const previous = await testPool.query(
     'SELECT enabled, delivery_mode FROM sms_otp_settings WHERE id = 1',
