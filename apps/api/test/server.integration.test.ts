@@ -3985,6 +3985,7 @@ test('two independent Hokm deadline workers commit a due turn exactly once throu
     const results = await Promise.all([firstWorker.pollOnce(), secondWorker.pollOnce()]);
     const committed = await repository.get(roomId);
     assert.equal(results.reduce((sum, result) => sum + result.processed, 0), 1);
+    assert.equal(results.reduce((sum, result) => sum + result.failed, 0), 0);
     assert.equal(committed.version, Number(forcedDue.rows[0].version) + 1);
     assert.equal(committed.round.phase, 'playing');
     assert.ok(committed.turnDeadlineAt > schedulerNow);
