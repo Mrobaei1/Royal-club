@@ -370,3 +370,10 @@ Open integration/release boundaries: all PRs remain unmerged; PR #137's older Ho
 - **2.6-A Passed (5 points):** integration tests cover expired, malformed and missing JWTs, idempotent logout revocation, password recovery invalidating previous sessions, and explicit token-version invalidation. The new regression test increments a user's `token_version`, verifies old tokens are rejected on both self-profile and friends routes, then verifies a fresh login works.
 - PR #210 exact head `f5ab13e7ec13a099a1b59ba1ca09a6c060a0066c` passed API integration run [42486568179](https://github.com/Mrobaei1/Royal-club/actions/runs/42486568179/job/128749630826), API build/unit run [42486568179](https://github.com/Mrobaei1/Royal-club/actions/runs/42486568179/job/128749630797), root Flutter tests/analyze, backgammon engine audit and Web Preview build. PR #210 merged as `b99b79b010b0af662909bbac2e669ca958e676a3`.
 - Phase 2 score: **35/130 (26.92%)**; total evidence-backed score: **120/1,000 (12.0%)**. Criteria 2.6-B (explicit rate-limit/network-boundary negative tests) remains Pending.
+
+
+## Registration password policy evidence — 2026-11-08
+
+- **2.1-B Passed (5 points):** `isValidRegistrationPassword` enforces at least six Unicode code points and at most 128 UTF-8 bytes. Tests cover five/six-character boundary, Persian letters, emoji code points, 128/129-byte boundary, empty and non-string input.
+- Exact-head evidence: PR #210 API build/unit run [42486568179](https://github.com/Mrobaei1/Royal-club/actions/runs/42486568179/job/128749630797) passed; the same validation source/tests were included in PR #206 API build/test run [42478821167](https://github.com/Mrobaei1/Royal-club/actions/runs/42478821167/job/128726055955). No policy change was made.
+- Phase 2 score: **40/130 (30.77%)**; total evidence-backed score: **125/1,000 (12.5%)**.
