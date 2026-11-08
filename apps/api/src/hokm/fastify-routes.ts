@@ -145,7 +145,7 @@ export async function registerHokmRoutes(fastify, { service, authenticate, prefi
     service.leave(request.auth, request.params.roomId, request.body?.expectedVersion));
 
   route(fastify, authenticate, "POST", path("/hokm/rooms/:roomId/forfeit"), request =>
-    service.forfeit(request.auth, request.params.roomId, request.body?.expectedVersion));
+    service.forfeit(request.auth, request.params.roomId, request.body?.expectedVersion, request.body?.idempotencyKey));
 
   route(fastify, authenticate, "POST", path("/hokm/rooms/:roomId/cancel-vote"), request =>
     service.voteCancel(request.auth, request.params.roomId, request.body?.approve, request.body?.expectedVersion));
