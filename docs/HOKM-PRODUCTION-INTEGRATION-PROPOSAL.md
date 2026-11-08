@@ -67,7 +67,7 @@ Canonical integration candidate: PR #195, branch `integration/hokm-current-main-
 - Fixed a cumulative progression defect: room reads now hydrate account XP/level from `hokm_player_progress` before the next match transition. Without this, a new room could start with an empty per-room progression map and overwrite the player's previous aggregate. PostgreSQL hydration tests were added.
 - Fixed early match completion after a disconnect: if the match ends before the 20-second reconnect takeover deadline, any player still disconnected is settled as a forfeit (-5 XP, no ordinary win/loss award, opposing partnership guaranteed +20 XP). A regression test covers completion before grace expiry.
 - Added a stable forfeit idempotency key end-to-end so retries with the original room version return the committed result instead of applying a second action.
-- Room views now hydrate and expose usernames only; raw account IDs are no longer shown in the mobile player list/chat recipient selector, and full names are never included in participant projections.
+- Room views now hydrate and expose usernames only; raw account IDs are no longer shown in the mobile player list/chat recipient selector, and full names are never included in participant projections. Host identity is represented by viewer-scoped `isHost` plus public `hostSeat`, never by exposing the host account ID.
 - Worker and PostgreSQL event-listener logs no longer serialize raw database error messages that could contain infrastructure details.
 - The current mainline infrastructure-reliability agent catalog and its integration assertions were preserved during reconciliation.
 
