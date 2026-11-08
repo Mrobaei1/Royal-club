@@ -40,7 +40,7 @@
 | 2.1-A | Registration/login end-to-end | 5 | Passed | API integration CI run 42486568179; registration, logout, fresh email/password login and authenticated profile round-trip |
 | 2.1-B | Six-character password policy | 5 | Passed | API unit CI run 42486568179; Unicode character minimum and 128 UTF-8 byte maximum regression tests |
 | 2.1-C | Session lifecycle/logout/revocation | 5 | Passed | API integration CI run 42486568179; logout idempotency, old-token rejection, password-reset revocation and token-version invalidation |
-| 2.1-D | Recovery/account flows | 5 | Pending | Not audited |
+| 2.1-D | Recovery/account flows | 5 | Passed | API integration CI run 42487784052; phone OTP recovery, non-enumeration, one-time code consumption, password replacement and prior-session revocation |
 | 2.2-A | OTP normalization/digest/expiry/limits | 5 | Passed | API integration CI run 42478821103; OTP digest, expiry, cooldown, attempt exhaustion, daily limits and normalization regression tests |
 | 2.2-B | Purpose-bound register/login/link ownership | 5 | Passed | API integration CI run 42478821103; purpose-bound register/login/link, cross-purpose rejection, duplicate phone-link and unverified profile-edit tests |
 | 2.2-C | Provider credentials encrypted and owner-controlled | 5 | Passed | API integration CI run 42478821103; owner-step-up settings test verifies AES-256-GCM ciphertext at rest and secret-free reads |
@@ -252,9 +252,9 @@
 - Packages decomposed: **53/53**
 - Acceptance criteria: **200**
 - Points represented: **1000/1,000**
-- Earned points currently evidenced: **180/1,000 (18.0%)** — prior 170 points plus 10 points for criteria 2.7-B and 2.7-C after exact-head network-change/session and game/social recovery integration tests passed.
-- Remaining criteria: **164 Pending** (820 points not yet earned).
-- Official project percentage: **18.0% evidence-backed minimum**; this remains a partial criterion audit, not a claim that only 11.0% of code exists. The six recently closed criteria are supported by exact-head negative-test CI, friend-only free chat/free-by-default route audit, username-only privacy regressions, OTP digest/expiry/rate-limit and purpose-binding tests, and encrypted owner-controlled SMS credential tests. Provider deployment portability, NFR target approval, physical VPN/device acceptance, owner-approved retention and DR acceptance remain open.
+- Earned points currently evidenced: **185/1,000 (18.5%)** — prior 180 points plus 5 points for criterion 2.1-D after exact-head phone-OTP recovery integration tests passed.
+- Remaining criteria: **163 Pending** (815 points not yet earned).
+- Official project percentage: **18.5% evidence-backed minimum**; this remains a partial criterion audit, not a claim that only 11.0% of code exists. The six recently closed criteria are supported by exact-head negative-test CI, friend-only free chat/free-by-default route audit, username-only privacy regressions, OTP digest/expiry/rate-limit and purpose-binding tests, and encrypted owner-controlled SMS credential tests. Provider deployment portability, NFR target approval, physical VPN/device acceptance, owner-approved retention and DR acceptance remain open.
 
 ## Required evidence record
 
@@ -273,13 +273,13 @@ The following percentages are calculated directly from the 200 criterion rows in
 | WBS phase | Total weight | Passed criteria | Earned points | Progress |
 | --- | ---: | ---: | ---: | ---: |
 | Phase 1 — Architecture and project management | 80 | 11/16 | 55 | 68.75% |
-| Phase 2 | 130 | 19/26 | 95 | 73.08% |
+| Phase 2 | 130 | 20/26 | 100 | 76.92% |
 | Phase 3 | 230 | 0/46 | 0 | 0.00% |
 | Phase 4 | 120 | 0/24 | 0 | 0.00% |
 | Phase 5 | 140 | 1/28 | 5 | 3.57% |
 | Phase 6 | 140 | 0/28 | 0 | 0.00% |
 | Phase 7 | 160 | 5/32 | 25 | 15.63% |
-| **Total** | **1,000** | **36/200** | **180** | **18.00%** |
+| **Total** | **1,000** | **37/200** | **185** | **18.50%** |
 
 
 
@@ -332,3 +332,6 @@ Three Phase 2 criteria now pass (15/130 points):
 - **2.7-B Passed (5 points):** API integration tests sign in a user, change the request remote address to a different network/VPN IP and confirm `/api/v1/me` still returns the same authenticated account identity.
 - **2.7-C Passed (5 points):** the same account retains its accepted-friend list after a remote-address change and can recover the identical active backgammon match board/state from a different IP. The session remains tied to the verified account, not its IP address.
 - Exact-head API integration CI passed on PR #221 head `1591e0498eeea3b2084038d2b554693175374ec8`, run [42487784052](https://github.com/Mrobaei1/Royal-club/actions/runs/42487784052/job/128753337846). Physical Android VPN OFF/ON acceptance remains separately pending under 2.7-A and Phase 1 1.3-B.
+
+
+- **2.1-D Passed (5 points):** password recovery integration test verifies unknown phone requests do not reveal account existence or trigger a billable SMS, a purpose-bound reset OTP changes the password, the code is single-use, the old password stops working, the new password works, and all previously issued sessions are revoked. The development simulator is used only in tests; live SMS activation remains separately pending under 2.2-D. Exact-head API integration run [42487784052](https://github.com/Mrobaei1/Royal-club/actions/runs/42487784052/job/128753337846) passed.
