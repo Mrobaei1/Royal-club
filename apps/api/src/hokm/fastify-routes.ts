@@ -27,7 +27,11 @@ function route(fastify, authenticate, method, url, operation) {
         const result = await operation(request);
         return reply.code(200).send(result);
       } catch (error) {
-        return reply.code(statusFor(error)).send({ error: error.message });
+        const status = statusFor(error);
+        const message = status >= 500
+          ? "Hokm request could not be completed. Please try again."
+          : error.message;
+        return reply.code(status).send({ error: message });
       }
     }
   });
