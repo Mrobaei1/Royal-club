@@ -7,11 +7,16 @@
 function statusFor(error) {
   const message = String(error?.message ?? "");
   if (/verified authenticated principal/.test(message)) return 401;
-  if (/not a member|Only the host|trusted service principal|Only an authorized manager|cannot submit/.test(message)) return 403;
-  if (/not found/.test(message)) return 404;
-  if (/Stale room version|Concurrent room update|already exists|full|not accepting|already started|not completed|not playing|not accepting card plays/.test(message)) return 409;
-  if (error instanceof TypeError || error instanceof RangeError) return 400;
-  return 400;
+  if (/not a member|Only the host|trusted service principal|Only an authorized manager|Only the owner|cannot submit|forfeited player cannot|player cannot report themselves|Both reporter and reported player must be match participants/.test(message)) return 403;
+  if (/^(Room|Cheating report|Appeal) not found$/.test(message)) return 404;
+  if (/Stale room version|Concurrent room update|already exists|full|not accepting|already started|not completed|not playing|not accepting card plays|already been reviewed|already has a pending appeal|grace period expired|deadline has not elapsed|not elapsed|cannot be canceled|cannot be appealed|not accepting|only during an active match|only an unfinished match|Readiness can only change|Exactly four players|All players must be ready|Room has already started|previous round is not completed|still active|Fewer than two reconnect grace periods|Multiple unrecovered disconnects|all-four-disconnected 20-second rule/.test(message)) return 409;
+  if (error instanceof TypeError || error instanceof RangeError ||
+      /Unsupported game command|A player cannot message themselves|Chat is available only|A player cannot report themselves|Both chat participants|Private match chat|A bounded|must contain between|must be a valid|Review notes must|Report reason must|Appeal reason must|decision must be/.test(message)) {
+    return 400;
+  }
+  // Unknown exceptions may contain SQL, infrastructure or credential details.
+  // Treat them as server errors and never echo their raw messages to clients.
+  return 500;
 }
 
 function route(fastify, authenticate, method, url, operation) {
