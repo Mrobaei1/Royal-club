@@ -686,6 +686,31 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('Hokm long dynamic usernames remain readable in Persian at large text scale', (tester) async {
+    tester.view.physicalSize = const Size(360, 720);
+    tester.view.devicePixelRatio = 1;
+    tester.platformDispatcher.textScaleFactorTestValue = 1.6;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.platformDispatcher.clearTextScaleFactor);
+
+    final api = FakeHokmApi();
+    api.room = api._playing();
+    for (final player in api.room['players'] as List) {
+      player['username'] = 'بازیکن_نام_کاربری_بسیار_طولانی_۱۲۳۴۵';
+    }
+    await tester.pumpWidget(MaterialApp(
+      locale: const Locale('fa'),
+      supportedLocales: const [Locale('fa'), Locale('en')],
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
+      home: HokmScreen(api: api, identityLoader: () async => 'u1'),
+    ));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 40));
+    expect(find.textContaining('بازیکن_نام_کاربری'), findsWidgets);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('leaving a waiting room closes it and immediately returns the player to the lobby', (tester) async {
     final api = FakeHokmApi();
     await tester.pumpWidget(MaterialApp(
