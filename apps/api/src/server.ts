@@ -20,6 +20,10 @@ import { hasRoyalPermission, isRoyalPermission } from './permissions.js';
 import { isValidNeonTriggerInvocation } from './neon-trigger-auth.js';
 import { promisify } from 'node:util';
 import { createRoyalLoggerOptions } from './logging-config.js';
+import { PostgresRoomRepository } from './hokm/postgres-repository.js';
+import { HokmRoomService } from './hokm/service.js';
+import { HokmEventHub } from './hokm/events.js';
+import { registerHokmRoutes } from './hokm/fastify-routes.js';
 import { normalizePublicServiceOrigin, publicGameServices } from './game-services-config.js';
 import { signGameServiceConfig, verifyGameServiceConfigSignature } from './game-service-config-signing.js';
 import { isOwnerIdentityConsistent } from './owner-protection.js';
@@ -739,6 +743,24 @@ await pool.query(`
     ON backgammon_progression_events (user_id, created_at DESC);
   CREATE INDEX IF NOT EXISTS backgammon_player_stats_leaderboard_idx
     ON backgammon_player_stats (rating DESC, wins DESC, games_played ASC);
+`);
+
+await pool.query(`
+  CREATE TABLE IF NOT EXISTS hokm_rooms (
+    room_id TEXT PRIMARY KEY,
+    version INTEGER NOT NULL CHECK (version >= 1),
+    room_data JSONB NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+  CREATE INDEX IF NOT EXISTS hokm_rooms_status_updated_idx
+    ON hokm_rooms ((room_data->>'status'), updated_at);
+  CREATE TABLE IF NOT EXISTS hokm_player_progress (
+    user_id BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    xp DOUBLE PRECISION NOT NULL DEFAULT 0 CHECK (xp >= 0),
+    level INTEGER NOT NULL DEFAULT 1 CHECK (level >= 1),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
 `);
 
 await ensureManchSchema(pool);
@@ -1732,6 +1754,38 @@ const requireOwnerAuth = async (request: any, reply: any) => {
     return reply.code(503).send({ error: 'Owner protection is temporarily unavailable.' });
   }
 };
+
+const requireHokmAuth = async (request: any, reply: any) => {
+  await requireMatchAuth(request, reply);
+  if (reply.sent) return;
+  const claims = request.user as { sub?: string };
+  if (!claims.sub || !isNumericId(claims.sub)) {
+    return reply.code(401).send({ error: 'A valid authenticated Royal Club user is required.' });
+  }
+  const ownerUserId = process.env.OWNER_USER_ID?.trim();
+  let role = 'player';
+  if (ownerUserId && isNumericId(ownerUserId) && claims.sub === ownerUserId) {
+    // Reuse the platform's persistent owner-identity anchor check. Do not let
+    // Hokm manager routes bypass owner-protection by trusting only an env var.
+    await requireOwnerAuth(request, reply);
+    if (reply.sent) return;
+    role = 'owner';
+  }
+  request.auth = { authenticated: true, userId: claims.sub, role };
+};
+
+const hokmRepository = new PostgresRoomRepository(pool);
+const hokmService = new HokmRoomService({ repository: hokmRepository });
+const hokmEventHub = new HokmEventHub(pool, {
+  onError: (error: unknown) => app.log.error({ errorType: error instanceof Error ? error.name.slice(0, 64) : 'unknown_error' }, 'Hokm PostgreSQL event listener failed')
+});
+await hokmEventHub.start();
+await registerHokmRoutes(app, {
+  service: hokmService,
+  authenticate: requireHokmAuth,
+  prefix: '/api/v1',
+  eventHub: hokmEventHub
+});
 
 const requireOwnerStepUp = async (request: any, reply: any) => {
   await requireOwnerAuth(request, reply);
@@ -5694,7 +5748,10 @@ app.post('/internal/cleanup-expired-empty-rooms', async (request, reply) => {
   }
 });
 
-app.addHook('onClose', async () => { await pool.end(); });
+app.addHook('onClose', async () => {
+  await hokmEventHub.close();
+  await pool.end();
+});
 
 export { app };
 
