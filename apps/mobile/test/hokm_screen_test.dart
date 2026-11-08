@@ -54,10 +54,10 @@ class FakeHokmApi implements HokmApi {
     'status': 'playing',
     'version': 3,
     'players': [
-      {'userId': 'u1', 'seat': 0, 'ready': true, 'connected': true, 'botControlled': false},
-      {'userId': 'u2', 'seat': 1, 'ready': true, 'connected': true, 'botControlled': false},
-      {'userId': 'u3', 'seat': 2, 'ready': true, 'connected': true, 'botControlled': false},
-      {'userId': 'u4', 'seat': 3, 'ready': true, 'connected': true, 'botControlled': false},
+      {'userId': 'u1', 'username': 'alice', 'seat': 0, 'ready': true, 'connected': true, 'botControlled': false},
+      {'userId': 'u2', 'username': 'bob', 'seat': 1, 'ready': true, 'connected': true, 'botControlled': false},
+      {'userId': 'u3', 'username': 'carol', 'seat': 2, 'ready': true, 'connected': true, 'botControlled': false},
+      {'userId': 'u4', 'username': 'dave', 'seat': 3, 'ready': true, 'connected': true, 'botControlled': false},
     ],
     'game': {
       'phase': 'playing',
