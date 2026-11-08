@@ -65,6 +65,8 @@ Canonical integration candidate: PR #195, branch `integration/hokm-current-main-
 
 - Fixed match progression so a voluntary forfeit or unrecovered disconnect receives exactly -5 XP and the opposing partnership is guaranteed +20 XP at match completion. The guaranteed +20 replaces, rather than stacks with, the ordinary award. Regression tests cover both forfeit and disconnect paths.
 - Fixed a cumulative progression defect: room reads now hydrate account XP/level from `hokm_player_progress` before the next match transition. Without this, a new room could start with an empty per-room progression map and overwrite the player's previous aggregate. PostgreSQL hydration tests were added.
+- Fixed early match completion after a disconnect: if the match ends before the 20-second reconnect takeover deadline, any player still disconnected is settled as a forfeit (-5 XP, no ordinary win/loss award, opposing partnership guaranteed +20 XP). A regression test covers completion before grace expiry.
+- Added a stable forfeit idempotency key end-to-end so retries with the original room version return the committed result instead of applying a second action.
 - Worker and PostgreSQL event-listener logs no longer serialize raw database error messages that could contain infrastructure details.
 - The current mainline infrastructure-reliability agent catalog and its integration assertions were preserved during reconciliation.
 
