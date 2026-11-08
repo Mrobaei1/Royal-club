@@ -423,3 +423,11 @@ Open integration/release boundaries: all PRs remain unmerged; PR #137's older Ho
 - **2.3-C Passed (5 points):** added `publicUsernameLabel` and `normalizedPublicUsername`, which accept only the public username field and use neutral localized fallback labels for null, blank, whitespace and non-string legacy values. Friends, Chat, Leaderboard and Hokm screens now use this shared helper; no private fullName/email/phone fallback is available through the helper.
 - Flutter regression tests cover empty/legacy values and username formatting. Exact-head Flutter analyze/widget test run [42487475637](https://github.com/Mrobaei1/Royal-club/actions/runs/42487475637/job/128752407108) passed on PR #218 head `ac3908d4aedc4cea6cec5b3659271cc020d54597`; PR #218 merged as `851d5c70af0f58e11ef840a3e50d8393306bbea4`.
 - Phase 2 score: **85/130 (65.38%)**; total evidence-backed score: **170/1,000 (17.0%)**.
+
+
+## Network-change session and game/social recovery evidence — 2026-11-08
+
+- **2.7-B Passed (5 points):** integration tests authenticate a user and then change the request remote address; `/api/v1/me` continues to resolve the same JWT subject and account identity.
+- **2.7-C Passed (5 points):** after a network/IP change, the same authenticated account retains its accepted friend list and recovers the identical active backgammon match board/state. These API tests demonstrate session continuity independent of IP address.
+- Exact-head evidence: PR #221 head `1591e0498eeea3b2084038d2b554693175374ec8`, API integration run [42487784052](https://github.com/Mrobaei1/Royal-club/actions/runs/42487784052/job/128753337846) passed. Physical Android VPN OFF/ON acceptance is not implied and remains pending.
+- Phase 2 score: **95/130 (73.08%)**; total evidence-backed score: **180/1,000 (18.0%)**.
