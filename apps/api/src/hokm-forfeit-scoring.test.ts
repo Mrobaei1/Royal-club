@@ -39,8 +39,8 @@ test("an unrecovered disconnect gets only -5 XP while the opposing partnership i
 test("the guaranteed forfeit award replaces rather than stacks on the ordinary +20 win award", () => {
   const initial = Object.fromEntries(four.map(player => [player.userId, { xp: 100, level: 1 }]));
   const result = awardCompletedMatch(four, 1, initial, ["p0"]);
-  assert.equal(result.p1.xp, 120);
-  assert.equal(result.p3.xp, 120);
+  assert.equal(result.p1!.xp, 120);
+  assert.equal(result.p3!.xp, 120);
 });
 
 test("invalid forfeit user IDs are rejected", () => {
