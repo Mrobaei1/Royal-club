@@ -48,7 +48,7 @@
 | 2.3-A | Self-profile privacy | 5 | Pending | Not audited |
 | 2.3-B | Public APIs suppress private identity | 5 | Pending | Not audited |
 | 2.3-C | Legacy/empty profile privacy | 5 | Pending | Not audited |
-| 2.3-D | Cross-account authorization | 5 | Passed | API integration CI run 424...; foreign profile userId spoofing and outsider private-chat read/send/edit/delete regression test |
+| 2.3-D | Cross-account authorization | 5 | Passed | API integration CI run 42486935392; foreign profile userId spoofing and outsider private-chat read/send/edit/delete regression test |
 | 2.4-A | ARB parity | 5 | Passed | Flutter CI run 42486568179; Persian and English ARB locale/key parity tests |
 | 2.4-B | Visible static UI localization | 5 | Pending | Not audited |
 | 2.4-C | Dynamic errors/notifications localization | 5 | Passed | Flutter CI run 42486568179; appError translations and localized friend/match notification title/body tests |
@@ -315,4 +315,4 @@ Three Phase 2 criteria now pass (15/130 points):
 - **2.4-B remains Pending:** full visible static UI localization across all app screens has not yet been exhaustively audited; no broad completion claim is made.
 
 
-- **2.3-D Passed (5 points):** integration tests prove caller-supplied foreign `userId` cannot redirect a self-profile update, and private chat is restricted to the two accepted friends. A third account is denied message reads and sends; attempts to edit/delete another pair's messages affect zero rows. Exact-head API integration CI passed on PR #214 head `36b052fedb6a4b6944ad28f94fab91ee42d31fb5`, run [424...](https://github.com/Mrobaei1/Royal-club/actions/runs/424.../job/128750743909); the required API, Flutter, backgammon and web checks all passed before merge `7f3505fd2120517221d2d04c8713c3c125a47850`.
+- **2.3-D Passed (5 points):** integration tests prove caller-supplied foreign `userId` cannot redirect a self-profile update, and private chat is restricted to the two accepted friends. A third account is denied message reads and sends; attempts to edit/delete another pair's messages affect zero rows. Exact-head API integration CI passed on PR #214 head `36b052fedb6a4b6944ad28f94fab91ee42d31fb5`, run [424...](https://github.com/Mrobaei1/Royal-club/actions/runs/42486935392/job/128750743909); the required API, Flutter, backgammon and web checks all passed before merge `7f3505fd2120517221d2d04c8713c3c125a47850`.
