@@ -4,6 +4,9 @@ import { randomUUID } from 'node:crypto';
 import { verifyGameServiceConfigSignature } from '../src/game-service-config-signing.js';
 import { Pool } from 'pg';
 import { HokmEventHub } from '../src/hokm/events.js';
+import { HokmDeadlineScheduler } from '../src/hokm/deadline-scheduler.js';
+import { PostgresRoomRepository } from '../src/hokm/postgres-repository.js';
+import { HokmRoomService } from '../src/hokm/service.js';
 
 // This suite is run only against a disposable PostgreSQL database in CI.
 process.env.JWT_SECRET ??= 'royal-club-integration-test-secret-32-characters';
@@ -3926,4 +3929,65 @@ test('authenticated Hokm forfeit is permanent, idempotent and cancels on a secon
   assert.deepEqual(secondForfeit.json().matchScore, [0, 0]);
   assert.equal(secondForfeit.json().result, null);
   await testPool.query('DELETE FROM hokm_rooms WHERE room_id = $1', [roomId]);
+});
+
+
+test('two independent Hokm deadline workers commit a due turn exactly once through PostgreSQL CAS', async () => {
+  const users = await Promise.all([
+    register('Hokm Worker Host'),
+    register('Hokm Worker One'),
+    register('Hokm Worker Two'),
+    register('Hokm Worker Three'),
+  ]);
+  let clock = 1_000;
+  const repository = new PostgresRoomRepository(testPool);
+  const firstService = new HokmRoomService({
+    repository, now: () => clock, selectHakemSeat: () => 0,
+  });
+  const secondService = new HokmRoomService({
+    repository, now: () => clock, selectHakemSeat: () => 0,
+  });
+  const principal = (user) => ({ authenticated: true, userId: user.user.id });
+  let room = await firstService.create(principal(users[0]));
+  const roomId = room.roomId;
+  try {
+    for (const user of users.slice(1)) {
+      room = await firstService.join(principal(user), roomId, room.version);
+    }
+    for (const user of users) {
+      room = await firstService.ready(principal(user), roomId, true, room.version);
+    }
+    room = await firstService.start(principal(users[0]), roomId, room.version);
+    const dueAt = clock + 7_000;
+    const schedulerNow = dueAt + 1;
+    const forcedDue = await testPool.query(
+      `UPDATE hokm_rooms
+          SET version = version + 1,
+              room_data = jsonb_set(
+                jsonb_set(room_data, '{turnDeadlineAt}', to_jsonb($2::double precision), true),
+                '{version}', to_jsonb(version + 1), true
+              ),
+              updated_at = NOW()
+        WHERE room_id = $1
+        RETURNING version`,
+      [roomId, dueAt],
+    );
+    assert.equal(forcedDue.rowCount, 1);
+    clock = schedulerNow;
+
+    const firstWorker = new HokmDeadlineScheduler({
+      service: firstService, repository, now: () => clock, intervalMs: 100,
+    });
+    const secondWorker = new HokmDeadlineScheduler({
+      service: secondService, repository, now: () => clock, intervalMs: 100,
+    });
+    const results = await Promise.all([firstWorker.pollOnce(), secondWorker.pollOnce()]);
+    const committed = await repository.get(roomId);
+    assert.equal(results.reduce((sum, result) => sum + result.processed, 0), 1);
+    assert.equal(committed.version, Number(forcedDue.rows[0].version) + 1);
+    assert.equal(committed.round.phase, 'playing');
+    assert.ok(committed.turnDeadlineAt > schedulerNow);
+  } finally {
+    await testPool.query('DELETE FROM hokm_rooms WHERE room_id = $1', [roomId]);
+  }
 });
