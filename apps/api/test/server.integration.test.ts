@@ -3581,7 +3581,9 @@ test('Hokm production API uses verified JWT identity, hides private hands, and g
     assert.equal(created.statusCode, 200, created.body);
     let room = created.json();
     roomId = room.roomId;
-    assert.equal(room.hostUserId, host.user.id, 'The body-supplied user ID must never replace verified JWT identity.');
+    assert.equal(room.isHost, true, 'The authenticated creator is the host.');
+    assert.equal(room.hostSeat, 0);
+    assert.equal(Object.hasOwn(room, 'hostUserId'), false, 'Room views must not expose the host account ID.');
 
     let version = room.version;
     for (const player of [playerOne, playerTwo, playerThree]) {
