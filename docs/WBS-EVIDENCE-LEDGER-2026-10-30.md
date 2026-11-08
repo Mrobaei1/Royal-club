@@ -287,6 +287,6 @@ Open integration/release boundaries: all PRs remain unmerged; PR #137's older Ho
 
 - Created consolidated architecture/NFR baseline, requirements-to-implementation traceability and confirmed-decision log, project governance, data lifecycle/recovery requirements, and phase dependency/parallel-execution map.
 - Updated the criterion matrix with eight evidence-backed passes: 1.1-A, 1.1-C, 1.2-A, 1.4-A, 1.4-B, 1.4-C, 1.6-A and 1.6-B (40 points of WBS 1.0). No criteria were reweighted or added.
-- Phase 1 architecture/governance score is 40/80 = 50%. The whole-project score in the updated matrix is 80/1,000 = 8.0% evidence-backed minimum, pending exact-head CI and merge of this documentation PR.
+- Phase 1 architecture/governance score is 40/80 = 50%. The whole-project score in the merged matrix is 80/1,000 = 8.0% evidence-backed minimum after PR #199 merged as 0677958e7912db2201c6a1ece33372a204c80fc5. PR #199 was documentation-only; no application CI was triggered and no runtime behavior changed.
 - Still open: measurable numeric NFR targets and owner approvals; second-provider portability verification; exact-head negative tests for server-authoritative game/economy rules; full enforcement review of free-by-default, IP/VPN independence and public-identity privacy; owner-approved retention/deletion rules; three-point backup retention and application-level recovery/rollback tests.
 - No Production mutation/deployment, secret retrieval/change, SMS/payment activation, agent activation, APK build, or owner-gated operation was performed.
