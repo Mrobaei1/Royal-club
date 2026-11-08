@@ -12,16 +12,31 @@
 | `NODE_ENV` | yes | Set to `production`. |
 | `HOST` | yes | Set to `0.0.0.0`. |
 | `PORT` | platform | Use the port supplied by the host, or 4100. |
-| `DATABASE_URL` | yes | TLS-enabled PostgreSQL connection. The service reads `users(id, username, token_version)` and creates/updates `uno_room_snapshots`. |
+| `DATABASE_URL` | yes | TLS-enabled PostgreSQL connection. The service reads `users(id, username, token_version)` and reads/updates the pre-provisioned `uno_room_snapshots` row. |
 | `JWT_SECRET` | yes | Exact Royal Club HS256 signing secret; at least 32 characters. Store only in the host's secret manager. |
 | `CORS_ORIGINS` | recommended | Comma-separated trusted web origins. Native Android clients do not rely on browser CORS. |
 
 ## Database and security gate
-The Royal Club API now owns the versioned/signed game-service configuration tables; the UNO service owns `uno_room_snapshots`. Before connecting a live Royal Club database, provision a least-privilege database role and review the SQL permissions required for:
-- SELECT on `users(id, username, token_version)`
-- CREATE/SELECT/INSERT/UPDATE on `uno_room_snapshots`
+The Royal Club API owns the versioned/signed game-service configuration tables; the UNO service owns `public.uno_room_snapshots`.
 
-The server currently creates the snapshot table at startup. The API also creates the central game-service configuration tables at startup. Do not point either service at production until the owner approves the database, role grants, and first startup. Never use a broad owner/superuser credential for the runtime.
+### Owner-run schema migration
+
+Run `apps/uno/migrations/001_create_room_snapshots.sql` once as the database owner before the first UNO startup. The runtime no longer creates or alters database objects at startup.
+
+### Least-privilege runtime role
+
+Create a dedicated login role (for example, `uno_runtime`) with a unique generated password. Do not use `neondb_owner`, the API role, or another owner/superuser credential. Then grant only the required access, replacing `<database_name>` with the actual database name:
+
+```sql
+GRANT CONNECT ON DATABASE <database_name> TO uno_runtime;
+GRANT USAGE ON SCHEMA public TO uno_runtime;
+GRANT SELECT (id, username, token_version) ON TABLE public.users TO uno_runtime;
+GRANT SELECT, INSERT, UPDATE ON TABLE public.uno_room_snapshots TO uno_runtime;
+```
+
+The runtime performs only those user-column reads, snapshot reads/updates, and a PostgreSQL advisory lock. It does not need schema `CREATE`, table ownership, sequence access, or broad access to other Royal Club tables. Keep the role password only in Railway's secret manager.
+
+The API also creates its central game-service configuration tables at startup; its database permissions are a separate concern. Do not point either service at production until the owner approves the database, role grants, and first startup.
 
 ## Mobile client configuration
 The root Royal Club Flutter app no longer accepts a build-time `UNO_SERVER_URL` define. After the UNO backend is deployed and its stable HTTPS origin is confirmed, set that origin in the owner panel under Central game-service configuration. The API stores a monotonically versioned configuration, signs it with Ed25519 using a domain-separated key derived from `JWT_SECRET`, and supports rollback by creating a new signed version. The mobile app verifies the signature before opening a socket.
