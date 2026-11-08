@@ -302,3 +302,48 @@ Open integration/release boundaries: all PRs remain unmerged; PR #137's older Ho
 - WBS 1.2-B remains Pending: no verified second-provider deployment/rehearsal has been completed. WBS 1.2-C remains Pending: authoritative game/economy negative tests require exact-head, complete evidence across current modules.
 - WBS 1.5-A remains Pending pending owner-approved retention/deletion durations and exceptions. WBS 1.5-B remains Pending pending approved backup cadence/retention plus an application-level isolated restore and rollback drill with measured RPO/RTO.
 - No Production migration/deployment, data deletion, backup schedule mutation, secret/network change, SMS/payment activation, agent activation, APK build or financial action was performed.
+
+
+## Phase 1 criterion 1.2-C closure — 2026-11-08
+
+- PR #204 merged as `c1ec474753b4528b33ab783439f42a26a39e3000` after every exact-head check passed on `fb7021615e90325712b6668d6a6a88eefaad9c3c`: API build/unit and PostgreSQL integration (runs `42475968379`, `42475968332`), Chess isolated API/mobile validation (`42475968328`), backgammon engine audit (`42475968383`), and Web Preview (`42475968329`). The API integration command runs all `test/*.test.ts` files, including Manch server-authority negative tests and Hokm API integration cases; the API unit suite includes Hokm invalid-turn/card/state tests.
+- Chess engine and route tests reject illegal moves, malformed commands/FEN, unauthorized access, stale claims, invalid draw requests and outsider moves. Backgammon tests reject malformed persisted state, wrong-turn/stale-version moves and invalid game commands. Wallet/league integration tests cover insufficient balance, unauthorized owner operations, free-by-default league entry, subscription-day gating, duplicate entry and no direct wallet debit.
+- UNO runtime least-privilege negative tests (deny unrelated personal-column SELECT and schema CREATE) passed in UNO Standalone CI on exact current-main PR #203 head `ee8ccf74e865ceb63665915cfe39193a70f2e70c`, run `42475232236`; PR #203 merged as `a4e66ad6540c6342b2f2c0952cbeaaf35d5a8592` after its exact-head root validation also passed.
+- Therefore WBS criterion 1.2-C is now Passed for 5 points. Phase 1 is 45/80 = 56.25%; whole-project evidence-backed minimum is 85/1,000 = 8.5%. WBS weights and all other criterion states remain unchanged.
+- Remaining Phase 1 criteria: 1.1-B (owner approval of measurable NFR targets), 1.2-B (verified second-provider portability), 1.3-A (complete free-by-default enforcement audit), 1.3-B (physical Android VPN OFF/ON acceptance), 1.3-C (complete public-identity privacy audit including legacy/empty-profile acceptance), 1.5-A (owner-approved retention/deletion policy), and 1.5-B (approved backup cadence plus isolated restore/rollback with measured RPO/RTO).
+- PR #204 brings chess and Hokm source into main but does not authorize or imply production activation. Q26 wording, next-hakem interpretation, the unresolved 120-second timing reference, dedicated Hokm worker/staging, four-device acceptance and production-like load remain release gates. No production migration/deployment, worker provisioning, APK build, SMS/payment activation, financial action or Agent runtime activation was performed.
+
+
+## Phase 1 criteria 1.3-A and 1.3-C closure — 2026-11-08
+
+- **1.3-A Passed (5 points):** current-main source audit across API, Manch, Hokm, Chess and UNO found no mandatory subscription gate on core game/social routes. League `subscription_days` entry is owner-opt-in and defaults to `free` with zero days; optional VIP purchase is not a usage prerequisite; account-customization prices default to zero. The user's explicit 2026-10-26 decision confirms private chat is available to friends without a subscription and non-friends cannot message. Current friend-only chat implementation and integration tests match that policy; the older checkpoint's subscriber-only wording is superseded.
+- Free-by-default regression evidence: private chat is exercised as a free friend-only capability; backgammon, Manch, Hokm, Chess and UNO room/game paths have no subscription gate; free league entry succeeds without an active subscription and does not debit wallet credits. Subscription-day league entry is explicitly opt-in and negative-tested for users without entitlement. Voice messages remain unimplemented/disabled; the later three-round daily monetization limit is not active.
+- **1.3-C Passed (5 points):** current-main API audit shows full name/email/phone only in registration/self-profile and owner-only admin views. Public friend, chat, leaderboard, match-history, spectator and game projections expose usernames only. API tests assert absence of fullName/email; Manch/Hokm/Chess/UNO tests cover public payload boundaries. Current Flutter friends, chat, lobby, leaderboard, Hokm and Chess screens display username or a generic fallback for empty legacy data, not private full name/email.
+- Exact-head CI evidence: PR #204 head `fb7021615e90325712b6668d6a6a88eefaad9c3c` runs `42475968379`, `42475968332`, `42475968328`, `42475968383`, `42475968329` all passed; PR #203 head `ee8ccf74e865ceb63665915cfe39193a70f2e70c` UNO Standalone CI run `42475232236` passed.
+- Phase 1 now has 11/16 criteria passed = 55/80 = 68.75%. Whole-project evidence-backed minimum is 95/1,000 = 9.5%; 181 criteria remain Pending. No weights changed.
+- Remaining Phase 1 criteria: 1.1-B (owner approval of measurable NFR targets), 1.2-B (verified second-provider portability), 1.3-B (physical Android VPN OFF/ON acceptance), 1.5-A (owner-approved retention/deletion policy), 1.5-B (approved backup cadence plus isolated restore/rollback with measured RPO/RTO).
+- Manual device and legacy/empty-profile visual acceptance remains tracked under WBS 4.5; this does not undo the API/source-level 1.3-C privacy enforcement pass. No paid behavior, SMS/payment, production change, APK build or Agent runtime was activated.
+
+## Repeatable point-in-time restore audit — 2026-11-08
+
+- Read-only inspection compared Production branch `br-misty-flower-bavs47dm` with two isolated restores of snapshot `snap-spring-truth-ba9rbrg1`: `br-crimson-rice-baahb4f3` and `br-plain-voice-balyjaip`.
+- Production and both restore branches have identical structural object sets: 33 public tables, 78 indexes and 27 sequences. No missing/extra table, index or sequence names were found.
+- Exact `COUNT(*)` queries across all 33 tables returned matching row counts for both restore branches (33/33). No personal row values were read.
+- Current Production differs from the 2026-10-31 snapshot in post-snapshot tables (for example matches 6 vs 4, wallet accounts 3 vs 2, private messages 13 vs 10, notifications 12 vs 5). This is expected point-in-time divergence and shows why the snapshot's RPO must be measured rather than assumed.
+- No SQL writes, migrations, cleanup, role changes, deployments, schedule changes, branch renames or branch deletions were performed in this audit. Neon Functions inventory confirms `royalclubapi` deployment #81 remains active on the current Production branch and no function is listed on Restore B. Restore B's `restored_as` points to the Production branch ID, and an earlier audit recorded a temporary Production-position swap; current historical lineage/compute reassignment remains unresolved. Full detail: `docs/RESTORE-REHEARSAL-2026-11-08.md`.
+- **WBS 1.5-B remains Pending:** no recurring backup schedule, measured RPO/RTO, application-level restore smoke test, complete row checksum, external encrypted backup, or 23:59 Asia/Tehran email-link delivery is evidenced.
+
+
+## Provider portability contract evidence — 2026-11-08
+
+- PR #207 merged as `e3a3105f15f7751f6ff9f1f80813a93a5d49b175` after exact-head CI passed on `1dd7655256d7ee7839429ee5146c6dd4fb7e639d`.
+- Added `apps/api/src/provider-portability.test.ts` to validate the existing Render blueprint's Node runtime, build/start commands, health-check path, standard PostgreSQL `DATABASE_URL`, JWT/CORS environment contract, and PostgreSQL 16 Docker Compose readiness.
+- This is a static provider-contract test, not a real Render deployment. WBS 1.2-B remains Pending until a separate Render staging service/database is deployed, health and DB portability are smoke-tested, and teardown/rollback is verified. The Render connector was suggested but is not yet connected; no cloud resource was created.
+
+
+## Owner executive analytics dashboard candidate — 2026-11-08
+
+- PR #114 remains Draft and is not merged. Current head `9ab685f4af6b266fb293812e9d476fd5b16ee129` is 52 commits behind and diverged from current main.
+- Its exact head has only Netlify preview checks; no current-head API build/integration or Flutter validation is present. Historical CI from older heads is not accepted as current evidence.
+- Scope includes owner-only analytics API, activity/game event instrumentation, CSV/PDF export and mobile analytics screen. Known limitations are explicitly documented: no event producers for chess/cards/UNO/Mafia, process-memory latency samples reset on restart, PDF does not support Persian characters, and provider/Agent costs are not sourced.
+- Do not merge the stale branch. Port and re-test on current main before considering integration; no production preview API origin or deployment was enabled.
