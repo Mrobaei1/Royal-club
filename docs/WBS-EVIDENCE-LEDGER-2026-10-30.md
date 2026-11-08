@@ -290,3 +290,15 @@ Open integration/release boundaries: all PRs remain unmerged; PR #137's older Ho
 - Phase 1 architecture/governance score is 40/80 = 50%. The whole-project score in the merged matrix is 80/1,000 = 8.0% evidence-backed minimum after PR #199 merged as 0677958e7912db2201c6a1ece33372a204c80fc5. PR #199 was documentation-only; no application CI was triggered and no runtime behavior changed.
 - Still open: measurable numeric NFR targets and owner approvals; second-provider portability verification; exact-head negative tests for server-authoritative game/economy rules; full enforcement review of free-by-default, IP/VPN independence and public-identity privacy; owner-approved retention/deletion rules; three-point backup retention and application-level recovery/rollback tests.
 - No Production mutation/deployment, secret retrieval/change, SMS/payment activation, agent activation, APK build, or owner-gated operation was performed.
+
+
+## Phase 1 follow-up audit — 2026-11-08 (after PR #201)
+
+- PR #201 merged as `81b7d4a5a33b7eb1930c2c97a2251859624de124`. It adds proposed measurable NFR/service targets, an isolated 1,000-concurrent-user load profile, and a proposed data-retention/deletion schedule.
+- These values are explicitly proposals, not owner-approved SLOs or retention policy. No WBS points were added by PR #201.
+- Phase 1 remains 40/80 (50%). Whole-project matrix remains 80/1,000 (8.0% evidence-backed minimum).
+- Source review reconfirmed existing API integration assertions for account/session continuity across distinct socket remote addresses, username-only friend search projections, and username-only chat conversation projections. The corresponding changes are on main (including PR #162), but no exact-current-main test run was exposed by the available GitHub status/workflow query; WBS 1.3-B/C remain Pending until exact-head CI and the required device/privacy acceptance are attached.
+- Source review of the subscription schema and league entry paths found a default VIP monthly plan priced at 300 internal credits, while league entry defaults to free and subscription-day entry is an explicit owner-configured mode. A complete endpoint-by-endpoint proof that every launch feature is free is not yet present; WBS 1.3-A remains Pending.
+- WBS 1.2-B remains Pending: no verified second-provider deployment/rehearsal has been completed. WBS 1.2-C remains Pending: authoritative game/economy negative tests require exact-head, complete evidence across current modules.
+- WBS 1.5-A remains Pending pending owner-approved retention/deletion durations and exceptions. WBS 1.5-B remains Pending pending approved backup cadence/retention plus an application-level isolated restore and rollback drill with measured RPO/RTO.
+- No Production migration/deployment, data deletion, backup schedule mutation, secret/network change, SMS/payment activation, agent activation, APK build or financial action was performed.
