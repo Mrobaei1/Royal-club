@@ -60,6 +60,16 @@ Production has continued to receive writes after the 2026-10-31 snapshot. Its cu
 | `wallet_accounts` | 3 | 2 |
 | `users` | 3 | 3 |
 
+## Active API function attachment
+
+A read-only Neon Functions inventory shows:
+
+- `royalclubapi` exists on current Production branch `br-misty-flower-bavs47dm`.
+- Active deployment is **#81**, status `completed`, runtime `nodejs24`, created 2026-10-31T10:24:43Z.
+- No Neon Function is listed on Restore B `br-plain-voice-balyjaip`.
+
+Thus the currently listed API Function remains attached to the Production branch, not the restore rehearsal branch. This inventory did not change the function, deployment or environment variables. Historical restore branch/compute lineage still needs reconciliation because Restore B reports `restored_as` the Production branch ID and the earlier audit recorded a temporary Production-position swap.
+
 ## What this proves
 
 - Two independent restore branches can be created from the same manual snapshot.
