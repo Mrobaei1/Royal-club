@@ -61,8 +61,8 @@
 | 2.6-B | Rate limits/CORS/network controls | 5 | Passed | API integration CI run 42487192996; account-bound login throttling across changing remote addresses, unknown-origin CORS denial, trustProxy disabled and OTP cooldown/daily limits |
 | 2.6-C | Sensitive log redaction | 5 | Passed | API unit CI run 42478821167; request body/header/cookie/query-string redaction, route-template serialization, IP omission and server-generated request IDs |
 | 2.7-A | Same account VPN off/on | 5 | Pending | Not audited |
-| 2.7-B | Identity/session continuity | 5 | Pending | Not audited |
-| 2.7-C | Access/game/social recovery | 5 | Pending | Not audited |
+| 2.7-B | Identity/session continuity | 5 | Passed | API integration CI run 42487784052; authenticated session and account identity remain stable after remote-address/VPN IP changes |
+| 2.7-C | Access/game/social recovery | 5 | Passed | API integration CI run 42487784052; friend list and active backgammon match state recover after remote-address change |
 
 ### 3.0 Games and backgammon
 
@@ -252,9 +252,9 @@
 - Packages decomposed: **53/53**
 - Acceptance criteria: **200**
 - Points represented: **1000/1,000**
-- Earned points currently evidenced: **170/1,000 (17.0%)** — prior 165 points plus 5 points for criterion 2.3-C after exact-head Flutter UI and legacy-profile fallback tests passed.
-- Remaining criteria: **166 Pending** (830 points not yet earned).
-- Official project percentage: **17.0% evidence-backed minimum**; this remains a partial criterion audit, not a claim that only 11.0% of code exists. The six recently closed criteria are supported by exact-head negative-test CI, friend-only free chat/free-by-default route audit, username-only privacy regressions, OTP digest/expiry/rate-limit and purpose-binding tests, and encrypted owner-controlled SMS credential tests. Provider deployment portability, NFR target approval, physical VPN/device acceptance, owner-approved retention and DR acceptance remain open.
+- Earned points currently evidenced: **180/1,000 (18.0%)** — prior 170 points plus 10 points for criteria 2.7-B and 2.7-C after exact-head network-change/session and game/social recovery integration tests passed.
+- Remaining criteria: **164 Pending** (820 points not yet earned).
+- Official project percentage: **18.0% evidence-backed minimum**; this remains a partial criterion audit, not a claim that only 11.0% of code exists. The six recently closed criteria are supported by exact-head negative-test CI, friend-only free chat/free-by-default route audit, username-only privacy regressions, OTP digest/expiry/rate-limit and purpose-binding tests, and encrypted owner-controlled SMS credential tests. Provider deployment portability, NFR target approval, physical VPN/device acceptance, owner-approved retention and DR acceptance remain open.
 
 ## Required evidence record
 
@@ -273,13 +273,13 @@ The following percentages are calculated directly from the 200 criterion rows in
 | WBS phase | Total weight | Passed criteria | Earned points | Progress |
 | --- | ---: | ---: | ---: | ---: |
 | Phase 1 — Architecture and project management | 80 | 11/16 | 55 | 68.75% |
-| Phase 2 | 130 | 17/26 | 85 | 65.38% |
+| Phase 2 | 130 | 19/26 | 95 | 73.08% |
 | Phase 3 | 230 | 0/46 | 0 | 0.00% |
 | Phase 4 | 120 | 0/24 | 0 | 0.00% |
 | Phase 5 | 140 | 1/28 | 5 | 3.57% |
 | Phase 6 | 140 | 0/28 | 0 | 0.00% |
 | Phase 7 | 160 | 5/32 | 25 | 15.63% |
-| **Total** | **1,000** | **34/200** | **170** | **17.00%** |
+| **Total** | **1,000** | **36/200** | **180** | **18.00%** |
 
 
 
@@ -325,3 +325,10 @@ Three Phase 2 criteria now pass (15/130 points):
 
 
 - **2.3-C Passed (5 points):** legacy or blank public usernames now use neutral localized labels rather than private full name/email/phone. A single public-identity helper accepts only the public username field and is used by Friends, Chat, Leaderboard and Hokm screens. Flutter tests cover null, empty, whitespace and non-string legacy values and confirm username-only formatting. Exact-head Flutter CI passed on PR #218 head `ac3908d4aedc4cea6cec5b3659271cc020d54597`, run [42487475637](https://github.com/Mrobaei1/Royal-club/actions/runs/42487475637/job/128752407108); PR #218 merged as `851d5c70af0f58e11ef840a3e50d8393306bbea4`.
+
+
+## Network-change identity and recovery evidence — 2026-11-08
+
+- **2.7-B Passed (5 points):** API integration tests sign in a user, change the request remote address to a different network/VPN IP and confirm `/api/v1/me` still returns the same authenticated account identity.
+- **2.7-C Passed (5 points):** the same account retains its accepted-friend list after a remote-address change and can recover the identical active backgammon match board/state from a different IP. The session remains tied to the verified account, not its IP address.
+- Exact-head API integration CI passed on PR #221 head `1591e0498eeea3b2084038d2b554693175374ec8`, run [42487784052](https://github.com/Mrobaei1/Royal-club/actions/runs/42487784052/job/128753337846). Physical Android VPN OFF/ON acceptance remains separately pending under 2.7-A and Phase 1 1.3-B.
