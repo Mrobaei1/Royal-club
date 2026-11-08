@@ -21,7 +21,7 @@
 | 1.1-C | Requirements trace to implementation and owner decisions | 5 | Passed | docs/REQUIREMENTS-TRACEABILITY.md maps approved decisions to WBS, implementation surfaces, evidence and residual gates (2026-11-08). |
 | 1.2-A | Flutter/API/PostgreSQL boundaries respected | 5 | Passed | Static architecture review: README.md, apps/mobile/pubspec.yaml, apps/api/package.json and apps/api/src/server.ts; consolidated in docs/ARCHITECTURE-AND-NFRS.md (2026-11-08). |
 | 1.2-B | Provider portability and deployment boundaries verified | 5 | Pending | Not audited |
-| 1.2-C | Server-authoritative game/economy rules negatively tested | 5 | Pending | Not audited |
+| 1.2-C | Server-authoritative game/economy rules negatively tested | 5 | Passed | PR #204 head `fb7021615e90325712b6668d6a6a88eefaad9c3c`: API build/unit + PostgreSQL integration run `42475968379`; Manch/Hokm/backgammon negative coverage; Chess isolated API/mobile run `42475968328`; backgammon engine audit `42475968383`. UNO least-privilege negative integration/standalone CI passed on PR #203 head `ee8ccf74e865ceb63665915cfe39193a70f2e70c`, run `42475232236`. All exact-head workflows passed. (2026-11-08) |
 | 1.3-A | Free-by-default policy enforced | 5 | Pending | Not audited |
 | 1.3-B | IP/VPN-independent identity verified | 5 | Pending | Not audited |
 | 1.3-C | Username-only public identity and privacy enforced | 5 | Pending | Not audited |
@@ -252,9 +252,9 @@
 - Packages decomposed: **53/53**
 - Acceptance criteria: **200**
 - Points represented: **1000/1,000**
-- Earned points currently evidenced: **80/1,000 (8.0%)** — prior 40 points plus eight Phase 1 architecture/governance criteria (1.1-A, 1.1-C, 1.2-A, 1.4-A/B/C, 1.6-A/B).
-- Remaining criteria: **184 Pending** (920 points not yet earned).
-- Official project percentage: **8.0% evidence-backed minimum**; this remains a partial criterion audit, not a claim that only 8.0% of code exists. The new Phase 1 points are documentation/static-architecture evidence and do not close provider portability, server-authority negative tests, NFR target approval, data retention approval or DR acceptance.
+- Earned points currently evidenced: **85/1,000 (8.5%)** — prior 80 points plus criterion 1.2-C (server-authoritative game/economy negative tests) after exact-head CI passed on the integrated mainline.
+- Remaining criteria: **183 Pending** (915 points not yet earned).
+- Official project percentage: **8.5% evidence-backed minimum**; this remains a partial criterion audit, not a claim that only 8.5% of code exists. The new 1.2-C pass is supported by exact-head negative test/CI evidence; provider portability, NFR target approval, free-by-default enforcement, privacy/network acceptance, owner-approved retention and DR acceptance remain open.
 
 ## Required evidence record
 
@@ -263,4 +263,4 @@ For each criterion record: `criterion ID | pass/fail/blocked/not tested | exact 
 
 ## Phase 1 architecture/governance audit — 2026-11-08
 
-Eight criteria passed (40/80 Phase 1 points; 50% of WBS 1.0) based on the owner-approved WBS, current repository architecture and the new governance/traceability/dependency artifacts. Criteria 1.1-B, 1.2-B/C, 1.3-A/B/C and 1.5-A/B remain Pending; no points are inferred from proposals or partial evidence. In particular, provider portability, current-head negative tests for authoritative game/economy behavior, end-to-end enforcement of free-by-default and privacy/network rules, owner-approved retention/deletion durations, and application-level disaster recovery remain open.
+Nine criteria passed (45/80 Phase 1 points; 56.25% of WBS 1.0). The eight prior architecture/governance criteria remain passed, and 1.2-C now passes based on exact-head negative tests and CI across backgammon, Manch, Hokm, chess, wallet/economy and UNO database boundaries. Criteria 1.1-B, 1.2-B, 1.3-A/B/C and 1.5-A/B remain Pending; no points are inferred from proposals, partial evidence or merged code without tests. Provider portability, owner-approved measurable NFRs, end-to-end free-by-default and privacy/network acceptance, approved retention/deletion durations, and application-level disaster recovery remain open.
