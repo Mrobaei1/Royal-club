@@ -18,6 +18,7 @@ test("PostgreSQL room reads hydrate cumulative account XP from the durable progr
     round: null,
   };
   const pool = {
+    async connect() { return {}; },
     async query(sql, params) {
       calls.push({ sql, params });
       if (sql.includes("FROM hokm_rooms")) return { rows: [{ room_data: room }] };
@@ -44,6 +45,7 @@ test("PostgreSQL room reads hydrate cumulative account XP from the durable progr
 test("missing PostgreSQL rooms return null without querying account progression", async () => {
   let queryCount = 0;
   const repository = new PostgresRoomRepository({
+    async connect() { return {}; },
     async query() { queryCount += 1; return { rows: [] }; },
   });
   assert.equal(await repository.get("missing"), null);
