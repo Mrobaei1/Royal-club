@@ -19,7 +19,7 @@ Scope: phase 1 (game specification and rules). This document does not authorize 
 - One standard 52-card deck: four suits, thirteen ranks per suit; no jokers.
 - A new deck is shuffled server-side.
 - The first hand's hakem is selected randomly from all four seats.
-- From the second hand onward, the winning partnership controls hakem selection: if the previous hakem belongs to the winning team, they remain hakem; otherwise the player opposite the previous hakem on the winning team becomes hakem.
+- From the second hand onward, the previous hakem remains hakem when their partnership wins. The current implementation/test selects the seat opposite the previous hakem when their partnership loses; however, the recovered owner wording only says that the hakem turn rotates, and does not confirm whether the successor is that opposite seat or a member of the winning partnership. This seat-selection rule remains owner-approval gated and must not be marked accepted until reconciled.
 - The implemented deal gives the hakem and other seats five cards each first. After the hakem chooses trump, each seat receives the remaining eight cards.
 - The hakem chooses one of the four suits as trump and leads the first trick.
 - Turns proceed clockwise.
