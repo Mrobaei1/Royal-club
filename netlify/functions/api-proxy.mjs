@@ -1,7 +1,10 @@
 const FUNCTION_PREFIX = '/.netlify/functions/api-proxy/';
 
 function configuredApiOrigin() {
-  const raw = process.env.ROYAL_CLUB_API_ORIGIN?.trim();
+  const configured = typeof Netlify !== 'undefined' && typeof Netlify.env?.get === 'function'
+    ? Netlify.env.get('ROYAL_CLUB_API_ORIGIN')
+    : process.env.ROYAL_CLUB_API_ORIGIN;
+  const raw = configured?.trim();
   if (!raw) return null;
   try {
     const origin = new URL(raw);
