@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
 import 'l10n/app_text.dart';
+import 'public_identity.dart';
 import 'services/hokm_service.dart';
 import 'hokm_manager_review_screen.dart';
 
@@ -447,8 +448,7 @@ class _HokmScreenState extends State<HokmScreen> with WidgetsBindingObserver {
   }
 
   String _playerLabel(Map<String, dynamic> player, int seat) {
-    final username = player['username']?.toString().trim();
-    return username != null && username.isNotEmpty ? username : _seatName(seat);
+    return publicUsernameLabel(player['username'], fallback: _seatName(seat), prefixAt: false);
   }
 
   String _seatName(int seat) => (_english

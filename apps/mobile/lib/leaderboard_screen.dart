@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'l10n/app_text.dart';
+import 'public_identity.dart';
 import 'profile_avatar.dart';
 import 'services/leaderboard_service.dart';
 
@@ -119,7 +120,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                             itemBuilder: (context, index) {
                               final player = _players[index];
                               final isCurrentUser = player['userId']?.toString() == _currentUserId;
-                              final username = player['username']?.toString();
+                              final username = normalizedPublicUsername(player['username']);
                               return Card(
                                 color: isCurrentUser ? Theme.of(context).colorScheme.surfaceContainerHighest : Theme.of(context).colorScheme.surface,
                                 child: ListTile(
@@ -130,7 +131,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                                     foregroundColor: index < 3 ? Theme.of(context).colorScheme.onPrimary : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7), 
                                   ),
                                   title: Text(
-                                    username == null || username.isEmpty ? appText(context, 'بازیکن', 'Player') : '@$username',
+                                    publicUsernameLabel(username, fallback: appText(context, 'بازیکن', 'Player')),
                                     style: TextStyle(
                                       color: isCurrentUser ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.onSurface,
                                       fontWeight: FontWeight.bold,
