@@ -10,7 +10,7 @@ import { chooseHardBotAction } from './hokm/bot.js';
 import { awardCompletedMatch, penalizeMatchLeaver } from './hokm/progression.js';
 import {
   createRoom, joinRoom, leaveRoom, setPlayerReady, startRoom, startNextRound, voteToCancelMatch,
-  processAllDisconnectedTimeout, processMultipleDisconnectTimeout, processTurnTimeout, disconnectPlayer, reconnectPlayer, handleDisconnectTimeout, recordMatchForfeit, roomViewForUser, TURN_DEADLINE_MS,
+  processAllDisconnectedTimeout, processMultipleDisconnectTimeout, processTurnTimeout, disconnectPlayer, reconnectPlayer, handleDisconnectTimeout, recordMatchForfeit, roomViewForUser, applyRoomCommand, TURN_DEADLINE_MS,
   END_OF_HAND_REVEAL_MS, ALL_PLAYERS_DISCONNECTED_MS
 } from './hokm/room.js';
 
@@ -463,4 +463,48 @@ test('temporary disconnect followed by intentional forfeit still queues only one
   assert.deepEqual(room.pendingXpDeductions, ['p0']);
   const repeated = recordMatchForfeit(room, 'p0');
   assert.deepEqual(repeated.pendingXpDeductions, ['p0']);
+});
+
+
+test('a disconnected player who has not returned when the match ends receives forfeit scoring even before the 20-second takeover deadline', () => {
+  let room = createRoom({ roomId: 'phase1-early-disconnect-finish', hostUserId: 'p0', now: 1000, matchTarget: 7 });
+  for (const id of ['p1', 'p2', 'p3']) room = joinRoom(room, id, 1001);
+  for (const id of ['p0', 'p1', 'p2', 'p3']) room = setPlayerReady(room, id, true);
+  room = startRoom(room, 'p0', { now: 2000, selectHakemSeat: () => 0 });
+  room = {
+    ...room,
+    status: 'playing',
+    matchScore: [6, 0],
+    playerProgress: Object.fromEntries(['p0', 'p1', 'p2', 'p3'].map(id => [id, { xp: 100, level: 1 }])),
+    players: room.players.map(player => player.userId === 'p0'
+      ? { ...player, connected: false, disconnectedAt: 3000, reconnectDeadline: 23000 }
+      : player),
+    round: {
+      phase: 'playing',
+      hakemSeat: 0,
+      currentSeat: 3,
+      trumpSuit: 'hearts',
+      hands: [[], [], [], [{ suit: 'spades', rank: '2' }]],
+      currentTrick: [
+        { seat: 0, card: { suit: 'hearts', rank: 'K' } },
+        { seat: 1, card: { suit: 'clubs', rank: '2' } },
+        { seat: 2, card: { suit: 'hearts', rank: 'Q' } },
+      ],
+      completedTricks: [],
+      trickWinners: [],
+      scores: [6, 6],
+      deckCursor: 52,
+      seenCards: new Set(),
+      undealtDeck: [],
+    },
+  };
+  const completed = applyRoomCommand(
+    room, 'p3', { type: 'play_card', card: { suit: 'spades', rank: '2' } }, room.version, 4000,
+  );
+  assert.equal(completed.status, 'completed');
+  assert.equal(completed.playerProgress.p0.xp, 95);
+  assert.equal(completed.playerProgress.p1.xp, 120);
+  assert.equal(completed.playerProgress.p2.xp, 120);
+  assert.equal(completed.playerProgress.p3.xp, 120);
+  assert.deepEqual(completed.pendingXpDeductions, []);
 });
