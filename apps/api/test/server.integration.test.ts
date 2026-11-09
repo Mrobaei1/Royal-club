@@ -1733,15 +1733,27 @@ test('subscription purchases debit the wallet atomically and record a ledger ent
     'INSERT INTO wallet_accounts (user_id, balance) VALUES ($1, 500) ON CONFLICT (user_id) DO UPDATE SET balance = 500',
     [buyer.user.id],
   );
+  const serverPlan = await testPool.query(
+    'SELECT price_credits, duration_days FROM subscription_plans WHERE code = $1',
+    ['vip_monthly'],
+  );
+  assert.equal(Number(serverPlan.rows[0]?.price_credits), 300);
+
   const purchase = await app.inject({
     method: 'POST',
     url: '/api/v1/subscriptions/activate',
     headers: auth(buyer.token),
-    payload: { planCode: 'vip_monthly' },
+    // Client-supplied price/duration must never override manager-controlled plan values.
+    payload: { planCode: 'vip_monthly', priceCredits: 1, durationDays: 1 },
   });
   assert.equal(purchase.statusCode, 200, purchase.body);
   assert.equal(purchase.json().walletBalance, 200);
   assert.equal(purchase.json().subscription.planCode, 'vip_monthly');
+  assert.equal(
+    new Date(purchase.json().subscription.endsAt).getTime() - new Date(purchase.json().subscription.startsAt).getTime(),
+    Number(serverPlan.rows[0]?.duration_days) * 86400000,
+    'Client-supplied duration must not override the server-controlled plan duration.',
+  );
 
   const ledger = await testPool.query(
     'SELECT amount, balance_after, type FROM wallet_transactions WHERE user_id = $1 ORDER BY id DESC LIMIT 1',
