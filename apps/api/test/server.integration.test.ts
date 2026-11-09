@@ -4145,30 +4145,35 @@ test('owner-managed profile customization pricing charges atomically and keeps t
 
     const tooShortUsername = await app.inject({
       method: 'PATCH', url: '/api/v1/me/username', headers: auth(user.token),
+      remoteAddress: '127.0.0.2',
       payload: { username: 'ab' },
     });
     assert.equal(tooShortUsername.statusCode, 400);
 
     const invalidCharacterUsername = await app.inject({
       method: 'PATCH', url: '/api/v1/me/username', headers: auth(user.token),
+      remoteAddress: '127.0.0.2',
       payload: { username: 'not a valid name' },
     });
     assert.equal(invalidCharacterUsername.statusCode, 400);
 
     const duplicateUsername = await app.inject({
       method: 'PATCH', url: '/api/v1/me/username', headers: auth(user.token),
+      remoteAddress: '127.0.0.2',
       payload: { username: other.user.username },
     });
     assert.equal(duplicateUsername.statusCode, 409,
       'A username already owned by another account must not be assigned.');
     const otherAccountRename = await app.inject({
       method: 'PATCH', url: '/api/v1/me/username', headers: auth(other.token),
+      remoteAddress: '127.0.0.3',
       payload: { username: 'other_unique_name' },
     });
     assert.equal(otherAccountRename.statusCode, 200, otherAccountRename.body);
 
     const renamed = await app.inject({
       method: 'PATCH', url: '/api/v1/me/username', headers: auth(user.token),
+      remoteAddress: '127.0.0.2',
       payload: { username: 'priced_player' },
     });
     assert.equal(renamed.statusCode, 200, renamed.body);
@@ -4176,6 +4181,7 @@ test('owner-managed profile customization pricing charges atomically and keeps t
 
     const unchangedUsername = await app.inject({
       method: 'PATCH', url: '/api/v1/me/username', headers: auth(user.token),
+      remoteAddress: '127.0.0.2',
       payload: { username: 'priced_player' },
     });
     assert.equal(unchangedUsername.statusCode, 200, unchangedUsername.body);
