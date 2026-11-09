@@ -55,6 +55,28 @@ void main() {
     expect(find.text('Hard'), findsOneWidget);
   });
 
+  testWidgets('offline Manch remains usable on a narrow screen with large text', (tester) async {
+    tester.view.physicalSize = const Size(320, 640);
+    tester.view.devicePixelRatio = 1;
+    tester.platformDispatcher.textScaleFactorTestValue = 1.6;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+
+    await tester.pumpWidget(const MaterialApp(
+      locale: Locale('en'),
+      supportedLocales: [Locale('fa'), Locale('en')],
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
+      home: ManchOfflineGameScreen(diceRoller: _six),
+    ));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+    expect(find.text('Iranian Manch — Offline'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.ensureVisible(find.text('Roll die'));
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('offline game enters a token on six and grants the extra roll',
       (tester) async {
     await tester.pumpWidget(

@@ -9,6 +9,7 @@ import 'package:royal_club/services/hokm_service.dart';
 
 class FakeHokmApi implements HokmApi {
   int createCalls = 0;
+  String? usernameOverride;
   int nextRoundCalls = 0;
   bool createAsRoundCompleted = false;
   bool createAsMatchCompleted = false;
@@ -140,6 +141,12 @@ class FakeHokmApi implements HokmApi {
   @override
   Future<Map<String, dynamic>> startMatch(String roomId, int expectedVersion) async {
     room = _playing();
+    final override = usernameOverride;
+    if (override != null) {
+      for (final player in room['players'] as List) {
+        player['username'] = override;
+      }
+    }
     return Map<String, dynamic>.from(room);
   }
 
@@ -299,6 +306,7 @@ void main() {
       home: HokmScreen(api: api, identityLoader: () async => 'u1'),
     ));
     await tester.pump();
+    await tester.ensureVisible(find.text('Create Hokm room'));
     await tester.tap(find.text('Create Hokm room'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 50));
@@ -613,11 +621,13 @@ void main() {
   });
 
 
-  testWidgets('active Hokm exit requires explicit permanent forfeit confirmation', (tester) async {
-    tester.view.physicalSize = const Size(1200, 1800);
+  testWidgets('active Hokm exit dialog fits a narrow screen with large text', (tester) async {
+    tester.view.physicalSize = const Size(360, 2000);
     tester.view.devicePixelRatio = 1;
+    tester.platformDispatcher.textScaleFactorTestValue = 1.5;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
     final api = FakeHokmApi();
     await tester.pumpWidget(MaterialApp(
       locale: const Locale('en'),
@@ -629,23 +639,88 @@ void main() {
     await tester.tap(find.text('Create Hokm room'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 20));
+    await tester.ensureVisible(find.text('I am ready'));
     await tester.tap(find.text('I am ready'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 20));
+    await tester.ensureVisible(find.text('Start match'));
     await tester.tap(find.text('Start match'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 20));
     await tester.tap(find.text('Forfeit match'));
     await tester.pump();
     expect(find.text('Forfeit this match?'), findsOneWidget);
+    expect(tester.takeException(), isNull);
     await tester.tap(find.text('Forfeit'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 20));
     expect(api.forfeitCalls, 1);
     expect(find.text('Create Hokm room'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
 
+
+  testWidgets('Hokm manager review form remains usable on a narrow screen with large text', (tester) async {
+    tester.view.physicalSize = const Size(360, 720);
+    tester.view.devicePixelRatio = 1;
+    tester.platformDispatcher.textScaleFactorTestValue = 1.6;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+
+    final api = FakeHokmApi();
+    await tester.pumpWidget(MaterialApp(
+      locale: const Locale('fa'),
+      supportedLocales: const [Locale('fa'), Locale('en')],
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
+      home: HokmManagerReviewScreen(api: api, roomId: 'room-1'),
+    ));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 30));
+    expect(tester.takeException(), isNull);
+
+    final notes = find.byType(TextField).first;
+    await tester.ensureVisible(notes);
+    await tester.enterText(notes, 'بررسی شواهد و ثبت نتیجه');
+    final submit = find.byTooltip('ثبت بررسی');
+    await tester.ensureVisible(submit);
+    await tester.tap(submit);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 30));
+    expect(api.reportReviewCalls, 1);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Hokm long dynamic usernames remain readable in Persian at large text scale', (tester) async {
+    tester.view.physicalSize = const Size(360, 1400);
+    tester.view.devicePixelRatio = 1;
+    tester.platformDispatcher.textScaleFactorTestValue = 1.6;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+
+    final api = FakeHokmApi()
+      ..usernameOverride = 'بازیکن_نام_کاربری_بسیار_طولانی_۱۲۳۴۵';
+    await tester.pumpWidget(MaterialApp(
+      locale: const Locale('en'),
+      supportedLocales: const [Locale('fa'), Locale('en')],
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
+      home: HokmScreen(api: api, identityLoader: () async => 'u1'),
+    ));
+    await tester.pump();
+    await tester.tap(find.text('Create Hokm room'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 30));
+    await tester.tap(find.text('I am ready'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 30));
+    await tester.tap(find.text('Start match'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 40));
+    expect(find.textContaining('بازیکن_نام_کاربری'), findsWidgets);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('leaving a waiting room closes it and immediately returns the player to the lobby', (tester) async {
     final api = FakeHokmApi();

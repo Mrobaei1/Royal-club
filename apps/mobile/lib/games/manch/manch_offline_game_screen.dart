@@ -340,30 +340,39 @@ class _ManchOfflineGameScreenState extends State<ManchOfflineGameScreen> {
                     ),
                     child: Row(
                       children: [
-                        Expanded(child: Text(_text('سطح هوش مصنوعی', 'AI difficulty'))),
-                        DropdownButton<ManchBotDifficulty>(
-                          value: _botDifficulty,
-                          onChanged: !_matchStarted && _state.pendingDice == null
-                              ? (value) {
-                                  if (value != null) {
-                                    setState(() => _botDifficulty = value);
+                        Expanded(
+                          child: Text(
+                            _text('سطح هوش مصنوعی', 'AI difficulty'),
+                            softWrap: true,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: DropdownButton<ManchBotDifficulty>(
+                            isExpanded: true,
+                            value: _botDifficulty,
+                            onChanged: !_matchStarted && _state.pendingDice == null
+                                ? (value) {
+                                    if (value != null) {
+                                      setState(() => _botDifficulty = value);
+                                    }
                                   }
-                                }
-                              : null,
-                          items: [
-                            DropdownMenuItem(
-                              value: ManchBotDifficulty.easy,
-                              child: Text(_text('آسان', 'Easy')),
-                            ),
-                            DropdownMenuItem(
-                              value: ManchBotDifficulty.normal,
-                              child: Text(_text('معمولی', 'Normal')),
-                            ),
-                            DropdownMenuItem(
-                              value: ManchBotDifficulty.hard,
-                              child: Text(_text('سخت', 'Hard')),
-                            ),
-                          ],
+                                : null,
+                            items: [
+                              DropdownMenuItem(
+                                value: ManchBotDifficulty.easy,
+                                child: Text(_text('آسان', 'Easy')),
+                              ),
+                              DropdownMenuItem(
+                                value: ManchBotDifficulty.normal,
+                                child: Text(_text('معمولی', 'Normal')),
+                              ),
+                              DropdownMenuItem(
+                                value: ManchBotDifficulty.hard,
+                                child: Text(_text('سخت', 'Hard')),
+                              ),
+                            ],
+                          ),
                         ),
                       ],
                     ),
@@ -463,23 +472,33 @@ class _ManchOfflineGameScreenState extends State<ManchOfflineGameScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            CircleAvatar(
-                              radius: 7,
-                              backgroundColor:
-                                  _colour(_state.players[p].colour),
+                            Row(
+                              children: [
+                                CircleAvatar(
+                                  radius: 7,
+                                  backgroundColor:
+                                      _colour(_state.players[p].colour),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    _text('بازیکن ${_playerName(_state.players[p].colour)}', 'Player ${_playerName(_state.players[p].colour)}'),
+                                    softWrap: true,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
-                            const SizedBox(width: 8),
-                            Text(
-                              _text('بازیکن ${_playerName(_state.players[p].colour)}', 'Player ${_playerName(_state.players[p].colour)}'),
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const Spacer(),
                             if (p == _state.activePlayerIndex)
-                              Text(_text('نوبت فعلی', 'Current turn')),
+                              Padding(
+                                padding: const EdgeInsetsDirectional.only(start: 22, top: 4),
+                                child: Text(_text('نوبت فعلی', 'Current turn')),
+                              ),
                           ],
                         ),
                         const SizedBox(height: 8),
