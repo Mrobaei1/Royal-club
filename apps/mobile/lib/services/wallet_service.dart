@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import 'api_transport.dart';
@@ -41,6 +42,57 @@ class WalletService {
   static Future<Map<String, dynamic>> wallet() => _request('/api/v1/wallet');
   static Future<Map<String, dynamic>> plans() => _request('/api/v1/subscriptions/plans');
   static Future<Map<String, dynamic>> currentSubscription() => _request('/api/v1/subscriptions/me');
-  static Future<Map<String, dynamic>> activate(String code) =>
-      _request('/api/v1/subscriptions/activate', body: {'planCode': code});
+  static const String _pendingPurchaseKeysStorage = 'royal_club_pending_subscription_purchase_keys';
+
+  static Future<String> _pendingPurchaseKey(String code) async {
+    final raw = await _storage.read(key: _pendingPurchaseKeysStorage);
+    final pending = <String, dynamic>{};
+    if (raw != null) {
+      try {
+        final decoded = jsonDecode(raw);
+        if (decoded is Map<String, dynamic>) pending.addAll(decoded);
+      } on FormatException {
+        // Replace malformed local retry metadata with a fresh key.
+      }
+    }
+    final existing = pending[code];
+    if (existing is String && RegExp(r'^[A-Za-z0-9._:-]{8,100}
+}
+).hasMatch(existing)) {
+      return existing;
+    }
+    final key = base64UrlEncode(
+      List<int>.generate(24, (_) => Random.secure().nextInt(256)),
+    ).replaceAll('=', '');
+    pending[code] = key;
+    await _storage.write(key: _pendingPurchaseKeysStorage, value: jsonEncode(pending));
+    return key;
+  }
+
+  static Future<void> _clearPendingPurchaseKey(String code, String key) async {
+    final raw = await _storage.read(key: _pendingPurchaseKeysStorage);
+    if (raw == null) return;
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map<String, dynamic> || decoded[code] != key) return;
+      decoded.remove(code);
+      if (decoded.isEmpty) {
+        await _storage.delete(key: _pendingPurchaseKeysStorage);
+      } else {
+        await _storage.write(key: _pendingPurchaseKeysStorage, value: jsonEncode(decoded));
+      }
+    } on FormatException {
+      await _storage.delete(key: _pendingPurchaseKeysStorage);
+    }
+  }
+
+  static Future<Map<String, dynamic>> activate(String code) async {
+    final key = await _pendingPurchaseKey(code);
+    final result = await _request(
+      '/api/v1/subscriptions/activate',
+      body: {'planCode': code, 'idempotencyKey': key},
+    );
+    await _clearPendingPurchaseKey(code, key);
+    return result;
+  }
 }
