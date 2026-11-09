@@ -102,7 +102,7 @@
 | 3.6-A | Single-game resignation | 5 | Passed | API integration tests cover game-scope resignation, invalid scope, nonparticipant denial, board/turn/dice reset and result consistency. Exact-head PR #58 API integration [41019744686](https://github.com/Mrobaei1/Royal-club/actions/runs/41019744686) passed. |
 | 3.6-B | Match surrender | 5 | Passed | API integration tests cover match-scope surrender, winner/result recording, duplicate-request rejection and the PostgreSQL transaction fix. Exact-head PR #58 API integration [41019744686](https://github.com/Mrobaei1/Royal-club/actions/runs/41019744686) passed. |
 | 3.6-C | Confirm/cancel UX; Winner/result consistency; Idempotent repeat requests | 5 | Pending | Not audited |
-| 3.7-A | Offline training isolation | 5 | Pending | Not audited |
+| 3.7-A | Offline training isolation | 5 | Passed | Source audit: `apps/mobile/lib/engine_backgammon_screen.dart` explicitly defines an engine-connected local screen with no network/account requirement and imports only the local `BackgammonEngine`/`BackgammonAI` for training; it has no API transport, match, progression, wallet, XP or Elo service calls. `BackgammonEngine` state is limited to board/checkers/bar/bear-off/dice/turn/terminal state. Exact-head PR #227 Flutter tests passed and merged as `00936a98ae4aaefae17b5ee31d004d344ef50648`. |
 | 3.7-B | Local AI/two-player | 5 | Pending | Not audited |
 | 3.7-C | Restart/exit reset; No online-state mutation; No online XP/Elo | 5 | Pending | Not audited |
 | 3.8-A | Chess entry point | 5 | Pending | Not audited |
@@ -252,9 +252,9 @@
 - Packages decomposed: **53/53**
 - Acceptance criteria: **200**
 - Points represented: **1000/1,000**
-- Earned points currently evidenced: **390/1,000 (39.0%)** — 195 previous points plus 135 points across 27 verified Phase 3 criteria, 50 points across ten verified Phase 4 criteria, and 15 points across three verified Phase 5 criteria. Newly verified in Phase 4: username privacy, friend-request lifecycle, removal/race handling, 100-friend cap, private-chat audience authorization, text and image delivery, Unicode emoji round-trip, message edit/delete ownership and notification recipient targeting; live calls and voice messaging remain excluded/disabled. Evidence is linked criterion-by-criterion below. Visual-owner, device, two-device field acceptance and Production gates remain separately pending.
-- Remaining criteria: **122 Pending** (610 points not yet earned).
-- **Official project percentage: 39.0% (390/1,000 points; 78/200 criteria).** This is the evidence-backed WBS score calculated from the phase roll-up immediately below; it is not a claim that all implementation or release acceptance is complete. Pending provider deployment portability, NFR target approval, physical VPN/device acceptance, owner-approved retention and application-level disaster recovery remain open.
+- Earned points currently evidenced: **395/1,000 (39.5%)** — 195 previous points plus 140 points across 28 verified Phase 3 criteria, 50 points across ten verified Phase 4 criteria, and 15 points across three verified Phase 5 criteria. Newly verified in Phase 4: username privacy, friend-request lifecycle, removal/race handling, 100-friend cap, private-chat audience authorization, text and image delivery, Unicode emoji round-trip, message edit/delete ownership and notification recipient targeting; live calls and voice messaging remain excluded/disabled. Evidence is linked criterion-by-criterion below. Visual-owner, device, two-device field acceptance and Production gates remain separately pending.
+- Remaining criteria: **121 Pending** (605 points not yet earned).
+- **Official project percentage: 39.5% (395/1,000 points; 79/200 criteria).** This is the evidence-backed WBS score calculated from the phase roll-up immediately below; it is not a claim that all implementation or release acceptance is complete. Pending provider deployment portability, NFR target approval, physical VPN/device acceptance, owner-approved retention and application-level disaster recovery remain open.
 
 ## Required evidence record
 
@@ -274,12 +274,12 @@ The following percentages are calculated directly from the 200 criterion rows in
 | --- | ---: | ---: | ---: | ---: |
 | Phase 1 — Architecture and project management | 80 | 11/16 | 55 | 68.75% |
 | Phase 2 | 130 | 22/26 | 110 | 84.62% |
-| Phase 3 | 230 | 27/46 | 135 | 58.70% |
+| Phase 3 | 230 | 28/46 | 140 | 60.87% |
 | Phase 4 | 120 | 10/24 | 50 | 41.67% |
 | Phase 5 | 140 | 3/28 | 15 | 10.71% |
 | Phase 6 | 140 | 0/28 | 0 | 0.00% |
 | Phase 7 | 160 | 5/32 | 25 | 15.63% |
-| **Total** | **1,000** | **78/200** | **390** | **39.00%** |
+| **Total** | **1,000** | **79/200** | **395** | **39.50%** |
 
 
 
