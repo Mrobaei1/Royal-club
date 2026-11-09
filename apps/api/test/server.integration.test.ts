@@ -892,16 +892,32 @@ test('registered players can join an online match and history does not expose op
     'SELECT turn_started_at FROM backgammon_matches WHERE id = $1',
     [matchId],
   );
-  const batchMove = await app.inject({
-    method: 'POST',
-    url: `/api/v1/matches/${matchId}/moves/batch`,
-    headers: auth(host.token),
-    payload: {
-      expectedVersion: 99,
-      moves: [{ from: 5, to: 3, die: 2 }, { from: 3, to: 0, die: 3 }],
-    },
-  });
-  assert.equal(batchMove.statusCode, 200, batchMove.body);
+  // Two identical requests with the same expected version must not apply the
+  // same turn twice. The match row lock and version fence must allow one winner.
+  const batchMovePayload = {
+    expectedVersion: 99,
+    moves: [{ from: 5, to: 3, die: 2 }, { from: 3, to: 0, die: 3 }],
+  };
+  const concurrentBatchMoves = await Promise.all([
+    app.inject({
+      method: 'POST',
+      url: `/api/v1/matches/${matchId}/moves/batch`,
+      headers: auth(host.token),
+      payload: batchMovePayload,
+    }),
+    app.inject({
+      method: 'POST',
+      url: `/api/v1/matches/${matchId}/moves/batch`,
+      headers: auth(host.token),
+      payload: batchMovePayload,
+    }),
+  ]);
+  assert.deepEqual(
+    concurrentBatchMoves.map((response) => response.statusCode).sort(),
+    [200, 409],
+    'A concurrent replay of the same move batch must be rejected after the first commit.',
+  );
+  const batchMove = concurrentBatchMoves.find((response) => response.statusCode === 200)!;
   assert.equal(batchMove.json().appliedMoves, 2);
   assert.equal(batchMove.json().state.board[5], 0);
   assert.equal(batchMove.json().state.board[3], 1);
