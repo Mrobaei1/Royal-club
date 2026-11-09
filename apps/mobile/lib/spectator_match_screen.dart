@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'l10n/app_text.dart';
 import 'online_match_screen.dart';
+import 'public_identity.dart';
 import 'profile_avatar.dart';
 import 'services/match_service.dart';
 
@@ -98,7 +99,7 @@ class _SpectatorMatchScreenState extends State<SpectatorMatchScreen> {
                               children: [
                                 RoyalAvatar(dataUrl: _match['hostAvatarDataUrl']?.toString(), radius: 26),
                                 const SizedBox(height: 6),
-                                Text('@${_match['hostName'] ?? 'player'}', textAlign: TextAlign.center,
+                                Text(publicUsernameLabel(_match['hostName'], fallback: appText(context, 'بازیکن', 'Player')), textAlign: TextAlign.center,
                                   style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.bold)),
                               ],
                             ),
@@ -109,7 +110,7 @@ class _SpectatorMatchScreenState extends State<SpectatorMatchScreen> {
                               children: [
                                 RoyalAvatar(dataUrl: _match['guestAvatarDataUrl']?.toString(), radius: 26),
                                 const SizedBox(height: 6),
-                                Text('@${_match['guestName'] ?? 'player'}', textAlign: TextAlign.center,
+                                Text(publicUsernameLabel(_match['guestName'], fallback: appText(context, 'بازیکن', 'Player')), textAlign: TextAlign.center,
                                   style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.bold)),
                               ],
                             ),
