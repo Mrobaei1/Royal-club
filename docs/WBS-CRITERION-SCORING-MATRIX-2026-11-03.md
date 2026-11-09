@@ -148,15 +148,15 @@
 
 | WBS criterion | Acceptance criterion | Points | Score | Evidence |
 |---|---|---:|---:|---|
-| 5.1-A | Non-transferable credits | 5 | Pending | Not audited |
+| 5.1-A | Non-transferable credits | 5 | Passed | Integration attempts `POST /api/v1/wallet/transfer`, receives 404, and verifies neither sender nor recipient balance changes and no wallet ledger rows are created. Merged PR #241; exact-head API integration [run 42571306114](https://github.com/Mrobaei1/Royal-club/actions/runs/42571306114) passed. (2026-11-09) |
 | 5.1-B | Auditable ledger | 5 | Passed | Wallet history exposes transaction ID, amount, balance-after, type, description and timestamp; subscription purchase tests verify exact debit and resulting balance, while concurrent purchase tests assert exactly one ledger debit. Exact-head API integration: PR #231 [run 42569482558](https://github.com/Mrobaei1/Royal-club/actions/runs/42569482558) and PR #230 [run 42569680272](https://github.com/Mrobaei1/Royal-club/actions/runs/42569680272) passed. (2026-11-09) |
 | 5.1-C | Atomic balance | 5 | Passed | Exact-head PR #231 (`d0853b4087606b12d46d9a6e2e251a37436d1b77`) disposable-PostgreSQL integration test issues two simultaneous 300-credit purchases against a 300-credit balance; asserts one 200/one 409, zero final balance, exactly one -300 ledger debit and balance_after=0. API integration, API build/tests, Flutter analyze/tests and backgammon audit passed before merge. |
 | 5.1-D | Idempotent concurrency | 5 | Pending | Not audited |
-| 5.1-E | Owner adjustments | 5 | Pending | Not audited |
+| 5.1-E | Owner adjustments | 5 | Passed | Integration verifies owner credit without step-up is denied (403), fresh owner step-up succeeds, and the credited amount/balance-after/type/description are recorded in the audit ledger. Merged PR #241; exact-head API integration [run 42571306114](https://github.com/Mrobaei1/Royal-club/actions/runs/42571306114) passed. (2026-11-09) |
 | 5.2-A | Manager plans | 5 | Passed | PR #192 exact head `02dac555352ea0d70e391168272a24cc44c66299`; owner step-up protected create-plan API/UI; API integration run `42230679256`, API build/tests and Flutter analyze/tests run `42230679251` (2026-11-07). |
 | 5.2-B | Transactional activation | 5 | Passed | Exact-head PR #231 (`d0853b4087606b12d46d9a6e2e251a37436d1b77`) disposable-PostgreSQL integration test asserts only the winning concurrent purchase creates one active subscription; rejected purchase creates no second subscription. API integration, API build/tests, Flutter analyze/tests and backgammon audit passed before merge. |
 | 5.2-C | Expiry/removal | 5 | Pending | Not audited |
-| 5.2-D | Server-controlled prices | 5 | Pending | Not audited |
+| 5.2-D | Server-controlled prices | 5 | Passed | Subscription activation sends forged client `priceCredits=1` and `durationDays=1`; API still charges the configured server plan price (300 credits) and applies its configured 30-day duration. Merged PR #241; exact-head API integration [run 42571306114](https://github.com/Mrobaei1/Royal-club/actions/runs/42571306114) passed. (2026-11-09) |
 | 5.3-A | XP policy | 5 | Pending | Not audited |
 | 5.3-B | Permanent levels/curve | 5 | Pending | Not audited |
 | 5.3-C | Elo/leaderboard | 5 | Pending | Not audited |
@@ -252,9 +252,9 @@
 - Packages decomposed: **53/53**
 - Acceptance criteria: **200**
 - Points represented: **1000/1,000**
-- Earned points currently evidenced: **475/1,000 (47.5%)** — 190 points across Phases 1, 2 and 7, 140 points across 28 verified Phase 3 criteria, 110 points across 22 verified Phase 4 criteria, and 35 points across seven verified Phase 5 criteria. Evidence is linked criterion-by-criterion below. Remaining gates include subscription purchase idempotency, wallet non-transferability/owner adjustments/server-price proof, Android notification acceptance, social theme/layout/accessibility device acceptance, and two-device/Production release gates.
-- Remaining criteria: **105 Pending** (525 points not yet earned).
-- **Official project percentage: 47.5% (475/1,000 points; 95/200 criteria).** This is the evidence-backed WBS score calculated from the phase roll-up immediately below; it is not a claim that all implementation or release acceptance is complete. Pending subscription purchase idempotency, wallet non-transferability/owner adjustments/server-price proof, Android notification acceptance, social theme/layout/accessibility device acceptance, provider deployment portability, NFR target approval, physical VPN/device acceptance, owner-approved retention and application-level disaster recovery remain open.
+- Earned points currently evidenced: **490/1,000 (49.0%)** — 190 points across Phases 1, 2 and 7, 140 points across 28 verified Phase 3 criteria, 110 points across 22 verified Phase 4 criteria, and 50 points across ten verified Phase 5 criteria. Evidence is linked criterion-by-criterion below. Remaining gates include subscription purchase idempotency, subscription expiry/removal, Android notification acceptance, social theme/layout/accessibility device acceptance, and two-device/Production release gates.
+- Remaining criteria: **102 Pending** (510 points not yet earned).
+- **Official project percentage: 49.0% (490/1,000 points; 98/200 criteria).** This is the evidence-backed WBS score calculated from the phase roll-up immediately below; it is not a claim that all implementation or release acceptance is complete. Pending subscription purchase idempotency, subscription expiry/removal, Android notification acceptance, social theme/layout/accessibility device acceptance, provider deployment portability, NFR target approval, physical VPN/device acceptance, owner-approved retention and application-level disaster recovery remain open.
 
 ## Required evidence record
 
@@ -276,10 +276,10 @@ The following percentages are calculated directly from the 200 criterion rows in
 | Phase 2 | 130 | 22/26 | 110 | 84.62% |
 | Phase 3 | 230 | 28/46 | 140 | 60.87% |
 | Phase 4 | 120 | 22/24 | 110 | 91.67% |
-| Phase 5 | 140 | 7/28 | 35 | 25.00% |
+| Phase 5 | 140 | 10/28 | 50 | 35.71% |
 | Phase 6 | 140 | 0/28 | 0 | 0.00% |
 | Phase 7 | 160 | 5/32 | 25 | 15.63% |
-| **Total** | **1,000** | **95/200** | **475** | **47.50%** |
+| **Total** | **1,000** | **98/200** | **490** | **49.00%** |
 
 
 
