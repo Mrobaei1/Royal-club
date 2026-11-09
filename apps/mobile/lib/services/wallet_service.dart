@@ -56,9 +56,9 @@ class WalletService {
       }
     }
     final existing = pending[code];
-    if (existing is String && RegExp(r'^[A-Za-z0-9._:-]{8,100}
-}
-).hasMatch(existing)) {
+    if (existing is String &&
+        existing.length >= 8 && existing.length <= 100 &&
+        RegExp(r'^[A-Za-z0-9._:-]+').hasMatch(existing)) {
       return existing;
     }
     final key = base64UrlEncode(
