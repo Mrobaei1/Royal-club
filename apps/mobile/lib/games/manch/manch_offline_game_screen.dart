@@ -471,13 +471,15 @@ class _ManchOfflineGameScreenState extends State<ManchOfflineGameScreen> {
                                   _colour(_state.players[p].colour),
                             ),
                             const SizedBox(width: 8),
-                            Text(
-                              _text('بازیکن ${_playerName(_state.players[p].colour)}', 'Player ${_playerName(_state.players[p].colour)}'),
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
+                            Expanded(
+                              child: Text(
+                                _text('بازیکن ${_playerName(_state.players[p].colour)}', 'Player ${_playerName(_state.players[p].colour)}'),
+                                softWrap: true,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                             ),
-                            const Spacer(),
                             if (p == _state.activePlayerIndex)
                               Text(_text('نوبت فعلی', 'Current turn')),
                           ],

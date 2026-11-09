@@ -9,6 +9,7 @@ import 'package:royal_club/services/hokm_service.dart';
 
 class FakeHokmApi implements HokmApi {
   int createCalls = 0;
+  String? usernameOverride;
   int nextRoundCalls = 0;
   bool createAsRoundCompleted = false;
   bool createAsMatchCompleted = false;
@@ -140,6 +141,12 @@ class FakeHokmApi implements HokmApi {
   @override
   Future<Map<String, dynamic>> startMatch(String roomId, int expectedVersion) async {
     room = _playing();
+    final override = usernameOverride;
+    if (override != null) {
+      for (final player in room['players'] as List) {
+        player['username'] = override;
+      }
+    }
     return Map<String, dynamic>.from(room);
   }
 
@@ -634,9 +641,11 @@ void main() {
     await tester.tap(find.text('Create Hokm room'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 20));
+    await tester.ensureVisible(find.text('I am ready'));
     await tester.tap(find.text('I am ready'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 20));
+    await tester.ensureVisible(find.text('Start match'));
     await tester.tap(find.text('Start match'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 20));
@@ -694,17 +703,25 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
     addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
 
-    final api = FakeHokmApi();
-    api.room = api._playing();
-    for (final player in api.room['players'] as List) {
-      player['username'] = 'بازیکن_نام_کاربری_بسیار_طولانی_۱۲۳۴۵';
-    }
+    final api = FakeHokmApi()
+      ..usernameOverride = 'بازیکن_نام_کاربری_بسیار_طولانی_۱۲۳۴۵';
     await tester.pumpWidget(MaterialApp(
       locale: const Locale('fa'),
       supportedLocales: const [Locale('fa'), Locale('en')],
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
       home: HokmScreen(api: api, identityLoader: () async => 'u1'),
     ));
+    await tester.pump();
+    await tester.ensureVisible(find.text('ساخت مسابقه جدید'));
+    await tester.tap(find.text('ساخت مسابقه جدید'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 30));
+    await tester.ensureVisible(find.text('آماده‌ام'));
+    await tester.tap(find.text('آماده‌ام'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 30));
+    await tester.ensureVisible(find.text('شروع مسابقه'));
+    await tester.tap(find.text('شروع مسابقه'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 40));
     expect(find.textContaining('بازیکن_نام_کاربری'), findsWidgets);
