@@ -1640,6 +1640,11 @@ app.get('/api/v1/subscriptions/plans', { onRequest: [requireMatchAuth] }, async 
 
 app.get('/api/v1/subscriptions/me', { onRequest: [requireMatchAuth] }, async (request) => {
   const claims = request.user as { sub: string };
+  await pool.query(
+    `UPDATE user_subscriptions SET status = 'expired'
+      WHERE user_id = $1 AND status = 'active' AND ends_at <= NOW()`,
+    [claims.sub],
+  );
   const result = await pool.query(
     `SELECT s.id, p.code AS "planCode", p.name AS "planName", s.starts_at AS "startsAt",
             s.ends_at AS "endsAt", s.status
@@ -2268,6 +2273,11 @@ app.post<{
     let endsAtAfter: Date | null = null;
     const days = Number(league.subscription_days_cost);
     if (league.entry_mode === 'subscription_days') {
+      await client.query(
+        `UPDATE user_subscriptions SET status = 'expired'
+          WHERE user_id = $1 AND status = 'active' AND ends_at <= NOW()`,
+        [claims.sub],
+      );
       const subResult = await client.query(
         `SELECT id, ends_at FROM user_subscriptions
           WHERE user_id = $1 AND status = 'active' AND ends_at > NOW()
