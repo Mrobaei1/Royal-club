@@ -84,23 +84,23 @@
 | 3.2-E | Responsive Android sizes | 5 | Pending | Not audited |
 | 3.2-F | Themes/locales | 5 | Pending | Not audited |
 | 3.2-G | Real-device visual acceptance | 5 | Pending | Not audited |
-| 3.3-A | Create/join/invite authorization | 5 | Pending | Not audited |
-| 3.3-B | 60-second expiry | 5 | Pending | Not audited |
-| 3.3-C | Cancellation/stale invite rejection | 5 | Pending | Not audited |
-| 3.3-D | Versioning/concurrency | 5 | Pending | Not audited |
+| 3.3-A | Create/join/invite authorization | 5 | Passed | API integration tests create an online match, authorize host-to-friend invitation, expose the invitation only to the invitee, accept it using the canonical room ID, and reject unauthorized/nonparticipant operations. PR #77 exact-head API integration [41185385432](https://github.com/Mrobaei1/Royal-club/actions/runs/41185385432) and PR #204 API integration [42475968379](https://github.com/Mrobaei1/Royal-club/actions/runs/42475968379) passed. |
+| 3.3-B | 60-second expiry | 5 | Passed | API tests verify a new empty room expires within 59–60 seconds, invite freshness is capped at 60 seconds, and notifications older than 61 seconds are removed. PR #77 exact-head API integration [41185385432](https://github.com/Mrobaei1/Royal-club/actions/runs/41185385432) passed. |
+| 3.3-C | Cancellation/stale invite rejection | 5 | Passed | Tests verify expired-room invite acceptance returns 410, marks the invite rejected, clears its notification, and leaves room membership unchanged; match cancellation proposals support both rejection and acceptance. PR #77 API integration [41185385432](https://github.com/Mrobaei1/Royal-club/actions/runs/41185385432) and PR #204 API integration [42475968379](https://github.com/Mrobaei1/Royal-club/actions/runs/42475968379) passed. |
+| 3.3-D | Versioning/concurrency | 5 | Passed | Concurrent guest joins serialize to exactly one 200 and one 409; the resulting membership is checked against the successful account. Online commands use expected state versions and stale commands are rejected. PR #78 API integration [41186501241](https://github.com/Mrobaei1/Royal-club/actions/runs/41186501241) and PR #204 API integration [42475968379](https://github.com/Mrobaei1/Royal-club/actions/runs/42475968379) passed. |
 | 3.3-E | Idle cleanup | 5 | Pending | Not audited |
-| 3.4-A | Server-authoritative legality/state | 5 | Pending | Not audited |
-| 3.4-B | Cumulative dice | 5 | Pending | Not audited |
-| 3.4-C | Bar entry/turn integrity | 5 | Pending | Not audited |
-| 3.4-D | Reconnect canonical resync | 5 | Pending | Not audited |
+| 3.4-A | Server-authoritative legality/state | 5 | Passed | API integration verifies server-owned match state, denies spectator move/roll commands, rejects malformed persisted boards on read/roll/move, and checks that client commands cannot bypass server rules. PR #204 API integration [42475968379](https://github.com/Mrobaei1/Royal-club/actions/runs/42475968379) passed. |
+| 3.4-B | Cumulative dice | 5 | Passed | API integration applies a two-die 2+3 batch atomically, asserts both moves and final board, consumes all remaining dice and advances the turn clock only after the full sequence. PR #204 API integration [42475968379](https://github.com/Mrobaei1/Royal-club/actions/runs/42475968379) passed. |
+| 3.4-C | Bar entry/turn integrity | 5 | Passed | API and Flutter engine tests verify mandatory and correct-side bar entry, blocked-entry rejection, bar-first move enforcement, turn completion and clock integrity; exact-head PR #204 API/Flutter/backgammon runs [42475968379](https://github.com/Mrobaei1/Royal-club/actions/runs/42475968379), [42475968332](https://github.com/Mrobaei1/Royal-club/actions/runs/42475968332), [42475968383](https://github.com/Mrobaei1/Royal-club/actions/runs/42475968383) passed. |
+| 3.4-D | Reconnect canonical resync | 5 | Passed | Disconnect integration tests verify heartbeat reconnect clears AI takeover, the overdue AI turn is committed before human control returns, and the returning player can issue a legal command against the restored authoritative state. Separate network-change integration verifies the same account recovers the identical active board. PR #204 API integration [42475968379](https://github.com/Mrobaei1/Royal-club/actions/runs/42475968379) passed. |
 | 3.4-E | Duplicate/tampered/racing move protection | 5 | Pending | Not audited |
-| 3.5-A | Heartbeat/presence | 5 | Pending | Not audited |
-| 3.5-B | Lease/grace period | 5 | Pending | Not audited |
-| 3.5-C | Temporary AI legal turn | 5 | Pending | Not audited |
-| 3.5-D | Reconnect handback | 5 | Pending | Not audited |
-| 3.5-E | Expiry/race/duplicate prevention | 5 | Pending | Not audited |
-| 3.6-A | Single-game resignation | 5 | Pending | Not audited |
-| 3.6-B | Match surrender | 5 | Pending | Not audited |
+| 3.5-A | Heartbeat/presence | 5 | Passed | Backgammon disconnect integration tests create participant presence records and verify authenticated heartbeats keep the active match lease alive. PR #67 exact-head API integration [41176915070](https://github.com/Mrobaei1/Royal-club/actions/runs/41176915070) and current-main PR #204 API integration [42475968379](https://github.com/Mrobaei1/Royal-club/actions/runs/42475968379) passed. |
+| 3.5-B | Lease/grace period | 5 | Passed | Tests verify a fresh heartbeat delays takeover, a 30-second stale heartbeat crosses the configured 18-second default grace, and active heartbeat extends the match lease. PR #67 API integration [41176915070](https://github.com/Mrobaei1/Royal-club/actions/runs/41176915070) and PR #204 API integration [42475968379](https://github.com/Mrobaei1/Royal-club/actions/runs/42475968379) passed. |
+| 3.5-C | Temporary AI legal turn | 5 | Passed | Unit/integration tests verify legal maximum-dice AI turns, bar-entry priority, blocked-entry pass, higher-die rule, guest direction, corrupt-state refusal and one-time turn completion. PR #67 exact-head backgammon/API checks [41176915022](https://github.com/Mrobaei1/Royal-club/actions/runs/41176915022) and [41176915070](https://github.com/Mrobaei1/Royal-club/actions/runs/41176915070) passed. |
+| 3.5-D | Reconnect handback | 5 | Passed | Integration tests verify reconnect heartbeat clears `takeoverActive`, processes an overdue turn before restoring presence, and allows the returning human to roll using the refreshed state version. PR #67 API integration [41176915070](https://github.com/Mrobaei1/Royal-club/actions/runs/41176915070) and PR #204 API integration [42475968379](https://github.com/Mrobaei1/Royal-club/actions/runs/42475968379) passed. |
+| 3.5-E | Expiry/race/duplicate prevention | 5 | Passed | Integration tests verify stale human requests are fenced, concurrent state polls commit exactly one AI turn/state-version increment, and no-legal-move takeover passes once. The API serializes takeover under the match-row lock. PR #67 API integration [41176915070](https://github.com/Mrobaei1/Royal-club/actions/runs/41176915070) and PR #204 API integration [42475968379](https://github.com/Mrobaei1/Royal-club/actions/runs/42475968379) passed. |
+| 3.6-A | Single-game resignation | 5 | Passed | API integration tests cover game-scope resignation, invalid scope, nonparticipant denial, board/turn/dice reset and result consistency. Exact-head PR #58 API integration [41019744686](https://github.com/Mrobaei1/Royal-club/actions/runs/41019744686) passed. |
+| 3.6-B | Match surrender | 5 | Passed | API integration tests cover match-scope surrender, winner/result recording, duplicate-request rejection and the PostgreSQL transaction fix. Exact-head PR #58 API integration [41019744686](https://github.com/Mrobaei1/Royal-club/actions/runs/41019744686) passed. |
 | 3.6-C | Confirm/cancel UX; Winner/result consistency; Idempotent repeat requests | 5 | Pending | Not audited |
 | 3.7-A | Offline training isolation | 5 | Pending | Not audited |
 | 3.7-B | Local AI/two-player | 5 | Pending | Not audited |
@@ -252,7 +252,7 @@
 - Packages decomposed: **53/53**
 - Acceptance criteria: **200**
 - Points represented: **1000/1,000**
-- Earned points currently evidenced: **250/1,000 (25.0%)** — 195 previous points plus 45 points for all nine 3.1 rules-engine criteria and 10 points for shared-board integration and checker geometry (3.2-B/C), supported by exact-head PR #204 API, Flutter and backgammon-audit CI. Device, visual-owner, online two-device and Production acceptance gates remain separately pending.
+- Earned points currently evidenced: **325/1,000 (32.5%)** — 195 previous points plus 130 points across 26 verified Phase 3 criteria: all nine rules-engine criteria, shared board/checker geometry, online lifecycle and server-authoritative move criteria, disconnect/temporary-AI criteria, and game/match resignation scopes. Evidence is linked criterion-by-criterion below. Visual-owner, device, two-device field acceptance and Production gates remain separately pending.
 - Remaining criteria: **161 Pending** (805 points not yet earned).
 - Official project percentage: **19.5% evidence-backed minimum**; this remains a partial criterion audit, not a claim that only 11.0% of code exists. The six recently closed criteria are supported by exact-head negative-test CI, friend-only free chat/free-by-default route audit, username-only privacy regressions, OTP digest/expiry/rate-limit and purpose-binding tests, and encrypted owner-controlled SMS credential tests. Provider deployment portability, NFR target approval, physical VPN/device acceptance, owner-approved retention and DR acceptance remain open.
 
@@ -274,12 +274,12 @@ The following percentages are calculated directly from the 200 criterion rows in
 | --- | ---: | ---: | ---: | ---: |
 | Phase 1 — Architecture and project management | 80 | 11/16 | 55 | 68.75% |
 | Phase 2 | 130 | 22/26 | 110 | 84.62% |
-| Phase 3 | 230 | 11/46 | 55 | 23.91% |
+| Phase 3 | 230 | 26/46 | 130 | 56.52% |
 | Phase 4 | 120 | 0/24 | 0 | 0.00% |
 | Phase 5 | 140 | 1/28 | 5 | 3.57% |
 | Phase 6 | 140 | 0/28 | 0 | 0.00% |
 | Phase 7 | 160 | 5/32 | 25 | 15.63% |
-| **Total** | **1,000** | **50/200** | **250** | **25.00%** |
+| **Total** | **1,000** | **65/200** | **325** | **32.50%** |
 
 
 
