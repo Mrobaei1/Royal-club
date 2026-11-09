@@ -1563,7 +1563,8 @@ test('wallet credits are non-transferable and owner adjustments require step-up 
     const ownerCreditWithoutStepUp = await app.inject({
       method: 'POST',
       url: '/api/v1/admin/wallet/credit',
-      headers: auth(owner.token),
+      // Deliberately bypass the test auth helper, which auto-adds step-up for the configured owner.
+      headers: { authorization: `Bearer ${owner.token}` },
       payload: { userId: recipient.user.id, amount: 75, description: 'Owner-approved test credit' },
     });
     assert.equal(ownerCreditWithoutStepUp.statusCode, 403,
