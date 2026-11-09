@@ -1,6 +1,6 @@
 # Royal Club — WBS criterion-level scoring matrix
 
-**Baseline:** WBS v1.1 · **Latest audit:** 2026-11-08 · **53 leaf packages · 1,000 points**
+**Baseline:** WBS v1.1 · **Latest audit:** 2026-11-09 · **53 leaf packages · 1,000 points**
 
 ## Rules
 
@@ -68,15 +68,15 @@
 
 | WBS criterion | Acceptance criterion | Points | Score | Evidence |
 |---|---|---:|---:|---|
-| 3.1-A | Legal moves/blocked points | 5 | Pending | Not audited |
-| 3.1-B | Dice/doubles/four-dice sequences | 5 | Pending | Not audited |
-| 3.1-C | Hits/blots | 5 | Pending | Not audited |
-| 3.1-D | Correct-side bar entry | 5 | Pending | Not audited |
-| 3.1-E | Bearing-off exact/overshoot priority | 5 | Pending | Not audited |
-| 3.1-F | Turn transitions | 5 | Pending | Not audited |
-| 3.1-G | Malformed state fails closed | 5 | Pending | Not audited |
-| 3.1-H | Mirrored host/guest regression | 5 | Pending | Not audited |
-| 3.1-I | Independent rules audit | 5 | Pending | Not audited |
+| 3.1-A | Legal moves/blocked points | 5 | Passed | `apps/api/src/backgammon-rules.test.ts`: legal moves for both sides and blocked-point rejection; Flutter engine tests cover legal/illegal moves. Exact-head PR #204 API run [42475968379](https://github.com/Mrobaei1/Royal-club/actions/runs/42475968379), Flutter run [42475968332](https://github.com/Mrobaei1/Royal-club/actions/runs/42475968332), and backgammon audit [42475968383](https://github.com/Mrobaei1/Royal-club/actions/runs/42475968383) passed. |
+| 3.1-B | Dice/doubles/four-dice sequences | 5 | Passed | API/mobile tests cover maximum dice use, doubles as four dice, higher-die priority and sequential two-die moves; exact-head PR #204 API/Flutter/backgammon audit runs [42475968379](https://github.com/Mrobaei1/Royal-club/actions/runs/42475968379), [42475968332](https://github.com/Mrobaei1/Royal-club/actions/runs/42475968332), [42475968383](https://github.com/Mrobaei1/Royal-club/actions/runs/42475968383) passed. |
+| 3.1-C | Hits/blots | 5 | Passed | API batch-move test and Flutter audit prove hitting a single opposing blot transfers that checker to the bar; exact-head PR #204 API and backgammon audit runs [42475968379](https://github.com/Mrobaei1/Royal-club/actions/runs/42475968379) and [42475968383](https://github.com/Mrobaei1/Royal-club/actions/runs/42475968383) passed. |
+| 3.1-D | Correct-side bar entry | 5 | Passed | API and Flutter tests verify mandatory bar entry, correct entry direction for both players, blocked-entry rejection and hitting on entry; exact-head PR #204 API/Flutter/backgammon runs passed: [42475968379](https://github.com/Mrobaei1/Royal-club/actions/runs/42475968379), [42475968332](https://github.com/Mrobaei1/Royal-club/actions/runs/42475968332), [42475968383](https://github.com/Mrobaei1/Royal-club/actions/runs/42475968383). |
+| 3.1-E | Bearing-off exact/overshoot priority | 5 | Passed | API/mobile regressions verify exact and oversized bear-off, prohibit bearing off outside the home board or with a checker on the bar, and require the nearest eligible occupied lower point rather than skipping a closer checker; exact-head PR #204 API/Flutter/backgammon runs passed. |
+| 3.1-F | Turn transitions | 5 | Passed | API/mobile tests cover multi-die sequences, maximum usable dice, blocked bar-entry pass, turn completion when no die remains, and terminal-state rejection; exact-head PR #204 API/Flutter/backgammon runs passed. |
+| 3.1-G | Malformed state fails closed | 5 | Passed | API rule tests reject malformed board counts, invalid bar/off counters, missing checkers, sparse arrays, impossible dice lengths, invalid dice and null higher-die moves without mutating state; exact-head PR #204 API build/unit and backgammon audit passed. |
+| 3.1-H | Mirrored host/guest regression | 5 | Passed | Mirrored positive/negative player tests verify direction, bar-entry and nearest-checker bear-off rules; server temporary-AI tests also verify guest-direction legal moves and guest bar entry. Exact-head PR #204 API/Flutter/backgammon audit passed. |
+| 3.1-I | Independent rules audit | 5 | Passed | Independent `Backgammon engine and AI tests` workflow [42475968383](https://github.com/Mrobaei1/Royal-club/actions/runs/42475968383) passed; audit suite includes deterministic seeded play, legal-move invariants, 15-checker inventory preservation, dice validity, bar entry, hits and bear-off regressions. |
 | 3.2-A | Approved visual design | 5 | Pending | Not audited |
 | 3.2-B | Shared online/offline board | 5 | Pending | Not audited |
 | 3.2-C | Checker orientation/stack/count | 5 | Pending | Not audited |
@@ -252,7 +252,7 @@
 - Packages decomposed: **53/53**
 - Acceptance criteria: **200**
 - Points represented: **1000/1,000**
-- Earned points currently evidenced: **195/1,000 (19.5%)** — prior 190 points plus 5 points for criterion 2.4-B after a screen-by-screen bilingual static UI audit and exact-head Flutter CI passed.
+- Earned points currently evidenced: **240/1,000 (24.0%)** — 195 previously earned points plus 45 points for the nine 3.1 backgammon rules-engine criteria after source/test audit and exact-head PR #204 API, Flutter and independent backgammon-audit CI passed. Device, production and owner acceptance gates remain separately pending.
 - Remaining criteria: **161 Pending** (805 points not yet earned).
 - Official project percentage: **19.5% evidence-backed minimum**; this remains a partial criterion audit, not a claim that only 11.0% of code exists. The six recently closed criteria are supported by exact-head negative-test CI, friend-only free chat/free-by-default route audit, username-only privacy regressions, OTP digest/expiry/rate-limit and purpose-binding tests, and encrypted owner-controlled SMS credential tests. Provider deployment portability, NFR target approval, physical VPN/device acceptance, owner-approved retention and DR acceptance remain open.
 
@@ -266,7 +266,7 @@ For each criterion record: `criterion ID | pass/fail/blocked/not tested | exact 
 Eleven criteria passed (55/80 Phase 1 points; 68.75% of WBS 1.0). In addition to the eight prior architecture/governance criteria, 1.2-C (server-authoritative game/economy negative tests), 1.3-A (free-by-default enforcement) and 1.3-C (username-only public identity/privacy) now pass based on exact-head CI and cross-module regression/source evidence. The 2026-10-26 owner decision confirms private chat is available to friends without a subscription, with non-friends blocked; current code and tests match it. Criteria 1.1-B, 1.2-B, 1.3-B and 1.5-A/B remain Pending. Physical VPN OFF/ON testing, legacy/empty-profile device acceptance under WBS 4.5, second-provider portability, owner-approved NFRs/retention, and application-level disaster recovery remain open.
 
 
-## Phase roll-up — 2026-11-08 (updated after OTP evidence audit)
+## Phase roll-up — 2026-11-09 (backgammon rules-engine evidence audit)
 
 The following percentages are calculated directly from the 200 criterion rows in this matrix. A criterion earns its full five points only when its status is `Passed`; Pending criteria earn zero. Weights are unchanged.
 
@@ -274,12 +274,12 @@ The following percentages are calculated directly from the 200 criterion rows in
 | --- | ---: | ---: | ---: | ---: |
 | Phase 1 — Architecture and project management | 80 | 11/16 | 55 | 68.75% |
 | Phase 2 | 130 | 22/26 | 110 | 84.62% |
-| Phase 3 | 230 | 0/46 | 0 | 0.00% |
+| Phase 3 | 230 | 9/46 | 45 | 19.57% |
 | Phase 4 | 120 | 0/24 | 0 | 0.00% |
 | Phase 5 | 140 | 1/28 | 5 | 3.57% |
 | Phase 6 | 140 | 0/28 | 0 | 0.00% |
 | Phase 7 | 160 | 5/32 | 25 | 15.63% |
-| **Total** | **1,000** | **39/200** | **195** | **19.50%** |
+| **Total** | **1,000** | **48/200** | **240** | **24.00%** |
 
 
 
