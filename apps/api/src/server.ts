@@ -4638,10 +4638,13 @@ app.post<{ Params: { id: string } }>('/api/v1/matches/:id/join', { onRequest: [r
     );
     const match = result.rows[0] as {
       id: string; host_user_id: string; guest_user_id: string | null;
-      status: string; expiresAt: Date;
+      status: string; expiresAt: Date | null;
     } | undefined;
-    if (!match || new Date(match.expiresAt).getTime() <= Date.now() ||
-        !['waiting', 'active'].includes(match.status)) {
+    const roomIsValid = match && ['waiting', 'active'].includes(match.status) &&
+      (match.expiresAt === null
+        ? match.status === 'waiting' && match.guest_user_id !== null
+        : new Date(match.expiresAt).getTime() > Date.now());
+    if (!roomIsValid) {
       await client.query('ROLLBACK');
       return reply.code(404).send({ error: 'Match not found or expired.' });
     }
