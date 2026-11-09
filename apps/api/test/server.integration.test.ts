@@ -3517,6 +3517,22 @@ test('self-profile and private-chat APIs reject cross-account access and identit
   assert.equal(sent.statusCode, 201, sent.body);
   const messageId = String(sent.json().message.id);
 
+  const emojiText = 'سلام 👋 😀 ❤️ 🎲';
+  const emojiMessage = await app.inject({
+    method: 'POST',
+    url: `/api/v1/chat/${recipient.user.id}/messages`,
+    headers: auth(sender.token),
+    payload: { body: emojiText },
+  });
+  assert.equal(emojiMessage.statusCode, 201, emojiMessage.body);
+  const emojiHistory = await app.inject({
+    method: 'GET',
+    url: `/api/v1/chat/${recipient.user.id}/messages`,
+    headers: auth(sender.token),
+  });
+  assert.ok(emojiHistory.json().messages.some((message: { body: string }) => message.body === emojiText),
+    'Supported Unicode emoji must round-trip through private chat delivery and history.');
+
   const recipientRead = await app.inject({
     method: 'GET',
     url: `/api/v1/chat/${sender.user.id}/messages`,
@@ -3539,6 +3555,14 @@ test('self-profile and private-chat APIs reject cross-account access and identit
     payload: { body: 'Attempted unauthorized message.' },
   });
   assert.equal(outsiderSend.statusCode, 403, outsiderSend.body);
+  const outsiderImage = await app.inject({
+    method: 'POST',
+    url: `/api/v1/chat/${sender.user.id}/messages`,
+    headers: auth(outsider.token),
+    payload: { body: 'data:image/png;base64,iVBORw0KGgo=' },
+  });
+  assert.equal(outsiderImage.statusCode, 403,
+    'Image messages must enforce the same friend-only audience authorization.');
 
   const outsiderEdit = await app.inject({
     method: 'PATCH',
