@@ -4828,6 +4828,39 @@ test('Hokm owner manager authorization fails closed when the persistent owner id
   }
 });
 
+test('expired subscriptions are marked expired and omitted from the active subscription view', async () => {
+  const buyer = await register('Expired Subscription Buyer');
+  await testPool.query(
+    'INSERT INTO wallet_accounts (user_id, balance) VALUES ($1, 300) ON CONFLICT (user_id) DO UPDATE SET balance = 300',
+    [buyer.user.id],
+  );
+  const purchase = await app.inject({
+    method: 'POST',
+    url: '/api/v1/subscriptions/activate',
+    headers: auth(buyer.token),
+    payload: { planCode: 'vip_monthly' },
+  });
+  assert.equal(purchase.statusCode, 200, purchase.body);
+  const subscriptionId = purchase.json().subscription.id;
+  await testPool.query(
+    "UPDATE user_subscriptions SET ends_at = NOW() - INTERVAL '1 second' WHERE id = $1",
+    [subscriptionId],
+  );
+  const current = await app.inject({
+    method: 'GET',
+    url: '/api/v1/subscriptions/me',
+    headers: auth(buyer.token),
+  });
+  assert.equal(current.statusCode, 200, current.body);
+  assert.equal(current.json().subscription, null);
+  const stored = await testPool.query(
+    'SELECT status, ends_at <= NOW() AS is_expired FROM user_subscriptions WHERE id = $1',
+    [subscriptionId],
+  );
+  assert.equal(stored.rows[0]?.status, 'expired');
+  assert.equal(stored.rows[0]?.is_expired, true);
+});
+
 test('concurrent subscription purchases cannot overspend the same wallet balance', async () => {
   const buyer = await register('Concurrent Subscription Buyer');
   await testPool.query(
