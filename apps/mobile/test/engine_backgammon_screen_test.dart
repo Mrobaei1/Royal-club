@@ -203,7 +203,7 @@ void main() {
 
   testWidgets('offline restart restores the initial board and clears transient state',
       (tester) async {
-    tester.view.physicalSize = const Size(900, 540);
+    tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
@@ -215,7 +215,7 @@ void main() {
       supportedLocales: const [Locale('fa'), Locale('en')],
       home: EngineBackgammonScreen(
         engineForTesting: engine,
-        vsComputerForTesting: true,
+        vsComputerForTesting: false,
       ),
     ));
     await tester.tap(find.text('Offline vs AI'));
@@ -231,6 +231,11 @@ void main() {
     engine.winner = -1;
     await tester.pump();
 
+    await tester.scrollUntilVisible(
+      find.text('Restart'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.tap(find.text('Restart'));
     await tester.pump();
 
