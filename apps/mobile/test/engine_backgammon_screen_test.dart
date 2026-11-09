@@ -201,5 +201,53 @@ void main() {
     await tester.pump(const Duration(seconds: 3));
   });
 
+  testWidgets('offline restart restores the initial board and clears transient state',
+      (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final engine = BackgammonEngine();
+    await tester.pumpWidget(MaterialApp(
+      locale: const Locale('en'),
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
+      supportedLocales: const [Locale('fa'), Locale('en')],
+      home: EngineBackgammonScreen(
+        engineForTesting: engine,
+        vsComputerForTesting: false,
+      ),
+    ));
+    await tester.tap(find.text('Offline vs AI'));
+    await tester.pumpAndSettle();
+
+    engine.points.fillRange(0, 24, 0);
+    engine.points[3] = 1;
+    engine.bar[1] = 1;
+    engine.borneOff[0] = 14;
+    engine.dice = [2, 3];
+    engine.currentPlayer = -1;
+    engine.finished = true;
+    engine.winner = -1;
+    await tester.pump();
+
+    await tester.scrollUntilVisible(
+      find.text('Restart'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.text('Restart'));
+    await tester.pump();
+
+    final initial = BackgammonEngine();
+    expect(engine.points, initial.points);
+    expect(engine.bar, initial.bar);
+    expect(engine.borneOff, initial.borneOff);
+    expect(engine.dice, isEmpty);
+    expect(engine.currentPlayer, 1);
+    expect(engine.finished, isFalse);
+    expect(engine.winner, isNull);
+  });
+
 
 }
