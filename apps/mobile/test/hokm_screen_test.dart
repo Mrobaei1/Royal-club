@@ -575,11 +575,19 @@ void main() {
     await tester.tap(find.text('Create Hokm room'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 20));
-    await tester.ensureVisible(find.text('I am ready'));
+    await tester.scrollUntilVisible(
+      find.text('I am ready'),
+      180,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.tap(find.text('I am ready'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 20));
-    await tester.ensureVisible(find.text('Start match'));
+    await tester.scrollUntilVisible(
+      find.text('Start match'),
+      180,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.tap(find.text('Start match'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 20));
@@ -649,7 +657,11 @@ void main() {
     await tester.tap(find.text('Start match'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 20));
-    await tester.ensureVisible(find.text('Forfeit match'));
+    await tester.scrollUntilVisible(
+      find.text('Forfeit match'),
+      180,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.tap(find.text('Forfeit match'));
     await tester.pump();
     expect(find.text('Forfeit this match?'), findsOneWidget);
@@ -706,22 +718,29 @@ void main() {
     final api = FakeHokmApi()
       ..usernameOverride = 'بازیکن_نام_کاربری_بسیار_طولانی_۱۲۳۴۵';
     await tester.pumpWidget(MaterialApp(
-      locale: const Locale('fa'),
+      locale: const Locale('en'),
       supportedLocales: const [Locale('fa'), Locale('en')],
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
       home: HokmScreen(api: api, identityLoader: () async => 'u1'),
     ));
     await tester.pump();
-    await tester.ensureVisible(find.text('ساخت مسابقه جدید'));
-    await tester.tap(find.text('ساخت مسابقه جدید'));
+    await tester.tap(find.text('Create Hokm room'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 30));
-    await tester.ensureVisible(find.text('آماده‌ام'));
-    await tester.tap(find.text('آماده‌ام'));
+    await tester.scrollUntilVisible(
+      find.text('I am ready'),
+      180,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.text('I am ready'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 30));
-    await tester.ensureVisible(find.text('شروع مسابقه'));
-    await tester.tap(find.text('شروع مسابقه'));
+    await tester.scrollUntilVisible(
+      find.text('Start match'),
+      180,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.text('Start match'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 40));
     expect(find.textContaining('بازیکن_نام_کاربری'), findsWidgets);

@@ -340,30 +340,39 @@ class _ManchOfflineGameScreenState extends State<ManchOfflineGameScreen> {
                     ),
                     child: Row(
                       children: [
-                        Expanded(child: Text(_text('سطح هوش مصنوعی', 'AI difficulty'))),
-                        DropdownButton<ManchBotDifficulty>(
-                          value: _botDifficulty,
-                          onChanged: !_matchStarted && _state.pendingDice == null
-                              ? (value) {
-                                  if (value != null) {
-                                    setState(() => _botDifficulty = value);
+                        Expanded(
+                          child: Text(
+                            _text('سطح هوش مصنوعی', 'AI difficulty'),
+                            softWrap: true,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: DropdownButton<ManchBotDifficulty>(
+                            isExpanded: true,
+                            value: _botDifficulty,
+                            onChanged: !_matchStarted && _state.pendingDice == null
+                                ? (value) {
+                                    if (value != null) {
+                                      setState(() => _botDifficulty = value);
+                                    }
                                   }
-                                }
-                              : null,
-                          items: [
-                            DropdownMenuItem(
-                              value: ManchBotDifficulty.easy,
-                              child: Text(_text('آسان', 'Easy')),
-                            ),
-                            DropdownMenuItem(
-                              value: ManchBotDifficulty.normal,
-                              child: Text(_text('معمولی', 'Normal')),
-                            ),
-                            DropdownMenuItem(
-                              value: ManchBotDifficulty.hard,
-                              child: Text(_text('سخت', 'Hard')),
-                            ),
-                          ],
+                                : null,
+                            items: [
+                              DropdownMenuItem(
+                                value: ManchBotDifficulty.easy,
+                                child: Text(_text('آسان', 'Easy')),
+                              ),
+                              DropdownMenuItem(
+                                value: ManchBotDifficulty.normal,
+                                child: Text(_text('معمولی', 'Normal')),
+                              ),
+                              DropdownMenuItem(
+                                value: ManchBotDifficulty.hard,
+                                child: Text(_text('سخت', 'Hard')),
+                              ),
+                            ],
+                          ),
                         ),
                       ],
                     ),
