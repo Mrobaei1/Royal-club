@@ -3533,6 +3533,22 @@ test('self-profile and private-chat APIs reject cross-account access and identit
   assert.equal(sent.statusCode, 201, sent.body);
   const messageId = String(sent.json().message.id);
 
+  const friendImage = 'data:image/png;base64,iVBORw0KGgo=';
+  const friendImageMessage = await app.inject({
+    method: 'POST',
+    url: `/api/v1/chat/${recipient.user.id}/messages`,
+    headers: auth(sender.token),
+    payload: { body: friendImage },
+  });
+  assert.equal(friendImageMessage.statusCode, 201, friendImageMessage.body);
+  const friendImageHistory = await app.inject({
+    method: 'GET',
+    url: `/api/v1/chat/${recipient.user.id}/messages`,
+    headers: auth(sender.token),
+  });
+  assert.ok(friendImageHistory.json().messages.some((message: { body: string }) => message.body === friendImage),
+    'An accepted friend must be able to send and retrieve a supported image message.');
+
   const emojiText = 'سلام 👋 😀 ❤️ 🎲';
   const emojiMessage = await app.inject({
     method: 'POST',
