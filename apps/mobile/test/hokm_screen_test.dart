@@ -622,7 +622,7 @@ void main() {
 
 
   testWidgets('active Hokm exit dialog fits a narrow screen with large text', (tester) async {
-    tester.view.physicalSize = const Size(360, 1400);
+    tester.view.physicalSize = const Size(360, 2000);
     tester.view.devicePixelRatio = 1;
     tester.platformDispatcher.textScaleFactorTestValue = 1.5;
     addTearDown(tester.view.resetPhysicalSize);
