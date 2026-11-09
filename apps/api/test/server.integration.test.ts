@@ -3611,6 +3611,104 @@ test('login rate limits are account-bound and cannot be bypassed by changing net
     'Rate limiting one identity must not block unrelated accounts.');
 });
 
+test('friend search and request lifecycle stay private, idempotent and race-safe', async () => {
+  const requester = await register('Friend Lifecycle Requester');
+  const recipient = await register('Friend Lifecycle Recipient');
+
+  const search = await app.inject({
+    method: 'GET',
+    url: `/api/v1/users/search?username=${encodeURIComponent(`@${recipient.user.username}`)}`,
+    headers: auth(requester.token),
+  });
+  assert.equal(search.statusCode, 200, search.body);
+  assert.equal(search.json().users.length, 1);
+  const searchedUser = search.json().users[0];
+  assert.equal(searchedUser.id, recipient.user.id);
+  assert.equal(searchedUser.username, recipient.user.username);
+  assert.equal('fullName' in searchedUser, false);
+  assert.equal('email' in searchedUser, false);
+  assert.equal('phone' in searchedUser, false);
+
+  const sent = await app.inject({
+    method: 'POST',
+    url: `/api/v1/friends/${recipient.user.id}/request`,
+    headers: auth(requester.token),
+    payload: {},
+  });
+  assert.equal(sent.statusCode, 201, sent.body);
+
+  const duplicate = await app.inject({
+    method: 'POST',
+    url: `/api/v1/friends/${recipient.user.id}/request`,
+    headers: auth(requester.token),
+    payload: {},
+  });
+  assert.equal(duplicate.statusCode, 409, duplicate.body);
+
+  const inbox = await app.inject({
+    method: 'GET',
+    url: '/api/v1/friends',
+    headers: auth(recipient.token),
+  });
+  assert.equal(inbox.statusCode, 200, inbox.body);
+  assert.ok(inbox.json().incomingRequests.some((item: { userId: string }) => item.userId === requester.user.id));
+
+  const accepts = await Promise.all([
+    app.inject({
+      method: 'POST',
+      url: `/api/v1/friends/${requester.user.id}/accept`,
+      headers: auth(recipient.token),
+      payload: {},
+    }),
+    app.inject({
+      method: 'POST',
+      url: `/api/v1/friends/${requester.user.id}/accept`,
+      headers: auth(recipient.token),
+      payload: {},
+    }),
+  ]);
+  assert.deepEqual(
+    accepts.map((response) => response.statusCode).sort(),
+    [200, 404],
+    'Concurrent acceptance of one pending request must commit exactly once.',
+  );
+
+  const requesterFriends = await app.inject({
+    method: 'GET',
+    url: '/api/v1/friends',
+    headers: auth(requester.token),
+  });
+  assert.ok(requesterFriends.json().friends.some((item: { userId: string }) => item.userId === recipient.user.id));
+  const recipientFriends = await app.inject({
+    method: 'GET',
+    url: '/api/v1/friends',
+    headers: auth(recipient.token),
+  });
+  assert.ok(recipientFriends.json().friends.some((item: { userId: string }) => item.userId === requester.user.id));
+
+  const removed = await app.inject({
+    method: 'DELETE',
+    url: `/api/v1/friends/${recipient.user.id}`,
+    headers: auth(requester.token),
+  });
+  assert.equal(removed.statusCode, 200, removed.body);
+  for (const token of [requester.token, recipient.token]) {
+    const afterRemoval = await app.inject({
+      method: 'GET',
+      url: '/api/v1/friends',
+      headers: auth(token),
+    });
+    assert.equal(afterRemoval.statusCode, 200);
+    assert.equal(afterRemoval.json().friends.length, 0);
+  }
+  const repeatedRemoval = await app.inject({
+    method: 'DELETE',
+    url: `/api/v1/friends/${recipient.user.id}`,
+    headers: auth(requester.token),
+  });
+  assert.equal(repeatedRemoval.statusCode, 404);
+});
+
 test('self-profile returns only the authenticated account private identity', async () => {
   const first = await register('Self Profile Privacy One');
   const second = await register('Self Profile Privacy Two');
