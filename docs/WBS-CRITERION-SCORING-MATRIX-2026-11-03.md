@@ -254,7 +254,7 @@
 - Points represented: **1000/1,000**
 - Earned points currently evidenced: **325/1,000 (32.5%)** — 195 previous points plus 130 points across 26 verified Phase 3 criteria: all nine rules-engine criteria, shared board/checker geometry, online lifecycle and server-authoritative move criteria, disconnect/temporary-AI criteria, and game/match resignation scopes. Evidence is linked criterion-by-criterion below. Visual-owner, device, two-device field acceptance and Production gates remain separately pending.
 - Remaining criteria: **161 Pending** (805 points not yet earned).
-- Official project percentage: **19.5% evidence-backed minimum**; this remains a partial criterion audit, not a claim that only 11.0% of code exists. The six recently closed criteria are supported by exact-head negative-test CI, friend-only free chat/free-by-default route audit, username-only privacy regressions, OTP digest/expiry/rate-limit and purpose-binding tests, and encrypted owner-controlled SMS credential tests. Provider deployment portability, NFR target approval, physical VPN/device acceptance, owner-approved retention and DR acceptance remain open.
+- **Official project percentage: 32.5% (325/1,000 points; 65/200 criteria).** This is the evidence-backed WBS score calculated from the phase roll-up immediately below; it is not a claim that all implementation or release acceptance is complete. Pending provider deployment portability, NFR target approval, physical VPN/device acceptance, owner-approved retention and application-level disaster recovery remain open.
 
 ## Required evidence record
 
