@@ -1457,11 +1457,25 @@ test('registered players can join an online match and history does not expose op
     headers: auth(occupiedRoomGuest.token),
   });
   assert.equal(occupiedRoomJoin.statusCode, 200, occupiedRoomJoin.body);
-  await testPool.query(
-    `UPDATE backgammon_matches SET expires_at = NOW() - INTERVAL '1 second'
-      WHERE id = $1 AND status = 'waiting' AND guest_user_id IS NOT NULL`,
+  const occupiedExpiry = await testPool.query(
+    'SELECT expires_at FROM backgammon_matches WHERE id = $1',
     [occupiedRoomId],
   );
+  assert.equal(occupiedExpiry.rows[0].expires_at, null,
+    'A waiting room becomes non-expiring as soon as its second player joins.');
+  const occupiedRoomDetails = await app.inject({
+    method: 'GET',
+    url: `/api/v1/matches/${occupiedRoomId}`,
+    headers: auth(occupiedRoomHost.token),
+  });
+  assert.equal(occupiedRoomDetails.statusCode, 200, occupiedRoomDetails.body);
+  const occupiedHostReady = await app.inject({
+    method: 'POST',
+    url: `/api/v1/matches/${occupiedRoomId}/setup`,
+    headers: auth(occupiedRoomHost.token),
+    payload: { ready: true },
+  });
+  assert.equal(occupiedHostReady.statusCode, 200, occupiedHostReady.body);
 
   const cleanupWithoutTrigger = await app.inject({
     method: 'POST',
@@ -1491,7 +1505,7 @@ test('registered players can join an online match and history does not expose op
     'A waiting room with a guest must not be deleted by the empty-room cleanup.');
   assert.equal(occupiedRoomAfterCleanup.rows[0].status, 'waiting');
   assert.equal(occupiedRoomAfterCleanup.rows[0].guest_user_id, occupiedRoomGuest.user.id);
-  assert.equal(occupiedRoomAfterCleanup.rows[0].expired, true);
+  assert.equal(occupiedRoomAfterCleanup.rows[0].expired, null);
   const emptyRoomId = String(emptyRoomToClose.json().match.id);
   const guestCannotCloseHostRoom = await app.inject({
     method: 'DELETE',

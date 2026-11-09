@@ -635,11 +635,13 @@ await pool.query(`
     turn_started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    expires_at TIMESTAMPTZ NOT NULL DEFAULT (NOW() + INTERVAL '60 seconds'),
+    expires_at TIMESTAMPTZ DEFAULT (NOW() + INTERVAL '60 seconds'),
     CHECK (guest_user_id IS NULL OR guest_user_id <> host_user_id)
   );
   ALTER TABLE backgammon_matches ADD COLUMN IF NOT EXISTS board_state JSONB NOT NULL DEFAULT '${JSON.stringify(INITIAL_BACKGAMMON_BOARD)}'::jsonb;
   ALTER TABLE backgammon_matches ALTER COLUMN expires_at SET DEFAULT (NOW() + INTERVAL '60 seconds');
+  ALTER TABLE backgammon_matches ALTER COLUMN expires_at DROP NOT NULL;
+  UPDATE backgammon_matches SET expires_at = NULL WHERE status = 'waiting' AND guest_user_id IS NOT NULL AND expires_at IS NOT NULL;
   ALTER TABLE backgammon_matches ADD COLUMN IF NOT EXISTS current_turn_user_id BIGINT REFERENCES users(id) ON DELETE SET NULL;
   ALTER TABLE backgammon_matches ADD COLUMN IF NOT EXISTS bar_state JSONB NOT NULL DEFAULT '{"host":0,"guest":0}'::jsonb;
   ALTER TABLE backgammon_matches ADD COLUMN IF NOT EXISTS off_state JSONB NOT NULL DEFAULT '{"host":0,"guest":0}'::jsonb;
@@ -4655,7 +4657,7 @@ app.post<{ Params: { id: string } }>('/api/v1/matches/:id/join', { onRequest: [r
       `UPDATE backgammon_matches SET guest_user_id = $1, status = 'waiting',
               guest_settings_accepted = FALSE, host_ready = FALSE, guest_ready = FALSE,
               cancellation_proposed_by = NULL, cancellation_accepted_by = NULL,
-              expires_at = NOW() + INTERVAL '30 minutes', updated_at = NOW()
+              expires_at = NULL, updated_at = NOW()
          WHERE id = $2`,
       [claims.sub, match.id],
     );
@@ -4715,7 +4717,8 @@ app.get<{ Params: { id: string } }>('/api/v1/matches/:id', { onRequest: [require
               OR (h.host_user_id = m.guest_user_id AND h.guest_user_id = m.host_user_id))
        ) h2h ON TRUE
        LEFT JOIN users guest ON guest.id = m.guest_user_id
-      WHERE m.id = $1 AND (m.host_user_id = $2 OR m.guest_user_id = $2) AND m.expires_at > NOW()`,
+      WHERE m.id = $1 AND (m.host_user_id = $2 OR m.guest_user_id = $2)
+         AND (m.expires_at > NOW() OR (m.status = 'waiting' AND m.guest_user_id IS NOT NULL AND m.expires_at IS NULL))`,
     [request.params.id, claims.sub]);
   if (!result.rowCount) return reply.code(404).send({ error: 'Match not found.' });
   return { match: result.rows[0] };
@@ -4894,7 +4897,7 @@ app.post<{ Params: { id: string }; Body: { accept: boolean } }>(
       await client.query(
         `UPDATE backgammon_matches SET guest_user_id = $1, guest_settings_accepted = FALSE,
            host_ready = FALSE, guest_ready = FALSE, cancellation_proposed_by = NULL,
-           cancellation_accepted_by = NULL, expires_at = NOW() + INTERVAL '30 minutes',
+           cancellation_accepted_by = NULL, expires_at = NULL,
            updated_at = NOW() WHERE id = $2`,
         [claims.sub, invite.match_id]);
       await client.query(
@@ -4937,7 +4940,9 @@ app.post<{ Params: { id: string }; Body: { matchToWin?: number; acceptSettings?:
       const found = await client.query(
         `SELECT id, host_user_id, guest_user_id, status, match_to_win,
                 host_settings_accepted, guest_settings_accepted, host_ready, guest_ready
-           FROM backgammon_matches WHERE id = $1 AND expires_at > NOW() FOR UPDATE`,
+           FROM backgammon_matches WHERE id = $1
+              AND (expires_at > NOW() OR (status = 'waiting' AND guest_user_id IS NOT NULL AND expires_at IS NULL))
+          FOR UPDATE`,
         [request.params.id]);
       const m = found.rows[0] as any;
       if (!m || ![m.host_user_id, m.guest_user_id].includes(claims.sub) || !m.guest_user_id) {
@@ -5026,7 +5031,9 @@ app.post<{ Params: { id: string }; Body: { accept: boolean } }>(
       await client.query('BEGIN');
       const found = await client.query(
         `SELECT id, host_user_id, guest_user_id, status, cancellation_proposed_by, cancellation_accepted_by
-           FROM backgammon_matches WHERE id = $1 AND expires_at > NOW() FOR UPDATE`,
+           FROM backgammon_matches WHERE id = $1
+              AND (expires_at > NOW() OR (status = 'waiting' AND guest_user_id IS NOT NULL AND expires_at IS NULL))
+          FOR UPDATE`,
         [request.params.id]);
       const m = found.rows[0] as any;
       if (!m || ![m.host_user_id, m.guest_user_id].includes(claims.sub) || !m.guest_user_id) {
