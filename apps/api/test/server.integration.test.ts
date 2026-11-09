@@ -4090,6 +4090,7 @@ test('owner-managed profile customization pricing charges atomically and keeps t
   const previousOwnerId = process.env.OWNER_USER_ID;
   const owner = await register('Customization Pricing Owner');
   const user = await register('Customization Pricing User');
+  const other = await register('Customization Username Collision');
   process.env.OWNER_USER_ID = owner.user.id;
 
   try {
@@ -4142,6 +4143,24 @@ test('owner-managed profile customization pricing charges atomically and keeps t
     assert.equal(secondAvatar.statusCode, 200, secondAvatar.body);
     assert.equal(secondAvatar.json().chargedCredits, 40);
 
+    const tooShortUsername = await app.inject({
+      method: 'PATCH', url: '/api/v1/me/username', headers: auth(user.token),
+      payload: { username: 'ab' },
+    });
+    assert.equal(tooShortUsername.statusCode, 400);
+
+    const invalidCharacterUsername = await app.inject({
+      method: 'PATCH', url: '/api/v1/me/username', headers: auth(user.token),
+      payload: { username: 'not a valid name' },
+    });
+    assert.equal(invalidCharacterUsername.statusCode, 400);
+
+    const duplicateUsername = await app.inject({
+      method: 'PATCH', url: '/api/v1/me/username', headers: auth(user.token),
+      payload: { username: other.user.username },
+    });
+    assert.equal(duplicateUsername.statusCode, 409,
+      'A username already owned by another account must not be assigned.');
     const renamed = await app.inject({
       method: 'PATCH', url: '/api/v1/me/username', headers: auth(user.token),
       payload: { username: 'priced_player' },
