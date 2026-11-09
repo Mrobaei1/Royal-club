@@ -924,6 +924,16 @@ test('registered players can join an online match and history does not expose op
   assert.equal(batchMove.json().state.board[0], 1);
   assert.deepEqual(batchMove.json().state.remainingDice, []);
   assert.equal(String(batchMove.json().state.currentTurnUserId), String(guest.user.id));
+
+  const sequentialReplay = await app.inject({
+    method: 'POST',
+    url: `/api/v1/matches/${matchId}/moves/batch`,
+    headers: auth(host.token),
+    payload: batchMovePayload,
+  });
+  assert.equal(sequentialReplay.statusCode, 409,
+    'Replaying the already-committed batch with its stale expectedVersion must be rejected.');
+
   const afterBatchClock = await testPool.query(
     'SELECT turn_started_at > $2::timestamptz AS advanced FROM backgammon_matches WHERE id = $1',
     [matchId, beforeBatchClock.rows[0].turn_started_at],
