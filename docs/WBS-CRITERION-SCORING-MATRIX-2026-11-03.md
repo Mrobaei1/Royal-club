@@ -93,7 +93,7 @@
 | 3.4-B | Cumulative dice | 5 | Passed | API integration applies a two-die 2+3 batch atomically, asserts both moves and final board, consumes all remaining dice and advances the turn clock only after the full sequence. PR #204 API integration [42475968379](https://github.com/Mrobaei1/Royal-club/actions/runs/42475968379) passed. |
 | 3.4-C | Bar entry/turn integrity | 5 | Passed | API and Flutter engine tests verify mandatory and correct-side bar entry, blocked-entry rejection, bar-first move enforcement, turn completion and clock integrity; exact-head PR #204 API/Flutter/backgammon runs [42475968379](https://github.com/Mrobaei1/Royal-club/actions/runs/42475968379), [42475968332](https://github.com/Mrobaei1/Royal-club/actions/runs/42475968332), [42475968383](https://github.com/Mrobaei1/Royal-club/actions/runs/42475968383) passed. |
 | 3.4-D | Reconnect canonical resync | 5 | Passed | Disconnect integration tests verify heartbeat reconnect clears AI takeover, the overdue AI turn is committed before human control returns, and the returning player can issue a legal command against the restored authoritative state. Separate network-change integration verifies the same account recovers the identical active board. PR #204 API integration [42475968379](https://github.com/Mrobaei1/Royal-club/actions/runs/42475968379) passed. |
-| 3.4-E | Duplicate/tampered/racing move protection | 5 | Pending | Not audited |
+| 3.4-E | Duplicate/tampered/racing move protection | 5 | Passed | Exact-head PR #229 (`5a24363c3045d28f97f58a1137807cd5bc1fe695`) API integration test races two identical batch move submissions with the same expected state version and asserts exactly one 200 and one 409. Existing server integration also rejects corrupt persisted board state, stale/duplicate winning moves, and ensures replay cannot award duplicate XP. PR #229 API integration, API build/tests, Flutter analyze/tests and backgammon audit all passed before merge. |
 | 3.5-A | Heartbeat/presence | 5 | Passed | Backgammon disconnect integration tests create participant presence records and verify authenticated heartbeats keep the active match lease alive. PR #67 exact-head API integration [41176915070](https://github.com/Mrobaei1/Royal-club/actions/runs/41176915070) and current-main PR #204 API integration [42475968379](https://github.com/Mrobaei1/Royal-club/actions/runs/42475968379) passed. |
 | 3.5-B | Lease/grace period | 5 | Passed | Tests verify a fresh heartbeat delays takeover, a 30-second stale heartbeat crosses the configured 18-second default grace, and active heartbeat extends the match lease. PR #67 API integration [41176915070](https://github.com/Mrobaei1/Royal-club/actions/runs/41176915070) and PR #204 API integration [42475968379](https://github.com/Mrobaei1/Royal-club/actions/runs/42475968379) passed. |
 | 3.5-C | Temporary AI legal turn | 5 | Passed | Unit/integration tests verify legal maximum-dice AI turns, bar-entry priority, blocked-entry pass, higher-die rule, guest direction, corrupt-state refusal and one-time turn completion. PR #67 exact-head backgammon/API checks [41176915022](https://github.com/Mrobaei1/Royal-club/actions/runs/41176915022) and [41176915070](https://github.com/Mrobaei1/Royal-club/actions/runs/41176915070) passed. |
@@ -150,11 +150,11 @@
 |---|---|---:|---:|---|
 | 5.1-A | Non-transferable credits | 5 | Pending | Not audited |
 | 5.1-B | Auditable ledger | 5 | Pending | Not audited |
-| 5.1-C | Atomic balance | 5 | Pending | Not audited |
+| 5.1-C | Atomic balance | 5 | Passed | Exact-head PR #231 (`d0853b4087606b12d46d9a6e2e251a37436d1b77`) disposable-PostgreSQL integration test issues two simultaneous 300-credit purchases against a 300-credit balance; asserts one 200/one 409, zero final balance, exactly one -300 ledger debit and balance_after=0. API integration, API build/tests, Flutter analyze/tests and backgammon audit passed before merge. |
 | 5.1-D | Idempotent concurrency | 5 | Pending | Not audited |
 | 5.1-E | Owner adjustments | 5 | Pending | Not audited |
 | 5.2-A | Manager plans | 5 | Passed | PR #192 exact head `02dac555352ea0d70e391168272a24cc44c66299`; owner step-up protected create-plan API/UI; API integration run `42230679256`, API build/tests and Flutter analyze/tests run `42230679251` (2026-11-07). |
-| 5.2-B | Transactional activation | 5 | Pending | Not audited |
+| 5.2-B | Transactional activation | 5 | Passed | Exact-head PR #231 (`d0853b4087606b12d46d9a6e2e251a37436d1b77`) disposable-PostgreSQL integration test asserts only the winning concurrent purchase creates one active subscription; rejected purchase creates no second subscription. API integration, API build/tests, Flutter analyze/tests and backgammon audit passed before merge. |
 | 5.2-C | Expiry/removal | 5 | Pending | Not audited |
 | 5.2-D | Server-controlled prices | 5 | Pending | Not audited |
 | 5.3-A | XP policy | 5 | Pending | Not audited |
@@ -252,9 +252,9 @@
 - Packages decomposed: **53/53**
 - Acceptance criteria: **200**
 - Points represented: **1000/1,000**
-- Earned points currently evidenced: **325/1,000 (32.5%)** — 195 previous points plus 130 points across 26 verified Phase 3 criteria: all nine rules-engine criteria, shared board/checker geometry, online lifecycle and server-authoritative move criteria, disconnect/temporary-AI criteria, and game/match resignation scopes. Evidence is linked criterion-by-criterion below. Visual-owner, device, two-device field acceptance and Production gates remain separately pending.
-- Remaining criteria: **161 Pending** (805 points not yet earned).
-- **Official project percentage: 32.5% (325/1,000 points; 65/200 criteria).** This is the evidence-backed WBS score calculated from the phase roll-up immediately below; it is not a claim that all implementation or release acceptance is complete. Pending provider deployment portability, NFR target approval, physical VPN/device acceptance, owner-approved retention and application-level disaster recovery remain open.
+- Earned points currently evidenced: **340/1,000 (34.0%)** — 195 previous points plus 135 points across 27 verified Phase 3 criteria and 15 points across three verified Phase 5 criteria. Newly verified: concurrent duplicate/tampered/racing online move protection (3.4-E), atomic wallet balance (5.1-C), and transactional subscription activation (5.2-B). Evidence is linked criterion-by-criterion below. Visual-owner, device, two-device field acceptance and Production gates remain separately pending.
+- Remaining criteria: **132 Pending** (660 points not yet earned).
+- **Official project percentage: 34.0% (340/1,000 points; 68/200 criteria).** This is the evidence-backed WBS score calculated from the phase roll-up immediately below; it is not a claim that all implementation or release acceptance is complete. Pending provider deployment portability, NFR target approval, physical VPN/device acceptance, owner-approved retention and application-level disaster recovery remain open.
 
 ## Required evidence record
 
@@ -274,12 +274,12 @@ The following percentages are calculated directly from the 200 criterion rows in
 | --- | ---: | ---: | ---: | ---: |
 | Phase 1 — Architecture and project management | 80 | 11/16 | 55 | 68.75% |
 | Phase 2 | 130 | 22/26 | 110 | 84.62% |
-| Phase 3 | 230 | 26/46 | 130 | 56.52% |
+| Phase 3 | 230 | 27/46 | 135 | 58.70% |
 | Phase 4 | 120 | 0/24 | 0 | 0.00% |
-| Phase 5 | 140 | 1/28 | 5 | 3.57% |
+| Phase 5 | 140 | 3/28 | 15 | 10.71% |
 | Phase 6 | 140 | 0/28 | 0 | 0.00% |
 | Phase 7 | 160 | 5/32 | 25 | 15.63% |
-| **Total** | **1,000** | **65/200** | **325** | **32.50%** |
+| **Total** | **1,000** | **68/200** | **340** | **34.00%** |
 
 
 
