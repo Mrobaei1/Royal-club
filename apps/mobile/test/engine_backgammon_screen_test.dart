@@ -250,4 +250,69 @@ void main() {
   });
 
 
+  testWidgets('leaving and reopening offline training creates a fresh local game',
+      (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final engines = <BackgammonEngine>[];
+    await tester.pumpWidget(MaterialApp(
+      locale: const Locale('en'),
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
+      supportedLocales: const [Locale('fa'), Locale('en')],
+      home: Builder(
+        builder: (context) => Scaffold(
+          body: Center(
+            child: TextButton(
+              onPressed: () {
+                final engine = BackgammonEngine();
+                engines.add(engine);
+                Navigator.of(context).push(MaterialPageRoute<void>(
+                  builder: (_) => EngineBackgammonScreen(
+                    engineForTesting: engine,
+                    vsComputerForTesting: false,
+                  ),
+                ));
+              },
+              child: const Text('Open training'),
+            ),
+          ),
+        ),
+      ),
+    ));
+
+    await tester.tap(find.text('Open training'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Offline vs AI'));
+    await tester.pumpAndSettle();
+
+    final firstEngine = engines.single;
+    firstEngine.points.fillRange(0, 24, 0);
+    firstEngine.points[5] = 1;
+    firstEngine.bar[0] = 1;
+    firstEngine.borneOff[1] = 1;
+    await tester.pump();
+
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    expect(find.text('Open training'), findsOneWidget);
+
+    await tester.tap(find.text('Open training'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Offline vs AI'));
+    await tester.pumpAndSettle();
+
+    expect(engines, hasLength(2));
+    final reopenedEngine = engines.last;
+    final initialEngine = BackgammonEngine();
+    expect(reopenedEngine.points, initialEngine.points);
+    expect(reopenedEngine.bar, initialEngine.bar);
+    expect(reopenedEngine.borneOff, initialEngine.borneOff);
+    expect(reopenedEngine.dice, isEmpty);
+    expect(reopenedEngine.finished, isFalse);
+    expect(reopenedEngine.winner, isNull);
+  });
+
 }
