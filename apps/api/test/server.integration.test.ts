@@ -1526,6 +1526,84 @@ test('registered players can join an online match and history does not expose op
 });
 
 
+test('wallet credits are non-transferable and owner adjustments require step-up with an audit ledger', async () => {
+  const previousOwnerId = process.env.OWNER_USER_ID;
+  const owner = await register('Wallet Adjustment Owner');
+  const sender = await register('Wallet Transfer Attempt Sender');
+  const recipient = await register('Wallet Adjustment Recipient');
+  process.env.OWNER_USER_ID = owner.user.id;
+
+  try {
+    await testPool.query(
+      'INSERT INTO wallet_accounts (user_id, balance) VALUES ($1, 100), ($2, 0) ON CONFLICT (user_id) DO UPDATE SET balance = EXCLUDED.balance',
+      [sender.user.id, recipient.user.id],
+    );
+
+    const transferAttempt = await app.inject({
+      method: 'POST',
+      url: '/api/v1/wallet/transfer',
+      headers: auth(sender.token),
+      payload: { recipientUserId: recipient.user.id, amount: 25 },
+    });
+    assert.equal(transferAttempt.statusCode, 404,
+      'There must be no user-to-user wallet transfer endpoint.');
+
+    const afterTransferAttempt = await testPool.query(
+      'SELECT user_id::text, balance FROM wallet_accounts WHERE user_id = ANY($1::bigint[])',
+      [[sender.user.id, recipient.user.id]],
+    );
+    assert.equal(Number(afterTransferAttempt.rows.find((row) => row.user_id === sender.user.id)?.balance), 100);
+    assert.equal(Number(afterTransferAttempt.rows.find((row) => row.user_id === recipient.user.id)?.balance), 0);
+    const transferLedger = await testPool.query(
+      'SELECT id FROM wallet_transactions WHERE user_id = ANY($1::bigint[])',
+      [[sender.user.id, recipient.user.id]],
+    );
+    assert.equal(transferLedger.rows.length, 0);
+
+    const ownerCreditWithoutStepUp = await app.inject({
+      method: 'POST',
+      url: '/api/v1/admin/wallet/credit',
+      headers: auth(owner.token),
+      payload: { userId: recipient.user.id, amount: 75, description: 'Owner-approved test credit' },
+    });
+    assert.equal(ownerCreditWithoutStepUp.statusCode, 403,
+      'Owner wallet adjustments must require a fresh step-up token.');
+
+    const stepUp = await app.inject({
+      method: 'POST',
+      url: '/api/v1/admin/step-up',
+      headers: auth(owner.token),
+      payload: { password: 'IntegrationPass123!' },
+    });
+    assert.equal(stepUp.statusCode, 200, stepUp.body);
+
+    const ownerCredit = await app.inject({
+      method: 'POST',
+      url: '/api/v1/admin/wallet/credit',
+      headers: {
+        ...auth(owner.token),
+        'x-owner-step-up': stepUp.json().stepUpToken,
+      },
+      payload: { userId: recipient.user.id, amount: 75, description: 'Owner-approved test credit' },
+    });
+    assert.equal(ownerCredit.statusCode, 200, ownerCredit.body);
+    assert.equal(ownerCredit.json().credited, 75);
+    assert.equal(ownerCredit.json().balance, 75);
+
+    const ledger = await testPool.query(
+      "SELECT amount, balance_after, type, description FROM wallet_transactions WHERE user_id = $1 ORDER BY id",
+      [recipient.user.id],
+    );
+    assert.deepEqual(
+      ledger.rows.map((row) => [Number(row.amount), Number(row.balance_after), row.type, row.description]),
+      [[75, 75, 'admin_credit', 'Owner-approved test credit']],
+    );
+  } finally {
+    if (previousOwnerId === undefined) delete process.env.OWNER_USER_ID;
+    else process.env.OWNER_USER_ID = previousOwnerId;
+  }
+});
+
 test('subscription purchases debit the wallet atomically and record a ledger entry', async () => {
   const buyer = await register('Subscription Buyer');
   const adminStatus = await app.inject({
