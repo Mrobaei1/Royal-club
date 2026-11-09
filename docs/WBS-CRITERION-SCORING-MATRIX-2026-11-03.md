@@ -130,26 +130,26 @@
 | 4.2-E | Edit/delete; no calls; voice disabled | 5 | Passed | Exact-head PR #237 (`7f4d8e8786d501cc3314f5ce3f6c64b31efa6ccc`) verifies only the original sender can edit a message, delete-for-both replaces the content for both participants, delete-for-me hides only the requesting participant's copy, and unrelated accounts cannot edit/delete another pair's messages. API integration, API build/tests, Flutter analyze/tests and web preview checks passed before merge (`253a3bc44dc2a0bb0128acc91beb4db767cbe589`). Source audit of `apps/mobile/lib/chat_screen.dart`, `apps/mobile/pubspec.yaml`, API routes and current dependency/file inventory confirms no live voice/video call, microphone, WebRTC, TURN or media-signalling feature; chat exposes text/image/emoji only and future voice messages remain disabled/deferred. |
 | 4.3-A | Recipient targeting | 5 | Passed | Exact-head PR #230 verifies friend-request notifications are visible to the intended recipient, unrelated system notifications remain scoped to their own account, and an unrelated user's inbox does not expose another recipient's rows. API integration and all other exact-head checks passed before merge (`7feee98b6ef9307379040a94d60d4c1f3e677afb`). |
 | 4.3-B | Localized read/unread lifecycle | 5 | Passed | API integration verifies per-notification read handling and account-scoped read-all behavior without mutating another user's rows. `apps/mobile/lib/notifications_screen.dart` renders unread/read states, unread count, Persian/English actions, directionality and localized title/body; `apps/mobile/test/notifications_localization_test.dart` verifies friend-request, friend-accepted and match-invite translations. Exact-head PR #230 Flutter/API integration checks passed before merge. |
-| 4.3-C | Clear-all isolation and Android acceptance | 5 | Pending | Not audited |
-| 4.4-A | Host permission | 5 | Pending | Not audited |
-| 4.4-B | Friend/follower and active-match eligibility | 5 | Pending | Not audited |
-| 4.4-C | Finished restriction/no replay | 5 | Pending | Not audited |
-| 4.5-A | Username-only public identity | 5 | Pending | Not audited |
-| 4.5-B | Legacy/empty profile audit | 5 | Pending | Not audited |
-| 4.5-C | No private identity leak/regression | 5 | Pending | Not audited |
-| 4.6-A | Avatar rules | 5 | Pending | Not audited |
-| 4.6-B | Username edit policy | 5 | Pending | Not audited |
-| 4.6-C | Private account details | 5 | Pending | Not audited |
-| 4.7-A | Persian RTL | 5 | Pending | Not audited |
-| 4.7-B | English LTR | 5 | Pending | Not audited |
-| 4.7-C | Themes/layout/accessibility device test | 5 | Pending | Not audited |
+| 4.3-C | Clear-all isolation and Android acceptance | 5 | Pending | API clear-all isolation is covered: clearing one account leaves another account's notifications intact. Physical Android notification-screen acceptance is not evidenced yet and remains required before this criterion can pass. PR #230 exact-head integration [PR #230 exact-head API integration 42569680272](https://github.com/Mrobaei1/Royal-club/actions/runs/42569680272) passed. |
+| 4.4-A | Host permission | 5 | Passed | Integration verifies the host explicitly enables/disables spectators; after disabling, the spectator snapshot is denied. PR #230 merged; [PR #230 exact-head API integration 42569680272](https://github.com/Mrobaei1/Royal-club/actions/runs/42569680272) passed. (2026-11-09) |
+| 4.4-B | Friend/follower and active-match eligibility | 5 | Passed | A non-friend cannot see the live match; after accepted friendship, the same user can see the active match and read its spectator snapshot. PR #230 merged; [PR #230 exact-head API integration 42569680272](https://github.com/Mrobaei1/Royal-club/actions/runs/42569680272) passed. (2026-11-09) |
+| 4.4-C | Finished restriction/no replay | 5 | Passed | Spectators cannot submit game moves; after the match is marked finished, the spectator snapshot returns 404 and the match is not replayable through the spectator route. PR #230 merged; [PR #230 exact-head API integration 42569680272](https://github.com/Mrobaei1/Royal-club/actions/runs/42569680272) passed. (2026-11-09) |
+| 4.5-A | Username-only public identity | 5 | Passed | Exact-head integration asserts username-only projections in user search, friend lists, chat conversations, spectator snapshots, match history and leaderboard; full names/private email are absent. PR #230 merged; [PR #230 exact-head API integration 42569680272](https://github.com/Mrobaei1/Royal-club/actions/runs/42569680272) passed. PR #240 extends safe public labels to online lobby/match/spectator screens. (2026-11-09) |
+| 4.5-B | Legacy/empty profile audit | 5 | Passed | Shared public-identity helper and Flutter regressions cover null, empty, whitespace and non-string legacy usernames with neutral localized fallback across Friends, Chat, Leaderboard and Hokm. PR #218 merged; exact-head Flutter run [42487475637](https://github.com/Mrobaei1/Royal-club/actions/runs/42487475637) passed. PR #240 applies the same fallback to online lobby, online match and spectator screens; exact-head Flutter run [42570901549](https://github.com/Mrobaei1/Royal-club/actions/runs/42570901549) passed. (2026-11-09) |
+| 4.5-C | No private identity leak/regression | 5 | Passed | JWT-subject self-profile isolation plus public search/friend/chat/spectator/history/leaderboard assertions prevent full name, email and phone leakage. PR #214 API run [42486935392](https://github.com/Mrobaei1/Royal-club/actions/runs/42486935392) and PR #230 [PR #230 exact-head API integration 42569680272](https://github.com/Mrobaei1/Royal-club/actions/runs/42569680272) passed; PR #240 preserves username-only public labels in lobby and match surfaces. (2026-11-09) |
+| 4.6-A | Avatar rules | 5 | Passed | API rejects MIME spoofing, malformed and over-650-KiB images; accepts valid PNG, supports clearing, keeps first avatar free and applies owner-configured subsequent pricing with ledger entries. PR #230 [PR #230 exact-head API integration 42569680272](https://github.com/Mrobaei1/Royal-club/actions/runs/42569680272) passed. (2026-11-09) |
+| 4.6-B | Username edit policy | 5 | Passed | API validates username format/reserved owner identity; integration verifies owner-managed change price, successful rename, unchanged-name zero charge and ledger debit. PR #230 [PR #230 exact-head API integration 42569680272](https://github.com/Mrobaei1/Royal-club/actions/runs/42569680272) passed; PR #242 adds explicit short/invalid/duplicate boundary regressions, pending updated CI and merge. (2026-11-09) |
+| 4.6-C | Private account details | 5 | Passed | Self-profile returns private fields only for the authenticated JWT subject; public/social projections omit another user's email/full name/phone. PR #230 [PR #230 exact-head API integration 42569680272](https://github.com/Mrobaei1/Royal-club/actions/runs/42569680272) passed. (2026-11-09) |
+| 4.7-A | Persian RTL | 5 | Passed | Static UI audit includes Friends, Chat, Notifications and Leaderboard; localization widget test asserts Persian RTL. Owner-confirmed Persian RTL Android check recorded 2026-11-04; exact Flutter validation [run 42487826939](https://github.com/Mrobaei1/Royal-club/actions/runs/42487826939) passed. (2026-11-09) |
+| 4.7-B | English LTR | 5 | Passed | Static UI audit includes social screens; localization widget test asserts English LTR. Owner-confirmed English LTR Android check recorded 2026-11-04; exact Flutter validation [run 42487826939](https://github.com/Mrobaei1/Royal-club/actions/runs/42487826939) passed. (2026-11-09) |
+| 4.7-C | Themes/layout/accessibility device test | 5 | Pending | Bilingual source and widget coverage exists, but a dedicated real-device matrix for themes, layout overflow and accessibility has not been recorded. Keep pending until device acceptance is supplied. |
 
 ### 5.0 Wallet, progression, leagues
 
 | WBS criterion | Acceptance criterion | Points | Score | Evidence |
 |---|---|---:|---:|---|
 | 5.1-A | Non-transferable credits | 5 | Pending | Not audited |
-| 5.1-B | Auditable ledger | 5 | Pending | Not audited |
+| 5.1-B | Auditable ledger | 5 | Passed | Wallet history exposes transaction ID, amount, balance-after, type, description and timestamp; subscription purchase tests verify exact debit and resulting balance, while concurrent purchase tests assert exactly one ledger debit. Exact-head API integration: PR #231 [run 42569482558](https://github.com/Mrobaei1/Royal-club/actions/runs/42569482558) and PR #230 [run 42569680272](https://github.com/Mrobaei1/Royal-club/actions/runs/42569680272) passed. (2026-11-09) |
 | 5.1-C | Atomic balance | 5 | Passed | Exact-head PR #231 (`d0853b4087606b12d46d9a6e2e251a37436d1b77`) disposable-PostgreSQL integration test issues two simultaneous 300-credit purchases against a 300-credit balance; asserts one 200/one 409, zero final balance, exactly one -300 ledger debit and balance_after=0. API integration, API build/tests, Flutter analyze/tests and backgammon audit passed before merge. |
 | 5.1-D | Idempotent concurrency | 5 | Pending | Not audited |
 | 5.1-E | Owner adjustments | 5 | Pending | Not audited |
@@ -169,9 +169,9 @@
 | 5.4-E | Appeals/incidents/reschedule | 5 | Pending | Not audited |
 | 5.4-F | Audit history | 5 | Pending | Not audited |
 | 5.4-G | Manager UI acceptance | 5 | Pending | Not audited |
-| 5.5-A | Free-by-default entry | 5 | Pending | Not audited |
-| 5.5-B | Dedicated entitlement ledger | 5 | Pending | Not audited |
-| 5.5-C | Exactly-once/no wallet debit | 5 | Pending | Not audited |
+| 5.5-A | Free-by-default entry | 5 | Passed | Owner-created league defaults to `entryMode=free` and `subscriptionDaysCost=0`; integration confirms free entry succeeds and wallet balance remains unchanged. PR #230 exact-head API integration [run 42569680272](https://github.com/Mrobaei1/Royal-club/actions/runs/42569680272) passed. (2026-11-09) |
+| 5.5-B | Dedicated entitlement ledger | 5 | Passed | Subscription-day league entry records one dedicated `league_entitlement_ledger` row with the exact days consumed and before/after subscription expiry. PR #230 exact-head API integration [run 42569680272](https://github.com/Mrobaei1/Royal-club/actions/runs/42569680272) passed. (2026-11-09) |
+| 5.5-C | Exactly-once/no wallet debit | 5 | Passed | Concurrent entries with separate idempotency keys return one created entry and one already-entered result; exactly one entitlement-ledger row is written and wallet balance remains unchanged. PR #230 exact-head API integration [run 42569680272](https://github.com/Mrobaei1/Royal-club/actions/runs/42569680272) passed. (2026-11-09) |
 | 5.6-A | Owner monetization control/audit | 5 | Pending | Not audited |
 | 5.6-B | Paid behavior disabled absent approval | 5 | Pending | Not audited |
 | 5.7-A | Persian/English manager UI | 5 | Pending | Not audited |
@@ -252,9 +252,9 @@
 - Packages decomposed: **53/53**
 - Acceptance criteria: **200**
 - Points represented: **1000/1,000**
-- Earned points currently evidenced: **400/1,000 (40.0%)** — 195 previous points plus 140 points across 28 verified Phase 3 criteria, 55 points across eleven verified Phase 4 criteria, and 15 points across three verified Phase 5 criteria. Newly verified in Phase 4: username privacy, friend-request lifecycle, removal/race handling, 100-friend cap, private-chat audience authorization, text and image delivery, Unicode emoji round-trip, message edit/delete ownership and notification recipient targeting; live calls and voice messaging remain excluded/disabled. Evidence is linked criterion-by-criterion below. Visual-owner, device, two-device field acceptance and Production gates remain separately pending.
-- Remaining criteria: **120 Pending** (600 points not yet earned).
-- **Official project percentage: 40.0% (400/1,000 points; 80/200 criteria).** This is the evidence-backed WBS score calculated from the phase roll-up immediately below; it is not a claim that all implementation or release acceptance is complete. Pending provider deployment portability, NFR target approval, physical VPN/device acceptance, owner-approved retention and application-level disaster recovery remain open.
+- Earned points currently evidenced: **475/1,000 (47.5%)** — 190 points across Phases 1, 2 and 7, 140 points across 28 verified Phase 3 criteria, 110 points across 22 verified Phase 4 criteria, and 35 points across seven verified Phase 5 criteria. Evidence is linked criterion-by-criterion below. Remaining gates include subscription purchase idempotency, wallet non-transferability/owner adjustments/server-price proof, Android notification acceptance, social theme/layout/accessibility device acceptance, and two-device/Production release gates.
+- Remaining criteria: **105 Pending** (525 points not yet earned).
+- **Official project percentage: 47.5% (475/1,000 points; 95/200 criteria).** This is the evidence-backed WBS score calculated from the phase roll-up immediately below; it is not a claim that all implementation or release acceptance is complete. Pending subscription purchase idempotency, wallet non-transferability/owner adjustments/server-price proof, Android notification acceptance, social theme/layout/accessibility device acceptance, provider deployment portability, NFR target approval, physical VPN/device acceptance, owner-approved retention and application-level disaster recovery remain open.
 
 ## Required evidence record
 
@@ -275,11 +275,11 @@ The following percentages are calculated directly from the 200 criterion rows in
 | Phase 1 — Architecture and project management | 80 | 11/16 | 55 | 68.75% |
 | Phase 2 | 130 | 22/26 | 110 | 84.62% |
 | Phase 3 | 230 | 28/46 | 140 | 60.87% |
-| Phase 4 | 120 | 11/24 | 55 | 45.83% |
-| Phase 5 | 140 | 3/28 | 15 | 10.71% |
+| Phase 4 | 120 | 22/24 | 110 | 91.67% |
+| Phase 5 | 140 | 7/28 | 35 | 25.00% |
 | Phase 6 | 140 | 0/28 | 0 | 0.00% |
 | Phase 7 | 160 | 5/32 | 25 | 15.63% |
-| **Total** | **1,000** | **80/200** | **400** | **40.00%** |
+| **Total** | **1,000** | **95/200** | **475** | **47.50%** |
 
 
 
