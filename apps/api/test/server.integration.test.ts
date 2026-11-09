@@ -3533,6 +3533,22 @@ test('self-profile and private-chat APIs reject cross-account access and identit
   assert.equal(sent.statusCode, 201, sent.body);
   const messageId = String(sent.json().message.id);
 
+  const emojiText = 'سلام 👋 😀 ❤️ 🎲';
+  const emojiMessage = await app.inject({
+    method: 'POST',
+    url: `/api/v1/chat/${recipient.user.id}/messages`,
+    headers: auth(sender.token),
+    payload: { body: emojiText },
+  });
+  assert.equal(emojiMessage.statusCode, 201, emojiMessage.body);
+  const emojiHistory = await app.inject({
+    method: 'GET',
+    url: `/api/v1/chat/${recipient.user.id}/messages`,
+    headers: auth(sender.token),
+  });
+  assert.ok(emojiHistory.json().messages.some((message: { body: string }) => message.body === emojiText),
+    'Supported Unicode emoji must round-trip through private chat delivery and history.');
+
   const recipientRead = await app.inject({
     method: 'GET',
     url: `/api/v1/chat/${sender.user.id}/messages`,
@@ -3555,6 +3571,14 @@ test('self-profile and private-chat APIs reject cross-account access and identit
     payload: { body: 'Attempted unauthorized message.' },
   });
   assert.equal(outsiderSend.statusCode, 403, outsiderSend.body);
+  const outsiderImage = await app.inject({
+    method: 'POST',
+    url: `/api/v1/chat/${sender.user.id}/messages`,
+    headers: auth(outsider.token),
+    payload: { body: 'data:image/png;base64,iVBORw0KGgo=' },
+  });
+  assert.equal(outsiderImage.statusCode, 403,
+    'Image messages must enforce the same friend-only audience authorization.');
 
   const outsiderEdit = await app.inject({
     method: 'PATCH',
@@ -3601,6 +3625,195 @@ test('login rate limits are account-bound and cannot be bypassed by changing net
   });
   assert.equal(independentAccount.statusCode, 401,
     'Rate limiting one identity must not block unrelated accounts.');
+});
+
+test('friend search and request lifecycle stay private, idempotent and race-safe', async () => {
+  const requester = await register('Friend Lifecycle Requester');
+  const recipient = await register('Friend Lifecycle Recipient');
+
+  const search = await app.inject({
+    method: 'GET',
+    url: `/api/v1/users/search?username=${encodeURIComponent(`@${recipient.user.username}`)}`,
+    headers: auth(requester.token),
+  });
+  assert.equal(search.statusCode, 200, search.body);
+  assert.equal(search.json().users.length, 1);
+  const searchedUser = search.json().users[0];
+  assert.equal(searchedUser.id, recipient.user.id);
+  assert.equal(searchedUser.username, recipient.user.username);
+  assert.equal('fullName' in searchedUser, false);
+  assert.equal('email' in searchedUser, false);
+  assert.equal('phone' in searchedUser, false);
+
+  const sent = await app.inject({
+    method: 'POST',
+    url: `/api/v1/friends/${recipient.user.id}/request`,
+    headers: auth(requester.token),
+    payload: {},
+  });
+  assert.equal(sent.statusCode, 201, sent.body);
+
+  const duplicate = await app.inject({
+    method: 'POST',
+    url: `/api/v1/friends/${recipient.user.id}/request`,
+    headers: auth(requester.token),
+    payload: {},
+  });
+  assert.equal(duplicate.statusCode, 409, duplicate.body);
+
+  const inbox = await app.inject({
+    method: 'GET',
+    url: '/api/v1/friends',
+    headers: auth(recipient.token),
+  });
+  assert.equal(inbox.statusCode, 200, inbox.body);
+  assert.ok(inbox.json().incomingRequests.some((item: { userId: string }) => item.userId === requester.user.id));
+
+  const accepts = await Promise.all([
+    app.inject({
+      method: 'POST',
+      url: `/api/v1/friends/${requester.user.id}/accept`,
+      headers: auth(recipient.token),
+      payload: {},
+    }),
+    app.inject({
+      method: 'POST',
+      url: `/api/v1/friends/${requester.user.id}/accept`,
+      headers: auth(recipient.token),
+      payload: {},
+    }),
+  ]);
+  assert.deepEqual(
+    accepts.map((response) => response.statusCode).sort(),
+    [200, 404],
+    'Concurrent acceptance of one pending request must commit exactly once.',
+  );
+
+  const requesterFriends = await app.inject({
+    method: 'GET',
+    url: '/api/v1/friends',
+    headers: auth(requester.token),
+  });
+  assert.ok(requesterFriends.json().friends.some((item: { userId: string }) => item.userId === recipient.user.id));
+  const recipientFriends = await app.inject({
+    method: 'GET',
+    url: '/api/v1/friends',
+    headers: auth(recipient.token),
+  });
+  assert.ok(recipientFriends.json().friends.some((item: { userId: string }) => item.userId === requester.user.id));
+
+  const removed = await app.inject({
+    method: 'DELETE',
+    url: `/api/v1/friends/${recipient.user.id}`,
+    headers: auth(requester.token),
+  });
+  assert.equal(removed.statusCode, 200, removed.body);
+  for (const token of [requester.token, recipient.token]) {
+    const afterRemoval = await app.inject({
+      method: 'GET',
+      url: '/api/v1/friends',
+      headers: auth(token),
+    });
+    assert.equal(afterRemoval.statusCode, 200);
+    assert.equal(afterRemoval.json().friends.length, 0);
+  }
+  const repeatedRemoval = await app.inject({
+    method: 'DELETE',
+    url: `/api/v1/friends/${recipient.user.id}`,
+    headers: auth(requester.token),
+  });
+  assert.equal(repeatedRemoval.statusCode, 404);
+});
+
+test('notifications are recipient-scoped across targeting, read-all and clear-all', async () => {
+  const sender = await register('Notification Sender');
+  const recipient = await register('Notification Recipient');
+  const unrelated = await register('Notification Unrelated User');
+
+  const request = await app.inject({
+    method: 'POST',
+    url: `/api/v1/friends/${recipient.user.id}/request`,
+    headers: auth(sender.token),
+    payload: {},
+  });
+  assert.equal(request.statusCode, 201, request.body);
+
+  await testPool.query(
+    "INSERT INTO notifications (user_id, type, title, body) VALUES ($1, 'system', 'Recipient only', 'Private notification')",
+    [recipient.user.id],
+  );
+  await testPool.query(
+    "INSERT INTO notifications (user_id, type, title, body) VALUES ($1, 'system', 'Unrelated only', 'Must remain private')",
+    [unrelated.user.id],
+  );
+
+  const recipientInbox = await app.inject({
+    method: 'GET',
+    url: '/api/v1/notifications',
+    headers: auth(recipient.token),
+  });
+  assert.equal(recipientInbox.statusCode, 200, recipientInbox.body);
+  assert.equal(recipientInbox.json().notifications.length, 2);
+  const friendNotice = recipientInbox.json().notifications.find(
+    (item: { type: string }) => item.type === 'friend_request',
+  );
+  assert.ok(friendNotice);
+  assert.equal(String(friendNotice.actorUserId), sender.user.id);
+
+  const unrelatedInbox = await app.inject({
+    method: 'GET',
+    url: '/api/v1/notifications',
+    headers: auth(unrelated.token),
+  });
+  assert.equal(unrelatedInbox.statusCode, 200, unrelatedInbox.body);
+  assert.equal(unrelatedInbox.json().notifications.length, 1);
+  assert.equal(unrelatedInbox.json().notifications[0].title, 'Unrelated only');
+
+  const readAll = await app.inject({
+    method: 'POST',
+    url: '/api/v1/notifications/read-all',
+    headers: auth(recipient.token),
+  });
+  assert.equal(readAll.statusCode, 200, readAll.body);
+  assert.equal(readAll.json().updated, 2);
+
+  const recipientAfterRead = await app.inject({
+    method: 'GET',
+    url: '/api/v1/notifications',
+    headers: auth(recipient.token),
+  });
+  assert.ok(recipientAfterRead.json().notifications.every((item: { readAt: string | null }) => item.readAt));
+
+  const unrelatedAfterRead = await app.inject({
+    method: 'GET',
+    url: '/api/v1/notifications',
+    headers: auth(unrelated.token),
+  });
+  assert.equal(unrelatedAfterRead.json().notifications[0].readAt, null,
+    'Reading one account\'s notifications must not mark another account\'s rows as read.');
+
+  const cleared = await app.inject({
+    method: 'DELETE',
+    url: '/api/v1/notifications',
+    headers: auth(recipient.token),
+  });
+  assert.equal(cleared.statusCode, 200, cleared.body);
+  assert.equal(cleared.json().deleted, 2);
+
+  const recipientAfterClear = await app.inject({
+    method: 'GET',
+    url: '/api/v1/notifications',
+    headers: auth(recipient.token),
+  });
+  assert.equal(recipientAfterClear.json().notifications.length, 0);
+
+  const unrelatedAfterClear = await app.inject({
+    method: 'GET',
+    url: '/api/v1/notifications',
+    headers: auth(unrelated.token),
+  });
+  assert.equal(unrelatedAfterClear.json().notifications.length, 1);
+  assert.equal(unrelatedAfterClear.json().notifications[0].title, 'Unrelated only');
 });
 
 test('self-profile returns only the authenticated account private identity', async () => {
