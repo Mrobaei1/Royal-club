@@ -1,6 +1,6 @@
 # Royal Club — WBS criterion-level scoring matrix
 
-**Baseline:** WBS v1.1 · **Latest audit:** 2026-11-08 · **53 leaf packages · 1,000 points**
+**Baseline:** WBS v1.1 · **Latest audit:** 2026-11-09 · **53 leaf packages · 1,000 points**
 
 ## Rules
 
@@ -68,39 +68,39 @@
 
 | WBS criterion | Acceptance criterion | Points | Score | Evidence |
 |---|---|---:|---:|---|
-| 3.1-A | Legal moves/blocked points | 5 | Pending | Not audited |
-| 3.1-B | Dice/doubles/four-dice sequences | 5 | Pending | Not audited |
-| 3.1-C | Hits/blots | 5 | Pending | Not audited |
-| 3.1-D | Correct-side bar entry | 5 | Pending | Not audited |
-| 3.1-E | Bearing-off exact/overshoot priority | 5 | Pending | Not audited |
-| 3.1-F | Turn transitions | 5 | Pending | Not audited |
-| 3.1-G | Malformed state fails closed | 5 | Pending | Not audited |
-| 3.1-H | Mirrored host/guest regression | 5 | Pending | Not audited |
-| 3.1-I | Independent rules audit | 5 | Pending | Not audited |
+| 3.1-A | Legal moves/blocked points | 5 | Passed | `apps/api/src/backgammon-rules.test.ts`: legal moves for both sides and blocked-point rejection; Flutter engine tests cover legal/illegal moves. Exact-head PR #204 API run [42475968379](https://github.com/Mrobaei1/Royal-club/actions/runs/42475968379), Flutter run [42475968332](https://github.com/Mrobaei1/Royal-club/actions/runs/42475968332), and backgammon audit [42475968383](https://github.com/Mrobaei1/Royal-club/actions/runs/42475968383) passed. |
+| 3.1-B | Dice/doubles/four-dice sequences | 5 | Passed | API/mobile tests cover maximum dice use, doubles as four dice, higher-die priority and sequential two-die moves; exact-head PR #204 API/Flutter/backgammon audit runs [42475968379](https://github.com/Mrobaei1/Royal-club/actions/runs/42475968379), [42475968332](https://github.com/Mrobaei1/Royal-club/actions/runs/42475968332), [42475968383](https://github.com/Mrobaei1/Royal-club/actions/runs/42475968383) passed. |
+| 3.1-C | Hits/blots | 5 | Passed | API batch-move test and Flutter audit prove hitting a single opposing blot transfers that checker to the bar; exact-head PR #204 API and backgammon audit runs [42475968379](https://github.com/Mrobaei1/Royal-club/actions/runs/42475968379) and [42475968383](https://github.com/Mrobaei1/Royal-club/actions/runs/42475968383) passed. |
+| 3.1-D | Correct-side bar entry | 5 | Passed | API and Flutter tests verify mandatory bar entry, correct entry direction for both players, blocked-entry rejection and hitting on entry; exact-head PR #204 API/Flutter/backgammon runs passed: [42475968379](https://github.com/Mrobaei1/Royal-club/actions/runs/42475968379), [42475968332](https://github.com/Mrobaei1/Royal-club/actions/runs/42475968332), [42475968383](https://github.com/Mrobaei1/Royal-club/actions/runs/42475968383). |
+| 3.1-E | Bearing-off exact/overshoot priority | 5 | Passed | API/mobile regressions verify exact and oversized bear-off, prohibit bearing off outside the home board or with a checker on the bar, and require the nearest eligible occupied lower point rather than skipping a closer checker; exact-head PR #204 API/Flutter/backgammon runs passed. |
+| 3.1-F | Turn transitions | 5 | Passed | API/mobile tests cover multi-die sequences, maximum usable dice, blocked bar-entry pass, turn completion when no die remains, and terminal-state rejection; exact-head PR #204 API/Flutter/backgammon runs passed. |
+| 3.1-G | Malformed state fails closed | 5 | Passed | API rule tests reject malformed board counts, invalid bar/off counters, missing checkers, sparse arrays, impossible dice lengths, invalid dice and null higher-die moves without mutating state; exact-head PR #204 API build/unit and backgammon audit passed. |
+| 3.1-H | Mirrored host/guest regression | 5 | Passed | Mirrored positive/negative player tests verify direction, bar-entry and nearest-checker bear-off rules; server temporary-AI tests also verify guest-direction legal moves and guest bar entry. Exact-head PR #204 API/Flutter/backgammon audit passed. |
+| 3.1-I | Independent rules audit | 5 | Passed | Independent `Backgammon engine and AI tests` workflow [42475968383](https://github.com/Mrobaei1/Royal-club/actions/runs/42475968383) passed; audit suite includes deterministic seeded play, legal-move invariants, 15-checker inventory preservation, dice validity, bar entry, hits and bear-off regressions. |
 | 3.2-A | Approved visual design | 5 | Pending | Not audited |
-| 3.2-B | Shared online/offline board | 5 | Pending | Not audited |
-| 3.2-C | Checker orientation/stack/count | 5 | Pending | Not audited |
+| 3.2-B | Shared online/offline board | 5 | Passed | `apps/mobile/lib/royal_backgammon_board.dart` is the shared visual board used by offline practice and the online wrapper in `apps/mobile/lib/online_match_screen.dart`. Flutter widget tests exercise the online board hit targets and the shared rendering path. Exact-head PR #204 Flutter analyze/tests run [42475968332](https://github.com/Mrobaei1/Royal-club/actions/runs/42475968332) passed. |
+| 3.2-C | Checker orientation/stack/count | 5 | Passed | `apps/mobile/test/online_backgammon_board_test.dart` verifies all 24 unique opening-point hit targets, outer-side stack orientation, first-checker anchoring and six-checker stack geometry; engine audit verifies all 15 checkers per player remain accounted for after legal moves. Exact-head PR #204 Flutter run [42475968332](https://github.com/Mrobaei1/Royal-club/actions/runs/42475968332) and backgammon audit [42475968383](https://github.com/Mrobaei1/Royal-club/actions/runs/42475968383) passed. |
 | 3.2-D | Dice/highlights/player panels | 5 | Pending | Not audited |
 | 3.2-E | Responsive Android sizes | 5 | Pending | Not audited |
 | 3.2-F | Themes/locales | 5 | Pending | Not audited |
 | 3.2-G | Real-device visual acceptance | 5 | Pending | Not audited |
-| 3.3-A | Create/join/invite authorization | 5 | Pending | Not audited |
-| 3.3-B | 60-second expiry | 5 | Pending | Not audited |
-| 3.3-C | Cancellation/stale invite rejection | 5 | Pending | Not audited |
-| 3.3-D | Versioning/concurrency | 5 | Pending | Not audited |
+| 3.3-A | Create/join/invite authorization | 5 | Passed | API integration tests create an online match, authorize host-to-friend invitation, expose the invitation only to the invitee, accept it using the canonical room ID, and reject unauthorized/nonparticipant operations. PR #77 exact-head API integration [41185385432](https://github.com/Mrobaei1/Royal-club/actions/runs/41185385432) and PR #204 API integration [42475968379](https://github.com/Mrobaei1/Royal-club/actions/runs/42475968379) passed. |
+| 3.3-B | 60-second expiry | 5 | Passed | API tests verify a new empty room expires within 59–60 seconds, invite freshness is capped at 60 seconds, and notifications older than 61 seconds are removed. PR #77 exact-head API integration [41185385432](https://github.com/Mrobaei1/Royal-club/actions/runs/41185385432) passed. |
+| 3.3-C | Cancellation/stale invite rejection | 5 | Passed | Tests verify expired-room invite acceptance returns 410, marks the invite rejected, clears its notification, and leaves room membership unchanged; match cancellation proposals support both rejection and acceptance. PR #77 API integration [41185385432](https://github.com/Mrobaei1/Royal-club/actions/runs/41185385432) and PR #204 API integration [42475968379](https://github.com/Mrobaei1/Royal-club/actions/runs/42475968379) passed. |
+| 3.3-D | Versioning/concurrency | 5 | Passed | Concurrent guest joins serialize to exactly one 200 and one 409; the resulting membership is checked against the successful account. Online commands use expected state versions and stale commands are rejected. PR #78 API integration [41186501241](https://github.com/Mrobaei1/Royal-club/actions/runs/41186501241) and PR #204 API integration [42475968379](https://github.com/Mrobaei1/Royal-club/actions/runs/42475968379) passed. |
 | 3.3-E | Idle cleanup | 5 | Pending | Not audited |
-| 3.4-A | Server-authoritative legality/state | 5 | Pending | Not audited |
-| 3.4-B | Cumulative dice | 5 | Pending | Not audited |
-| 3.4-C | Bar entry/turn integrity | 5 | Pending | Not audited |
-| 3.4-D | Reconnect canonical resync | 5 | Pending | Not audited |
+| 3.4-A | Server-authoritative legality/state | 5 | Passed | API integration verifies server-owned match state, denies spectator move/roll commands, rejects malformed persisted boards on read/roll/move, and checks that client commands cannot bypass server rules. PR #204 API integration [42475968379](https://github.com/Mrobaei1/Royal-club/actions/runs/42475968379) passed. |
+| 3.4-B | Cumulative dice | 5 | Passed | API integration applies a two-die 2+3 batch atomically, asserts both moves and final board, consumes all remaining dice and advances the turn clock only after the full sequence. PR #204 API integration [42475968379](https://github.com/Mrobaei1/Royal-club/actions/runs/42475968379) passed. |
+| 3.4-C | Bar entry/turn integrity | 5 | Passed | API and Flutter engine tests verify mandatory and correct-side bar entry, blocked-entry rejection, bar-first move enforcement, turn completion and clock integrity; exact-head PR #204 API/Flutter/backgammon runs [42475968379](https://github.com/Mrobaei1/Royal-club/actions/runs/42475968379), [42475968332](https://github.com/Mrobaei1/Royal-club/actions/runs/42475968332), [42475968383](https://github.com/Mrobaei1/Royal-club/actions/runs/42475968383) passed. |
+| 3.4-D | Reconnect canonical resync | 5 | Passed | Disconnect integration tests verify heartbeat reconnect clears AI takeover, the overdue AI turn is committed before human control returns, and the returning player can issue a legal command against the restored authoritative state. Separate network-change integration verifies the same account recovers the identical active board. PR #204 API integration [42475968379](https://github.com/Mrobaei1/Royal-club/actions/runs/42475968379) passed. |
 | 3.4-E | Duplicate/tampered/racing move protection | 5 | Pending | Not audited |
-| 3.5-A | Heartbeat/presence | 5 | Pending | Not audited |
-| 3.5-B | Lease/grace period | 5 | Pending | Not audited |
-| 3.5-C | Temporary AI legal turn | 5 | Pending | Not audited |
-| 3.5-D | Reconnect handback | 5 | Pending | Not audited |
-| 3.5-E | Expiry/race/duplicate prevention | 5 | Pending | Not audited |
-| 3.6-A | Single-game resignation | 5 | Pending | Not audited |
-| 3.6-B | Match surrender | 5 | Pending | Not audited |
+| 3.5-A | Heartbeat/presence | 5 | Passed | Backgammon disconnect integration tests create participant presence records and verify authenticated heartbeats keep the active match lease alive. PR #67 exact-head API integration [41176915070](https://github.com/Mrobaei1/Royal-club/actions/runs/41176915070) and current-main PR #204 API integration [42475968379](https://github.com/Mrobaei1/Royal-club/actions/runs/42475968379) passed. |
+| 3.5-B | Lease/grace period | 5 | Passed | Tests verify a fresh heartbeat delays takeover, a 30-second stale heartbeat crosses the configured 18-second default grace, and active heartbeat extends the match lease. PR #67 API integration [41176915070](https://github.com/Mrobaei1/Royal-club/actions/runs/41176915070) and PR #204 API integration [42475968379](https://github.com/Mrobaei1/Royal-club/actions/runs/42475968379) passed. |
+| 3.5-C | Temporary AI legal turn | 5 | Passed | Unit/integration tests verify legal maximum-dice AI turns, bar-entry priority, blocked-entry pass, higher-die rule, guest direction, corrupt-state refusal and one-time turn completion. PR #67 exact-head backgammon/API checks [41176915022](https://github.com/Mrobaei1/Royal-club/actions/runs/41176915022) and [41176915070](https://github.com/Mrobaei1/Royal-club/actions/runs/41176915070) passed. |
+| 3.5-D | Reconnect handback | 5 | Passed | Integration tests verify reconnect heartbeat clears `takeoverActive`, processes an overdue turn before restoring presence, and allows the returning human to roll using the refreshed state version. PR #67 API integration [41176915070](https://github.com/Mrobaei1/Royal-club/actions/runs/41176915070) and PR #204 API integration [42475968379](https://github.com/Mrobaei1/Royal-club/actions/runs/42475968379) passed. |
+| 3.5-E | Expiry/race/duplicate prevention | 5 | Passed | Integration tests verify stale human requests are fenced, concurrent state polls commit exactly one AI turn/state-version increment, and no-legal-move takeover passes once. The API serializes takeover under the match-row lock. PR #67 API integration [41176915070](https://github.com/Mrobaei1/Royal-club/actions/runs/41176915070) and PR #204 API integration [42475968379](https://github.com/Mrobaei1/Royal-club/actions/runs/42475968379) passed. |
+| 3.6-A | Single-game resignation | 5 | Passed | API integration tests cover game-scope resignation, invalid scope, nonparticipant denial, board/turn/dice reset and result consistency. Exact-head PR #58 API integration [41019744686](https://github.com/Mrobaei1/Royal-club/actions/runs/41019744686) passed. |
+| 3.6-B | Match surrender | 5 | Passed | API integration tests cover match-scope surrender, winner/result recording, duplicate-request rejection and the PostgreSQL transaction fix. Exact-head PR #58 API integration [41019744686](https://github.com/Mrobaei1/Royal-club/actions/runs/41019744686) passed. |
 | 3.6-C | Confirm/cancel UX; Winner/result consistency; Idempotent repeat requests | 5 | Pending | Not audited |
 | 3.7-A | Offline training isolation | 5 | Pending | Not audited |
 | 3.7-B | Local AI/two-player | 5 | Pending | Not audited |
@@ -252,7 +252,7 @@
 - Packages decomposed: **53/53**
 - Acceptance criteria: **200**
 - Points represented: **1000/1,000**
-- Earned points currently evidenced: **195/1,000 (19.5%)** — prior 190 points plus 5 points for criterion 2.4-B after a screen-by-screen bilingual static UI audit and exact-head Flutter CI passed.
+- Earned points currently evidenced: **325/1,000 (32.5%)** — 195 previous points plus 130 points across 26 verified Phase 3 criteria: all nine rules-engine criteria, shared board/checker geometry, online lifecycle and server-authoritative move criteria, disconnect/temporary-AI criteria, and game/match resignation scopes. Evidence is linked criterion-by-criterion below. Visual-owner, device, two-device field acceptance and Production gates remain separately pending.
 - Remaining criteria: **161 Pending** (805 points not yet earned).
 - Official project percentage: **19.5% evidence-backed minimum**; this remains a partial criterion audit, not a claim that only 11.0% of code exists. The six recently closed criteria are supported by exact-head negative-test CI, friend-only free chat/free-by-default route audit, username-only privacy regressions, OTP digest/expiry/rate-limit and purpose-binding tests, and encrypted owner-controlled SMS credential tests. Provider deployment portability, NFR target approval, physical VPN/device acceptance, owner-approved retention and DR acceptance remain open.
 
@@ -266,7 +266,7 @@ For each criterion record: `criterion ID | pass/fail/blocked/not tested | exact 
 Eleven criteria passed (55/80 Phase 1 points; 68.75% of WBS 1.0). In addition to the eight prior architecture/governance criteria, 1.2-C (server-authoritative game/economy negative tests), 1.3-A (free-by-default enforcement) and 1.3-C (username-only public identity/privacy) now pass based on exact-head CI and cross-module regression/source evidence. The 2026-10-26 owner decision confirms private chat is available to friends without a subscription, with non-friends blocked; current code and tests match it. Criteria 1.1-B, 1.2-B, 1.3-B and 1.5-A/B remain Pending. Physical VPN OFF/ON testing, legacy/empty-profile device acceptance under WBS 4.5, second-provider portability, owner-approved NFRs/retention, and application-level disaster recovery remain open.
 
 
-## Phase roll-up — 2026-11-08 (updated after OTP evidence audit)
+## Phase roll-up — 2026-11-09 (backgammon rules-engine evidence audit)
 
 The following percentages are calculated directly from the 200 criterion rows in this matrix. A criterion earns its full five points only when its status is `Passed`; Pending criteria earn zero. Weights are unchanged.
 
@@ -274,12 +274,12 @@ The following percentages are calculated directly from the 200 criterion rows in
 | --- | ---: | ---: | ---: | ---: |
 | Phase 1 — Architecture and project management | 80 | 11/16 | 55 | 68.75% |
 | Phase 2 | 130 | 22/26 | 110 | 84.62% |
-| Phase 3 | 230 | 0/46 | 0 | 0.00% |
+| Phase 3 | 230 | 26/46 | 130 | 56.52% |
 | Phase 4 | 120 | 0/24 | 0 | 0.00% |
 | Phase 5 | 140 | 1/28 | 5 | 3.57% |
 | Phase 6 | 140 | 0/28 | 0 | 0.00% |
 | Phase 7 | 160 | 5/32 | 25 | 15.63% |
-| **Total** | **1,000** | **39/200** | **195** | **19.50%** |
+| **Total** | **1,000** | **65/200** | **325** | **32.50%** |
 
 
 
