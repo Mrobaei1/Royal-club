@@ -3709,6 +3709,97 @@ test('friend search and request lifecycle stay private, idempotent and race-safe
   assert.equal(repeatedRemoval.statusCode, 404);
 });
 
+test('notifications are recipient-scoped across targeting, read-all and clear-all', async () => {
+  const sender = await register('Notification Sender');
+  const recipient = await register('Notification Recipient');
+  const unrelated = await register('Notification Unrelated User');
+
+  const request = await app.inject({
+    method: 'POST',
+    url: `/api/v1/friends/${recipient.user.id}/request`,
+    headers: auth(sender.token),
+    payload: {},
+  });
+  assert.equal(request.statusCode, 201, request.body);
+
+  await testPool.query(
+    "INSERT INTO notifications (user_id, type, title, body) VALUES ($1, 'system', 'Recipient only', 'Private notification')",
+    [recipient.user.id],
+  );
+  await testPool.query(
+    "INSERT INTO notifications (user_id, type, title, body) VALUES ($1, 'system', 'Unrelated only', 'Must remain private')",
+    [unrelated.user.id],
+  );
+
+  const recipientInbox = await app.inject({
+    method: 'GET',
+    url: '/api/v1/notifications',
+    headers: auth(recipient.token),
+  });
+  assert.equal(recipientInbox.statusCode, 200, recipientInbox.body);
+  assert.equal(recipientInbox.json().notifications.length, 2);
+  const friendNotice = recipientInbox.json().notifications.find(
+    (item: { type: string }) => item.type === 'friend_request',
+  );
+  assert.ok(friendNotice);
+  assert.equal(String(friendNotice.actorUserId), sender.user.id);
+
+  const unrelatedInbox = await app.inject({
+    method: 'GET',
+    url: '/api/v1/notifications',
+    headers: auth(unrelated.token),
+  });
+  assert.equal(unrelatedInbox.statusCode, 200, unrelatedInbox.body);
+  assert.equal(unrelatedInbox.json().notifications.length, 1);
+  assert.equal(unrelatedInbox.json().notifications[0].title, 'Unrelated only');
+
+  const readAll = await app.inject({
+    method: 'POST',
+    url: '/api/v1/notifications/read-all',
+    headers: auth(recipient.token),
+  });
+  assert.equal(readAll.statusCode, 200, readAll.body);
+  assert.equal(readAll.json().updated, 2);
+
+  const recipientAfterRead = await app.inject({
+    method: 'GET',
+    url: '/api/v1/notifications',
+    headers: auth(recipient.token),
+  });
+  assert.ok(recipientAfterRead.json().notifications.every((item: { readAt: string | null }) => item.readAt));
+
+  const unrelatedAfterRead = await app.inject({
+    method: 'GET',
+    url: '/api/v1/notifications',
+    headers: auth(unrelated.token),
+  });
+  assert.equal(unrelatedAfterRead.json().notifications[0].readAt, null,
+    'Reading one account\'s notifications must not mark another account\'s rows as read.');
+
+  const cleared = await app.inject({
+    method: 'DELETE',
+    url: '/api/v1/notifications',
+    headers: auth(recipient.token),
+  });
+  assert.equal(cleared.statusCode, 200, cleared.body);
+  assert.equal(cleared.json().deleted, 2);
+
+  const recipientAfterClear = await app.inject({
+    method: 'GET',
+    url: '/api/v1/notifications',
+    headers: auth(recipient.token),
+  });
+  assert.equal(recipientAfterClear.json().notifications.length, 0);
+
+  const unrelatedAfterClear = await app.inject({
+    method: 'GET',
+    url: '/api/v1/notifications',
+    headers: auth(unrelated.token),
+  });
+  assert.equal(unrelatedAfterClear.json().notifications.length, 1);
+  assert.equal(unrelatedAfterClear.json().notifications[0].title, 'Unrelated only');
+});
+
 test('self-profile returns only the authenticated account private identity', async () => {
   const first = await register('Self Profile Privacy One');
   const second = await register('Self Profile Privacy Two');
