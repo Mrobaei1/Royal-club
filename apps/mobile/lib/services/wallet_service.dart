@@ -58,7 +58,11 @@ class WalletService {
     final existing = pending[code];
     if (existing is String &&
         existing.length >= 8 && existing.length <= 100 &&
-        RegExp(r'^[A-Za-z0-9._:-]+').hasMatch(existing)) {
+        existing.codeUnits.every((unit) =>
+            (unit >= 48 && unit <= 57) ||
+            (unit >= 65 && unit <= 90) ||
+            (unit >= 97 && unit <= 122) ||
+            unit == 46 || unit == 58 || unit == 95 || unit == 45)) {
       return existing;
     }
     final random = Random.secure();
