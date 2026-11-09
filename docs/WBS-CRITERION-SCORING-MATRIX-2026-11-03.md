@@ -104,7 +104,7 @@
 | 3.6-C | Confirm/cancel UX; Winner/result consistency; Idempotent repeat requests | 5 | Pending | Not audited |
 | 3.7-A | Offline training isolation | 5 | Passed | Source audit: `apps/mobile/lib/engine_backgammon_screen.dart` explicitly defines an engine-connected local screen with no network/account requirement and imports only the local `BackgammonEngine`/`BackgammonAI` for training; it has no API transport, match, progression, wallet, XP or Elo service calls. `BackgammonEngine` state is limited to board/checkers/bar/bear-off/dice/turn/terminal state. Exact-head PR #227 Flutter tests passed and merged as `00936a98ae4aaefae17b5ee31d004d344ef50648`. |
 | 3.7-B | Local AI/two-player | 5 | Pending | Not audited |
-| 3.7-C | Restart/exit reset; No online-state mutation; No online XP/Elo | 5 | Pending | Not audited |
+| 3.7-C | Restart/exit reset; No online-state mutation; No online XP/Elo | 5 | Passed | PR #227 verifies offline restart restores the initial board and clears bar/off/dice/terminal state; exact-head Flutter test passed and merged as `00936a98ae4aaefae17b5ee31d004d344ef50648`. PR #243 adds navigation-level exit/reopen coverage and verifies a fresh local engine/initial board after leaving training; exact-head Flutter analyze/tests run `129012010178` and backgammon engine audit `129012009311` passed, merged as `72cde2b1564863a14c7b3b3d96fb1361581414b0`. Source audit confirms the offline screen/engine/AI have no account, network, match, progression, wallet, XP or Elo dependency. (2026-11-09) |
 | 3.8-A | Chess entry point | 5 | Pending | Not audited |
 | 3.8-B | Card/UNO entry state | 5 | Pending | Not audited |
 | 3.8-C | Agreed MVP entry flow | 5 | Pending | Not audited |
@@ -138,7 +138,7 @@
 | 4.5-B | Legacy/empty profile audit | 5 | Passed | Shared public-identity helper and Flutter regressions cover null, empty, whitespace and non-string legacy usernames with neutral localized fallback across Friends, Chat, Leaderboard and Hokm. PR #218 merged; exact-head Flutter run [42487475637](https://github.com/Mrobaei1/Royal-club/actions/runs/42487475637) passed. PR #240 applies the same fallback to online lobby, online match and spectator screens; exact-head Flutter run [42570901549](https://github.com/Mrobaei1/Royal-club/actions/runs/42570901549) passed. (2026-11-09) |
 | 4.5-C | No private identity leak/regression | 5 | Passed | JWT-subject self-profile isolation plus public search/friend/chat/spectator/history/leaderboard assertions prevent full name, email and phone leakage. PR #214 API run [42486935392](https://github.com/Mrobaei1/Royal-club/actions/runs/42486935392) and PR #230 [PR #230 exact-head API integration 42569680272](https://github.com/Mrobaei1/Royal-club/actions/runs/42569680272) passed; PR #240 preserves username-only public labels in lobby and match surfaces. (2026-11-09) |
 | 4.6-A | Avatar rules | 5 | Passed | API rejects MIME spoofing, malformed and over-650-KiB images; accepts valid PNG, supports clearing, keeps first avatar free and applies owner-configured subsequent pricing with ledger entries. PR #230 [PR #230 exact-head API integration 42569680272](https://github.com/Mrobaei1/Royal-club/actions/runs/42569680272) passed. (2026-11-09) |
-| 4.6-B | Username edit policy | 5 | Passed | API validates username format/reserved owner identity; integration verifies owner-managed change price, successful rename, unchanged-name zero charge and ledger debit. PR #230 [PR #230 exact-head API integration 42569680272](https://github.com/Mrobaei1/Royal-club/actions/runs/42569680272) passed; PR #242 adds explicit short/invalid/duplicate boundary regressions, pending updated CI and merge. (2026-11-09) |
+| 4.6-B | Username edit policy | 5 | Passed | API validates username format/reserved owner identity; integration verifies owner-managed change price, successful rename, unchanged-name zero charge and ledger debit. PR #230 exact-head API integration `42569680272` passed; PR #242 adds short/invalid/duplicate username tests and same-IP per-account rate-limit isolation, merged as `4ec23be3f6bf0f5b1ddc795cc6fe71411577facc`; exact-head API integration `129010484614` and API build/tests passed. (2026-11-09) |
 | 4.6-C | Private account details | 5 | Passed | Self-profile returns private fields only for the authenticated JWT subject; public/social projections omit another user's email/full name/phone. PR #230 [PR #230 exact-head API integration 42569680272](https://github.com/Mrobaei1/Royal-club/actions/runs/42569680272) passed. (2026-11-09) |
 | 4.7-A | Persian RTL | 5 | Passed | Static UI audit includes Friends, Chat, Notifications and Leaderboard; localization widget test asserts Persian RTL. Owner-confirmed Persian RTL Android check recorded 2026-11-04; exact Flutter validation [run 42487826939](https://github.com/Mrobaei1/Royal-club/actions/runs/42487826939) passed. (2026-11-09) |
 | 4.7-B | English LTR | 5 | Passed | Static UI audit includes social screens; localization widget test asserts English LTR. Owner-confirmed English LTR Android check recorded 2026-11-04; exact Flutter validation [run 42487826939](https://github.com/Mrobaei1/Royal-club/actions/runs/42487826939) passed. (2026-11-09) |
@@ -252,9 +252,9 @@
 - Packages decomposed: **53/53**
 - Acceptance criteria: **200**
 - Points represented: **1000/1,000**
-- Earned points currently evidenced: **490/1,000 (49.0%)** — 190 points across Phases 1, 2 and 7, 140 points across 28 verified Phase 3 criteria, 110 points across 22 verified Phase 4 criteria, and 50 points across ten verified Phase 5 criteria. Evidence is linked criterion-by-criterion below. Remaining gates include subscription purchase idempotency, subscription expiry/removal, Android notification acceptance, social theme/layout/accessibility device acceptance, and two-device/Production release gates.
-- Remaining criteria: **102 Pending** (510 points not yet earned).
-- **Official project percentage: 49.0% (490/1,000 points; 98/200 criteria).** This is the evidence-backed WBS score calculated from the phase roll-up immediately below; it is not a claim that all implementation or release acceptance is complete. Pending subscription purchase idempotency, subscription expiry/removal, Android notification acceptance, social theme/layout/accessibility device acceptance, provider deployment portability, NFR target approval, physical VPN/device acceptance, owner-approved retention and application-level disaster recovery remain open.
+- Earned points currently evidenced: **495/1,000 (49.5%)** — 190 points across Phases 1, 2 and 7, 145 points across 29 verified Phase 3 criteria, 110 points across 22 verified Phase 4 criteria, and 50 points across ten verified Phase 5 criteria. Evidence is linked criterion-by-criterion below. Remaining gates include subscription purchase idempotency, subscription expiry/removal, Android notification acceptance, social theme/layout/accessibility device acceptance, and two-device/Production release gates.
+- Remaining criteria: **101 Pending** (505 points not yet earned).
+- **Official project percentage: 49.5% (495/1,000 points; 99/200 criteria).** This is the evidence-backed WBS score calculated from the phase roll-up immediately below; it is not a claim that all implementation or release acceptance is complete. Pending subscription purchase idempotency, subscription expiry/removal, Android notification acceptance, social theme/layout/accessibility device acceptance, provider deployment portability, NFR target approval, physical VPN/device acceptance, owner-approved retention and application-level disaster recovery remain open.
 
 ## Required evidence record
 
@@ -274,12 +274,12 @@ The following percentages are calculated directly from the 200 criterion rows in
 | --- | ---: | ---: | ---: | ---: |
 | Phase 1 — Architecture and project management | 80 | 11/16 | 55 | 68.75% |
 | Phase 2 | 130 | 22/26 | 110 | 84.62% |
-| Phase 3 | 230 | 28/46 | 140 | 60.87% |
+| Phase 3 | 230 | 29/46 | 145 | 63.04% |
 | Phase 4 | 120 | 22/24 | 110 | 91.67% |
 | Phase 5 | 140 | 10/28 | 50 | 35.71% |
 | Phase 6 | 140 | 0/28 | 0 | 0.00% |
 | Phase 7 | 160 | 5/32 | 25 | 15.63% |
-| **Total** | **1,000** | **98/200** | **490** | **49.00%** |
+| **Total** | **1,000** | **99/200** | **495** | **49.50%** |
 
 
 
