@@ -129,7 +129,7 @@
 | 4.2-D | Emoji | 5 | Passed | Exact-head PR #230 sends Persian text with multiple Unicode emoji and verifies the exact content round-trips through private-chat history. API integration and all other exact-head checks passed before merge (`7feee98b6ef9307379040a94d60d4c1f3e677afb`). |
 | 4.2-E | Edit/delete; no calls; voice disabled | 5 | Passed | Exact-head PR #237 (`7f4d8e8786d501cc3314f5ce3f6c64b31efa6ccc`) verifies only the original sender can edit a message, delete-for-both replaces the content for both participants, delete-for-me hides only the requesting participant's copy, and unrelated accounts cannot edit/delete another pair's messages. API integration, API build/tests, Flutter analyze/tests and web preview checks passed before merge (`253a3bc44dc2a0bb0128acc91beb4db767cbe589`). Source audit of `apps/mobile/lib/chat_screen.dart`, `apps/mobile/pubspec.yaml`, API routes and current dependency/file inventory confirms no live voice/video call, microphone, WebRTC, TURN or media-signalling feature; chat exposes text/image/emoji only and future voice messages remain disabled/deferred. |
 | 4.3-A | Recipient targeting | 5 | Passed | Exact-head PR #230 verifies friend-request notifications are visible to the intended recipient, unrelated system notifications remain scoped to their own account, and an unrelated user's inbox does not expose another recipient's rows. API integration and all other exact-head checks passed before merge (`7feee98b6ef9307379040a94d60d4c1f3e677afb`). |
-| 4.3-B | Localized read/unread lifecycle | 5 | Pending | Not audited |
+| 4.3-B | Localized read/unread lifecycle | 5 | Passed | API integration verifies per-notification read handling and account-scoped read-all behavior without mutating another user's rows. `apps/mobile/lib/notifications_screen.dart` renders unread/read states, unread count, Persian/English actions, directionality and localized title/body; `apps/mobile/test/notifications_localization_test.dart` verifies friend-request, friend-accepted and match-invite translations. Exact-head PR #230 Flutter/API integration checks passed before merge. |
 | 4.3-C | Clear-all isolation and Android acceptance | 5 | Pending | Not audited |
 | 4.4-A | Host permission | 5 | Pending | Not audited |
 | 4.4-B | Friend/follower and active-match eligibility | 5 | Pending | Not audited |
@@ -252,9 +252,9 @@
 - Packages decomposed: **53/53**
 - Acceptance criteria: **200**
 - Points represented: **1000/1,000**
-- Earned points currently evidenced: **395/1,000 (39.5%)** — 195 previous points plus 140 points across 28 verified Phase 3 criteria, 50 points across ten verified Phase 4 criteria, and 15 points across three verified Phase 5 criteria. Newly verified in Phase 4: username privacy, friend-request lifecycle, removal/race handling, 100-friend cap, private-chat audience authorization, text and image delivery, Unicode emoji round-trip, message edit/delete ownership and notification recipient targeting; live calls and voice messaging remain excluded/disabled. Evidence is linked criterion-by-criterion below. Visual-owner, device, two-device field acceptance and Production gates remain separately pending.
-- Remaining criteria: **121 Pending** (605 points not yet earned).
-- **Official project percentage: 39.5% (395/1,000 points; 79/200 criteria).** This is the evidence-backed WBS score calculated from the phase roll-up immediately below; it is not a claim that all implementation or release acceptance is complete. Pending provider deployment portability, NFR target approval, physical VPN/device acceptance, owner-approved retention and application-level disaster recovery remain open.
+- Earned points currently evidenced: **400/1,000 (40.0%)** — 195 previous points plus 140 points across 28 verified Phase 3 criteria, 55 points across eleven verified Phase 4 criteria, and 15 points across three verified Phase 5 criteria. Newly verified in Phase 4: username privacy, friend-request lifecycle, removal/race handling, 100-friend cap, private-chat audience authorization, text and image delivery, Unicode emoji round-trip, message edit/delete ownership and notification recipient targeting; live calls and voice messaging remain excluded/disabled. Evidence is linked criterion-by-criterion below. Visual-owner, device, two-device field acceptance and Production gates remain separately pending.
+- Remaining criteria: **120 Pending** (600 points not yet earned).
+- **Official project percentage: 40.0% (400/1,000 points; 80/200 criteria).** This is the evidence-backed WBS score calculated from the phase roll-up immediately below; it is not a claim that all implementation or release acceptance is complete. Pending provider deployment portability, NFR target approval, physical VPN/device acceptance, owner-approved retention and application-level disaster recovery remain open.
 
 ## Required evidence record
 
@@ -275,11 +275,11 @@ The following percentages are calculated directly from the 200 criterion rows in
 | Phase 1 — Architecture and project management | 80 | 11/16 | 55 | 68.75% |
 | Phase 2 | 130 | 22/26 | 110 | 84.62% |
 | Phase 3 | 230 | 28/46 | 140 | 60.87% |
-| Phase 4 | 120 | 10/24 | 50 | 41.67% |
+| Phase 4 | 120 | 11/24 | 55 | 45.83% |
 | Phase 5 | 140 | 3/28 | 15 | 10.71% |
 | Phase 6 | 140 | 0/28 | 0 | 0.00% |
 | Phase 7 | 160 | 5/32 | 25 | 15.63% |
-| **Total** | **1,000** | **79/200** | **395** | **39.50%** |
+| **Total** | **1,000** | **80/200** | **400** | **40.00%** |
 
 
 
