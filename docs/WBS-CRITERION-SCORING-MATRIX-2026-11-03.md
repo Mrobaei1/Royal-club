@@ -78,8 +78,8 @@
 | 3.1-H | Mirrored host/guest regression | 5 | Passed | Mirrored positive/negative player tests verify direction, bar-entry and nearest-checker bear-off rules; server temporary-AI tests also verify guest-direction legal moves and guest bar entry. Exact-head PR #204 API/Flutter/backgammon audit passed. |
 | 3.1-I | Independent rules audit | 5 | Passed | Independent `Backgammon engine and AI tests` workflow [42475968383](https://github.com/Mrobaei1/Royal-club/actions/runs/42475968383) passed; audit suite includes deterministic seeded play, legal-move invariants, 15-checker inventory preservation, dice validity, bar entry, hits and bear-off regressions. |
 | 3.2-A | Approved visual design | 5 | Pending | Not audited |
-| 3.2-B | Shared online/offline board | 5 | Pending | Not audited |
-| 3.2-C | Checker orientation/stack/count | 5 | Pending | Not audited |
+| 3.2-B | Shared online/offline board | 5 | Passed | `apps/mobile/lib/royal_backgammon_board.dart` is the shared visual board used by offline practice and the online wrapper in `apps/mobile/lib/online_match_screen.dart`. Flutter widget tests exercise the online board hit targets and the shared rendering path. Exact-head PR #204 Flutter analyze/tests run [42475968332](https://github.com/Mrobaei1/Royal-club/actions/runs/42475968332) passed. |
+| 3.2-C | Checker orientation/stack/count | 5 | Passed | `apps/mobile/test/online_backgammon_board_test.dart` verifies all 24 unique opening-point hit targets, outer-side stack orientation, first-checker anchoring and six-checker stack geometry; engine audit verifies all 15 checkers per player remain accounted for after legal moves. Exact-head PR #204 Flutter run [42475968332](https://github.com/Mrobaei1/Royal-club/actions/runs/42475968332) and backgammon audit [42475968383](https://github.com/Mrobaei1/Royal-club/actions/runs/42475968383) passed. |
 | 3.2-D | Dice/highlights/player panels | 5 | Pending | Not audited |
 | 3.2-E | Responsive Android sizes | 5 | Pending | Not audited |
 | 3.2-F | Themes/locales | 5 | Pending | Not audited |
@@ -252,7 +252,7 @@
 - Packages decomposed: **53/53**
 - Acceptance criteria: **200**
 - Points represented: **1000/1,000**
-- Earned points currently evidenced: **240/1,000 (24.0%)** — 195 previously earned points plus 45 points for the nine 3.1 backgammon rules-engine criteria after source/test audit and exact-head PR #204 API, Flutter and independent backgammon-audit CI passed. Device, production and owner acceptance gates remain separately pending.
+- Earned points currently evidenced: **250/1,000 (25.0%)** — 195 previous points plus 45 points for all nine 3.1 rules-engine criteria and 10 points for shared-board integration and checker geometry (3.2-B/C), supported by exact-head PR #204 API, Flutter and backgammon-audit CI. Device, visual-owner, online two-device and Production acceptance gates remain separately pending.
 - Remaining criteria: **161 Pending** (805 points not yet earned).
 - Official project percentage: **19.5% evidence-backed minimum**; this remains a partial criterion audit, not a claim that only 11.0% of code exists. The six recently closed criteria are supported by exact-head negative-test CI, friend-only free chat/free-by-default route audit, username-only privacy regressions, OTP digest/expiry/rate-limit and purpose-binding tests, and encrypted owner-controlled SMS credential tests. Provider deployment portability, NFR target approval, physical VPN/device acceptance, owner-approved retention and DR acceptance remain open.
 
@@ -274,12 +274,12 @@ The following percentages are calculated directly from the 200 criterion rows in
 | --- | ---: | ---: | ---: | ---: |
 | Phase 1 — Architecture and project management | 80 | 11/16 | 55 | 68.75% |
 | Phase 2 | 130 | 22/26 | 110 | 84.62% |
-| Phase 3 | 230 | 9/46 | 45 | 19.57% |
+| Phase 3 | 230 | 11/46 | 55 | 23.91% |
 | Phase 4 | 120 | 0/24 | 0 | 0.00% |
 | Phase 5 | 140 | 1/28 | 5 | 3.57% |
 | Phase 6 | 140 | 0/28 | 0 | 0.00% |
 | Phase 7 | 160 | 5/32 | 25 | 15.63% |
-| **Total** | **1,000** | **48/200** | **240** | **24.00%** |
+| **Total** | **1,000** | **50/200** | **250** | **25.00%** |
 
 
 
