@@ -215,7 +215,7 @@ void main() {
       supportedLocales: const [Locale('fa'), Locale('en')],
       home: EngineBackgammonScreen(
         engineForTesting: engine,
-        vsComputerForTesting: false,
+        vsComputerForTesting: true,
       ),
     ));
     await tester.tap(find.text('Offline vs AI'));
@@ -231,7 +231,7 @@ void main() {
     engine.winner = -1;
     await tester.pump();
 
-    await tester.tap(find.text('Restart').last);
+    await tester.tap(find.text('Restart'));
     await tester.pump();
 
     final initial = BackgammonEngine();
