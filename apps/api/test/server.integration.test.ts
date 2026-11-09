@@ -1743,6 +1743,18 @@ test('subscription purchases debit the wallet atomically and record a ledger ent
       payload: { code: 'bad code', name: 'Invalid', durationDays: 0, priceCredits: -1 },
     });
     assert.equal(invalidPlan.statusCode, 400, invalidPlan.body);
+
+    const deactivateWeeklyPlan = await app.inject({
+      method: 'PATCH',
+      url: '/api/v1/admin/subscription-plans/vip_weekly',
+      headers: {
+        authorization: `Bearer ${buyer.token}`,
+        'x-owner-step-up': stepUp.json().stepUpToken,
+      },
+      payload: { active: false },
+    });
+    assert.equal(deactivateWeeklyPlan.statusCode, 200, deactivateWeeklyPlan.body);
+    assert.equal(deactivateWeeklyPlan.json().plan.active, false);
   } finally {
     if (previousPlanOwnerId === undefined) delete process.env.OWNER_USER_ID;
     else process.env.OWNER_USER_ID = previousPlanOwnerId;
@@ -1764,6 +1776,17 @@ test('subscription purchases debit the wallet atomically and record a ledger ent
   assert.equal(plans.statusCode, 200, plans.body);
   assert.ok((plans.json().plans as Array<Record<string, unknown>>)
     .some((plan) => plan.code === 'vip_monthly'));
+  assert.ok(!(plans.json().plans as Array<Record<string, unknown>>)
+    .some((plan) => plan.code === 'vip_weekly'),
+  'A deactivated plan must be removed from the public active-plan catalogue.');
+
+  const removedPlanPurchase = await app.inject({
+    method: 'POST',
+    url: '/api/v1/subscriptions/activate',
+    headers: auth(buyer.token),
+    payload: { planCode: 'vip_weekly' },
+  });
+  assert.equal(removedPlanPurchase.statusCode, 404, removedPlanPurchase.body);
 
   const insufficient = await app.inject({
     method: 'POST',
