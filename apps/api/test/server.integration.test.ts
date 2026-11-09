@@ -4362,3 +4362,53 @@ test('Hokm owner manager authorization fails closed when the persistent owner id
     else process.env.NODE_ENV = previousNodeEnv;
   }
 });
+
+test('concurrent subscription purchases cannot overspend the same wallet balance', async () => {
+  const buyer = await register('Concurrent Subscription Buyer');
+  await testPool.query(
+    'INSERT INTO wallet_accounts (user_id, balance) VALUES ($1, 300) ON CONFLICT (user_id) DO UPDATE SET balance = 300',
+    [buyer.user.id],
+  );
+
+  const payload = { planCode: 'vip_monthly' };
+  const purchases = await Promise.all([
+    app.inject({
+      method: 'POST',
+      url: '/api/v1/subscriptions/activate',
+      headers: auth(buyer.token),
+      payload,
+    }),
+    app.inject({
+      method: 'POST',
+      url: '/api/v1/subscriptions/activate',
+      headers: auth(buyer.token),
+      payload,
+    }),
+  ]);
+
+  assert.deepEqual(
+    purchases.map((response) => response.statusCode).sort(),
+    [200, 409],
+    'Exactly one concurrent purchase may spend the available 300-credit balance.',
+  );
+
+  const wallet = await testPool.query(
+    'SELECT balance FROM wallet_accounts WHERE user_id = $1',
+    [buyer.user.id],
+  );
+  assert.equal(Number(wallet.rows[0]?.balance), 0);
+
+  const ledger = await testPool.query(
+    "SELECT amount, balance_after, type FROM wallet_transactions WHERE user_id = $1 AND type = 'subscription_purchase'",
+    [buyer.user.id],
+  );
+  assert.equal(ledger.rows.length, 1, 'Only the committed purchase may create a ledger debit.');
+  assert.equal(Number(ledger.rows[0]?.amount), -300);
+  assert.equal(Number(ledger.rows[0]?.balance_after), 0);
+
+  const subscriptions = await testPool.query(
+    "SELECT id FROM user_subscriptions WHERE user_id = $1 AND status = 'active' AND ends_at > NOW()",
+    [buyer.user.id],
+  );
+  assert.equal(subscriptions.rows.length, 1, 'A rejected concurrent purchase must not create a subscription.');
+});
