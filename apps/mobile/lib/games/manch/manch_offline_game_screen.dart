@@ -472,25 +472,33 @@ class _ManchOfflineGameScreenState extends State<ManchOfflineGameScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            CircleAvatar(
-                              radius: 7,
-                              backgroundColor:
-                                  _colour(_state.players[p].colour),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                _text('بازیکن ${_playerName(_state.players[p].colour)}', 'Player ${_playerName(_state.players[p].colour)}'),
-                                softWrap: true,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
+                            Row(
+                              children: [
+                                CircleAvatar(
+                                  radius: 7,
+                                  backgroundColor:
+                                      _colour(_state.players[p].colour),
                                 ),
-                              ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    _text('بازیکن ${_playerName(_state.players[p].colour)}', 'Player ${_playerName(_state.players[p].colour)}'),
+                                    softWrap: true,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                             if (p == _state.activePlayerIndex)
-                              Text(_text('نوبت فعلی', 'Current turn')),
+                              Padding(
+                                padding: const EdgeInsetsDirectional.only(start: 22, top: 4),
+                                child: Text(_text('نوبت فعلی', 'Current turn')),
+                              ),
                           ],
                         ),
                         const SizedBox(height: 8),

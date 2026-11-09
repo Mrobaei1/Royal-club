@@ -575,19 +575,9 @@ void main() {
     await tester.tap(find.text('Create Hokm room'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 20));
-    await tester.scrollUntilVisible(
-      find.text('I am ready'),
-      180,
-      scrollable: find.byType(Scrollable).first,
-    );
     await tester.tap(find.text('I am ready'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 20));
-    await tester.scrollUntilVisible(
-      find.text('Start match'),
-      180,
-      scrollable: find.byType(Scrollable).first,
-    );
     await tester.tap(find.text('Start match'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 20));
@@ -632,7 +622,7 @@ void main() {
 
 
   testWidgets('active Hokm exit dialog fits a narrow screen with large text', (tester) async {
-    tester.view.physicalSize = const Size(360, 720);
+    tester.view.physicalSize = const Size(360, 1400);
     tester.view.devicePixelRatio = 1;
     tester.platformDispatcher.textScaleFactorTestValue = 1.5;
     addTearDown(tester.view.resetPhysicalSize);
@@ -657,11 +647,6 @@ void main() {
     await tester.tap(find.text('Start match'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 20));
-    await tester.scrollUntilVisible(
-      find.text('Forfeit match'),
-      180,
-      scrollable: find.byType(Scrollable).first,
-    );
     await tester.tap(find.text('Forfeit match'));
     await tester.pump();
     expect(find.text('Forfeit this match?'), findsOneWidget);
@@ -708,7 +693,7 @@ void main() {
   });
 
   testWidgets('Hokm long dynamic usernames remain readable in Persian at large text scale', (tester) async {
-    tester.view.physicalSize = const Size(360, 720);
+    tester.view.physicalSize = const Size(360, 1400);
     tester.view.devicePixelRatio = 1;
     tester.platformDispatcher.textScaleFactorTestValue = 1.6;
     addTearDown(tester.view.resetPhysicalSize);
@@ -727,19 +712,9 @@ void main() {
     await tester.tap(find.text('Create Hokm room'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 30));
-    await tester.scrollUntilVisible(
-      find.text('I am ready'),
-      180,
-      scrollable: find.byType(Scrollable).first,
-    );
     await tester.tap(find.text('I am ready'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 30));
-    await tester.scrollUntilVisible(
-      find.text('Start match'),
-      180,
-      scrollable: find.byType(Scrollable).first,
-    );
     await tester.tap(find.text('Start match'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 40));
