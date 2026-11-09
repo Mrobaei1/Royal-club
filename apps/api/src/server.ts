@@ -1559,7 +1559,7 @@ app.patch<{ Body: { avatarDataUrl?: string | null } }>('/api/v1/me/avatar', { on
   }
 });
 
-app.patch<{ Body: { username?: string } }>('/api/v1/me/username', { onRequest: [requireMatchAuth], config: { rateLimit: { max: 5, timeWindow: '1 minute' } } }, async (request, reply) => {
+app.patch<{ Body: { username?: string } }>('/api/v1/me/username', { onRequest: [requireMatchAuth], config: { rateLimit: { max: 5, timeWindow: '1 minute', hook: 'preHandler', keyGenerator: (request) => `username:${(request.user as { sub: string }).sub}` } } }, async (request, reply) => {
   const claims = request.user as { sub: string };
   const username = typeof request.body?.username === 'string' ? request.body.username.trim().replace(/^@/, '') : '';
   if (!/^[a-zA-Z0-9_.]{3,24}$/.test(username)) {

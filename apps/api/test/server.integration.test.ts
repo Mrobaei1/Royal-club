@@ -4161,6 +4161,12 @@ test('owner-managed profile customization pricing charges atomically and keeps t
     });
     assert.equal(duplicateUsername.statusCode, 409,
       'A username already owned by another account must not be assigned.');
+    const otherAccountRename = await app.inject({
+      method: 'PATCH', url: '/api/v1/me/username', headers: auth(other.token),
+      payload: { username: 'other_unique_name' },
+    });
+    assert.equal(otherAccountRename.statusCode, 200, otherAccountRename.body);
+
     const renamed = await app.inject({
       method: 'PATCH', url: '/api/v1/me/username', headers: auth(user.token),
       payload: { username: 'priced_player' },
