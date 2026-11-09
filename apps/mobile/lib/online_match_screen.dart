@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'l10n/app_text.dart';
 import 'profile_avatar.dart';
+import 'public_identity.dart';
 import 'services/match_service.dart';
 import 'royal_backgammon_board.dart';
 
@@ -294,8 +295,8 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
   void _showHeadToHeadSummary({required bool isHost}) {
     final isEnglish = _isEnglish;
     final myIsHost = _matchDetails['isHost'] == true;
-    final hostName = _matchDetails['hostName']?.toString() ?? (isEnglish ? 'Host' : 'میزبان');
-    final guestName = _matchDetails['guestName']?.toString() ?? (isEnglish ? 'Opponent' : 'حریف');
+    final hostName = publicUsernameLabel(_matchDetails['hostName'], fallback: isEnglish ? 'Host' : 'میزبان', prefixAt: false);
+    final guestName = publicUsernameLabel(_matchDetails['guestName'], fallback: isEnglish ? 'Opponent' : 'حریف', prefixAt: false);
     final hostPoints = (_matchDetails['headToHeadHostPoints'] as num?)?.toInt() ?? 0;
     final guestPoints = (_matchDetails['headToHeadGuestPoints'] as num?)?.toInt() ?? 0;
     final hostWins = (_matchDetails['headToHeadHostWins'] as num?)?.toInt() ?? 0;
@@ -737,7 +738,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
                       child: Column(children: [
                         RoyalAvatar(dataUrl: _matchDetails['hostAvatarDataUrl']?.toString(), radius: 25),
                         const SizedBox(height: 5),
-                        Text(_matchDetails['hostName']?.toString() ?? (isEnglish ? 'Host' : 'میزبان'), textAlign: TextAlign.center,
+                        Text(publicUsernameLabel(_matchDetails['hostName'], fallback: isEnglish ? 'Host' : 'میزبان', prefixAt: false), textAlign: TextAlign.center,
                           style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7)), maxLines: 1, overflow: TextOverflow.ellipsis),
                       ]),
                     )),
@@ -748,7 +749,7 @@ class _OnlineMatchScreenState extends State<OnlineMatchScreen> {
                       child: Column(children: [
                         RoyalAvatar(dataUrl: _matchDetails['guestAvatarDataUrl']?.toString(), radius: 25),
                         const SizedBox(height: 5),
-                        Text(_matchDetails['guestName']?.toString() ?? (isEnglish ? 'Waiting for opponent' : 'در انتظار حریف'), textAlign: TextAlign.center,
+                        Text(publicUsernameLabel(_matchDetails['guestName'], fallback: isEnglish ? 'Waiting for opponent' : 'در انتظار حریف', prefixAt: false), textAlign: TextAlign.center,
                           style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7)), maxLines: 1, overflow: TextOverflow.ellipsis),
                       ]),
                     )),

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'l10n/app_text.dart';
 import 'profile_avatar.dart';
+import 'public_identity.dart';
 import 'services/match_service.dart';
 import 'online_match_screen.dart';
 import 'spectator_match_screen.dart';
@@ -173,8 +174,8 @@ class _OnlineLobbyScreenState extends State<OnlineLobbyScreen> {
               shrinkWrap: true,
               children: friends.map((friend) => ListTile(
                 leading: RoyalAvatar(dataUrl: friend['avatarDataUrl']?.toString(), radius: 20),
-                title: Text('@${friend['username'] ?? ''}', style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
-                subtitle: Text('@${friend['username'] ?? ''}', style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.54))),
+                title: Text(publicUsernameLabel(friend['username'], fallback: appText(context, 'دوست', 'Friend')), style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
+                subtitle: Text(publicUsernameLabel(friend['username'], fallback: appText(context, 'دوست', 'Friend')), style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.54))),
                 onTap: () => Navigator.of(dialogContext).pop(friend['userId'].toString()),
               )).toList(),
             ),
@@ -297,7 +298,7 @@ class _OnlineLobbyScreenState extends State<OnlineLobbyScreen> {
         ..._matches.map((room) => Card(color: Theme.of(context).colorScheme.surface, child: ListTile(
           leading: RoyalAvatar(dataUrl: room['hostAvatarDataUrl']?.toString(), radius: 22),
           title: Text(isEnglish ? 'Room ${room['roomCode'] ?? room['id']}' : 'اتاق ${room['roomCode'] ?? room['id']}', style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
-          subtitle: Text(isEnglish ? 'Host: @${room['hostName'] ?? 'player'}' : 'میزبان: @${room['hostName'] ?? 'بازیکن'}', style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7))),
+          subtitle: Text(isEnglish ? 'Host: ${publicUsernameLabel(room['hostName'], fallback: 'Player')}' : 'میزبان: ${publicUsernameLabel(room['hostName'], fallback: 'بازیکن')}', style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7))),
           trailing: FilledButton(onPressed: _loading ? null : () => _join(room), style: FilledButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary, foregroundColor: Theme.of(context).colorScheme.onPrimary), child: Text(isEnglish ? 'Join' : 'پیوستن')),
         ))),
         const SizedBox(height: 24),
@@ -335,8 +336,8 @@ class _OnlineLobbyScreenState extends State<OnlineLobbyScreen> {
             ),
             title: Text(
               isEnglish
-                  ? '@${game['hostName'] ?? 'player'} vs @${game['guestName'] ?? 'player'}'
-                  : '@${game['hostName'] ?? 'بازیکن'} در برابر @${game['guestName'] ?? 'بازیکن'}',
+                  ? '${publicUsernameLabel(game['hostName'], fallback: 'Player')} vs ${publicUsernameLabel(game['guestName'], fallback: 'Player')}'
+                  : '${publicUsernameLabel(game['hostName'], fallback: 'بازیکن')} در برابر ${publicUsernameLabel(game['guestName'], fallback: 'بازیکن')}',
               style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.w600),
             ),
             subtitle: Text(
