@@ -61,8 +61,9 @@ class WalletService {
         RegExp(r'^[A-Za-z0-9._:-]+').hasMatch(existing)) {
       return existing;
     }
+    final random = Random.secure();
     final key = base64UrlEncode(
-      List<int>.generate(24, (_) => Random.secure().nextInt(256)),
+      List<int>.generate(24, (_) => random.nextInt(256)),
     ).replaceAll('=', '');
     pending[code] = key;
     await _storage.write(key: _pendingPurchaseKeysStorage, value: jsonEncode(pending));
