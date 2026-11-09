@@ -5067,7 +5067,7 @@ app.post<{ Params: { id: string }; Body: { accept: boolean } }>(
       }
       await client.query(
         `UPDATE backgammon_matches SET status = 'cancelled', cancellation_accepted_by = $1,
-           cancellation_proposed_by = NULL, updated_at = NOW() WHERE id = $2`,
+           cancellation_proposed_by = NULL, expires_at = NOW() + INTERVAL '30 minutes', updated_at = NOW() WHERE id = $2`,
         [claims.sub, request.params.id]);
       await client.query('COMMIT');
       return { cancellation: { status: 'cancelled' } };
