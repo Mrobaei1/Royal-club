@@ -3613,6 +3613,78 @@ test('self-profile and private-chat APIs reject cross-account access and identit
   assert.equal(outsiderDelete.statusCode, 200, outsiderDelete.body);
   assert.equal(outsiderDelete.json().deleted, 0,
     'An unrelated account must not be able to delete another pair\'s private message.');
+  const edited = await app.inject({
+    method: 'PATCH',
+    url: `/api/v1/chat/${recipient.user.id}/messages/${messageId}`,
+    headers: auth(sender.token),
+    payload: { body: 'Edited by the original sender.' },
+  });
+  assert.equal(edited.statusCode, 200, edited.body);
+  assert.equal(edited.json().message.body, 'Edited by the original sender.');
+  assert.ok(edited.json().message.editedAt);
+
+  const recipientCannotEditSenderMessage = await app.inject({
+    method: 'PATCH',
+    url: `/api/v1/chat/${sender.user.id}/messages/${messageId}`,
+    headers: auth(recipient.token),
+    payload: { body: 'Attempted edit by recipient.' },
+  });
+  assert.equal(recipientCannotEditSenderMessage.statusCode, 404);
+
+  const deleteForBoth = await app.inject({
+    method: 'DELETE',
+    url: `/api/v1/chat/${recipient.user.id}/messages`,
+    headers: auth(sender.token),
+    payload: { messageIds: [messageId], scope: 'both' },
+  });
+  assert.equal(deleteForBoth.statusCode, 200, deleteForBoth.body);
+  assert.equal(deleteForBoth.json().deleted, 1);
+
+  const deletedForBothHistory = await app.inject({
+    method: 'GET',
+    url: `/api/v1/chat/${sender.user.id}/messages`,
+    headers: auth(recipient.token),
+  });
+  const deletedMessage = deletedForBothHistory.json().messages.find(
+    (message: { id: string }) => String(message.id) === messageId,
+  );
+  assert.equal(deletedMessage?.deletedForAll, true);
+  assert.equal(deletedMessage?.body, '[پیام حذف شده]');
+
+  const privateOnlyMessage = await app.inject({
+    method: 'POST',
+    url: `/api/v1/chat/${recipient.user.id}/messages`,
+    headers: auth(sender.token),
+    payload: { body: 'Only the sender should continue seeing this.' },
+  });
+  assert.equal(privateOnlyMessage.statusCode, 201, privateOnlyMessage.body);
+  const privateOnlyId = String(privateOnlyMessage.json().message.id);
+  const deleteForMe = await app.inject({
+    method: 'DELETE',
+    url: `/api/v1/chat/${sender.user.id}/messages`,
+    headers: auth(recipient.token),
+    payload: { messageIds: [privateOnlyId], scope: 'me' },
+  });
+  assert.equal(deleteForMe.statusCode, 200, deleteForMe.body);
+  assert.equal(deleteForMe.json().deleted, 1);
+
+  const recipientAfterPrivateDelete = await app.inject({
+    method: 'GET',
+    url: `/api/v1/chat/${sender.user.id}/messages`,
+    headers: auth(recipient.token),
+  });
+  assert.equal(recipientAfterPrivateDelete.json().messages.some(
+    (message: { id: string }) => String(message.id) === privateOnlyId,
+  ), false);
+  const senderAfterPrivateDelete = await app.inject({
+    method: 'GET',
+    url: `/api/v1/chat/${recipient.user.id}/messages`,
+    headers: auth(sender.token),
+  });
+  assert.equal(senderAfterPrivateDelete.json().messages.some(
+    (message: { id: string }) => String(message.id) === privateOnlyId,
+  ), true);
+
 });
 
 test('login rate limits are account-bound and cannot be bypassed by changing network address', async () => {
