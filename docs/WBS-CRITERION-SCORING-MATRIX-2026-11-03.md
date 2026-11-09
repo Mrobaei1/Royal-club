@@ -119,16 +119,16 @@
 
 | WBS criterion | Acceptance criterion | Points | Score | Evidence |
 |---|---|---:|---:|---|
-| 4.1-A | Username search/privacy | 5 | Pending | Not audited |
-| 4.1-B | Friend request lifecycle | 5 | Pending | Not audited |
-| 4.1-C | Remove/race handling | 5 | Pending | Not audited |
-| 4.1-D | 100-friend cap | 5 | Pending | Not audited |
-| 4.2-A | Audience authorization | 5 | Pending | Not audited |
-| 4.2-B | Text delivery | 5 | Pending | Not audited |
+| 4.1-A | Username search/privacy | 5 | Passed | Exact-head PR #230 (`05f60c75bf094120e1a4db571f69315d2c664b43`) verifies authenticated username search returns the requested account while omitting full name, email and phone. API integration, API build/tests, Flutter analyze/tests and backgammon audit passed before merge (`7feee98b6ef9307379040a94d60d4c1f3e677afb`). |
+| 4.1-B | Friend request lifecycle | 5 | Passed | Exact-head PR #230 verifies request creation, duplicate-request rejection, incoming inbox visibility, concurrent accept with exactly one commit, and reciprocal friend lists. All exact-head CI checks passed before merge (`7feee98b6ef9307379040a94d60d4c1f3e677afb`). |
+| 4.1-C | Remove/race handling | 5 | Passed | Exact-head PR #230 verifies concurrent accept is serialized exactly once, friend removal updates both users' lists, and repeated removal returns 404. All exact-head CI checks passed before merge (`7feee98b6ef9307379040a94d60d4c1f3e677afb`). |
+| 4.1-D | 100-friend cap | 5 | Passed | Existing exact-head integration test seeds 99 accepted friends, races two pending acceptances, asserts exactly one 200/one 409 and a final count of exactly 100, then rejects another request over the limit. PR #230 exact-head API integration suite passed before merge (`7feee98b6ef9307379040a94d60d4c1f3e677afb`). |
+| 4.2-A | Audience authorization | 5 | Passed | Exact-head PR #230 verifies accepted friends can send/read private text while an unrelated account receives 403 for history and send attempts; image audience denial is also asserted. All exact-head CI checks passed before merge (`7feee98b6ef9307379040a94d60d4c1f3e677afb`). |
+| 4.2-B | Text delivery | 5 | Passed | Exact-head PR #230 verifies a friend-sent private message is persisted and returned in the conversation history for the participant. API integration and all other exact-head checks passed before merge (`7feee98b6ef9307379040a94d60d4c1f3e677afb`). |
 | 4.2-C | Image authorization | 5 | Pending | Not audited |
-| 4.2-D | Emoji | 5 | Pending | Not audited |
+| 4.2-D | Emoji | 5 | Passed | Exact-head PR #230 sends Persian text with multiple Unicode emoji and verifies the exact content round-trips through private-chat history. API integration and all other exact-head checks passed before merge (`7feee98b6ef9307379040a94d60d4c1f3e677afb`). |
 | 4.2-E | Edit/delete; no calls; voice disabled | 5 | Pending | Not audited |
-| 4.3-A | Recipient targeting | 5 | Pending | Not audited |
+| 4.3-A | Recipient targeting | 5 | Passed | Exact-head PR #230 verifies friend-request notifications are visible to the intended recipient, unrelated system notifications remain scoped to their own account, and an unrelated user's inbox does not expose another recipient's rows. API integration and all other exact-head checks passed before merge (`7feee98b6ef9307379040a94d60d4c1f3e677afb`). |
 | 4.3-B | Localized read/unread lifecycle | 5 | Pending | Not audited |
 | 4.3-C | Clear-all isolation and Android acceptance | 5 | Pending | Not audited |
 | 4.4-A | Host permission | 5 | Pending | Not audited |
@@ -252,9 +252,9 @@
 - Packages decomposed: **53/53**
 - Acceptance criteria: **200**
 - Points represented: **1000/1,000**
-- Earned points currently evidenced: **340/1,000 (34.0%)** — 195 previous points plus 135 points across 27 verified Phase 3 criteria and 15 points across three verified Phase 5 criteria. Newly verified: concurrent duplicate/tampered/racing online move protection (3.4-E), atomic wallet balance (5.1-C), and transactional subscription activation (5.2-B). Evidence is linked criterion-by-criterion below. Visual-owner, device, two-device field acceptance and Production gates remain separately pending.
-- Remaining criteria: **132 Pending** (660 points not yet earned).
-- **Official project percentage: 34.0% (340/1,000 points; 68/200 criteria).** This is the evidence-backed WBS score calculated from the phase roll-up immediately below; it is not a claim that all implementation or release acceptance is complete. Pending provider deployment portability, NFR target approval, physical VPN/device acceptance, owner-approved retention and application-level disaster recovery remain open.
+- Earned points currently evidenced: **380/1,000 (38.0%)** — 195 previous points plus 135 points across 27 verified Phase 3 criteria, 40 points across eight verified Phase 4 criteria, and 15 points across three verified Phase 5 criteria. Newly verified in Phase 4: username privacy, friend-request lifecycle, removal/race handling, 100-friend cap, private-chat audience authorization, text delivery, Unicode emoji round-trip and notification recipient targeting. Evidence is linked criterion-by-criterion below. Visual-owner, device, two-device field acceptance and Production gates remain separately pending.
+- Remaining criteria: **124 Pending** (620 points not yet earned).
+- **Official project percentage: 38.0% (380/1,000 points; 76/200 criteria).** This is the evidence-backed WBS score calculated from the phase roll-up immediately below; it is not a claim that all implementation or release acceptance is complete. Pending provider deployment portability, NFR target approval, physical VPN/device acceptance, owner-approved retention and application-level disaster recovery remain open.
 
 ## Required evidence record
 
@@ -275,11 +275,11 @@ The following percentages are calculated directly from the 200 criterion rows in
 | Phase 1 — Architecture and project management | 80 | 11/16 | 55 | 68.75% |
 | Phase 2 | 130 | 22/26 | 110 | 84.62% |
 | Phase 3 | 230 | 27/46 | 135 | 58.70% |
-| Phase 4 | 120 | 0/24 | 0 | 0.00% |
+| Phase 4 | 120 | 8/24 | 40 | 33.33% |
 | Phase 5 | 140 | 3/28 | 15 | 10.71% |
 | Phase 6 | 140 | 0/28 | 0 | 0.00% |
 | Phase 7 | 160 | 5/32 | 25 | 15.63% |
-| **Total** | **1,000** | **68/200** | **340** | **34.00%** |
+| **Total** | **1,000** | **76/200** | **380** | **38.00%** |
 
 
 
