@@ -677,6 +677,15 @@ test('registered players can join an online match and history does not expose op
   });
   assert.equal(guestAcceptAndReady.statusCode, 200, guestAcceptAndReady.body);
   assert.equal(guestAcceptAndReady.json().setup.status, 'active');
+  const guestCannotEnableSpectators = await app.inject({
+    method: 'POST',
+    url: `/api/v1/matches/${matchId}/spectators`,
+    headers: auth(guest.token),
+    payload: { enabled: true },
+  });
+  assert.equal(guestCannotEnableSpectators.statusCode, 404,
+    'Only the host may change spectator access.');
+
   // Live spectator access is opt-in by the host and limited to accepted friends.
   const enableSpectators = await app.inject({
     method: 'POST',
@@ -686,6 +695,22 @@ test('registered players can join an online match and history does not expose op
   });
   assert.equal(enableSpectators.statusCode, 200, enableSpectators.body);
   assert.equal(enableSpectators.json().settings.spectatorsEnabled, true);
+
+  const hostLiveList = await app.inject({
+    method: 'GET',
+    url: '/api/v1/matches/live',
+    headers: auth(host.token),
+  });
+  const guestLiveList = await app.inject({
+    method: 'GET',
+    url: '/api/v1/matches/live',
+    headers: auth(guest.token),
+  });
+  assert.equal((hostLiveList.json().matches as Array<Record<string, unknown>>)
+    .some((match) => String(match.id) === matchId), false);
+  assert.equal((guestLiveList.json().matches as Array<Record<string, unknown>>)
+    .some((match) => String(match.id) === matchId), false,
+    'Active match participants cannot list their own match as spectators.');
 
   const blockedLiveList = await app.inject({
     method: 'GET',
@@ -739,6 +764,15 @@ test('registered players can join an online match and history does not expose op
     payload: { expectedVersion: spectatorSnapshot.json().state.version },
   });
   assert.notEqual(spectatorCannotRoll.statusCode, 200);
+
+  const spectatorCannotMove = await app.inject({
+    method: 'POST',
+    url: `/api/v1/matches/${matchId}/moves`,
+    headers: auth(stranger.token),
+    payload: { from: 5, to: 3, die: 2, expectedVersion: spectatorSnapshot.json().state.version },
+  });
+  assert.notEqual(spectatorCannotMove.statusCode, 200,
+    'Spectators must not be able to submit moves.');
 
   const disableSpectators = await app.inject({
     method: 'POST',
