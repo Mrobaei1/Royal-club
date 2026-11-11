@@ -19,8 +19,10 @@
 4. Use a dedicated branch and focused PR. Include purpose, WBS IDs, changed surfaces, tests, security/data risks, rollback plan and owner gates.
 5. Require exact-head CI for applicable API build/unit/integration, Flutter analyze/tests, game-engine audit and web preview.
 6. Review the diff for scope, privacy, authorization, migration safety and duplicate/stale branch risk.
-7. Merge only when exact-head checks are green, required acceptance is met and no approval gate is crossed. After merge, verify the merge SHA and refresh the WBS evidence.
-8. Keep production deployment, DB mutation, secret updates, SMS/payment, money movement, agent runtime/schedules, and APK builds outside ordinary code merge authority.
+7. Require a documented technical review with no unresolved blocking findings and green checks for the exact PR HEAD. The review must cover scope, security, privacy, authorization, data integrity, migration safety and regression coverage.
+8. Enable GitHub auto-merge only after the exact-HEAD CI and technical review gates pass; GitHub must wait for every configured required check/review before merging. Do not use manual merge as a bypass when auto-merge is unavailable or disabled.
+9. Repository setting `allow_auto_merge` was observed as `false` on 2026-11-11. The owner must enable **Settings → General → Pull Requests → Allow auto-merge** before this policy can execute automatically. Until then, keep eligible PRs open and report the configuration blocker.
+10. After an automatic merge, verify the merge SHA and refresh WBS evidence. Keep production deployment, DB mutation, secret updates, SMS/payment, money movement, agent runtime/schedules, and APK builds outside ordinary code merge authority.
 
 ## WBS scoring and reporting
 
