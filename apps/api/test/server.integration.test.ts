@@ -3044,9 +3044,43 @@ test('Phase 4 agent task definitions remain dormant and proposals require human 
     assert.ok((queue.json().proposals as Array<Record<string, unknown>>)
       .some((item) => String(item.id) === String(proposal.json().proposal.id)));
 
+    const approved = await app.inject({
+      method: 'POST',
+      url: `/api/v1/admin/agent-task-proposals/${proposal.json().proposal.id}/approve`,
+      headers: auth(owner.token),
+      payload: { reason: 'Read-only scope and data minimization verified.' },
+    });
+    assert.equal(approved.statusCode, 200, approved.body);
+    assert.equal(approved.json().proposal.status, 'approved_dormant');
+    assert.equal(approved.json().runtimeEnabled, false);
+    assert.equal(approved.json().executionStarted, false,
+      'Human approval records acceptance only; it must never start an agent runtime.');
+    const repeatedApproval = await app.inject({
+      method: 'POST',
+      url: `/api/v1/admin/agent-task-proposals/${proposal.json().proposal.id}/approve`,
+      headers: auth(owner.token),
+      payload: { reason: 'Second approval attempt.' },
+    });
+    assert.equal(repeatedApproval.statusCode, 409, repeatedApproval.body);
+
+    const rejectProposal = await app.inject({
+      method: 'POST',
+      url: `/api/v1/admin/agent-tasks/${taskId}/proposals`,
+      headers: auth(owner.token),
+      payload: { input: { period: '30d', includePersonalData: false } },
+    });
+    assert.equal(rejectProposal.statusCode, 201, rejectProposal.body);
+    const invalidReviewReason = await app.inject({
+      method: 'POST',
+      url: `/api/v1/admin/agent-task-proposals/${rejectProposal.json().proposal.id}/approve`,
+      headers: auth(owner.token),
+      payload: { reason: 'no' },
+    });
+    assert.equal(invalidReviewReason.statusCode, 400, invalidReviewReason.body);
+
     const rejected = await app.inject({
       method: 'POST',
-      url: `/api/v1/admin/agent-task-proposals/${proposal.json().proposal.id}/reject`,
+      url: `/api/v1/admin/agent-task-proposals/${rejectProposal.json().proposal.id}/reject`,
       headers: auth(owner.token),
       payload: { reason: 'Outside the approved read-only scope.' },
     });
@@ -3055,7 +3089,7 @@ test('Phase 4 agent task definitions remain dormant and proposals require human 
     assert.equal(rejected.json().runtimeEnabled, false);
     const repeatedReject = await app.inject({
       method: 'POST',
-      url: `/api/v1/admin/agent-task-proposals/${proposal.json().proposal.id}/reject`,
+      url: `/api/v1/admin/agent-task-proposals/${rejectProposal.json().proposal.id}/reject`,
       headers: auth(owner.token),
       payload: { reason: 'Second review attempt.' },
     });
@@ -3071,6 +3105,7 @@ test('Phase 4 agent task definitions remain dormant and proposals require human 
     const auditEntries = audit.json().entries as Array<Record<string, unknown>>;
     assert.ok(auditEntries.some((entry) => entry.action === 'definition_created'));
     assert.ok(auditEntries.some((entry) => entry.action === 'proposal_created'));
+    assert.ok(auditEntries.some((entry) => entry.action === 'proposal_approved'));
     assert.ok(auditEntries.some((entry) => entry.action === 'proposal_rejected'));
     assert.ok(auditEntries.every((entry) => entry.actorUsername === owner.user.username));
   } finally {
