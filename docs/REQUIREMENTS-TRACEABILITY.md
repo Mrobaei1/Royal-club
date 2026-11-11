@@ -47,6 +47,12 @@
 A row moves to accepted only with evidence at the correct layer: source review for architecture, automated tests for deterministic behavior, staging/device evidence for runtime UX/network behavior, and owner approval for privileged/production decisions. This table is a traceability aid, not a substitute for the WBS scoring matrix.
 
 
+## Owner decision — PR auto-merge after CI and technical review (2026-11-11)
+
+| Decision | Authority / date | Status | Implementation consequence |
+|---|---|---|---|
+| Automatically merge a PR only after exact-HEAD CI succeeds and a documented technical review has no blocking findings | Owner instruction, 2026-11-11 | Confirmed | Enable GitHub auto-merge after both gates pass; do not bypass missing checks/review. Repository metadata currently reports `allow_auto_merge=false`; owner must enable the repository setting before auto-merge can operate. |
+
 ## Owner decision — Agent development starts immediately (2026-11-11)
 
 | Decision | Authority / date | Status | Implementation consequence |
