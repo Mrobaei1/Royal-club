@@ -3063,6 +3063,23 @@ test('Phase 4 agent task definitions remain dormant and proposals require human 
     assert.equal(approved.json().runtimeEnabled, false);
     assert.equal(approved.json().executionStarted, false,
       'Human approval records acceptance only; it must never start an agent runtime.');
+    const approvedQueue = await app.inject({
+      method: 'GET',
+      url: '/api/v1/admin/agent-task-proposals',
+      headers: auth(owner.token),
+    });
+    const persistedApproval = (approvedQueue.json().proposals as Array<Record<string, unknown>>)
+      .find((item) => String(item.id) === String(proposal.json().proposal.id));
+    assert.equal(persistedApproval?.status, 'approved_dormant');
+    const taskDefinitionsAfterApproval = await app.inject({
+      method: 'GET',
+      url: '/api/v1/admin/agent-tasks',
+      headers: auth(owner.token),
+    });
+    const unchangedTask = (taskDefinitionsAfterApproval.json().tasks as Array<Record<string, unknown>>)
+      .find((item) => String(item.id) === taskId);
+    assert.equal(unchangedTask?.status, 'draft',
+      'Approving a proposal must not activate its task definition.');
     const repeatedApproval = await app.inject({
       method: 'POST',
       url: `/api/v1/admin/agent-task-proposals/${proposal.json().proposal.id}/approve`,
