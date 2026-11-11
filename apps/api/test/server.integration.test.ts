@@ -344,6 +344,14 @@ test('registered players can join an online match and history does not expose op
   });
   assert.equal(deniedAgentProposal.statusCode, 403);
 
+  const deniedAgentApproval = await app.inject({
+    method: 'POST',
+    url: '/api/v1/admin/agent-task-proposals/1/approve',
+    headers: auth(host.token),
+    payload: { reason: 'Unauthorized user must not approve.' },
+  });
+  assert.equal(deniedAgentApproval.statusCode, 403);
+
 
   const usernameSearch = await app.inject({
     method: 'GET',
