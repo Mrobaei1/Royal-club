@@ -45,3 +45,11 @@
 ## Audit rule
 
 A row moves to accepted only with evidence at the correct layer: source review for architecture, automated tests for deterministic behavior, staging/device evidence for runtime UX/network behavior, and owner approval for privileged/production decisions. This table is a traceability aid, not a substitute for the WBS scoring matrix.
+
+
+## Owner decision — Agent development starts immediately (2026-11-11)
+
+| Decision | Authority / date | Status | Implementation consequence |
+|---|---|---|---|
+| Implement the Royal Club Agent platform from the current development stage and continue through full development | Owner instruction, 2026-11-11 | Confirmed | Agent control plane, Agent Center, specialist workflows, scoped authorization, audit, kill switch, observability and non-operational simulation are active engineering workstreams; do not defer their implementation to the final stage. |
+| Keep Agent runtime and all live privileges disabled until separate approval | Owner instruction and governance boundary, 2026-11-11 | Confirmed | Code, tests and staging simulation may be developed, but no live identity/grant, schedule, external message/provider, financial action or production task may be activated without a separate explicit owner approval. |
