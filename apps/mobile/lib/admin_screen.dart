@@ -410,6 +410,55 @@ class _AdminScreenState extends State<AdminScreen> {
     }
   }
 
+  Future<void> _approveAgentProposal(dynamic proposal) async {
+    final reasonController = TextEditingController();
+    final reason = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(appText(context, 'تأیید پیش‌نویس ایجنت', 'Approve dormant agent proposal')),
+        content: TextField(
+          controller: reasonController,
+          minLines: 2,
+          maxLines: 4,
+          maxLength: 500,
+          decoration: InputDecoration(
+            labelText: appText(context, 'دلیل تأیید (حداقل ۵ نویسه)', 'Approval reason (at least 5 characters)'),
+            helperText: appText(context, 'تأیید فقط ثبت می‌شود و اجرای ایجنت را فعال نمی‌کند.', 'Approval is recorded only; it does not enable agent execution.'),
+            border: const OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext), child: Text(appText(context, 'انصراف', 'Cancel'))),
+          FilledButton(
+            onPressed: () {
+              final value = reasonController.text.trim();
+              if (value.length >= 5 && value.length <= 500) Navigator.pop(dialogContext, value);
+            },
+            child: Text(appText(context, 'تأیید بدون اجرا', 'Approve without execution')),
+          ),
+        ],
+      ),
+    );
+    reasonController.dispose();
+    if (reason == null || _busy) return;
+    setState(() => _busy = true);
+    try {
+      await AdminService.approveAgentTaskProposal(proposal['id'].toString(), reason);
+      await _load();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(appText(context,
+            'پیشنهاد تأیید و ثبت ممیزی شد؛ اجرای ایجنت همچنان خاموش است.',
+            'Proposal approved and audited; agent execution remains disabled.')),
+        ));
+      }
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appError(context, error))));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   Future<void> _rejectAgentProposal(dynamic proposal) async {
     final reasonController = TextEditingController();
     final reason = await showDialog<String>(
@@ -1842,13 +1891,22 @@ class _AdminScreenState extends State<AdminScreen> {
                                 Text('${appText(context, 'شناسه', 'ID')}: ${proposal['id']}'),
                                 Text('${appText(context, 'تاریخ', 'Created')}: ${proposal['createdAt'] ?? ''}'),
                                 if (proposal['input'] != null) Text('${appText(context, 'ورودی', 'Input')}: ${proposal['input']}'),
-                                Align(
-                                  alignment: AlignmentDirectional.centerEnd,
-                                  child: OutlinedButton.icon(
-                                    onPressed: _busy ? null : () => _rejectAgentProposal(proposal),
-                                    icon: const Icon(Icons.block_outlined),
-                                    label: Text(appText(context, 'رد با ثبت دلیل', 'Reject with reason')),
-                                  ),
+                                Wrap(
+                                  alignment: WrapAlignment.end,
+                                  spacing: 8,
+                                  runSpacing: 4,
+                                  children: [
+                                    FilledButton.icon(
+                                      onPressed: _busy ? null : () => _approveAgentProposal(proposal),
+                                      icon: const Icon(Icons.check_circle_outline),
+                                      label: Text(appText(context, 'تأیید پیش‌نویس (بدون اجرا)', 'Approve draft (no execution)')),
+                                    ),
+                                    OutlinedButton.icon(
+                                      onPressed: _busy ? null : () => _rejectAgentProposal(proposal),
+                                      icon: const Icon(Icons.block_outlined),
+                                      label: Text(appText(context, 'رد با ثبت دلیل', 'Reject with reason')),
+                                    ),
+                                  ],
                                 ),
                               ]),
                             ),
