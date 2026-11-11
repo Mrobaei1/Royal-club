@@ -368,6 +368,21 @@ await pool.query(`
     reviewed_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   );
+
+  DO $
+  BEGIN
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_constraint
+       WHERE conrelid = 'agent_task_proposals'::regclass
+         AND conname = 'agent_task_proposals_status_check'
+         AND pg_get_constraintdef(oid) LIKE '%approved_dormant%'
+    ) THEN
+      ALTER TABLE agent_task_proposals DROP CONSTRAINT IF EXISTS agent_task_proposals_status_check;
+      ALTER TABLE agent_task_proposals
+        ADD CONSTRAINT agent_task_proposals_status_check
+        CHECK (status IN ('awaiting_review', 'approved_dormant', 'rejected', 'cancelled'));
+    END IF;
+  END $;
   CREATE INDEX IF NOT EXISTS agent_task_proposals_status_created_idx
     ON agent_task_proposals (status, created_at DESC);
   CREATE TABLE IF NOT EXISTS agent_task_audit_log (
@@ -381,6 +396,21 @@ await pool.query(`
     details JSONB NOT NULL DEFAULT '{}'::jsonb,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   );
+
+  DO $
+  BEGIN
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_constraint
+       WHERE conrelid = 'agent_task_audit_log'::regclass
+         AND conname = 'agent_task_audit_log_action_check'
+         AND pg_get_constraintdef(oid) LIKE '%proposal_approved%'
+    ) THEN
+      ALTER TABLE agent_task_audit_log DROP CONSTRAINT IF EXISTS agent_task_audit_log_action_check;
+      ALTER TABLE agent_task_audit_log
+        ADD CONSTRAINT agent_task_audit_log_action_check
+        CHECK (action IN ('definition_created', 'proposal_created', 'proposal_approved', 'proposal_rejected', 'proposal_cancelled'));
+    END IF;
+  END $;
   CREATE INDEX IF NOT EXISTS agent_task_audit_created_idx
     ON agent_task_audit_log (created_at DESC);
 
@@ -2726,6 +2756,50 @@ app.post<{ Params: { id: string }; Body: { input?: Record<string, unknown> } }>(
       await client.query('ROLLBACK').catch(() => undefined);
       request.log.error({ err: error }, 'Could not create agent task proposal');
       return reply.code(500).send({ error: 'Could not create task proposal.' });
+    } finally {
+      client.release();
+    }
+  },
+);
+
+app.post<{ Params: { id: string }; Body: { reason?: string } }>(
+  '/api/v1/admin/agent-task-proposals/:id/approve',
+  { onRequest: [requireOwnerStepUp], config: { rateLimit: { max: 20, timeWindow: '1 minute' } } },
+  async (request, reply) => {
+    if (!isNumericId(request.params.id)) return reply.code(400).send({ error: 'Invalid proposal ID.' });
+    const reason = typeof request.body?.reason === 'string' ? request.body.reason.trim() : '';
+    if (reason.length < 5 || reason.length > 500) {
+      return reply.code(400).send({ error: 'Provide an approval reason between 5 and 500 characters.' });
+    }
+    const claims = request.user as { sub?: string };
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const approved = await client.query(
+        `UPDATE agent_task_proposals
+            SET status = 'approved_dormant', review_reason = $1, reviewed_by = $2, reviewed_at = NOW()
+          WHERE id = $3 AND status = 'awaiting_review'
+          RETURNING id, task_definition_id AS "taskDefinitionId", status,
+                    review_reason AS "reviewReason", reviewed_at AS "reviewedAt"`,
+        [reason, claims.sub ?? null, request.params.id],
+      );
+      if (!approved.rowCount) {
+        await client.query('ROLLBACK');
+        return reply.code(409).send({ error: 'Proposal is missing or no longer awaiting review.' });
+      }
+      await client.query(
+        `INSERT INTO agent_task_audit_log
+          (actor_user_id, task_definition_id, proposal_id, action, result, reason, details)
+         VALUES ($1, $2, $3, 'proposal_approved', 'success', $4, $5::jsonb)`,
+        [claims.sub ?? null, approved.rows[0].taskDefinitionId, approved.rows[0].id, reason,
+          JSON.stringify({ runtimeEnabled: false, executionStarted: false, decision: 'approved_dormant' })],
+      );
+      await client.query('COMMIT');
+      return { proposal: approved.rows[0], runtimeEnabled: false, executionStarted: false };
+    } catch (error) {
+      await client.query('ROLLBACK').catch(() => undefined);
+      request.log.error({ err: error }, 'Could not approve dormant agent task proposal');
+      return reply.code(500).send({ error: 'Could not approve task proposal.' });
     } finally {
       client.release();
     }
