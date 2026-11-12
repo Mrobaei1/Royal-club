@@ -1857,11 +1857,30 @@ test('subscription purchases debit the wallet atomically and record a ledger ent
     url: '/api/v1/subscriptions/activate',
     headers: auth(buyer.token),
     // Client-supplied price/duration must never override manager-controlled plan values.
-    payload: { planCode: 'vip_monthly', priceCredits: 1, durationDays: 1 },
+    payload: {
+      planCode: 'vip_monthly', priceCredits: 1, durationDays: 1,
+      idempotencyKey: 'subscription-purchase-replay-0001',
+    },
   });
   assert.equal(purchase.statusCode, 200, purchase.body);
   assert.equal(purchase.json().walletBalance, 200);
   assert.equal(purchase.json().subscription.planCode, 'vip_monthly');
+  const replayedPurchase = await app.inject({
+    method: 'POST',
+    url: '/api/v1/subscriptions/activate',
+    headers: auth(buyer.token),
+    payload: { planCode: 'vip_monthly', idempotencyKey: 'subscription-purchase-replay-0001' },
+  });
+  assert.equal(replayedPurchase.statusCode, 200, replayedPurchase.body);
+  assert.deepEqual(replayedPurchase.json(), purchase.json(),
+    'A retry with the same account/key/plan must return the original purchase result.');
+  const conflictingReplay = await app.inject({
+    method: 'POST',
+    url: '/api/v1/subscriptions/activate',
+    headers: auth(buyer.token),
+    payload: { planCode: 'vip_weekly', idempotencyKey: 'subscription-purchase-replay-0001' },
+  });
+  assert.equal(conflictingReplay.statusCode, 409, conflictingReplay.body);
   assert.equal(
     new Date(purchase.json().subscription.endsAt).getTime() - new Date(purchase.json().subscription.startsAt).getTime(),
     Number(serverPlan.rows[0]?.duration_days) * 86400000,
@@ -4998,6 +5017,37 @@ test('expired subscriptions are marked expired and omitted from the active subsc
   );
   assert.equal(stored.rows[0]?.status, 'expired');
   assert.equal(stored.rows[0]?.is_expired, true);
+});
+
+test('replayed concurrent subscription purchases with one idempotency key debit the wallet once', async () => {
+  const buyer = await register('Idempotent Subscription Buyer');
+  await testPool.query(
+    'INSERT INTO wallet_accounts (user_id, balance) VALUES ($1, 300) ON CONFLICT (user_id) DO UPDATE SET balance = 300',
+    [buyer.user.id],
+  );
+  const payload = { planCode: 'vip_monthly', idempotencyKey: 'same-subscription-purchase-key-001' };
+  const purchases = await Promise.all([
+    app.inject({ method: 'POST', url: '/api/v1/subscriptions/activate', headers: auth(buyer.token), payload }),
+    app.inject({ method: 'POST', url: '/api/v1/subscriptions/activate', headers: auth(buyer.token), payload }),
+  ]);
+  assert.deepEqual(purchases.map((response) => response.statusCode), [200, 200]);
+  assert.equal(purchases[0].json().subscription.id, purchases[1].json().subscription.id);
+  assert.equal(purchases[0].json().walletBalance, 0);
+  assert.equal(purchases[1].json().walletBalance, 0);
+  const wallet = await testPool.query('SELECT balance FROM wallet_accounts WHERE user_id = $1', [buyer.user.id]);
+  assert.equal(Number(wallet.rows[0]?.balance), 0);
+  const ledger = await testPool.query(
+    "SELECT amount, balance_after FROM wallet_transactions WHERE user_id = $1 AND type = 'subscription_purchase'",
+    [buyer.user.id],
+  );
+  assert.equal(ledger.rows.length, 1);
+  assert.equal(Number(ledger.rows[0]?.amount), -300);
+  assert.equal(Number(ledger.rows[0]?.balance_after), 0);
+  const subscriptions = await testPool.query(
+    "SELECT id FROM user_subscriptions WHERE user_id = $1 AND status = 'active' AND ends_at > NOW()",
+    [buyer.user.id],
+  );
+  assert.equal(subscriptions.rows.length, 1);
 });
 
 test('concurrent subscription purchases cannot overspend the same wallet balance', async () => {
