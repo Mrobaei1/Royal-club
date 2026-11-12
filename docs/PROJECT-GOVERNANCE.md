@@ -76,6 +76,7 @@
 - Repository metadata reports `allow_auto_merge=true`.
 - GitHub documentation says the auto-merge option is available only while a PR cannot yet be merged immediately, such as when required reviews or status checks remain outstanding. Once the PR reaches `CLEAN`, GitHub refuses the auto-merge mutation because there is nothing left to wait for.
 - Attempts on PRs #244, #246, #247, #248 and #249 were made after their checks had already completed and returned `Pull request is in clean status`. This is not proof that the repository auto-merge setting is disabled.
+- A second attempt on PR #249 while the new CI checks were queued returned `Pull request is in unstable status`; the queued jobs were therefore not acting as required merge gates at that moment. The required-check rules below must be configured on `main` before relying on auto-merge.
 - The accessible repository rulesets endpoint returned an empty list. Reading classic branch protection for `main` returned HTTP 403 to the current GitHub connection, so the effective branch requirements cannot be confirmed.
 - The CI workflows now expose unique canonical job names for branch protection. Configure these required checks on `main`:
   - `API build and tests (full validation)`
