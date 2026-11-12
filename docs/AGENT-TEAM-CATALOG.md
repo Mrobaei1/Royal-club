@@ -1,6 +1,6 @@
 # Royal Club — Agent team catalogue and extensible framework
 
-**Status: dormant blueprint only.** This catalogue does not create user accounts or agent identities, issue credentials, grant permissions, schedule jobs, connect external providers, or start an agent runtime.
+**Status: implementation in progress; runtime remains disabled.** Per the owner's 2026-11-11 decision, agent infrastructure and specialist workflows are to be implemented from the current development stage and then completed across the project. This authorizes engineering implementation only; it does not create live agent identities, issue credentials, grant runtime permissions, schedule jobs, connect production providers, or start an agent runtime.
 
 ## Architecture decision
 
@@ -50,15 +50,23 @@ The game-specialist template is instantiated by a stable game key (examples: `ga
 - Kill switch, bounded task queue, rate limits, timeouts, safe retry/dead-letter handling and audit trail are prerequisites before runtime activation.
 - No recurring schedules, daily email reports, SMS, external contact, or provider credentials are enabled by this catalogue.
 
-## Delivery order in Phase 4
+## Delivery order — implementation starts immediately
 
-1. Maintain typed role templates and game-specialist factory with validation tests.
-2. Reconcile templates with the existing owner-only task-definition/proposal control plane.
-3. Design persistent agent identity, grant/revocation lifecycle, audit and admin review UI without seeding privileged identities.
-4. Add read-only reporting adapters only after separate owner approval and staging validation.
-5. Add other domain adapters one at a time with negative authorization, scope isolation, revocation, replay, concurrency and failure-closed tests.
-6. Require explicit owner approval before creating identities, granting capabilities, enabling schedules, sending external messages or running production tasks.
+1. Continue implementing typed specialist templates and game-specialist factory with validation tests.
+2. Complete the owner-only task-definition/proposal lifecycle, including approve/reject/cancel decisions, audit history and clear dormant states.
+3. Complete the Agent Center UX: role catalogue, task definitions, proposal review, monitoring/status views, search and responsive layouts.
+4. Implement the persistent identity, scoped-grant and revocation model with deny-by-default enforcement, without activating identities or grants.
+5. Implement the bounded task orchestration, cancellation, retry/dead-letter, kill-switch and redacted observability layers in a non-operational test harness.
+6. Add read-only domain adapters and game specialists one at a time, with negative authorization, scope isolation, revocation, replay, concurrency and failure-closed tests.
+7. Complete staging simulations, threat review, accessibility and multi-device acceptance. Keep all runtime entry points disabled until a separate explicit owner approval.
+8. Require explicit owner approval before creating live identities, granting runtime capabilities, enabling schedules, sending external messages, connecting production providers, or running production tasks.
 
 ## Existing implementation boundary
 
-The API already contains a dormant owner-only task-definition/proposal workflow and delegated-permission tables. It intentionally has no agent execution endpoint. This PR extends the role catalogue only; it does not enable or deploy the runtime. No production deployment or migration, SMS activation, paid feature, APK build, scheduled task or production grant is part of this work.
+The API already contains an owner-only task-definition/proposal workflow, role templates, delegated-permission tables, audit logging and fail-closed policy tests. The execution endpoint/runtime remains intentionally absent. The implementation programme now covers the complete control plane and a non-operational orchestration/test harness; no live agent execution is enabled by this decision. No production deployment or migration, SMS activation, paid feature, APK build, scheduled task or production grant is part of this work.
+
+## Owner decision — 2026-11-11
+
+- Agent implementation starts immediately and proceeds in parallel with the other Royal Club workstreams.
+- Agent capabilities, control plane, Agent Center, scoped security, observability, simulation and test coverage are to be completed rather than deferred to a future project phase.
+- **Runtime remains OFF** until the owner separately approves activation. The same separate approval remains required for live identities/grants, schedules, external communication, production providers, financial actions and production operations.
