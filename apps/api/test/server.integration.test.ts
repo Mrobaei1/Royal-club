@@ -3232,6 +3232,48 @@ test('Phase 4 agent task definitions remain dormant and proposals require human 
     assert.ok(auditEntries.some((entry) => entry.action === 'proposal_cancelled'));
     assert.ok(auditEntries.some((entry) => entry.action === 'proposal_rejected'));
     assert.ok(auditEntries.every((entry) => entry.actorUsername === owner.user.username));
+
+    const firstAuditPage = await app.inject({
+      method: 'GET',
+      url: '/api/v1/admin/agent-task-audit?limit=1',
+      headers: auth(owner.token),
+    });
+    assert.equal(firstAuditPage.statusCode, 200, firstAuditPage.body);
+    assert.equal(firstAuditPage.json().entries.length, 1);
+    assert.equal(firstAuditPage.json().runtimeEnabled, false);
+    const nextAuditCursor = firstAuditPage.json().nextCursor as string;
+    assert.ok(nextAuditCursor);
+    const secondAuditPage = await app.inject({
+      method: 'GET',
+      url: `/api/v1/admin/agent-task-audit?limit=1&cursor=${nextAuditCursor}`,
+      headers: auth(owner.token),
+    });
+    assert.equal(secondAuditPage.statusCode, 200, secondAuditPage.body);
+    assert.equal(secondAuditPage.json().entries.length, 1);
+    assert.notEqual(secondAuditPage.json().entries[0].id, firstAuditPage.json().entries[0].id);
+
+    const filteredAudit = await app.inject({
+      method: 'GET',
+      url: '/api/v1/admin/agent-task-audit?action=proposal_approved&limit=10',
+      headers: auth(owner.token),
+    });
+    assert.equal(filteredAudit.statusCode, 200, filteredAudit.body);
+    assert.ok(filteredAudit.json().entries.length > 0);
+    assert.ok(filteredAudit.json().entries.every((entry: Record<string, unknown>) => entry.action === 'proposal_approved'));
+    assert.equal(filteredAudit.json().nextCursor, null);
+
+    const invalidAuditFilter = await app.inject({
+      method: 'GET',
+      url: '/api/v1/admin/agent-task-audit?action=execute',
+      headers: auth(owner.token),
+    });
+    assert.equal(invalidAuditFilter.statusCode, 400);
+    const invalidAuditCursor = await app.inject({
+      method: 'GET',
+      url: '/api/v1/admin/agent-task-audit?cursor=not-a-number',
+      headers: auth(owner.token),
+    });
+    assert.equal(invalidAuditCursor.statusCode, 400);
   } finally {
     if (previousOwnerId === undefined) delete process.env.OWNER_USER_ID;
     else process.env.OWNER_USER_ID = previousOwnerId;
