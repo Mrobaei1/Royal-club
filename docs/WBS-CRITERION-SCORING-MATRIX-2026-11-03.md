@@ -157,7 +157,7 @@
 | 5.2-B | Transactional activation | 5 | Passed | Exact-head PR #231 (`d0853b4087606b12d46d9a6e2e251a37436d1b77`) disposable-PostgreSQL integration test asserts only the winning concurrent purchase creates one active subscription; rejected purchase creates no second subscription. API integration, API build/tests, Flutter analyze/tests and backgammon audit passed before merge. |
 | 5.2-C | Expiry/removal | 5 | Passed | PR #247 exact HEAD `cf20da1595da73364f14839e0ef85f04d2cfd873`: PostgreSQL integration verifies elapsed subscriptions are persisted as `expired`, omitted from the active subscription view, and deactivated plans leave the active catalogue and reject new purchases. Exact-head API integration [run 42574531687](https://github.com/Mrobaei1/Royal-club/actions/runs/42574531687/job/129019159565) and API build passed; merged into `main` as `59015a39f94323e406b14814071cad77b6eeb9bb` (2026-11-12). |
 | 5.2-D | Server-controlled prices | 5 | Passed | Subscription activation sends forged client `priceCredits=1` and `durationDays=1`; API still charges the configured server plan price (300 credits) and applies its configured 30-day duration. Merged PR #241; exact-head API integration [run 42571306114](https://github.com/Mrobaei1/Royal-club/actions/runs/42571306114) passed. (2026-11-09) |
-| 5.3-A | XP policy | 5 | Pending | Main contains online win/loss and offline-training isolation evidence; exact resignation XP and cumulative-policy regression tests are in rebased PRs #261 and #262. Keep pending until both test changes are integrated into `main`. |
+| 5.3-A | XP policy | 5 | Passed | Exact-head PostgreSQL regression tests now integrated: PR #262 verifies cumulative XP across game-scope and match-scope resignations, participant totals and four progression events; PR #264 verifies +20 winner XP, -5 quitter penalty and retry safety. API integration runs [43258493217](https://github.com/Mrobaei1/Royal-club/actions/runs/43258493217/job/131323075952) and [43259609428](https://github.com/Mrobaei1/Royal-club/actions/runs/43259609428/job/131327047310) passed. PRs merged into main as `6ead01e5bfd674bf374b28151e53d055e9c5bf26` and `00d741b4946ee78e2019dab21ee35ecb6e493295` (2026-11-12). |
 | 5.3-B | Permanent levels/curve | 5 | Passed | `apps/api/src/player-progression.ts` and `player-progression.test.ts` verify cumulative XP thresholds, level 100 at 79,439 XP, and permanent levels after XP loss; exact-head API validation CI run `43183126874` passed (PR #249, 2026-11-12). |
 | 5.3-C | Elo/leaderboard | 5 | Passed | `backgammon-rating.ts`/tests verify zero-sum Elo; PostgreSQL integration asserts 1016/984 rating updates, global and weekly leaderboard results, and exclusion of unfinished/unresolved matches; exact-head integration CI run `43183126917` passed (PR #249, 2026-11-12). |
 | 5.3-D | Ties/draws/unfinished matches | 5 | Pending | Not audited |
@@ -167,7 +167,7 @@
 | 5.4-C | Fixtures/byes/rest fairness | 5 | Passed | Five-player round-robin integration creates five byes and ten unique pairings; after completion each player has four games and exactly one rest round. The same test asserts aggregate fixture/rest counts. Exact-head PR #254 API integration run `43185436608` passed. |
 | 5.4-D | Results/finals | 5 | Passed | Integration saves a completed match result and verifies knockout final creation is rejected without manager approval and accepted only when `managerApproved=true`. Exact-head PR #254 API integration run `43185436608` passed. |
 | 5.4-E | Appeals/incidents/reschedule | 5 | Passed | Integration submits a participant appeal after a completed match, records the manager's rejection, records a technical issue, then reschedules with a validated future replacement time. Exact-head PR #254 API integration run `43185436608` passed. |
-| 5.4-F | Audit history | 5 | Pending | Audit-history read API and extended PostgreSQL assertions are in open PRs #255 and #256; retain pending until the API and tests are integrated into `main`. |
+| 5.4-F | Audit history | 5 | Passed | PR #263 adds the owner-only paginated audit API, stable cursor ordering, index, PostgreSQL authorization/pagination/event-detail assertions, lifecycle actor-attribution coverage, and bilingual Admin UI. Exact-head API integration [run 43259222962](https://github.com/Mrobaei1/Royal-club/actions/runs/43259222962/job/131325692943), API build, Flutter and Web Preview checks passed; merged into main as `b3fa33deec0c9792fd98c603c4a48a5505e76cf0` (2026-11-12). |
 | 5.4-G | Manager UI acceptance | 5 | Pending | Not audited |
 | 5.5-A | Free-by-default entry | 5 | Passed | Owner-created league defaults to `entryMode=free` and `subscriptionDaysCost=0`; integration confirms free entry succeeds and wallet balance remains unchanged. PR #230 exact-head API integration [run 42569680272](https://github.com/Mrobaei1/Royal-club/actions/runs/42569680272) passed. (2026-11-09) |
 | 5.5-B | Dedicated entitlement ledger | 5 | Passed | Subscription-day league entry records one dedicated `league_entitlement_ledger` row with the exact days consumed and before/after subscription expiry. PR #230 exact-head API integration [run 42569680272](https://github.com/Mrobaei1/Royal-club/actions/runs/42569680272) passed. (2026-11-09) |
@@ -252,9 +252,9 @@
 - Packages decomposed: **53/53**
 - Acceptance criteria: **200**
 - Points represented: **1000/1,000**
-- Earned points currently evidenced: **590/1,000 (59.0%)** — 190 points across Phases 1, 2 and 7, 150 points across 30 verified Phase 3 criteria, 110 points across 22 verified Phase 4 criteria, 95 points across 19 verified Phase 5 criteria, and 45 points across 9 verified Phase 6 criteria. Evidence is linked criterion-by-criterion below. Remaining gates include Android notification acceptance, social theme/layout/accessibility device acceptance, and two-device/Production release acceptance.
+- Earned points currently evidenced: **600/1,000 (60.0%)** — 190 points across Phases 1, 2 and 7, 150 points across 30 verified Phase 3 criteria, 110 points across 22 verified Phase 4 criteria, 105 points across 21 verified Phase 5 criteria, and 45 points across 9 verified Phase 6 criteria. Evidence is linked criterion-by-criterion below. Remaining gates include Android notification acceptance, social theme/layout/accessibility device acceptance, and two-device/Production release acceptance.
 - Remaining criteria: **86 Pending** (430 points not yet earned).
-- **Proposed project percentage for this PR: 59.0% (590/1,000 points; 118/200 criteria).** This is the evidence-backed WBS score calculated from the phase roll-up immediately below; it is not a claim that all implementation or release acceptance is complete. The official `main` score remains 49.5% until this PR is integrated. Pending Android notification acceptance, social theme/layout/accessibility device acceptance, provider deployment portability, NFR target approval, physical VPN/device acceptance, owner-approved retention and application-level disaster recovery remain open.
+- **Proposed project percentage for this PR: 60.0% (600/1,000 points; 120/200 criteria).** This is the evidence-backed WBS score calculated from the phase roll-up immediately below; it is not a claim that all implementation or release acceptance is complete. The official `main` score remains 49.5% until this PR is integrated. Pending Android notification acceptance, social theme/layout/accessibility device acceptance, provider deployment portability, NFR target approval, physical VPN/device acceptance, owner-approved retention and application-level disaster recovery remain open.
 
 ## Required evidence record
 
@@ -276,10 +276,10 @@ The following percentages are calculated directly from the 200 criterion rows in
 | Phase 2 | 130 | 22/26 | 110 | 84.62% |
 | Phase 3 | 230 | 30/46 | 150 | 65.22% |
 | Phase 4 | 120 | 22/24 | 110 | 91.67% |
-| Phase 5 | 140 | 19/28 | 95 | 67.86% |
+| Phase 5 | 140 | 21/28 | 105 | 75.00% |
 | Phase 6 | 140 | 9/28 | 45 | 32.14% |
 | Phase 7 | 160 | 5/32 | 25 | 15.63% |
-| **Total** | **1,000** | **118/200** | **590** | **59.00%** |
+| **Total** | **1,000** | **120/200** | **600** | **60.00%** |
 
 
 
@@ -363,8 +363,8 @@ Exact-head evidence: PR #249 commit `8213864977b57b73e88bc0bad49f976631b662f2`; 
 | Phase 2 | 130 | 22/26 | 110 | 84.62% |
 | Phase 3 | 230 | 30/46 | 150 | 65.22% |
 | Phase 4 | 120 | 22/24 | 110 | 91.67% |
-| Phase 5 | 140 | 19/28 | 95 | 67.86% |
+| Phase 5 | 140 | 21/28 | 105 | 75.00% |
 | Phase 6 | 140 | 9/28 | 45 | 32.14% |
 | Phase 7 | 160 | 5/32 | 25 | 15.63% |
-| **Total** | **1,000** | **118/200** | **590** | **59.00%** |
+| **Total** | **1,000** | **120/200** | **600** | **60.00%** |
 
