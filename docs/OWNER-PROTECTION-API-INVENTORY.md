@@ -32,6 +32,8 @@
 | POST | `/api/v1/admin/agent-tasks` |
 | GET | `/api/v1/admin/agent-task-proposals` |
 | GET | `/api/v1/admin/agent-task-audit` |
+| POST | `/api/v1/admin/agent-task-proposals/:id/approve` | Owner step-up; records approval as dormant; never starts execution. |
+| POST | `/api/v1/admin/agent-task-proposals/:id/cancel` | Owner step-up; cancels an awaiting-review proposal with audit. |
 | POST | `/api/v1/admin/agent-task-proposals/:id/reject` |
 | GET | `/api/v1/admin/permissions/settings` |
 | PATCH | `/api/v1/admin/permissions/settings` |
