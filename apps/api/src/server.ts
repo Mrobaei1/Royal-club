@@ -2602,6 +2602,24 @@ const agentTaskDomains = new Set([
   'operations', 'social', 'advertising', 'analytics',
 ]);
 const agentTaskCapabilities = new Set(['read', 'recommend']);
+const agentSensitiveInputKey = /(?:password|secret|token|api[_-]?key|authorization|credential|private[_-]?key|access[_-]?key)/i;
+
+// Proposal payloads may contain configuration supplied by an owner. Keep the
+// original JSON for the controlled workflow, but never echo secret-like fields
+// through Agent Center API responses or audit surfaces.
+function redactAgentSensitiveInput(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(redactAgentSensitiveInput);
+  if (value !== null && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>).map(([key, nested]) => [
+        key,
+        agentSensitiveInputKey.test(key) ? '[REDACTED]' : redactAgentSensitiveInput(nested),
+      ]),
+    );
+  }
+  return value;
+}
+
 
 // Expose inert role templates to the owner-facing Agent Center. This is read-only:
  // listing templates never creates task definitions, identities, grants, or runtime work.
@@ -2756,7 +2774,7 @@ app.get('/api/v1/admin/agent-task-proposals', { onRequest: [requireOwnerAuth] },
       JOIN agent_task_definitions t ON t.id = p.task_definition_id
      ORDER BY p.created_at DESC, p.id DESC LIMIT 200
   `);
-  return { proposals: result.rows, runtimeEnabled: false };
+  return { proposals: result.rows.map((proposal) => ({ ...proposal, input: redactAgentSensitiveInput(proposal.input) })), runtimeEnabled: false };
 });
 
 app.get<{ Querystring: { action?: string; cursor?: string; limit?: string } }>(
@@ -2833,7 +2851,7 @@ app.post<{ Params: { id: string }; Body: { input?: Record<string, unknown> } }>(
         [claims.sub ?? null, request.params.id, inserted.rows[0].id, JSON.stringify({ runtimeEnabled: false })],
       );
       await client.query('COMMIT');
-      return reply.code(201).send({ proposal: inserted.rows[0], runtimeEnabled: false, requiresHumanReview: true });
+      return reply.code(201).send({ proposal: { ...inserted.rows[0], input: redactAgentSensitiveInput(inserted.rows[0].input) }, runtimeEnabled: false, requiresHumanReview: true });
     } catch (error) {
       await client.query('ROLLBACK').catch(() => undefined);
       request.log.error({ err: error }, 'Could not create agent task proposal');
