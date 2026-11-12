@@ -5410,6 +5410,80 @@ test('replayed concurrent subscription purchases with one idempotency key debit 
   assert.equal(subscriptions.rows.length, 1);
 });
 
+test('online match resignation awards the winner 20 XP and applies the quitter penalty exactly once', async () => {
+  const host = await register('Progression Resignation Host');
+  const quitter = await register('Progression Resignation Quitter');
+  const created = await app.inject({
+    method: 'POST',
+    url: '/api/v1/matches',
+    headers: auth(host.token),
+  });
+  assert.equal(created.statusCode, 201, created.body);
+  const matchId = String(created.json().match.id);
+  const joined = await app.inject({
+    method: 'POST',
+    url: `/api/v1/matches/${matchId}/join`,
+    headers: auth(quitter.token),
+  });
+  assert.equal(joined.statusCode, 200, joined.body);
+
+  await testPool.query(
+    `UPDATE backgammon_matches
+        SET status = 'active', expires_at = NOW() + INTERVAL '1 hour'
+      WHERE id = $1`,
+    [matchId],
+  );
+  await testPool.query(
+    `INSERT INTO backgammon_player_stats (user_id, xp_points, level)
+     VALUES ($1, 100, 1), ($2, 100, 1)
+     ON CONFLICT (user_id) DO UPDATE SET xp_points = 100, level = 1`,
+    [host.user.id, quitter.user.id],
+  );
+
+  const resignation = await app.inject({
+    method: 'POST',
+    url: `/api/v1/matches/${matchId}/resign`,
+    headers: auth(quitter.token),
+    payload: { scope: 'match' },
+  });
+  assert.equal(resignation.statusCode, 200, resignation.body);
+  assert.equal(resignation.json().result.winnerUserId, host.user.id);
+  assert.equal(resignation.json().result.loserUserId, quitter.user.id);
+
+  const progression = await testPool.query(
+    'SELECT user_id::text AS "userId", xp_points AS "xpPoints", level FROM backgammon_player_stats WHERE user_id = ANY($1::bigint[]) ORDER BY user_id',
+    [[host.user.id, quitter.user.id]],
+  );
+  const hostProgress = progression.rows.find(row => row.userId === host.user.id);
+  const quitterProgress = progression.rows.find(row => row.userId === quitter.user.id);
+  assert.equal(Number(hostProgress?.xpPoints), 120, 'The winner receives 20 XP.');
+  assert.equal(Number(quitterProgress?.xpPoints), 95, 'Resignation applies the -5 XP quitter penalty.');
+  assert.equal(Number(hostProgress?.level), 1);
+  assert.equal(Number(quitterProgress?.level), 1);
+
+  const events = await testPool.query(
+    'SELECT outcome, points_delta FROM backgammon_progression_events WHERE match_id = $1 ORDER BY user_id',
+    [matchId],
+  );
+  assert.equal(events.rowCount, 2);
+  assert.deepEqual(events.rows.map(row => row.outcome).sort(), ['quit', 'win']);
+  assert.deepEqual(events.rows.map(row => Number(row.points_delta)).sort((a, b) => a - b), [-5, 20]);
+
+  const repeated = await app.inject({
+    method: 'POST',
+    url: `/api/v1/matches/${matchId}/resign`,
+    headers: auth(quitter.token),
+    payload: { scope: 'match' },
+  });
+  assert.equal(repeated.statusCode, 409);
+  const afterRetry = await testPool.query(
+    'SELECT xp_points FROM backgammon_player_stats WHERE user_id = $1',
+    [quitter.user.id],
+  );
+  assert.equal(Number(afterRetry.rows[0]?.xp_points), 95,
+    'A repeated resignation cannot apply the quitter penalty twice.');
+});
+
 test('concurrent subscription purchases cannot overspend the same wallet balance', async () => {
   const buyer = await register('Concurrent Subscription Buyer');
   await testPool.query(
