@@ -102,6 +102,12 @@ class AdminService {
         'requiresHumanApproval': requiresHumanApproval,
       }))['task'] as Map<String, dynamic>;
 
+  static Future<Map<String, dynamic>> setAgentTaskStatus(String id, String status, String reason) async =>
+      (await _request('PATCH', '/api/v1/admin/agent-tasks/$id/status', body: {
+        'status': status,
+        'reason': reason,
+      }))['task'] as Map<String, dynamic>;
+
   static Future<List<dynamic>> agentTaskProposals() async =>
       (await _request('GET', '/api/v1/admin/agent-task-proposals'))['proposals'] as List<dynamic>? ?? [];
 
