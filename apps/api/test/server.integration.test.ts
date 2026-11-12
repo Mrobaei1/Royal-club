@@ -3128,17 +3128,6 @@ test('Phase 4 agent task definitions remain dormant and proposals require human 
     });
     assert.equal(repeatedReject.statusCode, 409, repeatedReject.body);
 
-    const audit = await app.inject({
-      method: 'GET',
-      url: '/api/v1/admin/agent-task-audit',
-      headers: auth(owner.token),
-    });
-    assert.equal(audit.statusCode, 200, audit.body);
-    assert.equal(audit.json().runtimeEnabled, false);
-    const auditEntries = audit.json().entries as Array<Record<string, unknown>>;
-    assert.ok(auditEntries.some((entry) => entry.action === 'definition_created'));
-    assert.ok(auditEntries.some((entry) => entry.action === 'proposal_created'));
-    assert.ok(auditEntries.some((entry) => entry.action === 'proposal_approved'));
     const cancelProposal = await app.inject({
       method: 'POST',
       url: `/api/v1/admin/agent-tasks/${taskId}/proposals`,
@@ -3164,6 +3153,17 @@ test('Phase 4 agent task definitions remain dormant and proposals require human 
     });
     assert.equal(repeatedCancel.statusCode, 409, repeatedCancel.body);
 
+    const audit = await app.inject({
+      method: 'GET',
+      url: '/api/v1/admin/agent-task-audit',
+      headers: auth(owner.token),
+    });
+    assert.equal(audit.statusCode, 200, audit.body);
+    assert.equal(audit.json().runtimeEnabled, false);
+    const auditEntries = audit.json().entries as Array<Record<string, unknown>>;
+    assert.ok(auditEntries.some((entry) => entry.action === 'definition_created'));
+    assert.ok(auditEntries.some((entry) => entry.action === 'proposal_created'));
+    assert.ok(auditEntries.some((entry) => entry.action === 'proposal_approved'));
     assert.ok(auditEntries.some((entry) => entry.action === 'proposal_cancelled'));
     assert.ok(auditEntries.some((entry) => entry.action === 'proposal_rejected'));
     assert.ok(auditEntries.every((entry) => entry.actorUsername === owner.user.username));
