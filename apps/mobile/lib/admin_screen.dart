@@ -1030,7 +1030,7 @@ class _AdminScreenState extends State<AdminScreen> {
                                 dense: true,
                                 title: Text(entry['action']?.toString() ?? '—'),
                                 subtitle: Text(
-                                  '${appText(context, 'کاربر', 'Actor')}: ${entry['actorUserId'] ?? '—'}'
+                                  "${appText(context, 'کاربر', 'Actor')}: ${entry['actorUserId'] ?? '—'}"
                                   '\n${entry['createdAt'] ?? ''}'
                                   '\n${details is Map ? details : details ?? ''}',
                                 ),
