@@ -3398,6 +3398,33 @@ test('online match resignation handles game and match scopes atomically', async 
   assert.equal(finalState.cancellation_proposed_by, null);
   assert.equal(finalState.cancellation_accepted_by, null);
 
+  const hostProgressionAfterResign = await app.inject({
+    method: 'GET',
+    url: '/api/v1/me',
+    headers: auth(host.token),
+  });
+  const guestProgressionAfterResign = await app.inject({
+    method: 'GET',
+    url: '/api/v1/me',
+    headers: auth(guest.token),
+  });
+  assert.equal(hostProgressionAfterResign.statusCode, 200, hostProgressionAfterResign.body);
+  assert.equal(guestProgressionAfterResign.statusCode, 200, guestProgressionAfterResign.body);
+  assert.equal(hostProgressionAfterResign.json().user.xpPoints, 15,
+    'A game win (+20) followed by match resignation (-5) must accumulate without resetting XP.');
+  assert.equal(guestProgressionAfterResign.json().user.xpPoints, 15,
+    'A game resignation (-5) followed by match win (+20) must accumulate without resetting XP.');
+  const resignationEvents = await testPool.query(
+    'SELECT outcome, points_delta FROM backgammon_progression_events WHERE match_id = $1 ORDER BY event_key, user_id',
+    [matchId],
+  );
+  assert.equal(resignationEvents.rowCount, 4,
+    'Both participants must receive exactly one progression event for each completed resignation result.');
+  assert.deepEqual(
+    resignationEvents.rows.map((event) => Number(event.points_delta)).sort((a, b) => a - b),
+    [-5, -5, 20, 20],
+  );
+
   const repeatedResign = await app.inject({
     method: 'POST',
     url: `/api/v1/matches/${matchId}/resign`,
@@ -3405,6 +3432,12 @@ test('online match resignation handles game and match scopes atomically', async 
     payload: { scope: 'match' },
   });
   assert.equal(repeatedResign.statusCode, 409, repeatedResign.body);
+  const eventsAfterReplay = await testPool.query(
+    'SELECT COUNT(*)::int AS total FROM backgammon_progression_events WHERE match_id = $1',
+    [matchId],
+  );
+  assert.equal(eventsAfterReplay.rows[0].total, 4,
+    'A rejected repeated resignation must not award additional XP.');
 });
 
 
