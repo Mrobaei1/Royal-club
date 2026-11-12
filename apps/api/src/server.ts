@@ -424,7 +424,7 @@ await pool.query(`
     actor_user_id BIGINT REFERENCES users(id) ON DELETE SET NULL,
     task_definition_id BIGINT REFERENCES agent_task_definitions(id) ON DELETE SET NULL,
     proposal_id BIGINT REFERENCES agent_task_proposals(id) ON DELETE SET NULL,
-    action TEXT NOT NULL CHECK (action IN ('definition_created', 'definition_status_changed', 'proposal_created', 'proposal_approved', 'proposal_rejected', 'proposal_cancelled', 'run_prepared', 'run_cancelled', 'run_prepared', 'run_cancelled')),
+    action TEXT NOT NULL CHECK (action IN ('definition_created', 'definition_status_changed', 'proposal_created', 'proposal_approved', 'proposal_rejected', 'proposal_cancelled', 'run_prepared', 'run_cancelled')),
     result TEXT NOT NULL CHECK (result IN ('success', 'denied', 'error')),
     reason TEXT NOT NULL DEFAULT '',
     details JSONB NOT NULL DEFAULT '{}'::jsonb,
