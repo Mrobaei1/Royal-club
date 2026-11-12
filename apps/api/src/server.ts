@@ -404,11 +404,12 @@ await pool.query(`
        WHERE conrelid = 'agent_task_audit_log'::regclass
          AND conname = 'agent_task_audit_log_action_check'
          AND pg_get_constraintdef(oid) LIKE '%proposal_approved%'
+         AND pg_get_constraintdef(oid) LIKE '%definition_status_changed%'
     ) THEN
       ALTER TABLE agent_task_audit_log DROP CONSTRAINT IF EXISTS agent_task_audit_log_action_check;
       ALTER TABLE agent_task_audit_log
         ADD CONSTRAINT agent_task_audit_log_action_check
-        CHECK (action IN ('definition_created', 'proposal_created', 'proposal_approved', 'proposal_rejected', 'proposal_cancelled'));
+        CHECK (action IN ('definition_created', 'definition_status_changed', 'proposal_created', 'proposal_approved', 'proposal_rejected', 'proposal_cancelled'));
     END IF;
   END $agent_audit_action$;
   CREATE INDEX IF NOT EXISTS agent_task_audit_created_idx
@@ -2684,6 +2685,62 @@ app.post<{ Body: { code?: string; title?: string; domain?: string; description?:
       }
       request.log.error({ err: error }, 'Could not create dormant agent task definition');
       return reply.code(500).send({ error: 'Could not create task definition.' });
+    } finally {
+      client.release();
+    }
+  },
+);
+
+app.patch<{ Params: { id: string }; Body: { status?: string; reason?: string } }>(
+  '/api/v1/admin/agent-tasks/:id/status',
+  { onRequest: [requireOwnerStepUp], config: { rateLimit: { max: 20, timeWindow: '1 minute' } } },
+  async (request, reply) => {
+    if (!isNumericId(request.params.id)) return reply.code(400).send({ error: 'Invalid task definition ID.' });
+    const status = request.body?.status;
+    const reason = typeof request.body?.reason === 'string' ? request.body.reason.trim() : '';
+    if ((status !== 'draft' && status !== 'paused') || reason.length < 5 || reason.length > 500) {
+      return reply.code(400).send({ error: 'Only draft/paused status transitions with a 5-500 character reason are allowed.' });
+    }
+    const claims = request.user as { sub?: string };
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const current = await client.query(
+        'SELECT id, status FROM agent_task_definitions WHERE id = $1 FOR UPDATE',
+        [request.params.id],
+      );
+      if (!current.rowCount) {
+        await client.query('ROLLBACK');
+        return reply.code(404).send({ error: 'Task definition not found.' });
+      }
+      if (current.rows[0].status === status) {
+        await client.query('ROLLBACK');
+        return reply.code(409).send({ error: 'Task definition already has this status.' });
+      }
+      if (current.rows[0].status !== 'draft' && current.rows[0].status !== 'paused') {
+        await client.query('ROLLBACK');
+        return reply.code(409).send({ error: 'Only dormant task definitions can change status.' });
+      }
+      const updated = await client.query(
+        `UPDATE agent_task_definitions
+            SET status = $1, updated_by = $2, updated_at = NOW()
+          WHERE id = $3
+          RETURNING id, code, title, domain, status, updated_at AS "updatedAt"`,
+        [status, claims.sub ?? null, request.params.id],
+      );
+      await client.query(
+        `INSERT INTO agent_task_audit_log
+          (actor_user_id, task_definition_id, action, result, reason, details)
+         VALUES ($1, $2, 'definition_status_changed', 'success', $3, $4::jsonb)`,
+        [claims.sub ?? null, updated.rows[0].id, reason,
+          JSON.stringify({ previousStatus: current.rows[0].status, status, runtimeEnabled: false })],
+      );
+      await client.query('COMMIT');
+      return { task: updated.rows[0], runtimeEnabled: false, executionStarted: false };
+    } catch (error) {
+      await client.query('ROLLBACK').catch(() => undefined);
+      request.log.error({ err: error }, 'Could not change dormant agent task definition status');
+      return reply.code(500).send({ error: 'Could not update task definition status.' });
     } finally {
       client.release();
     }
