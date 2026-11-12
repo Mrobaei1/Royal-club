@@ -503,6 +503,14 @@ await pool.query(`
   );
   CREATE INDEX IF NOT EXISTS user_subscriptions_current_idx
     ON user_subscriptions (user_id, status, ends_at DESC);
+  CREATE TABLE IF NOT EXISTS subscription_purchase_requests (
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    idempotency_key TEXT NOT NULL CHECK (char_length(idempotency_key) BETWEEN 8 AND 100),
+    plan_code TEXT NOT NULL,
+    response JSONB,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (user_id, idempotency_key)
+  );
 
   -- League entry is free by default. Subscription-day consumption is opt-in per league
   -- and is kept separate from the wallet-credit ledger.
@@ -1675,15 +1683,46 @@ app.get('/api/v1/subscriptions/me', { onRequest: [requireMatchAuth] }, async (re
   return { subscription: result.rows[0] ?? null };
 });
 
-app.post<{ Body: { planCode?: string } }>('/api/v1/subscriptions/activate', { onRequest: [requireMatchAuth] }, async (request, reply) => {
+app.post<{ Body: { planCode?: string; idempotencyKey?: string } }>('/api/v1/subscriptions/activate', { onRequest: [requireMatchAuth] }, async (request, reply) => {
   const claims = request.user as { sub: string };
   const code = request.body?.planCode;
+  const idempotencyKey = request.body?.idempotencyKey;
   if (typeof code !== 'string' || !/^[a-z0-9_]{2,40}$/.test(code)) {
     return reply.code(400).send({ error: 'Invalid subscription plan.' });
+  }
+  if (idempotencyKey !== undefined &&
+      (typeof idempotencyKey !== 'string' || !/^[A-Za-z0-9._:-]{8,100}$/.test(idempotencyKey))) {
+    return reply.code(400).send({ error: 'Invalid idempotency key.' });
   }
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
+    if (idempotencyKey) {
+      const reserved = await client.query(
+        'INSERT INTO subscription_purchase_requests (user_id, idempotency_key, plan_code)\n' +
+        'VALUES ($1, $2, $3) ON CONFLICT (user_id, idempotency_key) DO NOTHING\n' +
+        'RETURNING idempotency_key',
+        [claims.sub, idempotencyKey, code],
+      );
+      if (reserved.rowCount === 0) {
+        const priorResult = await client.query(
+          'SELECT plan_code, response FROM subscription_purchase_requests\n' +
+          'WHERE user_id = $1 AND idempotency_key = $2 FOR UPDATE',
+          [claims.sub, idempotencyKey],
+        );
+        const prior = priorResult.rows[0] as { plan_code: string; response: Record<string, unknown> | null } | undefined;
+        if (!prior || prior.plan_code !== code) {
+          await client.query('ROLLBACK');
+          return reply.code(409).send({ error: 'Idempotency key was already used for a different subscription plan.' });
+        }
+        if (!prior.response) {
+          await client.query('ROLLBACK');
+          return reply.code(409).send({ error: 'Subscription purchase with this key is still processing.' });
+        }
+        await client.query('COMMIT');
+        return prior.response;
+      }
+    }
     const planResult = await client.query(
       'SELECT id, name, duration_days, price_credits FROM subscription_plans WHERE code = $1 AND active = TRUE FOR SHARE',
       [code],
@@ -1728,8 +1767,19 @@ app.post<{ Body: { planCode?: string } }>('/api/v1/subscriptions/activate', { on
        RETURNING id, starts_at AS "startsAt", ends_at AS "endsAt", status`,
       [claims.sub, plan.id, startsAt, endsAt],
     );
+    const purchaseResponse = {
+      subscription: { ...subscription.rows[0], planCode: code, planName: plan.name },
+      walletBalance: Number(debit.rows[0].balance),
+    };
+    if (idempotencyKey) {
+      await client.query(
+        'UPDATE subscription_purchase_requests SET response = $3::jsonb\n' +
+        'WHERE user_id = $1 AND idempotency_key = $2',
+        [claims.sub, idempotencyKey, JSON.stringify(purchaseResponse)],
+      );
+    }
     await client.query('COMMIT');
-    return { subscription: { ...subscription.rows[0], planCode: code, planName: plan.name }, walletBalance: Number(debit.rows[0].balance) };
+    return purchaseResponse;
   } catch (error) {
     await client.query('ROLLBACK').catch(() => undefined);
     request.log.error({ err: error }, 'Could not activate subscription');
