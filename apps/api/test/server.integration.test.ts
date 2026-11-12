@@ -336,6 +336,14 @@ test('registered players can join an online match and history does not expose op
     payload: { code: 'marketing_report', title: 'Marketing report', domain: 'marketing' },
   });
   assert.equal(deniedAgentTaskCreate.statusCode, 403);
+
+  const deniedAgentTaskStatus = await app.inject({
+    method: 'PATCH',
+    url: '/api/v1/admin/agent-tasks/1/status',
+    headers: auth(host.token),
+    payload: { status: 'paused', reason: 'Unauthorized pause attempt.' },
+  });
+  assert.equal(deniedAgentTaskStatus.statusCode, 403);
   const deniedAgentProposal = await app.inject({
     method: 'POST',
     url: '/api/v1/admin/agent-tasks/1/proposals',
@@ -3040,6 +3048,32 @@ test('Phase 4 agent task definitions remain dormant and proposals require human 
     assert.equal(createTask.json().task.status, 'draft');
     const taskId = String(createTask.json().task.id);
 
+    const pausedTask = await app.inject({
+      method: 'PATCH',
+      url: `/api/v1/admin/agent-tasks/${taskId}/status`,
+      headers: auth(owner.token),
+      payload: { status: 'paused', reason: 'Pause pending security review.' },
+    });
+    assert.equal(pausedTask.statusCode, 200, pausedTask.body);
+    assert.equal(pausedTask.json().task.status, 'paused');
+    assert.equal(pausedTask.json().runtimeEnabled, false);
+    assert.equal(pausedTask.json().executionStarted, false);
+    const blockedProposal = await app.inject({
+      method: 'POST',
+      url: `/api/v1/admin/agent-tasks/${taskId}/proposals`,
+      headers: auth(owner.token),
+      payload: { input: { period: '7d' } },
+    });
+    assert.equal(blockedProposal.statusCode, 409, blockedProposal.body);
+    const resumedTask = await app.inject({
+      method: 'PATCH',
+      url: `/api/v1/admin/agent-tasks/${taskId}/status`,
+      headers: auth(owner.token),
+      payload: { status: 'draft', reason: 'Review complete; keep as dormant draft.' },
+    });
+    assert.equal(resumedTask.statusCode, 200, resumedTask.body);
+    assert.equal(resumedTask.json().task.status, 'draft');
+
     const proposal = await app.inject({
       method: 'POST',
       url: `/api/v1/admin/agent-tasks/${taskId}/proposals`,
@@ -3162,6 +3196,7 @@ test('Phase 4 agent task definitions remain dormant and proposals require human 
     assert.equal(audit.json().runtimeEnabled, false);
     const auditEntries = audit.json().entries as Array<Record<string, unknown>>;
     assert.ok(auditEntries.some((entry) => entry.action === 'definition_created'));
+    assert.ok(auditEntries.some((entry) => entry.action === 'definition_status_changed'));
     assert.ok(auditEntries.some((entry) => entry.action === 'proposal_created'));
     assert.ok(auditEntries.some((entry) => entry.action === 'proposal_approved'));
     assert.ok(auditEntries.some((entry) => entry.action === 'proposal_cancelled'));
