@@ -1699,14 +1699,14 @@ app.post<{ Body: { planCode?: string; idempotencyKey?: string } }>('/api/v1/subs
     await client.query('BEGIN');
     if (idempotencyKey) {
       const reserved = await client.query(
-        'INSERT INTO subscription_purchase_requests (user_id, idempotency_key, plan_code)\\n' +
-        'VALUES ($1, $2, $3) ON CONFLICT (user_id, idempotency_key) DO NOTHING\\n' +
+        'INSERT INTO subscription_purchase_requests (user_id, idempotency_key, plan_code)\n' +
+        'VALUES ($1, $2, $3) ON CONFLICT (user_id, idempotency_key) DO NOTHING\n' +
         'RETURNING idempotency_key',
         [claims.sub, idempotencyKey, code],
       );
       if (reserved.rowCount === 0) {
         const priorResult = await client.query(
-          'SELECT plan_code, response FROM subscription_purchase_requests\\n' +
+          'SELECT plan_code, response FROM subscription_purchase_requests\n' +
           'WHERE user_id = $1 AND idempotency_key = $2 FOR UPDATE',
           [claims.sub, idempotencyKey],
         );
@@ -1773,7 +1773,7 @@ app.post<{ Body: { planCode?: string; idempotencyKey?: string } }>('/api/v1/subs
     };
     if (idempotencyKey) {
       await client.query(
-        'UPDATE subscription_purchase_requests SET response = $3::jsonb\\n' +
+        'UPDATE subscription_purchase_requests SET response = $3::jsonb\n' +
         'WHERE user_id = $1 AND idempotency_key = $2',
         [claims.sub, idempotencyKey, JSON.stringify(purchaseResponse)],
       );
