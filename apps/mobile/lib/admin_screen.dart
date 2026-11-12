@@ -30,6 +30,9 @@ class _AdminScreenState extends State<AdminScreen> {
   List<dynamic> _agentTasks = [];
   List<dynamic> _agentAudit = [];
   bool _agentAuditUnavailable = false;
+  bool _agentAuditLoadingMore = false;
+  String? _agentAuditNextCursor;
+  String _agentAuditActionFilter = 'all';
   List<dynamic> _agentRoleTemplates = [];
   Map<String, dynamic>? _futureGameAgentTemplate;
   bool _agentTemplatesUnavailable = false;
@@ -283,6 +286,33 @@ class _AdminScreenState extends State<AdminScreen> {
     }
   }
 
+  Future<void> _loadAgentAudit({bool reset = false}) async {
+    if (_agentAuditLoadingMore) return;
+    if (mounted) setState(() => _agentAuditLoadingMore = true);
+    try {
+      final page = await AdminService.agentTaskAuditPage(
+        action: _agentAuditActionFilter == 'all' ? null : _agentAuditActionFilter,
+        cursor: reset ? null : _agentAuditNextCursor,
+        limit: 30,
+      );
+      final entries = page['entries'] as List<dynamic>? ?? const [];
+      if (!mounted) return;
+      setState(() {
+        _agentAudit = reset ? entries : [..._agentAudit, ...entries];
+        _agentAuditNextCursor = page['nextCursor']?.toString();
+        _agentAuditUnavailable = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() {
+        if (reset) _agentAudit = [];
+        _agentAuditNextCursor = null;
+        _agentAuditUnavailable = true;
+      });
+    } finally {
+      if (mounted) setState(() => _agentAuditLoadingMore = false);
+    }
+  }
+
   Future<void> _loadAgentTaskProposals() async {
     try {
       final proposals = await AdminService.agentTaskProposals();
@@ -290,12 +320,7 @@ class _AdminScreenState extends State<AdminScreen> {
     } catch (_) {
       if (mounted) setState(() { _agentTaskProposals = []; _agentProposalsUnavailable = true; });
     }
-    try {
-      final audit = await AdminService.agentTaskAudit();
-      if (mounted) setState(() { _agentAudit = audit; _agentAuditUnavailable = false; });
-    } catch (_) {
-      if (mounted) setState(() { _agentAudit = []; _agentAuditUnavailable = true; });
-    }
+    await _loadAgentAudit(reset: true);
     try {
       final tasks = await AdminService.agentTasks();
       if (mounted) setState(() { _agentTasks = tasks; _agentTasksUnavailable = false; });
@@ -2029,6 +2054,36 @@ class _AdminScreenState extends State<AdminScreen> {
                         title: Text(appText(context, 'سوابق ممیزی ایجنت‌ها', 'Agent audit history')),
                         subtitle: Text(appText(context, 'ثبت تعریف‌ها، ایجاد پیشنهادها و تصمیم‌های انسانی', 'Task definitions, proposals, and human review decisions')),
                         children: [
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            child: Row(children: [
+                              Expanded(
+                                child: DropdownButtonFormField<String>(
+                                  initialValue: _agentAuditActionFilter,
+                                  decoration: InputDecoration(labelText: appText(context, 'فیلتر رویداد', 'Event filter'), isDense: true),
+                                  items: [
+                                    DropdownMenuItem(value: 'all', child: Text(appText(context, 'همه رویدادها', 'All events'))),
+                                    const DropdownMenuItem(value: 'definition_created', child: Text('Definition created')),
+                                    const DropdownMenuItem(value: 'definition_status_changed', child: Text('Definition status changed')),
+                                    const DropdownMenuItem(value: 'proposal_created', child: Text('Proposal created')),
+                                    const DropdownMenuItem(value: 'proposal_approved', child: Text('Proposal approved')),
+                                    const DropdownMenuItem(value: 'proposal_rejected', child: Text('Proposal rejected')),
+                                    const DropdownMenuItem(value: 'proposal_cancelled', child: Text('Proposal cancelled')),
+                                  ],
+                                  onChanged: _agentAuditLoadingMore ? null : (value) {
+                                    if (value == null) return;
+                                    setState(() => _agentAuditActionFilter = value);
+                                    _loadAgentAudit(reset: true);
+                                  },
+                                ),
+                              ),
+                              IconButton(
+                                tooltip: appText(context, 'بازخوانی گزارش', 'Refresh audit'),
+                                onPressed: _agentAuditLoadingMore ? null : () => _loadAgentAudit(reset: true),
+                                icon: const Icon(Icons.refresh),
+                              ),
+                            ]),
+                          ),
                           if (_agentAuditUnavailable)
                             Padding(
                               padding: const EdgeInsets.all(12),
@@ -2054,6 +2109,17 @@ class _AdminScreenState extends State<AdminScreen> {
                                   '${(entry['reason']?.toString().isNotEmpty ?? false) ? '\\n${entry['reason']}' : ''}',
                                 ),
                               ),
+                          if (_agentAuditNextCursor != null)
+                            Padding(
+                              padding: const EdgeInsets.all(12),
+                              child: OutlinedButton.icon(
+                                onPressed: _agentAuditLoadingMore ? null : () => _loadAgentAudit(),
+                                icon: _agentAuditLoadingMore
+                                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                                    : const Icon(Icons.expand_more),
+                                label: Text(appText(context, 'رویدادهای بیشتر', 'Load more events')),
+                              ),
+                            ),
                         ],
                       ),
                     ],
