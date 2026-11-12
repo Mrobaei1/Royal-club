@@ -410,6 +410,59 @@ class _AdminScreenState extends State<AdminScreen> {
     }
   }
 
+  Future<void> _setAgentTaskStatus(dynamic task) async {
+    final currentStatus = task['status']?.toString() ?? 'draft';
+    final nextStatus = currentStatus == 'paused' ? 'draft' : 'paused';
+    final reasonController = TextEditingController();
+    final reason = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(appText(context,
+          nextStatus == 'paused' ? 'توقف پیش‌نویس وظیفه' : 'بازگشت به پیش‌نویس',
+          nextStatus == 'paused' ? 'Pause task draft' : 'Resume task draft')),
+        content: TextField(
+          controller: reasonController,
+          minLines: 2,
+          maxLines: 4,
+          maxLength: 500,
+          decoration: InputDecoration(
+            labelText: appText(context, 'دلیل تغییر وضعیت (حداقل ۵ نویسه)', 'Status-change reason (at least 5 characters)'),
+            helperText: appText(context, 'این تغییر فقط وضعیت پیش‌نویس را عوض می‌کند و هیچ اجرایی فعال نمی‌شود.', 'This only changes the draft status; it never enables execution.'),
+            border: const OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext), child: Text(appText(context, 'انصراف', 'Cancel'))),
+          FilledButton(
+            onPressed: () {
+              final value = reasonController.text.trim();
+              if (value.length >= 5 && value.length <= 500) Navigator.pop(dialogContext, value);
+            },
+            child: Text(appText(context, nextStatus == 'paused' ? 'توقف' : 'بازگشت به پیش‌نویس', nextStatus == 'paused' ? 'Pause' : 'Resume draft')),
+          ),
+        ],
+      ),
+    );
+    reasonController.dispose();
+    if (reason == null || _busy) return;
+    setState(() => _busy = true);
+    try {
+      await AdminService.setAgentTaskStatus(task['id'].toString(), nextStatus, reason);
+      await _loadAgentTaskProposals();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(appText(context,
+            nextStatus == 'paused' ? 'پیش‌نویس متوقف شد.' : 'وظیفه به وضعیت پیش‌نویس برگشت.',
+            nextStatus == 'paused' ? 'Task draft paused.' : 'Task returned to draft.')),
+        ));
+      }
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appError(context, error))));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   Future<void> _approveAgentProposal(dynamic proposal) async {
     final reasonController = TextEditingController();
     final reason = await showDialog<String>(
@@ -1922,7 +1975,13 @@ class _AdminScreenState extends State<AdminScreen> {
                             dense: true,
                             title: Text(task['title']?.toString() ?? task['code']?.toString() ?? ''),
                             subtitle: Text('${task['domain'] ?? ''} · ${task['status'] ?? 'draft'}'),
-                            trailing: const Icon(Icons.lock_outline),
+                            trailing: IconButton(
+                              tooltip: appText(context,
+                                task['status'] == 'paused' ? 'بازگشت به پیش‌نویس' : 'توقف پیش‌نویس',
+                                task['status'] == 'paused' ? 'Resume draft' : 'Pause draft'),
+                              onPressed: _busy ? null : () => _setAgentTaskStatus(task),
+                              icon: Icon(task['status'] == 'paused' ? Icons.play_arrow_outlined : Icons.pause_circle_outline),
+                            ),
                           ),
                       const Divider(height: 24),
                       Text(appText(context, 'پیشنهادهای در انتظار بررسی', 'Proposals awaiting review'), style: const TextStyle(fontWeight: FontWeight.bold)),
