@@ -151,13 +151,13 @@
 | 5.1-A | Non-transferable credits | 5 | Passed | Integration attempts `POST /api/v1/wallet/transfer`, receives 404, and verifies neither sender nor recipient balance changes and no wallet ledger rows are created. Merged PR #241; exact-head API integration [run 42571306114](https://github.com/Mrobaei1/Royal-club/actions/runs/42571306114) passed. (2026-11-09) |
 | 5.1-B | Auditable ledger | 5 | Passed | Wallet history exposes transaction ID, amount, balance-after, type, description and timestamp; subscription purchase tests verify exact debit and resulting balance, while concurrent purchase tests assert exactly one ledger debit. Exact-head API integration: PR #231 [run 42569482558](https://github.com/Mrobaei1/Royal-club/actions/runs/42569482558) and PR #230 [run 42569680272](https://github.com/Mrobaei1/Royal-club/actions/runs/42569680272) passed. (2026-11-09) |
 | 5.1-C | Atomic balance | 5 | Passed | Exact-head PR #231 (`d0853b4087606b12d46d9a6e2e251a37436d1b77`) disposable-PostgreSQL integration test issues two simultaneous 300-credit purchases against a 300-credit balance; asserts one 200/one 409, zero final balance, exactly one -300 ledger debit and balance_after=0. API integration, API build/tests, Flutter analyze/tests and backgammon audit passed before merge. |
-| 5.1-D | Idempotent concurrency | 5 | Passed | Backend idempotency uses an account-scoped `(user_id, idempotency_key)` primary key and returns the original result on replay; PostgreSQL integration verifies simultaneous same-key requests create one subscription and one wallet debit, while Flutter tests verify account/plan isolation and request coalescing. Exact-head PR #246 `7e1d36d4fcd3277e726eb91c8e7cdd9c88473acd`; API integration, API build, Flutter analyze/tests and engine audit all passed (2026-11-12). |
+| 5.1-D | Idempotent concurrency | 5 | Pending | Implementation and exact-head tests are in open PR #246; do not award WBS credit until the change is integrated into `main`. |
 | 5.1-E | Owner adjustments | 5 | Passed | Integration verifies owner credit without step-up is denied (403), fresh owner step-up succeeds, and the credited amount/balance-after/type/description are recorded in the audit ledger. Merged PR #241; exact-head API integration [run 42571306114](https://github.com/Mrobaei1/Royal-club/actions/runs/42571306114) passed. (2026-11-09) |
 | 5.2-A | Manager plans | 5 | Passed | PR #192 exact head `02dac555352ea0d70e391168272a24cc44c66299`; owner step-up protected create-plan API/UI; API integration run `42230679256`, API build/tests and Flutter analyze/tests run `42230679251` (2026-11-07). |
 | 5.2-B | Transactional activation | 5 | Passed | Exact-head PR #231 (`d0853b4087606b12d46d9a6e2e251a37436d1b77`) disposable-PostgreSQL integration test asserts only the winning concurrent purchase creates one active subscription; rejected purchase creates no second subscription. API integration, API build/tests, Flutter analyze/tests and backgammon audit passed before merge. |
-| 5.2-C | Expiry/removal | 5 | Passed | PostgreSQL integration verifies an expired subscription is persisted as `expired` and omitted from the current active-subscription view; deactivated plans disappear from the public catalogue and purchase attempts return 404. Exact-head PR #247 `cf20da1595da73364f14839e0ef85f04d2cfd873`; API integration, API build, Flutter analyze/tests and engine audit all passed (2026-11-12). |
+| 5.2-C | Expiry/removal | 5 | Pending | Expiry persistence and deactivated-plan behavior are implemented and tested in open PR #247; do not award WBS credit until integrated into `main`. |
 | 5.2-D | Server-controlled prices | 5 | Passed | Subscription activation sends forged client `priceCredits=1` and `durationDays=1`; API still charges the configured server plan price (300 credits) and applies its configured 30-day duration. Merged PR #241; exact-head API integration [run 42571306114](https://github.com/Mrobaei1/Royal-club/actions/runs/42571306114) passed. (2026-11-09) |
-| 5.3-A | XP policy | 5 | Passed | Existing PostgreSQL integration verifies online win +20 XP and loss +5 XP; exact-head PR #252 verifies match resignation winner +20 and quitter -5 with duplicate rejection; exact-head PR #254 verifies cumulative XP across both game- and match-scope resignations, four exactly-once progression events and replay rejection. Offline training remains isolated from network/progression services and awards no XP (merged PR #227/ #243 source and widget evidence). PR #252 exact head `7764a470b7e0465bc063adaba4b1ed294f52ddb0` and PR #254 exact head `f80fc5f821e18b24b154fe3432e052082497f6dc`; all applicable API integration/build, Flutter, engine and Web Preview checks passed (2026-11-12). |
+| 5.3-A | XP policy | 5 | Pending | Main contains online win/loss and offline-training isolation evidence; exact resignation XP and cumulative-policy regression tests are in open PRs #252 and #254. Keep pending until those tests are integrated into `main`. |
 | 5.3-B | Permanent levels/curve | 5 | Passed | `apps/api/src/player-progression.ts` and `player-progression.test.ts` verify cumulative XP thresholds, level 100 at 79,439 XP, and permanent levels after XP loss; exact-head API validation CI run `43183126874` passed (PR #249, 2026-11-12). |
 | 5.3-C | Elo/leaderboard | 5 | Passed | `backgammon-rating.ts`/tests verify zero-sum Elo; PostgreSQL integration asserts 1016/984 rating updates, global and weekly leaderboard results, and exclusion of unfinished/unresolved matches; exact-head integration CI run `43183126917` passed (PR #249, 2026-11-12). |
 | 5.3-D | Ties/draws/unfinished matches | 5 | Pending | Not audited |
@@ -167,7 +167,7 @@
 | 5.4-C | Fixtures/byes/rest fairness | 5 | Passed | Five-player round-robin integration creates five byes and ten unique pairings; after completion each player has four games and exactly one rest round. The same test asserts aggregate fixture/rest counts. Exact-head PR #254 API integration run `43185436608` passed. |
 | 5.4-D | Results/finals | 5 | Passed | Integration saves a completed match result and verifies knockout final creation is rejected without manager approval and accepted only when `managerApproved=true`. Exact-head PR #254 API integration run `43185436608` passed. |
 | 5.4-E | Appeals/incidents/reschedule | 5 | Passed | Integration submits a participant appeal after a completed match, records the manager's rejection, records a technical issue, then reschedules with a validated future replacement time. Exact-head PR #254 API integration run `43185436608` passed. |
-| 5.4-F | Audit history | 5 | Passed | PR #255 exact HEAD `0c5b98f9b01248428e5e9fd4b55770b1c6c3a500` verifies league-created, schedule-generated, round-created, match-updated and appeal-resolved events, actor attribution and event details in PostgreSQL. PR #256 exact HEAD `c3ff43218dbccb4af50d652f4b1611b9137b1863` adds owner-only read access, bounded cursor pagination, validation, event detail projection and a `(league_id,id DESC)` index; API build/integration, Flutter, engine and Web Preview checks passed on both exact heads. |
+| 5.4-F | Audit history | 5 | Pending | Audit-history read API and extended PostgreSQL assertions are in open PRs #255 and #256; retain pending until the API and tests are integrated into `main`. |
 | 5.4-G | Manager UI acceptance | 5 | Pending | Not audited |
 | 5.5-A | Free-by-default entry | 5 | Passed | Owner-created league defaults to `entryMode=free` and `subscriptionDaysCost=0`; integration confirms free entry succeeds and wallet balance remains unchanged. PR #230 exact-head API integration [run 42569680272](https://github.com/Mrobaei1/Royal-club/actions/runs/42569680272) passed. (2026-11-09) |
 | 5.5-B | Dedicated entitlement ledger | 5 | Passed | Subscription-day league entry records one dedicated `league_entitlement_ledger` row with the exact days consumed and before/after subscription expiry. PR #230 exact-head API integration [run 42569680272](https://github.com/Mrobaei1/Royal-club/actions/runs/42569680272) passed. (2026-11-09) |
@@ -194,12 +194,12 @@
 | 6.3-C | Grant/revoke/audit | 5 | Pending | Not audited |
 | 6.3-D | Voice setting authorization | 5 | Pending | Not audited |
 | 6.3-E | Deny-by-default tests | 5 | Pending | Not audited |
-| 6.4-A | Task definitions/capabilities | 5 | Passed | PR #249 exact HEAD `8213864977b57b73e88bc0bad49f976631b662f2` restricts dormant task capabilities to `read`/`recommend`, requires human approval and rejects `execute`, `approve` or approval-disabled definitions. Owner-only API and admin UI tests passed all exact-head workflows. |
-| 6.4-B | Human approval | 5 | Passed | PR #249 implements owner-step-up approval with reason validation, rate limiting, transactional status transition to `approved_dormant`, audit event and repeated/non-owner rejection tests; approval explicitly leaves runtime disabled and task draft. Exact-head API integration/build and Flutter checks passed. |
-| 6.4-C | Run state/cancellation/audit | 5 | Passed | PR #249 adds owner-only proposal cancellation, draft/paused transitions with mandatory reason, single-transition enforcement, blocked proposals while paused, audit action filters and cursor pagination; integration tests cover cancel/replay, pause/resume and audit events. Exact-head CI passed. |
-| 6.4-D | Dormant execution | 5 | Passed | PR #249 approval and status endpoints return `runtimeEnabled=false`/`executionStarted=false`; tests verify approval leaves proposals `approved_dormant`, task definitions draft/paused and no execution starts. No scheduler, runtime grant or execution endpoint is enabled. Exact-head CI passed. |
-| 6.5-A | Privileged audit | 5 | Passed | PR #249 keeps Agent audit owner-authenticated, validates an action allowlist and limit, supports stable cursor pagination and verifies audit events/actor attribution in PostgreSQL integration tests; Flutter admin UI supports action filtering and load-more. Exact-head CI passed. |
-| 6.5-B | Secret redaction | 5 | Passed | PR #249 recursively redacts secret-like nested keys (password, secret, token, API key, authorization, credentials/private/access keys) in proposal create/list responses while preserving stored JSON and non-sensitive fields; integration tests verify nested redaction and absence of raw secrets in responses. Exact-head CI passed. |
+| 6.4-A | Task definitions/capabilities | 5 | Pending | Awaiting integration of PR #249 into `main`; do not award WBS credit while implementation remains in an open PR. |
+| 6.4-B | Human approval | 5 | Pending | Awaiting integration of PR #249 into `main`; do not award WBS credit while implementation remains in an open PR. |
+| 6.4-C | Run state/cancellation/audit | 5 | Pending | Awaiting integration of PR #249 into `main`; do not award WBS credit while implementation remains in an open PR. |
+| 6.4-D | Dormant execution | 5 | Pending | Awaiting integration of PR #249 into `main`; do not award WBS credit while implementation remains in an open PR. |
+| 6.5-A | Privileged audit | 5 | Pending | Awaiting integration of PR #249 into `main`; do not award WBS credit while implementation remains in an open PR. |
+| 6.5-B | Secret redaction | 5 | Pending | Awaiting integration of PR #249 into `main`; do not award WBS credit while implementation remains in an open PR. |
 | 6.5-C | Kill switch | 5 | Pending | Not audited |
 | 6.5-D | Immediate revoke/cancel | 5 | Pending | Not audited |
 | 6.6-A | Agent Center categories | 5 | Pending | Not audited |
@@ -277,9 +277,9 @@ The following percentages are calculated directly from the 200 criterion rows in
 | Phase 3 | 230 | 29/46 | 145 | 63.04% |
 | Phase 4 | 120 | 22/24 | 110 | 91.67% |
 | Phase 5 | 140 | 22/28 | 110 | 78.57% |
-| Phase 6 | 140 | 6/28 | 30 | 21.43% |
+| Phase 6 | 140 | 0/28 | 0 | 0.00% |
 | Phase 7 | 160 | 5/32 | 25 | 15.63% |
-| **Total** | **1,000** | **117/200** | **585** | **58.50%** |
+| **Total** | **1,000** | **107/200** | **535** | **53.50%** |
 
 
 
@@ -353,7 +353,7 @@ Three criteria are newly passed after source, unit-test and PostgreSQL integrati
 - **5.3-C — Elo/leaderboard:** the Elo update is zero-sum and tested across rating gaps. Integration coverage verifies server-side rating updates, leaderboard projections, weekly scoring, and exclusion of unfinished or winner-ambiguous matches.
 - **5.3-E — Retry/audit:** progression events have a database uniqueness key per match/event/player and are inserted with conflict-safe semantics. Integration coverage verifies exactly one event per participant and no duplicate XP after replaying a stale winning move.
 
-Exact-head evidence: PR #249 commit `8213864977b57b73e88bc0bad49f976631b662f2`; API validation run `43183126874` and PostgreSQL integration run `43183126917` both passed. In the 2026-11-12 audit, **5.3-A** is now Passed using the combined online win/loss, resignation, cumulative-XP and offline-isolation evidence recorded in the scoring row above; **5.3-D** (ties/draws/unfinished outcomes) remains Pending. This audit does not claim offline device acceptance or production release readiness.
+Exact-head evidence: PR #249 commit `8213864977b57b73e88bc0bad49f976631b662f2`; API validation run `43183126874` and PostgreSQL integration run `43183126917` both passed for the progression curve, Elo/leaderboard and retry/audit evidence. **5.3-A** remains Pending until the resignation XP regression tests in open PRs #252/#254 are integrated; **5.3-D** (ties/draws/unfinished outcomes) remains Pending. Agent criteria implemented in open PR #249 are not scored until integrated into `main`. This audit does not claim offline device acceptance or production release readiness.
 
 ## Phase roll-up — 2026-11-12
 
@@ -363,8 +363,8 @@ Exact-head evidence: PR #249 commit `8213864977b57b73e88bc0bad49f976631b662f2`; 
 | Phase 2 | 130 | 22/26 | 110 | 84.62% |
 | Phase 3 | 230 | 29/46 | 145 | 63.04% |
 | Phase 4 | 120 | 22/24 | 110 | 91.67% |
-| Phase 5 | 140 | 15/28 | 75 | 53.57% |
+| Phase 5 | 140 | 18/28 | 90 | 64.29% |
 | Phase 6 | 140 | 0/28 | 0 | 0.00% |
 | Phase 7 | 160 | 5/32 | 25 | 15.63% |
-| **Total** | **1,000** | **104/200** | **520** | **52.00%** |
+| **Total** | **1,000** | **107/200** | **535** | **53.50%** |
 
