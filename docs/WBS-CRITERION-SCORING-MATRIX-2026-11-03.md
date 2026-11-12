@@ -88,7 +88,7 @@
 | 3.3-B | 60-second expiry | 5 | Passed | API tests verify a new empty room expires within 59–60 seconds, invite freshness is capped at 60 seconds, and notifications older than 61 seconds are removed. PR #77 exact-head API integration [41185385432](https://github.com/Mrobaei1/Royal-club/actions/runs/41185385432) passed. |
 | 3.3-C | Cancellation/stale invite rejection | 5 | Passed | Tests verify expired-room invite acceptance returns 410, marks the invite rejected, clears its notification, and leaves room membership unchanged; match cancellation proposals support both rejection and acceptance. PR #77 API integration [41185385432](https://github.com/Mrobaei1/Royal-club/actions/runs/41185385432) and PR #204 API integration [42475968379](https://github.com/Mrobaei1/Royal-club/actions/runs/42475968379) passed. |
 | 3.3-D | Versioning/concurrency | 5 | Passed | Concurrent guest joins serialize to exactly one 200 and one 409; the resulting membership is checked against the successful account. Online commands use expected state versions and stale commands are rejected. PR #78 API integration [41186501241](https://github.com/Mrobaei1/Royal-club/actions/runs/41186501241) and PR #204 API integration [42475968379](https://github.com/Mrobaei1/Royal-club/actions/runs/42475968379) passed. |
-| 3.3-E | Idle cleanup | 5 | Pending | Not audited |
+| 3.3-E | Idle cleanup | 5 | Passed | PR #244 exact HEAD `4749034bc74ffef74554f0334e137841e0f46d10`: PostgreSQL integration verifies empty waiting rooms retain the 60-second expiry while occupied waiting rooms have no expiry and survive scheduled cleanup. Exact-head API integration [run 42574006836](https://github.com/Mrobaei1/Royal-club/actions/runs/42574006836/job/129017530369), API build [run 42574006845](https://github.com/Mrobaei1/Royal-club/actions/runs/42574006845/job/129017531203), Flutter and Backgammon checks passed; PR merged as `525e17866520bbaa6847f6fb7854b04424351b56` (2026-11-12). |
 | 3.4-A | Server-authoritative legality/state | 5 | Passed | API integration verifies server-owned match state, denies spectator move/roll commands, rejects malformed persisted boards on read/roll/move, and checks that client commands cannot bypass server rules. PR #204 API integration [42475968379](https://github.com/Mrobaei1/Royal-club/actions/runs/42475968379) passed. |
 | 3.4-B | Cumulative dice | 5 | Passed | API integration applies a two-die 2+3 batch atomically, asserts both moves and final board, consumes all remaining dice and advances the turn clock only after the full sequence. PR #204 API integration [42475968379](https://github.com/Mrobaei1/Royal-club/actions/runs/42475968379) passed. |
 | 3.4-C | Bar entry/turn integrity | 5 | Passed | API and Flutter engine tests verify mandatory and correct-side bar entry, blocked-entry rejection, bar-first move enforcement, turn completion and clock integrity; exact-head PR #204 API/Flutter/backgammon runs [42475968379](https://github.com/Mrobaei1/Royal-club/actions/runs/42475968379), [42475968332](https://github.com/Mrobaei1/Royal-club/actions/runs/42475968332), [42475968383](https://github.com/Mrobaei1/Royal-club/actions/runs/42475968383) passed. |
@@ -151,13 +151,13 @@
 | 5.1-A | Non-transferable credits | 5 | Passed | Integration attempts `POST /api/v1/wallet/transfer`, receives 404, and verifies neither sender nor recipient balance changes and no wallet ledger rows are created. Merged PR #241; exact-head API integration [run 42571306114](https://github.com/Mrobaei1/Royal-club/actions/runs/42571306114) passed. (2026-11-09) |
 | 5.1-B | Auditable ledger | 5 | Passed | Wallet history exposes transaction ID, amount, balance-after, type, description and timestamp; subscription purchase tests verify exact debit and resulting balance, while concurrent purchase tests assert exactly one ledger debit. Exact-head API integration: PR #231 [run 42569482558](https://github.com/Mrobaei1/Royal-club/actions/runs/42569482558) and PR #230 [run 42569680272](https://github.com/Mrobaei1/Royal-club/actions/runs/42569680272) passed. (2026-11-09) |
 | 5.1-C | Atomic balance | 5 | Passed | Exact-head PR #231 (`d0853b4087606b12d46d9a6e2e251a37436d1b77`) disposable-PostgreSQL integration test issues two simultaneous 300-credit purchases against a 300-credit balance; asserts one 200/one 409, zero final balance, exactly one -300 ledger debit and balance_after=0. API integration, API build/tests, Flutter analyze/tests and backgammon audit passed before merge. |
-| 5.1-D | Idempotent concurrency | 5 | Pending | Implementation and exact-head tests are in open PR #246; do not award WBS credit until the change is integrated into `main`. |
+| 5.1-D | Idempotent concurrency | 5 | Pending | Account-scoped idempotency implementation and PostgreSQL/Flutter regression tests are in rebased PR #260; old PR #246 was closed as superseded after the expiry changes were preserved. Do not award WBS credit until #260 is integrated into `main`. |
 | 5.1-E | Owner adjustments | 5 | Passed | Integration verifies owner credit without step-up is denied (403), fresh owner step-up succeeds, and the credited amount/balance-after/type/description are recorded in the audit ledger. Merged PR #241; exact-head API integration [run 42571306114](https://github.com/Mrobaei1/Royal-club/actions/runs/42571306114) passed. (2026-11-09) |
 | 5.2-A | Manager plans | 5 | Passed | PR #192 exact head `02dac555352ea0d70e391168272a24cc44c66299`; owner step-up protected create-plan API/UI; API integration run `42230679256`, API build/tests and Flutter analyze/tests run `42230679251` (2026-11-07). |
 | 5.2-B | Transactional activation | 5 | Passed | Exact-head PR #231 (`d0853b4087606b12d46d9a6e2e251a37436d1b77`) disposable-PostgreSQL integration test asserts only the winning concurrent purchase creates one active subscription; rejected purchase creates no second subscription. API integration, API build/tests, Flutter analyze/tests and backgammon audit passed before merge. |
-| 5.2-C | Expiry/removal | 5 | Pending | Expiry persistence and deactivated-plan behavior are implemented and tested in open PR #247; do not award WBS credit until integrated into `main`. |
+| 5.2-C | Expiry/removal | 5 | Passed | PR #247 exact HEAD `cf20da1595da73364f14839e0ef85f04d2cfd873`: PostgreSQL integration verifies elapsed subscriptions are persisted as `expired`, omitted from the active subscription view, and deactivated plans leave the active catalogue and reject new purchases. Exact-head API integration [run 42574531687](https://github.com/Mrobaei1/Royal-club/actions/runs/42574531687/job/129019159565) and API build passed; merged into `main` as `59015a39f94323e406b14814071cad77b6eeb9bb` (2026-11-12). |
 | 5.2-D | Server-controlled prices | 5 | Passed | Subscription activation sends forged client `priceCredits=1` and `durationDays=1`; API still charges the configured server plan price (300 credits) and applies its configured 30-day duration. Merged PR #241; exact-head API integration [run 42571306114](https://github.com/Mrobaei1/Royal-club/actions/runs/42571306114) passed. (2026-11-09) |
-| 5.3-A | XP policy | 5 | Pending | Main contains online win/loss and offline-training isolation evidence; exact resignation XP and cumulative-policy regression tests are in open PRs #252 and #254. Keep pending until those tests are integrated into `main`. |
+| 5.3-A | XP policy | 5 | Pending | Main contains online win/loss and offline-training isolation evidence; exact resignation XP and cumulative-policy regression tests are in rebased PRs #261 and #262. Keep pending until both test changes are integrated into `main`. |
 | 5.3-B | Permanent levels/curve | 5 | Passed | `apps/api/src/player-progression.ts` and `player-progression.test.ts` verify cumulative XP thresholds, level 100 at 79,439 XP, and permanent levels after XP loss; exact-head API validation CI run `43183126874` passed (PR #249, 2026-11-12). |
 | 5.3-C | Elo/leaderboard | 5 | Passed | `backgammon-rating.ts`/tests verify zero-sum Elo; PostgreSQL integration asserts 1016/984 rating updates, global and weekly leaderboard results, and exclusion of unfinished/unresolved matches; exact-head integration CI run `43183126917` passed (PR #249, 2026-11-12). |
 | 5.3-D | Ties/draws/unfinished matches | 5 | Pending | Not audited |
@@ -252,9 +252,9 @@
 - Packages decomposed: **53/53**
 - Acceptance criteria: **200**
 - Points represented: **1000/1,000**
-- Earned points currently evidenced: **570/1,000 (57.0%)** — 190 points across Phases 1, 2 and 7, 145 points across 29 verified Phase 3 criteria, 110 points across 22 verified Phase 4 criteria, 90 points across 18 verified Phase 5 criteria, and 35 points across 7 verified Phase 6 criteria. Evidence is linked criterion-by-criterion below. Remaining gates include Android notification acceptance, social theme/layout/accessibility device acceptance, and two-device/Production release acceptance.
+- Earned points currently evidenced: **580/1,000 (58.0%)** — 190 points across Phases 1, 2 and 7, 150 points across 30 verified Phase 3 criteria, 110 points across 22 verified Phase 4 criteria, 95 points across 19 verified Phase 5 criteria, and 35 points across 7 verified Phase 6 criteria. Evidence is linked criterion-by-criterion below. Remaining gates include Android notification acceptance, social theme/layout/accessibility device acceptance, and two-device/Production release acceptance.
 - Remaining criteria: **86 Pending** (430 points not yet earned).
-- **Proposed project percentage for this PR: 57.0% (570/1,000 points; 114/200 criteria).** This is the evidence-backed WBS score calculated from the phase roll-up immediately below; it is not a claim that all implementation or release acceptance is complete. The official `main` score remains 49.5% until this PR is integrated. Pending Android notification acceptance, social theme/layout/accessibility device acceptance, provider deployment portability, NFR target approval, physical VPN/device acceptance, owner-approved retention and application-level disaster recovery remain open.
+- **Proposed project percentage for this PR: 58.0% (580/1,000 points; 116/200 criteria).** This is the evidence-backed WBS score calculated from the phase roll-up immediately below; it is not a claim that all implementation or release acceptance is complete. The official `main` score remains 49.5% until this PR is integrated. Pending Android notification acceptance, social theme/layout/accessibility device acceptance, provider deployment portability, NFR target approval, physical VPN/device acceptance, owner-approved retention and application-level disaster recovery remain open.
 
 ## Required evidence record
 
@@ -274,12 +274,12 @@ The following percentages are calculated directly from the 200 criterion rows in
 | --- | ---: | ---: | ---: | ---: |
 | Phase 1 — Architecture and project management | 80 | 11/16 | 55 | 68.75% |
 | Phase 2 | 130 | 22/26 | 110 | 84.62% |
-| Phase 3 | 230 | 29/46 | 145 | 63.04% |
+| Phase 3 | 230 | 30/46 | 150 | 65.22% |
 | Phase 4 | 120 | 22/24 | 110 | 91.67% |
-| Phase 5 | 140 | 18/28 | 90 | 64.29% |
+| Phase 5 | 140 | 19/28 | 95 | 67.86% |
 | Phase 6 | 140 | 7/28 | 35 | 25.00% |
 | Phase 7 | 160 | 5/32 | 25 | 15.63% |
-| **Total** | **1,000** | **114/200** | **570** | **57.00%** |
+| **Total** | **1,000** | **116/200** | **580** | **58.00%** |
 
 
 
@@ -361,10 +361,10 @@ Exact-head evidence: PR #249 commit `8213864977b57b73e88bc0bad49f976631b662f2`; 
 | --- | ---: | ---: | ---: | ---: |
 | Phase 1 — Architecture and project management | 80 | 11/16 | 55 | 68.75% |
 | Phase 2 | 130 | 22/26 | 110 | 84.62% |
-| Phase 3 | 230 | 29/46 | 145 | 63.04% |
+| Phase 3 | 230 | 30/46 | 150 | 65.22% |
 | Phase 4 | 120 | 22/24 | 110 | 91.67% |
-| Phase 5 | 140 | 18/28 | 90 | 64.29% |
+| Phase 5 | 140 | 19/28 | 95 | 67.86% |
 | Phase 6 | 140 | 7/28 | 35 | 25.00% |
 | Phase 7 | 160 | 5/32 | 25 | 15.63% |
-| **Total** | **1,000** | **114/200** | **570** | **57.00%** |
+| **Total** | **1,000** | **116/200** | **580** | **58.00%** |
 
