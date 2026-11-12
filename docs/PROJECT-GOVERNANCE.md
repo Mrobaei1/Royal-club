@@ -68,3 +68,12 @@
 ## Change history
 
 - 2026-11-08: consolidated governance, WBS scoring rules, risk escalation and owner approval boundaries from the approved baseline and current repository evidence.
+
+
+## Automatic PR merge — current blocker (2026-11-12)
+
+- Owner instruction: merge PRs automatically only after exact-HEAD CI and documented technical review pass.
+- Repository metadata reports `allow_auto_merge=true`.
+- Attempts to enable auto-merge on PRs #244, #246, #247, #248 and #249 returned GitHub GraphQL `Pull request is in clean status`; no auto-merge activation was confirmed.
+- The accessible repository rulesets endpoint returned an empty list. Reading classic branch protection for `main` returned HTTP 403 to the current GitHub connection, so the effective branch-protection configuration cannot be confirmed or changed through the available integration.
+- Do not manually merge as a workaround. The owner must verify/configure a `main` branch protection rule or ruleset with required CI checks and any independent review requirement, then auto-merge can be retried.
