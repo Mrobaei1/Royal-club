@@ -185,15 +185,15 @@
 | 6.1-B | Desktop admin usability | 5 | Pending | Not audited |
 | 6.1-C | Ordinary-user denial | 5 | Pending | Not audited |
 | 6.1-D | Voice-message control manager-only/OFF | 5 | Pending | Not audited |
-| 6.2-A | Numeric owner identity | 5 | Pending | Not audited |
-| 6.2-B | Secure configuration | 5 | Pending | Not audited |
-| 6.2-C | Fail-closed owner endpoints | 5 | Pending | Not audited |
-| 6.2-D | No username/email privilege | 5 | Pending | Not audited |
-| 6.3-A | Permission matrix | 5 | Pending | Not audited |
-| 6.3-B | 50-delegate limit | 5 | Pending | Not audited |
+| 6.2-A | Numeric owner identity | 5 | Passed | `requireOwnerAuth` requires a numeric configured owner ID and a durable singleton owner anchor; `isOwnerIdentityConsistent` checks configured, stored and authenticated IDs. Unit tests reject missing/invalid/mismatched IDs; PostgreSQL integration verifies the owner anchor cannot be updated or deleted. Exact-head API integration run `43193843382` passed. |
+| 6.2-B | Secure configuration | 5 | Passed | Central game-service configuration accepts HTTPS origins only, is Ed25519-signed with a domain-separated key, versioned, history-backed and owner-step-up protected; rollback verifies both current and historical signatures. Unit and PostgreSQL integration tests cover tampering, invalid origins, step-up and rollback. Exact-head API integration run `43193843382` passed. |
+| 6.2-C | Fail-closed owner endpoints | 5 | Passed | Owner routes deny missing owner configuration, invalid numeric identity, missing/inconsistent durable anchor and unavailable owner-protection storage; step-up is session-bound and expires. Unit and integration tests cover missing configuration, wrong-session/expired step-up and non-owner denial. Exact-head API integration run `43193843382` passed. |
+| 6.2-D | No username/email privilege | 5 | Passed | Owner authorization is based on the numeric authenticated subject, never username/email. Integration verifies ordinary users cannot claim reserved `ElizArya` and that the reserved handle does not confer owner access when numeric owner configuration is absent. Exact-head API integration run `43193843382` passed. |
+| 6.3-A | Permission matrix | 5 | Passed | `permissions.ts` exposes only currently enforced `reports.read`/`reports.manage` capabilities; server routes validate the allowlist and apply resource-scoped `hasRoyalPermission`. PostgreSQL integration verifies owner-only grant management, scoped read/manage access and rejection outside scope. Exact-head API integration run `43193843382` passed. |
+| 6.3-B | 50-delegate limit | 5 | Passed | Grant creation serializes the ceiling check with a transaction advisory lock and limits active distinct delegates to 50; integration verifies the 51st delegate is rejected and a replacement is allowed after revocation. Exact-head API integration run `43193843382` passed. |
 | 6.3-C | Grant/revoke/audit | 5 | Pending | Not audited |
 | 6.3-D | Voice setting authorization | 5 | Pending | Not audited |
-| 6.3-E | Deny-by-default tests | 5 | Pending | Not audited |
+| 6.3-E | Deny-by-default tests | 5 | Passed | Unit tests reject unknown/privileged permission names, empty and inactive grants, and malformed or missing scopes; integration verifies the global delegated-permission switch blocks delegated access. Exact-head API build/integration and permission unit tests passed in run `43193843382`. |
 | 6.4-A | Task definitions/capabilities | 5 | Pending | Awaiting integration of PR #249 into `main`; do not award WBS credit while implementation remains in an open PR. |
 | 6.4-B | Human approval | 5 | Pending | Awaiting integration of PR #249 into `main`; do not award WBS credit while implementation remains in an open PR. |
 | 6.4-C | Run state/cancellation/audit | 5 | Pending | Awaiting integration of PR #249 into `main`; do not award WBS credit while implementation remains in an open PR. |
@@ -277,9 +277,9 @@ The following percentages are calculated directly from the 200 criterion rows in
 | Phase 3 | 230 | 29/46 | 145 | 63.04% |
 | Phase 4 | 120 | 22/24 | 110 | 91.67% |
 | Phase 5 | 140 | 22/28 | 110 | 78.57% |
-| Phase 6 | 140 | 0/28 | 0 | 0.00% |
+| Phase 6 | 140 | 7/28 | 35 | 25.00% |
 | Phase 7 | 160 | 5/32 | 25 | 15.63% |
-| **Total** | **1,000** | **107/200** | **535** | **53.50%** |
+| **Total** | **1,000** | **114/200** | **570** | **57.00%** |
 
 
 
@@ -353,7 +353,7 @@ Three criteria are newly passed after source, unit-test and PostgreSQL integrati
 - **5.3-C — Elo/leaderboard:** the Elo update is zero-sum and tested across rating gaps. Integration coverage verifies server-side rating updates, leaderboard projections, weekly scoring, and exclusion of unfinished or winner-ambiguous matches.
 - **5.3-E — Retry/audit:** progression events have a database uniqueness key per match/event/player and are inserted with conflict-safe semantics. Integration coverage verifies exactly one event per participant and no duplicate XP after replaying a stale winning move.
 
-Exact-head evidence: PR #249 commit `8213864977b57b73e88bc0bad49f976631b662f2`; API validation run `43183126874` and PostgreSQL integration run `43183126917` both passed for the progression curve, Elo/leaderboard and retry/audit evidence. **5.3-A** remains Pending until the resignation XP regression tests in open PRs #252/#254 are integrated; **5.3-D** (ties/draws/unfinished outcomes) remains Pending. Agent criteria implemented in open PR #249 are not scored until integrated into `main`. This audit does not claim offline device acceptance or production release readiness.
+Exact-head evidence: PR #249 commit `8213864977b57b73e88bc0bad49f976631b662f2`; API validation run `43183126874` and PostgreSQL integration run `43183126917` passed for progression curve, Elo/leaderboard and retry/audit. The 2026-11-12 main-branch audit also passes **6.2-A through 6.2-D** and **6.3-A, 6.3-B, 6.3-E** using owner-protection, signed configuration, permission matrix and delegate-ceiling source/tests; exact-head PostgreSQL integration run `43193843382` passed. **6.3-C** remains Pending until open PR #258 adds explicit revocation/kill-switch audit assertions; **6.3-D** remains Pending because the dormant voice-message setting authorization is not implemented. Agent criteria in open PR #249 remain unscored until integrated into `main`. **5.3-A** remains Pending until resignation XP regression tests in open PRs #252/#254 are integrated; **5.3-D** (ties/draws/unfinished outcomes) remains Pending. This audit does not claim offline device acceptance or production release readiness.
 
 ## Phase roll-up — 2026-11-12
 
