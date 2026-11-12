@@ -51,7 +51,7 @@ A row moves to accepted only with evidence at the correct layer: source review f
 
 | Decision | Authority / date | Status | Implementation consequence |
 |---|---|---|---|
-| Automatically merge a PR only after exact-HEAD CI succeeds and a documented technical review has no blocking findings | Owner instruction, 2026-11-11 | Confirmed | Enable GitHub auto-merge after both gates pass; do not bypass missing checks/review. Repository metadata currently reports `allow_auto_merge=false`; owner must enable the repository setting before auto-merge can operate. |
+| Automatically merge a PR only after exact-HEAD CI succeeds and a documented technical review has no blocking findings | Owner instruction, 2026-11-11 | Confirmed | Enable GitHub auto-merge after both gates pass; do not bypass missing checks/review. Repository metadata was confirmed `allow_auto_merge=true` on 2026-11-12; auto-merge is available, subject to each PR's exact-HEAD CI and documented technical review. |
 
 ## Owner decision — Agent development starts immediately (2026-11-11)
 
