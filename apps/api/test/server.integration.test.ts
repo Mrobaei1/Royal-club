@@ -651,11 +651,11 @@ test('registered players can join an online match and history does not expose op
   });
   assert.equal(joined.statusCode, 200, joined.body);
   const joinedRoomExpiry = await testPool.query(
-    'SELECT expires_at > NOW() + INTERVAL \'5 minutes\' AS extended FROM backgammon_matches WHERE id = $1',
+    'SELECT expires_at FROM backgammon_matches WHERE id = $1',
     [matchId],
   );
-  assert.equal(joinedRoomExpiry.rows[0].extended, true,
-    'A room must not retain the 60-second unaccepted-invitation expiry after a player joins.');
+  assert.equal(joinedRoomExpiry.rows[0].expires_at, null,
+    'A waiting room must not expire after a player joins.');
   assert.equal(joined.json().match.status, 'waiting');
   assert.equal(joined.json().match.guestAvatarDataUrl, avatar);
   assert.equal(joined.json().match.hostAvatarDataUrl, null);
@@ -1255,11 +1255,11 @@ test('registered players can join an online match and history does not expose op
   assert.equal(String(acceptInvite.json().match.id), invitedRoomId,
     'The accepted invitation response must carry the canonical numeric room ID used by the client.');
   const acceptedRoomExpiry = await testPool.query(
-    'SELECT expires_at > NOW() + INTERVAL \'5 minutes\' AS extended FROM backgammon_matches WHERE id = $1',
+    'SELECT expires_at FROM backgammon_matches WHERE id = $1',
     [invitedRoomId],
   );
-  assert.equal(acceptedRoomExpiry.rows[0].extended, true,
-    'Accepting an invitation must extend the waiting-room expiry.');
+  assert.equal(acceptedRoomExpiry.rows[0].expires_at, null,
+    'Accepting an invitation must make the occupied waiting room non-expiring.');
   const invitedMatch = await app.inject({
     method: 'GET',
     url: `/api/v1/matches/${invitedRoomId}`,
@@ -1441,6 +1441,42 @@ test('registered players can join an online match and history does not expose op
     [scheduledCleanupRoomId],
   );
 
+  // An occupied room must survive even when its original empty-room deadline passes.
+  const occupiedRoomHost = await register('Occupied Cleanup Host');
+  const occupiedRoomGuest = await register('Occupied Cleanup Guest');
+  const occupiedRoomCreated = await app.inject({
+    method: 'POST',
+    url: '/api/v1/matches',
+    headers: auth(occupiedRoomHost.token),
+  });
+  assert.equal(occupiedRoomCreated.statusCode, 201, occupiedRoomCreated.body);
+  const occupiedRoomId = String(occupiedRoomCreated.json().match.id);
+  const occupiedRoomJoin = await app.inject({
+    method: 'POST',
+    url: `/api/v1/matches/${occupiedRoomId}/join`,
+    headers: auth(occupiedRoomGuest.token),
+  });
+  assert.equal(occupiedRoomJoin.statusCode, 200, occupiedRoomJoin.body);
+  const occupiedExpiry = await testPool.query(
+    'SELECT expires_at FROM backgammon_matches WHERE id = $1',
+    [occupiedRoomId],
+  );
+  assert.equal(occupiedExpiry.rows[0].expires_at, null,
+    'A waiting room becomes non-expiring as soon as its second player joins.');
+  const occupiedRoomDetails = await app.inject({
+    method: 'GET',
+    url: `/api/v1/matches/${occupiedRoomId}`,
+    headers: auth(occupiedRoomHost.token),
+  });
+  assert.equal(occupiedRoomDetails.statusCode, 200, occupiedRoomDetails.body);
+  const occupiedHostReady = await app.inject({
+    method: 'POST',
+    url: `/api/v1/matches/${occupiedRoomId}/setup`,
+    headers: auth(occupiedRoomHost.token),
+    payload: { ready: true },
+  });
+  assert.equal(occupiedHostReady.statusCode, 200, occupiedHostReady.body);
+
   const cleanupWithoutTrigger = await app.inject({
     method: 'POST',
     url: '/internal/cleanup-expired-empty-rooms',
@@ -1461,6 +1497,15 @@ test('registered players can join an online match and history does not expose op
   );
   assert.equal(scheduledRoomAfterCleanup.rowCount, 0,
     'A verified scheduled trigger must physically remove expired empty rooms.');
+  const occupiedRoomAfterCleanup = await testPool.query(
+    'SELECT id, status, guest_user_id::text AS guest_user_id, expires_at <= NOW() AS expired FROM backgammon_matches WHERE id = $1',
+    [occupiedRoomId],
+  );
+  assert.equal(occupiedRoomAfterCleanup.rowCount, 1,
+    'A waiting room with a guest must not be deleted by the empty-room cleanup.');
+  assert.equal(occupiedRoomAfterCleanup.rows[0].status, 'waiting');
+  assert.equal(occupiedRoomAfterCleanup.rows[0].guest_user_id, occupiedRoomGuest.user.id);
+  assert.equal(occupiedRoomAfterCleanup.rows[0].expired, null);
   const emptyRoomId = String(emptyRoomToClose.json().match.id);
   const guestCannotCloseHostRoom = await app.inject({
     method: 'DELETE',
@@ -1743,6 +1788,18 @@ test('subscription purchases debit the wallet atomically and record a ledger ent
       payload: { code: 'bad code', name: 'Invalid', durationDays: 0, priceCredits: -1 },
     });
     assert.equal(invalidPlan.statusCode, 400, invalidPlan.body);
+
+    const deactivateWeeklyPlan = await app.inject({
+      method: 'PATCH',
+      url: '/api/v1/admin/subscription-plans/vip_weekly',
+      headers: {
+        authorization: `Bearer ${buyer.token}`,
+        'x-owner-step-up': stepUp.json().stepUpToken,
+      },
+      payload: { active: false },
+    });
+    assert.equal(deactivateWeeklyPlan.statusCode, 200, deactivateWeeklyPlan.body);
+    assert.equal(deactivateWeeklyPlan.json().plan.active, false);
   } finally {
     if (previousPlanOwnerId === undefined) delete process.env.OWNER_USER_ID;
     else process.env.OWNER_USER_ID = previousPlanOwnerId;
@@ -1764,6 +1821,17 @@ test('subscription purchases debit the wallet atomically and record a ledger ent
   assert.equal(plans.statusCode, 200, plans.body);
   assert.ok((plans.json().plans as Array<Record<string, unknown>>)
     .some((plan) => plan.code === 'vip_monthly'));
+  assert.ok(!(plans.json().plans as Array<Record<string, unknown>>)
+    .some((plan) => plan.code === 'vip_weekly'),
+  'A deactivated plan must be removed from the public active-plan catalogue.');
+
+  const removedPlanPurchase = await app.inject({
+    method: 'POST',
+    url: '/api/v1/subscriptions/activate',
+    headers: auth(buyer.token),
+    payload: { planCode: 'vip_weekly' },
+  });
+  assert.equal(removedPlanPurchase.statusCode, 404, removedPlanPurchase.body);
 
   const insufficient = await app.inject({
     method: 'POST',
@@ -2341,6 +2409,77 @@ test('delegated report permissions are owner-granted, resource-scoped, audited, 
     assert.equal(blockedByKillSwitch.statusCode, 403, blockedByKillSwitch.body);
   } finally {
     await testPool.query('UPDATE admin_permission_settings SET enabled = $1 WHERE id = 1', [previousEnabled]);
+    if (previousOwnerId === undefined) delete process.env.OWNER_USER_ID;
+    else process.env.OWNER_USER_ID = previousOwnerId;
+  }
+});
+
+test('voice-message settings are owner-only, step-up protected, audited, and disabled by default', async () => {
+  const previousOwnerId = process.env.OWNER_USER_ID;
+  const owner = await register('Voice Settings Owner');
+  const ordinary = await register('Voice Settings Ordinary');
+  process.env.OWNER_USER_ID = owner.user.id;
+  try {
+    await testPool.query('UPDATE voice_message_settings SET enabled = FALSE, updated_by = NULL WHERE id = 1');
+    const ownerRead = await app.inject({
+      method: 'GET', url: '/api/v1/admin/voice-messages/settings', headers: auth(owner.token),
+    });
+    assert.equal(ownerRead.statusCode, 200, ownerRead.body);
+    assert.equal(ownerRead.json().settings.enabled, false,
+      'Voice messaging must remain disabled on first setup.');
+
+    const ordinaryRead = await app.inject({
+      method: 'GET', url: '/api/v1/admin/voice-messages/settings', headers: auth(ordinary.token),
+    });
+    assert.equal(ordinaryRead.statusCode, 403, ordinaryRead.body);
+
+    const ordinaryWrite = await app.inject({
+      method: 'PATCH', url: '/api/v1/admin/voice-messages/settings', headers: auth(ordinary.token),
+      payload: { enabled: true },
+    });
+    assert.equal(ordinaryWrite.statusCode, 403, ordinaryWrite.body);
+
+    const ownerWithoutStepUp = await app.inject({
+      method: 'PATCH', url: '/api/v1/admin/voice-messages/settings',
+      headers: { authorization: `Bearer ${owner.token}` }, payload: { enabled: true },
+    });
+    assert.equal(ownerWithoutStepUp.statusCode, 403, ownerWithoutStepUp.body);
+
+    const invalidValue = await app.inject({
+      method: 'PATCH', url: '/api/v1/admin/voice-messages/settings', headers: auth(owner.token),
+      payload: { enabled: 'true' },
+    });
+    assert.equal(invalidValue.statusCode, 400, invalidValue.body);
+
+    const enabled = await app.inject({
+      method: 'PATCH', url: '/api/v1/admin/voice-messages/settings', headers: auth(owner.token),
+      payload: { enabled: true },
+    });
+    assert.equal(enabled.statusCode, 200, enabled.body);
+    assert.equal(enabled.json().settings.enabled, true);
+
+    const disabled = await app.inject({
+      method: 'PATCH', url: '/api/v1/admin/voice-messages/settings', headers: auth(owner.token),
+      payload: { enabled: false },
+    });
+    assert.equal(disabled.statusCode, 200, disabled.body);
+    assert.equal(disabled.json().settings.enabled, false);
+
+    const audit = await app.inject({
+      method: 'GET', url: '/api/v1/admin/voice-messages/audit', headers: auth(owner.token),
+    });
+    assert.equal(audit.statusCode, 200, audit.body);
+    assert.deepEqual(
+      (audit.json().entries as Array<{ enabled: boolean }>).slice(0, 2).map((entry) => entry.enabled),
+      [false, true],
+      'Owner setting changes must be recorded newest-first.',
+    );
+    const ordinaryAudit = await app.inject({
+      method: 'GET', url: '/api/v1/admin/voice-messages/audit', headers: auth(ordinary.token),
+    });
+    assert.equal(ordinaryAudit.statusCode, 403, ordinaryAudit.body);
+  } finally {
+    await testPool.query('UPDATE voice_message_settings SET enabled = FALSE, updated_by = NULL WHERE id = 1');
     if (previousOwnerId === undefined) delete process.env.OWNER_USER_ID;
     else process.env.OWNER_USER_ID = previousOwnerId;
   }
@@ -4845,6 +4984,39 @@ test('Hokm owner manager authorization fails closed when the persistent owner id
     if (previousNodeEnv === undefined) delete process.env.NODE_ENV;
     else process.env.NODE_ENV = previousNodeEnv;
   }
+});
+
+test('expired subscriptions are marked expired and omitted from the active subscription view', async () => {
+  const buyer = await register('Expired Subscription Buyer');
+  await testPool.query(
+    'INSERT INTO wallet_accounts (user_id, balance) VALUES ($1, 300) ON CONFLICT (user_id) DO UPDATE SET balance = 300',
+    [buyer.user.id],
+  );
+  const purchase = await app.inject({
+    method: 'POST',
+    url: '/api/v1/subscriptions/activate',
+    headers: auth(buyer.token),
+    payload: { planCode: 'vip_monthly' },
+  });
+  assert.equal(purchase.statusCode, 200, purchase.body);
+  const subscriptionId = purchase.json().subscription.id;
+  await testPool.query(
+    "UPDATE user_subscriptions SET ends_at = NOW() - INTERVAL '1 second' WHERE id = $1",
+    [subscriptionId],
+  );
+  const current = await app.inject({
+    method: 'GET',
+    url: '/api/v1/subscriptions/me',
+    headers: auth(buyer.token),
+  });
+  assert.equal(current.statusCode, 200, current.body);
+  assert.equal(current.json().subscription, null);
+  const stored = await testPool.query(
+    'SELECT status, ends_at <= NOW() AS is_expired FROM user_subscriptions WHERE id = $1',
+    [subscriptionId],
+  );
+  assert.equal(stored.rows[0]?.status, 'expired');
+  assert.equal(stored.rows[0]?.is_expired, true);
 });
 
 test('replayed concurrent subscription purchases with one idempotency key debit the wallet once', async () => {
