@@ -194,12 +194,12 @@
 | 6.3-C | Grant/revoke/audit | 5 | Passed | PR #258 exact HEAD `edebee50d7659b0c59cf886aad101be18e8a7de8`: PostgreSQL integration verifies the owner-visible `grant_revoked` audit event for `reports.manage`, and the existing grant lifecycle assertions verify scoped grant/revoke behavior. Exact-head API integration [run 43258007979](https://github.com/Mrobaei1/Royal-club/actions/runs/43258007979/job/131321384485) and API build/tests passed; PR merged into main as `6a43b5492129d4a7d7341495842c767a2bdd3b4b` (2026-11-12). |
 | 6.3-D | Voice setting authorization | 5 | Pending | Not audited |
 | 6.3-E | Deny-by-default tests | 5 | Passed | Unit tests reject unknown/privileged permission names, empty and inactive grants, and malformed or missing scopes; integration verifies the global delegated-permission switch blocks delegated access. Exact-head API build/integration and permission unit tests passed in run `43193843382`. |
-| 6.4-A | Task definitions/capabilities | 5 | Pending | Awaiting integration of PR #249 into `main`; do not award WBS credit while implementation remains in an open PR. |
-| 6.4-B | Human approval | 5 | Pending | Awaiting integration of PR #249 into `main`; do not award WBS credit while implementation remains in an open PR. |
+| 6.4-A | Task definitions/capabilities | 5 | Passed | PR #249 exact HEAD `005ea6d4545e4cea43fc9c7aa53df0426bd2cdca`: owner-managed task definitions restrict requested capabilities to `read`/`recommend`; integration tests reject `execute`/`approve` and unauthorized task changes. Exact-head API integration [run 43258075354](https://github.com/Mrobaei1/Royal-club/actions/runs/43258075354/job/131321620533) passed; merged as `f16195d32ba8528a9676476bb71457a7e7f8917f` (2026-11-12). |
+| 6.4-B | Human approval | 5 | Passed | PR #249 exact HEAD `005ea6d4545e4cea43fc9c7aa53df0426bd2cdca`: every task definition requires human approval; API rejects `requiresHumanApproval=false`, and owner step-up is required for proposal approval/cancel/reject. Exact-head API integration [run 43258075354](https://github.com/Mrobaei1/Royal-club/actions/runs/43258075354/job/131321620533) passed; merged as `f16195d32ba8528a9676476bb71457a7e7f8917f`. |
 | 6.4-C | Run state/cancellation/audit | 5 | Pending | Awaiting integration of PR #249 into `main`; do not award WBS credit while implementation remains in an open PR. |
-| 6.4-D | Dormant execution | 5 | Pending | Awaiting integration of PR #249 into `main`; do not award WBS credit while implementation remains in an open PR. |
-| 6.5-A | Privileged audit | 5 | Pending | Awaiting integration of PR #249 into `main`; do not award WBS credit while implementation remains in an open PR. |
-| 6.5-B | Secret redaction | 5 | Pending | Awaiting integration of PR #249 into `main`; do not award WBS credit while implementation remains in an open PR. |
+| 6.4-D | Dormant execution | 5 | Passed | PR #249 exact HEAD `005ea6d4545e4cea43fc9c7aa53df0426bd2cdca`: approval only transitions a proposal to `approved_dormant`; tests assert `runtimeEnabled=false` and `executionStarted=false`, task definitions remain draft/paused, and no execution endpoint/runtime is activated. Exact-head API integration [run 43258075354](https://github.com/Mrobaei1/Royal-club/actions/runs/43258075354/job/131321620533) passed; merged as `f16195d32ba8528a9676476bb71457a7e7f8917f`. |
+| 6.5-A | Privileged audit | 5 | Passed | PR #249 exact HEAD `005ea6d4545e4cea43fc9c7aa53df0426bd2cdca`: proposal approval/cancellation/rejection and task pause/resume are owner-step-up protected, reason-bound, transactional and audit logged; audit reads remain owner-only. Exact-head API integration [run 43258075354](https://github.com/Mrobaei1/Royal-club/actions/runs/43258075354/job/131321620533) passed; merged as `f16195d32ba8528a9676476bb71457a7e7f8917f`. |
+| 6.5-B | Secret redaction | 5 | Passed | PR #249 exact HEAD `005ea6d4545e4cea43fc9c7aa53df0426bd2cdca`: PostgreSQL integration verifies proposal responses redact provider `apiKey` and nested `password` while preserving non-sensitive labels; list/response projections are covered. Exact-head API integration [run 43258075354](https://github.com/Mrobaei1/Royal-club/actions/runs/43258075354/job/131321620533) passed; merged as `f16195d32ba8528a9676476bb71457a7e7f8917f`. |
 | 6.5-C | Kill switch | 5 | Passed | PR #258 exact HEAD `edebee50d7659b0c59cf886aad101be18e8a7de8`: PostgreSQL integration disables delegated permissions, verifies the owner-visible `kill_switch_changed` audit event with `enabled=false`, and confirms delegated access is denied afterward. Exact-head API integration [run 43258007979](https://github.com/Mrobaei1/Royal-club/actions/runs/43258007979/job/131321384485) passed; PR merged as `6a43b5492129d4a7d7341495842c767a2bdd3b4b`. |
 | 6.5-D | Immediate revoke/cancel | 5 | Pending | Not audited |
 | 6.6-A | Agent Center categories | 5 | Pending | Not audited |
@@ -252,9 +252,9 @@
 - Packages decomposed: **53/53**
 - Acceptance criteria: **200**
 - Points represented: **1000/1,000**
-- Earned points currently evidenced: **605/1,000 (60.5%)** — 190 points across Phases 1, 2 and 7, 150 points across 30 verified Phase 3 criteria, 110 points across 22 verified Phase 4 criteria, 110 points across 22 verified Phase 5 criteria, and 45 points across 9 verified Phase 6 criteria. Evidence is linked criterion-by-criterion below. Remaining gates include Android notification acceptance, social theme/layout/accessibility device acceptance, and two-device/Production release acceptance.
+- Earned points currently evidenced: **630/1,000 (63.0%)** — 190 points across Phases 1, 2 and 7, 150 points across 30 verified Phase 3 criteria, 110 points across 22 verified Phase 4 criteria, 110 points across 22 verified Phase 5 criteria, and 70 points across 14 verified Phase 6 criteria. Evidence is linked criterion-by-criterion below. Remaining gates include Android notification acceptance, social theme/layout/accessibility device acceptance, and two-device/Production release acceptance.
 - Remaining criteria: **86 Pending** (430 points not yet earned).
-- **Proposed project percentage for this PR: 60.5% (605/1,000 points; 121/200 criteria).** This is the evidence-backed WBS score calculated from the phase roll-up immediately below; it is not a claim that all implementation or release acceptance is complete. The official `main` score remains 49.5% until this PR is integrated. Pending Android notification acceptance, social theme/layout/accessibility device acceptance, provider deployment portability, NFR target approval, physical VPN/device acceptance, owner-approved retention and application-level disaster recovery remain open.
+- **Proposed project percentage for this PR: 63.0% (630/1,000 points; 126/200 criteria).** This is the evidence-backed WBS score calculated from the phase roll-up immediately below; it is not a claim that all implementation or release acceptance is complete. The official `main` score remains 49.5% until this PR is integrated. Pending Android notification acceptance, social theme/layout/accessibility device acceptance, provider deployment portability, NFR target approval, physical VPN/device acceptance, owner-approved retention and application-level disaster recovery remain open.
 
 ## Required evidence record
 
@@ -277,9 +277,9 @@ The following percentages are calculated directly from the 200 criterion rows in
 | Phase 3 | 230 | 30/46 | 150 | 65.22% |
 | Phase 4 | 120 | 22/24 | 110 | 91.67% |
 | Phase 5 | 140 | 22/28 | 110 | 78.57% |
-| Phase 6 | 140 | 9/28 | 45 | 32.14% |
+| Phase 6 | 140 | 14/28 | 70 | 50.00% |
 | Phase 7 | 160 | 5/32 | 25 | 15.63% |
-| **Total** | **1,000** | **121/200** | **605** | **60.50%** |
+| **Total** | **1,000** | **126/200** | **630** | **63.00%** |
 
 
 
@@ -364,7 +364,7 @@ Exact-head evidence: PR #249 commit `8213864977b57b73e88bc0bad49f976631b662f2`; 
 | Phase 3 | 230 | 30/46 | 150 | 65.22% |
 | Phase 4 | 120 | 22/24 | 110 | 91.67% |
 | Phase 5 | 140 | 22/28 | 110 | 78.57% |
-| Phase 6 | 140 | 9/28 | 45 | 32.14% |
+| Phase 6 | 140 | 14/28 | 70 | 50.00% |
 | Phase 7 | 160 | 5/32 | 25 | 15.63% |
-| **Total** | **1,000** | **121/200** | **605** | **60.50%** |
+| **Total** | **1,000** | **126/200** | **630** | **63.00%** |
 
