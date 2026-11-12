@@ -276,7 +276,7 @@ The following percentages are calculated directly from the 200 criterion rows in
 | Phase 2 | 130 | 22/26 | 110 | 84.62% |
 | Phase 3 | 230 | 29/46 | 145 | 63.04% |
 | Phase 4 | 120 | 22/24 | 110 | 91.67% |
-| Phase 5 | 140 | 22/28 | 110 | 78.57% |
+| Phase 5 | 140 | 18/28 | 90 | 64.29% |
 | Phase 6 | 140 | 7/28 | 35 | 25.00% |
 | Phase 7 | 160 | 5/32 | 25 | 15.63% |
 | **Total** | **1,000** | **114/200** | **570** | **57.00%** |
