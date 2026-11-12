@@ -352,6 +352,14 @@ test('registered players can join an online match and history does not expose op
   });
   assert.equal(deniedAgentApproval.statusCode, 403);
 
+  const deniedAgentCancel = await app.inject({
+    method: 'POST',
+    url: '/api/v1/admin/agent-task-proposals/1/cancel',
+    headers: auth(host.token),
+    payload: { reason: 'Unauthorized user must not cancel.' },
+  });
+  assert.equal(deniedAgentCancel.statusCode, 403);
+
 
   const usernameSearch = await app.inject({
     method: 'GET',
@@ -3131,6 +3139,32 @@ test('Phase 4 agent task definitions remain dormant and proposals require human 
     assert.ok(auditEntries.some((entry) => entry.action === 'definition_created'));
     assert.ok(auditEntries.some((entry) => entry.action === 'proposal_created'));
     assert.ok(auditEntries.some((entry) => entry.action === 'proposal_approved'));
+    const cancelProposal = await app.inject({
+      method: 'POST',
+      url: `/api/v1/admin/agent-tasks/${taskId}/proposals`,
+      headers: auth(owner.token),
+      payload: { input: { period: '1d', includePersonalData: false } },
+    });
+    assert.equal(cancelProposal.statusCode, 201, cancelProposal.body);
+    const cancelled = await app.inject({
+      method: 'POST',
+      url: `/api/v1/admin/agent-task-proposals/${cancelProposal.json().proposal.id}/cancel`,
+      headers: auth(owner.token),
+      payload: { reason: 'Owner withdrew this proposal.' },
+    });
+    assert.equal(cancelled.statusCode, 200, cancelled.body);
+    assert.equal(cancelled.json().proposal.status, 'cancelled');
+    assert.equal(cancelled.json().runtimeEnabled, false);
+    assert.equal(cancelled.json().executionStarted, false);
+    const repeatedCancel = await app.inject({
+      method: 'POST',
+      url: `/api/v1/admin/agent-task-proposals/${cancelProposal.json().proposal.id}/cancel`,
+      headers: auth(owner.token),
+      payload: { reason: 'Repeated cancellation attempt.' },
+    });
+    assert.equal(repeatedCancel.statusCode, 409, repeatedCancel.body);
+
+    assert.ok(auditEntries.some((entry) => entry.action === 'proposal_cancelled'));
     assert.ok(auditEntries.some((entry) => entry.action === 'proposal_rejected'));
     assert.ok(auditEntries.every((entry) => entry.actorUsername === owner.user.username));
   } finally {
