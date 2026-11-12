@@ -252,9 +252,9 @@
 - Packages decomposed: **53/53**
 - Acceptance criteria: **200**
 - Points represented: **1000/1,000**
-- Earned points currently evidenced: **585/1,000 (58.5%)** — 190 points across Phases 1, 2 and 7, 145 points across 29 verified Phase 3 criteria, 110 points across 22 verified Phase 4 criteria, and 110 points across 22 verified Phase 5 criteria and 30 points across 6 verified Phase 6 criteria. Evidence is linked criterion-by-criterion below. Remaining gates include Android notification acceptance, social theme/layout/accessibility device acceptance, and two-device/Production release acceptance.
-- Remaining criteria: **83 Pending** (415 points not yet earned).
-- **Official project percentage: 58.5% (585/1,000 points; 117/200 criteria).** This is the evidence-backed WBS score calculated from the phase roll-up immediately below; it is not a claim that all implementation or release acceptance is complete. Pending Android notification acceptance, social theme/layout/accessibility device acceptance, provider deployment portability, NFR target approval, physical VPN/device acceptance, owner-approved retention and application-level disaster recovery remain open.
+- Earned points currently evidenced: **570/1,000 (57.0%)** — 190 points across Phases 1, 2 and 7, 145 points across 29 verified Phase 3 criteria, 110 points across 22 verified Phase 4 criteria, 90 points across 18 verified Phase 5 criteria, and 35 points across 7 verified Phase 6 criteria. Evidence is linked criterion-by-criterion below. Remaining gates include Android notification acceptance, social theme/layout/accessibility device acceptance, and two-device/Production release acceptance.
+- Remaining criteria: **86 Pending** (430 points not yet earned).
+- **Proposed project percentage for this PR: 57.0% (570/1,000 points; 114/200 criteria).** This is the evidence-backed WBS score calculated from the phase roll-up immediately below; it is not a claim that all implementation or release acceptance is complete. The official `main` score remains 49.5% until this PR is integrated. Pending Android notification acceptance, social theme/layout/accessibility device acceptance, provider deployment portability, NFR target approval, physical VPN/device acceptance, owner-approved retention and application-level disaster recovery remain open.
 
 ## Required evidence record
 
