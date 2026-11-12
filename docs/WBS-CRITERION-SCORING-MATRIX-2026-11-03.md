@@ -162,11 +162,11 @@
 | 5.3-C | Elo/leaderboard | 5 | Passed | `backgammon-rating.ts`/tests verify zero-sum Elo; PostgreSQL integration asserts 1016/984 rating updates, global and weekly leaderboard results, and exclusion of unfinished/unresolved matches; exact-head integration CI run `43183126917` passed (PR #249, 2026-11-12). |
 | 5.3-D | Ties/draws/unfinished matches | 5 | Pending | Not audited |
 | 5.3-E | Retry/audit | 5 | Passed | `awardProgression` persists unique `(match_id,event_key,user_id)` events with conflict-safe insertion; integration test verifies two participant events and stale winning-move replay does not award XP twice; exact-head integration CI run `43183126917` passed (PR #249, 2026-11-12). |
-| 5.4-A | Manager config | 5 | Pending | Not audited |
-| 5.4-B | Entry/minimum participants | 5 | Pending | Not audited |
-| 5.4-C | Fixtures/byes/rest fairness | 5 | Pending | Not audited |
-| 5.4-D | Results/finals | 5 | Pending | Not audited |
-| 5.4-E | Appeals/incidents/reschedule | 5 | Pending | Not audited |
+| 5.4-A | Manager config | 5 | Passed | PostgreSQL integration verifies owner-only league creation, rejects enabled leagues without a configured minimum, and persists selected format, minimum participants, free-by-default entry mode and 24-hour appeal deadline. Exact-head API integration passed in PR #254 commit `f80fc5f821e18b24b154fe3432e052082497f6dc` (run `43185436608`). |
+| 5.4-B | Entry/minimum participants | 5 | Passed | Integration verifies free entry and idempotent duplicate entry; subscription-day entry requires an active subscription, consumes exactly the configured days once under concurrency, rejects insufficient entitlement without ledger mutation, and scheduling rejects an unmet participant minimum. Exact-head PR #254 API integration run `43185436608` passed. |
+| 5.4-C | Fixtures/byes/rest fairness | 5 | Passed | Five-player round-robin integration creates five byes and ten unique pairings; after completion each player has four games and exactly one rest round. The same test asserts aggregate fixture/rest counts. Exact-head PR #254 API integration run `43185436608` passed. |
+| 5.4-D | Results/finals | 5 | Passed | Integration saves a completed match result and verifies knockout final creation is rejected without manager approval and accepted only when `managerApproved=true`. Exact-head PR #254 API integration run `43185436608` passed. |
+| 5.4-E | Appeals/incidents/reschedule | 5 | Passed | Integration submits a participant appeal after a completed match, records the manager's rejection, records a technical issue, then reschedules with a validated future replacement time. Exact-head PR #254 API integration run `43185436608` passed. |
 | 5.4-F | Audit history | 5 | Pending | Not audited |
 | 5.4-G | Manager UI acceptance | 5 | Pending | Not audited |
 | 5.5-A | Free-by-default entry | 5 | Passed | Owner-created league defaults to `entryMode=free` and `subscriptionDaysCost=0`; integration confirms free entry succeeds and wallet balance remains unchanged. PR #230 exact-head API integration [run 42569680272](https://github.com/Mrobaei1/Royal-club/actions/runs/42569680272) passed. (2026-11-09) |
@@ -252,9 +252,9 @@
 - Packages decomposed: **53/53**
 - Acceptance criteria: **200**
 - Points represented: **1000/1,000**
-- Earned points currently evidenced: **525/1,000 (52.5%)** — 190 points across Phases 1, 2 and 7, 145 points across 29 verified Phase 3 criteria, 110 points across 22 verified Phase 4 criteria, and 80 points across 16 verified Phase 5 criteria. Evidence is linked criterion-by-criterion below. Remaining gates include Android notification acceptance, social theme/layout/accessibility device acceptance, and two-device/Production release acceptance.
-- Remaining criteria: **95 Pending** (475 points not yet earned).
-- **Official project percentage: 52.5% (525/1,000 points; 105/200 criteria).** This is the evidence-backed WBS score calculated from the phase roll-up immediately below; it is not a claim that all implementation or release acceptance is complete. Pending Android notification acceptance, social theme/layout/accessibility device acceptance, provider deployment portability, NFR target approval, physical VPN/device acceptance, owner-approved retention and application-level disaster recovery remain open.
+- Earned points currently evidenced: **550/1,000 (55.0%)** — 190 points across Phases 1, 2 and 7, 145 points across 29 verified Phase 3 criteria, 110 points across 22 verified Phase 4 criteria, and 105 points across 21 verified Phase 5 criteria. Evidence is linked criterion-by-criterion below. Remaining gates include Android notification acceptance, social theme/layout/accessibility device acceptance, and two-device/Production release acceptance.
+- Remaining criteria: **90 Pending** (450 points not yet earned).
+- **Official project percentage: 55.0% (550/1,000 points; 110/200 criteria).** This is the evidence-backed WBS score calculated from the phase roll-up immediately below; it is not a claim that all implementation or release acceptance is complete. Pending Android notification acceptance, social theme/layout/accessibility device acceptance, provider deployment portability, NFR target approval, physical VPN/device acceptance, owner-approved retention and application-level disaster recovery remain open.
 
 ## Required evidence record
 
@@ -276,10 +276,10 @@ The following percentages are calculated directly from the 200 criterion rows in
 | Phase 2 | 130 | 22/26 | 110 | 84.62% |
 | Phase 3 | 230 | 29/46 | 145 | 63.04% |
 | Phase 4 | 120 | 22/24 | 110 | 91.67% |
-| Phase 5 | 140 | 16/28 | 80 | 57.14% |
+| Phase 5 | 140 | 21/28 | 105 | 75.00% |
 | Phase 6 | 140 | 0/28 | 0 | 0.00% |
 | Phase 7 | 160 | 5/32 | 25 | 15.63% |
-| **Total** | **1,000** | **105/200** | **525** | **52.50%** |
+| **Total** | **1,000** | **110/200** | **550** | **55.00%** |
 
 
 
