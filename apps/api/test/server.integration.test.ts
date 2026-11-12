@@ -2294,6 +2294,16 @@ test('delegated report permissions are owner-granted, resource-scoped, audited, 
     });
     assert.equal(afterRevocation.statusCode, 403, afterRevocation.body);
 
+    const auditAfterRevocation = await app.inject({
+      method: 'GET',
+      url: '/api/v1/admin/permissions/audit',
+      headers: auth(owner.token),
+    });
+    assert.equal(auditAfterRevocation.statusCode, 200, auditAfterRevocation.body);
+    assert.ok((auditAfterRevocation.json().entries as Array<Record<string, unknown>>)
+      .some((entry) => entry.action === 'grant_revoked' && entry.permission === 'reports.manage'),
+    'Revocation must create an owner-visible audit event.');
+
     const secondGrant = await app.inject({
       method: 'POST',
       url: '/api/v1/admin/permissions/grants',
@@ -2313,6 +2323,16 @@ test('delegated report permissions are owner-granted, resource-scoped, audited, 
       payload: { enabled: false },
     });
     assert.equal(disableDelegation.statusCode, 200, disableDelegation.body);
+    const auditAfterKillSwitch = await app.inject({
+      method: 'GET',
+      url: '/api/v1/admin/permissions/audit',
+      headers: auth(owner.token),
+    });
+    assert.equal(auditAfterKillSwitch.statusCode, 200, auditAfterKillSwitch.body);
+    assert.ok((auditAfterKillSwitch.json().entries as Array<Record<string, unknown>>)
+      .some((entry) => entry.action === 'kill_switch_changed' &&
+        (entry.details as Record<string, unknown>)?.enabled === false),
+    'Changing the delegated permission kill switch must create an audit event.');
     const blockedByKillSwitch = await app.inject({
       method: 'PATCH',
       url: `/api/v1/admin/reports/${reportAId}`,
