@@ -561,6 +561,9 @@ await pool.query(`
     details JSONB NOT NULL DEFAULT '{}'::jsonb,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   );
+
+  CREATE INDEX IF NOT EXISTS league_admin_audit_log_league_id_id_idx
+    ON league_admin_audit_log (league_id, id DESC);
   CREATE TABLE IF NOT EXISTS league_rounds (
     id BIGSERIAL PRIMARY KEY,
     league_id BIGINT NOT NULL REFERENCES leagues(id) ON DELETE CASCADE,
@@ -2478,6 +2481,34 @@ app.get<{ Params: { id: string } }>('/api/v1/admin/leagues/:id/report', { onRequ
   const appeals = await pool.query("SELECT a.id,a.match_id AS \"matchId\",a.status,a.reason,a.deadline_at AS \"deadlineAt\",a.created_at AS \"createdAt\",u.username AS \"appellantUsername\" FROM league_appeals a JOIN users u ON u.id=a.appellant_user_id WHERE a.league_id=$1 ORDER BY CASE WHEN a.status='open' THEN 0 ELSE 1 END,a.created_at DESC", [id]);
   const matches = await pool.query("SELECT m.id,m.round_id AS \"roundId\",m.status,m.player_one_id AS \"playerOneId\",p1.username AS \"playerOneUsername\",m.player_two_id AS \"playerTwoId\",p2.username AS \"playerTwoUsername\",m.winner_id AS \"winnerId\",m.scheduled_at AS \"scheduledAt\",m.replacement_at AS \"replacementAt\",m.completed_at AS \"completedAt\",m.incident_note AS \"incidentNote\",m.score FROM league_matches m LEFT JOIN users p1 ON p1.id=m.player_one_id LEFT JOIN users p2 ON p2.id=m.player_two_id WHERE m.league_id=$1 ORDER BY m.round_id,m.id", [id]);
   return { league: league.rows[0], participants: participants.rows, rounds: rounds.rows, appeals: appeals.rows, matches: matches.rows };
+});
+
+app.get<{ Params: { id: string }; Querystring: { limit?: string; beforeId?: string } }>('/api/v1/admin/leagues/:id/audit', { onRequest: [requireOwnerAuth] }, async (request, reply) => {
+  const id = request.params.id;
+  if (!isNumericId(id)) return reply.code(400).send({ error: 'Invalid league id.' });
+  const limit = request.query.limit === undefined ? 50 : Number(request.query.limit);
+  const beforeId = request.query.beforeId;
+  if (!Number.isInteger(limit) || limit < 1 || limit > 100 ||
+      (beforeId !== undefined && !isNumericId(beforeId))) {
+    return reply.code(400).send({ error: 'Invalid league audit pagination.' });
+  }
+  const league = await pool.query('SELECT id FROM leagues WHERE id = $1', [id]);
+  if (!league.rowCount) return reply.code(404).send({ error: 'League not found.' });
+  const result = await pool.query(
+    `SELECT id::text AS "id", actor_user_id::text AS "actorUserId", action, details,
+            created_at AS "createdAt"
+       FROM league_admin_audit_log
+      WHERE league_id = $1 AND ($2::bigint IS NULL OR id < $2::bigint)
+      ORDER BY id DESC
+      LIMIT $3`,
+    [id, beforeId ?? null, limit + 1],
+  );
+  const hasMore = result.rows.length > limit;
+  const entries = result.rows.slice(0, limit);
+  return {
+    entries,
+    nextBeforeId: hasMore ? entries[entries.length - 1]?.id ?? null : null,
+  };
 });
 
 app.patch<{ Params: { id: string }; Body: { status?: string; winnerId?: string | number | null; score?: unknown; incidentNote?: string; replacementAt?: string | null } }>('/api/v1/admin/league-matches/:id', { onRequest: [requireOwnerStepUp] }, async (request, reply) => {
