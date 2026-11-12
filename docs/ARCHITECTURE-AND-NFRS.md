@@ -91,7 +91,7 @@ The table defines the measurement required for acceptance. Numeric targets in th
 
 The GM approved the following engineering acceptance targets on 2026-11-12. They are measurable project targets, not a production SLA, a claim that current production meets them, or permission to scale/deploy. Load and recovery testing must run in isolated staging with synthetic data unless a separate Production approval is granted.
 
-| Area | Proposed acceptance target | Measurement |
+| Area | Owner-approved acceptance target | Measurement |
 |---|---|---|
 | API latency | p95 ≤ 500 ms and p99 ≤ 1,500 ms for ordinary authenticated reads at the approved 1,000-concurrent-user profile | 15-minute steady-state load, report per-route p50/p95/p99 |
 | Game command latency | p95 ≤ 300 ms server processing time, excluding client/network RTT | Instrument authoritative command receipt to committed response |
