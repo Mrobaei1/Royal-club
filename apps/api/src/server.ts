@@ -369,7 +369,7 @@ await pool.query(`
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   );
 
-  DO $
+  DO $agent_proposal_status$
   BEGIN
     IF NOT EXISTS (
       SELECT 1 FROM pg_constraint
@@ -382,7 +382,7 @@ await pool.query(`
         ADD CONSTRAINT agent_task_proposals_status_check
         CHECK (status IN ('awaiting_review', 'approved_dormant', 'rejected', 'cancelled'));
     END IF;
-  END $;
+  END $agent_proposal_status$;
   CREATE INDEX IF NOT EXISTS agent_task_proposals_status_created_idx
     ON agent_task_proposals (status, created_at DESC);
   CREATE TABLE IF NOT EXISTS agent_task_audit_log (
@@ -397,7 +397,7 @@ await pool.query(`
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   );
 
-  DO $
+  DO $agent_audit_action$
   BEGIN
     IF NOT EXISTS (
       SELECT 1 FROM pg_constraint
@@ -410,7 +410,7 @@ await pool.query(`
         ADD CONSTRAINT agent_task_audit_log_action_check
         CHECK (action IN ('definition_created', 'proposal_created', 'proposal_approved', 'proposal_rejected', 'proposal_cancelled'));
     END IF;
-  END $;
+  END $agent_audit_action$;
   CREATE INDEX IF NOT EXISTS agent_task_audit_created_idx
     ON agent_task_audit_log (created_at DESC);
 
