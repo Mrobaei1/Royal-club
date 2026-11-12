@@ -2601,7 +2601,7 @@ const agentTaskDomains = new Set([
   'membership', 'marketing', 'deposits', 'leagues', 'moderation',
   'operations', 'social', 'advertising', 'analytics',
 ]);
-const agentTaskCapabilities = new Set(['read', 'recommend', 'execute', 'approve']);
+const agentTaskCapabilities = new Set(['read', 'recommend']);
 
 // Expose inert role templates to the owner-facing Agent Center. This is read-only:
  // listing templates never creates task definitions, identities, grants, or runtime work.
@@ -2654,7 +2654,7 @@ app.post<{ Body: { code?: string; title?: string; domain?: string; description?:
         !agentTaskDomains.has(domain) || description.length > 2000 ||
         !Array.isArray(capabilities) || capabilities.length < 1 || capabilities.length > 4 ||
         !capabilities.every((capability) => typeof capability === 'string' && agentTaskCapabilities.has(capability)) ||
-        new Set(capabilities).size !== capabilities.length || typeof requiresHumanApproval !== 'boolean') {
+        new Set(capabilities).size !== capabilities.length || requiresHumanApproval !== true) {
       return reply.code(400).send({ error: 'Provide a valid dormant task definition and allowlisted capabilities.' });
     }
     const claims = request.user as { sub?: string };
