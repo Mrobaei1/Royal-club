@@ -2772,7 +2772,7 @@ app.get<{ Querystring: { action?: string; cursor?: string; limit?: string } }>(
     const rawLimit = request.query.limit;
     const limit = rawLimit === undefined ? 50 : Number(rawLimit);
     if ((action !== null && !allowedActions.has(action)) ||
-        (cursor !== null && !/^[1-9]\\d{0,17}$/.test(cursor)) ||
+        (cursor !== null && !/^[1-9]\d{0,17}$/.test(cursor)) ||
         !Number.isInteger(limit) || limit < 1 || limit > 100) {
       return reply.code(400).send({ error: 'Invalid audit filter, cursor, or limit (1-100).' });
     }
