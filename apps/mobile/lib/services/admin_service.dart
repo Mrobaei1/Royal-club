@@ -112,6 +112,10 @@ class AdminService {
     await _request('POST', '/api/v1/admin/agent-task-proposals/$id/approve', body: {'reason': reason});
   }
 
+  static Future<void> cancelAgentTaskProposal(String id, String reason) async {
+    await _request('POST', '/api/v1/admin/agent-task-proposals/$id/cancel', body: {'reason': reason});
+  }
+
   static Future<void> rejectAgentTaskProposal(String id, String reason) async {
     await _request('POST', '/api/v1/admin/agent-task-proposals/$id/reject', body: {'reason': reason});
   }
