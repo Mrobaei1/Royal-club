@@ -1,6 +1,6 @@
 # Royal Club — Architecture and non-functional requirements
 
-**Status:** Architecture baseline / NFR proposal; owner-controlled decisions remain explicit  
+**Status:** Architecture baseline; core quantitative NFR targets owner-approved on 2026-11-12; monthly infrastructure budget remains pending  
 **Reviewed:** 2026-11-08  
 **Governing scope:** WBS v1.1 (docs/PROJECT-WBS-BASELINE.md)
 
@@ -46,7 +46,7 @@ The mobile client is an untrusted presentation/input layer. It must not decide a
 
 ## Non-functional requirements and verification contract
 
-The table defines the measurement required for acceptance. Numeric service-level targets are intentionally marked owner decision required rather than invented as approved commitments.
+The table defines the measurement required for acceptance. Numeric targets in the approved-targets section below are owner-approved engineering acceptance targets, not a production SLA or proof of current performance.
 
 | ID | Requirement | Measurement / acceptance evidence | Target status |
 |---|---|---|---|
@@ -56,8 +56,8 @@ The table defines the measurement required for acceptance. Numeric service-level
 | NFR-04 | Game integrity | Server validates legal actions; duplicate/racing commands are idempotent; concurrent state writes use transaction/CAS | Required per game; coverage varies |
 | NFR-05 | Economy integrity | Server-side ledger, atomic balance changes, idempotency and owner-only adjustments; client cannot set prices/balances | Required; coverage varies |
 | NFR-06 | Availability/recovery | API and DB health checks, bounded retry behavior, documented restore procedure, measured RPO/RTO | Production and recovery acceptance open |
-| NFR-07 | Performance | Measure API p50/p95/p99, error rate, DB pool saturation, game-action latency and Android frame/jank on agreed load profile | Numeric thresholds require owner approval |
-| NFR-08 | Scalability | Load test with stated concurrent users/rooms, replicas and DB pool; record throughput, p95/p99 and recovery | Load profile/thresholds require owner approval |
+| NFR-07 | Performance | Measure API p50/p95/p99, error rate, DB pool saturation, game-action latency and Android frame/jank on agreed load profile | Owner-approved target: p95 ≤ 500 ms, p99 ≤ 1,500 ms at the approved load profile |
+| NFR-08 | Scalability | Load test with stated concurrent users/rooms, replicas and DB pool; record throughput, p95/p99 and recovery | Owner-approved profile: 1,000 concurrent users; capacity test evidence remains open |
 | NFR-09 | Localization/accessibility | Persian RTL and English LTR, dynamic text, screen readers, text scaling, supported Android sizes | Automated coverage partial; device acceptance open |
 | NFR-10 | Operability | Every release has exact Git SHA, migration manifest, health/smoke results, rollback/recovery plan and redacted logs | Deployment provenance/production acceptance open |
 | NFR-11 | Cost control | Provider/region, database compute, egress, storage and service replicas have an explicit owner-reviewed budget before scale-up | Budget ceiling requires owner approval |
@@ -78,7 +78,8 @@ The table defines the measurement required for acceptance. Numeric service-level
 - [x] Owner approval and dormant privileged-action boundaries are documented.
 - [ ] Verify provider portability against a second provider or isolated deployment rehearsal.
 - [ ] Prove all game/economy trust boundaries with negative tests on the current exact mainline head.
-- [ ] Approve numeric performance, capacity, availability, RPO/RTO and cost targets.
+- [x] Owner approved numeric performance, capacity, availability, RPO/RTO and security acceptance targets on 2026-11-12.
+- [ ] Owner approval of monthly infrastructure budget ceiling and alerting currency/threshold implementation.
 - [ ] Complete production deployment provenance and recovery acceptance.
 
 ## Change history
@@ -86,24 +87,24 @@ The table defines the measurement required for acceptance. Numeric service-level
 - 2026-11-08: initial consolidated architecture/NFR baseline prepared against live repository documentation and source entry points. This is not a production security certification or owner approval of numeric SLOs.
 
 
-## Proposed measurable service targets — not yet owner-approved
+## Owner-approved measurable service targets — 2026-11-12
 
-These values are an engineering proposal to make acceptance measurable. They are not production SLAs, capacity promises, or permission to scale/deploy. The owner must approve or revise them before they become binding.
+The GM approved the following engineering acceptance targets on 2026-11-12. They are measurable project targets, not a production SLA, a claim that current production meets them, or permission to scale/deploy. Load and recovery testing must run in isolated staging with synthetic data unless a separate Production approval is granted.
 
 | Area | Proposed acceptance target | Measurement |
 |---|---|---|
-| API latency | p95 ≤ 500 ms and p99 ≤ 1,500 ms for ordinary authenticated reads at the agreed 1,000-concurrent-user profile | 15-minute steady-state load, report per-route p50/p95/p99 |
+| API latency | p95 ≤ 500 ms and p99 ≤ 1,500 ms for ordinary authenticated reads at the approved 1,000-concurrent-user profile | 15-minute steady-state load, report per-route p50/p95/p99 |
 | Game command latency | p95 ≤ 300 ms server processing time, excluding client/network RTT | Instrument authoritative command receipt to committed response |
 | API availability | 99.5% monthly for the API once production monitoring is in place | Provider-independent synthetic health probes; exclude announced maintenance only if policy approved |
 | Server error rate | < 1% 5xx over a rolling 15-minute window under the agreed load profile | Count 5xx / total API requests; report route and dependency breakdown |
-| Recovery | Proposed RPO ≤ 15 minutes; RTO ≤ 4 hours for core account/game data | Isolated restore drill, measure data-loss window and time to verified service |
+| Recovery | RPO ≤ 15 minutes; RTO ≤ 4 hours for core account/game data | Isolated restore drill, measure data-loss window and time to verified service |
 | Security | 100% of authorization-negative test cases reject; zero known critical/high findings at release | Exact-head automated negative tests plus independent review for release |
 | Localization | 100% of visible core navigation/game/auth strings localized in fa/en; no clipped text at supported font scale | Automated localization coverage plus Android device matrix |
 | Accessibility | All primary controls have accessible labels/actions; no critical TalkBack blockers | Manual TalkBack walkthrough and widget-level semantics tests |
-| Cost | Monthly infrastructure spend stays within a GM-approved budget; alert at 70% and 90% | Provider billing exports and monthly cost report |
+| Cost | Monthly infrastructure spend stays within a GM-approved budget; alert at 70% and 90% | Provider billing exports and monthly cost report; budget ceiling still awaits owner decision |
 | Extensibility | New game integration reuses shared auth, service discovery, telemetry and navigation contracts; no duplicate account/wallet authority | Architecture checklist and contract tests per game |
 
-### Proposed load profile
+### Approved load profile
 
 - 1,000 concurrent authenticated users, including a representative mix of lobby reads, active game commands, chat/notification polling and profile reads.
 - Ramp up over 10 minutes, hold for 15 minutes, then ramp down; repeat at least three times.
@@ -113,4 +114,7 @@ These values are an engineering proposal to make acceptance measurable. They are
 
 ### Decision status
 
-All values above remain **Proposed / Approval required**. In particular, monthly availability, RPO/RTO, infrastructure budget, the 1,000-user profile and latency/error thresholds must be confirmed by the GM before WBS 1.1-B can be marked Passed.
+Approved on 2026-11-12: 1,000 concurrent users; API p95 ≤ 500 ms / p99 ≤ 1,500 ms; game-command p95 ≤ 300 ms; monthly API availability 99.5%; 5xx rate < 1%; RPO ≤ 15 minutes; RTO ≤ 4 hours; zero known critical/high security findings at release. The monthly infrastructure budget ceiling remains unapproved and is still required for WBS 1.1-B. These targets do not certify current system performance or authorize Production load tests, provider upgrades, or deployment.
+
+
+- 2026-11-12: GM approved measurable API/game latency, 1,000-concurrent-user load profile, availability, error-rate, recovery and security targets. Monthly infrastructure budget ceiling remains pending.
