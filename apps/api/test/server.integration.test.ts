@@ -3092,7 +3092,7 @@ test('Phase 4 agent task definitions remain dormant and proposals require human 
       method: 'POST',
       url: `/api/v1/admin/agent-tasks/${taskId}/proposals`,
       headers: auth(owner.token),
-      payload: { input: { period: '7d', provider: { apiKey: 'agent-test-api-key', nested: { password: 'agent-test-password' } }, safeLabel: 'weekly-report' } },
+      payload: { input: { period: '7d', includePersonalData: false } },
     });
     assert.equal(blockedProposal.statusCode, 409, blockedProposal.body);
     const resumedTask = await app.inject({
@@ -3108,7 +3108,7 @@ test('Phase 4 agent task definitions remain dormant and proposals require human 
       method: 'POST',
       url: `/api/v1/admin/agent-tasks/${taskId}/proposals`,
       headers: auth(owner.token),
-      payload: { input: { period: '7d', includePersonalData: false } },
+      payload: { input: { period: '7d', provider: { apiKey: 'agent-test-api-key', nested: { password: 'agent-test-password' } }, safeLabel: 'weekly-report' } },
     });
     assert.equal(proposal.statusCode, 201, proposal.body);
     assert.equal(proposal.json().proposal.input.provider.apiKey, '[REDACTED]');
