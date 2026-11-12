@@ -1,6 +1,6 @@
 # Royal Club — WBS criterion-level scoring matrix
 
-**Baseline:** WBS v1.1 · **Latest audit:** 2026-11-09 · **53 leaf packages · 1,000 points**
+**Baseline:** WBS v1.1 · **Latest audit:** 2026-11-12 · **53 leaf packages · 1,000 points**
 
 ## Rules
 
@@ -158,10 +158,10 @@
 | 5.2-C | Expiry/removal | 5 | Pending | Not audited |
 | 5.2-D | Server-controlled prices | 5 | Passed | Subscription activation sends forged client `priceCredits=1` and `durationDays=1`; API still charges the configured server plan price (300 credits) and applies its configured 30-day duration. Merged PR #241; exact-head API integration [run 42571306114](https://github.com/Mrobaei1/Royal-club/actions/runs/42571306114) passed. (2026-11-09) |
 | 5.3-A | XP policy | 5 | Pending | Not audited |
-| 5.3-B | Permanent levels/curve | 5 | Pending | Not audited |
-| 5.3-C | Elo/leaderboard | 5 | Pending | Not audited |
+| 5.3-B | Permanent levels/curve | 5 | Passed | `apps/api/src/player-progression.ts` and `player-progression.test.ts` verify cumulative XP thresholds, level 100 at 79,439 XP, and permanent levels after XP loss; exact-head API validation CI run `43183126874` passed (PR #249, 2026-11-12). |
+| 5.3-C | Elo/leaderboard | 5 | Passed | `backgammon-rating.ts`/tests verify zero-sum Elo; PostgreSQL integration asserts 1016/984 rating updates, global and weekly leaderboard results, and exclusion of unfinished/unresolved matches; exact-head integration CI run `43183126917` passed (PR #249, 2026-11-12). |
 | 5.3-D | Ties/draws/unfinished matches | 5 | Pending | Not audited |
-| 5.3-E | Retry/audit | 5 | Pending | Not audited |
+| 5.3-E | Retry/audit | 5 | Passed | `awardProgression` persists unique `(match_id,event_key,user_id)` events with conflict-safe insertion; integration test verifies two participant events and stale winning-move replay does not award XP twice; exact-head integration CI run `43183126917` passed (PR #249, 2026-11-12). |
 | 5.4-A | Manager config | 5 | Pending | Not audited |
 | 5.4-B | Entry/minimum participants | 5 | Pending | Not audited |
 | 5.4-C | Fixtures/byes/rest fairness | 5 | Pending | Not audited |
@@ -252,9 +252,9 @@
 - Packages decomposed: **53/53**
 - Acceptance criteria: **200**
 - Points represented: **1000/1,000**
-- Earned points currently evidenced: **495/1,000 (49.5%)** — 190 points across Phases 1, 2 and 7, 145 points across 29 verified Phase 3 criteria, 110 points across 22 verified Phase 4 criteria, and 50 points across ten verified Phase 5 criteria. Evidence is linked criterion-by-criterion below. Remaining gates include subscription purchase idempotency, subscription expiry/removal, Android notification acceptance, social theme/layout/accessibility device acceptance, and two-device/Production release gates.
-- Remaining criteria: **101 Pending** (505 points not yet earned).
-- **Official project percentage: 49.5% (495/1,000 points; 99/200 criteria).** This is the evidence-backed WBS score calculated from the phase roll-up immediately below; it is not a claim that all implementation or release acceptance is complete. Pending subscription purchase idempotency, subscription expiry/removal, Android notification acceptance, social theme/layout/accessibility device acceptance, provider deployment portability, NFR target approval, physical VPN/device acceptance, owner-approved retention and application-level disaster recovery remain open.
+- Earned points currently evidenced: **510/1,000 (51.0%)** — 190 points across Phases 1, 2 and 7, 145 points across 29 verified Phase 3 criteria, 110 points across 22 verified Phase 4 criteria, and 65 points across 13 verified Phase 5 criteria. Evidence is linked criterion-by-criterion below. Remaining gates include subscription purchase idempotency, subscription expiry/removal, Android notification acceptance, social theme/layout/accessibility device acceptance, and two-device/Production release gates.
+- Remaining criteria: **98 Pending** (490 points not yet earned).
+- **Official project percentage: 51.0% (510/1,000 points; 102/200 criteria).** This is the evidence-backed WBS score calculated from the phase roll-up immediately below; it is not a claim that all implementation or release acceptance is complete. Pending subscription purchase idempotency, subscription expiry/removal, Android notification acceptance, social theme/layout/accessibility device acceptance, provider deployment portability, NFR target approval, physical VPN/device acceptance, owner-approved retention and application-level disaster recovery remain open.
 
 ## Required evidence record
 
@@ -276,10 +276,10 @@ The following percentages are calculated directly from the 200 criterion rows in
 | Phase 2 | 130 | 22/26 | 110 | 84.62% |
 | Phase 3 | 230 | 29/46 | 145 | 63.04% |
 | Phase 4 | 120 | 22/24 | 110 | 91.67% |
-| Phase 5 | 140 | 10/28 | 50 | 35.71% |
+| Phase 5 | 140 | 13/28 | 65 | 46.43% |
 | Phase 6 | 140 | 0/28 | 0 | 0.00% |
 | Phase 7 | 160 | 5/32 | 25 | 15.63% |
-| **Total** | **1,000** | **99/200** | **495** | **49.50%** |
+| **Total** | **1,000** | **102/200** | **510** | **51.00%** |
 
 
 
@@ -343,3 +343,28 @@ Three Phase 2 criteria now pass (15/130 points):
 - **2.4-B Passed (5 points):** screen-by-screen static UI audit covered Main/auth, Account, Admin, Friends, Chat, Leaderboard, Notifications, Online Lobby/Match, Wallet, Owner Analytics, Spectator, Backgammon, Manch offline/online, Hokm/manager review, UNO online, and Chess lobby/game/admin/profile. User-visible static labels and prompts use bilingual `appText`, screen-local `t/_text/_t`, or explicit Persian/English locale branches. Language names and usernames are intentionally data values, not untranslated UI. ARB parity and locale-switch/RTL-LTR widget tests pass. Exact-head Flutter analyze/widget CI passed on PR #222 head `619742db619a8009d8cf849e902cc08e5671ea8a`, run [42487826939](https://github.com/Mrobaei1/Royal-club/actions/runs/42487826939/job/128753465277).
 
 - Additional dynamic-error coverage merged in PR #224: invalid match-room ID and UNO sign-in, user-ID, configuration, signature and service-origin errors now translate through the shared English/Persian error mapper; Flutter regression tests cover both locales.
+
+
+## Phase 5 progression evidence audit — 2026-11-12
+
+Three criteria are newly passed after source, unit-test and PostgreSQL integration review:
+
+- **5.3-B — Permanent levels/curve:** the XP curve is cumulative and levels are permanent. The unit tests verify the configured level-100 threshold (79,439 XP), boundary behavior, and that a quit penalty cannot reduce a stored level.
+- **5.3-C — Elo/leaderboard:** the Elo update is zero-sum and tested across rating gaps. Integration coverage verifies server-side rating updates, leaderboard projections, weekly scoring, and exclusion of unfinished or winner-ambiguous matches.
+- **5.3-E — Retry/audit:** progression events have a database uniqueness key per match/event/player and are inserted with conflict-safe semantics. Integration coverage verifies exactly one event per participant and no duplicate XP after replaying a stale winning move.
+
+Exact-head evidence: PR #249 commit `8213864977b57b73e88bc0bad49f976631b662f2`; API validation run `43183126874` and PostgreSQL integration run `43183126917` both passed. The criteria **5.3-A** (complete policy coverage including resignation integration) and **5.3-D** (ties/draws/unfinished outcomes) remain Pending. This audit does not claim offline device acceptance or production release readiness.
+
+## Phase roll-up — 2026-11-12
+
+| WBS phase | Total weight | Passed criteria | Earned points | Progress |
+| --- | ---: | ---: | ---: | ---: |
+| Phase 1 — Architecture and project management | 80 | 11/16 | 55 | 68.75% |
+| Phase 2 | 130 | 22/26 | 110 | 84.62% |
+| Phase 3 | 230 | 29/46 | 145 | 63.04% |
+| Phase 4 | 120 | 22/24 | 110 | 91.67% |
+| Phase 5 | 140 | 13/28 | 65 | 46.43% |
+| Phase 6 | 140 | 0/28 | 0 | 0.00% |
+| Phase 7 | 160 | 5/32 | 25 | 15.63% |
+| **Total** | **1,000** | **102/200** | **510** | **51.00%** |
+
