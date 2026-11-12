@@ -2759,21 +2759,46 @@ app.get('/api/v1/admin/agent-task-proposals', { onRequest: [requireOwnerAuth] },
   return { proposals: result.rows, runtimeEnabled: false };
 });
 
-app.get('/api/v1/admin/agent-task-audit', { onRequest: [requireOwnerAuth] }, async () => {
-  const result = await pool.query(`
-    SELECT a.id, a.task_definition_id AS "taskDefinitionId",
-           t.code AS "taskCode", t.title AS "taskTitle",
-           a.proposal_id AS "proposalId", a.action, a.result, a.reason, a.details,
-           actor.username AS "actorUsername",
-           a.created_at AS "createdAt"
-      FROM agent_task_audit_log a
-      LEFT JOIN agent_task_definitions t ON t.id = a.task_definition_id
-      LEFT JOIN users actor ON actor.id = a.actor_user_id
-     ORDER BY a.created_at DESC, a.id DESC
-     LIMIT 200
-  `);
-  return { entries: result.rows, runtimeEnabled: false };
-});
+app.get<{ Querystring: { action?: string; cursor?: string; limit?: string } }>(
+  '/api/v1/admin/agent-task-audit',
+  { onRequest: [requireOwnerAuth] },
+  async (request, reply) => {
+    const allowedActions = new Set([
+      'definition_created', 'definition_status_changed', 'proposal_created',
+      'proposal_approved', 'proposal_rejected', 'proposal_cancelled',
+    ]);
+    const action = request.query.action?.trim() || null;
+    const cursor = request.query.cursor?.trim() || null;
+    const rawLimit = request.query.limit;
+    const limit = rawLimit === undefined ? 50 : Number(rawLimit);
+    if ((action !== null && !allowedActions.has(action)) ||
+        (cursor !== null && !/^[1-9]\\d{0,17}$/.test(cursor)) ||
+        !Number.isInteger(limit) || limit < 1 || limit > 100) {
+      return reply.code(400).send({ error: 'Invalid audit filter, cursor, or limit (1-100).' });
+    }
+    const result = await pool.query(`
+      SELECT a.id, a.task_definition_id AS "taskDefinitionId",
+             t.code AS "taskCode", t.title AS "taskTitle",
+             a.proposal_id AS "proposalId", a.action, a.result, a.reason, a.details,
+             actor.username AS "actorUsername",
+             a.created_at AS "createdAt"
+        FROM agent_task_audit_log a
+        LEFT JOIN agent_task_definitions t ON t.id = a.task_definition_id
+        LEFT JOIN users actor ON actor.id = a.actor_user_id
+       WHERE ($1::text IS NULL OR a.action = $1)
+         AND ($2::bigint IS NULL OR a.id < $2::bigint)
+       ORDER BY a.id DESC
+       LIMIT $3
+    `, [action, cursor, limit + 1]);
+    const hasMore = result.rows.length > limit;
+    const entries = hasMore ? result.rows.slice(0, limit) : result.rows;
+    return {
+      entries,
+      nextCursor: hasMore ? String(entries[entries.length - 1].id) : null,
+      runtimeEnabled: false,
+    };
+  },
+);
 
 app.post<{ Params: { id: string }; Body: { input?: Record<string, unknown> } }>(
   '/api/v1/admin/agent-tasks/:id/proposals',
