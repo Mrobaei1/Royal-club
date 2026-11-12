@@ -252,7 +252,7 @@
 - Packages decomposed: **53/53**
 - Acceptance criteria: **200**
 - Points represented: **1000/1,000**
-- Earned points currently evidenced: **525/1,000 (52.5%)** — 190 points across Phases 1, 2 and 7, 145 points across 29 verified Phase 3 criteria, 110 points across 22 verified Phase 4 criteria, and 80 points across 16 verified Phase 5 criteria. Evidence is linked criterion-by-criterion below. Remaining gates include subscription purchase idempotency, subscription expiry/removal, Android notification acceptance, social theme/layout/accessibility device acceptance, and two-device/Production release gates.
+- Earned points currently evidenced: **525/1,000 (52.5%)** — 190 points across Phases 1, 2 and 7, 145 points across 29 verified Phase 3 criteria, 110 points across 22 verified Phase 4 criteria, and 80 points across 16 verified Phase 5 criteria. Evidence is linked criterion-by-criterion below. Remaining gates include Android notification acceptance, social theme/layout/accessibility device acceptance, and two-device/Production release acceptance.
 - Remaining criteria: **95 Pending** (475 points not yet earned).
 - **Official project percentage: 52.5% (525/1,000 points; 105/200 criteria).** This is the evidence-backed WBS score calculated from the phase roll-up immediately below; it is not a claim that all implementation or release acceptance is complete. Pending Android notification acceptance, social theme/layout/accessibility device acceptance, provider deployment portability, NFR target approval, physical VPN/device acceptance, owner-approved retention and application-level disaster recovery remain open.
 
@@ -353,7 +353,7 @@ Three criteria are newly passed after source, unit-test and PostgreSQL integrati
 - **5.3-C — Elo/leaderboard:** the Elo update is zero-sum and tested across rating gaps. Integration coverage verifies server-side rating updates, leaderboard projections, weekly scoring, and exclusion of unfinished or winner-ambiguous matches.
 - **5.3-E — Retry/audit:** progression events have a database uniqueness key per match/event/player and are inserted with conflict-safe semantics. Integration coverage verifies exactly one event per participant and no duplicate XP after replaying a stale winning move.
 
-Exact-head evidence: PR #249 commit `8213864977b57b73e88bc0bad49f976631b662f2`; API validation run `43183126874` and PostgreSQL integration run `43183126917` both passed. The criteria **5.3-A** (complete policy coverage including resignation integration) and **5.3-D** (ties/draws/unfinished outcomes) remain Pending. This audit does not claim offline device acceptance or production release readiness.
+Exact-head evidence: PR #249 commit `8213864977b57b73e88bc0bad49f976631b662f2`; API validation run `43183126874` and PostgreSQL integration run `43183126917` both passed. In the 2026-11-12 audit, **5.3-A** is now Passed using the combined online win/loss, resignation, cumulative-XP and offline-isolation evidence recorded in the scoring row above; **5.3-D** (ties/draws/unfinished outcomes) remains Pending. This audit does not claim offline device acceptance or production release readiness.
 
 ## Phase roll-up — 2026-11-12
 
