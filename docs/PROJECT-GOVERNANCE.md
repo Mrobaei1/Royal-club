@@ -70,10 +70,11 @@
 - 2026-11-08: consolidated governance, WBS scoring rules, risk escalation and owner approval boundaries from the approved baseline and current repository evidence.
 
 
-## Automatic PR merge — current blocker (2026-11-12)
+## Automatic PR merge — current behavior (2026-11-12)
 
 - Owner instruction: merge PRs automatically only after exact-HEAD CI and documented technical review pass.
 - Repository metadata reports `allow_auto_merge=true`.
-- Attempts to enable auto-merge on PRs #244, #246, #247, #248 and #249 returned GitHub GraphQL `Pull request is in clean status`; no auto-merge activation was confirmed.
-- The accessible repository rulesets endpoint returned an empty list. Reading classic branch protection for `main` returned HTTP 403 to the current GitHub connection, so the effective branch-protection configuration cannot be confirmed or changed through the available integration.
-- Do not manually merge as a workaround. The owner must verify/configure a `main` branch protection rule or ruleset with required CI checks and any independent review requirement, then auto-merge can be retried.
+- GitHub documentation says the auto-merge option is available only while a PR cannot yet be merged immediately, such as when required reviews or status checks remain outstanding. Once the PR reaches `CLEAN`, GitHub refuses the auto-merge mutation because there is nothing left to wait for.
+- Attempts on PRs #244, #246, #247, #248 and #249 were made after their checks had already completed and returned `Pull request is in clean status`. This is not proof that the repository auto-merge setting is disabled.
+- The accessible repository rulesets endpoint returned an empty list. Reading classic branch protection for `main` returned HTTP 403 to the current GitHub connection, so the effective branch requirements cannot be confirmed.
+- Do not manually merge as a workaround. For future PRs, verify that `main` requires the relevant CI checks and an independent review; enable auto-merge early, while those required conditions are still pending, so GitHub can merge after they pass. Existing clean PRs cannot be armed through this mutation; they remain open until the owner chooses an authorized merge path.
