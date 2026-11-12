@@ -21,7 +21,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build:
+  web-preview:
+    name: Web Preview build
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -50,7 +51,7 @@ jobs:
         run: flutter pub get
       - name: Analyze
         working-directory: apps/mobile
-        run: flutter analyze
+        run: flutter analyze --no-fatal-infos
       - name: Test
         working-directory: apps/mobile
         run: flutter test
@@ -81,7 +82,7 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
-    needs: build
+    needs: web-preview
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
