@@ -1940,6 +1940,24 @@ test('subscription purchases debit the wallet atomically and record a ledger ent
     assert.equal(rescheduled.statusCode, 200, rescheduled.body);
     assert.ok(rescheduled.json().match.replacementAt);
 
+    const leagueAuditHistory = await testPool.query(
+      'SELECT action, actor_user_id::text AS actor_id, details FROM league_admin_audit_log WHERE league_id = $1 ORDER BY id',
+      [executionLeagueId],
+    );
+    const leagueAuditActions = leagueAuditHistory.rows.map((row) => row.action);
+    for (const action of ['league_created', 'league_schedule_generated', 'league_round_created', 'league_match_updated', 'league_appeal_resolved']) {
+      assert.ok(leagueAuditActions.includes(action), `Missing league audit action: ${action}`);
+    }
+    assert.ok(leagueAuditHistory.rows.every((row) => row.actor_id === leagueOwner.user.id),
+      'Every league administration event must retain the authenticated owner as its actor.');
+    const matchAuditStatuses = leagueAuditHistory.rows
+      .filter((row) => row.action === 'league_match_updated')
+      .map((row) => row.details.status)
+      .sort();
+    assert.deepEqual(matchAuditStatuses, ['completed', 'rescheduled', 'technical_issue']);
+    const appealAudit = leagueAuditHistory.rows.find((row) => row.action === 'league_appeal_resolved');
+    assert.equal(appealAudit?.details.status, 'rejected');
+
     const knockoutLeagueResponse = await app.inject({
       method: 'POST', url: '/api/v1/admin/leagues', headers: auth(leagueOwner.token),
       payload: { code: 'knockout_approval', name: 'Knockout Approval League', enabled: true, rules: { format: 'knockout', minimumParticipants: 2 } },
