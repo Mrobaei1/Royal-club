@@ -9,6 +9,12 @@ on:
     branches:
       - main
   workflow_dispatch:
+    inputs:
+      approve_production_deploy:
+        description: 'Explicit GM approval to publish Royal Club to GitHub Pages'
+        required: true
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -76,7 +82,7 @@ jobs:
           path: apps/mobile/build/web
 
   deploy:
-    if: github.ref == 'refs/heads/main'
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.approve_production_deploy == 'true'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
