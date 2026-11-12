@@ -3507,6 +3507,58 @@ test('Phase 4 agent task definitions remain dormant and proposals require human 
     });
     assert.equal(repeatedCancel.statusCode, 409, repeatedCancel.body);
 
+    const nonOwner = await register('Agent Control Non Owner');
+    const nonOwnerRuns = await app.inject({
+      method: 'GET',
+      url: '/api/v1/admin/agent-task-runs',
+      headers: auth(nonOwner.token),
+    });
+    assert.equal(nonOwnerRuns.statusCode, 403, nonOwnerRuns.body);
+    const invalidPrepareReason = await app.inject({
+      method: 'POST',
+      url: '/api/v1/admin/agent-task-proposals/' + proposal.json().proposal.id + '/prepare-run',
+      headers: auth(owner.token),
+      payload: { reason: 'no' },
+    });
+    assert.equal(invalidPrepareReason.statusCode, 400, invalidPrepareReason.body);
+    const preparedRun = await app.inject({
+      method: 'POST',
+      url: '/api/v1/admin/agent-task-proposals/' + proposal.json().proposal.id + '/prepare-run',
+      headers: auth(owner.token),
+      payload: { reason: 'Prepare non-operational cancellation rehearsal.' },
+    });
+    assert.equal(preparedRun.statusCode, 201, preparedRun.body);
+    assert.equal(preparedRun.json().run.status, 'prepared');
+    assert.equal(preparedRun.json().run.executionMode, 'non_operational');
+    assert.equal(preparedRun.json().runtimeEnabled, false);
+    assert.equal(preparedRun.json().executionStarted, false);
+    const listedRuns = await app.inject({
+      method: 'GET',
+      url: '/api/v1/admin/agent-task-runs?status=prepared&limit=10',
+      headers: auth(owner.token),
+    });
+    assert.equal(listedRuns.statusCode, 200, listedRuns.body);
+    assert.equal(listedRuns.json().runs.length, 1);
+    assert.equal(listedRuns.json().runs[0].id, preparedRun.json().run.id);
+    assert.equal(listedRuns.json().runtimeEnabled, false);
+    const cancelledRun = await app.inject({
+      method: 'POST',
+      url: '/api/v1/admin/agent-task-runs/' + preparedRun.json().run.id + '/cancel',
+      headers: auth(owner.token),
+      payload: { reason: 'Owner cancelled the non-operational rehearsal.' },
+    });
+    assert.equal(cancelledRun.statusCode, 200, cancelledRun.body);
+    assert.equal(cancelledRun.json().run.status, 'cancelled');
+    assert.equal(cancelledRun.json().runtimeEnabled, false);
+    assert.equal(cancelledRun.json().executionStarted, false);
+    const repeatedRunCancel = await app.inject({
+      method: 'POST',
+      url: '/api/v1/admin/agent-task-runs/' + preparedRun.json().run.id + '/cancel',
+      headers: auth(owner.token),
+      payload: { reason: 'Repeated run cancellation.' },
+    });
+    assert.equal(repeatedRunCancel.statusCode, 409, repeatedRunCancel.body);
+
     const audit = await app.inject({
       method: 'GET',
       url: '/api/v1/admin/agent-task-audit',
@@ -3521,6 +3573,8 @@ test('Phase 4 agent task definitions remain dormant and proposals require human 
     assert.ok(auditEntries.some((entry) => entry.action === 'proposal_approved'));
     assert.ok(auditEntries.some((entry) => entry.action === 'proposal_cancelled'));
     assert.ok(auditEntries.some((entry) => entry.action === 'proposal_rejected'));
+    assert.ok(auditEntries.some((entry) => entry.action === 'run_prepared'));
+    assert.ok(auditEntries.some((entry) => entry.action === 'run_cancelled'));
     assert.ok(auditEntries.every((entry) => entry.actorUsername === owner.user.username));
 
     const firstAuditPage = await app.inject({

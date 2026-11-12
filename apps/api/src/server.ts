@@ -400,6 +400,23 @@ await pool.query(`
         CHECK (status IN ('awaiting_review', 'approved_dormant', 'rejected', 'cancelled'));
     END IF;
   END $agent_proposal_status$;
+  CREATE TABLE IF NOT EXISTS agent_task_run_records (
+    id BIGSERIAL PRIMARY KEY,
+    proposal_id BIGINT NOT NULL UNIQUE REFERENCES agent_task_proposals(id) ON DELETE RESTRICT,
+    task_definition_id BIGINT NOT NULL REFERENCES agent_task_definitions(id) ON DELETE RESTRICT,
+    status TEXT NOT NULL DEFAULT 'prepared' CHECK (status IN ('prepared', 'cancelled')),
+    execution_mode TEXT NOT NULL DEFAULT 'non_operational' CHECK (execution_mode = 'non_operational'),
+    prepared_by BIGINT REFERENCES users(id) ON DELETE SET NULL,
+    prepared_reason TEXT NOT NULL CHECK (char_length(prepared_reason) BETWEEN 5 AND 500),
+    cancelled_by BIGINT REFERENCES users(id) ON DELETE SET NULL,
+    cancel_reason TEXT NOT NULL DEFAULT '',
+    cancelled_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CHECK ((status = 'prepared' AND cancelled_at IS NULL AND cancel_reason = '') OR
+           (status = 'cancelled' AND cancelled_at IS NOT NULL AND char_length(cancel_reason) BETWEEN 5 AND 500))
+  );
+  CREATE INDEX IF NOT EXISTS agent_task_run_records_status_created_idx
+    ON agent_task_run_records (status, created_at DESC);
   CREATE INDEX IF NOT EXISTS agent_task_proposals_status_created_idx
     ON agent_task_proposals (status, created_at DESC);
   CREATE TABLE IF NOT EXISTS agent_task_audit_log (
@@ -407,7 +424,7 @@ await pool.query(`
     actor_user_id BIGINT REFERENCES users(id) ON DELETE SET NULL,
     task_definition_id BIGINT REFERENCES agent_task_definitions(id) ON DELETE SET NULL,
     proposal_id BIGINT REFERENCES agent_task_proposals(id) ON DELETE SET NULL,
-    action TEXT NOT NULL CHECK (action IN ('definition_created', 'proposal_created', 'proposal_rejected', 'proposal_cancelled')),
+    action TEXT NOT NULL CHECK (action IN ('definition_created', 'definition_status_changed', 'proposal_created', 'proposal_approved', 'proposal_rejected', 'proposal_cancelled', 'run_prepared', 'run_cancelled')),
     result TEXT NOT NULL CHECK (result IN ('success', 'denied', 'error')),
     reason TEXT NOT NULL DEFAULT '',
     details JSONB NOT NULL DEFAULT '{}'::jsonb,
@@ -422,6 +439,8 @@ await pool.query(`
          AND conname = 'agent_task_audit_log_action_check'
          AND pg_get_constraintdef(oid) LIKE '%proposal_approved%'
          AND pg_get_constraintdef(oid) LIKE '%definition_status_changed%'
+         AND pg_get_constraintdef(oid) LIKE '%run_prepared%'
+         AND pg_get_constraintdef(oid) LIKE '%run_cancelled%'
     ) THEN
       ALTER TABLE agent_task_audit_log DROP CONSTRAINT IF EXISTS agent_task_audit_log_action_check;
       ALTER TABLE agent_task_audit_log
@@ -3054,6 +3073,160 @@ app.post<{ Params: { id: string }; Body: { reason?: string } }>(
       await client.query('ROLLBACK').catch(() => undefined);
       request.log.error({ err: error }, 'Could not cancel dormant agent task proposal');
       return reply.code(500).send({ error: 'Could not cancel task proposal.' });
+    } finally {
+      client.release();
+    }
+  },
+);
+
+
+app.post<{ Params: { id: string }; Body: { reason?: string } }>(
+  '/api/v1/admin/agent-task-proposals/:id/prepare-run',
+  { onRequest: [requireOwnerStepUp], config: { rateLimit: { max: 10, timeWindow: '1 minute' } } },
+  async (request, reply) => {
+    if (!isNumericId(request.params.id)) return reply.code(400).send({ error: 'Invalid proposal ID.' });
+    const reason = typeof request.body?.reason === 'string' ? request.body.reason.trim() : '';
+    if (reason.length < 5 || reason.length > 500) {
+      return reply.code(400).send({ error: 'Provide a preparation reason between 5 and 500 characters.' });
+    }
+    const claims = request.user as { sub?: string };
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const proposal = await client.query(
+        'SELECT p.id, p.task_definition_id, p.status AS proposal_status, t.status AS task_status, t.requires_human_approval ' +
+        'FROM agent_task_proposals p JOIN agent_task_definitions t ON t.id = p.task_definition_id ' +
+        'WHERE p.id = $1 FOR UPDATE OF p, t',
+        [request.params.id],
+      );
+      const row = proposal.rows[0] as {
+        id: string; task_definition_id: string; proposal_status: string;
+        task_status: string; requires_human_approval: boolean;
+      } | undefined;
+      if (!row || row.proposal_status !== 'approved_dormant' ||
+          row.task_status !== 'draft' || row.requires_human_approval !== true) {
+        await client.query('ROLLBACK');
+        return reply.code(409).send({ error: 'Only an approved dormant proposal for a draft, human-approved task can be prepared.' });
+      }
+      const inserted = await client.query(
+        'INSERT INTO agent_task_run_records ' +
+        '(proposal_id, task_definition_id, status, execution_mode, prepared_by, prepared_reason) ' +
+        "VALUES ($1, $2, 'prepared', 'non_operational', $3, $4) " +
+        'ON CONFLICT (proposal_id) DO NOTHING ' +
+        'RETURNING id, proposal_id AS "proposalId", task_definition_id AS "taskDefinitionId", ' +
+        'status, execution_mode AS "executionMode", prepared_reason AS "preparedReason", created_at AS "createdAt"',
+        [row.id, row.task_definition_id, claims.sub ?? null, reason],
+      );
+      if (!inserted.rowCount) {
+        await client.query('ROLLBACK');
+        return reply.code(409).send({ error: 'A run record already exists for this proposal.' });
+      }
+      await client.query(
+        'INSERT INTO agent_task_audit_log ' +
+        '(actor_user_id, task_definition_id, proposal_id, action, result, reason, details) ' +
+        "VALUES ($1, $2, $3, 'run_prepared', 'success', $4, $5::jsonb)",
+        [claims.sub ?? null, row.task_definition_id, row.id, reason,
+          JSON.stringify({ runId: inserted.rows[0].id, executionMode: 'non_operational', runtimeEnabled: false, executionStarted: false })],
+      );
+      await client.query('COMMIT');
+      return reply.code(201).send({
+        run: inserted.rows[0],
+        executionMode: 'non_operational',
+        runtimeEnabled: false,
+        executionStarted: false,
+      });
+    } catch (error) {
+      await client.query('ROLLBACK').catch(() => undefined);
+      request.log.error({ err: error }, 'Could not prepare non-operational agent run record');
+      return reply.code(500).send({ error: 'Could not prepare run record.' });
+    } finally {
+      client.release();
+    }
+  },
+);
+
+app.get<{ Querystring: { status?: string; cursor?: string; limit?: string } }>(
+  '/api/v1/admin/agent-task-runs',
+  { onRequest: [requireOwnerAuth] },
+  async (request, reply) => {
+    const status = request.query.status?.trim() || null;
+    const cursor = request.query.cursor?.trim() || null;
+    const rawLimit = request.query.limit;
+    const limit = rawLimit === undefined ? 50 : Number(rawLimit);
+    if ((status !== null && status !== 'prepared' && status !== 'cancelled') ||
+        (cursor !== null && !/^[1-9]\d{0,17}$/.test(cursor)) ||
+        !Number.isInteger(limit) || limit < 1 || limit > 100) {
+      return reply.code(400).send({ error: 'Invalid run status, cursor, or limit (1-100).' });
+    }
+    const result = await pool.query(
+      'SELECT r.id::text AS "id", r.proposal_id::text AS "proposalId", ' +
+      'r.task_definition_id::text AS "taskDefinitionId", t.code AS "taskCode", ' +
+      'p.status AS "proposalStatus", r.status, r.execution_mode AS "executionMode", ' +
+      'r.prepared_reason AS "preparedReason", r.cancel_reason AS "cancelReason", ' +
+      'r.created_at AS "createdAt", r.cancelled_at AS "cancelledAt" ' +
+      'FROM agent_task_run_records r ' +
+      'JOIN agent_task_definitions t ON t.id = r.task_definition_id ' +
+      'JOIN agent_task_proposals p ON p.id = r.proposal_id ' +
+      'WHERE ($1::text IS NULL OR r.status = $1) AND ($2::bigint IS NULL OR r.id < $2::bigint) ' +
+      'ORDER BY r.id DESC LIMIT $3',
+      [status, cursor, limit + 1],
+    );
+    const hasMore = result.rows.length > limit;
+    const entries = hasMore ? result.rows.slice(0, limit) : result.rows;
+    return {
+      runs: entries,
+      nextCursor: hasMore ? String(entries[entries.length - 1].id) : null,
+      executionMode: 'non_operational',
+      runtimeEnabled: false,
+      executionStarted: false,
+    };
+  },
+);
+
+app.post<{ Params: { id: string }; Body: { reason?: string } }>(
+  '/api/v1/admin/agent-task-runs/:id/cancel',
+  { onRequest: [requireOwnerStepUp], config: { rateLimit: { max: 20, timeWindow: '1 minute' } } },
+  async (request, reply) => {
+    if (!isNumericId(request.params.id)) return reply.code(400).send({ error: 'Invalid run record ID.' });
+    const reason = typeof request.body?.reason === 'string' ? request.body.reason.trim() : '';
+    if (reason.length < 5 || reason.length > 500) {
+      return reply.code(400).send({ error: 'Provide a cancellation reason between 5 and 500 characters.' });
+    }
+    const claims = request.user as { sub?: string };
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const cancelled = await client.query(
+        'UPDATE agent_task_run_records ' +
+        "SET status = 'cancelled', cancelled_by = $1, cancel_reason = $2, cancelled_at = NOW() " +
+        "WHERE id = $3 AND status = 'prepared' " +
+        'RETURNING id::text AS "id", proposal_id::text AS "proposalId", ' +
+        'task_definition_id::text AS "taskDefinitionId", status, execution_mode AS "executionMode", ' +
+        'cancel_reason AS "cancelReason", cancelled_at AS "cancelledAt"',
+        [claims.sub ?? null, reason, request.params.id],
+      );
+      if (!cancelled.rowCount) {
+        await client.query('ROLLBACK');
+        return reply.code(409).send({ error: 'Run record is missing or no longer prepared.' });
+      }
+      await client.query(
+        'INSERT INTO agent_task_audit_log ' +
+        '(actor_user_id, task_definition_id, proposal_id, action, result, reason, details) ' +
+        "VALUES ($1, $2, $3, 'run_cancelled', 'success', $4, $5::jsonb)",
+        [claims.sub ?? null, cancelled.rows[0].taskDefinitionId, cancelled.rows[0].proposalId, reason,
+          JSON.stringify({ runId: cancelled.rows[0].id, executionMode: 'non_operational', runtimeEnabled: false, executionStarted: false })],
+      );
+      await client.query('COMMIT');
+      return {
+        run: cancelled.rows[0],
+        executionMode: 'non_operational',
+        runtimeEnabled: false,
+        executionStarted: false,
+      };
+    } catch (error) {
+      await client.query('ROLLBACK').catch(() => undefined);
+      request.log.error({ err: error }, 'Could not cancel non-operational agent run record');
+      return reply.code(500).send({ error: 'Could not cancel run record.' });
     } finally {
       client.release();
     }
