@@ -36,6 +36,7 @@
 | POST | `/api/v1/admin/agent-task-proposals/:id/cancel` |
 | POST | `/api/v1/admin/agent-task-proposals/:id/reject` |
 | GET | `/api/v1/admin/permissions/settings` |
+| PATCH | `/api/v1/admin/agent-tasks/:id/status` |
 | PATCH | `/api/v1/admin/permissions/settings` |
 | GET | `/api/v1/admin/permissions/grants` |
 | POST | `/api/v1/admin/permissions/grants` |
