@@ -651,11 +651,11 @@ test('registered players can join an online match and history does not expose op
   });
   assert.equal(joined.statusCode, 200, joined.body);
   const joinedRoomExpiry = await testPool.query(
-    'SELECT expires_at > NOW() + INTERVAL \'5 minutes\' AS extended FROM backgammon_matches WHERE id = $1',
+    'SELECT expires_at FROM backgammon_matches WHERE id = $1',
     [matchId],
   );
-  assert.equal(joinedRoomExpiry.rows[0].extended, true,
-    'A room must not retain the 60-second unaccepted-invitation expiry after a player joins.');
+  assert.equal(joinedRoomExpiry.rows[0].expires_at, null,
+    'A waiting room must not expire after a player joins.');
   assert.equal(joined.json().match.status, 'waiting');
   assert.equal(joined.json().match.guestAvatarDataUrl, avatar);
   assert.equal(joined.json().match.hostAvatarDataUrl, null);
@@ -1255,11 +1255,11 @@ test('registered players can join an online match and history does not expose op
   assert.equal(String(acceptInvite.json().match.id), invitedRoomId,
     'The accepted invitation response must carry the canonical numeric room ID used by the client.');
   const acceptedRoomExpiry = await testPool.query(
-    'SELECT expires_at > NOW() + INTERVAL \'5 minutes\' AS extended FROM backgammon_matches WHERE id = $1',
+    'SELECT expires_at FROM backgammon_matches WHERE id = $1',
     [invitedRoomId],
   );
-  assert.equal(acceptedRoomExpiry.rows[0].extended, true,
-    'Accepting an invitation must extend the waiting-room expiry.');
+  assert.equal(acceptedRoomExpiry.rows[0].expires_at, null,
+    'Accepting an invitation must make the occupied waiting room non-expiring.');
   const invitedMatch = await app.inject({
     method: 'GET',
     url: `/api/v1/matches/${invitedRoomId}`,
@@ -1441,6 +1441,42 @@ test('registered players can join an online match and history does not expose op
     [scheduledCleanupRoomId],
   );
 
+  // An occupied room must survive even when its original empty-room deadline passes.
+  const occupiedRoomHost = await register('Occupied Cleanup Host');
+  const occupiedRoomGuest = await register('Occupied Cleanup Guest');
+  const occupiedRoomCreated = await app.inject({
+    method: 'POST',
+    url: '/api/v1/matches',
+    headers: auth(occupiedRoomHost.token),
+  });
+  assert.equal(occupiedRoomCreated.statusCode, 201, occupiedRoomCreated.body);
+  const occupiedRoomId = String(occupiedRoomCreated.json().match.id);
+  const occupiedRoomJoin = await app.inject({
+    method: 'POST',
+    url: `/api/v1/matches/${occupiedRoomId}/join`,
+    headers: auth(occupiedRoomGuest.token),
+  });
+  assert.equal(occupiedRoomJoin.statusCode, 200, occupiedRoomJoin.body);
+  const occupiedExpiry = await testPool.query(
+    'SELECT expires_at FROM backgammon_matches WHERE id = $1',
+    [occupiedRoomId],
+  );
+  assert.equal(occupiedExpiry.rows[0].expires_at, null,
+    'A waiting room becomes non-expiring as soon as its second player joins.');
+  const occupiedRoomDetails = await app.inject({
+    method: 'GET',
+    url: `/api/v1/matches/${occupiedRoomId}`,
+    headers: auth(occupiedRoomHost.token),
+  });
+  assert.equal(occupiedRoomDetails.statusCode, 200, occupiedRoomDetails.body);
+  const occupiedHostReady = await app.inject({
+    method: 'POST',
+    url: `/api/v1/matches/${occupiedRoomId}/setup`,
+    headers: auth(occupiedRoomHost.token),
+    payload: { ready: true },
+  });
+  assert.equal(occupiedHostReady.statusCode, 200, occupiedHostReady.body);
+
   const cleanupWithoutTrigger = await app.inject({
     method: 'POST',
     url: '/internal/cleanup-expired-empty-rooms',
@@ -1461,6 +1497,15 @@ test('registered players can join an online match and history does not expose op
   );
   assert.equal(scheduledRoomAfterCleanup.rowCount, 0,
     'A verified scheduled trigger must physically remove expired empty rooms.');
+  const occupiedRoomAfterCleanup = await testPool.query(
+    'SELECT id, status, guest_user_id::text AS guest_user_id, expires_at <= NOW() AS expired FROM backgammon_matches WHERE id = $1',
+    [occupiedRoomId],
+  );
+  assert.equal(occupiedRoomAfterCleanup.rowCount, 1,
+    'A waiting room with a guest must not be deleted by the empty-room cleanup.');
+  assert.equal(occupiedRoomAfterCleanup.rows[0].status, 'waiting');
+  assert.equal(occupiedRoomAfterCleanup.rows[0].guest_user_id, occupiedRoomGuest.user.id);
+  assert.equal(occupiedRoomAfterCleanup.rows[0].expired, null);
   const emptyRoomId = String(emptyRoomToClose.json().match.id);
   const guestCannotCloseHostRoom = await app.inject({
     method: 'DELETE',
