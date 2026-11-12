@@ -2327,6 +2327,77 @@ test('delegated report permissions are owner-granted, resource-scoped, audited, 
   }
 });
 
+test('voice-message settings are owner-only, step-up protected, audited, and disabled by default', async () => {
+  const previousOwnerId = process.env.OWNER_USER_ID;
+  const owner = await register('Voice Settings Owner');
+  const ordinary = await register('Voice Settings Ordinary');
+  process.env.OWNER_USER_ID = owner.user.id;
+  try {
+    await testPool.query('UPDATE voice_message_settings SET enabled = FALSE, updated_by = NULL WHERE id = 1');
+    const ownerRead = await app.inject({
+      method: 'GET', url: '/api/v1/admin/voice-messages/settings', headers: auth(owner.token),
+    });
+    assert.equal(ownerRead.statusCode, 200, ownerRead.body);
+    assert.equal(ownerRead.json().settings.enabled, false,
+      'Voice messaging must remain disabled on first setup.');
+
+    const ordinaryRead = await app.inject({
+      method: 'GET', url: '/api/v1/admin/voice-messages/settings', headers: auth(ordinary.token),
+    });
+    assert.equal(ordinaryRead.statusCode, 403, ordinaryRead.body);
+
+    const ordinaryWrite = await app.inject({
+      method: 'PATCH', url: '/api/v1/admin/voice-messages/settings', headers: auth(ordinary.token),
+      payload: { enabled: true },
+    });
+    assert.equal(ordinaryWrite.statusCode, 403, ordinaryWrite.body);
+
+    const ownerWithoutStepUp = await app.inject({
+      method: 'PATCH', url: '/api/v1/admin/voice-messages/settings',
+      headers: { authorization: `Bearer ${owner.token}` }, payload: { enabled: true },
+    });
+    assert.equal(ownerWithoutStepUp.statusCode, 403, ownerWithoutStepUp.body);
+
+    const invalidValue = await app.inject({
+      method: 'PATCH', url: '/api/v1/admin/voice-messages/settings', headers: auth(owner.token),
+      payload: { enabled: 'true' },
+    });
+    assert.equal(invalidValue.statusCode, 400, invalidValue.body);
+
+    const enabled = await app.inject({
+      method: 'PATCH', url: '/api/v1/admin/voice-messages/settings', headers: auth(owner.token),
+      payload: { enabled: true },
+    });
+    assert.equal(enabled.statusCode, 200, enabled.body);
+    assert.equal(enabled.json().settings.enabled, true);
+
+    const disabled = await app.inject({
+      method: 'PATCH', url: '/api/v1/admin/voice-messages/settings', headers: auth(owner.token),
+      payload: { enabled: false },
+    });
+    assert.equal(disabled.statusCode, 200, disabled.body);
+    assert.equal(disabled.json().settings.enabled, false);
+
+    const audit = await app.inject({
+      method: 'GET', url: '/api/v1/admin/voice-messages/audit', headers: auth(owner.token),
+    });
+    assert.equal(audit.statusCode, 200, audit.body);
+    assert.deepEqual(
+      (audit.json().entries as Array<{ enabled: boolean }>).slice(0, 2).map((entry) => entry.enabled),
+      [false, true],
+      'Owner setting changes must be recorded newest-first.',
+    );
+    const ordinaryAudit = await app.inject({
+      method: 'GET', url: '/api/v1/admin/voice-messages/audit', headers: auth(ordinary.token),
+    });
+    assert.equal(ordinaryAudit.statusCode, 403, ordinaryAudit.body);
+  } finally {
+    await testPool.query('UPDATE voice_message_settings SET enabled = FALSE, updated_by = NULL WHERE id = 1');
+    if (previousOwnerId === undefined) delete process.env.OWNER_USER_ID;
+    else process.env.OWNER_USER_ID = previousOwnerId;
+  }
+});
+
 test('development phone OTP simulator hashes, expires by policy, limits attempts, and consumes codes once', async () => {
   const prior = await testPool.query('SELECT delivery_mode FROM sms_otp_settings WHERE id = 1');
   const previousMode = prior.rows[0]?.delivery_mode ?? 'disabled';
