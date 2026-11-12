@@ -3412,8 +3412,8 @@ test('online match resignation handles game and match scopes atomically', async 
   assert.equal(guestProgressionAfterResign.statusCode, 200, guestProgressionAfterResign.body);
   assert.equal(hostProgressionAfterResign.json().user.xpPoints, 15,
     'A game win (+20) followed by match resignation (-5) must accumulate without resetting XP.');
-  assert.equal(guestProgressionAfterResign.json().user.xpPoints, 15,
-    'A game resignation (-5) followed by match win (+20) must accumulate without resetting XP.');
+  assert.equal(guestProgressionAfterResign.json().user.xpPoints, 20,
+    'A game resignation clamps initial XP at zero; the later match win then awards 20 XP.');
   const resignationEvents = await testPool.query(
     'SELECT outcome, points_delta FROM backgammon_progression_events WHERE match_id = $1 ORDER BY event_key, user_id',
     [matchId],
