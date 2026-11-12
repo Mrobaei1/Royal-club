@@ -1,6 +1,6 @@
 # Royal Club — WBS criterion-level scoring matrix
 
-**Baseline:** WBS v1.1 · **Latest audit:** 2026-11-09 · **53 leaf packages · 1,000 points**
+**Baseline:** WBS v1.1 · **Latest audit:** 2026-11-12 · **53 leaf packages · 1,000 points**
 
 ## Rules
 
@@ -88,7 +88,7 @@
 | 3.3-B | 60-second expiry | 5 | Passed | API tests verify a new empty room expires within 59–60 seconds, invite freshness is capped at 60 seconds, and notifications older than 61 seconds are removed. PR #77 exact-head API integration [41185385432](https://github.com/Mrobaei1/Royal-club/actions/runs/41185385432) passed. |
 | 3.3-C | Cancellation/stale invite rejection | 5 | Passed | Tests verify expired-room invite acceptance returns 410, marks the invite rejected, clears its notification, and leaves room membership unchanged; match cancellation proposals support both rejection and acceptance. PR #77 API integration [41185385432](https://github.com/Mrobaei1/Royal-club/actions/runs/41185385432) and PR #204 API integration [42475968379](https://github.com/Mrobaei1/Royal-club/actions/runs/42475968379) passed. |
 | 3.3-D | Versioning/concurrency | 5 | Passed | Concurrent guest joins serialize to exactly one 200 and one 409; the resulting membership is checked against the successful account. Online commands use expected state versions and stale commands are rejected. PR #78 API integration [41186501241](https://github.com/Mrobaei1/Royal-club/actions/runs/41186501241) and PR #204 API integration [42475968379](https://github.com/Mrobaei1/Royal-club/actions/runs/42475968379) passed. |
-| 3.3-E | Idle cleanup | 5 | Pending | Not audited |
+| 3.3-E | Idle cleanup | 5 | Passed | PR #244 exact HEAD `4749034bc74ffef74554f0334e137841e0f46d10`: PostgreSQL integration verifies empty waiting rooms retain the 60-second expiry while occupied waiting rooms have no expiry and survive scheduled cleanup. Exact-head API integration [run 42574006836](https://github.com/Mrobaei1/Royal-club/actions/runs/42574006836/job/129017530369), API build [run 42574006845](https://github.com/Mrobaei1/Royal-club/actions/runs/42574006845/job/129017531203), Flutter and Backgammon checks passed; PR merged as `525e17866520bbaa6847f6fb7854b04424351b56` (2026-11-12). |
 | 3.4-A | Server-authoritative legality/state | 5 | Passed | API integration verifies server-owned match state, denies spectator move/roll commands, rejects malformed persisted boards on read/roll/move, and checks that client commands cannot bypass server rules. PR #204 API integration [42475968379](https://github.com/Mrobaei1/Royal-club/actions/runs/42475968379) passed. |
 | 3.4-B | Cumulative dice | 5 | Passed | API integration applies a two-die 2+3 batch atomically, asserts both moves and final board, consumes all remaining dice and advances the turn clock only after the full sequence. PR #204 API integration [42475968379](https://github.com/Mrobaei1/Royal-club/actions/runs/42475968379) passed. |
 | 3.4-C | Bar entry/turn integrity | 5 | Passed | API and Flutter engine tests verify mandatory and correct-side bar entry, blocked-entry rejection, bar-first move enforcement, turn completion and clock integrity; exact-head PR #204 API/Flutter/backgammon runs [42475968379](https://github.com/Mrobaei1/Royal-club/actions/runs/42475968379), [42475968332](https://github.com/Mrobaei1/Royal-club/actions/runs/42475968332), [42475968383](https://github.com/Mrobaei1/Royal-club/actions/runs/42475968383) passed. |
@@ -151,23 +151,23 @@
 | 5.1-A | Non-transferable credits | 5 | Passed | Integration attempts `POST /api/v1/wallet/transfer`, receives 404, and verifies neither sender nor recipient balance changes and no wallet ledger rows are created. Merged PR #241; exact-head API integration [run 42571306114](https://github.com/Mrobaei1/Royal-club/actions/runs/42571306114) passed. (2026-11-09) |
 | 5.1-B | Auditable ledger | 5 | Passed | Wallet history exposes transaction ID, amount, balance-after, type, description and timestamp; subscription purchase tests verify exact debit and resulting balance, while concurrent purchase tests assert exactly one ledger debit. Exact-head API integration: PR #231 [run 42569482558](https://github.com/Mrobaei1/Royal-club/actions/runs/42569482558) and PR #230 [run 42569680272](https://github.com/Mrobaei1/Royal-club/actions/runs/42569680272) passed. (2026-11-09) |
 | 5.1-C | Atomic balance | 5 | Passed | Exact-head PR #231 (`d0853b4087606b12d46d9a6e2e251a37436d1b77`) disposable-PostgreSQL integration test issues two simultaneous 300-credit purchases against a 300-credit balance; asserts one 200/one 409, zero final balance, exactly one -300 ledger debit and balance_after=0. API integration, API build/tests, Flutter analyze/tests and backgammon audit passed before merge. |
-| 5.1-D | Idempotent concurrency | 5 | Pending | Not audited |
+| 5.1-D | Idempotent concurrency | 5 | Passed | PR #260 exact HEAD `4d0c0ef6fff2eda5065ddcc202a0245d08601b9d`: transactional `(user_id, idempotency_key)` reservation and original-response replay; PostgreSQL tests cover concurrent same-key retry, one wallet debit/ledger/subscription, plan mismatch, and client identity/plan-scoped keys. Exact-head API integration [run 43257858267](https://github.com/Mrobaei1/Royal-club/actions/runs/43257858267/job/131321033557), API build, Flutter and Backgammon checks passed; merged into main as `7b77dc6c4b31202f20eacc478728b87f2d0c80e2` (2026-11-12). |
 | 5.1-E | Owner adjustments | 5 | Passed | Integration verifies owner credit without step-up is denied (403), fresh owner step-up succeeds, and the credited amount/balance-after/type/description are recorded in the audit ledger. Merged PR #241; exact-head API integration [run 42571306114](https://github.com/Mrobaei1/Royal-club/actions/runs/42571306114) passed. (2026-11-09) |
 | 5.2-A | Manager plans | 5 | Passed | PR #192 exact head `02dac555352ea0d70e391168272a24cc44c66299`; owner step-up protected create-plan API/UI; API integration run `42230679256`, API build/tests and Flutter analyze/tests run `42230679251` (2026-11-07). |
 | 5.2-B | Transactional activation | 5 | Passed | Exact-head PR #231 (`d0853b4087606b12d46d9a6e2e251a37436d1b77`) disposable-PostgreSQL integration test asserts only the winning concurrent purchase creates one active subscription; rejected purchase creates no second subscription. API integration, API build/tests, Flutter analyze/tests and backgammon audit passed before merge. |
-| 5.2-C | Expiry/removal | 5 | Pending | Not audited |
+| 5.2-C | Expiry/removal | 5 | Passed | PR #247 exact HEAD `cf20da1595da73364f14839e0ef85f04d2cfd873`: PostgreSQL integration verifies elapsed subscriptions are persisted as `expired`, omitted from the active subscription view, and deactivated plans leave the active catalogue and reject new purchases. Exact-head API integration [run 42574531687](https://github.com/Mrobaei1/Royal-club/actions/runs/42574531687/job/129019159565) and API build passed; merged into `main` as `59015a39f94323e406b14814071cad77b6eeb9bb` (2026-11-12). |
 | 5.2-D | Server-controlled prices | 5 | Passed | Subscription activation sends forged client `priceCredits=1` and `durationDays=1`; API still charges the configured server plan price (300 credits) and applies its configured 30-day duration. Merged PR #241; exact-head API integration [run 42571306114](https://github.com/Mrobaei1/Royal-club/actions/runs/42571306114) passed. (2026-11-09) |
-| 5.3-A | XP policy | 5 | Pending | Not audited |
-| 5.3-B | Permanent levels/curve | 5 | Pending | Not audited |
-| 5.3-C | Elo/leaderboard | 5 | Pending | Not audited |
+| 5.3-A | XP policy | 5 | Passed | Exact-head PostgreSQL regression tests now integrated: PR #262 verifies cumulative XP across game-scope and match-scope resignations, participant totals and four progression events; PR #264 verifies +20 winner XP, -5 quitter penalty and retry safety. API integration runs [43258493217](https://github.com/Mrobaei1/Royal-club/actions/runs/43258493217/job/131323075952) and [43259609428](https://github.com/Mrobaei1/Royal-club/actions/runs/43259609428/job/131327047310) passed. PRs merged into main as `6ead01e5bfd674bf374b28151e53d055e9c5bf26` and `00d741b4946ee78e2019dab21ee35ecb6e493295` (2026-11-12). |
+| 5.3-B | Permanent levels/curve | 5 | Passed | `apps/api/src/player-progression.ts` and `player-progression.test.ts` verify cumulative XP thresholds, level 100 at 79,439 XP, and permanent levels after XP loss; exact-head API validation CI run `43183126874` passed (PR #249, 2026-11-12). |
+| 5.3-C | Elo/leaderboard | 5 | Passed | `backgammon-rating.ts`/tests verify zero-sum Elo; PostgreSQL integration asserts 1016/984 rating updates, global and weekly leaderboard results, and exclusion of unfinished/unresolved matches; exact-head integration CI run `43183126917` passed (PR #249, 2026-11-12). |
 | 5.3-D | Ties/draws/unfinished matches | 5 | Pending | Not audited |
-| 5.3-E | Retry/audit | 5 | Pending | Not audited |
-| 5.4-A | Manager config | 5 | Pending | Not audited |
-| 5.4-B | Entry/minimum participants | 5 | Pending | Not audited |
-| 5.4-C | Fixtures/byes/rest fairness | 5 | Pending | Not audited |
-| 5.4-D | Results/finals | 5 | Pending | Not audited |
-| 5.4-E | Appeals/incidents/reschedule | 5 | Pending | Not audited |
-| 5.4-F | Audit history | 5 | Pending | Not audited |
+| 5.3-E | Retry/audit | 5 | Passed | `awardProgression` persists unique `(match_id,event_key,user_id)` events with conflict-safe insertion; integration test verifies two participant events and stale winning-move replay does not award XP twice; exact-head integration CI run `43183126917` passed (PR #249, 2026-11-12). |
+| 5.4-A | Manager config | 5 | Passed | PostgreSQL integration verifies owner-only league creation, rejects enabled leagues without a configured minimum, and persists selected format, minimum participants, free-by-default entry mode and 24-hour appeal deadline. Exact-head API integration passed in PR #254 commit `f80fc5f821e18b24b154fe3432e052082497f6dc` (run `43185436608`). |
+| 5.4-B | Entry/minimum participants | 5 | Passed | Integration verifies free entry and idempotent duplicate entry; subscription-day entry requires an active subscription, consumes exactly the configured days once under concurrency, rejects insufficient entitlement without ledger mutation, and scheduling rejects an unmet participant minimum. Exact-head PR #254 API integration run `43185436608` passed. |
+| 5.4-C | Fixtures/byes/rest fairness | 5 | Passed | Five-player round-robin integration creates five byes and ten unique pairings; after completion each player has four games and exactly one rest round. The same test asserts aggregate fixture/rest counts. Exact-head PR #254 API integration run `43185436608` passed. |
+| 5.4-D | Results/finals | 5 | Passed | Integration saves a completed match result and verifies knockout final creation is rejected without manager approval and accepted only when `managerApproved=true`. Exact-head PR #254 API integration run `43185436608` passed. |
+| 5.4-E | Appeals/incidents/reschedule | 5 | Passed | Integration submits a participant appeal after a completed match, records the manager's rejection, records a technical issue, then reschedules with a validated future replacement time. Exact-head PR #254 API integration run `43185436608` passed. |
+| 5.4-F | Audit history | 5 | Passed | PR #263 adds the owner-only paginated audit API, stable cursor ordering, index, PostgreSQL authorization/pagination/event-detail assertions, lifecycle actor-attribution coverage, and bilingual Admin UI. Exact-head API integration [run 43259222962](https://github.com/Mrobaei1/Royal-club/actions/runs/43259222962/job/131325692943), API build, Flutter and Web Preview checks passed; merged into main as `b3fa33deec0c9792fd98c603c4a48a5505e76cf0` (2026-11-12). |
 | 5.4-G | Manager UI acceptance | 5 | Pending | Not audited |
 | 5.5-A | Free-by-default entry | 5 | Passed | Owner-created league defaults to `entryMode=free` and `subscriptionDaysCost=0`; integration confirms free entry succeeds and wallet balance remains unchanged. PR #230 exact-head API integration [run 42569680272](https://github.com/Mrobaei1/Royal-club/actions/runs/42569680272) passed. (2026-11-09) |
 | 5.5-B | Dedicated entitlement ledger | 5 | Passed | Subscription-day league entry records one dedicated `league_entitlement_ledger` row with the exact days consumed and before/after subscription expiry. PR #230 exact-head API integration [run 42569680272](https://github.com/Mrobaei1/Royal-club/actions/runs/42569680272) passed. (2026-11-09) |
@@ -185,22 +185,22 @@
 | 6.1-B | Desktop admin usability | 5 | Pending | Not audited |
 | 6.1-C | Ordinary-user denial | 5 | Pending | Not audited |
 | 6.1-D | Voice-message control manager-only/OFF | 5 | Pending | Not audited |
-| 6.2-A | Numeric owner identity | 5 | Pending | Not audited |
-| 6.2-B | Secure configuration | 5 | Pending | Not audited |
-| 6.2-C | Fail-closed owner endpoints | 5 | Pending | Not audited |
-| 6.2-D | No username/email privilege | 5 | Pending | Not audited |
-| 6.3-A | Permission matrix | 5 | Pending | Not audited |
-| 6.3-B | 50-delegate limit | 5 | Pending | Not audited |
-| 6.3-C | Grant/revoke/audit | 5 | Pending | Not audited |
+| 6.2-A | Numeric owner identity | 5 | Passed | `requireOwnerAuth` requires a numeric configured owner ID and a durable singleton owner anchor; `isOwnerIdentityConsistent` checks configured, stored and authenticated IDs. Unit tests reject missing/invalid/mismatched IDs; PostgreSQL integration verifies the owner anchor cannot be updated or deleted. Exact-head API integration run `43193843382` passed. |
+| 6.2-B | Secure configuration | 5 | Passed | Central game-service configuration accepts HTTPS origins only, is Ed25519-signed with a domain-separated key, versioned, history-backed and owner-step-up protected; rollback verifies both current and historical signatures. Unit and PostgreSQL integration tests cover tampering, invalid origins, step-up and rollback. Exact-head API integration run `43193843382` passed. |
+| 6.2-C | Fail-closed owner endpoints | 5 | Passed | Owner routes deny missing owner configuration, invalid numeric identity, missing/inconsistent durable anchor and unavailable owner-protection storage; step-up is session-bound and expires. Unit and integration tests cover missing configuration, wrong-session/expired step-up and non-owner denial. Exact-head API integration run `43193843382` passed. |
+| 6.2-D | No username/email privilege | 5 | Passed | Owner authorization is based on the numeric authenticated subject, never username/email. Integration verifies ordinary users cannot claim reserved `ElizArya` and that the reserved handle does not confer owner access when numeric owner configuration is absent. Exact-head API integration run `43193843382` passed. |
+| 6.3-A | Permission matrix | 5 | Passed | `permissions.ts` exposes only currently enforced `reports.read`/`reports.manage` capabilities; server routes validate the allowlist and apply resource-scoped `hasRoyalPermission`. PostgreSQL integration verifies owner-only grant management, scoped read/manage access and rejection outside scope. Exact-head API integration run `43193843382` passed. |
+| 6.3-B | 50-delegate limit | 5 | Passed | Grant creation serializes the ceiling check with a transaction advisory lock and limits active distinct delegates to 50; integration verifies the 51st delegate is rejected and a replacement is allowed after revocation. Exact-head API integration run `43193843382` passed. |
+| 6.3-C | Grant/revoke/audit | 5 | Passed | PR #258 exact HEAD `edebee50d7659b0c59cf886aad101be18e8a7de8`: PostgreSQL integration verifies the owner-visible `grant_revoked` audit event for `reports.manage`, and the existing grant lifecycle assertions verify scoped grant/revoke behavior. Exact-head API integration [run 43258007979](https://github.com/Mrobaei1/Royal-club/actions/runs/43258007979/job/131321384485) and API build/tests passed; PR merged into main as `6a43b5492129d4a7d7341495842c767a2bdd3b4b` (2026-11-12). |
 | 6.3-D | Voice setting authorization | 5 | Pending | Not audited |
-| 6.3-E | Deny-by-default tests | 5 | Pending | Not audited |
-| 6.4-A | Task definitions/capabilities | 5 | Pending | Not audited |
-| 6.4-B | Human approval | 5 | Pending | Not audited |
-| 6.4-C | Run state/cancellation/audit | 5 | Pending | Not audited |
-| 6.4-D | Dormant execution | 5 | Pending | Not audited |
-| 6.5-A | Privileged audit | 5 | Pending | Not audited |
-| 6.5-B | Secret redaction | 5 | Pending | Not audited |
-| 6.5-C | Kill switch | 5 | Pending | Not audited |
+| 6.3-E | Deny-by-default tests | 5 | Passed | Unit tests reject unknown/privileged permission names, empty and inactive grants, and malformed or missing scopes; integration verifies the global delegated-permission switch blocks delegated access. Exact-head API build/integration and permission unit tests passed in run `43193843382`. |
+| 6.4-A | Task definitions/capabilities | 5 | Passed | PR #249 exact HEAD `005ea6d4545e4cea43fc9c7aa53df0426bd2cdca`: owner-managed task definitions restrict requested capabilities to `read`/`recommend`; integration tests reject `execute`/`approve` and unauthorized task changes. Exact-head API integration [run 43258075354](https://github.com/Mrobaei1/Royal-club/actions/runs/43258075354/job/131321620533) passed; merged as `f16195d32ba8528a9676476bb71457a7e7f8917f` (2026-11-12). |
+| 6.4-B | Human approval | 5 | Passed | PR #249 exact HEAD `005ea6d4545e4cea43fc9c7aa53df0426bd2cdca`: every task definition requires human approval; API rejects `requiresHumanApproval=false`, and owner step-up is required for proposal approval/cancel/reject. Exact-head API integration [run 43258075354](https://github.com/Mrobaei1/Royal-club/actions/runs/43258075354/job/131321620533) passed; merged as `f16195d32ba8528a9676476bb71457a7e7f8917f`. |
+| 6.4-C | Run state/cancellation/audit | 5 | Pending | Awaiting integration of PR #249 into `main`; do not award WBS credit while implementation remains in an open PR. |
+| 6.4-D | Dormant execution | 5 | Passed | PR #249 exact HEAD `005ea6d4545e4cea43fc9c7aa53df0426bd2cdca`: approval only transitions a proposal to `approved_dormant`; tests assert `runtimeEnabled=false` and `executionStarted=false`, task definitions remain draft/paused, and no execution endpoint/runtime is activated. Exact-head API integration [run 43258075354](https://github.com/Mrobaei1/Royal-club/actions/runs/43258075354/job/131321620533) passed; merged as `f16195d32ba8528a9676476bb71457a7e7f8917f`. |
+| 6.5-A | Privileged audit | 5 | Passed | PR #249 exact HEAD `005ea6d4545e4cea43fc9c7aa53df0426bd2cdca`: proposal approval/cancellation/rejection and task pause/resume are owner-step-up protected, reason-bound, transactional and audit logged; audit reads remain owner-only. Exact-head API integration [run 43258075354](https://github.com/Mrobaei1/Royal-club/actions/runs/43258075354/job/131321620533) passed; merged as `f16195d32ba8528a9676476bb71457a7e7f8917f`. |
+| 6.5-B | Secret redaction | 5 | Passed | PR #249 exact HEAD `005ea6d4545e4cea43fc9c7aa53df0426bd2cdca`: PostgreSQL integration verifies proposal responses redact provider `apiKey` and nested `password` while preserving non-sensitive labels; list/response projections are covered. Exact-head API integration [run 43258075354](https://github.com/Mrobaei1/Royal-club/actions/runs/43258075354/job/131321620533) passed; merged as `f16195d32ba8528a9676476bb71457a7e7f8917f`. |
+| 6.5-C | Kill switch | 5 | Passed | PR #258 exact HEAD `edebee50d7659b0c59cf886aad101be18e8a7de8`: PostgreSQL integration disables delegated permissions, verifies the owner-visible `kill_switch_changed` audit event with `enabled=false`, and confirms delegated access is denied afterward. Exact-head API integration [run 43258007979](https://github.com/Mrobaei1/Royal-club/actions/runs/43258007979/job/131321384485) passed; PR merged as `6a43b5492129d4a7d7341495842c767a2bdd3b4b`. |
 | 6.5-D | Immediate revoke/cancel | 5 | Pending | Not audited |
 | 6.6-A | Agent Center categories | 5 | Pending | Not audited |
 | 6.6-B | Monitoring/status accuracy | 5 | Pending | Not audited |
@@ -252,9 +252,9 @@
 - Packages decomposed: **53/53**
 - Acceptance criteria: **200**
 - Points represented: **1000/1,000**
-- Earned points currently evidenced: **495/1,000 (49.5%)** — 190 points across Phases 1, 2 and 7, 145 points across 29 verified Phase 3 criteria, 110 points across 22 verified Phase 4 criteria, and 50 points across ten verified Phase 5 criteria. Evidence is linked criterion-by-criterion below. Remaining gates include subscription purchase idempotency, subscription expiry/removal, Android notification acceptance, social theme/layout/accessibility device acceptance, and two-device/Production release gates.
-- Remaining criteria: **101 Pending** (505 points not yet earned).
-- **Official project percentage: 49.5% (495/1,000 points; 99/200 criteria).** This is the evidence-backed WBS score calculated from the phase roll-up immediately below; it is not a claim that all implementation or release acceptance is complete. Pending subscription purchase idempotency, subscription expiry/removal, Android notification acceptance, social theme/layout/accessibility device acceptance, provider deployment portability, NFR target approval, physical VPN/device acceptance, owner-approved retention and application-level disaster recovery remain open.
+- Earned points currently evidenced: **630/1,000 (63.0%)** — 190 points across Phases 1, 2 and 7, 150 points across 30 verified Phase 3 criteria, 110 points across 22 verified Phase 4 criteria, 110 points across 22 verified Phase 5 criteria, and 70 points across 14 verified Phase 6 criteria. Evidence is linked criterion-by-criterion below. Remaining gates include Android notification acceptance, social theme/layout/accessibility device acceptance, and two-device/Production release acceptance.
+- Remaining criteria: **86 Pending** (430 points not yet earned).
+- **Proposed project percentage for this PR: 63.0% (630/1,000 points; 126/200 criteria).** This is the evidence-backed WBS score calculated from the phase roll-up immediately below; it is not a claim that all implementation or release acceptance is complete. The official `main` score remains 49.5% until this PR is integrated. Pending Android notification acceptance, social theme/layout/accessibility device acceptance, provider deployment portability, NFR target approval, physical VPN/device acceptance, owner-approved retention and application-level disaster recovery remain open.
 
 ## Required evidence record
 
@@ -274,12 +274,12 @@ The following percentages are calculated directly from the 200 criterion rows in
 | --- | ---: | ---: | ---: | ---: |
 | Phase 1 — Architecture and project management | 80 | 11/16 | 55 | 68.75% |
 | Phase 2 | 130 | 22/26 | 110 | 84.62% |
-| Phase 3 | 230 | 29/46 | 145 | 63.04% |
+| Phase 3 | 230 | 30/46 | 150 | 65.22% |
 | Phase 4 | 120 | 22/24 | 110 | 91.67% |
-| Phase 5 | 140 | 10/28 | 50 | 35.71% |
-| Phase 6 | 140 | 0/28 | 0 | 0.00% |
+| Phase 5 | 140 | 22/28 | 110 | 78.57% |
+| Phase 6 | 140 | 14/28 | 70 | 50.00% |
 | Phase 7 | 160 | 5/32 | 25 | 15.63% |
-| **Total** | **1,000** | **99/200** | **495** | **49.50%** |
+| **Total** | **1,000** | **126/200** | **630** | **63.00%** |
 
 
 
@@ -343,3 +343,28 @@ Three Phase 2 criteria now pass (15/130 points):
 - **2.4-B Passed (5 points):** screen-by-screen static UI audit covered Main/auth, Account, Admin, Friends, Chat, Leaderboard, Notifications, Online Lobby/Match, Wallet, Owner Analytics, Spectator, Backgammon, Manch offline/online, Hokm/manager review, UNO online, and Chess lobby/game/admin/profile. User-visible static labels and prompts use bilingual `appText`, screen-local `t/_text/_t`, or explicit Persian/English locale branches. Language names and usernames are intentionally data values, not untranslated UI. ARB parity and locale-switch/RTL-LTR widget tests pass. Exact-head Flutter analyze/widget CI passed on PR #222 head `619742db619a8009d8cf849e902cc08e5671ea8a`, run [42487826939](https://github.com/Mrobaei1/Royal-club/actions/runs/42487826939/job/128753465277).
 
 - Additional dynamic-error coverage merged in PR #224: invalid match-room ID and UNO sign-in, user-ID, configuration, signature and service-origin errors now translate through the shared English/Persian error mapper; Flutter regression tests cover both locales.
+
+
+## Phase 5 progression evidence audit — 2026-11-12
+
+Three criteria are newly passed after source, unit-test and PostgreSQL integration review:
+
+- **5.3-B — Permanent levels/curve:** the XP curve is cumulative and levels are permanent. The unit tests verify the configured level-100 threshold (79,439 XP), boundary behavior, and that a quit penalty cannot reduce a stored level.
+- **5.3-C — Elo/leaderboard:** the Elo update is zero-sum and tested across rating gaps. Integration coverage verifies server-side rating updates, leaderboard projections, weekly scoring, and exclusion of unfinished or winner-ambiguous matches.
+- **5.3-E — Retry/audit:** progression events have a database uniqueness key per match/event/player and are inserted with conflict-safe semantics. Integration coverage verifies exactly one event per participant and no duplicate XP after replaying a stale winning move.
+
+Exact-head evidence: PR #249 commit `8213864977b57b73e88bc0bad49f976631b662f2`; API validation run `43183126874` and PostgreSQL integration run `43183126917` passed for progression curve, Elo/leaderboard and retry/audit. The 2026-11-12 main-branch audit also passes **6.2-A through 6.2-D** and **6.3-A, 6.3-B, 6.3-E** using owner-protection, signed configuration, permission matrix and delegate-ceiling source/tests; exact-head PostgreSQL integration run `43193843382` passed. **6.3-C** remains Pending until open PR #258 adds explicit revocation/kill-switch audit assertions; **6.3-D** remains Pending because the dormant voice-message setting authorization is not implemented. Agent criteria in open PR #249 remain unscored until integrated into `main`. **5.3-A** remains Pending until resignation XP regression tests in open PRs #252/#254 are integrated; **5.3-D** (ties/draws/unfinished outcomes) remains Pending. This audit does not claim offline device acceptance or production release readiness.
+
+## Phase roll-up — 2026-11-12
+
+| WBS phase | Total weight | Passed criteria | Earned points | Progress |
+| --- | ---: | ---: | ---: | ---: |
+| Phase 1 — Architecture and project management | 80 | 11/16 | 55 | 68.75% |
+| Phase 2 | 130 | 22/26 | 110 | 84.62% |
+| Phase 3 | 230 | 30/46 | 150 | 65.22% |
+| Phase 4 | 120 | 22/24 | 110 | 91.67% |
+| Phase 5 | 140 | 22/28 | 110 | 78.57% |
+| Phase 6 | 140 | 14/28 | 70 | 50.00% |
+| Phase 7 | 160 | 5/32 | 25 | 15.63% |
+| **Total** | **1,000** | **126/200** | **630** | **63.00%** |
+
