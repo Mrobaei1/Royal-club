@@ -2451,6 +2451,34 @@ app.get<{ Params: { id: string } }>('/api/v1/admin/leagues/:id/report', { onRequ
   return { league: league.rows[0], participants: participants.rows, rounds: rounds.rows, appeals: appeals.rows, matches: matches.rows };
 });
 
+app.get<{ Params: { id: string }; Querystring: { limit?: string; beforeId?: string } }>('/api/v1/admin/leagues/:id/audit', { onRequest: [requireOwnerAuth] }, async (request, reply) => {
+  const id = request.params.id;
+  if (!isNumericId(id)) return reply.code(400).send({ error: 'Invalid league id.' });
+  const limit = request.query.limit === undefined ? 50 : Number(request.query.limit);
+  const beforeId = request.query.beforeId;
+  if (!Number.isInteger(limit) || limit < 1 || limit > 100 ||
+      (beforeId !== undefined && !isNumericId(beforeId))) {
+    return reply.code(400).send({ error: 'Invalid league audit pagination.' });
+  }
+  const league = await pool.query('SELECT id FROM leagues WHERE id = $1', [id]);
+  if (!league.rowCount) return reply.code(404).send({ error: 'League not found.' });
+  const result = await pool.query(
+    `SELECT id::text AS "id", actor_user_id::text AS "actorUserId", action, details,
+            created_at AS "createdAt"
+       FROM league_admin_audit_log
+      WHERE league_id = $1 AND ($2::bigint IS NULL OR id < $2::bigint)
+      ORDER BY id DESC
+      LIMIT $3`,
+    [id, beforeId ?? null, limit + 1],
+  );
+  const hasMore = result.rows.length > limit;
+  const entries = result.rows.slice(0, limit);
+  return {
+    entries,
+    nextBeforeId: hasMore ? entries[entries.length - 1]?.id ?? null : null,
+  };
+});
+
 app.patch<{ Params: { id: string }; Body: { status?: string; winnerId?: string | number | null; score?: unknown; incidentNote?: string; replacementAt?: string | null } }>('/api/v1/admin/league-matches/:id', { onRequest: [requireOwnerStepUp] }, async (request, reply) => {
   const id = request.params.id, body = request.body ?? {};
   if (!isNumericId(id) || !['completed','double_absent','technical_issue','rescheduled','in_progress'].includes(body.status ?? '')) return reply.code(400).send({ error: 'Invalid league match update.' });
