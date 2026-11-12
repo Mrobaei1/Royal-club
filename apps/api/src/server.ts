@@ -303,6 +303,23 @@ await pool.query(`
   );
   INSERT INTO admin_permission_settings (id, enabled) VALUES (1, FALSE) ON CONFLICT (id) DO NOTHING;
 
+  -- Voice messaging remains disabled by default; this setting is owner-controlled only.
+  CREATE TABLE IF NOT EXISTS voice_message_settings (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    enabled BOOLEAN NOT NULL DEFAULT FALSE,
+    updated_by BIGINT REFERENCES users(id) ON DELETE SET NULL,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+  INSERT INTO voice_message_settings (id, enabled) VALUES (1, FALSE) ON CONFLICT (id) DO NOTHING;
+  CREATE TABLE IF NOT EXISTS voice_message_settings_audit_log (
+    id BIGSERIAL PRIMARY KEY,
+    actor_user_id BIGINT REFERENCES users(id) ON DELETE SET NULL,
+    enabled BOOLEAN NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+  CREATE INDEX IF NOT EXISTS voice_message_settings_audit_time_idx
+    ON voice_message_settings_audit_log (created_at DESC);
+
   CREATE TABLE IF NOT EXISTS admin_permission_grants (
     id BIGSERIAL PRIMARY KEY,
     grantee_user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -2808,6 +2825,46 @@ app.patch<{ Body: { enabled?: boolean } }>('/api/v1/admin/permissions/settings',
   } finally {
     client.release();
   }
+});
+
+app.get('/api/v1/admin/voice-messages/settings', { onRequest: [requireOwnerAuth] }, async () => {
+  const result = await pool.query(
+    'SELECT enabled, updated_at AS "updatedAt", u.username AS "updatedBy" FROM voice_message_settings s LEFT JOIN users u ON u.id = s.updated_by WHERE s.id = 1',
+  );
+  return { settings: result.rows[0] ?? { enabled: false } };
+});
+
+app.patch<{ Body: { enabled?: boolean } }>('/api/v1/admin/voice-messages/settings', { onRequest: [requireOwnerStepUp] }, async (request, reply) => {
+  const enabled = request.body?.enabled;
+  if (typeof enabled !== 'boolean') return reply.code(400).send({ error: 'Provide an enabled boolean.' });
+  const claims = request.user as { sub?: string };
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const result = await client.query(
+      'UPDATE voice_message_settings SET enabled = $1, updated_by = $2, updated_at = NOW() WHERE id = 1 RETURNING enabled, updated_at AS "updatedAt"',
+      [enabled, claims.sub ?? null],
+    );
+    await client.query(
+      'INSERT INTO voice_message_settings_audit_log (actor_user_id, enabled) VALUES ($1, $2)',
+      [claims.sub ?? null, enabled],
+    );
+    await client.query('COMMIT');
+    return { ok: true, settings: result.rows[0] };
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    request.log.error({ err: error }, 'Could not update voice-message settings');
+    return reply.code(500).send({ error: 'Could not update voice-message settings.' });
+  } finally {
+    client.release();
+  }
+});
+
+app.get('/api/v1/admin/voice-messages/audit', { onRequest: [requireOwnerAuth] }, async () => {
+  const result = await pool.query(
+    'SELECT id::text AS id, actor_user_id::text AS "actorUserId", enabled, created_at AS "createdAt" FROM voice_message_settings_audit_log ORDER BY id DESC LIMIT 50',
+  );
+  return { entries: result.rows };
 });
 
 app.get('/api/v1/admin/permissions/grants', { onRequest: [requireOwnerAuth] }, async () => {
