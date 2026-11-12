@@ -49,6 +49,30 @@ class WalletService {
   static Future<Map<String, dynamic>> currentSubscription() => _request('/api/v1/subscriptions/me');
   static const String _pendingPurchaseKeysStorage = 'royal_club_pending_subscription_purchase_keys';
 
+  static final Map<String, Future<Map<String, dynamic>>> _purchaseFlights = {};
+
+  /// Coalesces simultaneous activation taps for the same account and plan.
+  /// Backend idempotency remains authoritative across retries and devices.
+  @visibleForTesting
+  static Future<Map<String, dynamic>> coalescePurchaseRequest(
+    String accountId,
+    String code,
+    Future<Map<String, dynamic>> Function() operation,
+  ) {
+    final flightKey = pendingPurchaseStorageKey(accountId, code);
+    final existing = _purchaseFlights[flightKey];
+    if (existing != null) return existing;
+    late final Future<Map<String, dynamic>> shared;
+    shared = Future<Map<String, dynamic>>.sync(operation).whenComplete(() {
+      if (identical(_purchaseFlights[flightKey], shared)) {
+        _purchaseFlights.remove(flightKey);
+      }
+    });
+    _purchaseFlights[flightKey] = shared;
+    return shared;
+  }
+
+
   /// Extracts the stable account subject from the signed-in JWT for local
   /// storage partitioning only. Authorization is always enforced by the API.
   @visibleForTesting
@@ -130,13 +154,15 @@ class WalletService {
       throw Exception('ابتدا وارد حساب شوید.');
     }
     final accountId = accountIdFromAccessToken(token);
-    final key = await _pendingPurchaseKey(code, accountId);
-    final result = await _request(
-      '/api/v1/subscriptions/activate',
-      headers: {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'},
-      body: {'planCode': code, 'idempotencyKey': key},
-    );
-    await _clearPendingPurchaseKey(code, accountId, key);
-    return result;
+    return coalescePurchaseRequest(accountId, code, () async {
+      final key = await _pendingPurchaseKey(code, accountId);
+      final result = await _request(
+        '/api/v1/subscriptions/activate',
+        headers: {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'},
+        body: {'planCode': code, 'idempotencyKey': key},
+      );
+      await _clearPendingPurchaseKey(code, accountId, key);
+      return result;
+    });
   }
 }
