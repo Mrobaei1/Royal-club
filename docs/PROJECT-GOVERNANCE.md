@@ -77,4 +77,12 @@
 - GitHub documentation says the auto-merge option is available only while a PR cannot yet be merged immediately, such as when required reviews or status checks remain outstanding. Once the PR reaches `CLEAN`, GitHub refuses the auto-merge mutation because there is nothing left to wait for.
 - Attempts on PRs #244, #246, #247, #248 and #249 were made after their checks had already completed and returned `Pull request is in clean status`. This is not proof that the repository auto-merge setting is disabled.
 - The accessible repository rulesets endpoint returned an empty list. Reading classic branch protection for `main` returned HTTP 403 to the current GitHub connection, so the effective branch requirements cannot be confirmed.
-- Do not manually merge as a workaround. For future PRs, verify that `main` requires the relevant CI checks and an independent review; enable auto-merge early, while those required conditions are still pending, so GitHub can merge after they pass. Existing clean PRs cannot be armed through this mutation; they remain open until the owner chooses an authorized merge path.
+- The CI workflows now expose unique canonical job names for branch protection. Configure these required checks on `main`:
+  - `API build and tests (full validation)`
+  - `API integration tests`
+  - `Flutter analyze and tests (full validation)`
+  - `Backgammon engine and AI tests`
+  - `Web Preview build`
+- Do not require the intentionally skipped `deploy` job or the duplicate PR-validation jobs. GitHub warns that duplicate check names across workflows can make required checks ambiguous.
+- Before enabling auto-merge for a PR, complete and record the technical review comment. Then enable auto-merge while at least one required check is still pending; GitHub will merge once all configured required checks pass. An independent approval can also be required if another reviewer is available.
+- Do not manually merge as a workaround. Existing clean PRs cannot be armed through this mutation; they remain open until the owner chooses an authorized merge path or a required gate is made pending again.
