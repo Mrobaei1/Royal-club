@@ -459,6 +459,55 @@ class _AdminScreenState extends State<AdminScreen> {
     }
   }
 
+  Future<void> _cancelAgentProposal(dynamic proposal) async {
+    final reasonController = TextEditingController();
+    final reason = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(appText(context, 'لغو پیشنهاد ایجنت', 'Cancel agent proposal')),
+        content: TextField(
+          controller: reasonController,
+          minLines: 2,
+          maxLines: 4,
+          maxLength: 500,
+          decoration: InputDecoration(
+            labelText: appText(context, 'دلیل لغو (حداقل ۵ نویسه)', 'Cancellation reason (at least 5 characters)'),
+            helperText: appText(context, 'فقط پیشنهادهای در انتظار بررسی قابل لغو هستند.', 'Only proposals awaiting review can be cancelled.'),
+            border: const OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext), child: Text(appText(context, 'بازگشت', 'Back'))),
+          FilledButton(
+            onPressed: () {
+              final value = reasonController.text.trim();
+              if (value.length >= 5 && value.length <= 500) Navigator.pop(dialogContext, value);
+            },
+            child: Text(appText(context, 'لغو پیشنهاد', 'Confirm cancellation')),
+          ),
+        ],
+      ),
+    );
+    reasonController.dispose();
+    if (reason == null || _busy) return;
+    setState(() => _busy = true);
+    try {
+      await AdminService.cancelAgentTaskProposal(proposal['id'].toString(), reason);
+      await _load();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(appText(context,
+            'پیشنهاد لغو و در گزارش ممیزی ثبت شد؛ هیچ اجرایی آغاز نشده است.',
+            'Proposal cancelled and audited; no execution was started.')),
+        ));
+      }
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appError(context, error))));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   Future<void> _rejectAgentProposal(dynamic proposal) async {
     final reasonController = TextEditingController();
     final reason = await showDialog<String>(
@@ -1905,6 +1954,11 @@ class _AdminScreenState extends State<AdminScreen> {
                                       onPressed: _busy ? null : () => _rejectAgentProposal(proposal),
                                       icon: const Icon(Icons.block_outlined),
                                       label: Text(appText(context, 'رد با ثبت دلیل', 'Reject with reason')),
+                                    ),
+                                    OutlinedButton.icon(
+                                      onPressed: _busy ? null : () => _cancelAgentProposal(proposal),
+                                      icon: const Icon(Icons.cancel_outlined),
+                                      label: Text(appText(context, 'لغو پیشنهاد', 'Cancel proposal')),
                                     ),
                                   ],
                                 ),
