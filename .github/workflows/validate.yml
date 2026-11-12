@@ -19,7 +19,7 @@ permissions:
 
 jobs:
   api:
-    name: API build and tests
+    name: API build and tests (full validation)
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -79,7 +79,7 @@ jobs:
       - run: npm run test:integration
 
   flutter:
-    name: Flutter analyze and tests
+    name: Flutter analyze and tests (full validation)
     runs-on: ubuntu-latest
     defaults:
       run:
