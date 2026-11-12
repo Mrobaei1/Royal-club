@@ -194,12 +194,12 @@
 | 6.3-C | Grant/revoke/audit | 5 | Pending | Not audited |
 | 6.3-D | Voice setting authorization | 5 | Pending | Not audited |
 | 6.3-E | Deny-by-default tests | 5 | Pending | Not audited |
-| 6.4-A | Task definitions/capabilities | 5 | Pending | Not audited |
-| 6.4-B | Human approval | 5 | Pending | Not audited |
-| 6.4-C | Run state/cancellation/audit | 5 | Pending | Not audited |
-| 6.4-D | Dormant execution | 5 | Pending | Not audited |
-| 6.5-A | Privileged audit | 5 | Pending | Not audited |
-| 6.5-B | Secret redaction | 5 | Pending | Not audited |
+| 6.4-A | Task definitions/capabilities | 5 | Passed | PR #249 exact HEAD `8213864977b57b73e88bc0bad49f976631b662f2` restricts dormant task capabilities to `read`/`recommend`, requires human approval and rejects `execute`, `approve` or approval-disabled definitions. Owner-only API and admin UI tests passed all exact-head workflows. |
+| 6.4-B | Human approval | 5 | Passed | PR #249 implements owner-step-up approval with reason validation, rate limiting, transactional status transition to `approved_dormant`, audit event and repeated/non-owner rejection tests; approval explicitly leaves runtime disabled and task draft. Exact-head API integration/build and Flutter checks passed. |
+| 6.4-C | Run state/cancellation/audit | 5 | Passed | PR #249 adds owner-only proposal cancellation, draft/paused transitions with mandatory reason, single-transition enforcement, blocked proposals while paused, audit action filters and cursor pagination; integration tests cover cancel/replay, pause/resume and audit events. Exact-head CI passed. |
+| 6.4-D | Dormant execution | 5 | Passed | PR #249 approval and status endpoints return `runtimeEnabled=false`/`executionStarted=false`; tests verify approval leaves proposals `approved_dormant`, task definitions draft/paused and no execution starts. No scheduler, runtime grant or execution endpoint is enabled. Exact-head CI passed. |
+| 6.5-A | Privileged audit | 5 | Passed | PR #249 keeps Agent audit owner-authenticated, validates an action allowlist and limit, supports stable cursor pagination and verifies audit events/actor attribution in PostgreSQL integration tests; Flutter admin UI supports action filtering and load-more. Exact-head CI passed. |
+| 6.5-B | Secret redaction | 5 | Passed | PR #249 recursively redacts secret-like nested keys (password, secret, token, API key, authorization, credentials/private/access keys) in proposal create/list responses while preserving stored JSON and non-sensitive fields; integration tests verify nested redaction and absence of raw secrets in responses. Exact-head CI passed. |
 | 6.5-C | Kill switch | 5 | Pending | Not audited |
 | 6.5-D | Immediate revoke/cancel | 5 | Pending | Not audited |
 | 6.6-A | Agent Center categories | 5 | Pending | Not audited |
@@ -252,9 +252,9 @@
 - Packages decomposed: **53/53**
 - Acceptance criteria: **200**
 - Points represented: **1000/1,000**
-- Earned points currently evidenced: **550/1,000 (55.0%)** — 190 points across Phases 1, 2 and 7, 145 points across 29 verified Phase 3 criteria, 110 points across 22 verified Phase 4 criteria, and 105 points across 21 verified Phase 5 criteria. Evidence is linked criterion-by-criterion below. Remaining gates include Android notification acceptance, social theme/layout/accessibility device acceptance, and two-device/Production release acceptance.
-- Remaining criteria: **90 Pending** (450 points not yet earned).
-- **Official project percentage: 55.0% (550/1,000 points; 110/200 criteria).** This is the evidence-backed WBS score calculated from the phase roll-up immediately below; it is not a claim that all implementation or release acceptance is complete. Pending Android notification acceptance, social theme/layout/accessibility device acceptance, provider deployment portability, NFR target approval, physical VPN/device acceptance, owner-approved retention and application-level disaster recovery remain open.
+- Earned points currently evidenced: **580/1,000 (58.0%)** — 190 points across Phases 1, 2 and 7, 145 points across 29 verified Phase 3 criteria, 110 points across 22 verified Phase 4 criteria, and 105 points across 21 verified Phase 5 criteria and 30 points across 6 verified Phase 6 criteria. Evidence is linked criterion-by-criterion below. Remaining gates include Android notification acceptance, social theme/layout/accessibility device acceptance, and two-device/Production release acceptance.
+- Remaining criteria: **84 Pending** (420 points not yet earned).
+- **Official project percentage: 58.0% (580/1,000 points; 116/200 criteria).** This is the evidence-backed WBS score calculated from the phase roll-up immediately below; it is not a claim that all implementation or release acceptance is complete. Pending Android notification acceptance, social theme/layout/accessibility device acceptance, provider deployment portability, NFR target approval, physical VPN/device acceptance, owner-approved retention and application-level disaster recovery remain open.
 
 ## Required evidence record
 
@@ -277,9 +277,9 @@ The following percentages are calculated directly from the 200 criterion rows in
 | Phase 3 | 230 | 29/46 | 145 | 63.04% |
 | Phase 4 | 120 | 22/24 | 110 | 91.67% |
 | Phase 5 | 140 | 21/28 | 105 | 75.00% |
-| Phase 6 | 140 | 0/28 | 0 | 0.00% |
+| Phase 6 | 140 | 6/28 | 30 | 21.43% |
 | Phase 7 | 160 | 5/32 | 25 | 15.63% |
-| **Total** | **1,000** | **110/200** | **550** | **55.00%** |
+| **Total** | **1,000** | **116/200** | **580** | **58.00%** |
 
 
 
