@@ -151,11 +151,11 @@
 | 5.1-A | Non-transferable credits | 5 | Passed | Integration attempts `POST /api/v1/wallet/transfer`, receives 404, and verifies neither sender nor recipient balance changes and no wallet ledger rows are created. Merged PR #241; exact-head API integration [run 42571306114](https://github.com/Mrobaei1/Royal-club/actions/runs/42571306114) passed. (2026-11-09) |
 | 5.1-B | Auditable ledger | 5 | Passed | Wallet history exposes transaction ID, amount, balance-after, type, description and timestamp; subscription purchase tests verify exact debit and resulting balance, while concurrent purchase tests assert exactly one ledger debit. Exact-head API integration: PR #231 [run 42569482558](https://github.com/Mrobaei1/Royal-club/actions/runs/42569482558) and PR #230 [run 42569680272](https://github.com/Mrobaei1/Royal-club/actions/runs/42569680272) passed. (2026-11-09) |
 | 5.1-C | Atomic balance | 5 | Passed | Exact-head PR #231 (`d0853b4087606b12d46d9a6e2e251a37436d1b77`) disposable-PostgreSQL integration test issues two simultaneous 300-credit purchases against a 300-credit balance; asserts one 200/one 409, zero final balance, exactly one -300 ledger debit and balance_after=0. API integration, API build/tests, Flutter analyze/tests and backgammon audit passed before merge. |
-| 5.1-D | Idempotent concurrency | 5 | Pending | Not audited |
+| 5.1-D | Idempotent concurrency | 5 | Passed | Backend idempotency uses an account-scoped `(user_id, idempotency_key)` primary key and returns the original result on replay; PostgreSQL integration verifies simultaneous same-key requests create one subscription and one wallet debit, while Flutter tests verify account/plan isolation and request coalescing. Exact-head PR #246 `7e1d36d4fcd3277e726eb91c8e7cdd9c88473acd`; API integration, API build, Flutter analyze/tests and engine audit all passed (2026-11-12). |
 | 5.1-E | Owner adjustments | 5 | Passed | Integration verifies owner credit without step-up is denied (403), fresh owner step-up succeeds, and the credited amount/balance-after/type/description are recorded in the audit ledger. Merged PR #241; exact-head API integration [run 42571306114](https://github.com/Mrobaei1/Royal-club/actions/runs/42571306114) passed. (2026-11-09) |
 | 5.2-A | Manager plans | 5 | Passed | PR #192 exact head `02dac555352ea0d70e391168272a24cc44c66299`; owner step-up protected create-plan API/UI; API integration run `42230679256`, API build/tests and Flutter analyze/tests run `42230679251` (2026-11-07). |
 | 5.2-B | Transactional activation | 5 | Passed | Exact-head PR #231 (`d0853b4087606b12d46d9a6e2e251a37436d1b77`) disposable-PostgreSQL integration test asserts only the winning concurrent purchase creates one active subscription; rejected purchase creates no second subscription. API integration, API build/tests, Flutter analyze/tests and backgammon audit passed before merge. |
-| 5.2-C | Expiry/removal | 5 | Pending | Not audited |
+| 5.2-C | Expiry/removal | 5 | Passed | PostgreSQL integration verifies an expired subscription is persisted as `expired` and omitted from the current active-subscription view; deactivated plans disappear from the public catalogue and purchase attempts return 404. Exact-head PR #247 `cf20da1595da73364f14839e0ef85f04d2cfd873`; API integration, API build, Flutter analyze/tests and engine audit all passed (2026-11-12). |
 | 5.2-D | Server-controlled prices | 5 | Passed | Subscription activation sends forged client `priceCredits=1` and `durationDays=1`; API still charges the configured server plan price (300 credits) and applies its configured 30-day duration. Merged PR #241; exact-head API integration [run 42571306114](https://github.com/Mrobaei1/Royal-club/actions/runs/42571306114) passed. (2026-11-09) |
 | 5.3-A | XP policy | 5 | Pending | Not audited |
 | 5.3-B | Permanent levels/curve | 5 | Passed | `apps/api/src/player-progression.ts` and `player-progression.test.ts` verify cumulative XP thresholds, level 100 at 79,439 XP, and permanent levels after XP loss; exact-head API validation CI run `43183126874` passed (PR #249, 2026-11-12). |
@@ -252,9 +252,9 @@
 - Packages decomposed: **53/53**
 - Acceptance criteria: **200**
 - Points represented: **1000/1,000**
-- Earned points currently evidenced: **510/1,000 (51.0%)** — 190 points across Phases 1, 2 and 7, 145 points across 29 verified Phase 3 criteria, 110 points across 22 verified Phase 4 criteria, and 65 points across 13 verified Phase 5 criteria. Evidence is linked criterion-by-criterion below. Remaining gates include subscription purchase idempotency, subscription expiry/removal, Android notification acceptance, social theme/layout/accessibility device acceptance, and two-device/Production release gates.
-- Remaining criteria: **98 Pending** (490 points not yet earned).
-- **Official project percentage: 51.0% (510/1,000 points; 102/200 criteria).** This is the evidence-backed WBS score calculated from the phase roll-up immediately below; it is not a claim that all implementation or release acceptance is complete. Pending subscription purchase idempotency, subscription expiry/removal, Android notification acceptance, social theme/layout/accessibility device acceptance, provider deployment portability, NFR target approval, physical VPN/device acceptance, owner-approved retention and application-level disaster recovery remain open.
+- Earned points currently evidenced: **520/1,000 (52.0%)** — 190 points across Phases 1, 2 and 7, 145 points across 29 verified Phase 3 criteria, 110 points across 22 verified Phase 4 criteria, and 75 points across 15 verified Phase 5 criteria. Evidence is linked criterion-by-criterion below. Remaining gates include subscription purchase idempotency, subscription expiry/removal, Android notification acceptance, social theme/layout/accessibility device acceptance, and two-device/Production release gates.
+- Remaining criteria: **96 Pending** (480 points not yet earned).
+- **Official project percentage: 52.0% (520/1,000 points; 104/200 criteria).** This is the evidence-backed WBS score calculated from the phase roll-up immediately below; it is not a claim that all implementation or release acceptance is complete. Pending Android notification acceptance, social theme/layout/accessibility device acceptance, provider deployment portability, NFR target approval, physical VPN/device acceptance, owner-approved retention and application-level disaster recovery remain open.
 
 ## Required evidence record
 
@@ -276,10 +276,10 @@ The following percentages are calculated directly from the 200 criterion rows in
 | Phase 2 | 130 | 22/26 | 110 | 84.62% |
 | Phase 3 | 230 | 29/46 | 145 | 63.04% |
 | Phase 4 | 120 | 22/24 | 110 | 91.67% |
-| Phase 5 | 140 | 13/28 | 65 | 46.43% |
+| Phase 5 | 140 | 15/28 | 75 | 53.57% |
 | Phase 6 | 140 | 0/28 | 0 | 0.00% |
 | Phase 7 | 160 | 5/32 | 25 | 15.63% |
-| **Total** | **1,000** | **102/200** | **510** | **51.00%** |
+| **Total** | **1,000** | **104/200** | **520** | **52.00%** |
 
 
 
@@ -363,8 +363,8 @@ Exact-head evidence: PR #249 commit `8213864977b57b73e88bc0bad49f976631b662f2`; 
 | Phase 2 | 130 | 22/26 | 110 | 84.62% |
 | Phase 3 | 230 | 29/46 | 145 | 63.04% |
 | Phase 4 | 120 | 22/24 | 110 | 91.67% |
-| Phase 5 | 140 | 13/28 | 65 | 46.43% |
+| Phase 5 | 140 | 15/28 | 75 | 53.57% |
 | Phase 6 | 140 | 0/28 | 0 | 0.00% |
 | Phase 7 | 160 | 5/32 | 25 | 15.63% |
-| **Total** | **1,000** | **102/200** | **510** | **51.00%** |
+| **Total** | **1,000** | **104/200** | **520** | **52.00%** |
 
