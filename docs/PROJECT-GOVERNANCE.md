@@ -19,8 +19,10 @@
 4. Use a dedicated branch and focused PR. Include purpose, WBS IDs, changed surfaces, tests, security/data risks, rollback plan and owner gates.
 5. Require exact-head CI for applicable API build/unit/integration, Flutter analyze/tests, game-engine audit and web preview.
 6. Review the diff for scope, privacy, authorization, migration safety and duplicate/stale branch risk.
-7. Merge only when exact-head checks are green, required acceptance is met and no approval gate is crossed. After merge, verify the merge SHA and refresh the WBS evidence.
-8. Keep production deployment, DB mutation, secret updates, SMS/payment, money movement, agent runtime/schedules, and APK builds outside ordinary code merge authority.
+7. Require a documented technical review with no unresolved blocking findings. The review must cover scope, security, privacy, authorization, data integrity, migration safety and regression coverage.
+8. After the technical review is clean, enable GitHub auto-merge while required CI checks are still pending. GitHub must wait for every configured required check and active branch-protection rule before merging.
+9. If GitHub refuses auto-merge because the PR is already in clean status, a normal merge is permitted only after re-reading the exact PR HEAD, confirming every required check is successful, confirming the documented review has no blocking findings, and verifying the active main ruleset still enforces PR/check requirements. This is a normal protected merge, never an admin bypass or skipped-check merge.
+10. After merge, verify the merge SHA and refresh WBS evidence. Keep production deployment, DB mutation, secret updates, SMS/payment, money movement, agent runtime/schedules, and APK builds outside ordinary code merge authority.
 
 ## WBS scoring and reporting
 
