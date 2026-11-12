@@ -45,3 +45,17 @@
 ## Audit rule
 
 A row moves to accepted only with evidence at the correct layer: source review for architecture, automated tests for deterministic behavior, staging/device evidence for runtime UX/network behavior, and owner approval for privileged/production decisions. This table is a traceability aid, not a substitute for the WBS scoring matrix.
+
+
+## Owner decision — automatic PR merge after CI and technical review (2026-11-11)
+
+| Decision | Authority / date | Status | Implementation consequence |
+|---|---|---|---|
+| Automatically merge only after exact-HEAD CI succeeds and a documented technical review has no blocking findings | Owner instruction, 2026-11-11 | Blocked by GitHub repository rules | `allow_auto_merge=true` is confirmed, but GitHub rejects enablement with `Pull request is in clean status`. Accessible rulesets list is empty; classic branch-protection read is denied to the current connection. Owner must verify/configure the `main` branch rule and required checks/review. Manual merge is not an allowed bypass. |
+
+## Owner decision — Agent implementation starts immediately (2026-11-11)
+
+| Decision | Authority / date | Status | Implementation consequence |
+|---|---|---|---|
+| Implement the Royal Club Agent platform from the current stage through full development | Owner instruction, 2026-11-11 | Confirmed | Agent Center, task/proposal lifecycle, scoped permissions, audit, kill switch, observability and non-operational simulation are active workstreams. |
+| Keep runtime and live privileges disabled until separate approval | Owner instruction and governance boundary, 2026-11-11 | Confirmed | Build code/tests and non-operational simulations only; no live identity/grant, schedule, external message/provider, financial action or production execution without separate explicit approval. |
