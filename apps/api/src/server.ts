@@ -2807,6 +2807,50 @@ app.post<{ Params: { id: string }; Body: { reason?: string } }>(
 );
 
 app.post<{ Params: { id: string }; Body: { reason?: string } }>(
+  '/api/v1/admin/agent-task-proposals/:id/cancel',
+  { onRequest: [requireOwnerStepUp], config: { rateLimit: { max: 20, timeWindow: '1 minute' } } },
+  async (request, reply) => {
+    if (!isNumericId(request.params.id)) return reply.code(400).send({ error: 'Invalid proposal ID.' });
+    const reason = typeof request.body?.reason === 'string' ? request.body.reason.trim() : '';
+    if (reason.length < 5 || reason.length > 500) {
+      return reply.code(400).send({ error: 'Provide a cancellation reason between 5 and 500 characters.' });
+    }
+    const claims = request.user as { sub?: string };
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const cancelled = await client.query(
+        `UPDATE agent_task_proposals
+            SET status = 'cancelled', review_reason = $1, reviewed_by = $2, reviewed_at = NOW()
+          WHERE id = $3 AND status = 'awaiting_review'
+          RETURNING id, task_definition_id AS "taskDefinitionId", status,
+                    review_reason AS "reviewReason", reviewed_at AS "reviewedAt"`,
+        [reason, claims.sub ?? null, request.params.id],
+      );
+      if (!cancelled.rowCount) {
+        await client.query('ROLLBACK');
+        return reply.code(409).send({ error: 'Proposal is missing or no longer awaiting review.' });
+      }
+      await client.query(
+        `INSERT INTO agent_task_audit_log
+          (actor_user_id, task_definition_id, proposal_id, action, result, reason, details)
+         VALUES ($1, $2, $3, 'proposal_cancelled', 'success', $4, $5::jsonb)`,
+        [claims.sub ?? null, cancelled.rows[0].taskDefinitionId, cancelled.rows[0].id, reason,
+          JSON.stringify({ runtimeEnabled: false, decision: 'cancelled' })],
+      );
+      await client.query('COMMIT');
+      return { proposal: cancelled.rows[0], runtimeEnabled: false, executionStarted: false };
+    } catch (error) {
+      await client.query('ROLLBACK').catch(() => undefined);
+      request.log.error({ err: error }, 'Could not cancel dormant agent task proposal');
+      return reply.code(500).send({ error: 'Could not cancel task proposal.' });
+    } finally {
+      client.release();
+    }
+  },
+);
+
+app.post<{ Params: { id: string }; Body: { reason?: string } }>(
   '/api/v1/admin/agent-task-proposals/:id/reject',
   { onRequest: [requireOwnerStepUp], config: { rateLimit: { max: 20, timeWindow: '1 minute' } } },
   async (request, reply) => {
