@@ -33,6 +33,9 @@
 | GET | `/api/v1/admin/agent-task-proposals` |
 | GET | `/api/v1/admin/agent-task-audit` |
 | POST | `/api/v1/admin/agent-task-proposals/:id/reject` |
+| GET | `/api/v1/admin/voice-messages/settings` |
+| PATCH | `/api/v1/admin/voice-messages/settings` |
+| GET | `/api/v1/admin/voice-messages/audit` |
 | GET | `/api/v1/admin/permissions/settings` |
 | PATCH | `/api/v1/admin/permissions/settings` |
 | GET | `/api/v1/admin/permissions/grants` |
