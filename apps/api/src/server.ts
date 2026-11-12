@@ -544,6 +544,8 @@ await pool.query(`
     details JSONB NOT NULL DEFAULT '{}'::jsonb,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   );
+  CREATE INDEX IF NOT EXISTS league_admin_audit_log_league_id_id_idx
+    ON league_admin_audit_log (league_id, id DESC);
   CREATE TABLE IF NOT EXISTS league_rounds (
     id BIGSERIAL PRIMARY KEY,
     league_id BIGINT NOT NULL REFERENCES leagues(id) ON DELETE CASCADE,
