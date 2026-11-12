@@ -25,6 +25,7 @@
 | PATCH | `/api/v1/admin/leagues/:id` |
 | POST | `/api/v1/admin/leagues/:id/schedule` |
 | GET | `/api/v1/admin/leagues/:id/report` |
+| GET | `/api/v1/admin/leagues/:id/audit` |
 | PATCH | `/api/v1/admin/league-matches/:id` |
 | PATCH | `/api/v1/admin/league-appeals/:id` |
 | GET | `/api/v1/admin/agent-templates` |

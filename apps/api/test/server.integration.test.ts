@@ -2051,6 +2051,24 @@ test('subscription purchases debit the wallet atomically and record a ledger ent
     assert.equal(rescheduled.statusCode, 200, rescheduled.body);
     assert.ok(rescheduled.json().match.replacementAt);
 
+    const leagueAuditHistory = await testPool.query(
+      'SELECT action, actor_user_id::text AS actor_id, details FROM league_admin_audit_log WHERE league_id = $1 ORDER BY id',
+      [executionLeagueId],
+    );
+    const leagueAuditActions = leagueAuditHistory.rows.map((row) => row.action);
+    for (const action of ['league_created', 'league_schedule_generated', 'league_round_created', 'league_match_updated', 'league_appeal_resolved']) {
+      assert.ok(leagueAuditActions.includes(action), `Missing league audit action: ${action}`);
+    }
+    assert.ok(leagueAuditHistory.rows.every((row) => row.actor_id === leagueOwner.user.id),
+      'Every league administration event must retain the authenticated owner as its actor.');
+    const matchAuditStatuses = leagueAuditHistory.rows
+      .filter((row) => row.action === 'league_match_updated')
+      .map((row) => row.details.status)
+      .sort();
+    assert.deepEqual(matchAuditStatuses, ['completed', 'rescheduled', 'technical_issue']);
+    const appealAudit = leagueAuditHistory.rows.find((row) => row.action === 'league_appeal_resolved');
+    assert.equal(appealAudit?.details.status, 'rejected');
+
     const knockoutLeagueResponse = await app.inject({
       method: 'POST', url: '/api/v1/admin/leagues', headers: auth(leagueOwner.token),
       payload: { code: 'knockout_approval', name: 'Knockout Approval League', enabled: true, rules: { format: 'knockout', minimumParticipants: 2 } },
@@ -2202,6 +2220,91 @@ test('subscription purchases debit the wallet atomically and record a ledger ent
   }
 });
 
+
+test('league audit history is owner-only, cursor-paginated, and preserves event details', async () => {
+  const previousOwnerId = process.env.OWNER_USER_ID;
+  const owner = await register('League Audit History Owner');
+  const ordinary = await register('League Audit History Ordinary');
+  process.env.OWNER_USER_ID = owner.user.id;
+  try {
+    const created = await app.inject({
+      method: 'POST',
+      url: '/api/v1/admin/leagues',
+      headers: auth(owner.token),
+      payload: {
+        code: `audit_history_${randomUUID().replace(/-/g, '').slice(0, 8)}`,
+        name: 'Audit History League',
+        enabled: false,
+        rules: { minimumParticipants: 2 },
+      },
+    });
+    assert.equal(created.statusCode, 201, created.body);
+    const leagueId = String(created.json().league.id);
+
+    for (const name of ['Audit History League — renamed once', 'Audit History League — renamed twice']) {
+      const updated = await app.inject({
+        method: 'PATCH',
+        url: `/api/v1/admin/leagues/${leagueId}`,
+        headers: auth(owner.token),
+        payload: { name },
+      });
+      assert.equal(updated.statusCode, 200, updated.body);
+    }
+
+    const denied = await app.inject({
+      method: 'GET',
+      url: `/api/v1/admin/leagues/${leagueId}/audit`,
+      headers: auth(ordinary.token),
+    });
+    assert.equal(denied.statusCode, 403, denied.body);
+
+    const invalidLimit = await app.inject({
+      method: 'GET',
+      url: `/api/v1/admin/leagues/${leagueId}/audit?limit=101`,
+      headers: auth(owner.token),
+    });
+    assert.equal(invalidLimit.statusCode, 400, invalidLimit.body);
+    const invalidCursor = await app.inject({
+      method: 'GET',
+      url: `/api/v1/admin/leagues/${leagueId}/audit?beforeId=not-a-number`,
+      headers: auth(owner.token),
+    });
+    assert.equal(invalidCursor.statusCode, 400, invalidCursor.body);
+
+    const firstPage = await app.inject({
+      method: 'GET',
+      url: `/api/v1/admin/leagues/${leagueId}/audit?limit=2`,
+      headers: auth(owner.token),
+    });
+    assert.equal(firstPage.statusCode, 200, firstPage.body);
+    assert.equal(firstPage.json().entries.length, 2);
+    assert.ok(firstPage.json().nextBeforeId);
+    assert.deepEqual(firstPage.json().entries.map((entry: { action: string }) => entry.action),
+      ['league_updated', 'league_updated']);
+    assert.ok(firstPage.json().entries.every((entry: { actorUserId: string }) => entry.actorUserId === owner.user.id));
+
+    const secondPage = await app.inject({
+      method: 'GET',
+      url: `/api/v1/admin/leagues/${leagueId}/audit?limit=2&beforeId=${firstPage.json().nextBeforeId}`,
+      headers: auth(owner.token),
+    });
+    assert.equal(secondPage.statusCode, 200, secondPage.body);
+    assert.equal(secondPage.json().entries.length, 1);
+    assert.equal(secondPage.json().entries[0].action, 'league_created');
+    assert.equal(secondPage.json().entries[0].details.entryMode, 'free');
+    assert.equal(secondPage.json().nextBeforeId, null);
+
+    const missing = await app.inject({
+      method: 'GET',
+      url: '/api/v1/admin/leagues/999999999/audit',
+      headers: auth(owner.token),
+    });
+    assert.equal(missing.statusCode, 404, missing.body);
+  } finally {
+    if (previousOwnerId === undefined) delete process.env.OWNER_USER_ID;
+    else process.env.OWNER_USER_ID = previousOwnerId;
+  }
+});
 
 test('delegated report permissions are owner-granted, resource-scoped, audited, and revocable', async () => {
   const previousOwnerId = process.env.OWNER_USER_ID;

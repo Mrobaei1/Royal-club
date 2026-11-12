@@ -1150,6 +1150,14 @@ class _AdminScreenState extends State<AdminScreen> {
                 icon: const Icon(Icons.add),
                 label: Text(appText(context, 'ساخت دور دستی', 'Create manual round')),
               ),
+            TextButton.icon(
+              onPressed: () {
+                Navigator.pop(dialogContext);
+                _showLeagueAudit(league);
+              },
+              icon: const Icon(Icons.history),
+              label: Text(appText(context, 'سوابق ممیزی', 'Audit history')),
+            ),
             TextButton(onPressed: () => Navigator.pop(dialogContext), child: Text(appText(context, 'بستن', 'Close'))),
           ],
         ),
@@ -1158,6 +1166,121 @@ class _AdminScreenState extends State<AdminScreen> {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appError(context, e))));
     } finally {
       if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _showLeagueAudit(dynamic league) async {
+    final id = league['id']?.toString();
+    if (id == null || id.isEmpty) return;
+    try {
+      final firstPage = await AdminService.leagueAudit(id, limit: 50);
+      if (!mounted) return;
+      final entries = List<dynamic>.from(firstPage['entries'] as List? ?? const []);
+      var nextBeforeId = firstPage['nextBeforeId']?.toString();
+      var loadingMore = false;
+      String? loadError;
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) => StatefulBuilder(
+          builder: (dialogContext, setDialogState) => AlertDialog(
+            title: Text(appText(
+              context,
+              'سوابق ممیزی لیگ: ${league['name'] ?? ''}',
+              'League audit history: ${league['name'] ?? ''}',
+            )),
+            content: SizedBox(
+              width: 560,
+              height: 440,
+              child: Column(
+                children: [
+                  Expanded(
+                    child: entries.isEmpty
+                        ? Center(child: Text(appText(
+                            context,
+                            'هنوز رویدادی برای این لیگ ثبت نشده است.',
+                            'No audit events have been recorded for this league.',
+                          )))
+                        : ListView.separated(
+                            itemCount: entries.length,
+                            separatorBuilder: (_, __) => const Divider(height: 1),
+                            itemBuilder: (context, index) {
+                              final entry = entries[index] as Map;
+                              final details = entry['details'];
+                              return ListTile(
+                                dense: true,
+                                title: Text(entry['action']?.toString() ?? '—'),
+                                subtitle: Text(
+                                  "${appText(context, 'کاربر', 'Actor')}: ${entry['actorUserId'] ?? '—'}"
+                                  '\n${entry['createdAt'] ?? ''}'
+                                  '\n${details is Map ? details : details ?? ''}',
+                                ),
+                              );
+                            },
+                          ),
+                  ),
+                  if (loadError != null)
+                    Align(
+                      alignment: AlignmentDirectional.centerStart,
+                      child: Text(loadError!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                    ),
+                  if (nextBeforeId != null)
+                    Align(
+                      alignment: AlignmentDirectional.center,
+                      child: TextButton.icon(
+                        onPressed: loadingMore ? null : () async {
+                          setDialogState(() {
+                            loadingMore = true;
+                            loadError = null;
+                          });
+                          try {
+                            final nextPage = await AdminService.leagueAudit(
+                              id,
+                              limit: 50,
+                              beforeId: nextBeforeId,
+                            );
+                            if (!dialogContext.mounted) return;
+                            setDialogState(() {
+                              entries.addAll(nextPage['entries'] as List? ?? const []);
+                              nextBeforeId = nextPage['nextBeforeId']?.toString();
+                            });
+                          } catch (error) {
+                            if (dialogContext.mounted) {
+                              setDialogState(() => loadError = appError(context, error));
+                            }
+                          } finally {
+                            if (dialogContext.mounted) {
+                              setDialogState(() => loadingMore = false);
+                            }
+                          }
+                        },
+                        icon: loadingMore
+                            ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                            : const Icon(Icons.expand_more),
+                        label: Text(appText(
+                          context,
+                          loadingMore ? 'در حال دریافت...' : 'رویدادهای قدیمی‌تر',
+                          loadingMore ? 'Loading...' : 'Load older events',
+                        )),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext),
+                child: Text(appText(context, 'بستن', 'Close')),
+              ),
+            ],
+          ),
+        ),
+      );
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(appError(context, error))),
+        );
+      }
     }
   }
 

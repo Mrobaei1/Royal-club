@@ -302,6 +302,25 @@ class AdminService {
   static Future<Map<String, dynamic>> leagueReport(String id) async =>
       await _request('GET', '/api/v1/admin/leagues/$id/report');
 
+  static String leagueAuditPath(
+    String id, {
+    int limit = 50,
+    String? beforeId,
+  }) {
+    final query = <String, String>{'limit': limit.toString()};
+    if (beforeId != null && beforeId.isNotEmpty) query['beforeId'] = beforeId;
+    return '/api/v1/admin/leagues/$id/audit?${Uri(queryParameters: query).query}';
+  }
+
+  static Future<Map<String, dynamic>> leagueAudit(
+    String id, {
+    int limit = 50,
+    String? beforeId,
+  }) async => _request(
+        'GET',
+        leagueAuditPath(id, limit: limit, beforeId: beforeId),
+      );
+
   static Future<Map<String, dynamic>> updateLeagueMatch(String id, {required String status, String? winnerId, Map<String, dynamic>? score, String? incidentNote, String? replacementAt}) async =>
       await _request('PATCH', '/api/v1/admin/league-matches/$id', body: {
         'status': status,
