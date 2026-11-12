@@ -3031,6 +3031,36 @@ test('Phase 4 agent task definitions remain dormant and proposals require human 
     });
     assert.equal(invalidGameTemplate.statusCode, 400, invalidGameTemplate.body);
 
+    const unsafeCapabilityTask = await app.inject({
+      method: 'POST',
+      url: '/api/v1/admin/agent-tasks',
+      headers: auth(owner.token),
+      payload: {
+        code: `unsafe_task_${randomUUID().replace(/-/g, '').slice(0, 10)}`,
+        title: 'Unsafe execution draft',
+        domain: 'analytics',
+        requestedCapabilities: ['read', 'execute'],
+        requiresHumanApproval: true,
+      },
+    });
+    assert.equal(unsafeCapabilityTask.statusCode, 400,
+      'Dormant task definitions must not request execution or approval capabilities.');
+
+    const noHumanApprovalTask = await app.inject({
+      method: 'POST',
+      url: '/api/v1/admin/agent-tasks',
+      headers: auth(owner.token),
+      payload: {
+        code: `no_approval_${randomUUID().replace(/-/g, '').slice(0, 10)}`,
+        title: 'No human approval draft',
+        domain: 'analytics',
+        requestedCapabilities: ['read'],
+        requiresHumanApproval: false,
+      },
+    });
+    assert.equal(noHumanApprovalTask.statusCode, 400,
+      'Every task definition must require human approval.');
+
     const createTask = await app.inject({
       method: 'POST',
       url: '/api/v1/admin/agent-tasks',
