@@ -43,6 +43,8 @@ class _AdminScreenState extends State<AdminScreen> {
   bool _agentTaskRead = true;
   bool _agentTaskRecommend = false;
   bool _delegatedPermissionsEnabled = false;
+  bool _voiceMessagesEnabled = false;
+  List<dynamic> _voiceMessageAudit = [];
   final _email = TextEditingController();
   final _amount = TextEditingController(text: '100');
   final _description = TextEditingController();
@@ -106,7 +108,7 @@ class _AdminScreenState extends State<AdminScreen> {
         if (mounted) setState(() { _owner = false; _loading = false; _error = null; });
         return;
       }
-      final results = await Future.wait([AdminService.plans(), AdminService.reports(), AdminService.smsOtpSettings(), AdminService.permissionSettings(), AdminService.permissionGrants(), AdminService.permissionAudit(), AdminService.leagues()]);
+      final results = await Future.wait([AdminService.plans(), AdminService.reports(), AdminService.smsOtpSettings(), AdminService.permissionSettings(), AdminService.permissionGrants(), AdminService.permissionAudit(), AdminService.leagues(), AdminService.voiceMessageSettings(), AdminService.voiceMessageAudit()]);
       if (!mounted) return;
       final sms = results[2] as Map<String, dynamic>;
       _smsSettings = sms; _smsMode = sms['deliveryMode']?.toString() ?? 'disabled';
@@ -120,7 +122,9 @@ class _AdminScreenState extends State<AdminScreen> {
       final grants = results[4] as List<dynamic>;
       final audit = results[5] as List<dynamic>;
       final leagues = results[6] as List<dynamic>;
-      setState(() { _owner = true; _plans = plans; _reports = reports; _delegatedPermissionsEnabled = permissionSettings['enabled'] == true; _permissionGrants = grants; _permissionAudit = audit; _leagues = leagues; _loading = false; _error = null; });
+      final voiceSettings = results[7] as Map<String, dynamic>;
+      final voiceAudit = results[8] as List<dynamic>;
+      setState(() { _owner = true; _plans = plans; _reports = reports; _delegatedPermissionsEnabled = permissionSettings['enabled'] == true; _permissionGrants = grants; _permissionAudit = audit; _leagues = leagues; _voiceMessagesEnabled = voiceSettings['enabled'] == true; _voiceMessageAudit = voiceAudit; _loading = false; _error = null; });
       try {
         final customizationPricing = await AdminService.accountCustomizationPricing();
         if (mounted) {
@@ -1151,6 +1155,46 @@ class _AdminScreenState extends State<AdminScreen> {
     }
   }
 
+  Future<void> _setVoiceMessagesEnabled(bool enabled) async {
+    if (enabled) {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: Text(appText(dialogContext, 'تنظیم مجوز پیام صوتی', 'Change voice-message policy')),
+          content: Text(appText(
+            dialogContext,
+            'این گزینه فقط سیاست مدیریتی را ثبت می‌کند. مسیر ارسال و دریافت پیام صوتی هنوز پیاده‌سازی نشده و با روشن‌کردن این گزینه برای کاربران فعال نخواهد شد.',
+            'This only records the owner policy. Voice-message sending and receiving are not implemented yet, so enabling this setting will not make voice messages available to users.',
+          )),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: Text(appText(dialogContext, 'انصراف', 'Cancel'))),
+            FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: Text(appText(dialogContext, 'ثبت سیاست', 'Save policy'))),
+          ],
+        ),
+      );
+      if (confirmed != true) return;
+    }
+    setState(() => _busy = true);
+    try {
+      final saved = await AdminService.setVoiceMessagesEnabled(enabled);
+      final audit = await AdminService.voiceMessageAudit();
+      if (!mounted) return;
+      setState(() {
+        _voiceMessagesEnabled = saved['enabled'] == true;
+        _voiceMessageAudit = audit;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(enabled
+          ? appText(context, 'سیاست پیام صوتی ثبت شد؛ ارسال واقعی همچنان پیاده‌سازی نشده است.', 'Voice policy saved; actual messaging remains unimplemented.')
+          : appText(context, 'سیاست پیام صوتی خاموش شد.', 'Voice-message policy disabled.')),
+      ));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appError(context, e))));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   Future<void> _grantPermission(dynamic user) async {
     String selected = 'reports.read';
     final reason = TextEditingController();
@@ -1649,6 +1693,42 @@ class _AdminScreenState extends State<AdminScreen> {
                         tooltip: appText(context, 'ویرایش قوانین', 'Edit rules'),
                         onPressed: _busy ? null : () => _editLeague(league),
                         icon: const Icon(Icons.edit_outlined),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(appText(context, 'سیاست پیام صوتی', 'Voice-message policy'), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 4),
+                      Text(appText(context, 'این کنترل فقط در اختیار مالک است. قابلیت ارسال و دریافت پیام صوتی هنوز پیاده‌سازی نشده و به‌صورت پیش‌فرض خاموش می‌ماند.', 'Owner-only control. Voice-message sending and receiving are not implemented yet; the policy defaults to off.'), style: const TextStyle(fontSize: 12)),
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: Text(appText(context, 'اجازه پیام صوتی در سیاست آینده', 'Allow voice messages in future policy')),
+                        subtitle: Text(_voiceMessagesEnabled
+                          ? appText(context, 'سیاست روشن است؛ مسیر ارسال هنوز وجود ندارد.', 'Policy is on; no sending route exists yet.')
+                          : appText(context, 'خاموش — پیام صوتی برای کاربران در دسترس نیست.', 'Off — voice messages are unavailable to users.')),
+                        value: _voiceMessagesEnabled,
+                        onChanged: _busy ? null : _setVoiceMessagesEnabled,
+                      ),
+                      if (_voiceMessageAudit.isNotEmpty) ExpansionTile(
+                        tilePadding: EdgeInsets.zero,
+                        title: Text(appText(context, 'سوابق تغییر سیاست', 'Policy change history')),
+                        children: [
+                          for (final entry in _voiceMessageAudit.take(10))
+                            ListTile(
+                              dense: true,
+                              title: Text((entry['enabled'] == true)
+                                ? appText(context, 'سیاست روشن شد', 'Policy enabled')
+                                : appText(context, 'سیاست خاموش شد', 'Policy disabled')),
+                              subtitle: Text('${entry['actorUserId'] ?? '—'} · ${entry['createdAt'] ?? ''}'),
+                            ),
+                        ],
                       ),
                     ],
                   ),

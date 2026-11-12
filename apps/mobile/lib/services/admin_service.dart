@@ -112,6 +112,15 @@ class AdminService {
     await _request('POST', '/api/v1/admin/agent-task-proposals/$id/reject', body: {'reason': reason});
   }
 
+  static Future<Map<String, dynamic>> voiceMessageSettings() async =>
+      (await _request('GET', '/api/v1/admin/voice-messages/settings'))['settings'] as Map<String, dynamic>;
+
+  static Future<Map<String, dynamic>> setVoiceMessagesEnabled(bool enabled) async =>
+      (await _request('PATCH', '/api/v1/admin/voice-messages/settings', body: {'enabled': enabled}))['settings'] as Map<String, dynamic>;
+
+  static Future<List<dynamic>> voiceMessageAudit() async =>
+      (await _request('GET', '/api/v1/admin/voice-messages/audit'))['entries'] as List<dynamic>? ?? [];
+
   static Future<Map<String, dynamic>> permissionSettings() async =>
       (await _request('GET', '/api/v1/admin/permissions/settings'))['settings'] as Map<String, dynamic>;
 
