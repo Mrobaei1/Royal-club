@@ -151,7 +151,7 @@
 | 5.1-A | Non-transferable credits | 5 | Passed | Integration attempts `POST /api/v1/wallet/transfer`, receives 404, and verifies neither sender nor recipient balance changes and no wallet ledger rows are created. Merged PR #241; exact-head API integration [run 42571306114](https://github.com/Mrobaei1/Royal-club/actions/runs/42571306114) passed. (2026-11-09) |
 | 5.1-B | Auditable ledger | 5 | Passed | Wallet history exposes transaction ID, amount, balance-after, type, description and timestamp; subscription purchase tests verify exact debit and resulting balance, while concurrent purchase tests assert exactly one ledger debit. Exact-head API integration: PR #231 [run 42569482558](https://github.com/Mrobaei1/Royal-club/actions/runs/42569482558) and PR #230 [run 42569680272](https://github.com/Mrobaei1/Royal-club/actions/runs/42569680272) passed. (2026-11-09) |
 | 5.1-C | Atomic balance | 5 | Passed | Exact-head PR #231 (`d0853b4087606b12d46d9a6e2e251a37436d1b77`) disposable-PostgreSQL integration test issues two simultaneous 300-credit purchases against a 300-credit balance; asserts one 200/one 409, zero final balance, exactly one -300 ledger debit and balance_after=0. API integration, API build/tests, Flutter analyze/tests and backgammon audit passed before merge. |
-| 5.1-D | Idempotent concurrency | 5 | Pending | Account-scoped idempotency implementation and PostgreSQL/Flutter regression tests are in rebased PR #260; old PR #246 was closed as superseded after the expiry changes were preserved. Do not award WBS credit until #260 is integrated into `main`. |
+| 5.1-D | Idempotent concurrency | 5 | Passed | PR #260 exact HEAD `4d0c0ef6fff2eda5065ddcc202a0245d08601b9d`: transactional `(user_id, idempotency_key)` reservation and original-response replay; PostgreSQL tests cover concurrent same-key retry, one wallet debit/ledger/subscription, plan mismatch, and client identity/plan-scoped keys. Exact-head API integration [run 43257858267](https://github.com/Mrobaei1/Royal-club/actions/runs/43257858267/job/131321033557), API build, Flutter and Backgammon checks passed; merged into main as `7b77dc6c4b31202f20eacc478728b87f2d0c80e2` (2026-11-12). |
 | 5.1-E | Owner adjustments | 5 | Passed | Integration verifies owner credit without step-up is denied (403), fresh owner step-up succeeds, and the credited amount/balance-after/type/description are recorded in the audit ledger. Merged PR #241; exact-head API integration [run 42571306114](https://github.com/Mrobaei1/Royal-club/actions/runs/42571306114) passed. (2026-11-09) |
 | 5.2-A | Manager plans | 5 | Passed | PR #192 exact head `02dac555352ea0d70e391168272a24cc44c66299`; owner step-up protected create-plan API/UI; API integration run `42230679256`, API build/tests and Flutter analyze/tests run `42230679251` (2026-11-07). |
 | 5.2-B | Transactional activation | 5 | Passed | Exact-head PR #231 (`d0853b4087606b12d46d9a6e2e251a37436d1b77`) disposable-PostgreSQL integration test asserts only the winning concurrent purchase creates one active subscription; rejected purchase creates no second subscription. API integration, API build/tests, Flutter analyze/tests and backgammon audit passed before merge. |
@@ -252,9 +252,9 @@
 - Packages decomposed: **53/53**
 - Acceptance criteria: **200**
 - Points represented: **1000/1,000**
-- Earned points currently evidenced: **600/1,000 (60.0%)** — 190 points across Phases 1, 2 and 7, 150 points across 30 verified Phase 3 criteria, 110 points across 22 verified Phase 4 criteria, 105 points across 21 verified Phase 5 criteria, and 45 points across 9 verified Phase 6 criteria. Evidence is linked criterion-by-criterion below. Remaining gates include Android notification acceptance, social theme/layout/accessibility device acceptance, and two-device/Production release acceptance.
+- Earned points currently evidenced: **605/1,000 (60.5%)** — 190 points across Phases 1, 2 and 7, 150 points across 30 verified Phase 3 criteria, 110 points across 22 verified Phase 4 criteria, 110 points across 22 verified Phase 5 criteria, and 45 points across 9 verified Phase 6 criteria. Evidence is linked criterion-by-criterion below. Remaining gates include Android notification acceptance, social theme/layout/accessibility device acceptance, and two-device/Production release acceptance.
 - Remaining criteria: **86 Pending** (430 points not yet earned).
-- **Proposed project percentage for this PR: 60.0% (600/1,000 points; 120/200 criteria).** This is the evidence-backed WBS score calculated from the phase roll-up immediately below; it is not a claim that all implementation or release acceptance is complete. The official `main` score remains 49.5% until this PR is integrated. Pending Android notification acceptance, social theme/layout/accessibility device acceptance, provider deployment portability, NFR target approval, physical VPN/device acceptance, owner-approved retention and application-level disaster recovery remain open.
+- **Proposed project percentage for this PR: 60.5% (605/1,000 points; 121/200 criteria).** This is the evidence-backed WBS score calculated from the phase roll-up immediately below; it is not a claim that all implementation or release acceptance is complete. The official `main` score remains 49.5% until this PR is integrated. Pending Android notification acceptance, social theme/layout/accessibility device acceptance, provider deployment portability, NFR target approval, physical VPN/device acceptance, owner-approved retention and application-level disaster recovery remain open.
 
 ## Required evidence record
 
@@ -276,10 +276,10 @@ The following percentages are calculated directly from the 200 criterion rows in
 | Phase 2 | 130 | 22/26 | 110 | 84.62% |
 | Phase 3 | 230 | 30/46 | 150 | 65.22% |
 | Phase 4 | 120 | 22/24 | 110 | 91.67% |
-| Phase 5 | 140 | 21/28 | 105 | 75.00% |
+| Phase 5 | 140 | 22/28 | 110 | 78.57% |
 | Phase 6 | 140 | 9/28 | 45 | 32.14% |
 | Phase 7 | 160 | 5/32 | 25 | 15.63% |
-| **Total** | **1,000** | **120/200** | **600** | **60.00%** |
+| **Total** | **1,000** | **121/200** | **605** | **60.50%** |
 
 
 
@@ -363,8 +363,8 @@ Exact-head evidence: PR #249 commit `8213864977b57b73e88bc0bad49f976631b662f2`; 
 | Phase 2 | 130 | 22/26 | 110 | 84.62% |
 | Phase 3 | 230 | 30/46 | 150 | 65.22% |
 | Phase 4 | 120 | 22/24 | 110 | 91.67% |
-| Phase 5 | 140 | 21/28 | 105 | 75.00% |
+| Phase 5 | 140 | 22/28 | 110 | 78.57% |
 | Phase 6 | 140 | 9/28 | 45 | 32.14% |
 | Phase 7 | 160 | 5/32 | 25 | 15.63% |
-| **Total** | **1,000** | **120/200** | **600** | **60.00%** |
+| **Total** | **1,000** | **121/200** | **605** | **60.50%** |
 
