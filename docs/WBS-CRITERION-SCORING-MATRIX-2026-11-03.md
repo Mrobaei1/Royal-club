@@ -157,7 +157,7 @@
 | 5.2-B | Transactional activation | 5 | Passed | Exact-head PR #231 (`d0853b4087606b12d46d9a6e2e251a37436d1b77`) disposable-PostgreSQL integration test asserts only the winning concurrent purchase creates one active subscription; rejected purchase creates no second subscription. API integration, API build/tests, Flutter analyze/tests and backgammon audit passed before merge. |
 | 5.2-C | Expiry/removal | 5 | Passed | PostgreSQL integration verifies an expired subscription is persisted as `expired` and omitted from the current active-subscription view; deactivated plans disappear from the public catalogue and purchase attempts return 404. Exact-head PR #247 `cf20da1595da73364f14839e0ef85f04d2cfd873`; API integration, API build, Flutter analyze/tests and engine audit all passed (2026-11-12). |
 | 5.2-D | Server-controlled prices | 5 | Passed | Subscription activation sends forged client `priceCredits=1` and `durationDays=1`; API still charges the configured server plan price (300 credits) and applies its configured 30-day duration. Merged PR #241; exact-head API integration [run 42571306114](https://github.com/Mrobaei1/Royal-club/actions/runs/42571306114) passed. (2026-11-09) |
-| 5.3-A | XP policy | 5 | Pending | Not audited |
+| 5.3-A | XP policy | 5 | Passed | Existing PostgreSQL integration verifies online win +20 XP and loss +5 XP; exact-head PR #252 verifies match resignation winner +20 and quitter -5 with duplicate rejection; exact-head PR #254 verifies cumulative XP across both game- and match-scope resignations, four exactly-once progression events and replay rejection. Offline training remains isolated from network/progression services and awards no XP (merged PR #227/ #243 source and widget evidence). PR #252 exact head `7764a470b7e0465bc063adaba4b1ed294f52ddb0` and PR #254 exact head `f80fc5f821e18b24b154fe3432e052082497f6dc`; all applicable API integration/build, Flutter, engine and Web Preview checks passed (2026-11-12). |
 | 5.3-B | Permanent levels/curve | 5 | Passed | `apps/api/src/player-progression.ts` and `player-progression.test.ts` verify cumulative XP thresholds, level 100 at 79,439 XP, and permanent levels after XP loss; exact-head API validation CI run `43183126874` passed (PR #249, 2026-11-12). |
 | 5.3-C | Elo/leaderboard | 5 | Passed | `backgammon-rating.ts`/tests verify zero-sum Elo; PostgreSQL integration asserts 1016/984 rating updates, global and weekly leaderboard results, and exclusion of unfinished/unresolved matches; exact-head integration CI run `43183126917` passed (PR #249, 2026-11-12). |
 | 5.3-D | Ties/draws/unfinished matches | 5 | Pending | Not audited |
@@ -252,9 +252,9 @@
 - Packages decomposed: **53/53**
 - Acceptance criteria: **200**
 - Points represented: **1000/1,000**
-- Earned points currently evidenced: **520/1,000 (52.0%)** — 190 points across Phases 1, 2 and 7, 145 points across 29 verified Phase 3 criteria, 110 points across 22 verified Phase 4 criteria, and 75 points across 15 verified Phase 5 criteria. Evidence is linked criterion-by-criterion below. Remaining gates include subscription purchase idempotency, subscription expiry/removal, Android notification acceptance, social theme/layout/accessibility device acceptance, and two-device/Production release gates.
-- Remaining criteria: **96 Pending** (480 points not yet earned).
-- **Official project percentage: 52.0% (520/1,000 points; 104/200 criteria).** This is the evidence-backed WBS score calculated from the phase roll-up immediately below; it is not a claim that all implementation or release acceptance is complete. Pending Android notification acceptance, social theme/layout/accessibility device acceptance, provider deployment portability, NFR target approval, physical VPN/device acceptance, owner-approved retention and application-level disaster recovery remain open.
+- Earned points currently evidenced: **525/1,000 (52.5%)** — 190 points across Phases 1, 2 and 7, 145 points across 29 verified Phase 3 criteria, 110 points across 22 verified Phase 4 criteria, and 80 points across 16 verified Phase 5 criteria. Evidence is linked criterion-by-criterion below. Remaining gates include subscription purchase idempotency, subscription expiry/removal, Android notification acceptance, social theme/layout/accessibility device acceptance, and two-device/Production release gates.
+- Remaining criteria: **95 Pending** (475 points not yet earned).
+- **Official project percentage: 52.5% (525/1,000 points; 105/200 criteria).** This is the evidence-backed WBS score calculated from the phase roll-up immediately below; it is not a claim that all implementation or release acceptance is complete. Pending Android notification acceptance, social theme/layout/accessibility device acceptance, provider deployment portability, NFR target approval, physical VPN/device acceptance, owner-approved retention and application-level disaster recovery remain open.
 
 ## Required evidence record
 
@@ -276,10 +276,10 @@ The following percentages are calculated directly from the 200 criterion rows in
 | Phase 2 | 130 | 22/26 | 110 | 84.62% |
 | Phase 3 | 230 | 29/46 | 145 | 63.04% |
 | Phase 4 | 120 | 22/24 | 110 | 91.67% |
-| Phase 5 | 140 | 15/28 | 75 | 53.57% |
+| Phase 5 | 140 | 16/28 | 80 | 57.14% |
 | Phase 6 | 140 | 0/28 | 0 | 0.00% |
 | Phase 7 | 160 | 5/32 | 25 | 15.63% |
-| **Total** | **1,000** | **104/200** | **520** | **52.00%** |
+| **Total** | **1,000** | **105/200** | **525** | **52.50%** |
 
 
 
