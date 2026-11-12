@@ -167,7 +167,7 @@
 | 5.4-C | Fixtures/byes/rest fairness | 5 | Passed | Five-player round-robin integration creates five byes and ten unique pairings; after completion each player has four games and exactly one rest round. The same test asserts aggregate fixture/rest counts. Exact-head PR #254 API integration run `43185436608` passed. |
 | 5.4-D | Results/finals | 5 | Passed | Integration saves a completed match result and verifies knockout final creation is rejected without manager approval and accepted only when `managerApproved=true`. Exact-head PR #254 API integration run `43185436608` passed. |
 | 5.4-E | Appeals/incidents/reschedule | 5 | Passed | Integration submits a participant appeal after a completed match, records the manager's rejection, records a technical issue, then reschedules with a validated future replacement time. Exact-head PR #254 API integration run `43185436608` passed. |
-| 5.4-F | Audit history | 5 | Pending | Not audited |
+| 5.4-F | Audit history | 5 | Passed | PR #255 exact HEAD `0c5b98f9b01248428e5e9fd4b55770b1c6c3a500` verifies league-created, schedule-generated, round-created, match-updated and appeal-resolved events, actor attribution and event details in PostgreSQL. PR #256 exact HEAD `c3ff43218dbccb4af50d652f4b1611b9137b1863` adds owner-only read access, bounded cursor pagination, validation, event detail projection and a `(league_id,id DESC)` index; API build/integration, Flutter, engine and Web Preview checks passed on both exact heads. |
 | 5.4-G | Manager UI acceptance | 5 | Pending | Not audited |
 | 5.5-A | Free-by-default entry | 5 | Passed | Owner-created league defaults to `entryMode=free` and `subscriptionDaysCost=0`; integration confirms free entry succeeds and wallet balance remains unchanged. PR #230 exact-head API integration [run 42569680272](https://github.com/Mrobaei1/Royal-club/actions/runs/42569680272) passed. (2026-11-09) |
 | 5.5-B | Dedicated entitlement ledger | 5 | Passed | Subscription-day league entry records one dedicated `league_entitlement_ledger` row with the exact days consumed and before/after subscription expiry. PR #230 exact-head API integration [run 42569680272](https://github.com/Mrobaei1/Royal-club/actions/runs/42569680272) passed. (2026-11-09) |
@@ -252,9 +252,9 @@
 - Packages decomposed: **53/53**
 - Acceptance criteria: **200**
 - Points represented: **1000/1,000**
-- Earned points currently evidenced: **580/1,000 (58.0%)** — 190 points across Phases 1, 2 and 7, 145 points across 29 verified Phase 3 criteria, 110 points across 22 verified Phase 4 criteria, and 105 points across 21 verified Phase 5 criteria and 30 points across 6 verified Phase 6 criteria. Evidence is linked criterion-by-criterion below. Remaining gates include Android notification acceptance, social theme/layout/accessibility device acceptance, and two-device/Production release acceptance.
-- Remaining criteria: **84 Pending** (420 points not yet earned).
-- **Official project percentage: 58.0% (580/1,000 points; 116/200 criteria).** This is the evidence-backed WBS score calculated from the phase roll-up immediately below; it is not a claim that all implementation or release acceptance is complete. Pending Android notification acceptance, social theme/layout/accessibility device acceptance, provider deployment portability, NFR target approval, physical VPN/device acceptance, owner-approved retention and application-level disaster recovery remain open.
+- Earned points currently evidenced: **585/1,000 (58.5%)** — 190 points across Phases 1, 2 and 7, 145 points across 29 verified Phase 3 criteria, 110 points across 22 verified Phase 4 criteria, and 110 points across 22 verified Phase 5 criteria and 30 points across 6 verified Phase 6 criteria. Evidence is linked criterion-by-criterion below. Remaining gates include Android notification acceptance, social theme/layout/accessibility device acceptance, and two-device/Production release acceptance.
+- Remaining criteria: **83 Pending** (415 points not yet earned).
+- **Official project percentage: 58.5% (585/1,000 points; 117/200 criteria).** This is the evidence-backed WBS score calculated from the phase roll-up immediately below; it is not a claim that all implementation or release acceptance is complete. Pending Android notification acceptance, social theme/layout/accessibility device acceptance, provider deployment portability, NFR target approval, physical VPN/device acceptance, owner-approved retention and application-level disaster recovery remain open.
 
 ## Required evidence record
 
@@ -276,10 +276,10 @@ The following percentages are calculated directly from the 200 criterion rows in
 | Phase 2 | 130 | 22/26 | 110 | 84.62% |
 | Phase 3 | 230 | 29/46 | 145 | 63.04% |
 | Phase 4 | 120 | 22/24 | 110 | 91.67% |
-| Phase 5 | 140 | 21/28 | 105 | 75.00% |
+| Phase 5 | 140 | 22/28 | 110 | 78.57% |
 | Phase 6 | 140 | 6/28 | 30 | 21.43% |
 | Phase 7 | 160 | 5/32 | 25 | 15.63% |
-| **Total** | **1,000** | **116/200** | **580** | **58.00%** |
+| **Total** | **1,000** | **117/200** | **585** | **58.50%** |
 
 
 
