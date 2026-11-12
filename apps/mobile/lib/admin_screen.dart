@@ -30,6 +30,9 @@ class _AdminScreenState extends State<AdminScreen> {
   List<dynamic> _agentTasks = [];
   List<dynamic> _agentAudit = [];
   bool _agentAuditUnavailable = false;
+  bool _agentAuditLoadingMore = false;
+  String? _agentAuditNextCursor;
+  String _agentAuditActionFilter = 'all';
   List<dynamic> _agentRoleTemplates = [];
   Map<String, dynamic>? _futureGameAgentTemplate;
   bool _agentTemplatesUnavailable = false;
@@ -287,6 +290,33 @@ class _AdminScreenState extends State<AdminScreen> {
     }
   }
 
+  Future<void> _loadAgentAudit({bool reset = false}) async {
+    if (_agentAuditLoadingMore) return;
+    if (mounted) setState(() => _agentAuditLoadingMore = true);
+    try {
+      final page = await AdminService.agentTaskAuditPage(
+        action: _agentAuditActionFilter == 'all' ? null : _agentAuditActionFilter,
+        cursor: reset ? null : _agentAuditNextCursor,
+        limit: 30,
+      );
+      final entries = page['entries'] as List<dynamic>? ?? const [];
+      if (!mounted) return;
+      setState(() {
+        _agentAudit = reset ? entries : [..._agentAudit, ...entries];
+        _agentAuditNextCursor = page['nextCursor']?.toString();
+        _agentAuditUnavailable = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() {
+        if (reset) _agentAudit = [];
+        _agentAuditNextCursor = null;
+        _agentAuditUnavailable = true;
+      });
+    } finally {
+      if (mounted) setState(() => _agentAuditLoadingMore = false);
+    }
+  }
+
   Future<void> _loadAgentTaskProposals() async {
     try {
       final proposals = await AdminService.agentTaskProposals();
@@ -294,12 +324,7 @@ class _AdminScreenState extends State<AdminScreen> {
     } catch (_) {
       if (mounted) setState(() { _agentTaskProposals = []; _agentProposalsUnavailable = true; });
     }
-    try {
-      final audit = await AdminService.agentTaskAudit();
-      if (mounted) setState(() { _agentAudit = audit; _agentAuditUnavailable = false; });
-    } catch (_) {
-      if (mounted) setState(() { _agentAudit = []; _agentAuditUnavailable = true; });
-    }
+    await _loadAgentAudit(reset: true);
     try {
       final tasks = await AdminService.agentTasks();
       if (mounted) setState(() { _agentTasks = tasks; _agentTasksUnavailable = false; });
@@ -405,6 +430,157 @@ class _AdminScreenState extends State<AdminScreen> {
           content: Text(appText(context,
             'تعریف وظیفه به‌صورت پیش‌نویس ذخیره شد؛ اجرای خودکار غیرفعال است.',
             'Task definition saved as a draft; automatic execution remains disabled.')),
+        ));
+      }
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appError(context, error))));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _setAgentTaskStatus(dynamic task) async {
+    final currentStatus = task['status']?.toString() ?? 'draft';
+    final nextStatus = currentStatus == 'paused' ? 'draft' : 'paused';
+    final reasonController = TextEditingController();
+    final reason = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(appText(context,
+          nextStatus == 'paused' ? 'توقف پیش‌نویس وظیفه' : 'بازگشت به پیش‌نویس',
+          nextStatus == 'paused' ? 'Pause task draft' : 'Resume task draft')),
+        content: TextField(
+          controller: reasonController,
+          minLines: 2,
+          maxLines: 4,
+          maxLength: 500,
+          decoration: InputDecoration(
+            labelText: appText(context, 'دلیل تغییر وضعیت (حداقل ۵ نویسه)', 'Status-change reason (at least 5 characters)'),
+            helperText: appText(context, 'این تغییر فقط وضعیت پیش‌نویس را عوض می‌کند و هیچ اجرایی فعال نمی‌شود.', 'This only changes the draft status; it never enables execution.'),
+            border: const OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext), child: Text(appText(context, 'انصراف', 'Cancel'))),
+          FilledButton(
+            onPressed: () {
+              final value = reasonController.text.trim();
+              if (value.length >= 5 && value.length <= 500) Navigator.pop(dialogContext, value);
+            },
+            child: Text(appText(context, nextStatus == 'paused' ? 'توقف' : 'بازگشت به پیش‌نویس', nextStatus == 'paused' ? 'Pause' : 'Resume draft')),
+          ),
+        ],
+      ),
+    );
+    reasonController.dispose();
+    if (reason == null || _busy) return;
+    setState(() => _busy = true);
+    try {
+      await AdminService.setAgentTaskStatus(task['id'].toString(), nextStatus, reason);
+      await _loadAgentTaskProposals();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(appText(context,
+            nextStatus == 'paused' ? 'پیش‌نویس متوقف شد.' : 'وظیفه به وضعیت پیش‌نویس برگشت.',
+            nextStatus == 'paused' ? 'Task draft paused.' : 'Task returned to draft.')),
+        ));
+      }
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appError(context, error))));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _approveAgentProposal(dynamic proposal) async {
+    final reasonController = TextEditingController();
+    final reason = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(appText(context, 'تأیید پیش‌نویس ایجنت', 'Approve dormant agent proposal')),
+        content: TextField(
+          controller: reasonController,
+          minLines: 2,
+          maxLines: 4,
+          maxLength: 500,
+          decoration: InputDecoration(
+            labelText: appText(context, 'دلیل تأیید (حداقل ۵ نویسه)', 'Approval reason (at least 5 characters)'),
+            helperText: appText(context, 'تأیید فقط ثبت می‌شود و اجرای ایجنت را فعال نمی‌کند.', 'Approval is recorded only; it does not enable agent execution.'),
+            border: const OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext), child: Text(appText(context, 'انصراف', 'Cancel'))),
+          FilledButton(
+            onPressed: () {
+              final value = reasonController.text.trim();
+              if (value.length >= 5 && value.length <= 500) Navigator.pop(dialogContext, value);
+            },
+            child: Text(appText(context, 'تأیید بدون اجرا', 'Approve without execution')),
+          ),
+        ],
+      ),
+    );
+    reasonController.dispose();
+    if (reason == null || _busy) return;
+    setState(() => _busy = true);
+    try {
+      await AdminService.approveAgentTaskProposal(proposal['id'].toString(), reason);
+      await _load();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(appText(context,
+            'پیشنهاد تأیید و ثبت ممیزی شد؛ اجرای ایجنت همچنان خاموش است.',
+            'Proposal approved and audited; agent execution remains disabled.')),
+        ));
+      }
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appError(context, error))));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _cancelAgentProposal(dynamic proposal) async {
+    final reasonController = TextEditingController();
+    final reason = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(appText(context, 'لغو پیشنهاد ایجنت', 'Cancel agent proposal')),
+        content: TextField(
+          controller: reasonController,
+          minLines: 2,
+          maxLines: 4,
+          maxLength: 500,
+          decoration: InputDecoration(
+            labelText: appText(context, 'دلیل لغو (حداقل ۵ نویسه)', 'Cancellation reason (at least 5 characters)'),
+            helperText: appText(context, 'فقط پیشنهادهای در انتظار بررسی قابل لغو هستند.', 'Only proposals awaiting review can be cancelled.'),
+            border: const OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext), child: Text(appText(context, 'بازگشت', 'Back'))),
+          FilledButton(
+            onPressed: () {
+              final value = reasonController.text.trim();
+              if (value.length >= 5 && value.length <= 500) Navigator.pop(dialogContext, value);
+            },
+            child: Text(appText(context, 'لغو پیشنهاد', 'Confirm cancellation')),
+          ),
+        ],
+      ),
+    );
+    reasonController.dispose();
+    if (reason == null || _busy) return;
+    setState(() => _busy = true);
+    try {
+      await AdminService.cancelAgentTaskProposal(proposal['id'].toString(), reason);
+      await _load();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(appText(context,
+            'پیشنهاد لغو و در گزارش ممیزی ثبت شد؛ هیچ اجرایی آغاز نشده است.',
+            'Proposal cancelled and audited; no execution was started.')),
         ));
       }
     } catch (error) {
@@ -1904,7 +2080,13 @@ class _AdminScreenState extends State<AdminScreen> {
                             dense: true,
                             title: Text(task['title']?.toString() ?? task['code']?.toString() ?? ''),
                             subtitle: Text('${task['domain'] ?? ''} · ${task['status'] ?? 'draft'}'),
-                            trailing: const Icon(Icons.lock_outline),
+                            trailing: IconButton(
+                              tooltip: appText(context,
+                                task['status'] == 'paused' ? 'بازگشت به پیش‌نویس' : 'توقف پیش‌نویس',
+                                task['status'] == 'paused' ? 'Resume draft' : 'Pause draft'),
+                              onPressed: _busy ? null : () => _setAgentTaskStatus(task),
+                              icon: Icon(task['status'] == 'paused' ? Icons.play_arrow_outlined : Icons.pause_circle_outline),
+                            ),
                           ),
                       const Divider(height: 24),
                       Text(appText(context, 'پیشنهادهای در انتظار بررسی', 'Proposals awaiting review'), style: const TextStyle(fontWeight: FontWeight.bold)),
@@ -1922,13 +2104,27 @@ class _AdminScreenState extends State<AdminScreen> {
                                 Text('${appText(context, 'شناسه', 'ID')}: ${proposal['id']}'),
                                 Text('${appText(context, 'تاریخ', 'Created')}: ${proposal['createdAt'] ?? ''}'),
                                 if (proposal['input'] != null) Text('${appText(context, 'ورودی', 'Input')}: ${proposal['input']}'),
-                                Align(
-                                  alignment: AlignmentDirectional.centerEnd,
-                                  child: OutlinedButton.icon(
-                                    onPressed: _busy ? null : () => _rejectAgentProposal(proposal),
-                                    icon: const Icon(Icons.block_outlined),
-                                    label: Text(appText(context, 'رد با ثبت دلیل', 'Reject with reason')),
-                                  ),
+                                Wrap(
+                                  alignment: WrapAlignment.end,
+                                  spacing: 8,
+                                  runSpacing: 4,
+                                  children: [
+                                    FilledButton.icon(
+                                      onPressed: _busy ? null : () => _approveAgentProposal(proposal),
+                                      icon: const Icon(Icons.check_circle_outline),
+                                      label: Text(appText(context, 'تأیید پیش‌نویس (بدون اجرا)', 'Approve draft (no execution)')),
+                                    ),
+                                    OutlinedButton.icon(
+                                      onPressed: _busy ? null : () => _rejectAgentProposal(proposal),
+                                      icon: const Icon(Icons.block_outlined),
+                                      label: Text(appText(context, 'رد با ثبت دلیل', 'Reject with reason')),
+                                    ),
+                                    OutlinedButton.icon(
+                                      onPressed: _busy ? null : () => _cancelAgentProposal(proposal),
+                                      icon: const Icon(Icons.cancel_outlined),
+                                      label: Text(appText(context, 'لغو پیشنهاد', 'Cancel proposal')),
+                                    ),
+                                  ],
                                 ),
                               ]),
                             ),
@@ -1938,6 +2134,36 @@ class _AdminScreenState extends State<AdminScreen> {
                         title: Text(appText(context, 'سوابق ممیزی ایجنت‌ها', 'Agent audit history')),
                         subtitle: Text(appText(context, 'ثبت تعریف‌ها، ایجاد پیشنهادها و تصمیم‌های انسانی', 'Task definitions, proposals, and human review decisions')),
                         children: [
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            child: Row(children: [
+                              Expanded(
+                                child: DropdownButtonFormField<String>(
+                                  initialValue: _agentAuditActionFilter,
+                                  decoration: InputDecoration(labelText: appText(context, 'فیلتر رویداد', 'Event filter'), isDense: true),
+                                  items: [
+                                    DropdownMenuItem(value: 'all', child: Text(appText(context, 'همه رویدادها', 'All events'))),
+                                    const DropdownMenuItem(value: 'definition_created', child: Text('Definition created')),
+                                    const DropdownMenuItem(value: 'definition_status_changed', child: Text('Definition status changed')),
+                                    const DropdownMenuItem(value: 'proposal_created', child: Text('Proposal created')),
+                                    const DropdownMenuItem(value: 'proposal_approved', child: Text('Proposal approved')),
+                                    const DropdownMenuItem(value: 'proposal_rejected', child: Text('Proposal rejected')),
+                                    const DropdownMenuItem(value: 'proposal_cancelled', child: Text('Proposal cancelled')),
+                                  ],
+                                  onChanged: _agentAuditLoadingMore ? null : (value) {
+                                    if (value == null) return;
+                                    setState(() => _agentAuditActionFilter = value);
+                                    _loadAgentAudit(reset: true);
+                                  },
+                                ),
+                              ),
+                              IconButton(
+                                tooltip: appText(context, 'بازخوانی گزارش', 'Refresh audit'),
+                                onPressed: _agentAuditLoadingMore ? null : () => _loadAgentAudit(reset: true),
+                                icon: const Icon(Icons.refresh),
+                              ),
+                            ]),
+                          ),
                           if (_agentAuditUnavailable)
                             Padding(
                               padding: const EdgeInsets.all(12),
@@ -1963,6 +2189,17 @@ class _AdminScreenState extends State<AdminScreen> {
                                   '${(entry['reason']?.toString().isNotEmpty ?? false) ? '\\n${entry['reason']}' : ''}',
                                 ),
                               ),
+                          if (_agentAuditNextCursor != null)
+                            Padding(
+                              padding: const EdgeInsets.all(12),
+                              child: OutlinedButton.icon(
+                                onPressed: _agentAuditLoadingMore ? null : () => _loadAgentAudit(),
+                                icon: _agentAuditLoadingMore
+                                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                                    : const Icon(Icons.expand_more),
+                                label: Text(appText(context, 'رویدادهای بیشتر', 'Load more events')),
+                              ),
+                            ),
                         ],
                       ),
                     ],

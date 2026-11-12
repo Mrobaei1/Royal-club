@@ -102,11 +102,37 @@ class AdminService {
         'requiresHumanApproval': requiresHumanApproval,
       }))['task'] as Map<String, dynamic>;
 
+  static Future<Map<String, dynamic>> setAgentTaskStatus(String id, String status, String reason) async =>
+      (await _request('PATCH', '/api/v1/admin/agent-tasks/$id/status', body: {
+        'status': status,
+        'reason': reason,
+      }))['task'] as Map<String, dynamic>;
+
   static Future<List<dynamic>> agentTaskProposals() async =>
       (await _request('GET', '/api/v1/admin/agent-task-proposals'))['proposals'] as List<dynamic>? ?? [];
 
   static Future<List<dynamic>> agentTaskAudit() async =>
       (await _request('GET', '/api/v1/admin/agent-task-audit'))['entries'] as List<dynamic>? ?? [];
+
+  static Future<Map<String, dynamic>> agentTaskAuditPage({
+    String? action,
+    String? cursor,
+    int limit = 50,
+  }) async {
+    final query = <String, String>{'limit': limit.toString()};
+    if (action != null && action.isNotEmpty) query['action'] = action;
+    if (cursor != null && cursor.isNotEmpty) query['cursor'] = cursor;
+    final uri = Uri(path: '/api/v1/admin/agent-task-audit', queryParameters: query);
+    return _request('GET', uri.toString());
+  }
+
+  static Future<void> approveAgentTaskProposal(String id, String reason) async {
+    await _request('POST', '/api/v1/admin/agent-task-proposals/$id/approve', body: {'reason': reason});
+  }
+
+  static Future<void> cancelAgentTaskProposal(String id, String reason) async {
+    await _request('POST', '/api/v1/admin/agent-task-proposals/$id/cancel', body: {'reason': reason});
+  }
 
   static Future<void> rejectAgentTaskProposal(String id, String reason) async {
     await _request('POST', '/api/v1/admin/agent-task-proposals/$id/reject', body: {'reason': reason});

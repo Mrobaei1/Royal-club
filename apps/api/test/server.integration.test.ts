@@ -336,6 +336,14 @@ test('registered players can join an online match and history does not expose op
     payload: { code: 'marketing_report', title: 'Marketing report', domain: 'marketing' },
   });
   assert.equal(deniedAgentTaskCreate.statusCode, 403);
+
+  const deniedAgentTaskStatus = await app.inject({
+    method: 'PATCH',
+    url: '/api/v1/admin/agent-tasks/1/status',
+    headers: auth(host.token),
+    payload: { status: 'paused', reason: 'Unauthorized pause attempt.' },
+  });
+  assert.equal(deniedAgentTaskStatus.statusCode, 403);
   const deniedAgentProposal = await app.inject({
     method: 'POST',
     url: '/api/v1/admin/agent-tasks/1/proposals',
@@ -343,6 +351,22 @@ test('registered players can join an online match and history does not expose op
     payload: { input: { campaign: 'weekly-summary' } },
   });
   assert.equal(deniedAgentProposal.statusCode, 403);
+
+  const deniedAgentApproval = await app.inject({
+    method: 'POST',
+    url: '/api/v1/admin/agent-task-proposals/1/approve',
+    headers: auth(host.token),
+    payload: { reason: 'Unauthorized user must not approve.' },
+  });
+  assert.equal(deniedAgentApproval.statusCode, 403);
+
+  const deniedAgentCancel = await app.inject({
+    method: 'POST',
+    url: '/api/v1/admin/agent-task-proposals/1/cancel',
+    headers: auth(host.token),
+    payload: { reason: 'Unauthorized user must not cancel.' },
+  });
+  assert.equal(deniedAgentCancel.statusCode, 403);
 
 
   const usernameSearch = await app.inject({
@@ -3185,6 +3209,36 @@ test('Phase 4 agent task definitions remain dormant and proposals require human 
     });
     assert.equal(invalidGameTemplate.statusCode, 400, invalidGameTemplate.body);
 
+    const unsafeCapabilityTask = await app.inject({
+      method: 'POST',
+      url: '/api/v1/admin/agent-tasks',
+      headers: auth(owner.token),
+      payload: {
+        code: `unsafe_task_${randomUUID().replace(/-/g, '').slice(0, 10)}`,
+        title: 'Unsafe execution draft',
+        domain: 'analytics',
+        requestedCapabilities: ['read', 'execute'],
+        requiresHumanApproval: true,
+      },
+    });
+    assert.equal(unsafeCapabilityTask.statusCode, 400,
+      'Dormant task definitions must not request execution or approval capabilities.');
+
+    const noHumanApprovalTask = await app.inject({
+      method: 'POST',
+      url: '/api/v1/admin/agent-tasks',
+      headers: auth(owner.token),
+      payload: {
+        code: `no_approval_${randomUUID().replace(/-/g, '').slice(0, 10)}`,
+        title: 'No human approval draft',
+        domain: 'analytics',
+        requestedCapabilities: ['read'],
+        requiresHumanApproval: false,
+      },
+    });
+    assert.equal(noHumanApprovalTask.statusCode, 400,
+      'Every task definition must require human approval.');
+
     const createTask = await app.inject({
       method: 'POST',
       url: '/api/v1/admin/agent-tasks',
@@ -3202,13 +3256,44 @@ test('Phase 4 agent task definitions remain dormant and proposals require human 
     assert.equal(createTask.json().task.status, 'draft');
     const taskId = String(createTask.json().task.id);
 
-    const proposal = await app.inject({
+    const pausedTask = await app.inject({
+      method: 'PATCH',
+      url: `/api/v1/admin/agent-tasks/${taskId}/status`,
+      headers: auth(owner.token),
+      payload: { status: 'paused', reason: 'Pause pending security review.' },
+    });
+    assert.equal(pausedTask.statusCode, 200, pausedTask.body);
+    assert.equal(pausedTask.json().task.status, 'paused');
+    assert.equal(pausedTask.json().runtimeEnabled, false);
+    assert.equal(pausedTask.json().executionStarted, false);
+    const blockedProposal = await app.inject({
       method: 'POST',
       url: `/api/v1/admin/agent-tasks/${taskId}/proposals`,
       headers: auth(owner.token),
       payload: { input: { period: '7d', includePersonalData: false } },
     });
+    assert.equal(blockedProposal.statusCode, 409, blockedProposal.body);
+    const resumedTask = await app.inject({
+      method: 'PATCH',
+      url: `/api/v1/admin/agent-tasks/${taskId}/status`,
+      headers: auth(owner.token),
+      payload: { status: 'draft', reason: 'Review complete; keep as dormant draft.' },
+    });
+    assert.equal(resumedTask.statusCode, 200, resumedTask.body);
+    assert.equal(resumedTask.json().task.status, 'draft');
+
+    const proposal = await app.inject({
+      method: 'POST',
+      url: `/api/v1/admin/agent-tasks/${taskId}/proposals`,
+      headers: auth(owner.token),
+      payload: { input: { period: '7d', provider: { apiKey: 'agent-test-api-key', nested: { password: 'agent-test-password' } }, safeLabel: 'weekly-report' } },
+    });
     assert.equal(proposal.statusCode, 201, proposal.body);
+    assert.equal(proposal.json().proposal.input.provider.apiKey, '[REDACTED]');
+    assert.equal(proposal.json().proposal.input.provider.nested.password, '[REDACTED]');
+    assert.equal(proposal.json().proposal.input.safeLabel, 'weekly-report');
+    assert.ok(!proposal.body.includes('agent-test-api-key'));
+    assert.ok(!proposal.body.includes('agent-test-password'));
     assert.equal(proposal.json().runtimeEnabled, false);
     assert.equal(proposal.json().requiresHumanReview, true);
     assert.equal(proposal.json().proposal.status, 'awaiting_review');
@@ -3221,10 +3306,65 @@ test('Phase 4 agent task definitions remain dormant and proposals require human 
     assert.equal(queue.statusCode, 200, queue.body);
     assert.ok((queue.json().proposals as Array<Record<string, unknown>>)
       .some((item) => String(item.id) === String(proposal.json().proposal.id)));
+    const queuedProposal = (queue.json().proposals as Array<Record<string, any>>)
+      .find((item) => String(item.id) === String(proposal.json().proposal.id));
+    assert.equal(queuedProposal?.input?.provider?.apiKey, '[REDACTED]');
+    assert.equal(queuedProposal?.input?.provider?.nested?.password, '[REDACTED]');
+
+    const approved = await app.inject({
+      method: 'POST',
+      url: `/api/v1/admin/agent-task-proposals/${proposal.json().proposal.id}/approve`,
+      headers: auth(owner.token),
+      payload: { reason: 'Read-only scope and data minimization verified.' },
+    });
+    assert.equal(approved.statusCode, 200, approved.body);
+    assert.equal(approved.json().proposal.status, 'approved_dormant');
+    assert.equal(approved.json().runtimeEnabled, false);
+    assert.equal(approved.json().executionStarted, false,
+      'Human approval records acceptance only; it must never start an agent runtime.');
+    const approvedQueue = await app.inject({
+      method: 'GET',
+      url: '/api/v1/admin/agent-task-proposals',
+      headers: auth(owner.token),
+    });
+    const persistedApproval = (approvedQueue.json().proposals as Array<Record<string, unknown>>)
+      .find((item) => String(item.id) === String(proposal.json().proposal.id));
+    assert.equal(persistedApproval?.status, 'approved_dormant');
+    const taskDefinitionsAfterApproval = await app.inject({
+      method: 'GET',
+      url: '/api/v1/admin/agent-tasks',
+      headers: auth(owner.token),
+    });
+    const unchangedTask = (taskDefinitionsAfterApproval.json().tasks as Array<Record<string, unknown>>)
+      .find((item) => String(item.id) === taskId);
+    assert.equal(unchangedTask?.status, 'draft',
+      'Approving a proposal must not activate its task definition.');
+    const repeatedApproval = await app.inject({
+      method: 'POST',
+      url: `/api/v1/admin/agent-task-proposals/${proposal.json().proposal.id}/approve`,
+      headers: auth(owner.token),
+      payload: { reason: 'Second approval attempt.' },
+    });
+    assert.equal(repeatedApproval.statusCode, 409, repeatedApproval.body);
+
+    const rejectProposal = await app.inject({
+      method: 'POST',
+      url: `/api/v1/admin/agent-tasks/${taskId}/proposals`,
+      headers: auth(owner.token),
+      payload: { input: { period: '30d', includePersonalData: false } },
+    });
+    assert.equal(rejectProposal.statusCode, 201, rejectProposal.body);
+    const invalidReviewReason = await app.inject({
+      method: 'POST',
+      url: `/api/v1/admin/agent-task-proposals/${rejectProposal.json().proposal.id}/approve`,
+      headers: auth(owner.token),
+      payload: { reason: 'no' },
+    });
+    assert.equal(invalidReviewReason.statusCode, 400, invalidReviewReason.body);
 
     const rejected = await app.inject({
       method: 'POST',
-      url: `/api/v1/admin/agent-task-proposals/${proposal.json().proposal.id}/reject`,
+      url: `/api/v1/admin/agent-task-proposals/${rejectProposal.json().proposal.id}/reject`,
       headers: auth(owner.token),
       payload: { reason: 'Outside the approved read-only scope.' },
     });
@@ -3233,11 +3373,36 @@ test('Phase 4 agent task definitions remain dormant and proposals require human 
     assert.equal(rejected.json().runtimeEnabled, false);
     const repeatedReject = await app.inject({
       method: 'POST',
-      url: `/api/v1/admin/agent-task-proposals/${proposal.json().proposal.id}/reject`,
+      url: `/api/v1/admin/agent-task-proposals/${rejectProposal.json().proposal.id}/reject`,
       headers: auth(owner.token),
       payload: { reason: 'Second review attempt.' },
     });
     assert.equal(repeatedReject.statusCode, 409, repeatedReject.body);
+
+    const cancelProposal = await app.inject({
+      method: 'POST',
+      url: `/api/v1/admin/agent-tasks/${taskId}/proposals`,
+      headers: auth(owner.token),
+      payload: { input: { period: '1d', includePersonalData: false } },
+    });
+    assert.equal(cancelProposal.statusCode, 201, cancelProposal.body);
+    const cancelled = await app.inject({
+      method: 'POST',
+      url: `/api/v1/admin/agent-task-proposals/${cancelProposal.json().proposal.id}/cancel`,
+      headers: auth(owner.token),
+      payload: { reason: 'Owner withdrew this proposal.' },
+    });
+    assert.equal(cancelled.statusCode, 200, cancelled.body);
+    assert.equal(cancelled.json().proposal.status, 'cancelled');
+    assert.equal(cancelled.json().runtimeEnabled, false);
+    assert.equal(cancelled.json().executionStarted, false);
+    const repeatedCancel = await app.inject({
+      method: 'POST',
+      url: `/api/v1/admin/agent-task-proposals/${cancelProposal.json().proposal.id}/cancel`,
+      headers: auth(owner.token),
+      payload: { reason: 'Repeated cancellation attempt.' },
+    });
+    assert.equal(repeatedCancel.statusCode, 409, repeatedCancel.body);
 
     const audit = await app.inject({
       method: 'GET',
@@ -3248,9 +3413,54 @@ test('Phase 4 agent task definitions remain dormant and proposals require human 
     assert.equal(audit.json().runtimeEnabled, false);
     const auditEntries = audit.json().entries as Array<Record<string, unknown>>;
     assert.ok(auditEntries.some((entry) => entry.action === 'definition_created'));
+    assert.ok(auditEntries.some((entry) => entry.action === 'definition_status_changed'));
     assert.ok(auditEntries.some((entry) => entry.action === 'proposal_created'));
+    assert.ok(auditEntries.some((entry) => entry.action === 'proposal_approved'));
+    assert.ok(auditEntries.some((entry) => entry.action === 'proposal_cancelled'));
     assert.ok(auditEntries.some((entry) => entry.action === 'proposal_rejected'));
     assert.ok(auditEntries.every((entry) => entry.actorUsername === owner.user.username));
+
+    const firstAuditPage = await app.inject({
+      method: 'GET',
+      url: '/api/v1/admin/agent-task-audit?limit=1',
+      headers: auth(owner.token),
+    });
+    assert.equal(firstAuditPage.statusCode, 200, firstAuditPage.body);
+    assert.equal(firstAuditPage.json().entries.length, 1);
+    assert.equal(firstAuditPage.json().runtimeEnabled, false);
+    const nextAuditCursor = firstAuditPage.json().nextCursor as string;
+    assert.ok(nextAuditCursor);
+    const secondAuditPage = await app.inject({
+      method: 'GET',
+      url: `/api/v1/admin/agent-task-audit?limit=1&cursor=${nextAuditCursor}`,
+      headers: auth(owner.token),
+    });
+    assert.equal(secondAuditPage.statusCode, 200, secondAuditPage.body);
+    assert.equal(secondAuditPage.json().entries.length, 1);
+    assert.notEqual(secondAuditPage.json().entries[0].id, firstAuditPage.json().entries[0].id);
+
+    const filteredAudit = await app.inject({
+      method: 'GET',
+      url: '/api/v1/admin/agent-task-audit?action=proposal_approved&limit=10',
+      headers: auth(owner.token),
+    });
+    assert.equal(filteredAudit.statusCode, 200, filteredAudit.body);
+    assert.ok(filteredAudit.json().entries.length > 0);
+    assert.ok(filteredAudit.json().entries.every((entry: Record<string, unknown>) => entry.action === 'proposal_approved'));
+    assert.equal(filteredAudit.json().nextCursor, null);
+
+    const invalidAuditFilter = await app.inject({
+      method: 'GET',
+      url: '/api/v1/admin/agent-task-audit?action=execute',
+      headers: auth(owner.token),
+    });
+    assert.equal(invalidAuditFilter.statusCode, 400);
+    const invalidAuditCursor = await app.inject({
+      method: 'GET',
+      url: '/api/v1/admin/agent-task-audit?cursor=not-a-number',
+      headers: auth(owner.token),
+    });
+    assert.equal(invalidAuditCursor.statusCode, 400);
   } finally {
     if (previousOwnerId === undefined) delete process.env.OWNER_USER_ID;
     else process.env.OWNER_USER_ID = previousOwnerId;
