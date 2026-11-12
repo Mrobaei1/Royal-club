@@ -2162,7 +2162,7 @@ test('league audit history is owner-only, cursor-paginated, and preserves event 
     assert.equal(secondPage.statusCode, 200, secondPage.body);
     assert.equal(secondPage.json().entries.length, 1);
     assert.equal(secondPage.json().entries[0].action, 'league_created');
-    assert.equal(secondPage.json().entries[0].details.name, 'Audit History League');
+    assert.equal(secondPage.json().entries[0].details.entryMode, 'free');
     assert.equal(secondPage.json().nextBeforeId, null);
 
     const missing = await app.inject({
