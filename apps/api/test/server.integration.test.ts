@@ -3092,7 +3092,7 @@ test('Phase 4 agent task definitions remain dormant and proposals require human 
       method: 'POST',
       url: `/api/v1/admin/agent-tasks/${taskId}/proposals`,
       headers: auth(owner.token),
-      payload: { input: { period: '7d' } },
+      payload: { input: { period: '7d', provider: { apiKey: 'agent-test-api-key', nested: { password: 'agent-test-password' } }, safeLabel: 'weekly-report' } },
     });
     assert.equal(blockedProposal.statusCode, 409, blockedProposal.body);
     const resumedTask = await app.inject({
@@ -3111,6 +3111,11 @@ test('Phase 4 agent task definitions remain dormant and proposals require human 
       payload: { input: { period: '7d', includePersonalData: false } },
     });
     assert.equal(proposal.statusCode, 201, proposal.body);
+    assert.equal(proposal.json().proposal.input.provider.apiKey, '[REDACTED]');
+    assert.equal(proposal.json().proposal.input.provider.nested.password, '[REDACTED]');
+    assert.equal(proposal.json().proposal.input.safeLabel, 'weekly-report');
+    assert.ok(!proposal.body.includes('agent-test-api-key'));
+    assert.ok(!proposal.body.includes('agent-test-password'));
     assert.equal(proposal.json().runtimeEnabled, false);
     assert.equal(proposal.json().requiresHumanReview, true);
     assert.equal(proposal.json().proposal.status, 'awaiting_review');
@@ -3123,6 +3128,10 @@ test('Phase 4 agent task definitions remain dormant and proposals require human 
     assert.equal(queue.statusCode, 200, queue.body);
     assert.ok((queue.json().proposals as Array<Record<string, unknown>>)
       .some((item) => String(item.id) === String(proposal.json().proposal.id)));
+    const queuedProposal = (queue.json().proposals as Array<Record<string, any>>)
+      .find((item) => String(item.id) === String(proposal.json().proposal.id));
+    assert.equal(queuedProposal?.input?.provider?.apiKey, '[REDACTED]');
+    assert.equal(queuedProposal?.input?.provider?.nested?.password, '[REDACTED]');
 
     const approved = await app.inject({
       method: 'POST',
