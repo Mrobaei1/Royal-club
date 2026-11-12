@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   flutter:
-    name: Flutter analyze and tests
+    name: Flutter analyze and tests (PR validation)
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -33,7 +33,7 @@ jobs:
         run: flutter test
 
   api:
-    name: API build and tests
+    name: API build and tests (PR validation)
     runs-on: ubuntu-latest
     defaults:
       run:
