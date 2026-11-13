@@ -1,6 +1,6 @@
 # Royal Club — Architecture and non-functional requirements
 
-**Status:** Architecture baseline; core quantitative NFR targets owner-approved on 2026-11-12; monthly infrastructure budget remains pending  
+**Status:** Architecture baseline; core quantitative NFR targets and monthly infrastructure budget owner-approved (2026-11-12/13); implementation evidence remains open  
 **Reviewed:** 2026-11-08  
 **Governing scope:** WBS v1.1 (docs/PROJECT-WBS-BASELINE.md)
 
@@ -60,7 +60,7 @@ The table defines the measurement required for acceptance. Numeric targets in th
 | NFR-08 | Scalability | Load test with stated concurrent users/rooms, replicas and DB pool; record throughput, p95/p99 and recovery | Owner-approved profile: 1,000 concurrent users; capacity test evidence remains open |
 | NFR-09 | Localization/accessibility | Persian RTL and English LTR, dynamic text, screen readers, text scaling, supported Android sizes | Automated coverage partial; device acceptance open |
 | NFR-10 | Operability | Every release has exact Git SHA, migration manifest, health/smoke results, rollback/recovery plan and redacted logs | Deployment provenance/production acceptance open |
-| NFR-11 | Cost control | Provider/region, database compute, egress, storage and service replicas have an explicit owner-reviewed budget before scale-up | Budget ceiling requires owner approval |
+| NFR-11 | Cost control | Provider/region, database compute, egress, storage and service replicas have an explicit owner-reviewed budget before scale-up | Owner-approved cap: USD 50/month; alerts at USD 35 (70%) and USD 45 (90%); billing integration/evidence open |
 | NFR-12 | Extensibility | New games reuse identity/navigation/transport contracts and isolate game rules/state; no duplicate account or wallet authority | Architecture baseline; per-game integration acceptance required |
 
 ## Deployment and portability rules
@@ -79,7 +79,8 @@ The table defines the measurement required for acceptance. Numeric targets in th
 - [ ] Verify provider portability against a second provider or isolated deployment rehearsal.
 - [ ] Prove all game/economy trust boundaries with negative tests on the current exact mainline head.
 - [x] Owner approved numeric performance, capacity, availability, RPO/RTO and security acceptance targets on 2026-11-12.
-- [ ] Owner approval of monthly infrastructure budget ceiling and alerting currency/threshold implementation.
+- [x] Owner approved monthly infrastructure budget ceiling: USD 50/month; alert thresholds: USD 35 (70%) and USD 45 (90%) on 2026-11-13.
+- [ ] Implement and verify budget alerts against provider billing exports; no provider/plan changes are authorized.
 - [ ] Complete production deployment provenance and recovery acceptance.
 
 ## Change history
@@ -101,7 +102,7 @@ The GM approved the following engineering acceptance targets on 2026-11-12. They
 | Security | 100% of authorization-negative test cases reject; zero known critical/high findings at release | Exact-head automated negative tests plus independent review for release |
 | Localization | 100% of visible core navigation/game/auth strings localized in fa/en; no clipped text at supported font scale | Automated localization coverage plus Android device matrix |
 | Accessibility | All primary controls have accessible labels/actions; no critical TalkBack blockers | Manual TalkBack walkthrough and widget-level semantics tests |
-| Cost | Monthly infrastructure spend stays within a GM-approved budget; alert at 70% and 90% | Provider billing exports and monthly cost report; budget ceiling still awaits owner decision |
+| Cost | Monthly infrastructure spend stays within USD 50; alert at 70% (USD 35) and 90% (USD 45) | Provider billing exports and monthly cost report; alert delivery and billing-source coverage must be verified |
 | Extensibility | New game integration reuses shared auth, service discovery, telemetry and navigation contracts; no duplicate account/wallet authority | Architecture checklist and contract tests per game |
 
 ### Approved load profile
@@ -114,7 +115,8 @@ The GM approved the following engineering acceptance targets on 2026-11-12. They
 
 ### Decision status
 
-Approved on 2026-11-12: 1,000 concurrent users; API p95 ≤ 500 ms / p99 ≤ 1,500 ms; game-command p95 ≤ 300 ms; monthly API availability 99.5%; 5xx rate < 1%; RPO ≤ 15 minutes; RTO ≤ 4 hours; zero known critical/high security findings at release. The monthly infrastructure budget ceiling remains unapproved and is still required for WBS 1.1-B. These targets do not certify current system performance or authorize Production load tests, provider upgrades, or deployment.
+Approved on 2026-11-12: 1,000 concurrent users; API p95 ≤ 500 ms / p99 ≤ 1,500 ms; game-command p95 ≤ 300 ms; monthly API availability 99.5%; 5xx rate < 1%; RPO ≤ 15 minutes; RTO ≤ 4 hours; zero known critical/high security findings at release. The GM approved a monthly infrastructure budget ceiling of USD 50 on 2026-11-13, with warning thresholds at USD 35 (70%) and USD 45 (90%). Billing integration and alert verification, plus the remaining technical acceptance evidence, are still required before WBS 1.1-B can pass. These targets do not certify current system performance or authorize Production load tests, provider upgrades, or deployment.
 
 
-- 2026-11-12: GM approved measurable API/game latency, 1,000-concurrent-user load profile, availability, error-rate, recovery and security targets. Monthly infrastructure budget ceiling remains pending.
+- 2026-11-12: GM approved measurable API/game latency, 1,000-concurrent-user load profile, availability, error-rate, recovery and security targets.
+- 2026-11-13: GM approved the USD 50/month infrastructure budget cap and 70%/90% warning thresholds (USD 35/USD 45). No purchasing, plan upgrade, or production change was authorized.
